@@ -2,7 +2,7 @@ spring:
   application:
     name: sales-service
   datasource:
-    url: ${DB_URL:jdbc:mysql://localhost:3306/sales_db?createDatabaseIfNotExist=true&useSSL=false&serverTimezone=UTC}
+    url: ${DB_URL:jdbc:mysql://localhost:3306/ban_hang_viet?createDatabaseIfNotExist=true&useSSL=false&serverTimezone=UTC}
     username: ${DB_USER:root}
     password: ${DB_PASSWORD:root}
     driver-class-name: com.mysql.cj.jdbc.Driver
