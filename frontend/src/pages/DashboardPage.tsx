@@ -1,6 +1,9 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useAppDispatch, useAppSelector } from "@/hooks/redux";
 import { logout } from "@/stores/authSlice";
+import { EmployeeList } from "../modules/employee/components/EmployeeList";
+import { EmployeeSidebar } from "../modules/employee/components/EmployeeSidebar";
+import { IEmployee, IRole } from "../modules/employee/types/employee";
 
 // TypeScript Interfaces for mock data
 interface IProduct {
@@ -99,7 +102,7 @@ export const DashboardPage: React.FC = () => {
 
   // State controls
   const [activeTab, setActiveTab] = useState<
-    "dashboard" | "products" | "shifts" | "invoices" | "customers" | "reports" | "config" | "pos"
+    "dashboard" | "products" | "shifts" | "invoices" | "customers" | "employees" | "reports" | "config" | "pos"
   >("dashboard");
   const [isOnline, setIsOnline] = useState(true);
   const [simConflict, setSimConflict] = useState(false);
@@ -109,7 +112,7 @@ export const DashboardPage: React.FC = () => {
 
   const isTabVisible = (tabId: string) => {
     if (currentRole === "VT-02") {
-      return !["products", "reports", "config"].includes(tabId);
+      return !["products", "reports", "config", "employees"].includes(tabId);
     }
     if (currentRole === "VT-03") {
       return !["shifts"].includes(tabId);
@@ -120,7 +123,7 @@ export const DashboardPage: React.FC = () => {
   // Sub-tabs
   const [productSubTab, setProductSubTab] = useState<"list" | "stock-entry">("list");
   const [reportSubTab, setReportSubTab] = useState<"revenue" | "comparison" | "logs">("revenue");
-  const [configSubTab, setConfigSubTab] = useState<"info" | "tax" | "printer" | "users">("info");
+  const [configSubTab, setConfigSubTab] = useState<"info" | "tax" | "printer">("info");
 
   // Chart local filters
   const [dashTimeFilter, setDashTimeFilter] = useState("Tháng này");
@@ -326,6 +329,67 @@ export const DashboardPage: React.FC = () => {
       target: "Đơn hàng HD-VT002 (Khách hàng Trần Thị B)",
     },
   ]);
+
+  // --- EMPLOYEE STATE DECLARATIONS ---
+  const defaultRoles: IRole[] = [
+    { id: "r1", code: "VT-01", name: "Chủ hộ kinh doanh", description: "Chủ hộ kinh doanh quản lý toàn bộ hệ thống" },
+    { id: "r2", code: "VT-02", name: "Nhân viên bán hàng", description: "Nhân viên bán hàng trực ca" },
+    { id: "r3", code: "VT-03", name: "Kế toán viên", description: "Kế toán đối chiếu hóa đơn thuế" },
+  ];
+
+  const defaultEmployees: IEmployee[] = [
+    {
+      id: "e1",
+      username: "chuho_viet",
+      fullName: "Bùi Đình Tuấn",
+      phoneNumber: "0901234567",
+      roleId: "VT-01",
+      isActive: true,
+    },
+    {
+      id: "e2",
+      username: "nhanvien_viet",
+      fullName: "Nguyễn Văn Bán Hàng",
+      phoneNumber: "0909876543",
+      roleId: "VT-02",
+      isActive: true,
+    },
+    {
+      id: "e3",
+      username: "ketoan_viet",
+      fullName: "Trần Kế Toán",
+      phoneNumber: "0912345678",
+      roleId: "VT-03",
+      isActive: true,
+    },
+  ];
+
+  const [employees, setEmployees] = useState<IEmployee[]>(() => {
+    const saved = localStorage.getItem("ban_hang_viet_employees");
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (parsed && parsed.length > 0 && (parsed[0].fullName === undefined || parsed[0].username === undefined)) {
+          localStorage.removeItem("ban_hang_viet_employees");
+          return defaultEmployees;
+        }
+        return parsed;
+      } catch (e) {
+        return defaultEmployees;
+      }
+    }
+    return defaultEmployees;
+  });
+
+  const [roles] = useState<IRole[]>(defaultRoles);
+
+  const [employeeSearchQuery, setEmployeeSearchQuery] = useState("");
+  const [employeeStatusFilter, setEmployeeStatusFilter] = useState<"ACTIVE" | "INACTIVE" | "ALL">("ACTIVE");
+  const [employeeSelectedRole, setEmployeeSelectedRole] = useState("ALL");
+
+  useEffect(() => {
+    localStorage.setItem("ban_hang_viet_employees", JSON.stringify(employees));
+  }, [employees]);
 
   const addLogEntry = (action: string, target: string) => {
     setLogs((prev) => [
@@ -690,6 +754,7 @@ export const DashboardPage: React.FC = () => {
             { id: "shifts", label: "Ca bán hàng" },
             { id: "invoices", label: "Đơn hàng" },
             { id: "customers", label: "Khách hàng" },
+            { id: "employees", label: "Nhân viên" },
             { id: "reports", label: "Báo cáo" },
             { id: "config", label: "Cấu hình" },
           ].filter((tab) => isTabVisible(tab.id)).map((tab) => (
@@ -989,6 +1054,17 @@ export const DashboardPage: React.FC = () => {
             </>
           )}
 
+          {/* Active Tab: Employees */}
+          {activeTab === "employees" && (
+            <EmployeeSidebar
+              statusFilter={employeeStatusFilter}
+              setStatusFilter={setEmployeeStatusFilter}
+              selectedRole={employeeSelectedRole}
+              setSelectedRole={setEmployeeSelectedRole}
+              roles={roles}
+            />
+          )}
+
           {/* Active Tab: Reports */}
           {activeTab === "reports" && (
             <>
@@ -1072,18 +1148,7 @@ export const DashboardPage: React.FC = () => {
                   >
                     Cấu hình máy in
                   </button>
-                  {currentRole === "VT-01" && (
-                    <button
-                      onClick={() => setConfigSubTab("users")}
-                      className={`w-full text-left py-2 px-3 rounded-md font-bold transition-all text-xs ${
-                        configSubTab === "users"
-                          ? "bg-kv-blue-light text-kv-blue-primary"
-                          : "hover:bg-slate-50 text-slate-600"
-                      }`}
-                    >
-                      Quản lý nhân viên
-                    </button>
-                  )}
+
                 </div>
               </div>
             </>
@@ -2323,6 +2388,20 @@ export const DashboardPage: React.FC = () => {
             </div>
           )}
 
+          {/* PANE 5.5: NHÂN VIÊN */}
+          {activeTab === "employees" && (
+            <EmployeeList
+              employees={employees}
+              setEmployees={setEmployees}
+              roles={roles}
+              searchQuery={employeeSearchQuery}
+              setSearchQuery={setEmployeeSearchQuery}
+              statusFilter={employeeStatusFilter}
+              selectedRole={employeeSelectedRole}
+              userRole={currentRole}
+            />
+          )}
+
           {/* PANE 6: BÁO CÁO */}
           {activeTab === "reports" && (
             <div className="flex flex-col gap-6">
@@ -2689,59 +2768,7 @@ export const DashboardPage: React.FC = () => {
                 </div>
               )}
 
-              {/* Config - Staff list */}
-              {configSubTab === "users" && currentRole === "VT-01" && (
-                <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col gap-4">
-                  <h3 className="font-extrabold text-slate-800 text-sm border-b pb-4 mb-2">
-                    Quản lý danh sách tài khoản Nhân viên
-                  </h3>
 
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse">
-                      <thead>
-                        <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold">
-                          <th className="p-3">Tên đăng nhập</th>
-                          <th className="p-3">Họ và tên</th>
-                          <th className="p-3">Vai trò phân quyền</th>
-                          <th className="p-3 text-center">Trạng thái khóa</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
-                        <tr>
-                          <td className="p-3 font-mono font-bold text-slate-800">chuho_viet</td>
-                          <td className="p-3 font-bold text-slate-700">{user?.fullName || "Chủ hộ Tạp Hóa Việt"}</td>
-                          <td className="p-3 text-amber-600 font-bold">Chủ hộ kinh doanh (VT-01)</td>
-                          <td className="p-3 text-center">
-                            <span className="bg-emerald-100 text-emerald-700 font-bold px-2 py-0.5 rounded text-[10px]">
-                              Đang hoạt động
-                            </span>
-                          </td>
-                        </tr>
-                        <tr>
-                          <td className="p-3 font-mono font-bold text-slate-800">nhanvien_viet</td>
-                          <td className="p-3">Nguyễn Văn Bán Hàng</td>
-                          <td className="p-3 text-kv-blue-primary font-bold">Nhân viên bán hàng (VT-02)</td>
-                          <td className="p-3 text-center">
-                            <span className="bg-emerald-100 text-emerald-700 font-bold px-2 py-0.5 rounded text-[10px]">
-                              Đang hoạt động
-                            </span>
-                          </td>
-                        </tr>
-                        <tr>
-                          <td className="p-3 font-mono font-bold text-slate-800">ketoan_viet</td>
-                          <td className="p-3">Trần Kế Toán</td>
-                          <td className="p-3 text-indigo-600 font-bold">Kế toán viên (VT-03)</td>
-                          <td className="p-3 text-center">
-                            <span className="bg-emerald-100 text-emerald-700 font-bold px-2 py-0.5 rounded text-[10px]">
-                              Đang hoạt động
-                            </span>
-                          </td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
 
             </div>
           )}
