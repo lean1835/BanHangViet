@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { useAppDispatch, useAppSelector } from "@/hooks/redux";
 import { logout } from "@/stores/authSlice";
 import { EmployeeList } from "../modules/employee/components/EmployeeList";
 import { EmployeeSidebar } from "../modules/employee/components/EmployeeSidebar";
-import { IEmployee, IRole } from "../modules/employee/types/employee";
+import { IRole } from "../modules/employee/types/employee";
+import { useGetAllEmployeesQuery } from "../modules/employee/services/employeeApi";
 
 // TypeScript Interfaces for mock data
 interface IProduct {
@@ -337,59 +338,13 @@ export const DashboardPage: React.FC = () => {
     { id: "r3", code: "VT-03", name: "Kế toán viên", description: "Kế toán đối chiếu hóa đơn thuế" },
   ];
 
-  const defaultEmployees: IEmployee[] = [
-    {
-      id: "e1",
-      username: "chuho_viet",
-      fullName: "Bùi Đình Tuấn",
-      phoneNumber: "0901234567",
-      roleId: "VT-01",
-      isActive: true,
-    },
-    {
-      id: "e2",
-      username: "nhanvien_viet",
-      fullName: "Nguyễn Văn Bán Hàng",
-      phoneNumber: "0909876543",
-      roleId: "VT-02",
-      isActive: true,
-    },
-    {
-      id: "e3",
-      username: "ketoan_viet",
-      fullName: "Trần Kế Toán",
-      phoneNumber: "0912345678",
-      roleId: "VT-03",
-      isActive: true,
-    },
-  ];
-
-  const [employees, setEmployees] = useState<IEmployee[]>(() => {
-    const saved = localStorage.getItem("ban_hang_viet_employees");
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (parsed && parsed.length > 0 && (parsed[0].fullName === undefined || parsed[0].username === undefined)) {
-          localStorage.removeItem("ban_hang_viet_employees");
-          return defaultEmployees;
-        }
-        return parsed;
-      } catch (e) {
-        return defaultEmployees;
-      }
-    }
-    return defaultEmployees;
-  });
+  const { data: employees = [] } = useGetAllEmployeesQuery();
 
   const [roles] = useState<IRole[]>(defaultRoles);
 
   const [employeeSearchQuery, setEmployeeSearchQuery] = useState("");
   const [employeeStatusFilter, setEmployeeStatusFilter] = useState<"ACTIVE" | "INACTIVE" | "ALL">("ACTIVE");
   const [employeeSelectedRole, setEmployeeSelectedRole] = useState("ALL");
-
-  useEffect(() => {
-    localStorage.setItem("ban_hang_viet_employees", JSON.stringify(employees));
-  }, [employees]);
 
   const addLogEntry = (action: string, target: string) => {
     setLogs((prev) => [
@@ -2392,7 +2347,6 @@ export const DashboardPage: React.FC = () => {
           {activeTab === "employees" && (
             <EmployeeList
               employees={employees}
-              setEmployees={setEmployees}
               roles={roles}
               searchQuery={employeeSearchQuery}
               setSearchQuery={setEmployeeSearchQuery}
