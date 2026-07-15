@@ -1,6 +1,8 @@
 package com.viet.sales.service.classes;
 
+import com.viet.sales.dto.request.LoginRequest;
 import com.viet.sales.dto.request.RegisterRequest;
+import com.viet.sales.dto.response.LoginResponse;
 import com.viet.sales.dto.response.RegisterResponse;
 import com.viet.sales.entity.BusinessHousehold;
 import com.viet.sales.entity.Role;
@@ -11,6 +13,7 @@ import com.viet.sales.repository.BusinessHouseholdRepository;
 import com.viet.sales.repository.RoleRepository;
 import com.viet.sales.repository.UserRepository;
 import com.viet.sales.service.interfaces.AuthService;
+import com.viet.sales.service.interfaces.JwtService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -24,6 +27,7 @@ public class AuthServiceImpl implements AuthService {
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
+    private final JwtService jwtService;
 
     @Override
     @Transactional
@@ -78,6 +82,37 @@ public class AuthServiceImpl implements AuthService {
                 .username(ownerUser.getUsername())
                 .fullName(ownerUser.getFullName())
                 .roleCode(ownerRole.getCode())
+                .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public LoginResponse login(LoginRequest request) {
+        // 1. Tìm người dùng theo username
+        User user = userRepository.findByUsername(request.getUsername())
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+
+        // 2. Kiểm tra tài khoản có đang hoạt động hay không (NCL-01-CN-002-TC-03)
+        if (Boolean.FALSE.equals(user.getIsActive())) {
+            throw new AppException(ErrorCode.USER_BLOCKED);
+        }
+
+        // 3. Kiểm tra mật khẩu (NCL-01-CN-002-TC-02)
+        if (!passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
+            throw new AppException(ErrorCode.WRONG_PASSWORD);
+        }
+
+        // 4. Tạo JWT token
+        String token = jwtService.generateToken(user);
+
+        // 5. Trả về LoginResponse
+        return LoginResponse.builder()
+                .token(token)
+                .userId(user.getId())
+                .username(user.getUsername())
+                .fullName(user.getFullName())
+                .roleCode(user.getRole().getCode())
+                .householdId(user.getHousehold() != null ? user.getHousehold().getId() : null)
                 .build();
     }
 }
