@@ -15,6 +15,8 @@ import com.viet.sales.repository.RoleRepository;
 import com.viet.sales.repository.UserRepository;
 import com.viet.sales.service.interfaces.EmployeeService;
 import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -38,7 +40,6 @@ public class EmployeeServiceImpl implements EmployeeService {
     private final ActivityLogRepository activityLogRepository;
     private final PasswordEncoder passwordEncoder;
     private final ObjectMapper objectMapper;
-    private final HttpServletRequest httpServletRequest;
     private final CacheManager cacheManager;
 
     private User getAuthenticatedUser(String username) {
@@ -48,8 +49,11 @@ public class EmployeeServiceImpl implements EmployeeService {
 
     private void logActivity(BusinessHousehold household, User actor, String action, String targetId, Object oldValue, Object newValue) {
         try {
-            String clientIp = httpServletRequest != null ? httpServletRequest.getRemoteAddr() : null;
-            String userAgent = httpServletRequest != null ? httpServletRequest.getHeader("User-Agent") : null;
+            ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+            HttpServletRequest request = attributes != null ? attributes.getRequest() : null;
+
+            String clientIp = request != null ? request.getRemoteAddr() : null;
+            String userAgent = request != null ? request.getHeader("User-Agent") : null;
 
             String oldStr = oldValue != null ? objectMapper.writeValueAsString(oldValue) : null;
             String newStr = newValue != null ? objectMapper.writeValueAsString(newValue) : null;
@@ -165,6 +169,11 @@ public class EmployeeServiceImpl implements EmployeeService {
         User employee = userRepository.findById(employeeId)
                 .filter(u -> u.getDeletedAt() == null)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+
+        // Check cross-household security
+        if (employee.getHousehold() == null || !employee.getHousehold().getId().equals(household.getId())) {
+            throw new AppException(ErrorCode.UNAUTHORIZED);
+        }
 
         // Prevent self-lock/self-update (Lỗi 2)
         if (employeeId.equals(currentUser.getId())) {

@@ -2,10 +2,14 @@ import React, { useState } from "react";
 import { Search, Plus, Edit, Trash2, Users, ClipboardCheck, LayoutGrid, List } from "lucide-react";
 import { IEmployee, IRole } from "../types/employee";
 import { EmployeeFormModal } from "./EmployeeFormModal";
+import {
+  useCreateEmployeeMutation,
+  useUpdateEmployeeMutation,
+  useDeleteEmployeeMutation,
+} from "../services/employeeApi";
 
 interface EmployeeListProps {
   employees: IEmployee[];
-  setEmployees: React.Dispatch<React.SetStateAction<IEmployee[]>>;
   roles: IRole[];
   searchQuery: string;
   setSearchQuery: (query: string) => void;
@@ -16,7 +20,6 @@ interface EmployeeListProps {
 
 export const EmployeeList: React.FC<EmployeeListProps> = ({
   employees,
-  setEmployees,
   roles,
   searchQuery,
   setSearchQuery,
@@ -26,17 +29,29 @@ export const EmployeeList: React.FC<EmployeeListProps> = ({
 }) => {
   const isOwner = userRole === "VT-01";
 
+  const [createEmployee] = useCreateEmployeeMutation();
+  const [updateEmployee] = useUpdateEmployeeMutation();
+  const [deleteEmployee] = useDeleteEmployeeMutation();
+
   // Modal control
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState<IEmployee | null>(null);
 
   // Add / Edit actions
-  const handleSaveEmployee = (emp: IEmployee) => {
-    const exists = employees.some((e) => e.id === emp.id);
-    if (exists) {
-      setEmployees(employees.map((e) => (e.id === emp.id ? emp : e)));
-    } else {
-      setEmployees([...employees, emp]);
+  const handleSaveEmployee = async (emp: IEmployee & { password?: string }) => {
+    try {
+      if (editingEmployee) {
+        // Edit mode
+        await updateEmployee({ id: editingEmployee.id, data: emp }).unwrap();
+        alert("Cập nhật tài khoản nhân viên thành công!");
+      } else {
+        // Create mode
+        await createEmployee(emp).unwrap();
+        alert("Thêm tài khoản nhân viên thành công!");
+      }
+    } catch (err: any) {
+      alert("Lỗi: " + (err?.data?.message || "Không thể lưu thông tin nhân viên!"));
+      throw err;
     }
   };
 
@@ -45,9 +60,14 @@ export const EmployeeList: React.FC<EmployeeListProps> = ({
     setIsModalOpen(true);
   };
 
-  const handleDeleteEmployee = (id: string) => {
+  const handleDeleteEmployee = async (id: string) => {
     if (confirm("Bạn có chắc chắn muốn xóa tài khoản nhân viên này khỏi hệ thống?")) {
-      setEmployees(employees.filter((e) => e.id !== id));
+      try {
+        await deleteEmployee(id).unwrap();
+        alert("Xóa tài khoản nhân viên thành công!");
+      } catch (err: any) {
+        alert("Lỗi: " + (err?.data?.message || "Không thể xóa nhân viên!"));
+      }
     }
   };
 
@@ -67,7 +87,7 @@ export const EmployeeList: React.FC<EmployeeListProps> = ({
       (statusFilter === "ACTIVE" && emp.isActive !== false) ||
       (statusFilter === "INACTIVE" && emp.isActive === false);
 
-    const matchesRole = selectedRole === "ALL" || emp.roleId === selectedRole;
+    const matchesRole = selectedRole === "ALL" || emp.roleCode === selectedRole;
 
     return matchesSearch && matchesStatus && matchesRole;
   });
@@ -151,7 +171,7 @@ export const EmployeeList: React.FC<EmployeeListProps> = ({
             </thead>
             <tbody className="divide-y divide-slate-100 font-medium text-slate-700 text-xs animate-auth-fade-in">
               {filteredEmployees.map((emp) => {
-                const role = roles.find((r) => r.code === emp.roleId);
+                const role = roles.find((r) => r.code === emp.roleCode);
 
                 return (
                   <tr key={emp.id} className="hover:bg-slate-50/50 group transition-all">
@@ -163,10 +183,10 @@ export const EmployeeList: React.FC<EmployeeListProps> = ({
                     <td className="p-3 font-mono font-semibold">{emp.phoneNumber || "--"}</td>
                     <td className="p-3">
                       <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                        emp.roleId === "VT-01" ? "bg-amber-100 text-amber-800" :
-                        emp.roleId === "VT-02" ? "bg-blue-100 text-blue-800" : "bg-indigo-100 text-indigo-800"
+                        emp.roleCode === "VT-01" ? "bg-amber-100 text-amber-800" :
+                        emp.roleCode === "VT-02" ? "bg-blue-100 text-blue-800" : "bg-indigo-100 text-indigo-800"
                       }`}>
-                        {role?.name || "Mặc định"} ({emp.roleId})
+                        {role?.name || "Mặc định"} ({emp.roleCode})
                       </span>
                     </td>
                     <td className="p-3 text-center">

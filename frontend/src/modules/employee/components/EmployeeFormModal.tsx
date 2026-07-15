@@ -5,7 +5,7 @@ import { IEmployee, IRole } from "../types/employee";
 interface EmployeeFormModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (employee: IEmployee) => void;
+  onSave: (employee: IEmployee & { password?: string }) => void | Promise<void>;
   employee?: IEmployee | null;
   roles: IRole[];
 }
@@ -21,10 +21,11 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
-  const [roleId, setRoleId] = useState("");
+  const [roleCode, setRoleCode] = useState("");
   const [isActive, setIsActive] = useState(true);
 
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     if (employee) {
@@ -32,7 +33,7 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({
       setPassword(""); // Mật khẩu để trống khi cập nhật trừ khi muốn đổi
       setFullName(employee.fullName || "");
       setPhoneNumber(employee.phoneNumber || "");
-      setRoleId(employee.roleId || "");
+      setRoleCode(employee.roleCode || "");
       setIsActive(employee.isActive !== false);
     } else {
       setUsername("");
@@ -41,7 +42,7 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({
       setPhoneNumber("");
       // Mặc định chọn vai trò nhân viên bán hàng đầu tiên nếu có
       const defaultRole = roles.find(r => r.code === "VT-02")?.code || "";
-      setRoleId(defaultRole);
+      setRoleCode(defaultRole);
       setIsActive(true);
     }
     setErrors({});
@@ -72,30 +73,37 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({
       newErrors.phoneNumber = "Số điện thoại không hợp lệ";
     }
 
-    if (!roleId) {
-      newErrors.roleId = "Vui lòng chọn vai trò phân quyền";
+    if (!roleCode) {
+      newErrors.roleCode = "Vui lòng chọn vai trò phân quyền";
     }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!validate()) return;
+    if (!validate() || isSaving) return;
 
-    const data: IEmployee = {
-      id: employee?.id || "emp-" + Math.random().toString(36).substring(2, 9),
+    const data: IEmployee & { password?: string } = {
+      id: employee?.id || "",
       username: username.trim(),
       fullName: fullName.trim(),
       phoneNumber: phoneNumber.trim() || undefined,
-      roleId,
+      roleCode,
       isActive,
       ...(password.trim() ? { password: password.trim() } : {}),
     };
 
-    onSave(data);
-    onClose();
+    setIsSaving(true);
+    try {
+      await onSave(data);
+      onClose();
+    } catch (err) {
+      // Error handled by onSave handler
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return createPortal(
@@ -182,9 +190,9 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({
             <div className="flex flex-col gap-1">
               <label className="text-slate-600">Vai trò phân quyền*:</label>
               <select
-                value={roleId}
-                onChange={(e) => setRoleId(e.target.value)}
-                className={`border ${errors.roleId ? "border-rose-500" : "border-slate-300"
+                value={roleCode}
+                onChange={(e) => setRoleCode(e.target.value)}
+                className={`border ${errors.roleCode ? "border-rose-500" : "border-slate-300"
                   } h-9 px-2 rounded-lg bg-white focus:outline-none focus:border-kv-blue-primary text-xs`}
               >
                 <option value="">Chọn vai trò</option>
@@ -196,7 +204,7 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({
                     </option>
                   ))}
               </select>
-              {errors.roleId && <span className="text-[10px] text-rose-500 font-bold">{errors.roleId}</span>}
+              {errors.roleCode && <span className="text-[10px] text-rose-500 font-bold">{errors.roleCode}</span>}
             </div>
 
             {/* Trạng thái tài khoản */}
@@ -232,15 +240,17 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({
             <button
               onClick={onClose}
               type="button"
-              className="border border-slate-300 hover:bg-slate-50 text-slate-600 font-bold px-4 h-8 rounded-lg transition-colors text-xs"
+              disabled={isSaving}
+              className="border border-slate-300 hover:bg-slate-50 text-slate-600 font-bold px-4 h-8 rounded-lg transition-colors text-xs disabled:opacity-50"
             >
               Bỏ qua
             </button>
             <button
               type="submit"
-              className="bg-kv-blue-primary hover:bg-kv-blue-dark text-white font-bold px-5 h-8 rounded-lg transition-colors shadow-sm text-xs"
+              disabled={isSaving}
+              className="bg-kv-blue-primary hover:bg-kv-blue-dark text-white font-bold px-5 h-8 rounded-lg transition-colors shadow-sm text-xs disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Lưu tài khoản
+              {isSaving ? "Đang lưu..." : "Lưu tài khoản"}
             </button>
           </div>
         </form>
