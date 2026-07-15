@@ -20,10 +20,11 @@ export interface AuthResponse {
 }
 
 export interface RegisterRequest {
-  name: string;
+  householdName: string;
   taxCode: string;
-  phoneNumber: string;
-  address?: string;
+  householdPhone: string;
+  householdAddress: string;
+  fullName: string;
   username: string;
   password?: string;
 }

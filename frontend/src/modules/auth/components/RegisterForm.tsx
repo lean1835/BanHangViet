@@ -6,11 +6,12 @@ import { setCredentials } from "@/stores/authSlice";
 import { z } from "zod";
 
 const registerSchema = z.object({
-  name: z.string().min(1, "Vui lòng nhập tên Hộ kinh doanh"),
+  householdName: z.string().min(1, "Vui lòng nhập tên Hộ kinh doanh"),
   taxCode: z.string().regex(/^\d{10}(-\d{3})?$/, "Mã số thuế không hợp lệ! Vui lòng nhập đúng 10 hoặc 13 chữ số (dạng XXXXXXXXXX-XXX)."),
-  phoneNumber: z.string().regex(/^(0[3|5|7|8|9])([0-9]{8})$/, "Số điện thoại không đúng định dạng Việt Nam!"),
-  address: z.string().optional(),
-  username: z.string().min(3, "Tên đăng nhập phải chứa ít nhất 3 ký tự"),
+  householdPhone: z.string().regex(/^(0[3|5|7|8|9])([0-9]{8})$/, "Số điện thoại không đúng định dạng Việt Nam!"),
+  householdAddress: z.string().min(1, "Vui lòng nhập địa chỉ Hộ kinh doanh"),
+  fullName: z.string().min(1, "Vui lòng nhập họ và tên chủ hộ"),
+  username: z.string().min(4, "Tên đăng nhập phải chứa ít nhất 4 ký tự"),
   password: z.string().min(6, "Mật khẩu phải chứa ít nhất 6 ký tự"),
 });
 
@@ -31,10 +32,11 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
       registerSchema.parse(values);
 
       const response = await register({
-        name: values.name.trim(),
+        householdName: values.householdName.trim(),
         taxCode: values.taxCode.trim(),
-        phoneNumber: values.phoneNumber.trim(),
-        address: values.address?.trim() || "",
+        householdPhone: values.householdPhone.trim(),
+        householdAddress: values.householdAddress.trim(),
+        fullName: values.fullName.trim(),
         username: values.username.trim(),
         password: values.password.trim(),
       }).unwrap();
@@ -76,7 +78,7 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
       <div className="grid grid-cols-2 gap-3">
         <Form.Item
           label={<span className="font-semibold text-gray-700 text-xs">Tên Hộ kinh doanh*:</span>}
-          name="name"
+          name="householdName"
           className="mb-2"
           rules={[{ required: true, message: "Vui lòng nhập tên Hộ kinh doanh!" }]}
         >
@@ -107,7 +109,7 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
       <div className="grid grid-cols-2 gap-3">
         <Form.Item
           label={<span className="font-semibold text-gray-700 text-xs">Số điện thoại*:</span>}
-          name="phoneNumber"
+          name="householdPhone"
           className="mb-2"
           rules={[
             { required: true, message: "Vui lòng nhập số điện thoại!" },
@@ -123,9 +125,10 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
           />
         </Form.Item>
         <Form.Item
-          label={<span className="font-semibold text-gray-700 text-xs">Địa chỉ cửa hàng:</span>}
-          name="address"
+          label={<span className="font-semibold text-gray-700 text-xs">Địa chỉ cửa hàng*:</span>}
+          name="householdAddress"
           className="mb-2"
+          rules={[{ required: true, message: "Vui lòng nhập địa chỉ Hộ kinh doanh!" }]}
         >
           <Input
             placeholder="Địa chỉ hộ kinh doanh"
@@ -138,6 +141,22 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
         Thiết lập Tài khoản Quản lý (Chủ hộ):
       </div>
 
+      {/* Họ tên — full width */}
+      <Form.Item
+        label={<span className="font-semibold text-gray-700 text-xs">Họ và tên chủ hộ*:</span>}
+        name="fullName"
+        className="mb-2"
+        rules={[
+          { required: true, message: "Vui lòng nhập họ và tên!" },
+          { min: 2, message: "Họ tên phải từ 2 ký tự trở lên!" },
+        ]}
+      >
+        <Input
+          placeholder="Ví dụ: Nguyễn Văn An"
+          className="h-9 border-gray-300 rounded-lg hover:border-kv-blue-primary focus:border-kv-blue-primary"
+        />
+      </Form.Item>
+
       <div className="grid grid-cols-2 gap-3">
         <Form.Item
           label={<span className="font-semibold text-gray-700 text-xs">Tên đăng nhập*:</span>}
@@ -145,7 +164,7 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
           className="mb-2"
           rules={[
             { required: true, message: "Vui lòng nhập tên đăng nhập!" },
-            { min: 3, message: "Tối thiểu 3 ký tự!" },
+            { min: 4, message: "Tối thiểu 4 ký tự!" },
           ]}
         >
           <Input

@@ -135,6 +135,19 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
           >
             Kế toán (ketoan_viet)
           </span>
+          <span
+            onClick={() => handleQuickFill("quantri_viet")}
+            className="bg-white border border-blue-300 px-2 py-1 rounded cursor-pointer font-semibold text-gray-700 hover:bg-blue-100 hover:border-kv-blue-primary transition-colors"
+          >
+            Quản trị (quantri_viet)
+          </span>
+          <span
+            onClick={() => handleQuickFill("thue_viet")}
+            className="bg-white border border-blue-300 px-2 py-1 rounded cursor-pointer font-semibold text-gray-700 hover:bg-blue-100 hover:border-kv-blue-primary transition-colors"
+          >
+            Thuế (thue_viet)
+          </span>
+
         </div>
       </div>
     </Form>

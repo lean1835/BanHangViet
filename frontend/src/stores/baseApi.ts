@@ -109,6 +109,8 @@ const customBaseQuery = async (args: any, api: any, extraOptions: any) => {
         { id: 'u-owner', householdId: 'h-default', roleId: 'VT-01', username: 'chuho_viet', fullName: 'Nguyễn Văn A', password: '123', isActive: true },
         { id: 'u-staff', householdId: 'h-default', roleId: 'VT-02', username: 'nhanvien_viet', fullName: 'Trần Thị B', password: '123', isActive: true },
         { id: 'u-accountant', householdId: 'h-default', roleId: 'VT-03', username: 'ketoan_viet', fullName: 'Phạm Văn C', password: '123', isActive: true },
+        { id: 'u-admin', householdId: 'h-admin', roleId: 'VT-04', username: 'quantri_viet', fullName: 'Lê Quản Trị', password: '123', isActive: true },
+        { id: 'u-tax', householdId: 'h-tax', roleId: 'VT-05', username: 'thue_viet', fullName: 'Chi cục Thuế Hà Nội', password: '123', isActive: true },
       ];
       
       const allUsers = [...defaultUsers, ...users];
@@ -142,8 +144,14 @@ const customBaseQuery = async (args: any, api: any, extraOptions: any) => {
       }
 
       let household = households.find((h: any) => h.id === user.householdId);
-      if (!household && user.householdId === 'h-default') {
-        household = { id: 'h-default', name: 'Tạp Hóa Việt', taxCode: '0123456789', address: '123 Đường Lê Lợi, Quận 1, TP. HCM', phoneNumber: '0901234567' };
+      if (!household) {
+        if (user.householdId === 'h-default') {
+          household = { id: 'h-default', name: 'Tạp Hóa Việt', taxCode: '0123456789', address: '123 Đường Lê Lợi, Quận 1, TP. HCM', phoneNumber: '0901234567' };
+        } else if (user.householdId === 'h-admin') {
+          household = { id: 'h-admin', name: 'Hệ thống Quản trị BanHangViet', taxCode: 'ADMIN-PLATFORM', address: 'Trung tâm Vận hành Cloud', phoneNumber: '19001234' };
+        } else if (user.householdId === 'h-tax') {
+          household = { id: 'h-tax', name: 'Tổng cục Thuế Việt Nam', taxCode: 'TAX-AUTHORITY', address: '123 Phan Bội Châu, Hà Nội', phoneNumber: '19005656' };
+        }
       }
 
       const mockToken = 'mock-jwt-token-' + user.id;
