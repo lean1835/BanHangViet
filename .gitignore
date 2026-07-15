@@ -22,3 +22,7 @@ target/
 *.sw?
 .DS_Store
 Thumbs.db
+
+# User Ignored Files
+backend/.env.example
+backend/run.log
