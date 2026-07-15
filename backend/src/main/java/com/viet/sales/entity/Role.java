@@ -16,8 +16,9 @@ import java.time.LocalDateTime;
 public class Role {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Integer id;
+    @GeneratedValue(strategy = GenerationType.UUID)
+    @Column(length = 36, nullable = false)
+    private String id;
 
     @Column(nullable = false, unique = true, length = 20)
     private String code;
