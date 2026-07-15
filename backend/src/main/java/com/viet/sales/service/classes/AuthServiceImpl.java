@@ -12,6 +12,7 @@ import com.viet.sales.exception.ErrorCode;
 import com.viet.sales.repository.BusinessHouseholdRepository;
 import com.viet.sales.repository.RoleRepository;
 import com.viet.sales.repository.UserRepository;
+import com.viet.sales.constant.RoleCode;
 import com.viet.sales.service.interfaces.AuthService;
 import com.viet.sales.service.interfaces.JwtService;
 import lombok.RequiredArgsConstructor;
@@ -43,7 +44,7 @@ public class AuthServiceImpl implements AuthService {
         }
 
         // 3. Tìm vai trò "Chủ hộ kinh doanh" (VT-01)
-        Role ownerRole = roleRepository.findByCode("VT-01")
+        Role ownerRole = roleRepository.findByCode(RoleCode.VT_01.getCode())
                 .orElseThrow(() -> new AppException(ErrorCode.ROLE_NOT_FOUND));
 
         // 4. Lưu thông tin hộ kinh doanh

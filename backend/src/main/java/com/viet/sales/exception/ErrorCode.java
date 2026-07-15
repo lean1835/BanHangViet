@@ -17,7 +17,8 @@ public enum ErrorCode {
     ROLE_NOT_FOUND(2005, "Vai trò không tồn tại trong hệ thống", HttpStatus.NOT_FOUND),
     INVALID_INPUT(2006, "Dữ liệu đầu vào không hợp lệ", HttpStatus.BAD_REQUEST),
     WRONG_PASSWORD(2007, "Mật khẩu không chính xác", HttpStatus.BAD_REQUEST),
-    USER_BLOCKED(2008, "Tài khoản đã bị khóa", HttpStatus.FORBIDDEN);
+    USER_BLOCKED(2008, "Tài khoản đã bị khóa", HttpStatus.FORBIDDEN),
+    FORBIDDEN(2009, "Bạn không có quyền truy cập", HttpStatus.FORBIDDEN);
 
     private final int code;
     private final String message;

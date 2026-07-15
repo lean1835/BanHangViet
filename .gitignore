@@ -24,5 +24,4 @@ target/
 Thumbs.db
 
 # User Ignored Files
-backend/.env.example
 backend/run.log
