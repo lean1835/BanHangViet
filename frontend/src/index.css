@@ -3,7 +3,104 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    --kv-blue-primary: #0068FF;
+    --kv-blue-dark: #0050CC;
+    --kv-blue-light: #E8F0FF;
+    --kv-orange-accent: #FF6B00;
+    --kv-white: #FFFFFF;
+    --kv-gray-bg: #F5F7FA;
+    --kv-gray-border: #E2E8F0;
+    --kv-text-dark: #1A1A2E;
+    --kv-text-body: #4A5568;
+    --kv-text-muted: #8A94A6;
+    --kv-green-badge: #00B96B;
+    --kv-shadow-card: 0 4px 20px rgba(0, 104, 255, 0.08);
+    --kv-shadow-hover: 0 12px 40px rgba(0, 104, 255, 0.15);
+  }
+
   body {
     @apply transition-colors duration-200;
+    font-family: 'Inter', sans-serif;
   }
 }
+
+/* Animations from Mockup UI */
+@keyframes authFadeIn {
+  from {
+    transform: scale(0.96);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes pulseGlow {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.8;
+    box-shadow: 0 0 15px rgba(0, 200, 83, 0.4);
+  }
+  50% {
+    transform: scale(1.08);
+    opacity: 1;
+    box-shadow: 0 0 30px rgba(0, 200, 83, 0.8);
+  }
+}
+
+@keyframes floatPacket {
+  0% {
+    left: 20%;
+    top: 60%;
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  90% {
+    opacity: 1;
+  }
+  100% {
+    left: 75%;
+    top: 35%;
+    opacity: 0;
+  }
+}
+
+@keyframes floatPacketReverse {
+  0% {
+    right: 20%;
+    top: 35%;
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  90% {
+    opacity: 1;
+  }
+  100% {
+    right: 75%;
+    top: 60%;
+    opacity: 0;
+  }
+}
+
+.animate-auth-fade-in {
+  animation: authFadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-pulse-glow {
+  animation: pulseGlow 2.5s infinite ease-in-out;
+}
+
+.animate-float-packet {
+  animation: floatPacket 3.2s infinite linear;
+}
+
+.animate-float-packet-reverse {
+  animation: floatPacketReverse 3.8s infinite linear 1s;
+}
+
