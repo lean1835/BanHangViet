@@ -9,6 +9,7 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
+import org.springframework.cache.annotation.Cacheable;
 import java.util.Collections;
 
 @Service
@@ -18,8 +19,10 @@ public class UserDetailsServiceImpl implements UserDetailsService {
     private final UserRepository userRepository;
 
     @Override
+    @Cacheable(value = "users", key = "#username")
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
         User user = userRepository.findByUsername(username)
+                .filter(u -> u.getDeletedAt() == null)
                 .orElseThrow(() -> new UsernameNotFoundException("Không tìm thấy người dùng với tên đăng nhập: " + username));
 
         return org.springframework.security.core.userdetails.User.builder()
