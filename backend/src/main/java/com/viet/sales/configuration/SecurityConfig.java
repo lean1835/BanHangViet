@@ -33,7 +33,7 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
             .csrf(AbstractHttpConfigurer::disable)
-            .cors(AbstractHttpConfigurer::disable)
+            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(authorize -> authorize
                 .requestMatchers("/api/v1/auth/**").permitAll()
@@ -42,5 +42,30 @@ public class SecurityConfig {
             .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
+    }
+
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration config = new CorsConfiguration();
+
+        // Cho phép mọi origin (bao gồm Postman, Swagger, frontend bất kỳ)
+        // allowedOriginPatterns tương thích với allowCredentials(true), khác với setAllowedOrigins("*")
+        config.setAllowedOriginPatterns(List.of("*"));
+
+        // Các HTTP method được phép
+        config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+
+        // Các header được phép gửi lên
+        config.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept"));
+
+        // Cho phép gửi cookie/credentials
+        config.setAllowCredentials(true);
+
+        // Cache preflight OPTIONS trong 1 giờ
+        config.setMaxAge(3600L);
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", config);
+        return source;
     }
 }
