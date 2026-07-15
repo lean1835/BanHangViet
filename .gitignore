@@ -3,11 +3,14 @@
 # Frontend
 node_modules/
 dist/
-.env
+# Chỉ ignore các file env chứa secret thực tế (không commit)
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
+
+# Backend — ignore file .env chứa DB credentials và JWT secret
+backend/.env
 
 # Backend (Maven)
 target/
