@@ -18,6 +18,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.cache.CacheManager;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -38,6 +39,7 @@ public class EmployeeServiceImpl implements EmployeeService {
     private final PasswordEncoder passwordEncoder;
     private final ObjectMapper objectMapper;
     private final HttpServletRequest httpServletRequest;
+    private final CacheManager cacheManager;
 
     private User getAuthenticatedUser(String username) {
         return userRepository.findByUsername(username)
@@ -126,6 +128,11 @@ public class EmployeeServiceImpl implements EmployeeService {
             throw new AppException(ErrorCode.USERNAME_ALREADY_EXISTS);
         }
 
+        // Prevent role escalation (Lỗi 1)
+        if (!request.getRoleCode().equals("VT-02") && !request.getRoleCode().equals("VT-03")) {
+            throw new AppException(ErrorCode.INVALID_INPUT);
+        }
+
         Role role = roleRepository.findByCode(request.getRoleCode())
                 .orElseThrow(() -> new AppException(ErrorCode.ROLE_NOT_FOUND));
 
@@ -159,9 +166,14 @@ public class EmployeeServiceImpl implements EmployeeService {
                 .filter(u -> u.getDeletedAt() == null)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
 
-        // Check cross-household security
-        if (employee.getHousehold() == null || !employee.getHousehold().getId().equals(household.getId())) {
-            throw new AppException(ErrorCode.UNAUTHORIZED);
+        // Prevent self-lock/self-update (Lỗi 2)
+        if (employeeId.equals(currentUser.getId())) {
+            throw new AppException(ErrorCode.FORBIDDEN);
+        }
+
+        // Prevent role escalation (Lỗi 1)
+        if (!request.getRoleCode().equals("VT-02") && !request.getRoleCode().equals("VT-03")) {
+            throw new AppException(ErrorCode.INVALID_INPUT);
         }
 
         Role role = roleRepository.findByCode(request.getRoleCode())
@@ -177,6 +189,11 @@ public class EmployeeServiceImpl implements EmployeeService {
         employee.setIsActive(request.getIsActive());
 
         employee = userRepository.save(employee);
+
+        // Evict from cache
+        if (cacheManager.getCache("users") != null) {
+            cacheManager.getCache("users").evict(employee.getUsername());
+        }
 
         String action = "UPDATE_EMPLOYEE";
         if (oldActive != request.getIsActive()) {
@@ -206,12 +223,22 @@ public class EmployeeServiceImpl implements EmployeeService {
             throw new AppException(ErrorCode.UNAUTHORIZED);
         }
 
+        // Prevent self-delete (Lỗi 2)
+        if (employeeId.equals(currentUser.getId())) {
+            throw new AppException(ErrorCode.FORBIDDEN);
+        }
+
         Map<String, Object> oldValueMap = buildUserLogMap(employee);
 
         // Soft delete
         employee.setDeletedAt(LocalDateTime.now());
         employee.setIsActive(false); // also deactivate upon deletion
         userRepository.save(employee);
+
+        // Evict from cache
+        if (cacheManager.getCache("users") != null) {
+            cacheManager.getCache("users").evict(employee.getUsername());
+        }
 
         logActivity(household, currentUser, "DELETE_EMPLOYEE", employee.getId(), oldValueMap, buildUserLogMap(employee));
     }
