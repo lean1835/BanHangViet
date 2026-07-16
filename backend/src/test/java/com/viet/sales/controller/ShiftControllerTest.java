@@ -176,7 +176,7 @@ public class ShiftControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value(3001))
+                .andExpect(jsonPath("$.code").value(3005))
                 .andExpect(jsonPath("$.message").value("Nhân viên đã có một ca bán hàng đang mở chưa đóng"));
     }
 
@@ -202,7 +202,7 @@ public class ShiftControllerTest {
 
         mockMvc.perform(get("/api/v1/shifts/active"))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.code").value(3002));
+                .andExpect(jsonPath("$.code").value(3006));
 
         mockMvc.perform(post("/api/v1/shifts/open")
                         .contentType(MediaType.APPLICATION_JSON)

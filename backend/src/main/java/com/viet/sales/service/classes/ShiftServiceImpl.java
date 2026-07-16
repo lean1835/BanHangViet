@@ -104,12 +104,11 @@ public class ShiftServiceImpl implements ShiftService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    @PreAuthorize("hasAnyRole('VT-01', 'VT-02')")
     public ShiftResponse openShift(String currentUsername, OpenShiftRequest request) {
         User currentUser = getAuthenticatedUser(currentUsername);
         BusinessHousehold household = currentUser.getHousehold();
         if (household == null) {
-            throw new AppException(ErrorCode.UNAUTHORIZED);
+            throw new AppException(ErrorCode.FORBIDDEN);
         }
 
         // QTN-15 / NCL-03-CN-006-TC-02: Check if user already has an open shift
@@ -134,7 +133,6 @@ public class ShiftServiceImpl implements ShiftService {
 
     @Override
     @Transactional(readOnly = true)
-    @PreAuthorize("hasAnyRole('VT-01', 'VT-02')")
     public ShiftResponse getActiveShift(String currentUsername) {
         User currentUser = getAuthenticatedUser(currentUsername);
         Shift shift = shiftRepository.findByUserIdAndStatus(currentUser.getId(), ShiftStatus.OPEN)
