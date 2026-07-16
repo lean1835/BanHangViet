@@ -193,7 +193,7 @@ public class ProductGroupControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value(3005))
+                .andExpect(jsonPath("$.code").value(3010))
                 .andExpect(jsonPath("$.message").value("Tên nhóm hàng đã tồn tại trên hệ thống"));
     }
 
