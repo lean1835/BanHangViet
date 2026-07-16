@@ -116,7 +116,7 @@ public class ProductServiceImpl implements ProductService {
         User currentUser = getAuthenticatedUser(currentUsername);
         BusinessHousehold household = currentUser.getHousehold();
         if (household == null) {
-            throw new AppException(ErrorCode.UNAUTHORIZED);
+            throw new AppException(ErrorCode.FORBIDDEN);
         }
 
         // Kiểm tra trùng lặp SKU trong cùng hộ kinh doanh
@@ -160,7 +160,7 @@ public class ProductServiceImpl implements ProductService {
         User currentUser = getAuthenticatedUser(currentUsername);
         BusinessHousehold household = currentUser.getHousehold();
         if (household == null) {
-            throw new AppException(ErrorCode.UNAUTHORIZED);
+            throw new AppException(ErrorCode.FORBIDDEN);
         }
 
         Product product = productRepository.findByIdAndHouseholdIdAndDeletedAtIsNull(productId, household.getId())
@@ -206,7 +206,7 @@ public class ProductServiceImpl implements ProductService {
         User currentUser = getAuthenticatedUser(currentUsername);
         BusinessHousehold household = currentUser.getHousehold();
         if (household == null) {
-            throw new AppException(ErrorCode.UNAUTHORIZED);
+            throw new AppException(ErrorCode.FORBIDDEN);
         }
 
         Product product = productRepository.findByIdAndHouseholdIdAndDeletedAtIsNull(productId, household.getId())
@@ -228,7 +228,7 @@ public class ProductServiceImpl implements ProductService {
         User currentUser = getAuthenticatedUser(currentUsername);
         BusinessHousehold household = currentUser.getHousehold();
         if (household == null) {
-            throw new AppException(ErrorCode.UNAUTHORIZED);
+            throw new AppException(ErrorCode.FORBIDDEN);
         }
 
         Product product = productRepository.findByIdAndHouseholdIdAndDeletedAtIsNull(productId, household.getId())
@@ -239,14 +239,14 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     @Transactional(readOnly = true)
-    public PageResponse<ProductResponse> getProducts(String currentUsername, String search, String groupId, String status, int page, int size) {
+    public PageResponse<ProductResponse> getProducts(String currentUsername, String search, String groupId, String status, Boolean excludeInactive, int page, int size) {
         User currentUser = getAuthenticatedUser(currentUsername);
         BusinessHousehold household = currentUser.getHousehold();
         if (household == null) {
-            throw new AppException(ErrorCode.UNAUTHORIZED);
+            throw new AppException(ErrorCode.FORBIDDEN);
         }
 
-        Specification<Product> spec = ProductSpecification.filterProducts(household.getId(), search, groupId, status);
+        Specification<Product> spec = ProductSpecification.filterProducts(household.getId(), search, groupId, status, excludeInactive);
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
 
         Page<Product> productPage = productRepository.findAll(spec, pageable);

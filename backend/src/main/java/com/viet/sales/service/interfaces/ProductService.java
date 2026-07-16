@@ -14,5 +14,5 @@ public interface ProductService {
 
     ProductResponse getProductById(String currentUsername, String productId);
 
-    PageResponse<ProductResponse> getProducts(String currentUsername, String search, String groupId, String status, int page, int size);
+    PageResponse<ProductResponse> getProducts(String currentUsername, String search, String groupId, String status, Boolean excludeInactive, int page, int size);
 }
