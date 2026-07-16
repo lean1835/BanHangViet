@@ -135,9 +135,10 @@ public class ProductGroupServiceImpl implements ProductGroupService {
 
         List<String> associatedProductIds = new ArrayList<>();
         if (request.getProductIds() != null && !request.getProductIds().isEmpty()) {
-            List<Product> products = productRepository.findAllByIdInAndHouseholdIdAndDeletedAtIsNull(request.getProductIds(), household.getId());
+            List<String> distinctProductIds = request.getProductIds().stream().distinct().collect(Collectors.toList());
+            List<Product> products = productRepository.findAllByIdInAndHouseholdIdAndDeletedAtIsNull(distinctProductIds, household.getId());
             
-            if (products.size() != request.getProductIds().size()) {
+            if (products.size() != distinctProductIds.size()) {
                 throw new AppException(ErrorCode.PRODUCT_NOT_FOUND);
             }
             
@@ -170,39 +171,37 @@ public class ProductGroupServiceImpl implements ProductGroupService {
             throw new AppException(ErrorCode.PRODUCT_GROUP_ALREADY_EXISTS);
         }
 
-        List<Product> currentProducts = productRepository.findByGroupIdAndDeletedAtIsNull(id);
-        List<String> oldProductIds = currentProducts.stream().map(Product::getId).collect(Collectors.toList());
+        List<String> oldProductIds = productRepository.findProductIdsByGroupIdAndDeletedAtIsNull(id);
         Map<String, Object> oldLogMap = buildProductGroupLogMap(group, oldProductIds);
 
         group.setName(request.getName());
-        group = productGroupRepository.save(group);
+        group = productGroupRepository.saveAndFlush(group);
 
-        List<String> newProductIds = request.getProductIds() != null ? request.getProductIds() : new ArrayList<>();
+        List<String> newProductIds = request.getProductIds() != null 
+                ? request.getProductIds().stream().distinct().collect(Collectors.toList()) 
+                : new ArrayList<>();
 
-        List<Product> productsToSave = new ArrayList<>();
+        List<String> productIdsToRemove = oldProductIds.stream()
+                .filter(prodId -> !newProductIds.contains(prodId))
+                .collect(Collectors.toList());
+
+        List<String> productIdsToAdd = newProductIds.stream()
+                .filter(prodId -> !oldProductIds.contains(prodId))
+                .collect(Collectors.toList());
+
+        LocalDateTime now = LocalDateTime.now();
 
         // Gỡ liên kết các sản phẩm không còn nằm trong danh sách mới
-        for (Product prod : currentProducts) {
-            if (!newProductIds.contains(prod.getId())) {
-                prod.setGroup(null);
-                productsToSave.add(prod);
-            }
+        if (!productIdsToRemove.isEmpty()) {
+            productRepository.clearGroupIdForProducts(productIdsToRemove, household.getId(), now);
         }
 
         // Gán nhóm cho các sản phẩm mới
-        if (!newProductIds.isEmpty()) {
-            List<Product> newProducts = productRepository.findAllByIdInAndHouseholdIdAndDeletedAtIsNull(newProductIds, household.getId());
-            if (newProducts.size() != newProductIds.size()) {
+        if (!productIdsToAdd.isEmpty()) {
+            int updatedCount = productRepository.updateGroupIdForProducts(group, productIdsToAdd, household.getId(), now);
+            if (updatedCount != productIdsToAdd.size()) {
                 throw new AppException(ErrorCode.PRODUCT_NOT_FOUND);
             }
-            for (Product prod : newProducts) {
-                prod.setGroup(group);
-                productsToSave.add(prod);
-            }
-        }
-
-        if (!productsToSave.isEmpty()) {
-            productRepository.saveAll(productsToSave);
         }
 
         logActivity(household, currentUser, "UPDATE_PRODUCT_GROUP", group.getId(), oldLogMap, buildProductGroupLogMap(group, newProductIds));
@@ -222,17 +221,11 @@ public class ProductGroupServiceImpl implements ProductGroupService {
         ProductGroup group = productGroupRepository.findByIdAndHouseholdIdAndDeletedAtIsNull(id, household.getId())
                 .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_GROUP_NOT_FOUND));
 
-        List<Product> currentProducts = productRepository.findByGroupIdAndDeletedAtIsNull(id);
-        List<String> oldProductIds = currentProducts.stream().map(Product::getId).collect(Collectors.toList());
+        List<String> oldProductIds = productRepository.findProductIdsByGroupIdAndDeletedAtIsNull(id);
         Map<String, Object> oldLogMap = buildProductGroupLogMap(group, oldProductIds);
 
-        // Gỡ liên kết tất cả các sản phẩm đang thuộc nhóm này
-        if (!currentProducts.isEmpty()) {
-            for (Product prod : currentProducts) {
-                prod.setGroup(null);
-            }
-            productRepository.saveAll(currentProducts);
-        }
+        // Gỡ liên kết tất cả các sản phẩm đang thuộc nhóm này bằng Modifying query trực tiếp
+        productRepository.clearGroupId(id, LocalDateTime.now());
 
         // Thực hiện xóa mềm nhóm hàng
         group.setDeletedAt(LocalDateTime.now());

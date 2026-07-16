@@ -280,4 +280,59 @@ public class ProductGroupControllerTest {
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isForbidden());
     }
+
+    @Test
+    @WithMockUser(username = "owner_user_test", roles = "VT-01")
+    public void createProductGroup_duplicateProductIds_success() throws Exception {
+        CreateProductGroupRequest request = CreateProductGroupRequest.builder()
+                .name("Nhóm sản phẩm trùng lặp")
+                .productIds(Arrays.asList(product1.getId(), product1.getId(), product2.getId()))
+                .build();
+
+        mockMvc.perform(post("/api/v1/product-groups")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(1000))
+                .andExpect(jsonPath("$.result.name").value("Nhóm sản phẩm trùng lặp"));
+
+        Product updatedP1 = productRepository.findById(product1.getId()).orElseThrow();
+        Product updatedP2 = productRepository.findById(product2.getId()).orElseThrow();
+
+        assertNotNull(updatedP1.getGroup());
+        assertEquals("Nhóm sản phẩm trùng lặp", updatedP1.getGroup().getName());
+        assertNotNull(updatedP2.getGroup());
+    }
+
+    @Test
+    @WithMockUser(username = "owner_user_test", roles = "VT-01")
+    public void updateProductGroup_duplicateProductIds_success() throws Exception {
+        ProductGroup group = ProductGroup.builder()
+                .household(household)
+                .name("Trái cây")
+                .build();
+        group = productGroupRepository.save(group);
+
+        product1.setGroup(group);
+        productRepository.save(product1);
+
+        UpdateProductGroupRequest request = UpdateProductGroupRequest.builder()
+                .name("Trái cây mới")
+                .productIds(Arrays.asList(product2.getId(), product2.getId())) // duplicate product2
+                .build();
+
+        mockMvc.perform(put("/api/v1/product-groups/" + group.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(1000))
+                .andExpect(jsonPath("$.result.name").value("Trái cây mới"));
+
+        Product updatedP1 = productRepository.findById(product1.getId()).orElseThrow();
+        Product updatedP2 = productRepository.findById(product2.getId()).orElseThrow();
+
+        assertNull(updatedP1.getGroup());
+        assertNotNull(updatedP2.getGroup());
+        assertEquals("Trái cây mới", updatedP2.getGroup().getName());
+    }
 }
