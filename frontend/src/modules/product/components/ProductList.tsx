@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { Search, Plus, Edit, Trash2 } from "lucide-react";
 import { IProduct } from "../types/product";
 import { ProductFormModal } from "./ProductFormModal";
@@ -32,6 +33,35 @@ export const ProductList: React.FC<ProductListProps> = ({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<IProduct | null>(null);
 
+  // Custom toast notifications
+  const [notification, setNotification] = useState<{
+    message: string;
+    type: "success" | "error";
+  } | null>(null);
+
+  const showNotification = (message: string, type: "success" | "error") => {
+    setNotification({ message, type });
+  };
+
+  // Auto clear notification
+  useEffect(() => {
+    if (notification) {
+      const timer = setTimeout(() => {
+        setNotification(null);
+      }, 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [notification]);
+
+  // Delete modal controls
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [productToDelete, setProductToDelete] = useState<{ id: string; name: string } | null>(null);
+
+  // Reset page to 0 on filter changes
+  useEffect(() => {
+    setCurrentPage(0);
+  }, [selectedGroup, stockFilter]);
+
   // Debounce search query
   useEffect(() => {
     const handler = setTimeout(() => {
@@ -50,6 +80,7 @@ export const ProductList: React.FC<ProductListProps> = ({
   const { data, isLoading, isError, refetch } = useGetProductsQuery({
     search: debouncedSearch || undefined,
     groupId: selectedGroup === "ALL" ? undefined : selectedGroup,
+    stockFilter: stockFilter === "ALL" ? undefined : stockFilter,
     page: currentPage,
     size: pageSize,
   });
@@ -58,56 +89,53 @@ export const ProductList: React.FC<ProductListProps> = ({
   const totalElements = data?.totalElements || 0;
   const totalPages = data?.totalPages || 0;
 
-  // Filter products by stock local logic (backend might not support custom complex queries)
-  const displayedProducts = productsList.filter((prod) => {
-    if (stockFilter === "IN_STOCK") {
-      return prod.stockQuantity > 0;
-    }
-    if (stockFilter === "OUT_OF_STOCK") {
-      return prod.stockQuantity === 0;
-    }
-    return true;
-  });
+  const displayedProducts = productsList;
 
   // Handlers
   const handleSaveProduct = async (productData: Partial<IProduct> & { taxRateId: string }) => {
     try {
       if (editingProduct) {
         await updateProduct({ id: editingProduct.id, data: productData }).unwrap();
-        alert("Cập nhật hàng hóa thành công!");
+        showNotification("Cập nhật hàng hóa thành công!", "success");
       } else {
         await createProduct(productData).unwrap();
-        alert("Thêm hàng hóa mới thành công!");
+        showNotification("Thêm hàng hóa mới thành công!", "success");
       }
       refetch();
     } catch (err: any) {
-      alert("Lỗi: " + (err?.data?.message || "Không thể lưu sản phẩm!"));
+      showNotification("Lỗi: " + (err?.data?.message || "Không thể lưu sản phẩm!"), "error");
       throw err;
     }
   };
 
   const handleEditProduct = (prod: IProduct) => {
     if (!isOwner) {
-      alert("Chỉ Chủ hộ kinh doanh (VT-01) mới có quyền chỉnh sửa hàng hóa!");
+      showNotification("Chỉ Chủ hộ kinh doanh (VT-01) mới có quyền chỉnh sửa hàng hóa!", "error");
       return;
     }
     setEditingProduct(prod);
     setIsModalOpen(true);
   };
 
-  const handleDeleteProduct = async (id: string, name: string) => {
+  const handleDeleteProduct = (id: string, name: string) => {
     if (!isOwner) {
-      alert("Chỉ Chủ hộ kinh doanh (VT-01) mới có quyền xóa hàng hóa!");
+      showNotification("Chỉ Chủ hộ kinh doanh (VT-01) mới có quyền xóa hàng hóa!", "error");
       return;
     }
-    if (confirm(`Bạn có chắc chắn muốn xóa sản phẩm "${name}" khỏi hệ thống?`)) {
-      try {
-        await deleteProduct(id).unwrap();
-        alert("Xóa hàng hóa thành công!");
-        refetch();
-      } catch (err: any) {
-        alert("Lỗi: " + (err?.data?.message || "Không thể xóa hàng hóa!"));
-      }
+    setProductToDelete({ id, name });
+    setIsDeleteModalOpen(true);
+  };
+
+  const confirmDeleteProduct = async () => {
+    if (!productToDelete) return;
+    try {
+      await deleteProduct(productToDelete.id).unwrap();
+      showNotification(`Xóa sản phẩm "${productToDelete.name}" thành công!`, "success");
+      setIsDeleteModalOpen(false);
+      setProductToDelete(null);
+      refetch();
+    } catch (err: any) {
+      showNotification("Lỗi: " + (err?.data?.message || "Không thể xóa hàng hóa!"), "error");
     }
   };
 
@@ -319,6 +347,71 @@ export const ProductList: React.FC<ProductListProps> = ({
         onSave={handleSaveProduct}
         product={editingProduct}
       />
+
+      {/* Custom Delete Confirmation Modal */}
+      {isDeleteModalOpen && productToDelete && createPortal(
+        <div 
+          onClick={() => setIsDeleteModalOpen(false)}
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 overflow-y-auto animate-backdrop-fade-in"
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-xl shadow-2xl border border-slate-100 max-w-sm w-full overflow-hidden flex flex-col p-6 animate-modal-bounce-in text-center"
+          >
+            <div className="w-12 h-12 bg-rose-50 rounded-full flex items-center justify-center text-rose-500 mx-auto mb-4 border border-rose-100">
+              <Trash2 size={24} />
+            </div>
+            <h3 className="font-extrabold text-slate-800 text-sm mb-2">
+              Xác nhận xóa hàng hóa?
+            </h3>
+            <p className="text-slate-500 text-xs leading-relaxed mb-6 font-semibold">
+              Bạn có chắc chắn muốn xóa sản phẩm <strong className="text-slate-700">"{productToDelete.name}"</strong> khỏi hệ thống? Thao tác này sẽ ngừng kinh doanh sản phẩm này và không thể hoàn tác.
+            </p>
+            <div className="flex items-center justify-center gap-3">
+              <button
+                onClick={() => setIsDeleteModalOpen(false)}
+                type="button"
+                className="flex-1 bg-slate-100 hover:bg-slate-200 transition-colors h-9 rounded-lg text-slate-700 font-bold text-xs"
+              >
+                Hủy bỏ
+              </button>
+              <button
+                onClick={confirmDeleteProduct}
+                type="button"
+                className="flex-1 bg-rose-600 hover:bg-rose-700 text-white transition-colors h-9 rounded-lg font-bold shadow-sm text-xs"
+              >
+                Xác nhận xóa
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Notification Toast */}
+      {notification && (
+        <div className="fixed top-5 right-5 z-[200] flex items-center gap-3 bg-white border border-slate-100 shadow-2xl px-4 py-3 rounded-xl max-w-sm animate-modal-bounce-in">
+          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white ${
+            notification.type === "success" ? "bg-emerald-500" : "bg-rose-500"
+          }`}>
+            {notification.type === "success" ? "✓" : "✕"}
+          </div>
+          <div className="flex flex-col gap-0.5 max-w-[200px] text-left">
+            <span className="font-extrabold text-slate-800 text-[10px] uppercase tracking-wider">
+              {notification.type === "success" ? "Thành công" : "Thông báo"}
+            </span>
+            <span className="text-slate-500 text-[11px] font-semibold leading-snug break-words">
+              {notification.message}
+            </span>
+          </div>
+          <button 
+            onClick={() => setNotification(null)}
+            className="text-slate-400 hover:text-slate-600 ml-auto font-semibold text-xs"
+          >
+            ✕
+          </button>
+        </div>
+      )}
     </div>
   );
 };
