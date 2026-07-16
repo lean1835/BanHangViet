@@ -39,3 +39,12 @@ export const TAX_RATES = [
     percentage: 5.0,
   },
 ];
+
+export interface IProductGroup {
+  id: string;
+  name: string;
+  householdId: string;
+  createdAt: string;
+  updatedAt: string;
+}
+

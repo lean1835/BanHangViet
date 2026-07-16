@@ -1,5 +1,5 @@
 import { baseApi } from "../../../stores/baseApi";
-import { IProduct } from "../types/product";
+import { IProduct, IProductGroup } from "../types/product";
 
 interface PageResponse<T> {
   content: T[];
@@ -141,6 +141,56 @@ export const productApi = baseApi.injectEndpoints({
         { type: "Product", id },
       ],
     }),
+    getProductGroups: builder.query<IProductGroup[], void>({
+      query: () => ({
+        url: "/product-groups",
+        method: "GET",
+      }),
+      transformResponse: (response: any): IProductGroup[] => response.result || [],
+      providesTags: (result) =>
+        result
+          ? [
+              ...result.map(({ id }) => ({ type: "ProductGroup" as const, id })),
+              { type: "ProductGroup", id: "LIST" },
+            ]
+          : [{ type: "ProductGroup", id: "LIST" }],
+    }),
+    createProductGroup: builder.mutation<IProductGroup, { name: string }>({
+      query: (data) => ({
+        url: "/product-groups",
+        method: "POST",
+        body: {
+          name: data.name,
+        },
+      }),
+      transformResponse: (response: any): IProductGroup => response.result,
+      invalidatesTags: [{ type: "ProductGroup", id: "LIST" }],
+    }),
+    updateProductGroup: builder.mutation<IProductGroup, { id: string; name: string }>({
+      query: ({ id, name }) => ({
+        url: `/product-groups/${id}`,
+        method: "PUT",
+        body: {
+          name,
+        },
+      }),
+      transformResponse: (response: any): IProductGroup => response.result,
+      invalidatesTags: (_result, _error, { id }) => [
+        { type: "ProductGroup", id: "LIST" },
+        { type: "ProductGroup", id },
+      ],
+    }),
+    deleteProductGroup: builder.mutation<void, string>({
+      query: (id) => ({
+        url: `/product-groups/${id}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: (_result, _error, id) => [
+        { type: "ProductGroup", id: "LIST" },
+        { type: "ProductGroup", id },
+        { type: "Product", id: "LIST" },
+      ],
+    }),
   }),
   overrideExisting: false,
 });
@@ -150,4 +200,8 @@ export const {
   useCreateProductMutation,
   useUpdateProductMutation,
   useDeleteProductMutation,
+  useGetProductGroupsQuery,
+  useCreateProductGroupMutation,
+  useUpdateProductGroupMutation,
+  useDeleteProductGroupMutation,
 } = productApi;

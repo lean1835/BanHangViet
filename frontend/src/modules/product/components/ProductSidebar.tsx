@@ -1,11 +1,13 @@
-import React from "react";
-import { PRODUCT_GROUPS } from "../types/product";
+import React, { useState } from "react";
+import { useGetProductGroupsQuery } from "../services/productApi";
+import { ProductGroupManagerModal } from "./ProductGroupManagerModal";
 
 interface ProductSidebarProps {
   selectedGroup: string;
   setSelectedGroup: (groupId: string) => void;
   stockFilter: "ALL" | "IN_STOCK" | "OUT_OF_STOCK";
   setStockFilter: (filter: "ALL" | "IN_STOCK" | "OUT_OF_STOCK") => void;
+  userRole?: string;
 }
 
 export const ProductSidebar: React.FC<ProductSidebarProps> = ({
@@ -13,7 +15,12 @@ export const ProductSidebar: React.FC<ProductSidebarProps> = ({
   setSelectedGroup,
   stockFilter,
   setStockFilter,
+  userRole,
 }) => {
+  const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
+  const { data: groups = [] } = useGetProductGroupsQuery();
+  const sortedGroups = [...groups].sort((a, b) => a.name.localeCompare(b.name, "vi"));
+
   return (
     <div className="flex flex-col gap-5 w-full bg-white xl:bg-transparent p-4 xl:p-0 rounded-xl xl:rounded-none border xl:border-0 border-slate-200">
       {/* Nhóm hàng */}
@@ -22,10 +29,10 @@ export const ProductSidebar: React.FC<ProductSidebarProps> = ({
           <span className="font-bold text-slate-700 text-xs">Nhóm hàng</span>
           <button
             type="button"
-            onClick={() => alert("Chức năng thêm mới Nhóm hàng...")}
+            onClick={() => setIsGroupModalOpen(true)}
             className="text-kv-blue-primary hover:text-kv-blue-dark font-bold text-[11px]"
           >
-            Tạo mới
+            Quản lý
           </button>
         </div>
         <select
@@ -34,13 +41,19 @@ export const ProductSidebar: React.FC<ProductSidebarProps> = ({
           className="w-full bg-white border border-slate-300 rounded-lg p-2 font-semibold text-slate-700 text-xs focus:outline-none focus:border-kv-blue-primary transition-all cursor-pointer"
         >
           <option value="ALL">Chọn nhóm hàng</option>
-          {PRODUCT_GROUPS.map((group) => (
+          {sortedGroups.map((group) => (
             <option key={group.id} value={group.id}>
               {group.name}
             </option>
           ))}
         </select>
       </div>
+
+      <ProductGroupManagerModal
+        isOpen={isGroupModalOpen}
+        onClose={() => setIsGroupModalOpen(false)}
+        userRole={userRole}
+      />
 
       {/* Tồn kho */}
       <div className="flex flex-col gap-2">
