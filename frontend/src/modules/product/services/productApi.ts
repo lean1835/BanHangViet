@@ -178,6 +178,7 @@ export const productApi = baseApi.injectEndpoints({
       invalidatesTags: (_result, _error, { id }) => [
         { type: "ProductGroup", id: "LIST" },
         { type: "ProductGroup", id },
+        { type: "Product", id: "LIST" },
       ],
     }),
     deleteProductGroup: builder.mutation<void, string>({

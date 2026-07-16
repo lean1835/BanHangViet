@@ -179,7 +179,7 @@ public class ProductGroupServiceImpl implements ProductGroupService {
 
         List<String> newProductIds = request.getProductIds() != null 
                 ? request.getProductIds().stream().distinct().collect(Collectors.toList()) 
-                : new ArrayList<>();
+                : oldProductIds;
 
         List<String> productIdsToRemove = oldProductIds.stream()
                 .filter(prodId -> !newProductIds.contains(prodId))
