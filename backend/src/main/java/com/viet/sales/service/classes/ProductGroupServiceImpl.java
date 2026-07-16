@@ -17,7 +17,6 @@ import com.viet.sales.service.interfaces.ProductGroupService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.context.request.RequestContextHolder;
@@ -115,12 +114,11 @@ public class ProductGroupServiceImpl implements ProductGroupService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    @PreAuthorize("hasRole('VT-01')")
     public ProductGroupResponse createProductGroup(String currentUsername, CreateProductGroupRequest request) {
         User currentUser = getAuthenticatedUser(currentUsername);
         BusinessHousehold household = currentUser.getHousehold();
         if (household == null) {
-            throw new AppException(ErrorCode.UNAUTHORIZED);
+            throw new AppException(ErrorCode.FORBIDDEN);
         }
 
         // Kiểm tra trùng tên nhóm hàng trong cùng một hộ kinh doanh
@@ -137,13 +135,17 @@ public class ProductGroupServiceImpl implements ProductGroupService {
 
         List<String> associatedProductIds = new ArrayList<>();
         if (request.getProductIds() != null && !request.getProductIds().isEmpty()) {
-            for (String prodId : request.getProductIds()) {
-                Product prod = productRepository.findByIdAndHouseholdIdAndDeletedAtIsNull(prodId, household.getId())
-                        .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_NOT_FOUND));
-                prod.setGroup(group);
-                productRepository.save(prod);
-                associatedProductIds.add(prodId);
+            List<Product> products = productRepository.findAllByIdInAndHouseholdIdAndDeletedAtIsNull(request.getProductIds(), household.getId());
+            
+            if (products.size() != request.getProductIds().size()) {
+                throw new AppException(ErrorCode.PRODUCT_NOT_FOUND);
             }
+            
+            for (Product prod : products) {
+                prod.setGroup(group);
+                associatedProductIds.add(prod.getId());
+            }
+            productRepository.saveAll(products);
         }
 
         logActivity(household, currentUser, "CREATE_PRODUCT_GROUP", group.getId(), null, buildProductGroupLogMap(group, associatedProductIds));
@@ -153,12 +155,11 @@ public class ProductGroupServiceImpl implements ProductGroupService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    @PreAuthorize("hasRole('VT-01')")
     public ProductGroupResponse updateProductGroup(String currentUsername, String id, UpdateProductGroupRequest request) {
         User currentUser = getAuthenticatedUser(currentUsername);
         BusinessHousehold household = currentUser.getHousehold();
         if (household == null) {
-            throw new AppException(ErrorCode.UNAUTHORIZED);
+            throw new AppException(ErrorCode.FORBIDDEN);
         }
 
         ProductGroup group = productGroupRepository.findByIdAndHouseholdIdAndDeletedAtIsNull(id, household.getId())
@@ -178,20 +179,30 @@ public class ProductGroupServiceImpl implements ProductGroupService {
 
         List<String> newProductIds = request.getProductIds() != null ? request.getProductIds() : new ArrayList<>();
 
+        List<Product> productsToSave = new ArrayList<>();
+
         // Gỡ liên kết các sản phẩm không còn nằm trong danh sách mới
         for (Product prod : currentProducts) {
             if (!newProductIds.contains(prod.getId())) {
                 prod.setGroup(null);
-                productRepository.save(prod);
+                productsToSave.add(prod);
             }
         }
 
         // Gán nhóm cho các sản phẩm mới
-        for (String prodId : newProductIds) {
-            Product prod = productRepository.findByIdAndHouseholdIdAndDeletedAtIsNull(prodId, household.getId())
-                    .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_NOT_FOUND));
-            prod.setGroup(group);
-            productRepository.save(prod);
+        if (!newProductIds.isEmpty()) {
+            List<Product> newProducts = productRepository.findAllByIdInAndHouseholdIdAndDeletedAtIsNull(newProductIds, household.getId());
+            if (newProducts.size() != newProductIds.size()) {
+                throw new AppException(ErrorCode.PRODUCT_NOT_FOUND);
+            }
+            for (Product prod : newProducts) {
+                prod.setGroup(group);
+                productsToSave.add(prod);
+            }
+        }
+
+        if (!productsToSave.isEmpty()) {
+            productRepository.saveAll(productsToSave);
         }
 
         logActivity(household, currentUser, "UPDATE_PRODUCT_GROUP", group.getId(), oldLogMap, buildProductGroupLogMap(group, newProductIds));
@@ -201,12 +212,11 @@ public class ProductGroupServiceImpl implements ProductGroupService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    @PreAuthorize("hasRole('VT-01')")
     public void deleteProductGroup(String currentUsername, String id) {
         User currentUser = getAuthenticatedUser(currentUsername);
         BusinessHousehold household = currentUser.getHousehold();
         if (household == null) {
-            throw new AppException(ErrorCode.UNAUTHORIZED);
+            throw new AppException(ErrorCode.FORBIDDEN);
         }
 
         ProductGroup group = productGroupRepository.findByIdAndHouseholdIdAndDeletedAtIsNull(id, household.getId())
@@ -217,9 +227,11 @@ public class ProductGroupServiceImpl implements ProductGroupService {
         Map<String, Object> oldLogMap = buildProductGroupLogMap(group, oldProductIds);
 
         // Gỡ liên kết tất cả các sản phẩm đang thuộc nhóm này
-        for (Product prod : currentProducts) {
-            prod.setGroup(null);
-            productRepository.save(prod);
+        if (!currentProducts.isEmpty()) {
+            for (Product prod : currentProducts) {
+                prod.setGroup(null);
+            }
+            productRepository.saveAll(currentProducts);
         }
 
         // Thực hiện xóa mềm nhóm hàng
@@ -231,12 +243,11 @@ public class ProductGroupServiceImpl implements ProductGroupService {
 
     @Override
     @Transactional(readOnly = true)
-    @PreAuthorize("hasAnyRole('VT-01', 'VT-02')")
     public List<ProductGroupResponse> getAllProductGroups(String currentUsername) {
         User currentUser = getAuthenticatedUser(currentUsername);
         BusinessHousehold household = currentUser.getHousehold();
         if (household == null) {
-            throw new AppException(ErrorCode.UNAUTHORIZED);
+            throw new AppException(ErrorCode.FORBIDDEN);
         }
 
         List<ProductGroup> groups = productGroupRepository.findByHouseholdIdAndDeletedAtIsNull(household.getId());
@@ -245,12 +256,11 @@ public class ProductGroupServiceImpl implements ProductGroupService {
 
     @Override
     @Transactional(readOnly = true)
-    @PreAuthorize("hasAnyRole('VT-01', 'VT-02')")
     public ProductGroupDetailResponse getProductGroupById(String currentUsername, String id) {
         User currentUser = getAuthenticatedUser(currentUsername);
         BusinessHousehold household = currentUser.getHousehold();
         if (household == null) {
-            throw new AppException(ErrorCode.UNAUTHORIZED);
+            throw new AppException(ErrorCode.FORBIDDEN);
         }
 
         ProductGroup group = productGroupRepository.findByIdAndHouseholdIdAndDeletedAtIsNull(id, household.getId())
