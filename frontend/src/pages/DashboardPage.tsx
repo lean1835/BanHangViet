@@ -1,22 +1,17 @@
 import React, { useState } from "react";
 import { useAppDispatch, useAppSelector } from "@/hooks/redux";
 import { logout } from "@/stores/authSlice";
+import { baseApi } from "@/stores/baseApi";
 import { EmployeeList } from "../modules/employee/components/EmployeeList";
 import { EmployeeSidebar } from "../modules/employee/components/EmployeeSidebar";
 import { IRole } from "../modules/employee/types/employee";
 import { useGetAllEmployeesQuery } from "../modules/employee/services/employeeApi";
+import { ProductList } from "../modules/product/components/ProductList";
+import { ProductSidebar } from "../modules/product/components/ProductSidebar";
+import { useGetProductsQuery, useUpdateProductMutation } from "../modules/product/services/productApi";
+
 
 // TypeScript Interfaces for mock data
-interface IProduct {
-  id: string;
-  sku: string;
-  name: string;
-  group: string;
-  unit: string;
-  tax: string;
-  price: number;
-  stock: number;
-}
 
 interface IStockEntry {
   id: string;
@@ -78,6 +73,7 @@ export const DashboardPage: React.FC = () => {
 
   const handleLogout = () => {
     dispatch(logout());
+    dispatch(baseApi.util.resetApiState());
   };
 
   const household = user?.household;
@@ -131,49 +127,13 @@ export const DashboardPage: React.FC = () => {
   const [chartSubTab, setChartSubTab] = useState<"day" | "hour" | "week">("day");
   const [invoiceFilterStatus, setInvoiceFilterStatus] = useState("ALL");
 
-  // Mock State Lists (Prepopulated for UI demonstration)
-  const [products, setProducts] = useState<IProduct[]>([
-    {
-      id: "p1",
-      sku: "8934567890123",
-      name: "Nước ngọt Coca-Cola lon 320ml",
-      group: "Đồ uống",
-      unit: "Lon",
-      tax: "8%",
-      price: 10000,
-      stock: 150,
-    },
-    {
-      id: "p2",
-      sku: "8931234567890",
-      name: "Mì ăn liền Hảo Hảo Tôm Chua Cay",
-      group: "Thực phẩm",
-      unit: "Gói",
-      tax: "8%",
-      price: 4500,
-      stock: 220,
-    },
-    {
-      id: "p3",
-      sku: "8938888888888",
-      name: "Sữa tươi Vinamilk ít đường 180ml",
-      group: "Đồ uống",
-      unit: "Hộp",
-      tax: "8%",
-      price: 8000,
-      stock: 95,
-    },
-    {
-      id: "p4",
-      sku: "8935555555555",
-      name: "Gạo thơm ST25 cao cấp túi 5kg",
-      group: "Thực phẩm",
-      unit: "Túi",
-      tax: "5%",
-      price: 195000,
-      stock: 40,
-    },
-  ]);
+  // Product state filters and hooks
+  const [prodGroupFilter, setProdGroupFilter] = useState("ALL");
+  const [prodStockFilter, setProdStockFilter] = useState<"ALL" | "IN_STOCK" | "OUT_OF_STOCK">("ALL");
+
+  const { data: dbProductsData } = useGetProductsQuery({ size: 100 });
+  const dbProducts = dbProductsData?.content || [];
+  const [updateProduct] = useUpdateProductMutation();
 
   const [stockEntries, setStockEntries] = useState<IStockEntry[]>([
     {
@@ -434,40 +394,13 @@ export const DashboardPage: React.FC = () => {
   };
 
   // Form submit handlers (simulated local changes)
-  const handleAddProduct = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const data = new FormData(e.currentTarget);
-    const newProd: IProduct = {
-      id: "p" + (products.length + 1),
-      sku: data.get("sku") as string,
-      name: data.get("name") as string,
-      group: data.get("group") as string,
-      unit: data.get("unit") as string,
-      tax: data.get("tax") as string,
-      price: Number(data.get("price")),
-      stock: Number(data.get("stock")),
-    };
-    setProducts([...products, newProd]);
-    setLogs([
-      {
-        id: "l" + (logs.length + 1),
-        time: new Date().toISOString().replace("T", " ").substring(0, 19),
-        user: user?.username || "chuho_viet",
-        action: "THÊM_SẢN_PHẨM",
-        target: `Sản phẩm ${newProd.name} (${newProd.sku})`,
-      },
-      ...logs,
-    ]);
-    e.currentTarget.reset();
-  };
-
-  const handleAddStock = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleAddStock = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const data = new FormData(e.currentTarget);
     const prodId = data.get("prodId") as string;
     const qty = Number(data.get("qty"));
     const price = Number(data.get("importPrice"));
-    const selectedProd = products.find((p) => p.id === prodId);
+    const selectedProd = dbProducts.find((p) => p.id === prodId);
     if (!selectedProd) return;
 
     const newEntry: IStockEntry = {
@@ -481,21 +414,36 @@ export const DashboardPage: React.FC = () => {
       notes: data.get("notes") as string,
     };
 
-    setStockEntries([newEntry, ...stockEntries]);
-    setProducts(
-      products.map((p) => (p.id === prodId ? { ...p, stock: p.stock + qty } : p))
-    );
-    setLogs([
-      {
-        id: "l" + (logs.length + 1),
-        time: new Date().toISOString().replace("T", " ").substring(0, 19),
-        user: user?.username || "chuho_viet",
-        action: "NHẬP_KHO",
-        target: `Sản phẩm ${selectedProd.name} (+${qty} ${selectedProd.unit})`,
-      },
-      ...logs,
-    ]);
-    e.currentTarget.reset();
+    try {
+      await updateProduct({
+        id: selectedProd.id,
+        data: {
+          sku: selectedProd.sku,
+          name: selectedProd.name,
+          unit: selectedProd.unit,
+          price: selectedProd.price,
+          stockQuantity: selectedProd.stockQuantity + qty,
+          taxRateId: selectedProd.taxRateId,
+          status: selectedProd.status,
+        },
+      }).unwrap();
+
+      setStockEntries([newEntry, ...stockEntries]);
+      setLogs([
+        {
+          id: "l" + (logs.length + 1),
+          time: new Date().toISOString().replace("T", " ").substring(0, 19),
+          user: user?.username || "chuho_viet",
+          action: "NHẬP_KHO",
+          target: `Sản phẩm ${selectedProd.name} (+${qty} ${selectedProd.unit})`,
+        },
+        ...logs,
+      ]);
+      alert("Lập phiếu nhập kho và cập nhật tồn kho thành công!");
+      e.currentTarget.reset();
+    } catch (err: any) {
+      alert("Lỗi nhập kho: " + (err?.data?.message || "Không thể cập nhật tồn kho!"));
+    }
   };
 
   const handleOpenShift = () => {
@@ -743,7 +691,7 @@ export const DashboardPage: React.FC = () => {
       <div className="flex-1 flex overflow-hidden">
         
         {/* Left Sidebar */}
-        <aside className="w-52 bg-white border-r border-slate-200 p-4 shrink-0 flex flex-col gap-5 overflow-y-auto">
+        <aside className="w-60 bg-white border border-slate-200 rounded-xl my-3 ml-3 p-4 shrink-0 flex flex-col gap-5 overflow-y-auto shadow-sm">
           {currentRole === "VT-04" ? (
             <>
               <div className="font-extrabold text-sm text-slate-800 border-b pb-2">Quản trị nền tảng</div>
@@ -844,7 +792,7 @@ export const DashboardPage: React.FC = () => {
 
           {/* Active Tab: Products */}
           {activeTab === "products" && (
-            <>
+            <div className="flex flex-col gap-4">
               <div className="font-extrabold text-sm text-slate-800 border-b pb-2">Hàng hóa</div>
               <div className="flex flex-col gap-2">
                 <span className="font-bold text-slate-400 uppercase tracking-wide text-[10px]">
@@ -873,7 +821,17 @@ export const DashboardPage: React.FC = () => {
                   </button>
                 </div>
               </div>
-            </>
+              {productSubTab === "list" && (
+                <div className="border-t pt-4">
+                  <ProductSidebar
+                    selectedGroup={prodGroupFilter}
+                    setSelectedGroup={setProdGroupFilter}
+                    stockFilter={prodStockFilter}
+                    setStockFilter={setProdStockFilter}
+                  />
+                </div>
+              )}
+            </div>
           )}
 
           {/* Active Tab: Shifts */}
@@ -1625,164 +1583,19 @@ export const DashboardPage: React.FC = () => {
               
               {/* Product Subtab List */}
               {productSubTab === "list" && (
-                <>
-                  {/* Left Column: Product Table */}
-                  <div className="xl:col-span-3 bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-                    <div className="flex items-center justify-between border-b pb-4 mb-4">
-                      <span className="font-extrabold text-sm text-slate-800">
-                        Danh sách hàng hóa ({products.length} mặt hàng)
-                      </span>
-                    </div>
-
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-left border-collapse">
-                        <thead>
-                          <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold">
-                            <th className="p-3">Mã hàng (SKU)</th>
-                            <th className="p-3">Tên sản phẩm</th>
-                            <th className="p-3">Nhóm</th>
-                            <th className="p-3">Đơn vị</th>
-                            <th className="p-3 text-right">Đơn giá bán</th>
-                            <th className="p-3 text-right">Thuế suất</th>
-                            <th className="p-3 text-right">Tồn kho</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
-                          {products.map((prod) => (
-                            <tr key={prod.id} className="hover:bg-slate-50/50">
-                              <td className="p-3 font-mono font-bold text-slate-600">{prod.sku}</td>
-                              <td className="p-3 font-bold text-slate-800">{prod.name}</td>
-                              <td className="p-3">{prod.group}</td>
-                              <td className="p-3">{prod.unit}</td>
-                              <td className="p-3 text-right font-bold text-kv-blue-primary">
-                                {formatCurrency(prod.price)}
-                              </td>
-                              <td className="p-3 text-right text-amber-600 font-bold">{prod.tax}</td>
-                              <td className="p-3 text-right font-bold text-emerald-600">{prod.stock}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-
-                  {/* Right Column: Add product form */}
-                  <div className="xl:col-span-1 bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-start">
-                    <h3 className="font-extrabold text-slate-800 text-sm border-b pb-3 mb-4">
-                      Thêm hàng hóa mới
-                    </h3>
-                    {currentRole !== "VT-01" ? (
-                      <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 text-center text-slate-500 font-semibold">
-                        <svg className="w-10 h-10 text-amber-500 mx-auto mb-2" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
-                        </svg>
-                        <span className="text-[11px] leading-relaxed block font-bold text-slate-600">
-                          Tài khoản Kế toán (VT-03) chỉ được xem danh mục hàng hóa và kiểm đối, không có quyền thêm mới hoặc chỉnh sửa giá sản phẩm (QTN-17).
-                        </span>
-                      </div>
-                    ) : (
-                      <form onSubmit={handleAddProduct} className="flex flex-col gap-4 font-semibold text-slate-700">
-                        <div className="flex flex-col gap-1">
-                          <label>Mã sản phẩm (SKU):</label>
-                          <input
-                            type="text"
-                            name="sku"
-                            required
-                            placeholder="Ví dụ: 8934567890123"
-                            className="border border-slate-300 h-9 px-3 rounded-lg focus:outline-none focus:border-kv-blue-primary text-xs"
-                          />
-                        </div>
-
-                        <div className="flex flex-col gap-1">
-                          <label>Tên sản phẩm:</label>
-                          <input
-                            type="text"
-                            name="name"
-                            required
-                            placeholder="Tên mặt hàng chi tiết"
-                            className="border border-slate-300 h-9 px-3 rounded-lg focus:outline-none focus:border-kv-blue-primary text-xs"
-                          />
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-3">
-                          <div className="flex flex-col gap-1">
-                            <label>Nhóm hàng:</label>
-                            <select
-                              name="group"
-                              className="border border-slate-300 h-9 px-2 rounded-lg focus:outline-none focus:border-kv-blue-primary text-xs bg-white"
-                            >
-                              <option>Đồ uống</option>
-                              <option>Thực phẩm</option>
-                              <option>Hóa mỹ phẩm</option>
-                              <option>Đồ gia dụng</option>
-                            </select>
-                          </div>
-                          <div className="flex flex-col gap-1">
-                            <label>Đơn vị tính:</label>
-                            <input
-                              type="text"
-                              name="unit"
-                              required
-                              defaultValue="Lon"
-                              className="border border-slate-300 h-9 px-3 rounded-lg focus:outline-none focus:border-kv-blue-primary text-xs"
-                            />
-                          </div>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-3">
-                          <div className="flex flex-col gap-1">
-                            <label>Giá bán lẻ (đ):</label>
-                            <input
-                              type="number"
-                              name="price"
-                              required
-                              min="0"
-                              placeholder="0"
-                              className="border border-slate-300 h-9 px-3 rounded-lg focus:outline-none focus:border-kv-blue-primary text-xs"
-                            />
-                          </div>
-                          <div className="flex flex-col gap-1">
-                            <label>Tồn kho ban đầu:</label>
-                            <input
-                              type="number"
-                              name="stock"
-                              required
-                              min="0"
-                              placeholder="0"
-                              className="border border-slate-300 h-9 px-3 rounded-lg focus:outline-none focus:border-kv-blue-primary text-xs"
-                            />
-                          </div>
-                        </div>
-
-                        <div className="flex flex-col gap-1">
-                          <label>Thuế suất doanh thu áp dụng:</label>
-                          <select
-                            name="tax"
-                            className="border border-slate-300 h-9 px-2 rounded-lg focus:outline-none focus:border-kv-blue-primary text-xs bg-white"
-                          >
-                            <option>8% (Thuế GTGT hàng thông thường)</option>
-                            <option>5% (Thuế thiết yếu)</option>
-                            <option>10% (Thuế dịch vụ)</option>
-                            <option>0% (Không chịu thuế)</option>
-                          </select>
-                        </div>
-
-                        <button
-                          type="submit"
-                          className="bg-kv-blue-primary text-white h-9 rounded-lg font-bold hover:bg-kv-blue-dark transition-all shadow-sm mt-2"
-                        >
-                          Lưu sản phẩm
-                        </button>
-                      </form>
-                    )}
-                  </div>
-                </>
+                <div className="xl:col-span-4 animate-auth-fade-in">
+                  <ProductList
+                    userRole={currentRole}
+                    selectedGroup={prodGroupFilter}
+                    stockFilter={prodStockFilter}
+                  />
+                </div>
               )}
 
               {/* Product Subtab Stock entry */}
               {productSubTab === "stock-entry" && (
                 <>
-                  <div className="xl:col-span-3 bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+                  <div className="xl:col-span-3 bg-white p-5 rounded-xl border border-slate-200 shadow-sm animate-auth-fade-in">
                     <h3 className="font-extrabold text-slate-800 text-sm border-b pb-4 mb-4">
                       Lịch sử Phiếu nhập kho (stock_entries)
                     </h3>
@@ -1823,7 +1636,7 @@ export const DashboardPage: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="xl:col-span-1 bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-start">
+                  <div className="xl:col-span-1 bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-start animate-auth-fade-in">
                     <h3 className="font-extrabold text-slate-800 text-sm border-b pb-3 mb-4">
                       Lập phiếu nhập kho
                     </h3>
@@ -1845,7 +1658,7 @@ export const DashboardPage: React.FC = () => {
                             required
                             className="border border-slate-300 h-9 px-2 rounded-lg focus:outline-none focus:border-kv-blue-primary text-xs bg-white font-bold"
                           >
-                            {products.map((p) => (
+                            {dbProducts.map((p) => (
                               <option key={p.id} value={p.id}>
                                 {p.name} ({p.sku})
                               </option>
