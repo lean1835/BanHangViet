@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
 import { IProduct, PRODUCT_GROUPS, TAX_RATES } from "../types/product";
 
 interface ProductFormModalProps {
@@ -9,115 +12,112 @@ interface ProductFormModalProps {
   product?: IProduct | null;
 }
 
+// Zod Schema to strictly validate form data
+const productSchema = z.object({
+  sku: z.string().trim().min(1, "Vui lòng nhập mã sản phẩm (SKU)"),
+  name: z.string().trim().min(1, "Vui lòng nhập tên sản phẩm"),
+  groupId: z.string().nullable().optional(),
+  unit: z.string().trim().min(1, "Vui lòng nhập đơn vị tính"),
+  price: z.number().min(0, "Giá bán không được nhỏ hơn 0"),
+  stockQuantity: z.number().min(0, "Tồn kho không được nhỏ hơn 0"),
+  taxRateId: z.string().min(1, "Vui lòng chọn thuế suất"),
+  status: z.enum(["ACTIVE", "INACTIVE"]),
+});
+
+type ProductFormValues = z.infer<typeof productSchema>;
+
 export const ProductFormModal: React.FC<ProductFormModalProps> = ({
   isOpen,
   onClose,
   onSave,
   product,
 }) => {
-  const [sku, setSku] = useState("");
-  const [name, setName] = useState("");
-  const [groupId, setGroupId] = useState("");
-  const [unit, setUnit] = useState("");
-  const [price, setPrice] = useState<number>(0);
   const [priceInput, setPriceInput] = useState("");
-  const [stockQuantity, setStockQuantity] = useState<number>(0);
-  const [taxRateId, setTaxRateId] = useState("");
-  const [status, setStatus] = useState<"ACTIVE" | "INACTIVE">("ACTIVE");
 
-  const [errors, setErrors] = useState<{ [key: string]: string }>({});
-  const [isSaving, setIsSaving] = useState(false);
+  const {
+    register,
+    handleSubmit,
+    setValue,
+    reset,
+    formState: { errors, isSubmitting },
+  } = useForm<ProductFormValues>({
+    resolver: zodResolver(productSchema),
+    defaultValues: {
+      sku: "",
+      name: "",
+      groupId: "",
+      unit: "Lon",
+      price: 0,
+      stockQuantity: 0,
+      taxRateId: "",
+      status: "ACTIVE",
+    },
+  });
+
+  // Explicitly register custom form field (price is updated manually to handle dynamic styling/dots formatting)
+  useEffect(() => {
+    register("price");
+  }, [register]);
 
   useEffect(() => {
     if (product) {
-      setSku(product.sku || "");
-      setName(product.name || "");
-      setGroupId(product.groupId || "");
-      setUnit(product.unit || "");
-      setPrice(product.price || 0);
+      reset({
+        sku: product.sku || "",
+        name: product.name || "",
+        groupId: product.groupId || "",
+        unit: product.unit || "",
+        price: product.price || 0,
+        stockQuantity: product.stockQuantity || 0,
+        taxRateId: product.taxRateId || "",
+        status: product.status || "ACTIVE",
+      });
       setPriceInput(product.price ? new Intl.NumberFormat("vi-VN").format(product.price) : "");
-      setStockQuantity(product.stockQuantity || 0);
-      setTaxRateId(product.taxRateId || "");
-      setStatus(product.status || "ACTIVE");
     } else {
-      setSku("");
-      setName("");
-      // Mặc định chọn nhóm hàng đầu tiên nếu có
-      setGroupId(PRODUCT_GROUPS[0]?.id || "");
-      setUnit("Lon");
-      setPrice(0);
+      reset({
+        sku: "",
+        name: "",
+        groupId: PRODUCT_GROUPS[0]?.id || "",
+        unit: "Lon",
+        price: 0,
+        stockQuantity: 0,
+        taxRateId: TAX_RATES[0]?.id || "",
+        status: "ACTIVE",
+      });
       setPriceInput("");
-      setStockQuantity(0);
-      // Mặc định chọn thuế suất đầu tiên nếu có
-      setTaxRateId(TAX_RATES[0]?.id || "");
-      setStatus("ACTIVE");
     }
-    setErrors({});
-  }, [product, isOpen]);
+  }, [product, isOpen, reset]);
 
   const handlePriceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const rawVal = e.target.value.replace(/\D/g, "");
     if (!rawVal) {
       setPriceInput("");
-      setPrice(0);
+      setValue("price", 0, { shouldValidate: true });
       return;
     }
     const num = Number(rawVal);
-    setPrice(num);
+    setValue("price", num, { shouldValidate: true });
     setPriceInput(new Intl.NumberFormat("vi-VN").format(num));
   };
 
   if (!isOpen) return null;
 
-  const validate = () => {
-    const newErrors: { [key: string]: string } = {};
-
-    if (!sku.trim()) {
-      newErrors.sku = "Vui lòng nhập mã sản phẩm (SKU)";
-    }
-    if (!name.trim()) {
-      newErrors.name = "Vui lòng nhập tên sản phẩm";
-    }
-    if (!unit.trim()) {
-      newErrors.unit = "Vui lòng nhập đơn vị tính";
-    }
-    if (price < 0) {
-      newErrors.price = "Giá bán không được nhỏ hơn 0";
-    }
-    if (stockQuantity < 0) {
-      newErrors.stockQuantity = "Tồn kho không được nhỏ hơn 0";
-    }
-    if (!taxRateId) {
-      newErrors.taxRateId = "Vui lòng chọn thuế suất";
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!validate() || isSaving) return;
-
+  const onSubmit = async (values: ProductFormValues) => {
     const data: Partial<IProduct> & { taxRateId: string } = {
-      sku: sku.trim(),
-      name: name.trim(),
-      groupId: groupId || null,
-      unit: unit.trim(),
-      price,
-      stockQuantity,
-      taxRateId,
-      status,
+      sku: values.sku.trim(),
+      name: values.name.trim(),
+      groupId: values.groupId || null,
+      unit: values.unit.trim(),
+      price: values.price,
+      stockQuantity: values.stockQuantity,
+      taxRateId: values.taxRateId,
+      status: values.status,
     };
 
-    setIsSaving(true);
     try {
       await onSave(data);
       onClose();
     } catch (err) {
-      // Error handled by the page / parent component
-    } finally {
-      setIsSaving(false);
+      // Error handled by parent component / page notification
     }
   };
 
@@ -145,7 +145,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         </div>
 
         {/* Form Body */}
-        <form onSubmit={handleSubmit} className="p-5 flex flex-col gap-4 font-semibold text-slate-700 text-xs">
+        <form onSubmit={handleSubmit(onSubmit)} className="p-5 flex flex-col gap-4 font-semibold text-slate-700 text-xs">
           <div className="grid grid-cols-2 gap-x-4 gap-y-3">
             {/* SKU */}
             <div className="flex flex-col gap-1 col-span-2 sm:col-span-1">
@@ -153,11 +153,10 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
               <input
                 type="text"
                 placeholder="Ví dụ: 8934567890123"
-                value={sku}
-                onChange={(e) => setSku(e.target.value)}
+                {...register("sku")}
                 className={`border ${errors.sku ? "border-rose-500" : "border-slate-300"} h-9 px-3 rounded-lg focus:outline-none focus:border-kv-blue-primary`}
               />
-              {errors.sku && <span className="text-[10px] text-rose-500 font-bold">{errors.sku}</span>}
+              {errors.sku && <span className="text-[10px] text-rose-500 font-bold">{errors.sku.message}</span>}
             </div>
 
             {/* Đơn vị tính */}
@@ -166,11 +165,10 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
               <input
                 type="text"
                 placeholder="Ví dụ: Lon, Chai, Gói..."
-                value={unit}
-                onChange={(e) => setUnit(e.target.value)}
+                {...register("unit")}
                 className={`border ${errors.unit ? "border-rose-500" : "border-slate-300"} h-9 px-3 rounded-lg focus:outline-none focus:border-kv-blue-primary`}
               />
-              {errors.unit && <span className="text-[10px] text-rose-500 font-bold">{errors.unit}</span>}
+              {errors.unit && <span className="text-[10px] text-rose-500 font-bold">{errors.unit.message}</span>}
             </div>
 
             {/* Tên hàng hóa */}
@@ -179,19 +177,17 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
               <input
                 type="text"
                 placeholder="Ví dụ: Nước ngọt Coca-Cola lon 320ml"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
+                {...register("name")}
                 className={`border ${errors.name ? "border-rose-500" : "border-slate-300"} h-9 px-3 rounded-lg focus:outline-none focus:border-kv-blue-primary`}
               />
-              {errors.name && <span className="text-[10px] text-rose-500 font-bold">{errors.name}</span>}
+              {errors.name && <span className="text-[10px] text-rose-500 font-bold">{errors.name.message}</span>}
             </div>
 
             {/* Nhóm hàng */}
             <div className="flex flex-col gap-1 col-span-2 sm:col-span-1">
               <label className="text-slate-600">Nhóm hàng hóa:</label>
               <select
-                value={groupId}
-                onChange={(e) => setGroupId(e.target.value)}
+                {...register("groupId")}
                 className="border border-slate-300 h-9 px-2 rounded-lg bg-white focus:outline-none focus:border-kv-blue-primary"
               >
                 <option value="">-- Chọn nhóm hàng --</option>
@@ -207,8 +203,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
             <div className="flex flex-col gap-1 col-span-2 sm:col-span-1">
               <label className="text-slate-600">Trạng thái bán:</label>
               <select
-                value={status}
-                onChange={(e) => setStatus(e.target.value as any)}
+                {...register("status")}
                 className="border border-slate-300 h-9 px-2 rounded-lg bg-white focus:outline-none focus:border-kv-blue-primary"
               >
                 <option value="ACTIVE">Đang bán (ACTIVE)</option>
@@ -226,7 +221,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                 onChange={handlePriceChange}
                 className={`border ${errors.price ? "border-rose-500" : "border-slate-300"} h-9 px-3 rounded-lg focus:outline-none focus:border-kv-blue-primary`}
               />
-              {errors.price && <span className="text-[10px] text-rose-500 font-bold">{errors.price}</span>}
+              {errors.price && <span className="text-[10px] text-rose-500 font-bold">{errors.price.message}</span>}
             </div>
 
             {/* Tồn kho ban đầu */}
@@ -235,13 +230,12 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
               <input
                 type="number"
                 min="0"
-                value={stockQuantity}
-                onChange={(e) => setStockQuantity(Number(e.target.value))}
+                {...register("stockQuantity", { valueAsNumber: true })}
                 className={`border ${errors.stockQuantity ? "border-rose-500" : "border-slate-300"} h-9 px-3 rounded-lg focus:outline-none focus:border-kv-blue-primary`}
-                disabled={!!product} // Chỉ cho phép nhập tồn kho khi tạo mới sản phẩm.
+                disabled={!!product}
               />
               {errors.stockQuantity && (
-                <span className="text-[10px] text-rose-500 font-bold">{errors.stockQuantity}</span>
+                <span className="text-[10px] text-rose-500 font-bold">{errors.stockQuantity.message}</span>
               )}
             </div>
 
@@ -249,8 +243,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
             <div className="flex flex-col gap-1 col-span-2">
               <label className="text-slate-600">Thuế suất doanh thu áp dụng*:</label>
               <select
-                value={taxRateId}
-                onChange={(e) => setTaxRateId(e.target.value)}
+                {...register("taxRateId")}
                 className={`border ${errors.taxRateId ? "border-rose-500" : "border-slate-300"} h-9 px-2 rounded-lg bg-white focus:outline-none focus:border-kv-blue-primary`}
               >
                 <option value="">-- Chọn thuế suất --</option>
@@ -260,7 +253,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                   </option>
                 ))}
               </select>
-              {errors.taxRateId && <span className="text-[10px] text-rose-500 font-bold">{errors.taxRateId}</span>}
+              {errors.taxRateId && <span className="text-[10px] text-rose-500 font-bold">{errors.taxRateId.message}</span>}
             </div>
           </div>
 
@@ -275,10 +268,10 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
             </button>
             <button
               type="submit"
-              disabled={isSaving}
+              disabled={isSubmitting}
               className="bg-kv-blue-primary hover:bg-kv-blue-dark text-white transition-colors px-5 h-9 rounded-lg font-bold shadow-sm"
             >
-              {isSaving ? "Đang lưu..." : "Lưu sản phẩm"}
+              {isSubmitting ? "Đang lưu..." : "Lưu sản phẩm"}
             </button>
           </div>
         </form>

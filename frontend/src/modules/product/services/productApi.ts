@@ -14,7 +14,7 @@ export const productApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
     getProducts: builder.query<
       PageResponse<IProduct>,
-      { search?: string; groupId?: string; status?: string; page?: number; size?: number } | void
+      { search?: string; groupId?: string; status?: string; stockFilter?: string; page?: number; size?: number } | void
     >({
       query: (params) => ({
         url: "/products",
