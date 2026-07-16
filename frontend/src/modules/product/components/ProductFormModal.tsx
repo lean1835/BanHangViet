@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { IProduct, PRODUCT_GROUPS, TAX_RATES } from "../types/product";
+import { IProduct, TAX_RATES } from "../types/product";
+import { useGetProductGroupsQuery } from "../services/productApi";
 
 interface ProductFormModalProps {
   isOpen: boolean;
@@ -14,10 +15,10 @@ interface ProductFormModalProps {
 
 // Zod Schema to strictly validate form data
 const productSchema = z.object({
-  sku: z.string().trim().min(1, "Vui lòng nhập mã sản phẩm (SKU)"),
-  name: z.string().trim().min(1, "Vui lòng nhập tên sản phẩm"),
+  sku: z.string().trim().min(1, "Vui lòng nhập mã sản phẩm (SKU)").max(50, "Mã hàng (SKU) không được vượt quá 50 ký tự"),
+  name: z.string().trim().min(1, "Vui lòng nhập tên sản phẩm").max(255, "Tên hàng hóa không được vượt quá 255 ký tự"),
   groupId: z.string().nullable().optional(),
-  unit: z.string().trim().min(1, "Vui lòng nhập đơn vị tính"),
+  unit: z.string().trim().min(1, "Vui lòng nhập đơn vị tính").max(50, "Đơn vị tính không được vượt quá 50 ký tự"),
   price: z.number().min(0, "Giá bán không được nhỏ hơn 0"),
   stockQuantity: z.number().min(0, "Tồn kho không được nhỏ hơn 0"),
   taxRateId: z.string().min(1, "Vui lòng chọn thuế suất"),
@@ -33,6 +34,10 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
   product,
 }) => {
   const [priceInput, setPriceInput] = useState("");
+  const { data: groups = [] } = useGetProductGroupsQuery();
+  const sortedGroups = useMemo(() => {
+    return [...groups].sort((a, b) => a.name.localeCompare(b.name, "vi"));
+  }, [groups]);
 
   const {
     register,
@@ -76,7 +81,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
       reset({
         sku: "",
         name: "",
-        groupId: PRODUCT_GROUPS[0]?.id || "",
+        groupId: "",
         unit: "Lon",
         price: 0,
         stockQuantity: 0,
@@ -191,7 +196,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                 className="border border-slate-300 h-9 px-2 rounded-lg bg-white focus:outline-none focus:border-kv-blue-primary"
               >
                 <option value="">-- Chọn nhóm hàng --</option>
-                {PRODUCT_GROUPS.map((g) => (
+                {sortedGroups.map((g) => (
                   <option key={g.id} value={g.id}>
                     {g.name}
                   </option>

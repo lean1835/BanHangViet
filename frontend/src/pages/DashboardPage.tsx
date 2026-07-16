@@ -828,6 +828,7 @@ export const DashboardPage: React.FC = () => {
                     setSelectedGroup={setProdGroupFilter}
                     stockFilter={prodStockFilter}
                     setStockFilter={setProdStockFilter}
+                    userRole={currentRole}
                   />
                 </div>
               )}

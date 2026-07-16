@@ -53,7 +53,7 @@ public class ProductSpecification {
                 if ("IN_STOCK".equalsIgnoreCase(stockFilter)) {
                     predicates.add(criteriaBuilder.greaterThan(root.get("stockQuantity"), BigDecimal.ZERO));
                 } else if ("OUT_OF_STOCK".equalsIgnoreCase(stockFilter)) {
-                    predicates.add(criteriaBuilder.equal(root.get("stockQuantity"), BigDecimal.ZERO));
+                    predicates.add(criteriaBuilder.lessThanOrEqualTo(root.get("stockQuantity"), BigDecimal.ZERO));
                 }
             }
 
