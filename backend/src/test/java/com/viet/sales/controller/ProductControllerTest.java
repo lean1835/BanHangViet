@@ -311,6 +311,91 @@ public class ProductControllerTest {
     }
 
     @Test
+    @WithMockUser(username = "test_employee_product", roles = {"VT-02"})
+    public void getProducts_excludeInactiveTrue_success() throws Exception {
+        // Tạo sản phẩm active
+        Product pActive = Product.builder()
+                .household(testHousehold)
+                .taxRate(testTaxRate)
+                .sku("SKU-EX-ACTIVE")
+                .name("Sữa tươi Ba Vì")
+                .unit("Hộp")
+                .price(new BigDecimal("10000.00"))
+                .stockQuantity(new BigDecimal("20.000"))
+                .status("ACTIVE")
+                .build();
+        productRepository.save(pActive);
+
+        // Tạo sản phẩm inactive
+        Product pInactive = Product.builder()
+                .household(testHousehold)
+                .taxRate(testTaxRate)
+                .sku("SKU-EX-INACTIVE")
+                .name("Sữa tươi Mộc Châu")
+                .unit("Hộp")
+                .price(new BigDecimal("10000.00"))
+                .stockQuantity(new BigDecimal("20.000"))
+                .status("INACTIVE")
+                .build();
+        productRepository.save(pInactive);
+        productRepository.flush();
+
+        // Tìm kiếm sữa tươi, lọc bỏ hàng ngừng bán (excludeInactive = true)
+        mockMvc.perform(get("/api/v1/products")
+                        .param("search", "Sữa tươi")
+                        .param("excludeInactive", "true")
+                        .param("page", "0")
+                        .param("size", "10"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(1000))
+                .andExpect(jsonPath("$.result.content").isArray())
+                .andExpect(jsonPath("$.result.totalElements").value(1))
+                .andExpect(jsonPath("$.result.content[0].sku").value("SKU-EX-ACTIVE"));
+    }
+
+    @Test
+    @WithMockUser(username = "test_employee_product", roles = {"VT-02"})
+    public void getProducts_excludeInactiveFalse_success() throws Exception {
+        // Tạo sản phẩm active
+        Product pActive = Product.builder()
+                .household(testHousehold)
+                .taxRate(testTaxRate)
+                .sku("SKU-EX-ACTIVE2")
+                .name("Sữa tươi Ba Vì 2")
+                .unit("Hộp")
+                .price(new BigDecimal("10000.00"))
+                .stockQuantity(new BigDecimal("20.000"))
+                .status("ACTIVE")
+                .build();
+        productRepository.save(pActive);
+
+        // Tạo sản phẩm inactive
+        Product pInactive = Product.builder()
+                .household(testHousehold)
+                .taxRate(testTaxRate)
+                .sku("SKU-EX-INACTIVE2")
+                .name("Sữa tươi Mộc Châu 2")
+                .unit("Hộp")
+                .price(new BigDecimal("10000.00"))
+                .stockQuantity(new BigDecimal("20.000"))
+                .status("INACTIVE")
+                .build();
+        productRepository.save(pInactive);
+        productRepository.flush();
+
+        // Tìm kiếm sữa tươi, không lọc bỏ hàng ngừng bán (excludeInactive = false)
+        mockMvc.perform(get("/api/v1/products")
+                        .param("search", "Sữa tươi")
+                        .param("excludeInactive", "false")
+                        .param("page", "0")
+                        .param("size", "10"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(1000))
+                .andExpect(jsonPath("$.result.content").isArray())
+                .andExpect(jsonPath("$.result.totalElements").value(2));
+    }
+
+    @Test
     @WithMockUser(username = "test_owner_product", roles = {"VT-01"})
     public void deleteProduct_success() throws Exception {
         // Tạo sản phẩm trước

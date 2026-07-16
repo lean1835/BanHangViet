@@ -14,7 +14,8 @@ public class ProductSpecification {
             String householdId,
             String search,
             String groupId,
-            String status) {
+            String status,
+            Boolean excludeInactive) {
         return (root, query, criteriaBuilder) -> {
             List<Predicate> predicates = new ArrayList<>();
 
@@ -32,6 +33,11 @@ public class ProductSpecification {
             // 4. Lọc theo trạng thái (status)
             if (StringUtils.hasText(status)) {
                 predicates.add(criteriaBuilder.equal(root.get("status"), status));
+            }
+
+            // Loại bỏ hàng ngừng bán (INACTIVE) nếu excludeInactive = true
+            if (Boolean.TRUE.equals(excludeInactive)) {
+                predicates.add(criteriaBuilder.equal(root.get("status"), "ACTIVE"));
             }
 
             // 5. Tìm kiếm theo tên hoặc SKU

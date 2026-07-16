@@ -239,14 +239,14 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     @Transactional(readOnly = true)
-    public PageResponse<ProductResponse> getProducts(String currentUsername, String search, String groupId, String status, int page, int size) {
+    public PageResponse<ProductResponse> getProducts(String currentUsername, String search, String groupId, String status, Boolean excludeInactive, int page, int size) {
         User currentUser = getAuthenticatedUser(currentUsername);
         BusinessHousehold household = currentUser.getHousehold();
         if (household == null) {
             throw new AppException(ErrorCode.UNAUTHORIZED);
         }
 
-        Specification<Product> spec = ProductSpecification.filterProducts(household.getId(), search, groupId, status);
+        Specification<Product> spec = ProductSpecification.filterProducts(household.getId(), search, groupId, status, excludeInactive);
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
 
         Page<Product> productPage = productRepository.findAll(spec, pageable);
