@@ -84,10 +84,12 @@ public class ProductController {
             @RequestParam(required = false) String search,
             @RequestParam(required = false) String groupId,
             @RequestParam(required = false) String status,
+            @RequestParam(required = false) Boolean excludeInactive,
+            @RequestParam(required = false) String stockFilter,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
         PageResponse<ProductResponse> result = productService.getProducts(
-                principal.getName(), search, groupId, status, page, size);
+                principal.getName(), search, groupId, status, excludeInactive, stockFilter, page, size);
         ApiResponse<PageResponse<ProductResponse>> response = ApiResponse.<PageResponse<ProductResponse>>builder()
                 .code(1000)
                 .message("Lấy danh sách hàng hóa thành công")

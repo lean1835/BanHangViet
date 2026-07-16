@@ -36,7 +36,7 @@ public class GoodsReceiptController {
     }
 
     @GetMapping
-    @PreAuthorize("hasRole('VT-01')")
+    @PreAuthorize("hasAnyRole('VT-01', 'VT-03')")
     public ResponseEntity<ApiResponse<PageResponse<GoodsReceiptResponse>>> getGoodsReceipts(
             Principal principal,
             @RequestParam(defaultValue = "0") int page,
@@ -51,7 +51,7 @@ public class GoodsReceiptController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasRole('VT-01')")
+    @PreAuthorize("hasAnyRole('VT-01', 'VT-03')")
     public ResponseEntity<ApiResponse<GoodsReceiptDetailInfoResponse>> getGoodsReceiptById(
             Principal principal,
             @PathVariable String id) {

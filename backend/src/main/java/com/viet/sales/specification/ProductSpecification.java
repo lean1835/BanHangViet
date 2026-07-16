@@ -8,13 +8,17 @@ import org.springframework.util.StringUtils;
 import java.util.ArrayList;
 import java.util.List;
 
+import java.math.BigDecimal;
+
 public class ProductSpecification {
 
     public static Specification<Product> filterProducts(
             String householdId,
             String search,
             String groupId,
-            String status) {
+            String status,
+            Boolean excludeInactive,
+            String stockFilter) {
         return (root, query, criteriaBuilder) -> {
             List<Predicate> predicates = new ArrayList<>();
 
@@ -29,8 +33,10 @@ public class ProductSpecification {
                 predicates.add(criteriaBuilder.equal(root.get("group").get("id"), groupId));
             }
 
-            // 4. Lọc theo trạng thái (status)
-            if (StringUtils.hasText(status)) {
+            // 4. Lọc theo trạng thái (status) và loại bỏ hàng ngừng bán (excludeInactive)
+            if (Boolean.TRUE.equals(excludeInactive)) {
+                predicates.add(criteriaBuilder.equal(root.get("status"), "ACTIVE"));
+            } else if (StringUtils.hasText(status)) {
                 predicates.add(criteriaBuilder.equal(root.get("status"), status));
             }
 
@@ -40,6 +46,15 @@ public class ProductSpecification {
                 Predicate namePredicate = criteriaBuilder.like(criteriaBuilder.lower(root.get("name")), searchPattern);
                 Predicate skuPredicate = criteriaBuilder.like(criteriaBuilder.lower(root.get("sku")), searchPattern);
                 predicates.add(criteriaBuilder.or(namePredicate, skuPredicate));
+            }
+
+            // 6. Lọc theo trạng thái tồn kho (IN_STOCK / OUT_OF_STOCK)
+            if (StringUtils.hasText(stockFilter)) {
+                if ("IN_STOCK".equalsIgnoreCase(stockFilter)) {
+                    predicates.add(criteriaBuilder.greaterThan(root.get("stockQuantity"), BigDecimal.ZERO));
+                } else if ("OUT_OF_STOCK".equalsIgnoreCase(stockFilter)) {
+                    predicates.add(criteriaBuilder.equal(root.get("stockQuantity"), BigDecimal.ZERO));
+                }
             }
 
             return criteriaBuilder.and(predicates.toArray(new Predicate[0]));

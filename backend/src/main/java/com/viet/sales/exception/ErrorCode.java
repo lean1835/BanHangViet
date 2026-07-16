@@ -23,9 +23,12 @@ public enum ErrorCode {
     PRODUCT_SKU_EXISTS(3002, "Mã hàng (SKU) đã tồn tại trong hộ kinh doanh", HttpStatus.BAD_REQUEST),
     TAX_RATE_NOT_FOUND(3003, "Thuế suất không tồn tại hoặc không thuộc hộ kinh doanh", HttpStatus.NOT_FOUND),
     PRODUCT_GROUP_NOT_FOUND(3004, "Nhóm hàng không tồn tại hoặc không thuộc hộ kinh doanh", HttpStatus.NOT_FOUND),
-    RECEIPT_NUMBER_EXISTS(3005, "Số phiếu nhập kho đã tồn tại trên hệ thống", HttpStatus.BAD_REQUEST),
-    GOODS_RECEIPT_NOT_FOUND(3006, "Phiếu nhập kho không tồn tại", HttpStatus.NOT_FOUND),
-    EMPTY_RECEIPT_DETAILS(3007, "Phiếu nhập kho phải chứa ít nhất một mặt hàng", HttpStatus.BAD_REQUEST);
+    SHIFT_ALREADY_OPEN(3005, "Nhân viên đã có một ca bán hàng đang mở chưa đóng", HttpStatus.BAD_REQUEST),
+    ACTIVE_SHIFT_NOT_FOUND(3006, "Không tìm thấy ca bán hàng hoạt động của nhân viên", HttpStatus.NOT_FOUND),
+    PRODUCT_GROUP_ALREADY_EXISTS(3010, "Tên nhóm hàng đã tồn tại trên hệ thống", HttpStatus.BAD_REQUEST),
+    RECEIPT_NUMBER_EXISTS(3011, "Số phiếu nhập kho đã tồn tại trên hệ thống", HttpStatus.BAD_REQUEST),
+    GOODS_RECEIPT_NOT_FOUND(3012, "Phiếu nhập kho không tồn tại", HttpStatus.NOT_FOUND),
+    EMPTY_RECEIPT_DETAILS(3013, "Phiếu nhập kho phải chứa ít nhất một mặt hàng", HttpStatus.BAD_REQUEST);
 
     private final int code;
     private final String message;

@@ -123,12 +123,11 @@ public class GoodsReceiptServiceImpl implements GoodsReceiptService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    @PreAuthorize("hasRole('VT-01')")
     public GoodsReceiptResponse createGoodsReceipt(String currentUsername, CreateGoodsReceiptRequest request) {
         User currentUser = getAuthenticatedUser(currentUsername);
         BusinessHousehold household = currentUser.getHousehold();
         if (household == null) {
-            throw new AppException(ErrorCode.UNAUTHORIZED);
+            throw new AppException(ErrorCode.FORBIDDEN);
         }
 
         // Validate details
@@ -187,12 +186,11 @@ public class GoodsReceiptServiceImpl implements GoodsReceiptService {
 
     @Override
     @Transactional(readOnly = true)
-    @PreAuthorize("hasRole('VT-01')")
     public PageResponse<GoodsReceiptResponse> getGoodsReceipts(String currentUsername, int page, int size) {
         User currentUser = getAuthenticatedUser(currentUsername);
         BusinessHousehold household = currentUser.getHousehold();
         if (household == null) {
-            throw new AppException(ErrorCode.UNAUTHORIZED);
+            throw new AppException(ErrorCode.FORBIDDEN);
         }
 
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
@@ -214,12 +212,11 @@ public class GoodsReceiptServiceImpl implements GoodsReceiptService {
 
     @Override
     @Transactional(readOnly = true)
-    @PreAuthorize("hasRole('VT-01')")
     public GoodsReceiptDetailInfoResponse getGoodsReceiptById(String currentUsername, String id) {
         User currentUser = getAuthenticatedUser(currentUsername);
         BusinessHousehold household = currentUser.getHousehold();
         if (household == null) {
-            throw new AppException(ErrorCode.UNAUTHORIZED);
+            throw new AppException(ErrorCode.FORBIDDEN);
         }
 
         GoodsReceipt receipt = goodsReceiptRepository.findByIdAndHouseholdId(id, household.getId())

@@ -56,6 +56,7 @@ public class GoodsReceiptControllerTest {
 
     private User ownerUser;
     private User employeeUser;
+    private User accountingUser;
     private BusinessHousehold household;
     private Product product1;
 
@@ -63,6 +64,7 @@ public class GoodsReceiptControllerTest {
     public void setUp() {
         Role ownerRole = getOrCreateRole("VT-01", "Chủ hộ kinh doanh");
         Role employeeRole = getOrCreateRole("VT-02", "Nhân viên bán hàng");
+        Role accountingRole = getOrCreateRole("VT-03", "Kế toán");
 
         household = BusinessHousehold.builder()
                 .name("Siêu Thị Mini Test")
@@ -91,6 +93,16 @@ public class GoodsReceiptControllerTest {
                 .isActive(true)
                 .build();
         userRepository.save(employeeUser);
+
+        accountingUser = User.builder()
+                .username("accounting_test_inv")
+                .passwordHash("hash")
+                .fullName("Trần Kế Toán")
+                .role(accountingRole)
+                .household(household)
+                .isActive(true)
+                .build();
+        userRepository.save(accountingUser);
 
         TaxRate taxRate = TaxRate.builder()
                 .household(household)
@@ -177,7 +189,7 @@ public class GoodsReceiptControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value(3005))
+                .andExpect(jsonPath("$.code").value(3011))
                 .andExpect(jsonPath("$.message").value("Số phiếu nhập kho đã tồn tại trên hệ thống"));
     }
 
@@ -243,6 +255,43 @@ public class GoodsReceiptControllerTest {
 
         CreateGoodsReceiptRequest request = CreateGoodsReceiptRequest.builder()
                 .receiptNumber("GR-EMP")
+                .details(Collections.singletonList(detail))
+                .build();
+
+        mockMvc.perform(post("/api/v1/goods-receipts")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(username = "accounting_test_inv", roles = "VT-03")
+    public void getGoodsReceipts_accountingRole_success() throws Exception {
+        GoodsReceipt existing = GoodsReceipt.builder()
+                .household(household)
+                .createdByUser(ownerUser)
+                .receiptNumber("GR-ACCT")
+                .receivedAt(java.time.LocalDateTime.now())
+                .build();
+        goodsReceiptRepository.save(existing);
+
+        mockMvc.perform(get("/api/v1/goods-receipts"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(1000))
+                .andExpect(jsonPath("$.result.content[0].receiptNumber").value("GR-ACCT"));
+    }
+
+    @Test
+    @WithMockUser(username = "accounting_test_inv", roles = "VT-03")
+    public void createGoodsReceipt_accountingRole_forbidden() throws Exception {
+        CreateGoodsReceiptDetailRequest detail = CreateGoodsReceiptDetailRequest.builder()
+                .productId(product1.getId())
+                .quantity(new BigDecimal("10.000"))
+                .purchasePrice(new BigDecimal("8000.00"))
+                .build();
+
+        CreateGoodsReceiptRequest request = CreateGoodsReceiptRequest.builder()
+                .receiptNumber("GR-ACCT-FORBID")
                 .details(Collections.singletonList(detail))
                 .build();
 
