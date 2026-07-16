@@ -116,7 +116,7 @@ public class ProductServiceImpl implements ProductService {
         User currentUser = getAuthenticatedUser(currentUsername);
         BusinessHousehold household = currentUser.getHousehold();
         if (household == null) {
-            throw new AppException(ErrorCode.UNAUTHORIZED);
+            throw new AppException(ErrorCode.FORBIDDEN);
         }
 
         // Kiểm tra trùng lặp SKU trong cùng hộ kinh doanh
@@ -160,7 +160,7 @@ public class ProductServiceImpl implements ProductService {
         User currentUser = getAuthenticatedUser(currentUsername);
         BusinessHousehold household = currentUser.getHousehold();
         if (household == null) {
-            throw new AppException(ErrorCode.UNAUTHORIZED);
+            throw new AppException(ErrorCode.FORBIDDEN);
         }
 
         Product product = productRepository.findByIdAndHouseholdIdAndDeletedAtIsNull(productId, household.getId())
@@ -206,7 +206,7 @@ public class ProductServiceImpl implements ProductService {
         User currentUser = getAuthenticatedUser(currentUsername);
         BusinessHousehold household = currentUser.getHousehold();
         if (household == null) {
-            throw new AppException(ErrorCode.UNAUTHORIZED);
+            throw new AppException(ErrorCode.FORBIDDEN);
         }
 
         Product product = productRepository.findByIdAndHouseholdIdAndDeletedAtIsNull(productId, household.getId())
@@ -228,7 +228,7 @@ public class ProductServiceImpl implements ProductService {
         User currentUser = getAuthenticatedUser(currentUsername);
         BusinessHousehold household = currentUser.getHousehold();
         if (household == null) {
-            throw new AppException(ErrorCode.UNAUTHORIZED);
+            throw new AppException(ErrorCode.FORBIDDEN);
         }
 
         Product product = productRepository.findByIdAndHouseholdIdAndDeletedAtIsNull(productId, household.getId())
@@ -243,7 +243,7 @@ public class ProductServiceImpl implements ProductService {
         User currentUser = getAuthenticatedUser(currentUsername);
         BusinessHousehold household = currentUser.getHousehold();
         if (household == null) {
-            throw new AppException(ErrorCode.UNAUTHORIZED);
+            throw new AppException(ErrorCode.FORBIDDEN);
         }
 
         Specification<Product> spec = ProductSpecification.filterProducts(household.getId(), search, groupId, status, excludeInactive);

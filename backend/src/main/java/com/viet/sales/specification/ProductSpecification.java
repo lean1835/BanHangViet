@@ -30,14 +30,11 @@ public class ProductSpecification {
                 predicates.add(criteriaBuilder.equal(root.get("group").get("id"), groupId));
             }
 
-            // 4. Lọc theo trạng thái (status)
-            if (StringUtils.hasText(status)) {
-                predicates.add(criteriaBuilder.equal(root.get("status"), status));
-            }
-
-            // Loại bỏ hàng ngừng bán (INACTIVE) nếu excludeInactive = true
+            // 4. Lọc theo trạng thái (status) và loại bỏ hàng ngừng bán (excludeInactive)
             if (Boolean.TRUE.equals(excludeInactive)) {
                 predicates.add(criteriaBuilder.equal(root.get("status"), "ACTIVE"));
+            } else if (StringUtils.hasText(status)) {
+                predicates.add(criteriaBuilder.equal(root.get("status"), status));
             }
 
             // 5. Tìm kiếm theo tên hoặc SKU

@@ -317,8 +317,8 @@ public class ProductControllerTest {
         Product pActive = Product.builder()
                 .household(testHousehold)
                 .taxRate(testTaxRate)
-                .sku("SKU-EX-ACTIVE")
-                .name("Sữa tươi Ba Vì")
+                .sku("SKU-EX-ACTIVE-TRUE")
+                .name("Sữa tươi Ba Vì True")
                 .unit("Hộp")
                 .price(new BigDecimal("10000.00"))
                 .stockQuantity(new BigDecimal("20.000"))
@@ -330,8 +330,8 @@ public class ProductControllerTest {
         Product pInactive = Product.builder()
                 .household(testHousehold)
                 .taxRate(testTaxRate)
-                .sku("SKU-EX-INACTIVE")
-                .name("Sữa tươi Mộc Châu")
+                .sku("SKU-EX-INACTIVE-TRUE")
+                .name("Sữa tươi Mộc Châu True")
                 .unit("Hộp")
                 .price(new BigDecimal("10000.00"))
                 .stockQuantity(new BigDecimal("20.000"))
@@ -342,7 +342,7 @@ public class ProductControllerTest {
 
         // Tìm kiếm sữa tươi, lọc bỏ hàng ngừng bán (excludeInactive = true)
         mockMvc.perform(get("/api/v1/products")
-                        .param("search", "Sữa tươi")
+                        .param("search", "True")
                         .param("excludeInactive", "true")
                         .param("page", "0")
                         .param("size", "10"))
@@ -350,7 +350,7 @@ public class ProductControllerTest {
                 .andExpect(jsonPath("$.code").value(1000))
                 .andExpect(jsonPath("$.result.content").isArray())
                 .andExpect(jsonPath("$.result.totalElements").value(1))
-                .andExpect(jsonPath("$.result.content[0].sku").value("SKU-EX-ACTIVE"));
+                .andExpect(jsonPath("$.result.content[0].sku").value("SKU-EX-ACTIVE-TRUE"));
     }
 
     @Test
@@ -360,8 +360,8 @@ public class ProductControllerTest {
         Product pActive = Product.builder()
                 .household(testHousehold)
                 .taxRate(testTaxRate)
-                .sku("SKU-EX-ACTIVE2")
-                .name("Sữa tươi Ba Vì 2")
+                .sku("SKU-EX-ACTIVE-FALSE")
+                .name("Sữa tươi Ba Vì False")
                 .unit("Hộp")
                 .price(new BigDecimal("10000.00"))
                 .stockQuantity(new BigDecimal("20.000"))
@@ -373,8 +373,8 @@ public class ProductControllerTest {
         Product pInactive = Product.builder()
                 .household(testHousehold)
                 .taxRate(testTaxRate)
-                .sku("SKU-EX-INACTIVE2")
-                .name("Sữa tươi Mộc Châu 2")
+                .sku("SKU-EX-INACTIVE-FALSE")
+                .name("Sữa tươi Mộc Châu False")
                 .unit("Hộp")
                 .price(new BigDecimal("10000.00"))
                 .stockQuantity(new BigDecimal("20.000"))
@@ -385,7 +385,7 @@ public class ProductControllerTest {
 
         // Tìm kiếm sữa tươi, không lọc bỏ hàng ngừng bán (excludeInactive = false)
         mockMvc.perform(get("/api/v1/products")
-                        .param("search", "Sữa tươi")
+                        .param("search", "False")
                         .param("excludeInactive", "false")
                         .param("page", "0")
                         .param("size", "10"))
