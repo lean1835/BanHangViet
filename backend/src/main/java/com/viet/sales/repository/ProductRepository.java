@@ -10,6 +10,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 
+import java.util.List;
 import java.util.Optional;
 
 @Repository
@@ -21,6 +22,9 @@ public interface ProductRepository extends JpaRepository<Product, String>, JpaSp
 
     @EntityGraph(attributePaths = {"group", "taxRate", "household"})
     Optional<Product> findByIdAndHouseholdIdAndDeletedAtIsNull(String id, String householdId);
+
+    @EntityGraph(attributePaths = {"group", "taxRate", "household"})
+    List<Product> findByGroupIdAndDeletedAtIsNull(String groupId);
 
     @Override
     @EntityGraph(attributePaths = {"group", "taxRate", "household"})
