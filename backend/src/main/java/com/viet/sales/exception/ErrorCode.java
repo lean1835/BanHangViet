@@ -18,7 +18,9 @@ public enum ErrorCode {
     INVALID_INPUT(2006, "Dữ liệu đầu vào không hợp lệ", HttpStatus.BAD_REQUEST),
     WRONG_PASSWORD(2007, "Mật khẩu không chính xác", HttpStatus.BAD_REQUEST),
     USER_BLOCKED(2008, "Tài khoản đã bị khóa", HttpStatus.FORBIDDEN),
-    FORBIDDEN(2009, "Bạn không có quyền truy cập", HttpStatus.FORBIDDEN);
+    FORBIDDEN(2009, "Bạn không có quyền truy cập", HttpStatus.FORBIDDEN),
+    SHIFT_ALREADY_OPEN(3001, "Nhân viên đã có một ca bán hàng đang mở chưa đóng", HttpStatus.BAD_REQUEST),
+    ACTIVE_SHIFT_NOT_FOUND(3002, "Không tìm thấy ca bán hàng hoạt động của nhân viên", HttpStatus.NOT_FOUND);
 
     private final int code;
     private final String message;
