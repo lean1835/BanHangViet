@@ -65,7 +65,7 @@ public class ProductGroupController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('VT-01', 'VT-02')")
+    @PreAuthorize("hasAnyRole('VT-01', 'VT-02', 'VT-03')")
     public ResponseEntity<ApiResponse<List<ProductGroupResponse>>> getAllProductGroups(Principal principal) {
         List<ProductGroupResponse> result = productGroupService.getAllProductGroups(principal.getName());
         ApiResponse<List<ProductGroupResponse>> response = ApiResponse.<List<ProductGroupResponse>>builder()
@@ -77,7 +77,7 @@ public class ProductGroupController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('VT-01', 'VT-02')")
+    @PreAuthorize("hasAnyRole('VT-01', 'VT-02', 'VT-03')")
     public ResponseEntity<ApiResponse<ProductGroupDetailResponse>> getProductGroupById(
             Principal principal,
             @PathVariable String id) {

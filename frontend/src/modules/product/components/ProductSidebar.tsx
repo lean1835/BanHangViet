@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { useGetProductGroupsQuery } from "../services/productApi";
 import { ProductGroupManagerModal } from "./ProductGroupManagerModal";
 
@@ -19,7 +19,9 @@ export const ProductSidebar: React.FC<ProductSidebarProps> = ({
 }) => {
   const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
   const { data: groups = [] } = useGetProductGroupsQuery();
-  const sortedGroups = [...groups].sort((a, b) => a.name.localeCompare(b.name, "vi"));
+  const sortedGroups = useMemo(() => {
+    return [...groups].sort((a, b) => a.name.localeCompare(b.name, "vi"));
+  }, [groups]);
 
   return (
     <div className="flex flex-col gap-5 w-full bg-white xl:bg-transparent p-4 xl:p-0 rounded-xl xl:rounded-none border xl:border-0 border-slate-200">

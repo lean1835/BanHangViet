@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { Trash2, Plus, AlertTriangle, Check, X } from "lucide-react";
 import {
@@ -28,12 +28,50 @@ export const ProductGroupManagerModal: React.FC<ProductGroupManagerModalProps> =
   const [updateGroup] = useUpdateProductGroupMutation();
   const [deleteGroup] = useDeleteProductGroupMutation();
 
-  const sortedGroups = [...groups].sort((a, b) => a.name.localeCompare(b.name, "vi"));
+  const sortedGroups = useMemo(() => {
+    return [...groups].sort((a, b) => a.name.localeCompare(b.name, "vi"));
+  }, [groups]);
 
   // Form local states
   const [groupNameInput, setGroupNameInput] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Custom notification & confirm delete states
+  const [notification, setNotification] = useState<{
+    message: string;
+    type: "success" | "error";
+  } | null>(null);
+
+  const showNotification = (message: string, type: "success" | "error") => {
+    setNotification({ message, type });
+  };
+
+  useEffect(() => {
+    if (notification) {
+      const timer = setTimeout(() => {
+        setNotification(null);
+      }, 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [notification]);
+
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [groupToDelete, setGroupToDelete] = useState<IProductGroup | null>(null);
+
+  const confirmDeleteGroup = async () => {
+    if (!groupToDelete) return;
+    try {
+      await deleteGroup(groupToDelete.id).unwrap();
+      refetch();
+      showNotification(`Xóa nhóm hàng "${groupToDelete.name}" thành công`, "success");
+    } catch (err: any) {
+      showNotification(err?.data?.message || "Không thể xóa nhóm hàng!", "error");
+    } finally {
+      setIsDeleteModalOpen(false);
+      setGroupToDelete(null);
+    }
+  };
 
   // Inline edit local states
   const [editingRowGroupId, setEditingRowGroupId] = useState<string | null>(null);
@@ -50,9 +88,10 @@ export const ProductGroupManagerModal: React.FC<ProductGroupManagerModalProps> =
   };
 
   const handleSaveInline = async (id: string) => {
+    if (!isOwner) return; // Phòng vệ chiều sâu
     const nameTrimmed = editingRowGroupName.trim();
     if (!nameTrimmed) {
-      alert("Tên nhóm hàng không được để trống!");
+      showNotification("Tên nhóm hàng không được để trống!", "error");
       handleCancelInline();
       return;
     }
@@ -64,8 +103,9 @@ export const ProductGroupManagerModal: React.FC<ProductGroupManagerModalProps> =
     try {
       await updateGroup({ id, name: nameTrimmed }).unwrap();
       refetch();
+      showNotification(`Cập nhật tên nhóm hàng thành công`, "success");
     } catch (err: any) {
-      alert("Lỗi: " + (err?.data?.message || "Không thể cập nhật tên nhóm hàng!"));
+      showNotification(err?.data?.message || "Không thể cập nhật tên nhóm hàng!", "error");
     } finally {
       handleCancelInline();
     }
@@ -89,6 +129,7 @@ export const ProductGroupManagerModal: React.FC<ProductGroupManagerModalProps> =
       await createGroup({ name: nameTrimmed }).unwrap();
       setGroupNameInput("");
       refetch();
+      showNotification(`Thêm nhóm hàng "${nameTrimmed}" thành công`, "success");
     } catch (err: any) {
       setErrorMsg(err?.data?.message || "Không thể thực hiện tác vụ!");
     } finally {
@@ -96,15 +137,9 @@ export const ProductGroupManagerModal: React.FC<ProductGroupManagerModalProps> =
     }
   };
 
-  const handleDeleteClick = async (id: string, name: string) => {
-    if (!confirm(`Bạn có chắc chắn muốn xóa nhóm hàng "${name}"?\nHàng hóa thuộc nhóm này sẽ được chuyển về nhóm mặc định.`)) return;
-    
-    try {
-      await deleteGroup(id).unwrap();
-      refetch();
-    } catch (err: any) {
-      alert("Lỗi: " + (err?.data?.message || "Không thể xóa nhóm hàng!"));
-    }
+  const handleDeleteClick = (group: IProductGroup) => {
+    setGroupToDelete(group);
+    setIsDeleteModalOpen(true);
   };
 
   return createPortal(
@@ -258,7 +293,7 @@ export const ProductGroupManagerModal: React.FC<ProductGroupManagerModalProps> =
                                   <>
                                     <button
                                       type="button"
-                                      onClick={() => handleDeleteClick(group.id, group.name)}
+                                      onClick={() => handleDeleteClick(group)}
                                       title="Xóa nhóm"
                                       className="p-1 hover:bg-slate-100 rounded text-slate-500 hover:text-rose-600 transition-colors"
                                     >
@@ -290,6 +325,72 @@ export const ProductGroupManagerModal: React.FC<ProductGroupManagerModalProps> =
           </button>
         </div>
       </div>
+
+      {/* Custom Delete Confirmation Modal */}
+      {isDeleteModalOpen && groupToDelete && createPortal(
+        <div 
+          onClick={() => setIsDeleteModalOpen(false)}
+          className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 overflow-y-auto animate-backdrop-fade-in"
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-xl shadow-2xl border border-slate-100 max-w-sm w-full overflow-hidden flex flex-col p-6 animate-modal-bounce-in text-center font-semibold text-xs"
+          >
+            <div className="w-12 h-12 bg-rose-50 rounded-full flex items-center justify-center text-rose-500 mx-auto mb-4 border border-rose-100">
+              <Trash2 size={24} />
+            </div>
+            <h3 className="font-extrabold text-slate-800 text-sm mb-2">
+              Xác nhận xóa nhóm hàng?
+            </h3>
+            <p className="text-slate-500 leading-relaxed mb-6 font-semibold">
+              Bạn có chắc chắn muốn xóa nhóm hàng <strong className="text-slate-700">"{groupToDelete.name}"</strong>? Hàng hóa thuộc nhóm này sẽ được chuyển về nhóm mặc định.
+            </p>
+            <div className="flex items-center justify-center gap-3">
+              <button
+                onClick={() => setIsDeleteModalOpen(false)}
+                type="button"
+                className="flex-1 bg-slate-100 hover:bg-slate-200 transition-colors h-9 rounded-lg text-slate-700 font-bold"
+              >
+                Hủy bỏ
+              </button>
+              <button
+                onClick={confirmDeleteGroup}
+                type="button"
+                className="flex-1 bg-rose-600 hover:bg-rose-700 text-white transition-colors h-9 rounded-lg font-bold shadow-sm"
+              >
+                Xác nhận xóa
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Custom Notification Toast */}
+      {notification && createPortal(
+        <div className="fixed top-5 right-5 z-[210] flex items-center gap-3 bg-white border border-slate-100 shadow-2xl px-4 py-3 rounded-xl max-w-sm animate-modal-bounce-in font-semibold text-xs">
+          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white shrink-0 ${
+            notification.type === "success" ? "bg-emerald-500" : "bg-rose-500"
+          }`}>
+            {notification.type === "success" ? "✓" : "✕"}
+          </div>
+          <div className="flex flex-col gap-0.5 max-w-[200px] text-left">
+            <span className="font-extrabold text-slate-800 text-[10px] uppercase tracking-wider">
+              {notification.type === "success" ? "Thành công" : "Thông báo"}
+            </span>
+            <span className="text-slate-500 text-[11px] leading-snug break-words">
+              {notification.message}
+            </span>
+          </div>
+          <button 
+            onClick={() => setNotification(null)}
+            className="text-slate-400 hover:text-slate-600 ml-auto font-semibold"
+          >
+            ✕
+          </button>
+        </div>,
+        document.body
+      )}
     </div>,
     document.body
   );

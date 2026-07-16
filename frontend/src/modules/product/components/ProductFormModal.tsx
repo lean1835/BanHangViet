@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -15,10 +15,10 @@ interface ProductFormModalProps {
 
 // Zod Schema to strictly validate form data
 const productSchema = z.object({
-  sku: z.string().trim().min(1, "Vui lòng nhập mã sản phẩm (SKU)"),
-  name: z.string().trim().min(1, "Vui lòng nhập tên sản phẩm"),
+  sku: z.string().trim().min(1, "Vui lòng nhập mã sản phẩm (SKU)").max(50, "Mã hàng (SKU) không được vượt quá 50 ký tự"),
+  name: z.string().trim().min(1, "Vui lòng nhập tên sản phẩm").max(255, "Tên hàng hóa không được vượt quá 255 ký tự"),
   groupId: z.string().nullable().optional(),
-  unit: z.string().trim().min(1, "Vui lòng nhập đơn vị tính"),
+  unit: z.string().trim().min(1, "Vui lòng nhập đơn vị tính").max(50, "Đơn vị tính không được vượt quá 50 ký tự"),
   price: z.number().min(0, "Giá bán không được nhỏ hơn 0"),
   stockQuantity: z.number().min(0, "Tồn kho không được nhỏ hơn 0"),
   taxRateId: z.string().min(1, "Vui lòng chọn thuế suất"),
@@ -35,7 +35,9 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
 }) => {
   const [priceInput, setPriceInput] = useState("");
   const { data: groups = [] } = useGetProductGroupsQuery();
-  const sortedGroups = [...groups].sort((a, b) => a.name.localeCompare(b.name, "vi"));
+  const sortedGroups = useMemo(() => {
+    return [...groups].sort((a, b) => a.name.localeCompare(b.name, "vi"));
+  }, [groups]);
 
   const {
     register,
