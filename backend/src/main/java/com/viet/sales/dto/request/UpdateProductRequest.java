@@ -35,6 +35,7 @@ public class UpdateProductRequest {
     @Pattern(regexp = "^(ACTIVE|INACTIVE)$", message = "Trạng thái chỉ có thể là ACTIVE hoặc INACTIVE")
     private String status;
 
+    @Size(max = 36, message = "Mã nhóm hàng không vượt quá 36 ký tự")
     private String groupId;
 
     @NotBlank(message = "Thuế suất không được để trống")
