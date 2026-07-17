@@ -48,32 +48,34 @@ public class GoodsReceiptServiceImpl implements GoodsReceiptService {
     }
 
     private void logActivity(BusinessHousehold household, User actor, String action, String targetId, Object oldValue, Object newValue) {
+        ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+        HttpServletRequest request = attributes != null ? attributes.getRequest() : null;
+
+        String clientIp = request != null ? request.getRemoteAddr() : null;
+        String userAgent = request != null ? request.getHeader("User-Agent") : null;
+
+        String oldStr = null;
+        String newStr = null;
         try {
-            ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
-            HttpServletRequest request = attributes != null ? attributes.getRequest() : null;
-
-            String clientIp = request != null ? request.getRemoteAddr() : null;
-            String userAgent = request != null ? request.getHeader("User-Agent") : null;
-
-            String oldStr = oldValue != null ? objectMapper.writeValueAsString(oldValue) : null;
-            String newStr = newValue != null ? objectMapper.writeValueAsString(newValue) : null;
-
-            ActivityLog logRecord = ActivityLog.builder()
-                    .household(household)
-                    .user(actor)
-                    .action(action)
-                    .targetTable("goods_receipts")
-                    .targetId(targetId)
-                    .oldValue(oldStr)
-                    .newValue(newStr)
-                    .clientIp(clientIp)
-                    .userAgent(userAgent)
-                    .build();
-
-            activityLogRepository.save(logRecord);
+            oldStr = oldValue != null ? objectMapper.writeValueAsString(oldValue) : null;
+            newStr = newValue != null ? objectMapper.writeValueAsString(newValue) : null;
         } catch (Exception e) {
-            log.error("Failed to write activity log for goods receipt", e);
+            log.error("Failed to serialize log values for goods receipt", e);
         }
+
+        ActivityLog logRecord = ActivityLog.builder()
+                .household(household)
+                .user(actor)
+                .action(action)
+                .targetTable("goods_receipts")
+                .targetId(targetId)
+                .oldValue(oldStr)
+                .newValue(newStr)
+                .clientIp(clientIp)
+                .userAgent(userAgent)
+                .build();
+
+        activityLogRepository.save(logRecord);
     }
 
     private Map<String, Object> buildReceiptLogMap(GoodsReceipt receipt, List<GoodsReceiptDetail> details) {
@@ -158,11 +160,26 @@ public class GoodsReceiptServiceImpl implements GoodsReceiptService {
 
         receipt = goodsReceiptRepository.save(receipt);
 
-        List<GoodsReceiptDetail> savedDetails = new ArrayList<>();
+        // Extract product IDs and query all products in one batch
+        List<String> productIds = request.getDetails().stream()
+                .map(CreateGoodsReceiptDetailRequest::getProductId)
+                .distinct()
+                .collect(Collectors.toList());
+
+        List<Product> products = productRepository.findAllByIdInAndHouseholdIdAndDeletedAtIsNull(productIds, household.getId());
+        Map<String, Product> productMap = products.stream()
+                .collect(Collectors.toMap(Product::getId, p -> p));
+
+        // Validate that all products exist and belong to the household
         for (CreateGoodsReceiptDetailRequest detailRequest : request.getDetails()) {
-            // Verify product belongs to household and is not deleted
-            Product product = productRepository.findByIdAndHouseholdIdAndDeletedAtIsNull(detailRequest.getProductId(), household.getId())
-                    .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_NOT_FOUND));
+            if (!productMap.containsKey(detailRequest.getProductId())) {
+                throw new AppException(ErrorCode.PRODUCT_NOT_FOUND);
+            }
+        }
+
+        List<GoodsReceiptDetail> detailsToSave = new ArrayList<>();
+        for (CreateGoodsReceiptDetailRequest detailRequest : request.getDetails()) {
+            Product product = productMap.get(detailRequest.getProductId());
 
             GoodsReceiptDetail detail = GoodsReceiptDetail.builder()
                     .receipt(receipt)
@@ -171,13 +188,15 @@ public class GoodsReceiptServiceImpl implements GoodsReceiptService {
                     .purchasePrice(detailRequest.getPurchasePrice())
                     .build();
 
-            detail = goodsReceiptDetailRepository.save(detail);
-            savedDetails.add(detail);
+            detailsToSave.add(detail);
 
             // Update product stock quantity
             product.setStockQuantity(product.getStockQuantity().add(detailRequest.getQuantity()));
-            productRepository.save(product);
         }
+
+        // Batch save details and products
+        List<GoodsReceiptDetail> savedDetails = goodsReceiptDetailRepository.saveAll(detailsToSave);
+        productRepository.saveAll(productMap.values());
 
         logActivity(household, currentUser, "CREATE_GOODS_RECEIPT", receipt.getId(), null, buildReceiptLogMap(receipt, savedDetails));
 

@@ -215,6 +215,27 @@ public class GoodsReceiptControllerTest {
 
     @Test
     @WithMockUser(username = "owner_test_inv", roles = "VT-01")
+    public void createGoodsReceipt_futureReceivedAt_fails() throws Exception {
+        CreateGoodsReceiptDetailRequest detail = CreateGoodsReceiptDetailRequest.builder()
+                .productId(product1.getId())
+                .quantity(new BigDecimal("5.000"))
+                .purchasePrice(new BigDecimal("9000.00"))
+                .build();
+
+        CreateGoodsReceiptRequest request = CreateGoodsReceiptRequest.builder()
+                .receiptNumber("GR-FUTURE")
+                .receivedAt(java.time.LocalDateTime.now().plusDays(1)) // future date
+                .details(Collections.singletonList(detail))
+                .build();
+
+        mockMvc.perform(post("/api/v1/goods-receipts")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @WithMockUser(username = "owner_test_inv", roles = "VT-01")
     public void createGoodsReceipt_emptyDetails_fails() throws Exception {
         CreateGoodsReceiptRequest request = CreateGoodsReceiptRequest.builder()
                 .receiptNumber("GR-EMPTY")
