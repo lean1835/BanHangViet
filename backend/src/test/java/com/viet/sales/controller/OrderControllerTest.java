@@ -57,8 +57,7 @@ public class OrderControllerTest {
     @Autowired
     private OrderRepository orderRepository;
 
-    @Autowired
-    private org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
+
 
     private BusinessHousehold testHousehold;
     private Role ownerRole;
@@ -71,11 +70,6 @@ public class OrderControllerTest {
 
     @BeforeEach
     public void setUp() {
-        try {
-            jdbcTemplate.execute("ALTER TABLE products DROP CHECK chk_product_stock");
-        } catch (Exception e) {
-            // Ignore if it does not exist
-        }
 
         // 1. Hộ kinh doanh
         testHousehold = businessHouseholdRepository.findByTaxCode("8888888888").orElseGet(() -> {
