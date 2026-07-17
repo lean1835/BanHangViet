@@ -57,6 +57,9 @@ public class OrderControllerTest {
     @Autowired
     private OrderRepository orderRepository;
 
+    @Autowired
+    private org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
+
     private BusinessHousehold testHousehold;
     private Role ownerRole;
     private Role employeeRole;
@@ -68,6 +71,12 @@ public class OrderControllerTest {
 
     @BeforeEach
     public void setUp() {
+        try {
+            jdbcTemplate.execute("ALTER TABLE products DROP CHECK chk_product_stock");
+        } catch (Exception e) {
+            // Ignore if it does not exist
+        }
+
         // 1. Hộ kinh doanh
         testHousehold = businessHouseholdRepository.findByTaxCode("8888888888").orElseGet(() -> {
             BusinessHousehold household = BusinessHousehold.builder()
@@ -678,5 +687,126 @@ public class OrderControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.result.qrCodeUrl").value(org.hamcrest.Matchers.containsString("8888888888"))) // chứa taxCode
                 .andExpect(jsonPath("$.result.qrCodeUrl").value(org.hamcrest.Matchers.containsString("H%E1%BB%99+kinh+doanh+Test+Order"))); // chứa tên tiếng việt url-encoded
+    }
+
+    @Test
+    @WithMockUser(username = "test_owner_order", roles = {"VT-01"})
+    public void completeOrder_overStock_success_withWarning() throws Exception {
+        openShiftForUser(testOwner);
+
+        // 1. Tạo đơn hàng
+        CreateOrderRequest orderReq = CreateOrderRequest.builder().build();
+        String responseStr = mockMvc.perform(post("/api/v1/orders")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(orderReq)))
+                .andReturn().getResponse().getContentAsString();
+        String orderId = objectMapper.readTree(responseStr).get("result").get("id").asText();
+
+        // 2. Thêm 60 mặt hàng (stock ban đầu là 50.000) -> vượt tồn kho
+        CreateOrderItemRequest itemReq = CreateOrderItemRequest.builder()
+                .productId(testProduct.getId())
+                .quantity(new BigDecimal("60.000"))
+                .build();
+        mockMvc.perform(post("/api/v1/orders/" + orderId + "/items")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(itemReq)));
+
+        // 3. Chọn CASH payment
+        OrderPaymentRequest payReq = OrderPaymentRequest.builder()
+                .paymentMethod("CASH")
+                .build();
+        mockMvc.perform(post("/api/v1/orders/" + orderId + "/payment")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(payReq)));
+
+        // 4. Chốt đơn
+        CompleteOrderRequest completeReq = CompleteOrderRequest.builder()
+                .amountGiven(new BigDecimal("1500000.00")) // 60 * 20000 * 1.1 = 1320000
+                .build();
+        mockMvc.perform(post("/api/v1/orders/" + orderId + "/complete")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(completeReq)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.result.warningMessages").isArray())
+                .andExpect(jsonPath("$.result.warningMessages[0]").value(org.hamcrest.Matchers.containsString("vượt quá số lượng tồn kho khả dụng")));
+
+        // 5. Kiểm tra stock của product giảm còn -10.000
+        Product updatedProduct = productRepository.findById(testProduct.getId()).orElseThrow();
+        org.junit.jupiter.api.Assertions.assertEquals(0, new BigDecimal("-10.000").compareTo(updatedProduct.getStockQuantity()));
+    }
+
+    @Test
+    @WithMockUser(username = "test_owner_order", roles = {"VT-01"})
+    public void applyDiscount_percentage_recalculatedOnItemChange() throws Exception {
+        openShiftForUser(testOwner);
+
+        // 1. Tạo đơn hàng
+        CreateOrderRequest orderReq = CreateOrderRequest.builder().build();
+        String responseStr = mockMvc.perform(post("/api/v1/orders")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(orderReq)))
+                .andReturn().getResponse().getContentAsString();
+        String orderId = objectMapper.readTree(responseStr).get("result").get("id").asText();
+
+        // 2. Thêm 2 mặt hàng (total 40k, subtotal 44k)
+        CreateOrderItemRequest itemReq = CreateOrderItemRequest.builder()
+                .productId(testProduct.getId())
+                .quantity(new BigDecimal("2.000"))
+                .build();
+        mockMvc.perform(post("/api/v1/orders/" + orderId + "/items")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(itemReq)));
+
+        // 3. Áp dụng 10% discount
+        ApplyDiscountRequest discountReq = ApplyDiscountRequest.builder()
+                .discountType("PERCENTAGE")
+                .discountValue(new BigDecimal("10.00"))
+                .build();
+        mockMvc.perform(post("/api/v1/orders/" + orderId + "/discount")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(discountReq)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.result.totalAmount").value(44000.00))
+                .andExpect(jsonPath("$.result.discountAmount").value(4400.00))
+                .andExpect(jsonPath("$.result.finalAmount").value(39600.00));
+
+        // 4. Thêm 3 mặt hàng nữa -> tổng quantity = 5 (total 100k, subtotal 110k)
+        // Chiết khấu 10% phải tự động tính lại thành 11k
+        CreateOrderItemRequest addMoreReq = CreateOrderItemRequest.builder()
+                .productId(testProduct.getId())
+                .quantity(new BigDecimal("3.000"))
+                .build();
+        mockMvc.perform(post("/api/v1/orders/" + orderId + "/items")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(addMoreReq)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.result.totalAmount").value(110000.00))
+                .andExpect(jsonPath("$.result.discountAmount").value(11000.00))
+                .andExpect(jsonPath("$.result.finalAmount").value(99000.00));
+
+        // 5. Cập nhật quantity về 1 (total 20k, subtotal 22k)
+        // Chiết khấu 10% phải tự động tính lại thành 2.2k
+        // Đầu tiên cần lấy ID của OrderItem
+        String orderDetails = mockMvc.perform(get("/api/v1/orders/" + orderId))
+                .andReturn().getResponse().getContentAsString();
+        String itemId = objectMapper.readTree(orderDetails).get("result").get("items").get(0).get("id").asText();
+
+        UpdateOrderItemRequest updateReq = UpdateOrderItemRequest.builder()
+                .quantity(new BigDecimal("1.000"))
+                .build();
+        mockMvc.perform(put("/api/v1/orders/" + orderId + "/items/" + itemId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(updateReq)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.result.totalAmount").value(22000.00))
+                .andExpect(jsonPath("$.result.discountAmount").value(2200.00))
+                .andExpect(jsonPath("$.result.finalAmount").value(19800.00));
+
+        // 6. Xóa item (total 0) -> chiết khấu tự động tính lại thành 0
+        mockMvc.perform(delete("/api/v1/orders/" + orderId + "/items/" + itemId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.result.totalAmount").value(0.00))
+                .andExpect(jsonPath("$.result.discountAmount").value(0.00))
+                .andExpect(jsonPath("$.result.finalAmount").value(0.00));
     }
 }

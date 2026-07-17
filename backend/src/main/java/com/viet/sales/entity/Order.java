@@ -12,15 +12,19 @@ import java.util.List;
 
 @Entity
 @Table(name = "orders")
-@Data
+@Getter
+@Setter
+@ToString
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class Order {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     @Column(length = 36, nullable = false)
+    @EqualsAndHashCode.Include
     private String id;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -76,6 +80,12 @@ public class Order {
 
     @Column(name = "synced_at")
     private LocalDateTime syncedAt;
+
+    @Column(name = "discount_type", length = 20)
+    private String discountType;
+
+    @Column(name = "discount_rate_or_value", precision = 15, scale = 2)
+    private BigDecimal discountRateOrValue;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)

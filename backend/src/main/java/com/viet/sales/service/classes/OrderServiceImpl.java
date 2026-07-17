@@ -173,7 +173,21 @@ public class OrderServiceImpl implements OrderService {
             total = total.add(item.getSubtotal());
         }
         order.setTotalAmount(total);
-        order.setFinalAmount(total.subtract(order.getDiscountAmount()).max(BigDecimal.ZERO));
+
+        BigDecimal discountAmount = order.getDiscountAmount();
+        if (order.getDiscountType() != null) {
+            if ("PERCENTAGE".equals(order.getDiscountType())) {
+                BigDecimal rate = order.getDiscountRateOrValue() != null ? order.getDiscountRateOrValue() : BigDecimal.ZERO;
+                discountAmount = total.multiply(rate).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+            } else if ("CASH".equals(order.getDiscountType())) {
+                discountAmount = order.getDiscountRateOrValue() != null ? order.getDiscountRateOrValue() : BigDecimal.ZERO;
+            }
+        }
+        if (discountAmount.compareTo(total) > 0) {
+            discountAmount = total;
+        }
+        order.setDiscountAmount(discountAmount);
+        order.setFinalAmount(total.subtract(discountAmount).max(BigDecimal.ZERO));
     }
 
     @Override
@@ -399,6 +413,8 @@ public class OrderServiceImpl implements OrderService {
             }
         }
 
+        order.setDiscountType(request.getDiscountType());
+        order.setDiscountRateOrValue(request.getDiscountValue());
         order.setDiscountAmount(discountAmount);
         order.setFinalAmount(order.getTotalAmount().subtract(discountAmount));
 
@@ -522,13 +538,20 @@ public class OrderServiceImpl implements OrderService {
             order.setPaymentStatus("DEBT");
         }
 
+        // Get warnings before deduction
+        List<String> warnings = checkStockWarnings(order);
+
         // Logic fix: Subtract physical stock quantity
+        List<Product> productsToSave = new ArrayList<>();
         for (OrderItem item : order.getItems()) {
             if (item.getProduct() != null) {
                 Product product = item.getProduct();
                 product.setStockQuantity(product.getStockQuantity().subtract(item.getQuantity()));
-                productRepository.save(product);
+                productsToSave.add(product);
             }
+        }
+        if (!productsToSave.isEmpty()) {
+            productRepository.saveAll(productsToSave);
         }
 
         order.setStatus("COMPLETED");
@@ -538,7 +561,7 @@ public class OrderServiceImpl implements OrderService {
 
         logActivity(household, currentUser, "COMPLETE_ORDER", order.getId(), null, buildOrderLogMap(order));
 
-        return mapToResponse(order, new ArrayList<>(), changeAmount, null);
+        return mapToResponse(order, warnings, changeAmount, null);
     }
 
     @Override
