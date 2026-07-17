@@ -9,6 +9,8 @@ import { useGetAllEmployeesQuery } from "../modules/employee/services/employeeAp
 import { ProductList } from "../modules/product/components/ProductList";
 import { ProductSidebar } from "../modules/product/components/ProductSidebar";
 import { useGetProductsQuery, useUpdateProductMutation } from "../modules/product/services/productApi";
+import { OpenShiftModal } from "../modules/shift/components/OpenShiftModal";
+import { useGetActiveShiftQuery, useOpenShiftMutation } from "../modules/shift/services/shiftApi";
 
 
 // TypeScript Interfaces for mock data
@@ -184,11 +186,6 @@ export const DashboardPage: React.FC = () => {
     },
   ]);
 
-  const [currentShift, setCurrentShift] = useState<IShift | null>(null);
-  const [openingCashInput, setOpeningCashInput] = useState(1000000);
-  const [closingActualInput, setClosingActualInput] = useState(1000000);
-  const [closingReason, setClosingReason] = useState("");
-
   const [invoices, setInvoices] = useState<IInvoice[]>([
     {
       id: "inv1",
@@ -239,6 +236,45 @@ export const DashboardPage: React.FC = () => {
       time: "2026-07-15 10:22:15",
     },
   ]);
+
+  // KPI Calculations
+  const totalRevenueToday = invoices
+    .filter((inv) => inv.status === "ISSUED" && inv.time.startsWith("2026-07-15"))
+    .reduce((sum, inv) => sum + inv.finalAmount, 0);
+
+  const totalInvoiceCountToday = invoices.filter(
+    (inv) => inv.status === "ISSUED" && inv.time.startsWith("2026-07-15")
+  ).length;
+
+  const [localClosedShiftId, setLocalClosedShiftId] = useState<string | null>(null);
+
+  // Load active shift from backend
+  const { data: activeShiftBackend, refetch: refetchActiveShift } = useGetActiveShiftQuery(undefined, {
+    skip: !["shifts", "pos"].includes(activeTab),
+  });
+  const [openShiftApi] = useOpenShiftMutation();
+
+  const currentShift = (activeShiftBackend && activeShiftBackend.id !== localClosedShiftId) ? {
+    id: activeShiftBackend.id,
+    user: activeShiftBackend.username,
+    openTime: activeShiftBackend.openedAt ? activeShiftBackend.openedAt.replace("T", " ").substring(0, 19) : "",
+    closeTime: "--",
+    openingCash: activeShiftBackend.openingCash,
+    expectedCash: activeShiftBackend.openingCash + totalRevenueToday,
+    actualCash: 0,
+    difference: 0,
+    status: "OPEN" as const,
+  } : null;
+
+  const [openingCashInput, setOpeningCashInput] = useState(1000000);
+  const [closingActualInput, setClosingActualInput] = useState(1000000);
+  const [closingReason, setClosingReason] = useState("");
+
+  // POS State Declarations
+  const [posSearchQuery, setPosSearchQuery] = useState("");
+  const [cart, setCart] = useState<{ product: any; quantity: number }[]>([]);
+  const [posSelectedCust, setPosSelectedCust] = useState("Khách vãng lai");
+  const [posPaymentMethod, setPosPaymentMethod] = useState<"CASH" | "BANK_TRANSFER">("CASH");
 
   const [customers, setCustomers] = useState<ICustomer[]>([
     {
@@ -446,32 +482,24 @@ export const DashboardPage: React.FC = () => {
     }
   };
 
+  const handleOpenShiftApi = async (openingCash: number) => {
+    try {
+      await openShiftApi({ openingCash }).unwrap();
+      refetchActiveShift();
+      setClosingActualInput(openingCash);
+      setClosingReason("");
+      addLogEntry(
+        "MỞ_CA",
+        `Mở ca mới thành công với số tiền quỹ két ban đầu: ${openingCash.toLocaleString("vi-VN")} đ`
+      );
+      alert("Mở ca làm việc mới thành công!");
+    } catch (err: any) {
+      alert("Lỗi mở ca: " + (err?.data?.message || "Không thể thực hiện tác vụ!"));
+    }
+  };
+
   const handleOpenShift = () => {
-    const timeStr = new Date().toISOString().replace("T", " ").substring(0, 19);
-    const newShift: IShift = {
-      id: "s" + (shifts.length + 1),
-      user: user?.username || "chuho_viet",
-      openTime: timeStr,
-      closeTime: "--",
-      openingCash: openingCashInput,
-      expectedCash: openingCashInput,
-      actualCash: 0,
-      difference: 0,
-      status: "OPEN",
-    };
-    setCurrentShift(newShift);
-    setClosingActualInput(openingCashInput);
-    setClosingReason("");
-    setLogs([
-      {
-        id: "l" + (logs.length + 1),
-        time: timeStr,
-        user: user?.username || "chuho_viet",
-        action: "MỞ_CA",
-        target: `Mở ca mới với số tiền quỹ két ban đầu: ${openingCashInput.toLocaleString("vi-VN")} đ`,
-      },
-      ...logs,
-    ]);
+    handleOpenShiftApi(openingCashInput);
   };
 
   const handleCloseShift = () => {
@@ -487,7 +515,7 @@ export const DashboardPage: React.FC = () => {
       reason: diff !== 0 ? closingReason : undefined,
     };
     setShifts([updatedShift, ...shifts]);
-    setCurrentShift(null);
+    setLocalClosedShiftId(currentShift.id);
     setLogs([
       {
         id: "l" + (logs.length + 1),
@@ -499,6 +527,75 @@ export const DashboardPage: React.FC = () => {
       ...logs,
     ]);
   };
+
+  // --- POS CART HANDLERS ---
+  const handleAddToCart = (product: any) => {
+    setCart((prev) => {
+      const existing = prev.find((item) => item.product.id === product.id);
+      if (existing) {
+        return prev.map((item) =>
+          item.product.id === product.id
+            ? { ...item, quantity: item.quantity + 1 }
+            : item
+        );
+      }
+      return [...prev, { product, quantity: 1 }];
+    });
+  };
+
+  const handleUpdateCartQty = (productId: string, quantity: number) => {
+    if (quantity <= 0) {
+      setCart((prev) => prev.filter((item) => item.product.id !== productId));
+      return;
+    }
+    setCart((prev) =>
+      prev.map((item) =>
+        item.product.id === productId ? { ...item, quantity } : item
+      )
+    );
+  };
+
+  const handleClearCart = () => {
+    setCart([]);
+  };
+
+  const posSubtotal = cart.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
+  const posTax = Math.round(posSubtotal * 0.08);
+  const posTotal = posSubtotal + posTax;
+
+  const handleCheckout = () => {
+    if (cart.length === 0) return;
+    const newInvCode = `HD-POS-${Date.now().toString().slice(-6)}`;
+    const newInvoice: IInvoice = {
+      id: "inv-pos-" + Date.now(),
+      lookupCode: newInvCode,
+      symbol: "1C26TAA",
+      customer: posSelectedCust,
+      amount: posSubtotal,
+      taxAmount: posTax,
+      finalAmount: posTotal,
+      status: "ISSUED" as const,
+      taxAuthorityCode: `CQT-POS-${Date.now().toString().slice(-6)}`,
+      time: "2026-07-15 " + new Date().toTimeString().split(" ")[0],
+    };
+
+    setInvoices([newInvoice, ...invoices]);
+    setCart([]);
+    addLogEntry(
+      "BÁN_HÀNG",
+      `Đơn hàng POS: ${newInvCode} - Khách hàng: ${posSelectedCust} - Thanh toán: ${posTotal.toLocaleString("vi-VN")} đ`
+    );
+    alert(`Thanh toán đơn hàng ${newInvCode} thành công!\nSố tiền: ${posTotal.toLocaleString("vi-VN")} đ\nPhương thức: ${posPaymentMethod === "CASH" ? "Tiền mặt" : "Chuyển khoản"}`);
+  };
+
+  const filteredPosProducts = dbProducts.filter((prod) => {
+    const query = posSearchQuery.toLowerCase().trim();
+    if (!query) return prod.status === "ACTIVE";
+    return prod.status === "ACTIVE" && (
+      prod.name.toLowerCase().includes(query) ||
+      prod.sku.toLowerCase().includes(query)
+    );
+  });
 
   const handleAddCustomer = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -526,18 +623,14 @@ export const DashboardPage: React.FC = () => {
   };
 
   // Helper format currency
-  const formatCurrency = (val: number) => {
+  const formatCurrency = (val?: number | null) => {
+    if (val === undefined || val === null || isNaN(val)) {
+      return "0 đ";
+    }
     return val.toLocaleString("vi-VN") + " đ";
   };
 
-  // KPI Calculations
-  const totalRevenueToday = invoices
-    .filter((inv) => inv.status === "ISSUED" && inv.time.startsWith("2026-07-15"))
-    .reduce((sum, inv) => sum + inv.finalAmount, 0);
 
-  const totalInvoiceCountToday = invoices.filter(
-    (inv) => inv.status === "ISSUED" && inv.time.startsWith("2026-07-15")
-  ).length;
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-100 text-slate-800 text-xs font-sans select-none">
@@ -677,7 +770,7 @@ export const DashboardPage: React.FC = () => {
 
         {/* Sell button */}
         <button
-          onClick={() => alert("Chức năng mở quầy bán hàng POS sẽ được điều hướng tới màn hình bán lẻ.")}
+          onClick={() => setActiveTab("pos")}
           className="bg-kv-green hover:bg-emerald-600 transition-colors px-4 h-7 text-[11px] font-bold text-white rounded-md flex items-center gap-1.5 shadow-sm"
         >
           <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
@@ -1532,11 +1625,7 @@ export const DashboardPage: React.FC = () => {
                       <button
                         key={item.tab}
                         onClick={() => {
-                          if (item.tab === "pos") {
-                            alert("Đang mở quầy bán hàng POS...");
-                          } else {
-                            setActiveTab(item.tab as any);
-                          }
+                          setActiveTab(item.tab as any);
                         }}
                         className="flex items-center justify-between border border-slate-200 hover:bg-slate-50 transition-colors p-3 rounded-lg font-bold text-slate-700"
                       >
@@ -1923,6 +2012,184 @@ export const DashboardPage: React.FC = () => {
                 </div>
               </div>
 
+            </div>
+          )}
+
+          {/* PANE: POS BÁN LẺ */}
+          {activeTab === "pos" && (
+            <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 h-[calc(100vh-140px)]">
+              {/* Left Column: Product Selection Grid */}
+              <div className="xl:col-span-2 bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col overflow-hidden">
+                <div className="flex items-center justify-between border-b pb-4 mb-4 flex-wrap gap-3">
+                  <span className="font-extrabold text-sm text-slate-800">
+                    Màn hình bán hàng POS
+                  </span>
+                  {/* Search box */}
+                  <input
+                    type="text"
+                    placeholder="Tìm sản phẩm theo tên, mã SKU..."
+                    value={posSearchQuery}
+                    onChange={(e) => setPosSearchQuery(e.target.value)}
+                    className="border border-slate-300 h-8 px-3 rounded-lg focus:outline-none focus:border-kv-blue-primary text-xs w-64 bg-white font-semibold text-slate-700"
+                  />
+                </div>
+
+                {/* Product grid */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 overflow-y-auto flex-1 pb-4">
+                  {filteredPosProducts.length === 0 ? (
+                    <div className="col-span-full text-center text-slate-400 py-10 italic">
+                      Không tìm thấy sản phẩm nào phù hợp.
+                    </div>
+                  ) : (
+                    filteredPosProducts.map((prod) => (
+                      <div
+                        key={prod.id}
+                        onClick={() => handleAddToCart(prod)}
+                        className="border border-slate-200 hover:border-kv-blue-primary rounded-xl p-3 flex flex-col justify-between hover:shadow-md cursor-pointer transition-all bg-white text-left"
+                      >
+                        <div>
+                          <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{prod.sku}</div>
+                          <h4 className="font-bold text-slate-800 text-xs mt-0.5 line-clamp-2 min-h-[32px]">{prod.name}</h4>
+                        </div>
+                        <div className="mt-3">
+                          <div className="text-kv-blue-primary font-extrabold text-[13px]">{formatCurrency(prod.price)}</div>
+                          <div className="text-[10px] text-slate-500 font-semibold mt-1">Tồn kho: {prod.stockQuantity} {prod.unit}</div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              {/* Right Column: Cart & Checkout Section */}
+              <div className="xl:col-span-1 bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col h-full overflow-hidden justify-between">
+                <div className="flex flex-col flex-1 overflow-hidden">
+                  <h3 className="font-extrabold text-slate-800 text-sm border-b pb-3 mb-4 flex items-center justify-between">
+                    <span>Đơn hàng đang bán</span>
+                    <button
+                      onClick={handleClearCart}
+                      className="text-[10px] text-slate-400 hover:text-rose-600 font-bold uppercase"
+                    >
+                      Xóa giỏ hàng
+                    </button>
+                  </h3>
+
+                  {/* Cart items list */}
+                  <div className="flex-1 overflow-y-auto pr-1 flex flex-col gap-3">
+                    {cart.length === 0 ? (
+                      <div className="text-center text-slate-400 py-16 italic font-semibold">
+                        Giỏ hàng trống. Vui lòng chọn sản phẩm bên trái.
+                      </div>
+                    ) : (
+                      cart.map((item) => (
+                        <div key={item.product.id} className="flex justify-between items-center gap-2 border-b border-slate-100 pb-2">
+                          <div className="flex-1 min-w-0">
+                            <h5 className="font-bold text-slate-800 text-xs truncate" title={item.product.name}>{item.product.name}</h5>
+                            <span className="text-[10px] text-slate-400 font-bold">{formatCurrency(item.product.price)}</span>
+                          </div>
+                          {/* Quantity control */}
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <button
+                              onClick={() => handleUpdateCartQty(item.product.id, item.quantity - 1)}
+                              className="w-5 h-5 bg-slate-100 hover:bg-slate-200 transition-colors flex items-center justify-center font-bold text-slate-600 rounded"
+                            >
+                              -
+                            </button>
+                            <span className="text-xs font-bold w-6 text-center">{item.quantity}</span>
+                            <button
+                              onClick={() => handleUpdateCartQty(item.product.id, item.quantity + 1)}
+                              className="w-5 h-5 bg-slate-100 hover:bg-slate-200 transition-colors flex items-center justify-center font-bold text-slate-600 rounded"
+                            >
+                              +
+                            </button>
+                          </div>
+                          <span className="text-xs font-bold text-slate-700 w-16 text-right shrink-0">
+                            {formatCurrency(item.product.price * item.quantity)}
+                          </span>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+
+                {/* Checkout section */}
+                <div className="border-t pt-4 mt-4 flex flex-col gap-3 font-semibold text-slate-700">
+                  {/* Select Customer */}
+                  <div className="flex flex-col gap-1">
+                    <label>Khách hàng:</label>
+                    <select
+                      value={posSelectedCust}
+                      onChange={(e) => setPosSelectedCust(e.target.value)}
+                      className="border border-slate-300 h-8 px-2 rounded-lg focus:outline-none focus:border-kv-blue-primary text-xs bg-white font-bold text-slate-700"
+                    >
+                      <option value="Khách vãng lai">Khách vãng lai</option>
+                      {customers.map((c) => (
+                        <option key={c.id} value={c.name}>{c.name} - {c.phone}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Payment Method */}
+                  <div className="flex flex-col gap-1">
+                    <label>Phương thức thanh toán:</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setPosPaymentMethod("CASH")}
+                        className={`h-8 border rounded-lg font-bold transition-all ${
+                          posPaymentMethod === "CASH"
+                            ? "bg-kv-blue-primary/10 border-kv-blue-primary text-kv-blue-primary shadow-sm"
+                            : "border-slate-200 hover:border-slate-300 text-slate-600 bg-white"
+                        }`}
+                      >
+                        Tiền mặt
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPosPaymentMethod("BANK_TRANSFER")}
+                        className={`h-8 border rounded-lg font-bold transition-all ${
+                          posPaymentMethod === "BANK_TRANSFER"
+                            ? "bg-kv-blue-primary/10 border-kv-blue-primary text-kv-blue-primary shadow-sm"
+                            : "border-slate-200 hover:border-slate-300 text-slate-600 bg-white"
+                        }`}
+                      >
+                        Chuyển khoản
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Pricing details */}
+                  <div className="flex justify-between items-center text-xs font-bold border-t pt-2">
+                    <span>Tổng tiền hàng:</span>
+                    <span className="text-slate-800">{formatCurrency(posSubtotal)}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-xs font-bold">
+                    <span>Thuế suất (mặc định 8%):</span>
+                    <span className="text-slate-800">{formatCurrency(posTax)}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-sm font-extrabold text-kv-blue-primary">
+                    <span>Khách cần trả:</span>
+                    <span className="text-lg font-extrabold">{formatCurrency(posTotal)}</span>
+                  </div>
+
+                  <button
+                    onClick={handleCheckout}
+                    disabled={cart.length === 0}
+                    className="w-full bg-kv-green hover:bg-emerald-600 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed text-white transition-colors h-10 rounded-lg font-bold flex items-center justify-center gap-1.5 shadow-sm text-xs"
+                  >
+                    Thanh toán &amp; In hóa đơn (F9)
+                  </button>
+                </div>
+              </div>
+
+              {/* Mandatory Open Shift Modal */}
+              <OpenShiftModal
+                isOpen={currentShift === null}
+                onClose={() => setActiveTab("dashboard")}
+                onConfirm={handleOpenShiftApi}
+                fullName={user?.fullName || user?.username}
+                householdName={household?.name || "Bán Hàng Việt (Hộ kinh doanh)"}
+              />
             </div>
           )}
 
