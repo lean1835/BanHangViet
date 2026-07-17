@@ -46,6 +46,29 @@ public class OrderServiceImpl implements OrderService {
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
     }
 
+    private void checkOrderOwnership(Order order, User currentUser) {
+        boolean isSalesperson = "VT-02".equals(currentUser.getRole().getCode());
+        if (isSalesperson && !order.getCreatedByUser().getId().equals(currentUser.getId())) {
+            throw new AppException(ErrorCode.FORBIDDEN);
+        }
+    }
+
+    private String generateQrCodeUrl(Order order) {
+        try {
+            BusinessHousehold household = order.getHousehold();
+            String bin = "970415"; // default VietinBank mock BIN
+            String accNum = household.getTaxCode() != null && !household.getTaxCode().trim().isEmpty() 
+                    ? household.getTaxCode() : "113366668888";
+            String accName = java.net.URLEncoder.encode(household.getName(), "UTF-8");
+            String addInfo = java.net.URLEncoder.encode("Thanh toan don hang " + order.getOrderNumber(), "UTF-8");
+            return "https://api.vietqr.io/image/" + bin + "-" + accNum + "-jLq5qSg.jpg?accountName=" 
+                    + accName + "&amount=" + order.getFinalAmount() + "&addInfo=" + addInfo;
+        } catch (Exception e) {
+            log.error("Failed to generate QR code URL", e);
+            return null;
+        }
+    }
+
     private void logActivity(BusinessHousehold household, User actor, String action, String targetId, Object oldValue, Object newValue) {
         try {
             ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
@@ -209,6 +232,8 @@ public class OrderServiceImpl implements OrderService {
         Order order = orderRepository.findByIdAndHouseholdIdAndDeletedAtIsNull(orderId, household.getId())
                 .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));
 
+        checkOrderOwnership(order, currentUser);
+
         if (!"CREATING".equals(order.getStatus())) {
             throw new AppException(ErrorCode.ORDER_ALREADY_PAID);
         }
@@ -270,6 +295,8 @@ public class OrderServiceImpl implements OrderService {
         Order order = orderRepository.findByIdAndHouseholdIdAndDeletedAtIsNull(orderId, household.getId())
                 .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));
 
+        checkOrderOwnership(order, currentUser);
+
         if (!"CREATING".equals(order.getStatus())) {
             throw new AppException(ErrorCode.ORDER_ALREADY_PAID);
         }
@@ -307,6 +334,8 @@ public class OrderServiceImpl implements OrderService {
         Order order = orderRepository.findByIdAndHouseholdIdAndDeletedAtIsNull(orderId, household.getId())
                 .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));
 
+        checkOrderOwnership(order, currentUser);
+
         if (!"CREATING".equals(order.getStatus())) {
             throw new AppException(ErrorCode.ORDER_ALREADY_PAID);
         }
@@ -339,6 +368,8 @@ public class OrderServiceImpl implements OrderService {
 
         Order order = orderRepository.findByIdAndHouseholdIdAndDeletedAtIsNull(orderId, household.getId())
                 .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));
+
+        checkOrderOwnership(order, currentUser);
 
         if (!"CREATING".equals(order.getStatus())) {
             throw new AppException(ErrorCode.ORDER_ALREADY_PAID);
@@ -390,6 +421,8 @@ public class OrderServiceImpl implements OrderService {
         Order order = orderRepository.findByIdAndHouseholdIdAndDeletedAtIsNull(orderId, household.getId())
                 .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));
 
+        checkOrderOwnership(order, currentUser);
+
         if (!"CREATING".equals(order.getStatus())) {
             throw new AppException(ErrorCode.ORDER_ALREADY_PAID);
         }
@@ -400,18 +433,21 @@ public class OrderServiceImpl implements OrderService {
         if ("BANK_TRANSFER".equals(method)) {
             order.setPaymentMethod("BANK_TRANSFER");
             order.setPaymentStatus("PENDING");
-            // Generate VietQR mockup URL
-            qrCodeUrl = "https://api.vietqr.io/image/970415-113366668888-jLq5qSg.jpg?accountName=TapHoaViet&amount=" 
-                    + order.getFinalAmount() + "&addInfo=Thanh%20toan%20don%20hang%20" + order.getOrderNumber();
+            qrCodeUrl = generateQrCodeUrl(order);
         } else if ("DEBT".equals(method)) {
             if (order.getCustomer() == null) {
                 throw new AppException(ErrorCode.CUSTOMER_REQUIRED_FOR_DEBT);
             }
-            Customer customer = order.getCustomer();
+            // Concurrency fix: lock the Customer entity for update
+            Customer customer = customerRepository.findByIdAndHouseholdIdAndDeletedAtIsNullForUpdate(
+                    order.getCustomer().getId(), household.getId())
+                    .orElseThrow(() -> new AppException(ErrorCode.CUSTOMER_NOT_FOUND));
+
             BigDecimal potentialDebt = customer.getCurrentDebt().add(order.getFinalAmount());
             if (potentialDebt.compareTo(customer.getCreditLimit()) > 0) {
                 throw new AppException(ErrorCode.CREDIT_LIMIT_EXCEEDED);
             }
+            order.setCustomer(customer);
             order.setPaymentMethod("DEBT");
             order.setPaymentStatus("DEBT");
         } else {
@@ -437,6 +473,8 @@ public class OrderServiceImpl implements OrderService {
 
         Order order = orderRepository.findByIdAndHouseholdIdAndDeletedAtIsNull(orderId, household.getId())
                 .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));
+
+        checkOrderOwnership(order, currentUser);
 
         if (!"CREATING".equals(order.getStatus())) {
             throw new AppException(ErrorCode.ORDER_ALREADY_PAID);
@@ -465,18 +503,32 @@ public class OrderServiceImpl implements OrderService {
         } else if ("BANK_TRANSFER".equals(order.getPaymentMethod())) {
             order.setPaymentStatus("PAID");
         } else if ("DEBT".equals(order.getPaymentMethod())) {
-            // Confirm the Debt by adding to customer's currentDebt
             Customer customer = order.getCustomer();
             if (customer == null) {
                 throw new AppException(ErrorCode.CUSTOMER_REQUIRED_FOR_DEBT);
             }
+            // Concurrency fix: lock the Customer entity for update
+            customer = customerRepository.findByIdAndHouseholdIdAndDeletedAtIsNullForUpdate(
+                    customer.getId(), household.getId())
+                    .orElseThrow(() -> new AppException(ErrorCode.CUSTOMER_NOT_FOUND));
+
             BigDecimal potentialDebt = customer.getCurrentDebt().add(order.getFinalAmount());
             if (potentialDebt.compareTo(customer.getCreditLimit()) > 0) {
                 throw new AppException(ErrorCode.CREDIT_LIMIT_EXCEEDED);
             }
             customer.setCurrentDebt(potentialDebt);
             customerRepository.save(customer);
+            order.setCustomer(customer);
             order.setPaymentStatus("DEBT");
+        }
+
+        // Logic fix: Subtract physical stock quantity
+        for (OrderItem item : order.getItems()) {
+            if (item.getProduct() != null) {
+                Product product = item.getProduct();
+                product.setStockQuantity(product.getStockQuantity().subtract(item.getQuantity()));
+                productRepository.save(product);
+            }
         }
 
         order.setStatus("COMPLETED");
@@ -501,12 +553,13 @@ public class OrderServiceImpl implements OrderService {
         Order order = orderRepository.findByIdAndHouseholdIdAndDeletedAtIsNull(orderId, household.getId())
                 .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));
 
+        checkOrderOwnership(order, currentUser);
+
         List<String> warnings = "CREATING".equals(order.getStatus()) ? checkStockWarnings(order) : new ArrayList<>();
 
         String qrCodeUrl = null;
         if ("BANK_TRANSFER".equals(order.getPaymentMethod()) && "PENDING".equals(order.getPaymentStatus())) {
-            qrCodeUrl = "https://api.vietqr.io/image/970415-113366668888-jLq5qSg.jpg?accountName=TapHoaViet&amount=" 
-                    + order.getFinalAmount() + "&addInfo=Thanh%20toan%20don%20hang%20" + order.getOrderNumber();
+            qrCodeUrl = generateQrCodeUrl(order);
         }
 
         return mapToResponse(order, warnings, null, qrCodeUrl);

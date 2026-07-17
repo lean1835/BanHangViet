@@ -11,7 +11,7 @@ import java.util.Optional;
 @Repository
 public interface OrderRepository extends JpaRepository<Order, String> {
 
-    @EntityGraph(attributePaths = {"items", "customer", "shift", "createdByUser", "household"})
+    @EntityGraph(attributePaths = {"items", "items.product", "customer", "shift", "createdByUser", "household"})
     Optional<Order> findByIdAndHouseholdIdAndDeletedAtIsNull(String id, String householdId);
 
     boolean existsByOrderNumber(String orderNumber);

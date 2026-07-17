@@ -547,4 +547,136 @@ public class OrderControllerTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value(3015));
     }
+
+    @Test
+    @WithMockUser(username = "test_owner_order", roles = {"VT-01"})
+    public void completeOrder_stockDeducted_success() throws Exception {
+        openShiftForUser(testOwner);
+
+        // 1. Tạo đơn hàng
+        CreateOrderRequest orderReq = CreateOrderRequest.builder().build();
+        String responseStr = mockMvc.perform(post("/api/v1/orders")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(orderReq)))
+                .andReturn().getResponse().getContentAsString();
+        String orderId = objectMapper.readTree(responseStr).get("result").get("id").asText();
+
+        // 2. Thêm 5 mặt hàng (stock ban đầu là 50.000)
+        CreateOrderItemRequest itemReq = CreateOrderItemRequest.builder()
+                .productId(testProduct.getId())
+                .quantity(new BigDecimal("5.000"))
+                .build();
+        mockMvc.perform(post("/api/v1/orders/" + orderId + "/items")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(itemReq)));
+
+        // 3. Chọn CASH payment
+        OrderPaymentRequest payReq = OrderPaymentRequest.builder()
+                .paymentMethod("CASH")
+                .build();
+        mockMvc.perform(post("/api/v1/orders/" + orderId + "/payment")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(payReq)));
+
+        // 4. Chốt đơn
+        CompleteOrderRequest completeReq = CompleteOrderRequest.builder()
+                .amountGiven(new BigDecimal("120000.00"))
+                .build();
+        mockMvc.perform(post("/api/v1/orders/" + orderId + "/complete")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(completeReq)))
+                .andExpect(status().isOk());
+
+        // 5. Kiểm tra stock của product giảm còn 45.000
+        Product updatedProduct = productRepository.findById(testProduct.getId()).orElseThrow();
+        org.junit.jupiter.api.Assertions.assertEquals(0, new BigDecimal("45.000").compareTo(updatedProduct.getStockQuantity()));
+    }
+
+    @Test
+    @WithMockUser(username = "test_employee_order", roles = {"VT-02"})
+    public void getOrder_salespersonOwnOrder_success() throws Exception {
+        openShiftForUser(testEmployee);
+
+        CreateOrderRequest orderReq = CreateOrderRequest.builder().build();
+        String responseStr = mockMvc.perform(post("/api/v1/orders")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(orderReq)))
+                .andReturn().getResponse().getContentAsString();
+        String orderId = objectMapper.readTree(responseStr).get("result").get("id").asText();
+
+        mockMvc.perform(get("/api/v1/orders/" + orderId))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @WithMockUser(username = "test_employee2_order", roles = {"VT-02"})
+    public void getOrder_salespersonForbidden_success() throws Exception {
+        User employee2 = userRepository.findByUsername("test_employee2_order").orElseGet(() -> {
+            User u = User.builder()
+                    .username("test_employee2_order")
+                    .passwordHash("password_hash")
+                    .fullName("Nhân Viên 2 Test Order")
+                    .role(employeeRole)
+                    .household(testHousehold)
+                    .isActive(true)
+                    .build();
+            return userRepository.save(u);
+        });
+        openShiftForUser(employee2);
+
+        // Tạo đơn hàng của testEmployee
+        Order order = Order.builder()
+                .household(testHousehold)
+                .createdByUser(testEmployee)
+                .orderNumber("OD-FORBIDDEN-TEST")
+                .totalAmount(BigDecimal.ZERO)
+                .discountAmount(BigDecimal.ZERO)
+                .finalAmount(BigDecimal.ZERO)
+                .paymentMethod("CASH")
+                .paymentStatus("PENDING")
+                .status("CREATING")
+                .syncStatus("SYNCED")
+                .isOffline(false)
+                .build();
+        order = orderRepository.save(order);
+
+        // testEmployee2 cố tình xem đơn hàng của testEmployee -> Bị chặn 403 Forbidden
+        mockMvc.perform(get("/api/v1/orders/" + order.getId()))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value(2009));
+    }
+
+    @Test
+    @WithMockUser(username = "test_owner_order", roles = {"VT-01"})
+    public void completeOrder_bankTransfer_dynamicQrCode_success() throws Exception {
+        openShiftForUser(testOwner);
+
+        CreateOrderRequest orderReq = CreateOrderRequest.builder().build();
+        String responseStr = mockMvc.perform(post("/api/v1/orders")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(orderReq)))
+                .andReturn().getResponse().getContentAsString();
+        String orderId = objectMapper.readTree(responseStr).get("result").get("id").asText();
+
+        // Thêm mặt hàng
+        CreateOrderItemRequest itemReq = CreateOrderItemRequest.builder()
+                .productId(testProduct.getId())
+                .quantity(new BigDecimal("2.000"))
+                .build();
+        mockMvc.perform(post("/api/v1/orders/" + orderId + "/items")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(itemReq)));
+
+        // Chọn BANK_TRANSFER và kiểm tra qrCodeUrl chứa thông tin Hộ kinh doanh động
+        OrderPaymentRequest payReq = OrderPaymentRequest.builder()
+                .paymentMethod("BANK_TRANSFER")
+                .build();
+        
+        mockMvc.perform(post("/api/v1/orders/" + orderId + "/payment")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(payReq)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.result.qrCodeUrl").value(org.hamcrest.Matchers.containsString("8888888888"))) // chứa taxCode
+                .andExpect(jsonPath("$.result.qrCodeUrl").value(org.hamcrest.Matchers.containsString("H%E1%BB%99+kinh+doanh+Test+Order"))); // chứa tên tiếng việt url-encoded
+    }
 }
