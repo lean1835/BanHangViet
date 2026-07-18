@@ -53,6 +53,12 @@ public class OrderServiceImpl implements OrderService {
         }
     }
 
+    private void validateShiftIsOpen(Order order) {
+        if (order.getShift() != null && order.getShift().getStatus() == ShiftStatus.CLOSED) {
+            throw new AppException(ErrorCode.SHIFT_ALREADY_CLOSED);
+        }
+    }
+
     private String generateQrCodeUrl(Order order) {
         try {
             BusinessHousehold household = order.getHousehold();
@@ -203,6 +209,14 @@ public class OrderServiceImpl implements OrderService {
         Shift activeShift = shiftRepository.findByUserIdAndStatus(currentUser.getId(), ShiftStatus.OPEN)
                 .orElseThrow(() -> new AppException(ErrorCode.ACTIVE_SHIFT_NOT_FOUND));
 
+        // Lock the active shift to prevent concurrency race with closeShift
+        activeShift = shiftRepository.findByIdForUpdate(activeShift.getId())
+                .orElseThrow(() -> new AppException(ErrorCode.ACTIVE_SHIFT_NOT_FOUND));
+
+        if (activeShift.getStatus() == ShiftStatus.CLOSED) {
+            throw new AppException(ErrorCode.ACTIVE_SHIFT_NOT_FOUND);
+        }
+
         Customer customer = null;
         if (request.getCustomerId() != null && !request.getCustomerId().trim().isEmpty()) {
             customer = customerRepository.findByIdAndHouseholdIdAndDeletedAtIsNull(request.getCustomerId(), household.getId())
@@ -247,6 +261,7 @@ public class OrderServiceImpl implements OrderService {
                 .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));
 
         checkOrderOwnership(order, currentUser);
+        validateShiftIsOpen(order);
 
         if (!"CREATING".equals(order.getStatus())) {
             throw new AppException(ErrorCode.ORDER_ALREADY_PAID);
@@ -310,6 +325,7 @@ public class OrderServiceImpl implements OrderService {
                 .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));
 
         checkOrderOwnership(order, currentUser);
+        validateShiftIsOpen(order);
 
         if (!"CREATING".equals(order.getStatus())) {
             throw new AppException(ErrorCode.ORDER_ALREADY_PAID);
@@ -349,6 +365,7 @@ public class OrderServiceImpl implements OrderService {
                 .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));
 
         checkOrderOwnership(order, currentUser);
+        validateShiftIsOpen(order);
 
         if (!"CREATING".equals(order.getStatus())) {
             throw new AppException(ErrorCode.ORDER_ALREADY_PAID);
@@ -384,6 +401,7 @@ public class OrderServiceImpl implements OrderService {
                 .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));
 
         checkOrderOwnership(order, currentUser);
+        validateShiftIsOpen(order);
 
         if (!"CREATING".equals(order.getStatus())) {
             throw new AppException(ErrorCode.ORDER_ALREADY_PAID);
@@ -438,6 +456,7 @@ public class OrderServiceImpl implements OrderService {
                 .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));
 
         checkOrderOwnership(order, currentUser);
+        validateShiftIsOpen(order);
 
         if (!"CREATING".equals(order.getStatus())) {
             throw new AppException(ErrorCode.ORDER_ALREADY_PAID);
@@ -491,6 +510,7 @@ public class OrderServiceImpl implements OrderService {
                 .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));
 
         checkOrderOwnership(order, currentUser);
+        validateShiftIsOpen(order);
 
         if (!"CREATING".equals(order.getStatus())) {
             throw new AppException(ErrorCode.ORDER_ALREADY_PAID);
