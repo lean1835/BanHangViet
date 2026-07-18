@@ -189,7 +189,7 @@ public class GoodsReceiptControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value(3011))
+                .andExpect(jsonPath("$.code").value(3019))
                 .andExpect(jsonPath("$.message").value("Số phiếu nhập kho đã tồn tại trên hệ thống"));
     }
 
