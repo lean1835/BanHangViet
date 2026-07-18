@@ -181,7 +181,7 @@ public class ShiftServiceImpl implements ShiftService {
         }
 
         // Ownership validation: only shift owner or owner role (VT-01) can close the shift
-        if (!shift.getUser().getUsername().equals(currentUsername) && 
+        if (!shift.getUser().getId().equals(currentUser.getId()) && 
                 !currentUser.getRole().getCode().equals("VT-01")) {
             log.warn("User {} is not authorized to close shift of user {}", currentUsername, shift.getUser().getUsername());
             throw new AppException(ErrorCode.SHIFT_PERMISSION_DENIED);
