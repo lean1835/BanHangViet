@@ -1,6 +1,7 @@
 package com.viet.sales.controller;
 
 import com.viet.sales.dto.ApiResponse;
+import com.viet.sales.dto.request.CloseShiftRequest;
 import com.viet.sales.dto.request.OpenShiftRequest;
 import com.viet.sales.dto.response.ShiftResponse;
 import com.viet.sales.service.interfaces.ShiftService;
@@ -40,6 +41,21 @@ public class ShiftController {
         ApiResponse<ShiftResponse> response = ApiResponse.<ShiftResponse>builder()
                 .code(1000)
                 .message("Lấy ca bán hàng hoạt động thành công")
+                .result(result)
+                .build();
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/{id}/close")
+    @PreAuthorize("hasAnyRole('VT-01', 'VT-02')")
+    public ResponseEntity<ApiResponse<ShiftResponse>> closeShift(
+            Principal principal,
+            @PathVariable("id") String id,
+            @Valid @RequestBody CloseShiftRequest request) {
+        ShiftResponse result = shiftService.closeShift(principal.getName(), id, request);
+        ApiResponse<ShiftResponse> response = ApiResponse.<ShiftResponse>builder()
+                .code(1000)
+                .message("Đóng ca bán hàng thành công")
                 .result(result)
                 .build();
         return ResponseEntity.ok(response);

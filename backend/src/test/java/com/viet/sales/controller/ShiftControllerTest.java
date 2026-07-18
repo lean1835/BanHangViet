@@ -2,11 +2,14 @@ package com.viet.sales.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.viet.sales.constant.ShiftStatus;
-import com.viet.sales.dto.request.OpenShiftRequest;
+import com.viet.sales.dto.request.CloseShiftRequest;
 import com.viet.sales.entity.BusinessHousehold;
+import com.viet.sales.entity.Order;
 import com.viet.sales.entity.Role;
+import com.viet.sales.entity.Shift;
 import com.viet.sales.entity.User;
 import com.viet.sales.repository.BusinessHouseholdRepository;
+import com.viet.sales.repository.OrderRepository;
 import com.viet.sales.repository.RoleRepository;
 import com.viet.sales.repository.ShiftRepository;
 import com.viet.sales.repository.UserRepository;
@@ -21,6 +24,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -50,6 +54,9 @@ public class ShiftControllerTest {
 
     @Autowired
     private ShiftRepository shiftRepository;
+
+    @Autowired
+    private OrderRepository orderRepository;
 
     private User employeeUser;
     private User ownerUser;
@@ -214,5 +221,179 @@ public class ShiftControllerTest {
                 .andExpect(jsonPath("$.code").value(1000))
                 .andExpect(jsonPath("$.result.status").value("OPEN"))
                 .andExpect(jsonPath("$.result.username").value("nhanvien_test"));
+    }
+
+    @Test
+    @WithMockUser(username = "nhanvien_test", roles = "VT-02")
+    public void closeShift_success_noDifference() throws Exception {
+        Shift shift = Shift.builder()
+                .household(employeeUser.getHousehold())
+                .user(employeeUser)
+                .openedAt(LocalDateTime.now())
+                .openingCash(new BigDecimal("100000.00"))
+                .status(ShiftStatus.OPEN)
+                .build();
+        shift = shiftRepository.save(shift);
+
+        CloseShiftRequest closeRequest = CloseShiftRequest.builder()
+                .closingCashActual(new BigDecimal("100000.00"))
+                .build();
+
+        mockMvc.perform(post("/api/v1/shifts/" + shift.getId() + "/close")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(closeRequest)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(1000))
+                .andExpect(jsonPath("$.result.status").value("CLOSED"))
+                .andExpect(jsonPath("$.result.closingCashExpected").value(100000.00))
+                .andExpect(jsonPath("$.result.closingCashActual").value(100000.00))
+                .andExpect(jsonPath("$.result.differenceAmount").value(0.00));
+    }
+
+    @Test
+    @WithMockUser(username = "nhanvien_test", roles = "VT-02")
+    public void closeShift_success_withDifferenceAndReason() throws Exception {
+        Shift shift = Shift.builder()
+                .household(employeeUser.getHousehold())
+                .user(employeeUser)
+                .openedAt(LocalDateTime.now())
+                .openingCash(new BigDecimal("100000.00"))
+                .status(ShiftStatus.OPEN)
+                .build();
+        shift = shiftRepository.save(shift);
+
+        CloseShiftRequest closeRequest = CloseShiftRequest.builder()
+                .closingCashActual(new BigDecimal("120000.00"))
+                .differenceReason("Khách trả dư tiền")
+                .build();
+
+        mockMvc.perform(post("/api/v1/shifts/" + shift.getId() + "/close")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(closeRequest)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(1000))
+                .andExpect(jsonPath("$.result.status").value("CLOSED"))
+                .andExpect(jsonPath("$.result.differenceAmount").value(20000.00))
+                .andExpect(jsonPath("$.result.differenceReason").value("Khách trả dư tiền"));
+    }
+
+    @Test
+    @WithMockUser(username = "nhanvien_test", roles = "VT-02")
+    public void closeShift_fail_differenceNoReason() throws Exception {
+        Shift shift = Shift.builder()
+                .household(employeeUser.getHousehold())
+                .user(employeeUser)
+                .openedAt(LocalDateTime.now())
+                .openingCash(new BigDecimal("100000.00"))
+                .status(ShiftStatus.OPEN)
+                .build();
+        shift = shiftRepository.save(shift);
+
+        CloseShiftRequest closeRequest = CloseShiftRequest.builder()
+                .closingCashActual(new BigDecimal("120000.00"))
+                .differenceReason(null) // missing reason
+                .build();
+
+        mockMvc.perform(post("/api/v1/shifts/" + shift.getId() + "/close")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(closeRequest)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(3025))
+                .andExpect(jsonPath("$.message").value("Cần ghi rõ lý do chênh lệch tiền mặt khi đối soát quỹ"));
+    }
+
+    @Test
+    @WithMockUser(username = "nhanvien_test", roles = "VT-02")
+    public void closeShift_fail_pendingOrders() throws Exception {
+        Shift shift = Shift.builder()
+                .household(employeeUser.getHousehold())
+                .user(employeeUser)
+                .openedAt(LocalDateTime.now())
+                .openingCash(new BigDecimal("100000.00"))
+                .status(ShiftStatus.OPEN)
+                .build();
+        shift = shiftRepository.save(shift);
+
+        Order pendingOrder = Order.builder()
+                .household(employeeUser.getHousehold())
+                .shift(shift)
+                .createdByUser(employeeUser)
+                .orderNumber("ORD-TEST-PENDING")
+                .status("CREATING")
+                .paymentMethod("CASH")
+                .paymentStatus("PENDING")
+                .totalAmount(BigDecimal.ZERO)
+                .finalAmount(BigDecimal.ZERO)
+                .build();
+        orderRepository.save(pendingOrder);
+
+        CloseShiftRequest closeRequest = CloseShiftRequest.builder()
+                .closingCashActual(new BigDecimal("100000.00"))
+                .build();
+
+        mockMvc.perform(post("/api/v1/shifts/" + shift.getId() + "/close")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(closeRequest)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(3023))
+                .andExpect(jsonPath("$.message").value("Không thể đóng ca do còn đơn hàng chưa hoàn thành"));
+    }
+
+    @Test
+    @WithMockUser(username = "nhanvien_other", roles = "VT-02")
+    public void closeShift_notOwner_fails() throws Exception {
+        User otherUser = User.builder()
+                .username("nhanvien_other")
+                .passwordHash("password_hash")
+                .fullName("Nguyễn Nhân Viên Khác")
+                .role(roleRepository.findByCode("VT-02").get())
+                .household(employeeUser.getHousehold())
+                .isActive(true)
+                .build();
+        userRepository.save(otherUser);
+
+        Shift shift = Shift.builder()
+                .household(employeeUser.getHousehold())
+                .user(employeeUser)
+                .openedAt(LocalDateTime.now())
+                .openingCash(new BigDecimal("100000.00"))
+                .status(ShiftStatus.OPEN)
+                .build();
+        shift = shiftRepository.save(shift);
+
+        CloseShiftRequest closeRequest = CloseShiftRequest.builder()
+                .closingCashActual(new BigDecimal("100000.00"))
+                .build();
+
+        mockMvc.perform(post("/api/v1/shifts/" + shift.getId() + "/close")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(closeRequest)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value(3024))
+                .andExpect(jsonPath("$.message").value("Bạn không có quyền đóng ca bán hàng của người khác"));
+    }
+
+    @Test
+    @WithMockUser(username = "chuho_test", roles = "VT-01")
+    public void closeShift_byOwner_success() throws Exception {
+        Shift shift = Shift.builder()
+                .household(employeeUser.getHousehold())
+                .user(employeeUser)
+                .openedAt(LocalDateTime.now())
+                .openingCash(new BigDecimal("100000.00"))
+                .status(ShiftStatus.OPEN)
+                .build();
+        shift = shiftRepository.save(shift);
+
+        CloseShiftRequest closeRequest = CloseShiftRequest.builder()
+                .closingCashActual(new BigDecimal("100000.00"))
+                .build();
+
+        mockMvc.perform(post("/api/v1/shifts/" + shift.getId() + "/close")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(closeRequest)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(1000))
+                .andExpect(jsonPath("$.result.status").value("CLOSED"));
     }
 }
