@@ -28,6 +28,8 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.HashMap;
+import java.util.List;
+
 import java.util.Map;
 
 @Service
@@ -102,6 +104,12 @@ public class ShiftServiceImpl implements ShiftService {
     }
 
     private ShiftResponse mapToResponse(Shift shift) {
+        BigDecimal expectedCash = shift.getClosingCashExpected();
+        if (shift.getStatus() == ShiftStatus.OPEN) {
+            BigDecimal cashSales = orderRepository.sumFinalAmountByShiftIdAndStatusAndPaymentMethodAndDeletedAtIsNull(
+                    shift.getId(), "COMPLETED", "CASH");
+            expectedCash = shift.getOpeningCash().add(cashSales);
+        }
         return ShiftResponse.builder()
                 .id(shift.getId())
                 .userId(shift.getUser().getId())
@@ -111,7 +119,7 @@ public class ShiftServiceImpl implements ShiftService {
                 .openedAt(shift.getOpenedAt())
                 .closedAt(shift.getClosedAt())
                 .openingCash(shift.getOpeningCash())
-                .closingCashExpected(shift.getClosingCashExpected())
+                .closingCashExpected(expectedCash)
                 .closingCashActual(shift.getClosingCashActual())
                 .differenceAmount(shift.getDifferenceAmount())
                 .differenceReason(shift.getDifferenceReason())
@@ -130,14 +138,27 @@ public class ShiftServiceImpl implements ShiftService {
             throw new AppException(ErrorCode.FORBIDDEN);
         }
 
-        // QTN-15 / NCL-03-CN-006-TC-02: Check if user already has an open shift
-        if (shiftRepository.existsByUserIdAndStatus(currentUser.getId(), ShiftStatus.OPEN)) {
+        User targetUser = currentUser;
+        if (request.getUserId() != null && !request.getUserId().trim().isEmpty()) {
+            if (!"VT-01".equals(currentUser.getRole().getCode())) {
+                throw new AppException(ErrorCode.FORBIDDEN);
+            }
+            targetUser = userRepository.findById(request.getUserId())
+                    .filter(u -> u.getDeletedAt() == null)
+                    .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+            if (targetUser.getHousehold() == null || !targetUser.getHousehold().getId().equals(household.getId())) {
+                throw new AppException(ErrorCode.FORBIDDEN);
+            }
+        }
+
+        // QTN-15 / NCL-03-CN-006-TC-02: Check if target user already has an open shift
+        if (shiftRepository.existsByUserIdAndStatus(targetUser.getId(), ShiftStatus.OPEN)) {
             throw new AppException(ErrorCode.SHIFT_ALREADY_OPEN);
         }
 
         Shift shift = Shift.builder()
                 .household(household)
-                .user(currentUser)
+                .user(targetUser)
                 .openedAt(LocalDateTime.now())
                 .openingCash(request.getOpeningCash())
                 .status(ShiftStatus.OPEN)
@@ -226,5 +247,27 @@ public class ShiftServiceImpl implements ShiftService {
         log.info("Shift ID: {} closed successfully. Discrepancy: {}", shiftId, difference);
 
         return mapToResponse(shift);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ShiftResponse> getShiftsHistory(String currentUsername) {
+        User currentUser = getAuthenticatedUser(currentUsername);
+        BusinessHousehold household = currentUser.getHousehold();
+        if (household == null) {
+            throw new AppException(ErrorCode.FORBIDDEN);
+        }
+
+        List<Shift> shifts;
+        String roleCode = currentUser.getRole().getCode();
+        if ("VT-01".equals(roleCode) || "VT-03".equals(roleCode)) {
+            shifts = shiftRepository.findByHouseholdIdOrderByOpenedAtDesc(household.getId());
+        } else {
+            shifts = shiftRepository.findByHouseholdIdAndUserIdOrderByOpenedAtDesc(household.getId(), currentUser.getId());
+        }
+
+        return shifts.stream()
+                .map(this::mapToResponse)
+                .collect(java.util.stream.Collectors.toList());
     }
 }

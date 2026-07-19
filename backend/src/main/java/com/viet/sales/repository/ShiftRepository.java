@@ -10,7 +10,9 @@ import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import jakarta.persistence.LockModeType;
+import java.util.List;
 import java.util.Optional;
+
 
 @Repository
 public interface ShiftRepository extends JpaRepository<Shift, String> {
@@ -24,4 +26,10 @@ public interface ShiftRepository extends JpaRepository<Shift, String> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT s FROM Shift s WHERE s.id = :id")
     Optional<Shift> findByIdForUpdate(@Param("id") String id);
+
+    @EntityGraph(attributePaths = {"user", "household"})
+    List<Shift> findByHouseholdIdOrderByOpenedAtDesc(String householdId);
+
+    @EntityGraph(attributePaths = {"user", "household"})
+    List<Shift> findByHouseholdIdAndUserIdOrderByOpenedAtDesc(String householdId, String userId);
 }
