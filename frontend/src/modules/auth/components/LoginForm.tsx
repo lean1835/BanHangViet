@@ -1,13 +1,32 @@
 import React, { useState } from "react";
 import { Form, Input, Button, Alert } from "antd";
 import { useLoginMutation } from "../services/authApi";
-import { useAppDispatch } from "@/hooks/redux";
+import { useAppDispatch } from "@/hooks/useRedux";
 import { setCredentials } from "@/stores/authSlice";
+import {
+  AUTH_FORM_FIELDS,
+  AUTH_MESSAGES,
+  AUTH_UI,
+  AUTH_VALIDATION,
+  AUTH_VALIDATION_MESSAGES,
+} from "@/constants/auth";
 import { z } from "zod";
+import { DemoAccountsPanel } from "./DemoAccountsPanel";
+import { getApiErrorMessage } from "@/utils/getApiErrorMessage";
 
 const loginSchema = z.object({
-  username: z.string().min(1, "Vui lòng nhập tên đăng nhập"),
-  password: z.string().min(1, "Vui lòng nhập mật khẩu"),
+  [AUTH_FORM_FIELDS.USERNAME]: z
+    .string()
+    .min(
+      AUTH_VALIDATION.USERNAME_MIN_LENGTH,
+      AUTH_VALIDATION_MESSAGES.USERNAME_MIN_LENGTH,
+    ),
+  [AUTH_FORM_FIELDS.PASSWORD]: z
+    .string()
+    .min(
+      AUTH_VALIDATION.PASSWORD_MIN_LENGTH,
+      AUTH_VALIDATION_MESSAGES.PASSWORD_MIN_LENGTH,
+    ),
 });
 
 interface LoginFormProps {
@@ -20,32 +39,37 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
   const [login, { isLoading }] = useLoginMutation();
   const dispatch = useAppDispatch();
 
-  const handleFinish = async (values: any) => {
+  const handleFinish = async (formValues: unknown) => {
     setErrorMsg(null);
     try {
       // Validate with Zod
-      loginSchema.parse(values);
+      const values = loginSchema.parse(formValues);
 
       const response = await login(values).unwrap();
       dispatch(setCredentials(response));
       onSuccess();
-    } catch (err: any) {
-      if (err instanceof z.ZodError) {
-        setErrorMsg(err.errors[0].message);
-      } else if (err.data && err.data.message) {
-        setErrorMsg(err.data.message);
+    } catch (error: unknown) {
+      if (error instanceof z.ZodError) {
+        setErrorMsg(
+          error.issues[0]?.message ??
+            AUTH_MESSAGES.LOGIN_INVALID_DATA,
+        );
       } else {
-        setErrorMsg("Đã xảy ra lỗi đăng nhập. Vui lòng thử lại!");
+        setErrorMsg(
+          getApiErrorMessage(
+            error,
+            AUTH_MESSAGES.LOGIN_FAILED,
+          ),
+        );
       }
     }
   };
 
-  const handleQuickFill = (username: string) => {
+  const handleDemoSelect = (username: string, password: string) => {
     form.setFieldsValue({
-      username,
-      password: "123",
+      [AUTH_FORM_FIELDS.USERNAME]: username,
+      [AUTH_FORM_FIELDS.PASSWORD]: password,
     });
-    // Trigger submit
     form.submit();
   };
 
@@ -67,23 +91,41 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
       )}
 
       <Form.Item
-        label={<span className="font-semibold text-gray-700">Tên đăng nhập:</span>}
-        name="username"
-        rules={[{ required: true, message: "Vui lòng nhập tên đăng nhập!" }]}
+        label={
+          <span className="font-semibold text-gray-700">
+            {AUTH_UI.LOGIN.USERNAME_LABEL}
+          </span>
+        }
+        name={AUTH_FORM_FIELDS.USERNAME}
+        rules={[
+          {
+            required: true,
+            message: AUTH_VALIDATION_MESSAGES.USERNAME_REQUIRED,
+          },
+        ]}
       >
         <Input
-          placeholder="Tên tài khoản hoặc email"
+          placeholder={AUTH_UI.LOGIN.USERNAME_PLACEHOLDER}
           className="h-10 border-gray-300 rounded-lg hover:border-kv-blue-primary focus:border-kv-blue-primary"
         />
       </Form.Item>
 
       <Form.Item
-        label={<span className="font-semibold text-gray-700">Mật khẩu:</span>}
-        name="password"
-        rules={[{ required: true, message: "Vui lòng nhập mật khẩu!" }]}
+        label={
+          <span className="font-semibold text-gray-700">
+            {AUTH_UI.LOGIN.PASSWORD_LABEL}
+          </span>
+        }
+        name={AUTH_FORM_FIELDS.PASSWORD}
+        rules={[
+          {
+            required: true,
+            message: AUTH_VALIDATION_MESSAGES.PASSWORD_REQUIRED,
+          },
+        ]}
       >
         <Input.Password
-          placeholder="Mật khẩu tài khoản"
+          placeholder={AUTH_UI.LOGIN.PASSWORD_PLACEHOLDER}
           className="h-10 border-gray-300 rounded-lg hover:border-kv-blue-primary focus:border-kv-blue-primary"
         />
       </Form.Item>
@@ -95,48 +137,11 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
           loading={isLoading}
           className="w-full h-10 rounded-lg bg-kv-blue-primary hover:bg-kv-blue-dark border-none font-bold text-sm"
         >
-          ĐĂNG NHẬP HỆ THỐNG
+          {AUTH_UI.LOGIN.SUBMIT_LABEL}
         </Button>
       </Form.Item>
 
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-2 text-xs text-blue-800">
-        <div className="flex items-center gap-2 font-bold mb-2">
-          <svg
-            className="w-4 h-4 text-blue-600"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2.5"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 1 1 7.072 0l-.548.7c-.29.37-.452.83-.452 1.3V18h-4v-1.1c0-.47-.162-.93-.452-1.3l-.548-.7z"
-            />
-          </svg>
-          <span>Kiểm thử nhanh tài khoản mẫu:</span>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <span
-            onClick={() => handleQuickFill("chuho_viet")}
-            className="bg-white border border-blue-300 px-2 py-1 rounded cursor-pointer font-semibold text-gray-700 hover:bg-blue-100 hover:border-kv-blue-primary transition-colors"
-          >
-            Chủ hộ (chuho_viet)
-          </span>
-          <span
-            onClick={() => handleQuickFill("nhanvien_viet")}
-            className="bg-white border border-blue-300 px-2 py-1 rounded cursor-pointer font-semibold text-gray-700 hover:bg-blue-100 hover:border-kv-blue-primary transition-colors"
-          >
-            Nhân viên (nhanvien_viet)
-          </span>
-          <span
-            onClick={() => handleQuickFill("ketoan_viet")}
-            className="bg-white border border-blue-300 px-2 py-1 rounded cursor-pointer font-semibold text-gray-700 hover:bg-blue-100 hover:border-kv-blue-primary transition-colors"
-          >
-            Kế toán (ketoan_viet)
-          </span>
-        </div>
-      </div>
+      <DemoAccountsPanel onSelect={handleDemoSelect} />
     </Form>
   );
 };

@@ -1,17 +1,61 @@
 import React, { useState } from "react";
 import { Form, Input, Button, Alert } from "antd";
 import { useRegisterMutation } from "../services/authApi";
-import { useAppDispatch } from "@/hooks/redux";
+import { useAppDispatch } from "@/hooks/useRedux";
 import { setCredentials } from "@/stores/authSlice";
+import {
+  AUTH_FORM_FIELDS,
+  AUTH_MESSAGES,
+  AUTH_UI,
+  AUTH_VALIDATION,
+  AUTH_VALIDATION_MESSAGES,
+} from "@/constants/auth";
 import { z } from "zod";
+import { getApiErrorMessage } from "@/utils/getApiErrorMessage";
 
 const registerSchema = z.object({
-  name: z.string().min(1, "Vui lòng nhập tên Hộ kinh doanh"),
-  taxCode: z.string().regex(/^\d{10}(-\d{3})?$/, "Mã số thuế không hợp lệ! Vui lòng nhập đúng 10 hoặc 13 chữ số (dạng XXXXXXXXXX-XXX)."),
-  phoneNumber: z.string().regex(/^(0[3|5|7|8|9])([0-9]{8})$/, "Số điện thoại không đúng định dạng Việt Nam!"),
-  address: z.string().optional(),
-  username: z.string().min(3, "Tên đăng nhập phải chứa ít nhất 3 ký tự"),
-  password: z.string().min(6, "Mật khẩu phải chứa ít nhất 6 ký tự"),
+  [AUTH_FORM_FIELDS.HOUSEHOLD_NAME]: z
+    .string()
+    .min(
+      AUTH_VALIDATION.REQUIRED_TEXT_MIN_LENGTH,
+      AUTH_VALIDATION_MESSAGES.HOUSEHOLD_NAME_REQUIRED,
+    ),
+  [AUTH_FORM_FIELDS.TAX_CODE]: z
+    .string()
+    .regex(
+      AUTH_VALIDATION.TAX_CODE_PATTERN,
+      AUTH_VALIDATION_MESSAGES.TAX_CODE_INVALID,
+    ),
+  [AUTH_FORM_FIELDS.HOUSEHOLD_PHONE]: z
+    .string()
+    .regex(
+      AUTH_VALIDATION.VIETNAM_PHONE_PATTERN,
+      AUTH_VALIDATION_MESSAGES.PHONE_INVALID,
+    ),
+  [AUTH_FORM_FIELDS.HOUSEHOLD_ADDRESS]: z
+    .string()
+    .min(
+      AUTH_VALIDATION.REQUIRED_TEXT_MIN_LENGTH,
+      AUTH_VALIDATION_MESSAGES.HOUSEHOLD_ADDRESS_REQUIRED,
+    ),
+  [AUTH_FORM_FIELDS.FULL_NAME]: z
+    .string()
+    .min(
+      AUTH_VALIDATION.REQUIRED_TEXT_MIN_LENGTH,
+      AUTH_VALIDATION_MESSAGES.FULL_NAME_REQUIRED,
+    ),
+  [AUTH_FORM_FIELDS.USERNAME]: z
+    .string()
+    .min(
+      AUTH_VALIDATION.USERNAME_MIN_LENGTH,
+      AUTH_VALIDATION_MESSAGES.USERNAME_MIN_LENGTH,
+    ),
+  [AUTH_FORM_FIELDS.PASSWORD]: z
+    .string()
+    .min(
+      AUTH_VALIDATION.PASSWORD_MIN_LENGTH,
+      AUTH_VALIDATION_MESSAGES.PASSWORD_MIN_LENGTH,
+    ),
 });
 
 interface RegisterFormProps {
@@ -24,30 +68,37 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
   const [register, { isLoading }] = useRegisterMutation();
   const dispatch = useAppDispatch();
 
-  const handleFinish = async (values: any) => {
+  const handleFinish = async (formValues: unknown) => {
     setErrorMsg(null);
     try {
       // Validate with Zod
-      registerSchema.parse(values);
+      const values = registerSchema.parse(formValues);
 
       const response = await register({
-        name: values.name.trim(),
+        householdName: values.householdName.trim(),
         taxCode: values.taxCode.trim(),
-        phoneNumber: values.phoneNumber.trim(),
-        address: values.address?.trim() || "",
+        householdPhone: values.householdPhone.trim(),
+        householdAddress: values.householdAddress.trim(),
+        fullName: values.fullName.trim(),
         username: values.username.trim(),
         password: values.password.trim(),
       }).unwrap();
 
       dispatch(setCredentials(response));
       onSuccess();
-    } catch (err: any) {
-      if (err instanceof z.ZodError) {
-        setErrorMsg(err.errors[0].message);
-      } else if (err.data && err.data.message) {
-        setErrorMsg(err.data.message);
+    } catch (error: unknown) {
+      if (error instanceof z.ZodError) {
+        setErrorMsg(
+          error.issues[0]?.message ??
+            AUTH_MESSAGES.REGISTER_INVALID_DATA,
+        );
       } else {
-        setErrorMsg("Đã xảy ra lỗi đăng ký hộ kinh doanh. Vui lòng thử lại!");
+        setErrorMsg(
+          getApiErrorMessage(
+            error,
+            AUTH_MESSAGES.REGISTER_FAILED,
+          ),
+        );
       }
     }
   };
@@ -70,35 +121,52 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
       )}
 
       <div className="font-bold text-xs text-kv-blue-primary mb-1 uppercase tracking-wide">
-        Thông tin Hộ kinh doanh:
+        {AUTH_UI.REGISTER.HOUSEHOLD_SECTION_LABEL}
       </div>
 
       <div className="grid grid-cols-2 gap-3">
         <Form.Item
-          label={<span className="font-semibold text-gray-700 text-xs">Tên Hộ kinh doanh*:</span>}
-          name="name"
-          className="mb-2"
-          rules={[{ required: true, message: "Vui lòng nhập tên Hộ kinh doanh!" }]}
-        >
-          <Input
-            placeholder="Ví dụ: Tạp Hóa Việt"
-            className="h-9 border-gray-300 rounded-lg hover:border-kv-blue-primary focus:border-kv-blue-primary"
-          />
-        </Form.Item>
-        <Form.Item
-          label={<span className="font-semibold text-gray-700 text-xs">Mã số thuế*:</span>}
-          name="taxCode"
+          label={
+            <span className="font-semibold text-gray-700 text-xs">
+              {AUTH_UI.REGISTER.HOUSEHOLD_NAME_LABEL}
+            </span>
+          }
+          name={AUTH_FORM_FIELDS.HOUSEHOLD_NAME}
           className="mb-2"
           rules={[
-            { required: true, message: "Vui lòng nhập mã số thuế!" },
             {
-              pattern: /^\d{10}(-\d{3})?$/,
-              message: "Mã số thuế gồm 10 hoặc 13 chữ số (dạng XXXXXXXXXX-XXX).",
+              required: true,
+              message:
+                AUTH_VALIDATION_MESSAGES.HOUSEHOLD_NAME_FORM_REQUIRED,
             },
           ]}
         >
           <Input
-            placeholder="10 hoặc 13 chữ số"
+            placeholder={AUTH_UI.REGISTER.HOUSEHOLD_NAME_PLACEHOLDER}
+            className="h-9 border-gray-300 rounded-lg hover:border-kv-blue-primary focus:border-kv-blue-primary"
+          />
+        </Form.Item>
+        <Form.Item
+          label={
+            <span className="font-semibold text-gray-700 text-xs">
+              {AUTH_UI.REGISTER.TAX_CODE_LABEL}
+            </span>
+          }
+          name={AUTH_FORM_FIELDS.TAX_CODE}
+          className="mb-2"
+          rules={[
+            {
+              required: true,
+              message: AUTH_VALIDATION_MESSAGES.TAX_CODE_REQUIRED,
+            },
+            {
+              pattern: AUTH_VALIDATION.TAX_CODE_PATTERN,
+              message: AUTH_VALIDATION_MESSAGES.TAX_CODE_FORM_INVALID,
+            },
+          ]}
+        >
+          <Input
+            placeholder={AUTH_UI.REGISTER.TAX_CODE_PLACEHOLDER}
             className="h-9 border-gray-300 rounded-lg hover:border-kv-blue-primary focus:border-kv-blue-primary"
           />
         </Form.Item>
@@ -106,64 +174,128 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
 
       <div className="grid grid-cols-2 gap-3">
         <Form.Item
-          label={<span className="font-semibold text-gray-700 text-xs">Số điện thoại*:</span>}
-          name="phoneNumber"
+          label={
+            <span className="font-semibold text-gray-700 text-xs">
+              {AUTH_UI.REGISTER.PHONE_LABEL}
+            </span>
+          }
+          name={AUTH_FORM_FIELDS.HOUSEHOLD_PHONE}
           className="mb-2"
           rules={[
-            { required: true, message: "Vui lòng nhập số điện thoại!" },
             {
-              pattern: /^(0[3|5|7|8|9])([0-9]{8})$/,
-              message: "Định dạng SĐT Việt Nam không hợp lệ!",
+              required: true,
+              message: AUTH_VALIDATION_MESSAGES.PHONE_REQUIRED,
+            },
+            {
+              pattern: AUTH_VALIDATION.VIETNAM_PHONE_PATTERN,
+              message: AUTH_VALIDATION_MESSAGES.PHONE_FORM_INVALID,
             },
           ]}
         >
           <Input
-            placeholder="Số điện thoại liên hệ"
+            placeholder={AUTH_UI.REGISTER.PHONE_PLACEHOLDER}
             className="h-9 border-gray-300 rounded-lg hover:border-kv-blue-primary focus:border-kv-blue-primary"
           />
         </Form.Item>
         <Form.Item
-          label={<span className="font-semibold text-gray-700 text-xs">Địa chỉ cửa hàng:</span>}
-          name="address"
+          label={
+            <span className="font-semibold text-gray-700 text-xs">
+              {AUTH_UI.REGISTER.ADDRESS_LABEL}
+            </span>
+          }
+          name={AUTH_FORM_FIELDS.HOUSEHOLD_ADDRESS}
           className="mb-2"
+          rules={[
+            {
+              required: true,
+              message:
+                AUTH_VALIDATION_MESSAGES.HOUSEHOLD_ADDRESS_FORM_REQUIRED,
+            },
+          ]}
         >
           <Input
-            placeholder="Địa chỉ hộ kinh doanh"
+            placeholder={AUTH_UI.REGISTER.ADDRESS_PLACEHOLDER}
             className="h-9 border-gray-300 rounded-lg hover:border-kv-blue-primary focus:border-kv-blue-primary"
           />
         </Form.Item>
       </div>
 
       <div className="font-bold text-xs text-kv-blue-primary border-t border-gray-100 pt-3 mt-1 mb-1 uppercase tracking-wide">
-        Thiết lập Tài khoản Quản lý (Chủ hộ):
+        {AUTH_UI.REGISTER.ACCOUNT_SECTION_LABEL}
       </div>
+
+      {/* Họ tên — full width */}
+      <Form.Item
+        label={
+          <span className="font-semibold text-gray-700 text-xs">
+            {AUTH_UI.REGISTER.FULL_NAME_LABEL}
+          </span>
+        }
+        name={AUTH_FORM_FIELDS.FULL_NAME}
+        className="mb-2"
+        rules={[
+          {
+            required: true,
+            message: AUTH_VALIDATION_MESSAGES.FULL_NAME_FORM_REQUIRED,
+          },
+          {
+            min: AUTH_VALIDATION.OWNER_NAME_MIN_LENGTH,
+            message: AUTH_VALIDATION_MESSAGES.FULL_NAME_FORM_MIN_LENGTH,
+          },
+        ]}
+      >
+        <Input
+          placeholder={AUTH_UI.REGISTER.FULL_NAME_PLACEHOLDER}
+          className="h-9 border-gray-300 rounded-lg hover:border-kv-blue-primary focus:border-kv-blue-primary"
+        />
+      </Form.Item>
 
       <div className="grid grid-cols-2 gap-3">
         <Form.Item
-          label={<span className="font-semibold text-gray-700 text-xs">Tên đăng nhập*:</span>}
-          name="username"
+          label={
+            <span className="font-semibold text-gray-700 text-xs">
+              {AUTH_UI.REGISTER.USERNAME_LABEL}
+            </span>
+          }
+          name={AUTH_FORM_FIELDS.USERNAME}
           className="mb-2"
           rules={[
-            { required: true, message: "Vui lòng nhập tên đăng nhập!" },
-            { min: 3, message: "Tối thiểu 3 ký tự!" },
+            {
+              required: true,
+              message: AUTH_VALIDATION_MESSAGES.USERNAME_REQUIRED,
+            },
+            {
+              min: AUTH_VALIDATION.USERNAME_MIN_LENGTH,
+              message: AUTH_VALIDATION_MESSAGES.USERNAME_FORM_MIN_LENGTH,
+            },
           ]}
         >
           <Input
-            placeholder="Tên đăng nhập"
+            placeholder={AUTH_UI.REGISTER.USERNAME_PLACEHOLDER}
             className="h-9 border-gray-300 rounded-lg hover:border-kv-blue-primary focus:border-kv-blue-primary"
           />
         </Form.Item>
         <Form.Item
-          label={<span className="font-semibold text-gray-700 text-xs">Mật khẩu*:</span>}
-          name="password"
+          label={
+            <span className="font-semibold text-gray-700 text-xs">
+              {AUTH_UI.REGISTER.PASSWORD_LABEL}
+            </span>
+          }
+          name={AUTH_FORM_FIELDS.PASSWORD}
           className="mb-2"
           rules={[
-            { required: true, message: "Vui lòng nhập mật khẩu!" },
-            { min: 6, message: "Tối thiểu 6 ký tự!" },
+            {
+              required: true,
+              message: AUTH_VALIDATION_MESSAGES.PASSWORD_REQUIRED,
+            },
+            {
+              min: AUTH_VALIDATION.PASSWORD_MIN_LENGTH,
+              message: AUTH_VALIDATION_MESSAGES.PASSWORD_FORM_MIN_LENGTH,
+            },
           ]}
         >
           <Input.Password
-            placeholder="Mật khẩu chủ hộ"
+            placeholder={AUTH_UI.REGISTER.PASSWORD_PLACEHOLDER}
             className="h-9 border-gray-300 rounded-lg hover:border-kv-blue-primary focus:border-kv-blue-primary"
           />
         </Form.Item>
@@ -176,7 +308,7 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
           loading={isLoading}
           className="w-full h-10 rounded-lg bg-kv-blue-primary hover:bg-kv-blue-dark border-none font-bold text-sm"
         >
-          ĐĂNG KÝ & BẮT ĐẦU TRẢI NGHIỆM
+          {AUTH_UI.REGISTER.SUBMIT_LABEL}
         </Button>
       </Form.Item>
     </Form>
