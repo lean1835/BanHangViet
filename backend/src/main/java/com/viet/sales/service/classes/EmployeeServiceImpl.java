@@ -29,10 +29,12 @@ import org.springframework.cache.CacheManager;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -50,7 +52,7 @@ public class EmployeeServiceImpl implements EmployeeService {
     private final OrderRepository orderRepository;
 
     private void closeActiveShiftOfUser(User employee) {
-        java.util.Optional<Shift> activeShiftOpt = shiftRepository.findByUserIdAndStatus(employee.getId(), ShiftStatus.OPEN);
+        Optional<Shift> activeShiftOpt = shiftRepository.findByUserIdAndStatus(employee.getId(), ShiftStatus.OPEN);
         if (activeShiftOpt.isPresent()) {
             Shift shift = activeShiftOpt.get();
             
@@ -64,15 +66,15 @@ public class EmployeeServiceImpl implements EmployeeService {
             }
             
             // 2. Calculate expected cash
-            java.math.BigDecimal cashSales = orderRepository.sumFinalAmountByShiftIdAndStatusAndPaymentMethodAndDeletedAtIsNull(
+            BigDecimal cashSales = orderRepository.sumFinalAmountByShiftIdAndStatusAndPaymentMethodAndDeletedAtIsNull(
                     shift.getId(), "COMPLETED", "CASH");
-            java.math.BigDecimal expectedCash = shift.getOpeningCash().add(cashSales);
+            BigDecimal expectedCash = shift.getOpeningCash().add(cashSales);
             
             // 3. Close the shift automatically
             shift.setClosedAt(LocalDateTime.now());
             shift.setClosingCashExpected(expectedCash);
             shift.setClosingCashActual(expectedCash);
-            shift.setDifferenceAmount(java.math.BigDecimal.ZERO);
+            shift.setDifferenceAmount(BigDecimal.ZERO);
             shift.setDifferenceReason("Hệ thống tự động đóng ca do khóa/xóa tài khoản nhân viên.");
             shift.setStatus(ShiftStatus.CLOSED);
             shiftRepository.save(shift);
@@ -82,7 +84,7 @@ public class EmployeeServiceImpl implements EmployeeService {
             logMap.put("status", "CLOSED");
             logMap.put("closingCashExpected", expectedCash);
             logMap.put("closingCashActual", expectedCash);
-            logMap.put("differenceAmount", java.math.BigDecimal.ZERO);
+            logMap.put("differenceAmount", BigDecimal.ZERO);
             logActivity(shift.getHousehold(), employee, "CLOSE_SHIFT", shift.getId(), null, logMap);
         }
     }
