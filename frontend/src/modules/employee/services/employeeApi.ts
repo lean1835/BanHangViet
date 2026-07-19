@@ -1,36 +1,97 @@
-import { baseApi } from "../../../stores/baseApi";
-import { IEmployee } from "../types/employee";
+import { baseApi } from "@/stores/baseApi";
+import { API_CONFIG, API_TAG_TYPES, HTTP_METHODS } from "@/constants/api";
+import {
+  EMPLOYEE_API_ENDPOINTS,
+  EMPLOYEE_API_RESPONSE_FIELDS,
+  EMPLOYEE_API_TAGS,
+  EMPLOYEE_MESSAGES,
+} from "@/constants/employee";
+import type { IEmployee } from "../types/IEmployee";
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null;
+
+const getRequiredString = (
+  record: Record<string, unknown>,
+  field: string,
+): string => {
+  const value = record[field];
+
+  if (typeof value !== "string") {
+    throw new Error(EMPLOYEE_MESSAGES.missingResponseField(field));
+  }
+
+  return value;
+};
+
+const mapEmployee = (value: unknown): IEmployee => {
+  if (!isRecord(value)) {
+    throw new Error(EMPLOYEE_MESSAGES.INVALID_EMPLOYEE_DATA);
+  }
+
+  const phoneNumber = value[EMPLOYEE_API_RESPONSE_FIELDS.PHONE_NUMBER];
+
+  return {
+    id: getRequiredString(value, EMPLOYEE_API_RESPONSE_FIELDS.ID),
+    username: getRequiredString(
+      value,
+      EMPLOYEE_API_RESPONSE_FIELDS.USERNAME,
+    ),
+    fullName: getRequiredString(
+      value,
+      EMPLOYEE_API_RESPONSE_FIELDS.FULL_NAME,
+    ),
+    phoneNumber: typeof phoneNumber === "string" ? phoneNumber : "",
+    roleCode: getRequiredString(
+      value,
+      EMPLOYEE_API_RESPONSE_FIELDS.ROLE_CODE,
+    ),
+    isActive: value[EMPLOYEE_API_RESPONSE_FIELDS.IS_ACTIVE] !== false,
+  };
+};
+
+const getResponseResult = (response: unknown): unknown => {
+  if (!isRecord(response)) {
+    throw new Error(EMPLOYEE_MESSAGES.INVALID_RESPONSE);
+  }
+
+  return response[EMPLOYEE_API_RESPONSE_FIELDS.RESULT];
+};
 
 export const employeeApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
     getAllEmployees: builder.query<IEmployee[], void>({
       query: () => ({
-        url: "/employees",
-        method: "GET",
+        url: EMPLOYEE_API_ENDPOINTS.ROOT,
+        method: HTTP_METHODS.GET,
       }),
-      transformResponse: (response: any): IEmployee[] => {
-        const list = response.result || [];
-        return list.map((emp: any) => ({
-          id: emp.id,
-          username: emp.username,
-          fullName: emp.fullName,
-          phoneNumber: emp.phoneNumber || "",
-          roleCode: emp.roleCode,
-          isActive: emp.isActive !== false,
-        }));
+      transformResponse: (response: unknown): IEmployee[] => {
+        const result = getResponseResult(response);
+        return Array.isArray(result) ? result.map(mapEmployee) : [];
       },
       providesTags: (result) =>
         result
           ? [
-              ...result.map(({ id }) => ({ type: "User" as const, id })),
-              { type: "User", id: "LIST" },
+              ...result.map(({ id }) => ({
+                type: API_TAG_TYPES.USER,
+                id,
+              })),
+              {
+                type: API_TAG_TYPES.USER,
+                id: EMPLOYEE_API_TAGS.LIST,
+              },
             ]
-          : [{ type: "User", id: "LIST" }],
+          : [
+              {
+                type: API_TAG_TYPES.USER,
+                id: EMPLOYEE_API_TAGS.LIST,
+              },
+            ],
     }),
     createEmployee: builder.mutation<IEmployee, Partial<IEmployee> & { password?: string }>({
       query: (employeeData) => ({
-        url: "/employees",
-        method: "POST",
+        url: EMPLOYEE_API_ENDPOINTS.ROOT,
+        method: HTTP_METHODS.POST,
         body: {
           username: employeeData.username,
           password: employeeData.password,
@@ -39,23 +100,19 @@ export const employeeApi = baseApi.injectEndpoints({
           roleCode: employeeData.roleCode,
         },
       }),
-      transformResponse: (response: any): IEmployee => {
-        const emp = response.result;
-        return {
-          id: emp.id,
-          username: emp.username,
-          fullName: emp.fullName,
-          phoneNumber: emp.phoneNumber || "",
-          roleCode: emp.roleCode,
-          isActive: emp.isActive !== false,
-        };
-      },
-      invalidatesTags: [{ type: "User", id: "LIST" }],
+      transformResponse: (response: unknown): IEmployee =>
+        mapEmployee(getResponseResult(response)),
+      invalidatesTags: [
+        {
+          type: API_TAG_TYPES.USER,
+          id: EMPLOYEE_API_TAGS.LIST,
+        },
+      ],
     }),
     updateEmployee: builder.mutation<IEmployee, { id: string; data: Partial<IEmployee> }>({
       query: ({ id, data }) => ({
-        url: `/employees/${id}`,
-        method: "PUT",
+        url: EMPLOYEE_API_ENDPOINTS.BY_ID(id),
+        method: HTTP_METHODS.PUT,
         body: {
           fullName: data.fullName,
           phoneNumber: data.phoneNumber,
@@ -63,34 +120,25 @@ export const employeeApi = baseApi.injectEndpoints({
           isActive: data.isActive,
         },
       }),
-      transformResponse: (response: any): IEmployee => {
-        const emp = response.result;
-        return {
-          id: emp.id,
-          username: emp.username,
-          fullName: emp.fullName,
-          phoneNumber: emp.phoneNumber || "",
-          roleCode: emp.roleCode,
-          isActive: emp.isActive !== false,
-        };
-      },
+      transformResponse: (response: unknown): IEmployee =>
+        mapEmployee(getResponseResult(response)),
       invalidatesTags: (_result, _error, { id }) => [
-        { type: "User", id: "LIST" },
-        { type: "User", id },
+        { type: API_TAG_TYPES.USER, id: EMPLOYEE_API_TAGS.LIST },
+        { type: API_TAG_TYPES.USER, id },
       ],
     }),
     deleteEmployee: builder.mutation<void, string>({
       query: (id) => ({
-        url: `/employees/${id}`,
-        method: "DELETE",
+        url: EMPLOYEE_API_ENDPOINTS.BY_ID(id),
+        method: HTTP_METHODS.DELETE,
       }),
       invalidatesTags: (_result, _error, id) => [
-        { type: "User", id: "LIST" },
-        { type: "User", id },
+        { type: API_TAG_TYPES.USER, id: EMPLOYEE_API_TAGS.LIST },
+        { type: API_TAG_TYPES.USER, id },
       ],
     }),
   }),
-  overrideExisting: false,
+  overrideExisting: API_CONFIG.OVERRIDE_EXISTING_ENDPOINTS,
 });
 
 export const {

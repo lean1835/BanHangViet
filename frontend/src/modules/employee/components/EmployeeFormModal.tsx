@@ -1,6 +1,16 @@
 import React, { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { IEmployee, IRole } from "../types/employee";
+import {
+  ASSIGNABLE_EMPLOYEE_ROLE_CODES,
+  DEFAULT_EMPLOYEE_ROLE_CODE,
+  EMPLOYEE_FORM_FIELDS,
+  EMPLOYEE_INPUT_NAMES,
+  EMPLOYEE_STATUS_LABELS,
+  EMPLOYEE_UI,
+  EMPLOYEE_VALIDATION,
+  EMPLOYEE_VALIDATION_MESSAGES,
+} from "@/constants/employee";
+import type { IEmployee, IRole } from "../types/IEmployee";
 
 interface EmployeeFormModalProps {
   isOpen: boolean;
@@ -41,7 +51,9 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({
       setFullName("");
       setPhoneNumber("");
       // Mặc định chọn vai trò nhân viên bán hàng đầu tiên nếu có
-      const defaultRole = roles.find(r => r.code === "VT-02")?.code || "";
+      const defaultRole =
+        roles.find((role) => role.code === DEFAULT_EMPLOYEE_ROLE_CODE)?.code ||
+        "";
       setRoleCode(defaultRole);
       setIsActive(true);
     }
@@ -54,27 +66,42 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({
     const newErrors: { [key: string]: string } = {};
 
     if (!username.trim()) {
-      newErrors.username = "Vui lòng nhập tên đăng nhập";
-    } else if (username.trim().length < 4) {
-      newErrors.username = "Tên đăng nhập phải có ít nhất 4 ký tự";
+      newErrors[EMPLOYEE_FORM_FIELDS.USERNAME] =
+        EMPLOYEE_VALIDATION_MESSAGES.USERNAME_REQUIRED;
+    } else if (
+      username.trim().length < EMPLOYEE_VALIDATION.USERNAME_MIN_LENGTH
+    ) {
+      newErrors[EMPLOYEE_FORM_FIELDS.USERNAME] =
+        EMPLOYEE_VALIDATION_MESSAGES.USERNAME_MIN_LENGTH;
     }
 
     if (!employee && !password.trim()) {
-      newErrors.password = "Vui lòng nhập mật khẩu cho nhân viên mới";
-    } else if (password.trim() && password.trim().length < 6) {
-      newErrors.password = "Mật khẩu phải có ít nhất 6 ký tự";
+      newErrors[EMPLOYEE_FORM_FIELDS.PASSWORD] =
+        EMPLOYEE_VALIDATION_MESSAGES.PASSWORD_REQUIRED;
+    } else if (
+      password.trim() &&
+      password.trim().length < EMPLOYEE_VALIDATION.PASSWORD_MIN_LENGTH
+    ) {
+      newErrors[EMPLOYEE_FORM_FIELDS.PASSWORD] =
+        EMPLOYEE_VALIDATION_MESSAGES.PASSWORD_MIN_LENGTH;
     }
 
     if (!fullName.trim()) {
-      newErrors.fullName = "Vui lòng nhập họ và tên";
+      newErrors[EMPLOYEE_FORM_FIELDS.FULL_NAME] =
+        EMPLOYEE_VALIDATION_MESSAGES.FULL_NAME_REQUIRED;
     }
 
-    if (phoneNumber.trim() && !/^[0-9+() -]{9,15}$/.test(phoneNumber)) {
-      newErrors.phoneNumber = "Số điện thoại không hợp lệ";
+    if (
+      phoneNumber.trim() &&
+      !EMPLOYEE_VALIDATION.PHONE_PATTERN.test(phoneNumber)
+    ) {
+      newErrors[EMPLOYEE_FORM_FIELDS.PHONE_NUMBER] =
+        EMPLOYEE_VALIDATION_MESSAGES.PHONE_INVALID;
     }
 
     if (!roleCode) {
-      newErrors.roleCode = "Vui lòng chọn vai trò phân quyền";
+      newErrors[EMPLOYEE_FORM_FIELDS.ROLE_CODE] =
+        EMPLOYEE_VALIDATION_MESSAGES.ROLE_REQUIRED;
     }
 
     setErrors(newErrors);
@@ -112,14 +139,16 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({
         {/* Header */}
         <div className="bg-kv-blue-primary text-white px-5 py-3 flex items-center justify-between">
           <h2 className="text-xs font-bold uppercase tracking-wider">
-            {employee ? "Cập nhật tài khoản nhân viên" : "Thêm mới tài khoản nhân viên"}
+            {employee
+              ? EMPLOYEE_UI.FORM.UPDATE_TITLE
+              : EMPLOYEE_UI.FORM.CREATE_TITLE}
           </h2>
           <button
             onClick={onClose}
             type="button"
             className="text-white/80 hover:text-white transition-colors text-lg"
           >
-            ✕
+            {EMPLOYEE_UI.FORM.CLOSE_LABEL}
           </button>
         </div>
 
@@ -128,108 +157,146 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({
           <div className="grid grid-cols-2 gap-x-4 gap-y-3">
             {/* Tên đăng nhập */}
             <div className="flex flex-col gap-1">
-              <label className="text-slate-600">Tên đăng nhập (Tài khoản)*:</label>
+              <label className="text-slate-600">
+                {EMPLOYEE_UI.FORM.USERNAME_LABEL}
+              </label>
               <input
                 type="text"
-                placeholder="Ví dụ: nhanvien_a"
+                placeholder={EMPLOYEE_UI.FORM.USERNAME_PLACEHOLDER}
                 value={username}
                 disabled={!!employee}
                 onChange={(e) => setUsername(e.target.value)}
-                className={`border ${errors.username ? "border-rose-500" : "border-slate-300"
+                className={`border ${errors[EMPLOYEE_FORM_FIELDS.USERNAME] ? "border-rose-500" : "border-slate-300"
                   } h-9 px-3 rounded-lg focus:outline-none focus:border-kv-blue-primary text-xs ${employee ? "bg-slate-100 cursor-not-allowed" : ""
                   }`}
               />
-              {errors.username && <span className="text-[10px] text-rose-500 font-bold">{errors.username}</span>}
+              {errors[EMPLOYEE_FORM_FIELDS.USERNAME] && (
+                <span className="text-[10px] text-rose-500 font-bold">
+                  {errors[EMPLOYEE_FORM_FIELDS.USERNAME]}
+                </span>
+              )}
             </div>
 
             {/* Mật khẩu */}
             <div className="flex flex-col gap-1">
               <label className="text-slate-600">
-                {employee ? "Mật khẩu mới (Để trống nếu không đổi):" : "Mật khẩu đăng nhập*:"}
+                {employee
+                  ? EMPLOYEE_UI.FORM.UPDATE_PASSWORD_LABEL
+                  : EMPLOYEE_UI.FORM.CREATE_PASSWORD_LABEL}
               </label>
               <input
                 type="password"
-                placeholder={employee ? "••••••" : "Tối thiểu 6 ký tự"}
+                placeholder={
+                  employee
+                    ? EMPLOYEE_UI.FORM.UPDATE_PASSWORD_PLACEHOLDER
+                    : EMPLOYEE_UI.FORM.CREATE_PASSWORD_PLACEHOLDER
+                }
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className={`border ${errors.password ? "border-rose-500" : "border-slate-300"
+                className={`border ${errors[EMPLOYEE_FORM_FIELDS.PASSWORD] ? "border-rose-500" : "border-slate-300"
                   } h-9 px-3 rounded-lg focus:outline-none focus:border-kv-blue-primary text-xs`}
               />
-              {errors.password && <span className="text-[10px] text-rose-500 font-bold">{errors.password}</span>}
+              {errors[EMPLOYEE_FORM_FIELDS.PASSWORD] && (
+                <span className="text-[10px] text-rose-500 font-bold">
+                  {errors[EMPLOYEE_FORM_FIELDS.PASSWORD]}
+                </span>
+              )}
             </div>
 
             {/* Họ và tên */}
             <div className="flex flex-col gap-1">
-              <label className="text-slate-600">Họ và tên nhân viên*:</label>
+              <label className="text-slate-600">
+                {EMPLOYEE_UI.FORM.FULL_NAME_LABEL}
+              </label>
               <input
                 type="text"
-                placeholder="Nhập đầy đủ họ và tên"
+                placeholder={EMPLOYEE_UI.FORM.FULL_NAME_PLACEHOLDER}
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
-                className={`border ${errors.fullName ? "border-rose-500" : "border-slate-300"
+                className={`border ${errors[EMPLOYEE_FORM_FIELDS.FULL_NAME] ? "border-rose-500" : "border-slate-300"
                   } h-9 px-3 rounded-lg focus:outline-none focus:border-kv-blue-primary text-xs`}
               />
-              {errors.fullName && <span className="text-[10px] text-rose-500 font-bold">{errors.fullName}</span>}
+              {errors[EMPLOYEE_FORM_FIELDS.FULL_NAME] && (
+                <span className="text-[10px] text-rose-500 font-bold">
+                  {errors[EMPLOYEE_FORM_FIELDS.FULL_NAME]}
+                </span>
+              )}
             </div>
 
             {/* Số điện thoại */}
             <div className="flex flex-col gap-1">
-              <label className="text-slate-600">Số điện thoại liên hệ:</label>
+              <label className="text-slate-600">
+                {EMPLOYEE_UI.FORM.PHONE_LABEL}
+              </label>
               <input
                 type="text"
-                placeholder="Ví dụ: 0988888888"
+                placeholder={EMPLOYEE_UI.FORM.PHONE_PLACEHOLDER}
                 value={phoneNumber}
                 onChange={(e) => setPhoneNumber(e.target.value)}
-                className={`border ${errors.phoneNumber ? "border-rose-500" : "border-slate-300"
+                className={`border ${errors[EMPLOYEE_FORM_FIELDS.PHONE_NUMBER] ? "border-rose-500" : "border-slate-300"
                   } h-9 px-3 rounded-lg focus:outline-none focus:border-kv-blue-primary text-xs`}
               />
-              {errors.phoneNumber && <span className="text-[10px] text-rose-500 font-bold">{errors.phoneNumber}</span>}
+              {errors[EMPLOYEE_FORM_FIELDS.PHONE_NUMBER] && (
+                <span className="text-[10px] text-rose-500 font-bold">
+                  {errors[EMPLOYEE_FORM_FIELDS.PHONE_NUMBER]}
+                </span>
+              )}
             </div>
 
             {/* Vai trò / Chức danh */}
             <div className="flex flex-col gap-1">
-              <label className="text-slate-600">Vai trò phân quyền*:</label>
+              <label className="text-slate-600">
+                {EMPLOYEE_UI.FORM.ROLE_LABEL}
+              </label>
               <select
                 value={roleCode}
                 onChange={(e) => setRoleCode(e.target.value)}
-                className={`border ${errors.roleCode ? "border-rose-500" : "border-slate-300"
+                className={`border ${errors[EMPLOYEE_FORM_FIELDS.ROLE_CODE] ? "border-rose-500" : "border-slate-300"
                   } h-9 px-2 rounded-lg bg-white focus:outline-none focus:border-kv-blue-primary text-xs`}
               >
-                <option value="">Chọn vai trò</option>
+                <option value="">{EMPLOYEE_UI.FORM.ROLE_PLACEHOLDER}</option>
                 {roles
-                  .filter((r) => r.code === "VT-02" || r.code === "VT-03")
+                  .filter((role) =>
+                    ASSIGNABLE_EMPLOYEE_ROLE_CODES.includes(role.code),
+                  )
                   .map((r) => (
                     <option key={r.id} value={r.code}>
                       {r.name}
                     </option>
                   ))}
               </select>
-              {errors.roleCode && <span className="text-[10px] text-rose-500 font-bold">{errors.roleCode}</span>}
+              {errors[EMPLOYEE_FORM_FIELDS.ROLE_CODE] && (
+                <span className="text-[10px] text-rose-500 font-bold">
+                  {errors[EMPLOYEE_FORM_FIELDS.ROLE_CODE]}
+                </span>
+              )}
             </div>
 
             {/* Trạng thái tài khoản */}
             <div className="flex flex-col gap-1">
-              <label className="text-slate-600">Trạng thái hoạt động:</label>
+              <label className="text-slate-600">
+                {EMPLOYEE_UI.FORM.STATUS_LABEL}
+              </label>
               <div className="flex items-center gap-4 h-9">
                 <label className="flex items-center gap-1.5 cursor-pointer text-slate-700">
                   <input
                     type="radio"
-                    name="modalActiveStatus"
+                    name={EMPLOYEE_INPUT_NAMES.MODAL_ACTIVE_STATUS}
                     checked={isActive === true}
                     onChange={() => setIsActive(true)}
                     className="text-kv-blue-primary focus:ring-kv-blue-primary w-3.5 h-3.5"
                   />
-                  <span>Đang hoạt động</span>
+                  <span>{EMPLOYEE_STATUS_LABELS.ACTIVE}</span>
                 </label>
                 <label className="flex items-center gap-1.5 cursor-pointer text-slate-700">
                   <input
                     type="radio"
-                    name="modalActiveStatus"
+                    name={EMPLOYEE_INPUT_NAMES.MODAL_ACTIVE_STATUS}
                     checked={isActive === false}
                     onChange={() => setIsActive(false)}
                     className="text-kv-blue-primary focus:ring-kv-blue-primary w-3.5 h-3.5"
                   />
-                  <span>Bị khóa</span>
+                  <span>{EMPLOYEE_STATUS_LABELS.LOCKED}</span>
                 </label>
               </div>
             </div>
@@ -243,14 +310,16 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({
               disabled={isSaving}
               className="border border-slate-300 hover:bg-slate-50 text-slate-600 font-bold px-4 h-8 rounded-lg transition-colors text-xs disabled:opacity-50"
             >
-              Bỏ qua
+              {EMPLOYEE_UI.FORM.CANCEL_LABEL}
             </button>
             <button
               type="submit"
               disabled={isSaving}
               className="bg-kv-blue-primary hover:bg-kv-blue-dark text-white font-bold px-5 h-8 rounded-lg transition-colors shadow-sm text-xs disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isSaving ? "Đang lưu..." : "Lưu tài khoản"}
+              {isSaving
+                ? EMPLOYEE_UI.FORM.SAVING_LABEL
+                : EMPLOYEE_UI.FORM.SAVE_LABEL}
             </button>
           </div>
         </form>

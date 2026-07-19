@@ -1,4 +1,4 @@
-export interface Household {
+export interface IHousehold {
   id: string;
   name: string;
   taxCode: string;
@@ -6,30 +6,30 @@ export interface Household {
   address: string;
 }
 
-export interface User {
+export interface IUser {
   id: string;
   username: string;
   fullName: string;
   roleId: string;
-  household: Household | null;
+  household: IHousehold | null;
 }
 
-export interface AuthResponse {
+export interface IAuthResponse {
   token: string;
-  user: User;
+  user: IUser;
 }
 
-export interface RegisterRequest {
+export interface IRegisterRequest {
   householdName: string;
   taxCode: string;
   householdPhone: string;
   householdAddress: string;
   fullName: string;
   username: string;
-  password?: string;
+  password: string;
 }
 
-export interface LoginRequest {
+export interface ILoginRequest {
   username: string;
-  password?: string;
+  password: string;
 }

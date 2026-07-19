@@ -1,6 +1,7 @@
 import React from "react";
 import { Navigate } from "react-router-dom";
-import { useAppSelector } from "@/hooks/redux";
+import { APP_ROUTES } from "@/constants/routes";
+import { useAppSelector } from "@/hooks/useRedux";
 
 interface PrivateRouteProps {
   children: React.ReactNode;
@@ -8,7 +9,7 @@ interface PrivateRouteProps {
 
 export const PrivateRoute: React.FC<PrivateRouteProps> = ({ children }) => {
   const isAuthenticated = useAppSelector((state) => state.auth.isAuthenticated);
-  return isAuthenticated ? <>{children}</> : <Navigate to="/auth" replace />;
+  return isAuthenticated ? <>{children}</> : <Navigate to={APP_ROUTES.LOGIN} replace />;
 };
 
 export default PrivateRoute;
