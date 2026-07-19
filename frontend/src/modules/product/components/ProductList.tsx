@@ -1,19 +1,41 @@
 import React, { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { Search, Plus, Edit, Trash2 } from "lucide-react";
-import { IProduct } from "../types/product";
-import { ProductFormModal } from "./ProductFormModal";
+import {
+  PRODUCT_FILTER,
+  PRODUCT_API_RESPONSE_DEFAULTS,
+  PRODUCT_LABELS,
+  PRODUCT_LIST_COPY,
+  PRODUCT_MESSAGE_BUILDERS,
+  PRODUCT_MESSAGES,
+  PRODUCT_NOTIFICATION_TYPE,
+  PRODUCT_QUERY_CONFIG,
+  PRODUCT_STATUS,
+  PRODUCT_STATUS_LABELS,
+  PRODUCT_STOCK_FILTER,
+  PRODUCT_SYMBOLS,
+  PRODUCT_UI_CONFIG,
+  type TProductNotificationType,
+} from "@/constants/product";
+import { USER_ROLES } from "@/constants/roles";
+import { useDebounce } from "@/hooks/useDebounce";
+import { ProductFormModal } from "@/modules/product/components/ProductFormModal";
 import {
   useGetProductsQuery,
   useCreateProductMutation,
   useUpdateProductMutation,
   useDeleteProductMutation,
-} from "../services/productApi";
+} from "@/modules/product/services/productApi";
+import type { IProduct } from "@/modules/product/types/IProduct";
+import type { TStockFilter } from "@/modules/product/types/TStockFilter";
+import { getApiErrorMessage } from "@/utils/getApiErrorMessage";
+import { formatDate } from "@/utils/dateFormatter";
+import { formatCurrency, formatNumber } from "@/utils/formatCurrency";
 
 interface ProductListProps {
   userRole?: string;
   selectedGroup: string;
-  stockFilter: "ALL" | "IN_STOCK" | "OUT_OF_STOCK";
+  stockFilter: TStockFilter;
 }
 
 export const ProductList: React.FC<ProductListProps> = ({
@@ -21,13 +43,18 @@ export const ProductList: React.FC<ProductListProps> = ({
   selectedGroup,
   stockFilter,
 }) => {
-  const isOwner = userRole === "VT-01";
+  const isOwner = userRole === USER_ROLES.OWNER;
 
   // State controls
   const [searchQuery, setSearchQuery] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [currentPage, setCurrentPage] = useState(0);
-  const [pageSize] = useState(15);
+  const debouncedSearch = useDebounce(
+    searchQuery,
+    PRODUCT_QUERY_CONFIG.SEARCH_DEBOUNCE_MS,
+  );
+  const [currentPage, setCurrentPage] = useState<number>(
+    PRODUCT_QUERY_CONFIG.INITIAL_PAGE,
+  );
+  const pageSize = PRODUCT_QUERY_CONFIG.PAGE_SIZE;
 
   // Modal form controls
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -36,10 +63,13 @@ export const ProductList: React.FC<ProductListProps> = ({
   // Custom toast notifications
   const [notification, setNotification] = useState<{
     message: string;
-    type: "success" | "error";
+    type: TProductNotificationType;
   } | null>(null);
 
-  const showNotification = (message: string, type: "success" | "error") => {
+  const showNotification = (
+    message: string,
+    type: TProductNotificationType,
+  ) => {
     setNotification({ message, type });
   };
 
@@ -48,7 +78,7 @@ export const ProductList: React.FC<ProductListProps> = ({
     if (notification) {
       const timer = setTimeout(() => {
         setNotification(null);
-      }, 4000);
+      }, PRODUCT_UI_CONFIG.NOTIFICATION_DURATION_MS);
       return () => clearTimeout(timer);
     }
   }, [notification]);
@@ -59,17 +89,13 @@ export const ProductList: React.FC<ProductListProps> = ({
 
   // Reset page to 0 on filter changes
   useEffect(() => {
-    setCurrentPage(0);
+    setCurrentPage(PRODUCT_QUERY_CONFIG.INITIAL_PAGE);
   }, [selectedGroup, stockFilter]);
 
-  // Debounce search query
+  // Reset page after the debounced search value changes.
   useEffect(() => {
-    const handler = setTimeout(() => {
-      setDebouncedSearch(searchQuery);
-      setCurrentPage(0); // Reset page on search
-    }, 350);
-    return () => clearTimeout(handler);
-  }, [searchQuery]);
+    setCurrentPage(PRODUCT_QUERY_CONFIG.INITIAL_PAGE);
+  }, [debouncedSearch]);
 
   // Mutations
   const [createProduct] = useCreateProductMutation();
@@ -79,15 +105,17 @@ export const ProductList: React.FC<ProductListProps> = ({
   // API query
   const { data, isLoading, isError, refetch } = useGetProductsQuery({
     search: debouncedSearch || undefined,
-    groupId: selectedGroup === "ALL" ? undefined : selectedGroup,
-    stockFilter: stockFilter === "ALL" ? undefined : stockFilter,
+    groupId: selectedGroup === PRODUCT_FILTER.ALL ? undefined : selectedGroup,
+    stockFilter:
+      stockFilter === PRODUCT_STOCK_FILTER.ALL ? undefined : stockFilter,
     page: currentPage,
     size: pageSize,
   });
 
   const productsList = data?.content || [];
-  const totalElements = data?.totalElements || 0;
-  const totalPages = data?.totalPages || 0;
+  const totalElements =
+    data?.totalElements || PRODUCT_API_RESPONSE_DEFAULTS.NUMBER;
+  const totalPages = data?.totalPages || PRODUCT_API_RESPONSE_DEFAULTS.NUMBER;
 
   const displayedProducts = productsList;
 
@@ -96,21 +124,35 @@ export const ProductList: React.FC<ProductListProps> = ({
     try {
       if (editingProduct) {
         await updateProduct({ id: editingProduct.id, data: productData }).unwrap();
-        showNotification("Cập nhật hàng hóa thành công!", "success");
+        showNotification(
+          PRODUCT_MESSAGES.UPDATE_SUCCESS,
+          PRODUCT_NOTIFICATION_TYPE.SUCCESS,
+        );
       } else {
         await createProduct(productData).unwrap();
-        showNotification("Thêm hàng hóa mới thành công!", "success");
+        showNotification(
+          PRODUCT_MESSAGES.CREATE_SUCCESS,
+          PRODUCT_NOTIFICATION_TYPE.SUCCESS,
+        );
       }
       refetch();
-    } catch (err: any) {
-      showNotification("Lỗi: " + (err?.data?.message || "Không thể lưu sản phẩm!"), "error");
-      throw err;
+    } catch (error: unknown) {
+      showNotification(
+        PRODUCT_MESSAGE_BUILDERS.API_ERROR(
+          getApiErrorMessage(error, PRODUCT_MESSAGES.SAVE_FAILED),
+        ),
+        PRODUCT_NOTIFICATION_TYPE.ERROR,
+      );
+      throw error;
     }
   };
 
   const handleEditProduct = (prod: IProduct) => {
     if (!isOwner) {
-      showNotification("Chỉ Chủ hộ kinh doanh (VT-01) mới có quyền chỉnh sửa hàng hóa!", "error");
+      showNotification(
+        PRODUCT_MESSAGES.OWNER_EDIT_ONLY,
+        PRODUCT_NOTIFICATION_TYPE.ERROR,
+      );
       return;
     }
     setEditingProduct(prod);
@@ -119,7 +161,10 @@ export const ProductList: React.FC<ProductListProps> = ({
 
   const handleDeleteProduct = (id: string, name: string) => {
     if (!isOwner) {
-      showNotification("Chỉ Chủ hộ kinh doanh (VT-01) mới có quyền xóa hàng hóa!", "error");
+      showNotification(
+        PRODUCT_MESSAGES.OWNER_DELETE_ONLY,
+        PRODUCT_NOTIFICATION_TYPE.ERROR,
+      );
       return;
     }
     setProductToDelete({ id, name });
@@ -130,37 +175,23 @@ export const ProductList: React.FC<ProductListProps> = ({
     if (!productToDelete) return;
     try {
       await deleteProduct(productToDelete.id).unwrap();
-      showNotification(`Xóa sản phẩm "${productToDelete.name}" thành công!`, "success");
+      showNotification(
+        PRODUCT_MESSAGE_BUILDERS.PRODUCT_DELETE_SUCCESS(productToDelete.name),
+        PRODUCT_NOTIFICATION_TYPE.SUCCESS,
+      );
       setIsDeleteModalOpen(false);
       setProductToDelete(null);
       refetch();
-    } catch (err: any) {
-      showNotification("Lỗi: " + (err?.data?.message || "Không thể xóa hàng hóa!"), "error");
+    } catch (error: unknown) {
+      showNotification(
+        PRODUCT_MESSAGE_BUILDERS.API_ERROR(
+          getApiErrorMessage(error, PRODUCT_MESSAGES.DELETE_FAILED),
+        ),
+        PRODUCT_NOTIFICATION_TYPE.ERROR,
+      );
     }
   };
 
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat("vi-VN").format(value) + " đ";
-  };
-
-  const formatNumber = (value: number) => {
-    return new Intl.NumberFormat("vi-VN").format(value);
-  };
-
-  const formatDate = (dateStr: string) => {
-    if (!dateStr) return "---";
-    try {
-      const d = new Date(dateStr);
-      const day = String(d.getDate()).padStart(2, "0");
-      const month = String(d.getMonth() + 1).padStart(2, "0");
-      const year = d.getFullYear();
-      const hours = String(d.getHours()).padStart(2, "0");
-      const minutes = String(d.getMinutes()).padStart(2, "0");
-      return `${day}/${month}/${year} ${hours}:${minutes}`;
-    } catch {
-      return dateStr;
-    }
-  };
 
   return (
     <div className="flex flex-col gap-4 w-full animate-auth-fade-in">
@@ -173,7 +204,7 @@ export const ProductList: React.FC<ProductListProps> = ({
           </span>
           <input
             type="text"
-            placeholder="Theo mã, tên hàng"
+            placeholder={PRODUCT_LIST_COPY.SEARCH_PLACEHOLDER}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-9 pr-4 h-9 bg-white border border-slate-300 rounded-lg focus:outline-none focus:border-kv-blue-primary text-xs font-semibold text-slate-700 shadow-sm transition-all"
@@ -191,16 +222,16 @@ export const ProductList: React.FC<ProductListProps> = ({
               className="bg-kv-blue-primary hover:bg-kv-blue-dark transition-all text-white font-bold px-4 h-9 rounded-lg flex items-center gap-1.5 shadow-sm text-xs"
             >
               <Plus size={14} />
-              Tạo mới
+              {PRODUCT_LABELS.CREATE}
             </button>
           ) : (
             <button
               disabled
-              title="Chỉ Chủ hộ kinh doanh mới được thêm hàng hóa"
+              title={PRODUCT_LIST_COPY.OWNER_CREATE_TOOLTIP}
               className="bg-slate-200 text-slate-400 font-bold px-4 h-9 rounded-lg flex items-center gap-1.5 text-xs cursor-not-allowed"
             >
               <Plus size={14} />
-              Tạo mới
+              {PRODUCT_LABELS.CREATE}
             </button>
           )}
         </div>
@@ -211,21 +242,23 @@ export const ProductList: React.FC<ProductListProps> = ({
         {isLoading ? (
           <div className="flex flex-col justify-center items-center flex-1 py-20 text-slate-400 gap-2">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-kv-blue-primary"></div>
-            <span className="text-xs font-bold">Đang tải danh mục hàng hóa...</span>
+            <span className="text-xs font-bold">
+              {PRODUCT_LIST_COPY.LOADING_MESSAGE}
+            </span>
           </div>
         ) : isError ? (
           <div className="flex flex-col justify-center items-center flex-1 py-20 text-rose-500 gap-2 font-bold">
-            <span>Không thể kết nối đến máy chủ API để lấy hàng hóa!</span>
+            <span>{PRODUCT_LIST_COPY.LOAD_ERROR_MESSAGE}</span>
             <button
               onClick={() => refetch()}
               className="text-xs bg-slate-100 hover:bg-slate-200 border px-3 py-1.5 rounded-lg text-slate-700 transition-all"
             >
-              Thử lại
+              {PRODUCT_LIST_COPY.RETRY_ACTION}
             </button>
           </div>
         ) : displayedProducts.length === 0 ? (
           <div className="flex flex-col justify-center items-center flex-1 py-20 text-slate-400 gap-2 font-semibold">
-            <span>Không tìm thấy hàng hóa nào phù hợp bộ lọc!</span>
+            <span>{PRODUCT_LIST_COPY.EMPTY_MESSAGE}</span>
           </div>
         ) : (
           <div className="flex flex-col flex-1 justify-between">
@@ -233,16 +266,30 @@ export const ProductList: React.FC<ProductListProps> = ({
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold text-xs">
-                    <th className="p-3">STT</th>
-                    <th className="p-3">Mã hàng (SKU)</th>
-                    <th className="p-3 w-56">Tên hàng</th>
-                    <th className="p-3">Đơn vị</th>
-                    <th className="p-3 text-right">Giá bán</th>
-                    <th className="p-3 text-right">Tồn kho</th>
-                    <th className="p-3">Nhóm hàng</th>
-                    <th className="p-3 text-center">Trạng thái</th>
-                    <th className="p-3">Ngày tạo</th>
-                    {isOwner && <th className="p-3 text-center w-20">Thao tác</th>}
+                    <th className="p-3">{PRODUCT_LIST_COPY.TABLE_HEADERS.INDEX}</th>
+                    <th className="p-3">{PRODUCT_LIST_COPY.TABLE_HEADERS.SKU}</th>
+                    <th className="p-3 w-56">
+                      {PRODUCT_LIST_COPY.TABLE_HEADERS.NAME}
+                    </th>
+                    <th className="p-3">{PRODUCT_LIST_COPY.TABLE_HEADERS.UNIT}</th>
+                    <th className="p-3 text-right">
+                      {PRODUCT_LIST_COPY.TABLE_HEADERS.PRICE}
+                    </th>
+                    <th className="p-3 text-right">
+                      {PRODUCT_LIST_COPY.TABLE_HEADERS.STOCK}
+                    </th>
+                    <th className="p-3">{PRODUCT_LIST_COPY.TABLE_HEADERS.GROUP}</th>
+                    <th className="p-3 text-center">
+                      {PRODUCT_LIST_COPY.TABLE_HEADERS.STATUS}
+                    </th>
+                    <th className="p-3">
+                      {PRODUCT_LIST_COPY.TABLE_HEADERS.CREATED_AT}
+                    </th>
+                    {isOwner && (
+                      <th className="p-3 text-center w-20">
+                        {PRODUCT_LIST_COPY.TABLE_HEADERS.ACTION}
+                      </th>
+                    )}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 font-medium text-slate-700 text-xs">
@@ -253,7 +300,9 @@ export const ProductList: React.FC<ProductListProps> = ({
                       className="hover:bg-slate-50/50 group transition-all"
                     >
                       <td className="p-3 text-slate-400 font-semibold">
-                        {currentPage * pageSize + index + 1}
+                        {currentPage * pageSize +
+                          index +
+                          PRODUCT_QUERY_CONFIG.DISPLAY_INDEX_OFFSET}
                       </td>
                       <td className="p-3 font-mono font-bold text-slate-800">{prod.sku}</td>
                       <td className="p-3 font-bold text-slate-800 break-words max-w-[220px]">
@@ -275,27 +324,29 @@ export const ProductList: React.FC<ProductListProps> = ({
                       </td>
                       <td className="p-3 text-center">
                         <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
-                          prod.status === "ACTIVE"
+                          prod.status === PRODUCT_STATUS.ACTIVE
                             ? "bg-emerald-50 text-emerald-600 border border-emerald-200"
                             : "bg-slate-100 text-slate-500 border border-slate-200"
                         }`}>
-                          {prod.status === "ACTIVE" ? "Đang bán" : "Ngừng bán"}
+                          {PRODUCT_STATUS_LABELS[prod.status]}
                         </span>
                       </td>
-                      <td className="p-3 text-slate-500 font-semibold">{formatDate(prod.createdAt)}</td>
+                      <td className="p-3 text-slate-500 font-semibold">
+                        {formatDate(prod.createdAt)}
+                      </td>
                       {isOwner && (
                         <td className="p-3">
                           <div className="flex items-center justify-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
                             <button
                               onClick={() => handleEditProduct(prod)}
-                              title="Chỉnh sửa sản phẩm"
+                              title={PRODUCT_LIST_COPY.EDIT_TOOLTIP}
                               className="p-1 hover:bg-slate-100 rounded text-slate-500 hover:text-kv-blue-primary transition-colors"
                             >
                               <Edit size={14} />
                             </button>
                             <button
                               onClick={() => handleDeleteProduct(prod.id, prod.name)}
-                              title="Xóa sản phẩm"
+                              title={PRODUCT_LIST_COPY.DELETE_TOOLTIP}
                               className="p-1 hover:bg-slate-100 rounded text-slate-500 hover:text-rose-600 transition-colors"
                             >
                               <Trash2 size={14} />
@@ -310,28 +361,48 @@ export const ProductList: React.FC<ProductListProps> = ({
             </div>
 
             {/* Pagination Controls */}
-            {totalPages > 1 && (
+            {totalPages > PRODUCT_QUERY_CONFIG.MIN_PAGINATION_PAGE_COUNT && (
               <div className="flex items-center justify-between border-t pt-4 mt-4 font-semibold text-slate-500 text-xs">
                 <span>
-                  Đang hiển thị {displayedProducts.length} trên tổng số {totalElements} hàng hóa
+                  {PRODUCT_LIST_COPY.PAGINATION_PREFIX} {displayedProducts.length}{" "}
+                  {PRODUCT_LIST_COPY.PAGINATION_TOTAL} {totalElements}{" "}
+                  {PRODUCT_LIST_COPY.PAGINATION_SUFFIX}
                 </span>
                 <div className="flex items-center gap-2">
                   <button
-                    onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
-                    disabled={currentPage === 0}
+                    onClick={() =>
+                      setCurrentPage((page) =>
+                        Math.max(
+                          PRODUCT_QUERY_CONFIG.INITIAL_PAGE,
+                          page - PRODUCT_QUERY_CONFIG.PAGE_STEP,
+                        ),
+                      )
+                    }
+                    disabled={currentPage === PRODUCT_QUERY_CONFIG.INITIAL_PAGE}
                     className="px-3 h-8 border rounded-lg bg-white hover:bg-slate-50 text-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                   >
-                    Trước
+                    {PRODUCT_LIST_COPY.PREVIOUS_PAGE_ACTION}
                   </button>
                   <span className="font-bold text-slate-700">
-                    Trang {currentPage + 1} / {totalPages}
+                    {PRODUCT_LIST_COPY.PAGE_LABEL}{" "}
+                    {currentPage + PRODUCT_QUERY_CONFIG.DISPLAY_INDEX_OFFSET} /{" "}
+                    {totalPages}
                   </span>
                   <button
-                    onClick={() => setCurrentPage((p) => Math.min(totalPages - 1, p + 1))}
-                    disabled={currentPage === totalPages - 1}
+                    onClick={() =>
+                      setCurrentPage((page) =>
+                        Math.min(
+                          totalPages - PRODUCT_QUERY_CONFIG.PAGE_STEP,
+                          page + PRODUCT_QUERY_CONFIG.PAGE_STEP,
+                        ),
+                      )
+                    }
+                    disabled={
+                      currentPage === totalPages - PRODUCT_QUERY_CONFIG.PAGE_STEP
+                    }
                     className="px-3 h-8 border rounded-lg bg-white hover:bg-slate-50 text-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                   >
-                    Sau
+                    {PRODUCT_LIST_COPY.NEXT_PAGE_ACTION}
                   </button>
                 </div>
               </div>
@@ -362,10 +433,12 @@ export const ProductList: React.FC<ProductListProps> = ({
               <Trash2 size={24} />
             </div>
             <h3 className="font-extrabold text-slate-800 text-sm mb-2">
-              Xác nhận xóa hàng hóa?
+              {PRODUCT_LIST_COPY.DELETE_TITLE}
             </h3>
             <p className="text-slate-500 text-xs leading-relaxed mb-6 font-semibold">
-              Bạn có chắc chắn muốn xóa sản phẩm <strong className="text-slate-700">"{productToDelete.name}"</strong> khỏi hệ thống? Thao tác này sẽ ngừng kinh doanh sản phẩm này và không thể hoàn tác.
+              {PRODUCT_LIST_COPY.DELETE_DESCRIPTION_PREFIX}{" "}
+              <strong className="text-slate-700">"{productToDelete.name}"</strong>{" "}
+              {PRODUCT_LIST_COPY.DELETE_DESCRIPTION_SUFFIX}
             </p>
             <div className="flex items-center justify-center gap-3">
               <button
@@ -373,14 +446,14 @@ export const ProductList: React.FC<ProductListProps> = ({
                 type="button"
                 className="flex-1 bg-slate-100 hover:bg-slate-200 transition-colors h-9 rounded-lg text-slate-700 font-bold text-xs"
               >
-                Hủy bỏ
+                {PRODUCT_LIST_COPY.CANCEL_ACTION}
               </button>
               <button
                 onClick={confirmDeleteProduct}
                 type="button"
                 className="flex-1 bg-rose-600 hover:bg-rose-700 text-white transition-colors h-9 rounded-lg font-bold shadow-sm text-xs"
               >
-                Xác nhận xóa
+                {PRODUCT_LIST_COPY.DELETE_CONFIRM_ACTION}
               </button>
             </div>
           </div>
@@ -392,13 +465,19 @@ export const ProductList: React.FC<ProductListProps> = ({
       {notification && (
         <div className="fixed top-5 right-5 z-[200] flex items-center gap-3 bg-white border border-slate-100 shadow-2xl px-4 py-3 rounded-xl max-w-sm animate-modal-bounce-in">
           <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white ${
-            notification.type === "success" ? "bg-emerald-500" : "bg-rose-500"
+            notification.type === PRODUCT_NOTIFICATION_TYPE.SUCCESS
+              ? "bg-emerald-500"
+              : "bg-rose-500"
           }`}>
-            {notification.type === "success" ? "✓" : "✕"}
+            {notification.type === PRODUCT_NOTIFICATION_TYPE.SUCCESS
+              ? PRODUCT_SYMBOLS.SUCCESS
+              : PRODUCT_SYMBOLS.CLOSE}
           </div>
           <div className="flex flex-col gap-0.5 max-w-[200px] text-left">
             <span className="font-extrabold text-slate-800 text-[10px] uppercase tracking-wider">
-              {notification.type === "success" ? "Thành công" : "Thông báo"}
+              {notification.type === PRODUCT_NOTIFICATION_TYPE.SUCCESS
+                ? PRODUCT_LABELS.NOTIFICATION_SUCCESS
+                : PRODUCT_LABELS.NOTIFICATION_NOTICE}
             </span>
             <span className="text-slate-500 text-[11px] font-semibold leading-snug break-words">
               {notification.message}
@@ -408,7 +487,7 @@ export const ProductList: React.FC<ProductListProps> = ({
             onClick={() => setNotification(null)}
             className="text-slate-400 hover:text-slate-600 ml-auto font-semibold text-xs"
           >
-            ✕
+            {PRODUCT_SYMBOLS.CLOSE}
           </button>
         </div>
       )}

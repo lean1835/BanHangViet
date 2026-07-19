@@ -1,0 +1,99 @@
+export const ROUTE_SEGMENTS = {
+  AUTH: "auth",
+  LOGIN: "login",
+  REGISTER: "register",
+  DASHBOARD: "dashboard",
+  PRODUCTS: "products",
+  STOCK_ENTRY: "stock-entry",
+  SHIFTS: "shifts",
+  ORDERS: "orders",
+  CUSTOMERS: "customers",
+  EMPLOYEES: "employees",
+  REPORTS: "reports",
+  REVENUE: "revenue",
+  COMPARISON: "comparison",
+  ACTIVITY_LOGS: "activity-logs",
+  SETTINGS: "settings",
+  BUSINESS_INFO: "business-info",
+  TAX_RATES: "tax-rates",
+  PRINTER: "printer",
+  ADMIN: "admin",
+  OVERVIEW: "overview",
+  HOUSEHOLDS: "households",
+  LOGS: "logs",
+  TAX_AUTHORITY: "tax-authority",
+  INVOICES: "invoices",
+  CONFIG: "config",
+  POS: "pos",
+  WILDCARD: "*",
+} as const;
+
+export const ROUTE_CONFIG = {
+  SEPARATOR: "/",
+} as const;
+
+const createRoute = (...segments: string[]): string =>
+  `${ROUTE_CONFIG.SEPARATOR}${segments.join(ROUTE_CONFIG.SEPARATOR)}`;
+
+export const APP_ROUTES = {
+  ROOT: ROUTE_CONFIG.SEPARATOR,
+  AUTH: createRoute(ROUTE_SEGMENTS.AUTH),
+  LOGIN: createRoute(ROUTE_SEGMENTS.AUTH, ROUTE_SEGMENTS.LOGIN),
+  REGISTER: createRoute(ROUTE_SEGMENTS.AUTH, ROUTE_SEGMENTS.REGISTER),
+  DASHBOARD: createRoute(ROUTE_SEGMENTS.DASHBOARD),
+  PRODUCTS: createRoute(ROUTE_SEGMENTS.PRODUCTS),
+  PRODUCT_STOCK_ENTRY: createRoute(
+    ROUTE_SEGMENTS.PRODUCTS,
+    ROUTE_SEGMENTS.STOCK_ENTRY,
+  ),
+  SHIFTS: createRoute(ROUTE_SEGMENTS.SHIFTS),
+  ORDERS: createRoute(ROUTE_SEGMENTS.ORDERS),
+  CUSTOMERS: createRoute(ROUTE_SEGMENTS.CUSTOMERS),
+  EMPLOYEES: createRoute(ROUTE_SEGMENTS.EMPLOYEES),
+  REPORTS: createRoute(ROUTE_SEGMENTS.REPORTS),
+  REPORT_REVENUE: createRoute(
+    ROUTE_SEGMENTS.REPORTS,
+    ROUTE_SEGMENTS.REVENUE,
+  ),
+  REPORT_COMPARISON: createRoute(
+    ROUTE_SEGMENTS.REPORTS,
+    ROUTE_SEGMENTS.COMPARISON,
+  ),
+  REPORT_ACTIVITY_LOGS: createRoute(
+    ROUTE_SEGMENTS.REPORTS,
+    ROUTE_SEGMENTS.ACTIVITY_LOGS,
+  ),
+  SETTINGS: createRoute(ROUTE_SEGMENTS.SETTINGS),
+  SETTINGS_BUSINESS_INFO: createRoute(
+    ROUTE_SEGMENTS.SETTINGS,
+    ROUTE_SEGMENTS.BUSINESS_INFO,
+  ),
+  SETTINGS_TAX_RATES: createRoute(
+    ROUTE_SEGMENTS.SETTINGS,
+    ROUTE_SEGMENTS.TAX_RATES,
+  ),
+  SETTINGS_PRINTER: createRoute(
+    ROUTE_SEGMENTS.SETTINGS,
+    ROUTE_SEGMENTS.PRINTER,
+  ),
+  ADMIN: createRoute(ROUTE_SEGMENTS.ADMIN),
+  ADMIN_OVERVIEW: createRoute(
+    ROUTE_SEGMENTS.ADMIN,
+    ROUTE_SEGMENTS.OVERVIEW,
+  ),
+  ADMIN_HOUSEHOLDS: createRoute(
+    ROUTE_SEGMENTS.ADMIN,
+    ROUTE_SEGMENTS.HOUSEHOLDS,
+  ),
+  ADMIN_LOGS: createRoute(ROUTE_SEGMENTS.ADMIN, ROUTE_SEGMENTS.LOGS),
+  TAX_AUTHORITY: createRoute(ROUTE_SEGMENTS.TAX_AUTHORITY),
+  TAX_AUTHORITY_INVOICES: createRoute(
+    ROUTE_SEGMENTS.TAX_AUTHORITY,
+    ROUTE_SEGMENTS.INVOICES,
+  ),
+  TAX_AUTHORITY_CONFIG: createRoute(
+    ROUTE_SEGMENTS.TAX_AUTHORITY,
+    ROUTE_SEGMENTS.CONFIG,
+  ),
+  POS: createRoute(ROUTE_SEGMENTS.POS),
+} as const;

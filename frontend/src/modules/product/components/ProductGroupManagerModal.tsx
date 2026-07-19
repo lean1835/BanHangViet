@@ -1,13 +1,28 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { Trash2, Plus, AlertTriangle, Check, X } from "lucide-react";
+import { APP_LANGUAGE } from "@/constants/format";
+import {
+  PRODUCT_GROUP_COPY,
+  PRODUCT_KEYBOARD_KEY,
+  PRODUCT_LABELS,
+  PRODUCT_MESSAGE_BUILDERS,
+  PRODUCT_MESSAGES,
+  PRODUCT_NOTIFICATION_TYPE,
+  PRODUCT_QUERY_CONFIG,
+  PRODUCT_SYMBOLS,
+  PRODUCT_UI_CONFIG,
+  type TProductNotificationType,
+} from "@/constants/product";
+import { USER_ROLES } from "@/constants/roles";
 import {
   useGetProductGroupsQuery,
   useCreateProductGroupMutation,
   useUpdateProductGroupMutation,
   useDeleteProductGroupMutation,
-} from "../services/productApi";
-import { IProductGroup } from "../types/product";
+} from "@/modules/product/services/productApi";
+import type { IProductGroup } from "@/modules/product/types/IProductGroup";
+import { getApiErrorMessage } from "@/utils/getApiErrorMessage";
 
 interface ProductGroupManagerModalProps {
   isOpen: boolean;
@@ -20,7 +35,7 @@ export const ProductGroupManagerModal: React.FC<ProductGroupManagerModalProps> =
   onClose,
   userRole,
 }) => {
-  const isOwner = userRole === "VT-01";
+  const isOwner = userRole === USER_ROLES.OWNER;
 
   // Queries/Mutations
   const { data: groups = [], refetch } = useGetProductGroupsQuery();
@@ -29,7 +44,9 @@ export const ProductGroupManagerModal: React.FC<ProductGroupManagerModalProps> =
   const [deleteGroup] = useDeleteProductGroupMutation();
 
   const sortedGroups = useMemo(() => {
-    return [...groups].sort((a, b) => a.name.localeCompare(b.name, "vi"));
+    return [...groups].sort((a, b) =>
+      a.name.localeCompare(b.name, APP_LANGUAGE),
+    );
   }, [groups]);
 
   // Form local states
@@ -40,10 +57,13 @@ export const ProductGroupManagerModal: React.FC<ProductGroupManagerModalProps> =
   // Custom notification & confirm delete states
   const [notification, setNotification] = useState<{
     message: string;
-    type: "success" | "error";
+    type: TProductNotificationType;
   } | null>(null);
 
-  const showNotification = (message: string, type: "success" | "error") => {
+  const showNotification = (
+    message: string,
+    type: TProductNotificationType,
+  ) => {
     setNotification({ message, type });
   };
 
@@ -51,7 +71,7 @@ export const ProductGroupManagerModal: React.FC<ProductGroupManagerModalProps> =
     if (notification) {
       const timer = setTimeout(() => {
         setNotification(null);
-      }, 4000);
+      }, PRODUCT_UI_CONFIG.NOTIFICATION_DURATION_MS);
       return () => clearTimeout(timer);
     }
   }, [notification]);
@@ -64,9 +84,15 @@ export const ProductGroupManagerModal: React.FC<ProductGroupManagerModalProps> =
     try {
       await deleteGroup(groupToDelete.id).unwrap();
       refetch();
-      showNotification(`Xóa nhóm hàng "${groupToDelete.name}" thành công`, "success");
-    } catch (err: any) {
-      showNotification(err?.data?.message || "Không thể xóa nhóm hàng!", "error");
+      showNotification(
+        PRODUCT_MESSAGE_BUILDERS.GROUP_DELETE_SUCCESS(groupToDelete.name),
+        PRODUCT_NOTIFICATION_TYPE.SUCCESS,
+      );
+    } catch (error: unknown) {
+      showNotification(
+        getApiErrorMessage(error, PRODUCT_MESSAGES.GROUP_DELETE_FAILED),
+        PRODUCT_NOTIFICATION_TYPE.ERROR,
+      );
     } finally {
       setIsDeleteModalOpen(false);
       setGroupToDelete(null);
@@ -91,7 +117,10 @@ export const ProductGroupManagerModal: React.FC<ProductGroupManagerModalProps> =
     if (!isOwner) return; // Phòng vệ chiều sâu
     const nameTrimmed = editingRowGroupName.trim();
     if (!nameTrimmed) {
-      showNotification("Tên nhóm hàng không được để trống!", "error");
+      showNotification(
+        PRODUCT_MESSAGES.GROUP_NAME_REQUIRED,
+        PRODUCT_NOTIFICATION_TYPE.ERROR,
+      );
       handleCancelInline();
       return;
     }
@@ -103,9 +132,15 @@ export const ProductGroupManagerModal: React.FC<ProductGroupManagerModalProps> =
     try {
       await updateGroup({ id, name: nameTrimmed }).unwrap();
       refetch();
-      showNotification(`Cập nhật tên nhóm hàng thành công`, "success");
-    } catch (err: any) {
-      showNotification(err?.data?.message || "Không thể cập nhật tên nhóm hàng!", "error");
+      showNotification(
+        PRODUCT_MESSAGES.GROUP_UPDATE_SUCCESS,
+        PRODUCT_NOTIFICATION_TYPE.SUCCESS,
+      );
+    } catch (error: unknown) {
+      showNotification(
+        getApiErrorMessage(error, PRODUCT_MESSAGES.GROUP_UPDATE_FAILED),
+        PRODUCT_NOTIFICATION_TYPE.ERROR,
+      );
     } finally {
       handleCancelInline();
     }
@@ -119,7 +154,7 @@ export const ProductGroupManagerModal: React.FC<ProductGroupManagerModalProps> =
     
     const nameTrimmed = groupNameInput.trim();
     if (!nameTrimmed) {
-      setErrorMsg("Tên nhóm hàng không được để trống!");
+      setErrorMsg(PRODUCT_MESSAGES.GROUP_NAME_REQUIRED);
       return;
     }
     
@@ -129,9 +164,14 @@ export const ProductGroupManagerModal: React.FC<ProductGroupManagerModalProps> =
       await createGroup({ name: nameTrimmed }).unwrap();
       setGroupNameInput("");
       refetch();
-      showNotification(`Thêm nhóm hàng "${nameTrimmed}" thành công`, "success");
-    } catch (err: any) {
-      setErrorMsg(err?.data?.message || "Không thể thực hiện tác vụ!");
+      showNotification(
+        PRODUCT_MESSAGE_BUILDERS.GROUP_CREATE_SUCCESS(nameTrimmed),
+        PRODUCT_NOTIFICATION_TYPE.SUCCESS,
+      );
+    } catch (error: unknown) {
+      setErrorMsg(
+        getApiErrorMessage(error, PRODUCT_MESSAGES.GROUP_MUTATION_FAILED),
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -154,14 +194,14 @@ export const ProductGroupManagerModal: React.FC<ProductGroupManagerModalProps> =
         {/* Header */}
         <div className="bg-kv-blue-primary text-white px-5 py-3.5 flex items-center justify-between">
           <h2 className="text-xs font-bold uppercase tracking-wider">
-            Quản lý nhóm hàng hóa
+            {PRODUCT_GROUP_COPY.TITLE}
           </h2>
           <button
             onClick={onClose}
             type="button"
             className="text-white/80 hover:text-white transition-colors text-lg"
           >
-            ✕
+            {PRODUCT_SYMBOLS.CLOSE}
           </button>
         </div>
 
@@ -173,22 +213,23 @@ export const ProductGroupManagerModal: React.FC<ProductGroupManagerModalProps> =
             <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex gap-2.5 text-amber-800 text-[11px] leading-relaxed">
               <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
               <span>
-                <strong>Quy tắc bảo mật QTN-17:</strong> Chỉ có Chủ hộ kinh doanh mới được phép tạo, chỉnh sửa hoặc xóa nhóm hàng. Nhân viên/Kế toán chỉ có quyền xem danh sách.
+                <strong>{PRODUCT_GROUP_COPY.SECURITY_RULE_TITLE}</strong>{" "}
+                {PRODUCT_GROUP_COPY.SECURITY_RULE_DESCRIPTION}
               </span>
             </div>
           )}
 
-          {/* Inline Form (VT-01 only) */}
+          {/* Inline Form (owner only) */}
           {isOwner && (
             <form onSubmit={handleSubmit} className="flex flex-col gap-2 bg-slate-50 border border-slate-200 p-3.5 rounded-xl">
               <h3 className="text-slate-800 font-bold mb-1">
-                Thêm nhóm hàng mới
+                {PRODUCT_GROUP_COPY.CREATE_TITLE}
               </h3>
               
               <div className="flex gap-2">
                 <input
                   type="text"
-                  placeholder="Nhập tên nhóm hàng..."
+                  placeholder={PRODUCT_GROUP_COPY.NAME_PLACEHOLDER}
                   value={groupNameInput}
                   onChange={(e) => setGroupNameInput(e.target.value)}
                   className="flex-1 border border-slate-300 h-9 px-3 rounded-lg focus:outline-none focus:border-kv-blue-primary bg-white text-xs font-semibold text-slate-700"
@@ -198,7 +239,7 @@ export const ProductGroupManagerModal: React.FC<ProductGroupManagerModalProps> =
                   type="submit"
                   disabled={isSubmitting}
                   className="bg-kv-blue-primary hover:bg-kv-blue-dark text-white w-9 h-9 rounded-lg font-bold transition-all shadow-sm flex items-center justify-center shrink-0"
-                  title="Thêm nhóm hàng"
+                  title={PRODUCT_GROUP_COPY.CREATE_TOOLTIP}
                 >
                   <Plus size={16} />
                 </button>
@@ -215,23 +256,29 @@ export const ProductGroupManagerModal: React.FC<ProductGroupManagerModalProps> =
           {/* Product Group List */}
           <div className="flex flex-col gap-2">
             <h3 className="text-slate-800 font-bold border-b pb-2">
-              Danh sách nhóm hàng ({sortedGroups.length})
+              {PRODUCT_GROUP_COPY.LIST_TITLE} ({sortedGroups.length})
             </h3>
             
             <div className="border border-slate-200 rounded-lg overflow-hidden max-h-60 overflow-y-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold text-[10px] uppercase tracking-wider">
-                    <th className="p-2.5 w-16 text-center">STT</th>
-                    <th className="p-2.5">Tên nhóm hàng</th>
-                    {isOwner && <th className="p-2.5 w-24 text-center">Thao tác</th>}
+                    <th className="p-2.5 w-16 text-center">
+                      {PRODUCT_GROUP_COPY.INDEX_HEADER}
+                    </th>
+                    <th className="p-2.5">{PRODUCT_GROUP_COPY.NAME_HEADER}</th>
+                    {isOwner && (
+                      <th className="p-2.5 w-24 text-center">
+                        {PRODUCT_GROUP_COPY.ACTION_HEADER}
+                      </th>
+                    )}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 font-semibold text-slate-700">
                   {sortedGroups.length === 0 ? (
                     <tr>
                       <td colSpan={isOwner ? 3 : 2} className="p-4 text-center text-slate-400 italic">
-                        Chưa có nhóm hàng nào được tạo.
+                        {PRODUCT_GROUP_COPY.EMPTY_MESSAGE}
                       </td>
                     </tr>
                   ) : (
@@ -240,7 +287,7 @@ export const ProductGroupManagerModal: React.FC<ProductGroupManagerModalProps> =
                       return (
                         <tr key={group.id} className="hover:bg-slate-50/50 h-10">
                           <td className="p-2.5 text-center text-slate-400 font-mono">
-                            {index + 1}
+                            {index + PRODUCT_QUERY_CONFIG.DISPLAY_INDEX_OFFSET}
                           </td>
                           {isRowEditing ? (
                             <td className="p-1.5">
@@ -249,8 +296,12 @@ export const ProductGroupManagerModal: React.FC<ProductGroupManagerModalProps> =
                                 value={editingRowGroupName}
                                 onChange={(e) => setEditingRowGroupName(e.target.value)}
                                 onKeyDown={(e) => {
-                                  if (e.key === "Enter") handleSaveInline(group.id);
-                                  if (e.key === "Escape") handleCancelInline();
+                                  if (e.key === PRODUCT_KEYBOARD_KEY.ENTER) {
+                                    handleSaveInline(group.id);
+                                  }
+                                  if (e.key === PRODUCT_KEYBOARD_KEY.ESCAPE) {
+                                    handleCancelInline();
+                                  }
                                 }}
                                 className="border border-slate-300 h-7 px-2 rounded-md focus:outline-none focus:border-kv-blue-primary text-xs w-full font-semibold text-slate-700 bg-white"
                                 autoFocus
@@ -262,7 +313,11 @@ export const ProductGroupManagerModal: React.FC<ProductGroupManagerModalProps> =
                               className={`p-2.5 text-slate-800 truncate max-w-[200px] ${
                                 isOwner ? "cursor-pointer hover:text-kv-blue-primary hover:underline" : ""
                               }`}
-                              title={isOwner ? "Nhấp chuột để sửa trực tiếp" : group.name}
+                              title={
+                                isOwner
+                                  ? PRODUCT_GROUP_COPY.INLINE_EDIT_TOOLTIP
+                                  : group.name
+                              }
                             >
                               {group.name}
                             </td>
@@ -275,7 +330,7 @@ export const ProductGroupManagerModal: React.FC<ProductGroupManagerModalProps> =
                                     <button
                                       type="button"
                                       onClick={() => handleSaveInline(group.id)}
-                                      title="Lưu trực tiếp"
+                                      title={PRODUCT_GROUP_COPY.INLINE_SAVE_TOOLTIP}
                                       className="p-1 hover:bg-emerald-50 rounded text-emerald-600 hover:text-emerald-700 transition-colors"
                                     >
                                       <Check size={13} />
@@ -283,7 +338,7 @@ export const ProductGroupManagerModal: React.FC<ProductGroupManagerModalProps> =
                                     <button
                                       type="button"
                                       onClick={handleCancelInline}
-                                      title="Hủy bỏ"
+                                      title={PRODUCT_GROUP_COPY.CANCEL_TOOLTIP}
                                       className="p-1 hover:bg-rose-50 rounded text-rose-500 hover:text-rose-600 transition-colors"
                                     >
                                       <X size={13} />
@@ -294,7 +349,7 @@ export const ProductGroupManagerModal: React.FC<ProductGroupManagerModalProps> =
                                     <button
                                       type="button"
                                       onClick={() => handleDeleteClick(group)}
-                                      title="Xóa nhóm"
+                                      title={PRODUCT_GROUP_COPY.DELETE_TOOLTIP}
                                       className="p-1 hover:bg-slate-100 rounded text-slate-500 hover:text-rose-600 transition-colors"
                                     >
                                       <Trash2 size={13} />
@@ -321,7 +376,7 @@ export const ProductGroupManagerModal: React.FC<ProductGroupManagerModalProps> =
             type="button"
             className="bg-slate-100 hover:bg-slate-200 transition-colors px-4 h-9 rounded-lg text-slate-700 font-bold font-semibold"
           >
-            Đóng
+            {PRODUCT_GROUP_COPY.CLOSE_ACTION}
           </button>
         </div>
       </div>
@@ -340,10 +395,12 @@ export const ProductGroupManagerModal: React.FC<ProductGroupManagerModalProps> =
               <Trash2 size={24} />
             </div>
             <h3 className="font-extrabold text-slate-800 text-sm mb-2">
-              Xác nhận xóa nhóm hàng?
+              {PRODUCT_GROUP_COPY.DELETE_TITLE}
             </h3>
             <p className="text-slate-500 leading-relaxed mb-6 font-semibold">
-              Bạn có chắc chắn muốn xóa nhóm hàng <strong className="text-slate-700">"{groupToDelete.name}"</strong>? Hàng hóa thuộc nhóm này sẽ được chuyển về nhóm mặc định.
+              {PRODUCT_GROUP_COPY.DELETE_DESCRIPTION_PREFIX}{" "}
+              <strong className="text-slate-700">"{groupToDelete.name}"</strong>
+              {PRODUCT_GROUP_COPY.DELETE_DESCRIPTION_SUFFIX}
             </p>
             <div className="flex items-center justify-center gap-3">
               <button
@@ -351,14 +408,14 @@ export const ProductGroupManagerModal: React.FC<ProductGroupManagerModalProps> =
                 type="button"
                 className="flex-1 bg-slate-100 hover:bg-slate-200 transition-colors h-9 rounded-lg text-slate-700 font-bold"
               >
-                Hủy bỏ
+                {PRODUCT_GROUP_COPY.CANCEL_TOOLTIP}
               </button>
               <button
                 onClick={confirmDeleteGroup}
                 type="button"
                 className="flex-1 bg-rose-600 hover:bg-rose-700 text-white transition-colors h-9 rounded-lg font-bold shadow-sm"
               >
-                Xác nhận xóa
+                {PRODUCT_GROUP_COPY.DELETE_CONFIRM_ACTION}
               </button>
             </div>
           </div>
@@ -370,13 +427,19 @@ export const ProductGroupManagerModal: React.FC<ProductGroupManagerModalProps> =
       {notification && createPortal(
         <div className="fixed top-5 right-5 z-[210] flex items-center gap-3 bg-white border border-slate-100 shadow-2xl px-4 py-3 rounded-xl max-w-sm animate-modal-bounce-in font-semibold text-xs">
           <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white shrink-0 ${
-            notification.type === "success" ? "bg-emerald-500" : "bg-rose-500"
+            notification.type === PRODUCT_NOTIFICATION_TYPE.SUCCESS
+              ? "bg-emerald-500"
+              : "bg-rose-500"
           }`}>
-            {notification.type === "success" ? "✓" : "✕"}
+            {notification.type === PRODUCT_NOTIFICATION_TYPE.SUCCESS
+              ? PRODUCT_SYMBOLS.SUCCESS
+              : PRODUCT_SYMBOLS.CLOSE}
           </div>
           <div className="flex flex-col gap-0.5 max-w-[200px] text-left">
             <span className="font-extrabold text-slate-800 text-[10px] uppercase tracking-wider">
-              {notification.type === "success" ? "Thành công" : "Thông báo"}
+              {notification.type === PRODUCT_NOTIFICATION_TYPE.SUCCESS
+                ? PRODUCT_LABELS.NOTIFICATION_SUCCESS
+                : PRODUCT_LABELS.NOTIFICATION_NOTICE}
             </span>
             <span className="text-slate-500 text-[11px] leading-snug break-words">
               {notification.message}
@@ -386,7 +449,7 @@ export const ProductGroupManagerModal: React.FC<ProductGroupManagerModalProps> =
             onClick={() => setNotification(null)}
             className="text-slate-400 hover:text-slate-600 ml-auto font-semibold"
           >
-            ✕
+            {PRODUCT_SYMBOLS.CLOSE}
           </button>
         </div>,
         document.body
