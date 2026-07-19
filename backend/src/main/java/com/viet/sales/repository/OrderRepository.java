@@ -31,4 +31,10 @@ public interface OrderRepository extends JpaRepository<Order, String> {
     );
 
     int countByShiftIdAndStatusAndDeletedAtIsNull(String shiftId, String status);
+
+    @EntityGraph(attributePaths = {"items", "items.product", "customer", "shift", "createdByUser", "household"})
+    List<Order> findByHouseholdIdAndDeletedAtIsNullOrderByCreatedAtDesc(String householdId);
+
+    @EntityGraph(attributePaths = {"items", "items.product", "customer", "shift", "createdByUser", "household"})
+    List<Order> findByHouseholdIdAndCreatedByUserIdAndDeletedAtIsNullOrderByCreatedAtDesc(String householdId, String userId);
 }

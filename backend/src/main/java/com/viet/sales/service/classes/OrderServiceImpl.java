@@ -607,4 +607,27 @@ public class OrderServiceImpl implements OrderService {
 
         return mapToResponse(order, warnings, null, qrCodeUrl);
     }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<OrderResponse> getOrdersHistory(String currentUsername) {
+        User currentUser = getAuthenticatedUser(currentUsername);
+        BusinessHousehold household = currentUser.getHousehold();
+        if (household == null) {
+            throw new AppException(ErrorCode.FORBIDDEN);
+        }
+
+        List<Order> orders;
+        boolean isSalesperson = "VT-02".equals(currentUser.getRole().getCode());
+        if (isSalesperson) {
+            orders = orderRepository.findByHouseholdIdAndCreatedByUserIdAndDeletedAtIsNullOrderByCreatedAtDesc(
+                    household.getId(), currentUser.getId());
+        } else {
+            orders = orderRepository.findByHouseholdIdAndDeletedAtIsNullOrderByCreatedAtDesc(household.getId());
+        }
+
+        return orders.stream()
+                .map(order -> mapToResponse(order, new ArrayList<>(), null, null))
+                .collect(Collectors.toList());
+    }
 }

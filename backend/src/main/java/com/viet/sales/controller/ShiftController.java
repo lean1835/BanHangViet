@@ -12,6 +12,8 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.security.Principal;
+import java.util.List;
+
 
 @RestController
 @RequestMapping("/api/v1/shifts")
@@ -56,6 +58,18 @@ public class ShiftController {
         ApiResponse<ShiftResponse> response = ApiResponse.<ShiftResponse>builder()
                 .code(1000)
                 .message("Đóng ca bán hàng thành công")
+                .result(result)
+                .build();
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping
+    @PreAuthorize("hasAnyRole('VT-01', 'VT-02', 'VT-03')")
+    public ResponseEntity<ApiResponse<List<ShiftResponse>>> getShiftsHistory(Principal principal) {
+        List<ShiftResponse> result = shiftService.getShiftsHistory(principal.getName());
+        ApiResponse<List<ShiftResponse>> response = ApiResponse.<List<ShiftResponse>>builder()
+                .code(1000)
+                .message("Lấy lịch sử ca bán hàng thành công")
                 .result(result)
                 .build();
         return ResponseEntity.ok(response);

@@ -11,6 +11,8 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.security.Principal;
+import java.util.List;
+
 
 @RestController
 @RequestMapping("/api/v1/orders")
@@ -133,6 +135,18 @@ public class OrderController {
         ApiResponse<OrderResponse> response = ApiResponse.<OrderResponse>builder()
                 .code(1000)
                 .message("Lấy chi tiết đơn hàng thành công")
+                .result(result)
+                .build();
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping
+    @PreAuthorize("hasAnyRole('VT-01', 'VT-02', 'VT-03')")
+    public ResponseEntity<ApiResponse<List<OrderResponse>>> getOrdersHistory(Principal principal) {
+        List<OrderResponse> result = orderService.getOrdersHistory(principal.getName());
+        ApiResponse<List<OrderResponse>> response = ApiResponse.<List<OrderResponse>>builder()
+                .code(1000)
+                .message("Lấy lịch sử đơn hàng thành công")
                 .result(result)
                 .build();
         return ResponseEntity.ok(response);
