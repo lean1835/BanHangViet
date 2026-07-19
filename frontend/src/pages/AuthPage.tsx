@@ -12,8 +12,8 @@ export const AuthPage: React.FC = () => {
   };
 
   return (
-    <div className="absolute inset-0 bg-gradient-to-br from-[#1e3c72] to-[#2a5298] z-[10000] flex items-center justify-center p-4 overflow-y-auto">
-      <div className="bg-white w-full max-w-[920px] min-h-[550px] rounded-2xl shadow-2xl overflow-hidden grid grid-cols-1 md:grid-cols-[1.15fr_1fr] animate-auth-fade-in">
+    <div className="fixed inset-0 bg-gradient-to-br from-[#1e3c72] to-[#2a5298] z-[10000] flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
+      <div className="bg-white w-full max-w-[920px] min-h-0 md:min-h-[550px] rounded-xl sm:rounded-2xl shadow-2xl overflow-hidden grid grid-cols-1 md:grid-cols-[1.15fr_1fr] animate-auth-fade-in my-auto">
         
         {/* Left: Product Introduction & Animations */}
         <div className="bg-gradient-to-br from-[#070e27] to-[#0050df] text-white p-8 flex flex-col justify-between relative overflow-hidden hidden md:flex border-r border-white/5">
@@ -151,7 +151,7 @@ export const AuthPage: React.FC = () => {
             </button>
           </div>
 
-          <div className="p-6 flex-1 flex flex-col justify-center">
+          <div className="p-4 sm:p-6 flex-1 flex flex-col justify-center">
             {activeTab === "login" ? (
               <LoginForm onSuccess={handleSuccess} />
             ) : (

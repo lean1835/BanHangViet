@@ -22,6 +22,36 @@
   body {
     @apply transition-colors duration-200;
     font-family: 'Inter', sans-serif;
+    min-width: 320px;
+    overflow-x: hidden;
+  }
+
+  button,
+  input,
+  select,
+  textarea {
+    min-width: 0;
+  }
+}
+
+@layer utilities {
+  /* Tables retain readable columns and scroll inside their own container. */
+  @media (max-width: 1023px) {
+    .overflow-x-auto > table {
+      min-width: 720px;
+    }
+  }
+
+  /* Respect the operating system's reduced-motion preference. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      scroll-behavior: auto !important;
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
   }
 }
 

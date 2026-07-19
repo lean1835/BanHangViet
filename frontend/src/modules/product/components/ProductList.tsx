@@ -184,6 +184,7 @@ export const ProductList: React.FC<ProductListProps> = ({
         <div className="flex items-center gap-2 flex-wrap">
           {isOwner ? (
             <button
+              type="button"
               onClick={() => {
                 setEditingProduct(null);
                 setIsModalOpen(true);
@@ -195,6 +196,7 @@ export const ProductList: React.FC<ProductListProps> = ({
             </button>
           ) : (
             <button
+              type="button"
               disabled
               title="Chỉ Chủ hộ kinh doanh mới được thêm hàng hóa"
               className="bg-slate-200 text-slate-400 font-bold px-4 h-9 rounded-lg flex items-center gap-1.5 text-xs cursor-not-allowed"

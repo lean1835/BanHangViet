@@ -8,6 +8,7 @@ import { IRole } from "../modules/employee/types/employee";
 import { useGetAllEmployeesQuery } from "../modules/employee/services/employeeApi";
 import { ProductList } from "../modules/product/components/ProductList";
 import { ProductSidebar } from "../modules/product/components/ProductSidebar";
+import { GoodsReceiptModal, GoodsReceiptFormValues } from "../modules/product/components/GoodsReceiptModal";
 import { useGetProductsQuery, useUpdateProductMutation } from "../modules/product/services/productApi";
 
 
@@ -103,9 +104,12 @@ export const DashboardPage: React.FC = () => {
   >("dashboard");
   const [isOnline, setIsOnline] = useState(true);
   const [simConflict, setSimConflict] = useState(false);
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [currentRole, setCurrentRole] = useState<string>(roleId);
   const [adminTab, setAdminTab] = useState<"overview" | "households" | "logs">("overview");
   const [taxTab, setTaxTab] = useState<"invoices" | "config">("invoices");
+  const canViewGoodsReceipts = currentRole === "VT-01" || currentRole === "VT-03";
+  const canCreateGoodsReceipt = currentRole === "VT-01";
 
   const isTabVisible = (tabId: string) => {
     if (currentRole === "VT-02") {
@@ -157,6 +161,16 @@ export const DashboardPage: React.FC = () => {
       notes: "Đại lý tạp hóa tổng hợp Thành Tâm",
     },
   ]);
+  const [stockEntrySearch, setStockEntrySearch] = useState("");
+  const [isGoodsReceiptModalOpen, setIsGoodsReceiptModalOpen] = useState(false);
+  const normalizedStockEntrySearch = stockEntrySearch.trim().toLocaleLowerCase("vi");
+  const filteredStockEntries = stockEntries.filter((entry) => {
+    if (!normalizedStockEntrySearch) return true;
+
+    return [entry.id, entry.time, entry.sku, entry.name, entry.notes].some((value) =>
+      value.toLocaleLowerCase("vi").includes(normalizedStockEntrySearch)
+    );
+  });
 
   const [shifts, setShifts] = useState<IShift[]>([
     {
@@ -394,24 +408,24 @@ export const DashboardPage: React.FC = () => {
   };
 
   // Form submit handlers (simulated local changes)
-  const handleAddStock = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const data = new FormData(e.currentTarget);
-    const prodId = data.get("prodId") as string;
-    const qty = Number(data.get("qty"));
-    const price = Number(data.get("importPrice"));
+  const handleAddStock = async (values: GoodsReceiptFormValues) => {
+    const prodId = values.productId;
+    const qty = values.quantity;
+    const price = values.purchasePrice;
     const selectedProd = dbProducts.find((p) => p.id === prodId);
-    if (!selectedProd) return;
+    if (!selectedProd) throw new Error("Hàng hóa không tồn tại");
+
+    const receiptNumber = values.receiptNumber.trim() || `NK-${Date.now()}`;
 
     const newEntry: IStockEntry = {
-      id: "se" + (stockEntries.length + 1),
-      time: new Date().toISOString().replace("T", " ").substring(0, 19),
+      id: receiptNumber,
+      time: values.receivedAt.replace("T", " ") + ":00",
       sku: selectedProd.sku,
       name: selectedProd.name,
       qty,
       importPrice: price,
       total: qty * price,
-      notes: data.get("notes") as string,
+      notes: values.notes,
     };
 
     try {
@@ -440,9 +454,9 @@ export const DashboardPage: React.FC = () => {
         ...logs,
       ]);
       alert("Lập phiếu nhập kho và cập nhật tồn kho thành công!");
-      e.currentTarget.reset();
     } catch (err: any) {
       alert("Lỗi nhập kho: " + (err?.data?.message || "Không thể cập nhật tồn kho!"));
+      throw err;
     }
   };
 
@@ -543,8 +557,8 @@ export const DashboardPage: React.FC = () => {
     <div className="min-h-screen flex flex-col bg-slate-100 text-slate-800 text-xs font-sans select-none">
       
       {/* ====== LAYER 1: Utility Bar ====== */}
-      <div className="h-11 bg-white border-b border-slate-200 px-4 flex items-center justify-between text-[11px] shrink-0 font-medium">
-        <div className="flex items-center gap-2">
+      <div className="min-h-11 bg-white border-b border-slate-200 px-3 sm:px-4 py-2 flex items-center justify-between gap-2 text-[11px] shrink-0 font-medium">
+        <div className="flex items-center gap-2 min-w-0">
           {/* Logo brand */}
           <div className="flex items-center text-kv-blue-primary font-extrabold text-sm tracking-wide gap-1">
             <svg
@@ -562,18 +576,18 @@ export const DashboardPage: React.FC = () => {
               <line x1="16" y1="17" x2="8" y2="17"></line>
               <polyline points="10 9 9 9 8 9"></polyline>
             </svg>
-            <span>
+            <span className="hidden sm:inline">
               Bán Hàng<strong className="text-slate-800 font-extrabold">Việt</strong>
             </span>
           </div>
-          <span className="text-slate-300 font-normal">|</span>
-          <span className="text-slate-500 font-bold">Demo Trải nghiệm Nghiệp vụ</span>
+          <span className="hidden sm:inline text-slate-300 font-normal">|</span>
+          <span className="hidden sm:inline text-slate-500 font-bold truncate">Demo Trải nghiệm Nghiệp vụ</span>
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center justify-end gap-1.5 sm:gap-2 lg:gap-4 min-w-0">
           {/* Role display */}
           <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 px-2.5 py-1 rounded-md">
-            <span className="text-slate-500">Vai trò:</span>
+            <span className="hidden md:inline text-slate-500">Vai trò:</span>
             <select
               value={currentRole}
               onChange={(e) => {
@@ -585,7 +599,7 @@ export const DashboardPage: React.FC = () => {
                   setActiveTab("dashboard");
                 }
               }}
-              className="font-bold text-slate-700 bg-transparent border-none focus:outline-none cursor-pointer text-[11px]"
+              className="font-bold text-slate-700 bg-transparent border-none focus:outline-none cursor-pointer text-[11px] max-w-28 sm:max-w-44"
             >
               <option value="VT-01">{getRoleName("VT-01")}</option>
               <option value="VT-02">{getRoleName("VT-02")}</option>
@@ -610,11 +624,11 @@ export const DashboardPage: React.FC = () => {
                 isOnline ? "bg-emerald-500 animate-pulse" : "bg-rose-500"
               }`}
             ></span>
-            <span>{isOnline ? "ONLINE" : "OFFLINE"}</span>
+            <span className="hidden sm:inline">{isOnline ? "ONLINE" : "OFFLINE"}</span>
           </button>
 
           {/* Conflict Simulation Toggle */}
-          <div className="flex items-center gap-1.5 bg-rose-50/50 border border-rose-200/60 px-2.5 py-1 rounded-md font-semibold text-rose-700">
+          <div className="hidden xl:flex items-center gap-1.5 bg-rose-50/50 border border-rose-200/60 px-2.5 py-1 rounded-md font-semibold text-rose-700">
             <input
               type="checkbox"
               id="conflict-toggle"
@@ -628,7 +642,7 @@ export const DashboardPage: React.FC = () => {
           </div>
 
           {/* User greetings */}
-          <div className="flex items-center gap-2 bg-slate-100 px-2.5 py-1 rounded-md font-bold text-slate-700">
+          <div className="hidden lg:flex items-center gap-2 bg-slate-100 px-2.5 py-1 rounded-md font-bold text-slate-700">
             <span>Xin chào, {household?.name || "Chủ hộ Tạp Hóa Việt"}</span>
             <span className="text-slate-300">|</span>
             <button
@@ -643,14 +657,25 @@ export const DashboardPage: React.FC = () => {
             onClick={handleLogout}
             className="bg-slate-800 text-white font-extrabold px-3 py-1.5 rounded-md hover:bg-slate-900 transition-all shadow-sm"
           >
-            ✕ Thoát Demo
+            <span className="hidden sm:inline">✕ Thoát Demo</span>
+            <span className="sm:hidden">Thoát</span>
           </button>
         </div>
       </div>
 
       {/* ====== LAYER 2: Blue Navigation Bar ====== */}
-      <div className="h-10 bg-kv-blue-primary text-white flex items-center px-4 justify-between shadow-md shrink-0">
-        <div className="flex items-center h-full">
+      <div className="h-10 bg-kv-blue-primary text-white flex items-center px-2 sm:px-4 justify-between shadow-md shrink-0 gap-2">
+        <button
+          type="button"
+          onClick={() => setIsMobileSidebarOpen(true)}
+          aria-label="Mở bộ lọc và chức năng"
+          className="lg:hidden shrink-0 w-8 h-8 rounded-md hover:bg-kv-blue-dark flex items-center justify-center"
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <path d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+        </button>
+        <div className="flex items-center h-full overflow-x-auto flex-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {[
             { id: "dashboard", label: "Tổng quan" },
             { id: "products", label: "Hàng hóa" },
@@ -663,8 +688,11 @@ export const DashboardPage: React.FC = () => {
           ].filter((tab) => isTabVisible(tab.id)).map((tab) => (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id as any)}
-              className={`h-full px-5 flex items-center gap-1.5 font-bold hover:bg-kv-blue-dark transition-colors border-b-2 text-xs leading-none ${
+              onClick={() => {
+                setActiveTab(tab.id as any);
+                setIsMobileSidebarOpen(false);
+              }}
+              className={`h-full px-3 sm:px-5 shrink-0 flex items-center gap-1.5 font-bold hover:bg-kv-blue-dark transition-colors border-b-2 text-xs leading-none ${
                 activeTab === tab.id
                   ? "bg-white text-kv-blue-primary border-white"
                   : "border-transparent text-white/95"
@@ -678,7 +706,7 @@ export const DashboardPage: React.FC = () => {
         {/* Sell button */}
         <button
           onClick={() => alert("Chức năng mở quầy bán hàng POS sẽ được điều hướng tới màn hình bán lẻ.")}
-          className="bg-kv-green hover:bg-emerald-600 transition-colors px-4 h-7 text-[11px] font-bold text-white rounded-md flex items-center gap-1.5 shadow-sm"
+          className="bg-kv-green hover:bg-emerald-600 transition-colors px-2.5 sm:px-4 h-7 shrink-0 text-[11px] font-bold text-white rounded-md flex items-center gap-1.5 shadow-sm"
         >
           <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
             <path d="M2.57 7.57a2 2 0 0 1 1.44-.57H20a2 2 0 0 1 1.94 2.5l-2 8A2 2 0 0 1 18 19H6a2 2 0 0 1-1.94-1.5l-2-8A2 2 0 0 1 2.57 7.57zM16 11a4 4 0 0 1-8 0" />
@@ -689,9 +717,27 @@ export const DashboardPage: React.FC = () => {
 
       {/* ====== WORKSPACE: Sidebar + Main Content ====== */}
       <div className="flex-1 flex overflow-hidden">
+        {isMobileSidebarOpen && (
+          <button
+            type="button"
+            aria-label="Đóng bộ lọc và chức năng"
+            onClick={() => setIsMobileSidebarOpen(false)}
+            className="fixed inset-0 z-40 bg-slate-900/40 backdrop-blur-[1px] lg:hidden"
+          />
+        )}
         
         {/* Left Sidebar */}
-        <aside className="w-60 bg-white border border-slate-200 rounded-xl my-3 ml-3 p-4 shrink-0 flex flex-col gap-5 overflow-y-auto shadow-sm">
+        <aside className={`fixed inset-y-0 left-0 z-50 w-72 bg-white border-r border-slate-200 p-4 pt-12 shrink-0 flex flex-col gap-5 overflow-y-auto shadow-xl transition-transform duration-200 lg:static lg:z-auto lg:w-60 lg:translate-x-0 lg:border lg:rounded-xl lg:my-3 lg:ml-3 lg:p-4 lg:shadow-sm ${
+          isMobileSidebarOpen ? "translate-x-0" : "-translate-x-full"
+        }`}>
+          <button
+            type="button"
+            onClick={() => setIsMobileSidebarOpen(false)}
+            aria-label="Đóng bộ lọc và chức năng"
+            className="lg:hidden absolute top-3 right-3 w-8 h-8 rounded-md text-slate-500 hover:bg-slate-100 flex items-center justify-center"
+          >
+            ✕
+          </button>
           {currentRole === "VT-04" ? (
             <>
               <div className="font-extrabold text-sm text-slate-800 border-b pb-2">Quản trị nền tảng</div>
@@ -809,16 +855,18 @@ export const DashboardPage: React.FC = () => {
                   >
                     Danh mục hàng hóa
                   </button>
-                  <button
-                    onClick={() => setProductSubTab("stock-entry")}
-                    className={`w-full text-left py-2 px-3 rounded-md font-bold transition-all text-xs ${
-                      productSubTab === "stock-entry"
-                        ? "bg-kv-blue-light text-kv-blue-primary"
-                        : "hover:bg-slate-50 text-slate-600"
-                    }`}
-                  >
-                    Nhập kho hàng hóa
-                  </button>
+                  {canViewGoodsReceipts && (
+                    <button
+                      onClick={() => setProductSubTab("stock-entry")}
+                      className={`w-full text-left py-2 px-3 rounded-md font-bold transition-all text-xs ${
+                        productSubTab === "stock-entry"
+                          ? "bg-kv-blue-light text-kv-blue-primary"
+                          : "hover:bg-slate-50 text-slate-600"
+                      }`}
+                    >
+                      Nhập kho hàng hóa
+                    </button>
+                  )}
                 </div>
               </div>
               {productSubTab === "list" && (
@@ -1072,7 +1120,7 @@ export const DashboardPage: React.FC = () => {
         </aside>
 
         {/* Right Main Content Panel */}
-        <main className="flex-1 p-6 overflow-y-auto bg-slate-50">
+        <main className="flex-1 min-w-0 p-3 sm:p-4 lg:p-6 overflow-y-auto bg-slate-50">
           {currentRole === "VT-04" ? (
             /* ==================== VT-04: PLATFORM ADMIN VIEW ==================== */
             <div className="flex flex-col gap-6">
@@ -1594,9 +1642,41 @@ export const DashboardPage: React.FC = () => {
               )}
 
               {/* Product Subtab Stock entry */}
-              {productSubTab === "stock-entry" && (
+              {productSubTab === "stock-entry" && canViewGoodsReceipts && (
                 <>
-                  <div className="xl:col-span-3 bg-white p-5 rounded-xl border border-slate-200 shadow-sm animate-auth-fade-in">
+                  <div className="xl:col-span-4 flex flex-col md:flex-row md:items-center justify-between gap-4 animate-auth-fade-in">
+                    <div className="relative flex-1 max-w-md">
+                      <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-400">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <circle cx="11" cy="11" r="8" />
+                          <path d="m21 21-4.35-4.35" />
+                        </svg>
+                      </span>
+                      <input
+                        type="search"
+                        value={stockEntrySearch}
+                        onChange={(event) => setStockEntrySearch(event.target.value)}
+                        placeholder="Theo mã phiếu, tên hàng, SKU"
+                        aria-label="Tìm kiếm phiếu nhập kho"
+                        className="w-full pl-9 pr-4 h-9 bg-white border border-slate-300 rounded-lg focus:outline-none focus:border-kv-blue-primary text-xs font-semibold text-slate-700 shadow-sm transition-all"
+                      />
+                    </div>
+
+                    {canCreateGoodsReceipt && (
+                      <button
+                        type="button"
+                        onClick={() => setIsGoodsReceiptModalOpen(true)}
+                        className="font-bold px-4 h-9 rounded-lg flex items-center gap-1.5 text-xs transition-all bg-kv-blue-primary hover:bg-kv-blue-dark text-white shadow-sm"
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                          <path d="M12 5v14M5 12h14" />
+                        </svg>
+                        Nhập kho
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="xl:col-span-4 bg-white p-5 rounded-xl border border-slate-200 shadow-sm animate-auth-fade-in">
                     <h3 className="font-extrabold text-slate-800 text-sm border-b pb-4 mb-4">
                       Lịch sử Phiếu nhập kho (stock_entries)
                     </h3>
@@ -1615,7 +1695,7 @@ export const DashboardPage: React.FC = () => {
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
-                          {stockEntries.map((se) => (
+                          {filteredStockEntries.map((se) => (
                             <tr key={se.id} className="hover:bg-slate-50/50">
                               <td className="p-3 font-mono font-bold text-slate-600">{se.id.toUpperCase()}</td>
                               <td className="p-3 text-slate-500">{se.time}</td>
@@ -1632,85 +1712,26 @@ export const DashboardPage: React.FC = () => {
                               </td>
                             </tr>
                           ))}
+                          {filteredStockEntries.length === 0 && (
+                            <tr>
+                              <td colSpan={7} className="p-10 text-center text-slate-400 font-semibold">
+                                Không tìm thấy phiếu nhập kho phù hợp.
+                              </td>
+                            </tr>
+                          )}
                         </tbody>
                       </table>
                     </div>
                   </div>
 
-                  <div className="xl:col-span-1 bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-start animate-auth-fade-in">
-                    <h3 className="font-extrabold text-slate-800 text-sm border-b pb-3 mb-4">
-                      Lập phiếu nhập kho
-                    </h3>
-                    {currentRole !== "VT-01" ? (
-                      <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 text-center text-slate-500 font-semibold">
-                        <svg className="w-10 h-10 text-amber-500 mx-auto mb-2" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
-                        </svg>
-                        <span className="text-[11px] leading-relaxed block font-bold text-slate-600">
-                          Tài khoản Kế toán (VT-03) chỉ được xem phiếu nhập kho và đối chiếu tồn, không có quyền lập phiếu nhập kho hoặc thay đổi số lượng kho (QTN-17).
-                        </span>
-                      </div>
-                    ) : (
-                      <form onSubmit={handleAddStock} className="flex flex-col gap-4 font-semibold text-slate-700">
-                        <div className="flex flex-col gap-1">
-                          <label>Chọn hàng hóa nhập*:</label>
-                          <select
-                            name="prodId"
-                            required
-                            className="border border-slate-300 h-9 px-2 rounded-lg focus:outline-none focus:border-kv-blue-primary text-xs bg-white font-bold"
-                          >
-                            {dbProducts.map((p) => (
-                              <option key={p.id} value={p.id}>
-                                {p.name} ({p.sku})
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-3">
-                          <div className="flex flex-col gap-1">
-                            <label>Số lượng nhập*:</label>
-                            <input
-                              type="number"
-                              name="qty"
-                              required
-                              min="1"
-                              defaultValue="50"
-                              className="border border-slate-300 h-9 px-3 rounded-lg focus:outline-none focus:border-kv-blue-primary text-xs"
-                            />
-                          </div>
-                          <div className="flex flex-col gap-1">
-                            <label>Đơn giá nhập (đ)*:</label>
-                            <input
-                              type="number"
-                              name="importPrice"
-                              required
-                              min="0"
-                              placeholder="Đơn giá nhập"
-                              className="border border-slate-300 h-9 px-3 rounded-lg focus:outline-none focus:border-kv-blue-primary text-xs"
-                            />
-                          </div>
-                        </div>
-
-                        <div className="flex flex-col gap-1">
-                          <label>Ghi chú / Nhà cung cấp:</label>
-                          <textarea
-                            name="notes"
-                            placeholder="Ví dụ: Nhập đại lý cấp 1, có hóa đơn VAT đầu vào..."
-                            style={{ resize: "none" }}
-                            className="border border-slate-300 h-16 p-3 rounded-lg focus:outline-none focus:border-kv-blue-primary text-xs"
-                          ></textarea>
-                        </div>
-
-                        <button
-                          type="submit"
-                          className="bg-kv-blue-primary text-white h-9 rounded-lg font-bold hover:bg-kv-blue-dark transition-all shadow-sm mt-2"
-                        >
-                          Xác nhận Nhập kho
-                        </button>
-                      </form>
-                    )}
-                  </div>
+                  {canCreateGoodsReceipt && (
+                    <GoodsReceiptModal
+                      isOpen={isGoodsReceiptModalOpen}
+                      onClose={() => setIsGoodsReceiptModalOpen(false)}
+                      onSave={handleAddStock}
+                      products={dbProducts}
+                    />
+                  )}
                 </>
               )}
 
@@ -2282,7 +2303,7 @@ export const DashboardPage: React.FC = () => {
                       <span className="font-bold text-kv-blue-primary block mb-3 text-xs uppercase tracking-wide">
                         Kỳ đối chiếu 1 (Kỳ gốc):
                       </span>
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div className="flex flex-col gap-1">
                           <label className="font-bold text-slate-600">Từ ngày:</label>
                           <input
@@ -2306,7 +2327,7 @@ export const DashboardPage: React.FC = () => {
                       <span className="font-bold text-kv-orange block mb-3 text-xs uppercase tracking-wide">
                         Kỳ đối chiếu 2 (Kỳ so sánh):
                       </span>
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div className="flex flex-col gap-1">
                           <label className="font-bold text-slate-600">Từ ngày:</label>
                           <input
@@ -2492,7 +2513,7 @@ export const DashboardPage: React.FC = () => {
                       </select>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div className="flex flex-col gap-1">
                         <label>Khổ giấy (Khổ in):</label>
                         <select className="border border-slate-300 h-9 px-2 rounded-lg focus:outline-none focus:border-kv-blue-primary text-xs bg-white font-bold">

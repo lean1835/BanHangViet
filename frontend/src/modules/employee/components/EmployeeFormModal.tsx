@@ -125,7 +125,7 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({
 
         {/* Form Body */}
         <form onSubmit={handleSubmit} className="p-4 flex flex-col gap-3 font-semibold text-slate-700 text-[11px]">
-          <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3">
             {/* Tên đăng nhập */}
             <div className="flex flex-col gap-1">
               <label className="text-slate-600">Tên đăng nhập (Tài khoản)*:</label>
