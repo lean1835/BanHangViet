@@ -4,15 +4,20 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.viet.sales.dto.request.CreateEmployeeRequest;
 import com.viet.sales.dto.request.UpdateEmployeeRequest;
 import com.viet.sales.dto.response.EmployeeResponse;
+import com.viet.sales.constant.ShiftStatus;
 import com.viet.sales.entity.ActivityLog;
 import com.viet.sales.entity.BusinessHousehold;
 import com.viet.sales.entity.Role;
 import com.viet.sales.entity.User;
+import com.viet.sales.entity.Shift;
+import com.viet.sales.entity.Order;
 import com.viet.sales.exception.AppException;
 import com.viet.sales.exception.ErrorCode;
 import com.viet.sales.repository.ActivityLogRepository;
 import com.viet.sales.repository.RoleRepository;
 import com.viet.sales.repository.UserRepository;
+import com.viet.sales.repository.ShiftRepository;
+import com.viet.sales.repository.OrderRepository;
 import com.viet.sales.service.interfaces.EmployeeService;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.web.context.request.RequestContextHolder;
@@ -41,6 +46,46 @@ public class EmployeeServiceImpl implements EmployeeService {
     private final PasswordEncoder passwordEncoder;
     private final ObjectMapper objectMapper;
     private final CacheManager cacheManager;
+    private final ShiftRepository shiftRepository;
+    private final OrderRepository orderRepository;
+
+    private void closeActiveShiftOfUser(User employee) {
+        java.util.Optional<Shift> activeShiftOpt = shiftRepository.findByUserIdAndStatus(employee.getId(), ShiftStatus.OPEN);
+        if (activeShiftOpt.isPresent()) {
+            Shift shift = activeShiftOpt.get();
+            
+            // 1. Cancel any pending orders in this shift
+            List<Order> pendingOrders = orderRepository.findByShiftIdAndDeletedAtIsNull(shift.getId());
+            for (Order order : pendingOrders) {
+                if ("CREATING".equals(order.getStatus())) {
+                    order.setStatus("CANCELED");
+                    orderRepository.save(order);
+                }
+            }
+            
+            // 2. Calculate expected cash
+            java.math.BigDecimal cashSales = orderRepository.sumFinalAmountByShiftIdAndStatusAndPaymentMethodAndDeletedAtIsNull(
+                    shift.getId(), "COMPLETED", "CASH");
+            java.math.BigDecimal expectedCash = shift.getOpeningCash().add(cashSales);
+            
+            // 3. Close the shift automatically
+            shift.setClosedAt(LocalDateTime.now());
+            shift.setClosingCashExpected(expectedCash);
+            shift.setClosingCashActual(expectedCash);
+            shift.setDifferenceAmount(java.math.BigDecimal.ZERO);
+            shift.setDifferenceReason("Hệ thống tự động đóng ca do khóa/xóa tài khoản nhân viên.");
+            shift.setStatus(ShiftStatus.CLOSED);
+            shiftRepository.save(shift);
+            
+            Map<String, Object> logMap = new HashMap<>();
+            logMap.put("id", shift.getId());
+            logMap.put("status", "CLOSED");
+            logMap.put("closingCashExpected", expectedCash);
+            logMap.put("closingCashActual", expectedCash);
+            logMap.put("differenceAmount", java.math.BigDecimal.ZERO);
+            logActivity(shift.getHousehold(), employee, "CLOSE_SHIFT", shift.getId(), null, logMap);
+        }
+    }
 
     private User getAuthenticatedUser(String username) {
         return userRepository.findByUsername(username)
@@ -197,6 +242,11 @@ public class EmployeeServiceImpl implements EmployeeService {
         employee.setRole(role);
         employee.setIsActive(request.getIsActive());
 
+        // If employee is being locked (deactivated), close their active shift
+        if (oldActive && !request.getIsActive()) {
+            closeActiveShiftOfUser(employee);
+        }
+
         employee = userRepository.save(employee);
 
         // Evict from cache
@@ -238,6 +288,9 @@ public class EmployeeServiceImpl implements EmployeeService {
         }
 
         Map<String, Object> oldValueMap = buildUserLogMap(employee);
+
+        // If employee has an active shift, close it
+        closeActiveShiftOfUser(employee);
 
         // Soft delete
         employee.setDeletedAt(LocalDateTime.now());
