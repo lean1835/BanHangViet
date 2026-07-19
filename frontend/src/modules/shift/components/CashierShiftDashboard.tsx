@@ -18,7 +18,8 @@ import { createPortal } from "react-dom";
 import { formatCurrency, formatNumber } from "@/utils/formatCurrency";
 import { formatDate } from "@/utils/dateFormatter";
 import { useDebounce } from "@/hooks/useDebounce";
-import { getApiErrorMessage } from "@/modules/shift/utils/getApiErrorMessage";
+import { getApiErrorMessage } from "@/utils/getApiErrorMessage";
+import { useDashboardDemo } from "@/providers/DashboardDemoProvider";
 
 export const CashierShiftDashboard: React.FC = () => {
   const { data: activeShiftData, isLoading: isActiveLoading } = useGetActiveShiftQuery();
@@ -29,6 +30,26 @@ export const CashierShiftDashboard: React.FC = () => {
 
   const [openShiftMutation] = useOpenShiftMutation();
   const [closeShiftMutation] = useCloseShiftMutation();
+
+  const { orders } = useDashboardDemo();
+
+  const cashSales = orders
+    .filter((order) => {
+      const isCompleted = order.status === "COMPLETED";
+      const isCash = order.paymentMethod === "CASH";
+      if (!isCompleted || !isCash) return false;
+      if (!currentShift?.openedAt) return true;
+      try {
+        const orderTime = new Date(order.createdAt).getTime();
+        const shiftOpenTime = new Date(currentShift.openedAt).getTime();
+        return orderTime >= shiftOpenTime;
+      } catch (e) {
+        return true;
+      }
+    })
+    .reduce((sum, order) => sum + order.finalAmount, 0);
+
+  const expectedCash = currentShift ? currentShift.openingCash + cashSales : 0;
 
   // Inputs & Modal States
   const [openingCashInput, setOpeningCashInput] = useState(DEFAULT_SHIFT_CASH_AMOUNT);
@@ -41,9 +62,9 @@ export const CashierShiftDashboard: React.FC = () => {
 
   useEffect(() => {
     if (currentShift) {
-      setClosingActualInput(currentShift.closingCashExpected || currentShift.openingCash);
+      setClosingActualInput(expectedCash);
     }
-  }, [currentShift]);
+  }, [currentShift, expectedCash]);
 
 
   const handleOpenShift = async () => {
@@ -62,7 +83,7 @@ export const CashierShiftDashboard: React.FC = () => {
 
   const handleCloseShift = async () => {
     if (!currentShift) return;
-    const expectedVal = currentShift.closingCashExpected || 0;
+    const expectedVal = expectedCash;
     const diff = closingActualInput - expectedVal;
 
     if (diff !== 0 && (!closingReason || !closingReason.trim())) {
@@ -100,7 +121,7 @@ export const CashierShiftDashboard: React.FC = () => {
   return (
     <div className="flex flex-col gap-6 w-full">
       {/* 1. Cashier Shift Info (KPI / Opening form) */}
-      <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+      <div className="bg-white py-8 px-6 rounded-xl border border-slate-200 shadow-sm min-h-[200px] flex flex-col justify-between">
         <div className="flex justify-between items-center mb-4">
           <h3 className="font-extrabold text-slate-800 text-sm">
             {SHIFT_UI.CASHIER.CURRENT_SHIFT_TITLE}
@@ -108,7 +129,7 @@ export const CashierShiftDashboard: React.FC = () => {
           {currentShift && (
             <button
               onClick={() => {
-                setClosingActualInput(currentShift.closingCashExpected || currentShift.openingCash);
+                setClosingActualInput(expectedCash);
                 setShowCloseModal(true);
               }}
               className="bg-rose-600 hover:bg-rose-700 transition-colors text-white px-3 py-1.5 rounded-lg font-bold shadow-sm text-[10px]"
@@ -152,7 +173,7 @@ export const CashierShiftDashboard: React.FC = () => {
                   {SHIFT_UI.CASHIER.EXPECTED_CASH_LABEL}
                 </div>
                 <div className="text-xl font-extrabold text-kv-blue-primary">
-                  {formatCurrency(currentShift.closingCashExpected)}
+                  {formatCurrency(expectedCash)}
                 </div>
                 <div className="text-[10px] text-slate-500 font-semibold mt-0.5">
                   {SHIFT_UI.CASHIER.EXPECTED_CASH_HINT}
@@ -161,9 +182,9 @@ export const CashierShiftDashboard: React.FC = () => {
             </div>
           </div>
         ) : (
-          <div className="bg-amber-50 border border-amber-200 rounded-lg p-5 flex flex-col sm:flex-row justify-between items-center gap-4">
+          <div className="bg-amber-50 border border-amber-200 rounded-lg py-6 px-5 flex flex-col sm:flex-row justify-between items-center gap-4 flex-1">
             <div className="text-left">
-              <div className="font-extrabold text-amber-800 text-xs">
+              <div className="font-extrabold text-amber-800 text-sm">
                 {SHIFT_UI.CASHIER.NO_ACTIVE_SHIFT_TITLE}
               </div>
               <div className="text-slate-500 text-[11px] mt-1 font-medium">
@@ -176,7 +197,7 @@ export const CashierShiftDashboard: React.FC = () => {
                   setOpeningCashInput(DEFAULT_SHIFT_CASH_AMOUNT);
                   setShowOpenModal(true);
                 }}
-                className="bg-kv-green hover:bg-emerald-600 text-white font-bold h-9 px-4 rounded-lg shadow-sm text-xs transition-colors"
+                className="bg-kv-green hover:bg-emerald-600 text-white font-bold h-10 px-6 rounded-lg shadow-sm text-xs transition-colors whitespace-nowrap"
               >
                 {SHIFT_UI.COMMON.OPEN_SHIFT_BUTTON}
               </button>
@@ -349,7 +370,7 @@ export const CashierShiftDashboard: React.FC = () => {
               </div>
 
               {(() => {
-                const expectedVal = currentShift.closingCashExpected || 0;
+                const expectedVal = expectedCash;
                 const diff = closingActualInput - expectedVal;
 
                 return (

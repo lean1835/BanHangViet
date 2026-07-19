@@ -16,7 +16,7 @@ import {
   useUpdateEmployeeMutation,
   useDeleteEmployeeMutation,
 } from "../services/employeeApi";
-import { getApiErrorMessage } from "../utils/getApiErrorMessage";
+import { getApiErrorMessage } from "@/utils/getApiErrorMessage";
 
 interface EmployeeListProps {
   employees: IEmployee[];

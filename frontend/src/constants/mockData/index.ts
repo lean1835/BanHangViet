@@ -4,6 +4,7 @@
  */
 export { MOCK_CUSTOMERS } from "./customers";
 export { MOCK_INVOICES } from "./invoices";
+export { MOCK_ORDERS } from "./orders";
 export { MOCK_ACTIVITY_LOGS, MOCK_BEST_SELLING_PRODUCTS } from "./report";
 export { MOCK_STOCK_ENTRIES } from "./product";
 export { MOCK_TAX_RATES } from "./settings";

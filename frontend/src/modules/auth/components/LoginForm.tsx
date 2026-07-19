@@ -12,7 +12,7 @@ import {
 } from "@/constants/auth";
 import { z } from "zod";
 import { DemoAccountsPanel } from "./DemoAccountsPanel";
-import { getApiErrorMessage } from "../utils/getApiErrorMessage";
+import { getApiErrorMessage } from "@/utils/getApiErrorMessage";
 
 const loginSchema = z.object({
   [AUTH_FORM_FIELDS.USERNAME]: z

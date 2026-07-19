@@ -64,7 +64,7 @@ const SHIFT_TABLE_COLUMNS = {
 } as const;
 
 const SHIFT_OPEN_MODAL_UI = {
-  TITLE: "🔑 KHAI BÁO MỞ CA MỚI",
+  TITLE: " KHAI BÁO MỞ CA MỚI",
   OWNER_DESCRIPTION:
     "Vui lòng khai báo quỹ tiền đầu ca và chọn nhân viên (nếu mở ca hộ) để kích hoạt ca làm việc.",
   CASHIER_DESCRIPTION:

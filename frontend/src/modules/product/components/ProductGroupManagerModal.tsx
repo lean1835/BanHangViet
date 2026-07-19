@@ -22,7 +22,7 @@ import {
   useDeleteProductGroupMutation,
 } from "@/modules/product/services/productApi";
 import type { IProductGroup } from "@/modules/product/types/IProductGroup";
-import { getProductApiErrorMessage } from "@/modules/product/utils/getProductApiErrorMessage";
+import { getApiErrorMessage } from "@/utils/getApiErrorMessage";
 
 interface ProductGroupManagerModalProps {
   isOpen: boolean;
@@ -90,7 +90,7 @@ export const ProductGroupManagerModal: React.FC<ProductGroupManagerModalProps> =
       );
     } catch (error: unknown) {
       showNotification(
-        getProductApiErrorMessage(error, PRODUCT_MESSAGES.GROUP_DELETE_FAILED),
+        getApiErrorMessage(error, PRODUCT_MESSAGES.GROUP_DELETE_FAILED),
         PRODUCT_NOTIFICATION_TYPE.ERROR,
       );
     } finally {
@@ -138,7 +138,7 @@ export const ProductGroupManagerModal: React.FC<ProductGroupManagerModalProps> =
       );
     } catch (error: unknown) {
       showNotification(
-        getProductApiErrorMessage(error, PRODUCT_MESSAGES.GROUP_UPDATE_FAILED),
+        getApiErrorMessage(error, PRODUCT_MESSAGES.GROUP_UPDATE_FAILED),
         PRODUCT_NOTIFICATION_TYPE.ERROR,
       );
     } finally {
@@ -170,7 +170,7 @@ export const ProductGroupManagerModal: React.FC<ProductGroupManagerModalProps> =
       );
     } catch (error: unknown) {
       setErrorMsg(
-        getProductApiErrorMessage(error, PRODUCT_MESSAGES.GROUP_MUTATION_FAILED),
+        getApiErrorMessage(error, PRODUCT_MESSAGES.GROUP_MUTATION_FAILED),
       );
     } finally {
       setIsSubmitting(false);

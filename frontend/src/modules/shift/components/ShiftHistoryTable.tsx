@@ -21,7 +21,7 @@ import { createPortal } from "react-dom";
 import { formatCurrency, formatNumber } from "@/utils/formatCurrency";
 import { formatDate } from "@/utils/dateFormatter";
 import { useDebounce } from "@/hooks/useDebounce";
-import { getApiErrorMessage } from "@/modules/shift/utils/getApiErrorMessage";
+import { getApiErrorMessage } from "@/utils/getApiErrorMessage";
 
 interface ShiftHistoryTableProps {
   currentRole: string;

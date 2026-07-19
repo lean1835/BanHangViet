@@ -4,6 +4,7 @@ import {
   useContext,
   useMemo,
   useState,
+  useEffect,
   type Dispatch,
   type ReactNode,
   type SetStateAction,
@@ -20,12 +21,15 @@ import {
   MOCK_CUSTOMERS,
   MOCK_INVOICES,
 } from "@/constants/mockData";
+import { MOCK_ORDERS } from "@/constants/mockData/orders";
+import { useGetOrdersHistoryQuery } from "@/modules/order/services/orderApi";
 import { isDemoRole, USER_ROLES } from "@/constants/roles";
 import type { ICustomer } from "@/modules/customer/types/ICustomer";
 import type { TDemoRole } from "@/constants/roles";
 import type { IInvoice } from "@/modules/e_invoice/types/IInvoice";
 import { MOCK_STOCK_ENTRIES } from "@/constants/mockData/product";
 import type { IStockEntry } from "@/modules/product/types/IStockEntry";
+import type { IOrderResponse } from "@/modules/order/types/IOrder";
 import type { IActivityLog } from "@/modules/report/types/IActivityLog";
 import { formatActivityTimestamp } from "@/utils/dateFormatter";
 
@@ -44,6 +48,8 @@ interface IDashboardDemoContext {
   addLogEntry: (action: string, target: string) => void;
   stockEntries: IStockEntry[];
   setStockEntries: Dispatch<SetStateAction<IStockEntry[]>>;
+  orders: IOrderResponse[];
+  setOrders: Dispatch<SetStateAction<IOrderResponse[]>>;
 }
 
 const DashboardDemoContext = createContext<IDashboardDemoContext | null>(null);
@@ -69,6 +75,23 @@ export const DashboardDemoProvider = ({ children }: DashboardDemoProviderProps) 
   const [stockEntries, setStockEntries] = useState<IStockEntry[]>(() => [
     ...MOCK_STOCK_ENTRIES,
   ]);
+  const [orders, setOrders] = useState<IOrderResponse[]>(() => [...MOCK_ORDERS]);
+
+  // Fetch orders from the backend database when online
+  const { data: apiOrdersData } = useGetOrdersHistoryQuery();
+
+  // Dynamically sync orders with database when fetched
+  useEffect(() => {
+    if (apiOrdersData?.result && apiOrdersData.result.length > 0) {
+      setOrders((prev) => {
+        const backendOrders = apiOrdersData.result;
+        const localOnly = prev.filter(
+          (local) => !backendOrders.some((be) => be.orderNumber === local.orderNumber)
+        );
+        return [...localOnly, ...backendOrders];
+      });
+    }
+  }, [apiOrdersData]);
 
   const addLogEntry = useCallback(
     (action: string, target: string) => {
@@ -102,6 +125,8 @@ export const DashboardDemoProvider = ({ children }: DashboardDemoProviderProps) 
       addLogEntry,
       stockEntries,
       setStockEntries,
+      orders,
+      setOrders,
     }),
     [
       currentRole,
@@ -112,6 +137,7 @@ export const DashboardDemoProvider = ({ children }: DashboardDemoProviderProps) 
       logs,
       addLogEntry,
       stockEntries,
+      orders,
     ]
   );
 

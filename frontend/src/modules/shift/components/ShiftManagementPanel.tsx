@@ -14,7 +14,7 @@ import {
 import { useGetAllEmployeesQuery } from "@/modules/employee/services/employeeApi";
 import { createPortal } from "react-dom";
 import { formatCurrency, formatNumber } from "@/utils/formatCurrency";
-import { getApiErrorMessage } from "@/modules/shift/utils/getApiErrorMessage";
+import { getApiErrorMessage } from "@/utils/getApiErrorMessage";
 
 interface ShiftManagementPanelProps {
   currentRole: string;

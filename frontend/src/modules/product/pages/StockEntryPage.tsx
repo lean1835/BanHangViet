@@ -15,7 +15,7 @@ import {
   useUpdateProductMutation,
 } from "@/modules/product/services/productApi";
 import type { IStockEntry } from "@/modules/product/types/IStockEntry";
-import { getProductApiErrorMessage } from "@/modules/product/utils/getProductApiErrorMessage";
+import { getApiErrorMessage } from "@/utils/getApiErrorMessage";
 import { formatActivityTimestamp } from "@/utils/dateFormatter";
 
 export const StockEntryPage = () => {
@@ -82,7 +82,7 @@ export const StockEntryPage = () => {
     } catch (error: unknown) {
       alert(
         PRODUCT_MESSAGE_BUILDERS.STOCK_ENTRY_ERROR(
-          getProductApiErrorMessage(
+          getApiErrorMessage(
             error,
             PRODUCT_MESSAGES.STOCK_UPDATE_FAILED,
           ),

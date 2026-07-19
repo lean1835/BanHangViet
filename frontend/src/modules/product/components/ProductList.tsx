@@ -28,7 +28,7 @@ import {
 } from "@/modules/product/services/productApi";
 import type { IProduct } from "@/modules/product/types/IProduct";
 import type { TStockFilter } from "@/modules/product/types/TStockFilter";
-import { getProductApiErrorMessage } from "@/modules/product/utils/getProductApiErrorMessage";
+import { getApiErrorMessage } from "@/utils/getApiErrorMessage";
 import { formatDate } from "@/utils/dateFormatter";
 import { formatCurrency, formatNumber } from "@/utils/formatCurrency";
 
@@ -139,7 +139,7 @@ export const ProductList: React.FC<ProductListProps> = ({
     } catch (error: unknown) {
       showNotification(
         PRODUCT_MESSAGE_BUILDERS.API_ERROR(
-          getProductApiErrorMessage(error, PRODUCT_MESSAGES.SAVE_FAILED),
+          getApiErrorMessage(error, PRODUCT_MESSAGES.SAVE_FAILED),
         ),
         PRODUCT_NOTIFICATION_TYPE.ERROR,
       );
@@ -185,7 +185,7 @@ export const ProductList: React.FC<ProductListProps> = ({
     } catch (error: unknown) {
       showNotification(
         PRODUCT_MESSAGE_BUILDERS.API_ERROR(
-          getProductApiErrorMessage(error, PRODUCT_MESSAGES.DELETE_FAILED),
+          getApiErrorMessage(error, PRODUCT_MESSAGES.DELETE_FAILED),
         ),
         PRODUCT_NOTIFICATION_TYPE.ERROR,
       );

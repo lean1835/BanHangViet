@@ -7,9 +7,7 @@ import {
   EMPLOYEE_MESSAGES,
 } from "@/constants/employee";
 import type { IEmployee } from "../types/IEmployee";
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null;
+import { isRecord } from "@/utils/typeGuards";
 
 const getRequiredString = (
   record: Record<string, unknown>,

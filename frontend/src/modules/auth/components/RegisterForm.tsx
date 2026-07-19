@@ -11,7 +11,7 @@ import {
   AUTH_VALIDATION_MESSAGES,
 } from "@/constants/auth";
 import { z } from "zod";
-import { getApiErrorMessage } from "../utils/getApiErrorMessage";
+import { getApiErrorMessage } from "@/utils/getApiErrorMessage";
 
 const registerSchema = z.object({
   [AUTH_FORM_FIELDS.HOUSEHOLD_NAME]: z

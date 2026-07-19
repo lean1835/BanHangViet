@@ -8,8 +8,8 @@ import { PrivateRoute } from "./guards/PrivateRoute";
 import { PublicRoute } from "./guards/PublicRoute";
 import { RoleRoute } from "./guards/RoleRoute";
 
-const AuthPage = React.lazy(() => import("@/pages/AuthPage"));
-const LoginPage = React.lazy(() => import("@/modules/auth/pages/LoginPage"));
+import AuthPage from "@/pages/AuthPage";
+import LoginPage from "@/modules/auth/pages/LoginPage";
 const RegisterPage = React.lazy(() => import("@/modules/auth/pages/RegisterPage"));
 const AuthenticatedAppLayout = React.lazy(
   () => import("@/components/layouts/AuthenticatedAppLayout")

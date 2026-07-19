@@ -11,6 +11,7 @@ import type { IProduct } from "@/modules/product/types/IProduct";
 import type { IProductGroup } from "@/modules/product/types/IProductGroup";
 import type { TProductStatus } from "@/modules/product/types/TProductStatus";
 import type { TStockFilter } from "@/modules/product/types/TStockFilter";
+import { isRecord } from "@/utils/typeGuards";
 
 interface IPageResponse<T> {
   content: T[];
@@ -31,9 +32,6 @@ interface IGetProductsParams {
 }
 
 type TProductPayload = Partial<IProduct> & { taxRateId: string };
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null;
 
 const readString = (value: unknown): string =>
   typeof value === "string" ? value : "";

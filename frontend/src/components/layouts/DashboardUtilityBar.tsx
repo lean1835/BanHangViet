@@ -34,8 +34,8 @@ export const DashboardUtilityBar = ({
   const household = useAppSelector((state) => state.auth.user?.household);
 
   const handleLogout = () => {
-    dispatch(logout());
     dispatch(baseApi.util.resetApiState());
+    dispatch(logout());
   };
 
   const handleRoleChange = (event: ChangeEvent<HTMLSelectElement>) => {

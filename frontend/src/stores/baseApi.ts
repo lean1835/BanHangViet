@@ -35,8 +35,8 @@ const baseQueryWithUnauthorizedCleanup: BaseQueryFn<
   const result = await rawBaseQuery(args, api, extraOptions);
 
   if (result.error?.status === HTTP_STATUS.UNAUTHORIZED) {
-    api.dispatch(logout());
     api.dispatch(baseApi.util.resetApiState());
+    api.dispatch(logout());
   }
 
   return result;
