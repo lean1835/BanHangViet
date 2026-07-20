@@ -21,7 +21,6 @@ import {
   MOCK_CUSTOMERS,
   MOCK_INVOICES,
 } from "@/constants/mockData";
-import { MOCK_ORDERS } from "@/constants/mockData/orders";
 import { useGetOrdersHistoryQuery } from "@/modules/order/services/orderApi";
 import { isDemoRole, USER_ROLES } from "@/constants/roles";
 import type { ICustomer } from "@/modules/customer/types/ICustomer";
@@ -50,6 +49,10 @@ interface IDashboardDemoContext {
   setStockEntries: Dispatch<SetStateAction<IStockEntry[]>>;
   orders: IOrderResponse[];
   setOrders: Dispatch<SetStateAction<IOrderResponse[]>>;
+  isOrdersLoading: boolean;
+  isOrdersError: boolean;
+  ordersError: unknown;
+  refetchOrders: () => void;
 }
 
 const DashboardDemoContext = createContext<IDashboardDemoContext | null>(null);
@@ -75,23 +78,25 @@ export const DashboardDemoProvider = ({ children }: DashboardDemoProviderProps) 
   const [stockEntries, setStockEntries] = useState<IStockEntry[]>(() => [
     ...MOCK_STOCK_ENTRIES,
   ]);
-  const [orders, setOrders] = useState<IOrderResponse[]>(() => [...MOCK_ORDERS]);
+  const [orders, setOrders] = useState<IOrderResponse[]>([]);
 
-  // Fetch orders from the backend database when online
-  const { data: apiOrdersData } = useGetOrdersHistoryQuery();
+  const {
+    data: apiOrdersData,
+    error: ordersError,
+    isError: isOrdersError,
+    isLoading: isOrdersLoading,
+    refetch: refetchOrdersQuery,
+  } = useGetOrdersHistoryQuery(undefined, { skip: !isOnline });
 
-  // Dynamically sync orders with database when fetched
   useEffect(() => {
-    if (apiOrdersData?.result && apiOrdersData.result.length > 0) {
-      setOrders((prev) => {
-        const backendOrders = apiOrdersData.result;
-        const localOnly = prev.filter(
-          (local) => !backendOrders.some((be) => be.orderNumber === local.orderNumber)
-        );
-        return [...localOnly, ...backendOrders];
-      });
+    if (isOnline && apiOrdersData?.result) {
+      setOrders(apiOrdersData.result);
     }
-  }, [apiOrdersData]);
+  }, [apiOrdersData, isOnline]);
+
+  const refetchOrders = useCallback(() => {
+    if (isOnline) void refetchOrdersQuery();
+  }, [isOnline, refetchOrdersQuery]);
 
   const addLogEntry = useCallback(
     (action: string, target: string) => {
@@ -127,6 +132,10 @@ export const DashboardDemoProvider = ({ children }: DashboardDemoProviderProps) 
       setStockEntries,
       orders,
       setOrders,
+      isOrdersLoading,
+      isOrdersError,
+      ordersError,
+      refetchOrders,
     }),
     [
       currentRole,
@@ -138,6 +147,10 @@ export const DashboardDemoProvider = ({ children }: DashboardDemoProviderProps) 
       addLogEntry,
       stockEntries,
       orders,
+      isOrdersLoading,
+      isOrdersError,
+      ordersError,
+      refetchOrders,
     ]
   );
 

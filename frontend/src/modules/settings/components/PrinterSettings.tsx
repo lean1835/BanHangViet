@@ -7,8 +7,10 @@ import {
   SETTINGS_ELEMENT_IDS,
   SETTINGS_UI,
 } from "@/constants/settings";
+import { useNotification } from "@/hooks/useNotification";
 
 export const PrinterSettings: React.FC = () => {
+  const { showInfo } = useNotification();
   return (
     <div className="grid grid-cols-1 gap-6">
       <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
@@ -18,7 +20,7 @@ export const PrinterSettings: React.FC = () => {
         <form
           onSubmit={(event) => {
             event.preventDefault();
-            alert(PRINTER_MESSAGES.SAVED);
+            showInfo(PRINTER_MESSAGES.SAVE_UNAVAILABLE);
           }}
           className="flex flex-col gap-4 font-semibold text-slate-700 max-w-md"
         >
@@ -31,7 +33,7 @@ export const PrinterSettings: React.FC = () => {
             </select>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="flex flex-col gap-1">
               <label>{SETTINGS_UI.PRINTER.PAPER_SIZE_LABEL}</label>
               <select className="border border-slate-300 h-9 px-2 rounded-lg focus:outline-none focus:border-kv-blue-primary text-xs bg-white font-bold">
@@ -51,20 +53,20 @@ export const PrinterSettings: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex items-center gap-2 py-1 cursor-pointer">
+          <label
+            htmlFor={SETTINGS_ELEMENT_IDS.AUTO_PRINT}
+            className="flex min-h-11 cursor-pointer items-center gap-2 py-1 lg:min-h-0"
+          >
             <input
               type="checkbox"
               id={SETTINGS_ELEMENT_IDS.AUTO_PRINT}
               defaultChecked={PRINTER_DEFAULTS.AUTO_PRINT}
               className="rounded border-slate-300 text-kv-blue-primary focus:ring-kv-blue-primary w-3.5 h-3.5"
             />
-            <label
-              htmlFor={SETTINGS_ELEMENT_IDS.AUTO_PRINT}
-              className="cursor-pointer font-bold"
-            >
+            <span className="font-bold">
               {SETTINGS_UI.PRINTER.AUTO_PRINT_LABEL}
-            </label>
-          </div>
+            </span>
+          </label>
 
           <div className="flex gap-3 mt-2">
             <button
@@ -75,7 +77,7 @@ export const PrinterSettings: React.FC = () => {
             </button>
             <button
               type="button"
-              onClick={() => alert(PRINTER_MESSAGES.TEST_PRINTING)}
+              onClick={() => showInfo(PRINTER_MESSAGES.TEST_UNAVAILABLE)}
               className="bg-slate-200 hover:bg-slate-300 font-bold px-4 h-9 rounded-lg transition-colors"
             >
               {SETTINGS_UI.PRINTER.TEST_ACTION}

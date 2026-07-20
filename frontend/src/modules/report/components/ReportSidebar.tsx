@@ -3,7 +3,7 @@ import { NavLink } from "react-router-dom";
 import { REPORT_NAVIGATION_ITEMS, REPORT_UI } from "@/constants/report";
 
 const getNavLinkClassName = ({ isActive }: { isActive: boolean }) =>
-  `w-full text-left py-2 px-3 rounded-md font-bold transition-all text-xs ${
+  `flex min-h-11 w-full items-center rounded-md px-3 py-2 text-left text-xs font-bold transition-all lg:min-h-0 ${
     isActive
       ? "bg-kv-blue-light text-kv-blue-primary"
       : "hover:bg-slate-50 text-slate-600"

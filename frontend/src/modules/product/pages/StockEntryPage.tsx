@@ -17,8 +17,10 @@ import {
 import type { IStockEntry } from "@/modules/product/types/IStockEntry";
 import { getApiErrorMessage } from "@/utils/getApiErrorMessage";
 import { formatActivityTimestamp } from "@/utils/dateFormatter";
+import { useNotification } from "@/hooks/useNotification";
 
 export const StockEntryPage = () => {
+  const { showSuccess, showError } = useNotification();
   const { currentRole, stockEntries, setStockEntries, addLogEntry } = useDashboardDemo();
   const { data: productsData } = useGetProductsQuery({
     size: PRODUCT_STOCK_ENTRY_CONFIG.PRODUCT_QUERY_SIZE,
@@ -77,10 +79,10 @@ export const StockEntryPage = () => {
           selectedProduct.unit,
         ),
       );
-      alert(PRODUCT_MESSAGES.STOCK_UPDATE_SUCCESS);
+      showSuccess(PRODUCT_MESSAGES.STOCK_UPDATE_SUCCESS);
       form.reset();
     } catch (error: unknown) {
-      alert(
+      showError(
         PRODUCT_MESSAGE_BUILDERS.STOCK_ENTRY_ERROR(
           getApiErrorMessage(
             error,

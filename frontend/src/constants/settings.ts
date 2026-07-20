@@ -85,8 +85,10 @@ export const PRINTER_DEFAULTS = {
 } as const;
 
 export const PRINTER_MESSAGES = {
-  SAVED: "Đã lưu thiết lập máy in hóa đơn.",
-  TEST_PRINTING: "Đang gửi yêu cầu in thử hóa đơn K80...",
+  SAVE_UNAVAILABLE:
+    "Chức năng lưu cấu hình máy in chưa được kết nối với hệ thống.",
+  TEST_UNAVAILABLE:
+    "Chức năng in thử hóa đơn chưa được kết nối với thiết bị máy in.",
 } as const;
 
 export const TAX_RATE_STATUS = {

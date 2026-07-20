@@ -20,7 +20,7 @@ export const RevenueComparison: React.FC = () => {
             <span className="font-bold text-kv-blue-primary block mb-3 text-xs uppercase tracking-wide">
               {REPORT_UI.COMPARISON.BASE_PERIOD_LABEL}
             </span>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="flex flex-col gap-1">
                 <label className="font-bold text-slate-600">
                   {REPORT_UI.COMPARISON.START_DATE_LABEL}
@@ -52,7 +52,7 @@ export const RevenueComparison: React.FC = () => {
             <span className="font-bold text-kv-orange block mb-3 text-xs uppercase tracking-wide">
               {REPORT_UI.COMPARISON.COMPARISON_PERIOD_LABEL}
             </span>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="flex flex-col gap-1">
                 <label className="font-bold text-slate-600">
                   {REPORT_UI.COMPARISON.START_DATE_LABEL}

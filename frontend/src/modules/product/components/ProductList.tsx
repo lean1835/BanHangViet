@@ -8,14 +8,10 @@ import {
   PRODUCT_LIST_COPY,
   PRODUCT_MESSAGE_BUILDERS,
   PRODUCT_MESSAGES,
-  PRODUCT_NOTIFICATION_TYPE,
   PRODUCT_QUERY_CONFIG,
   PRODUCT_STATUS,
   PRODUCT_STATUS_LABELS,
   PRODUCT_STOCK_FILTER,
-  PRODUCT_SYMBOLS,
-  PRODUCT_UI_CONFIG,
-  type TProductNotificationType,
 } from "@/constants/product";
 import { USER_ROLES } from "@/constants/roles";
 import { useDebounce } from "@/hooks/useDebounce";
@@ -31,6 +27,8 @@ import type { TStockFilter } from "@/modules/product/types/TStockFilter";
 import { getApiErrorMessage } from "@/utils/getApiErrorMessage";
 import { formatDate } from "@/utils/dateFormatter";
 import { formatCurrency, formatNumber } from "@/utils/formatCurrency";
+import { useAccessibleDialog } from "@/hooks/useAccessibleDialog";
+import { useNotification } from "@/hooks/useNotification";
 
 interface ProductListProps {
   userRole?: string;
@@ -44,6 +42,7 @@ export const ProductList: React.FC<ProductListProps> = ({
   stockFilter,
 }) => {
   const isOwner = userRole === USER_ROLES.OWNER;
+  const { showSuccess, showError } = useNotification();
 
   // State controls
   const [searchQuery, setSearchQuery] = useState("");
@@ -59,29 +58,6 @@ export const ProductList: React.FC<ProductListProps> = ({
   // Modal form controls
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<IProduct | null>(null);
-
-  // Custom toast notifications
-  const [notification, setNotification] = useState<{
-    message: string;
-    type: TProductNotificationType;
-  } | null>(null);
-
-  const showNotification = (
-    message: string,
-    type: TProductNotificationType,
-  ) => {
-    setNotification({ message, type });
-  };
-
-  // Auto clear notification
-  useEffect(() => {
-    if (notification) {
-      const timer = setTimeout(() => {
-        setNotification(null);
-      }, PRODUCT_UI_CONFIG.NOTIFICATION_DURATION_MS);
-      return () => clearTimeout(timer);
-    }
-  }, [notification]);
 
   // Delete modal controls
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -100,7 +76,13 @@ export const ProductList: React.FC<ProductListProps> = ({
   // Mutations
   const [createProduct] = useCreateProductMutation();
   const [updateProduct] = useUpdateProductMutation();
-  const [deleteProduct] = useDeleteProductMutation();
+  const [deleteProduct, { isLoading: isDeletingProduct }] =
+    useDeleteProductMutation();
+  const deleteDialogRef = useAccessibleDialog({
+    isOpen: isDeleteModalOpen && Boolean(productToDelete),
+    onClose: () => setIsDeleteModalOpen(false),
+    canClose: !isDeletingProduct,
+  });
 
   // API query
   const { data, isLoading, isError, refetch } = useGetProductsQuery({
@@ -124,24 +106,17 @@ export const ProductList: React.FC<ProductListProps> = ({
     try {
       if (editingProduct) {
         await updateProduct({ id: editingProduct.id, data: productData }).unwrap();
-        showNotification(
-          PRODUCT_MESSAGES.UPDATE_SUCCESS,
-          PRODUCT_NOTIFICATION_TYPE.SUCCESS,
-        );
+        showSuccess(PRODUCT_MESSAGES.UPDATE_SUCCESS);
       } else {
         await createProduct(productData).unwrap();
-        showNotification(
-          PRODUCT_MESSAGES.CREATE_SUCCESS,
-          PRODUCT_NOTIFICATION_TYPE.SUCCESS,
-        );
+        showSuccess(PRODUCT_MESSAGES.CREATE_SUCCESS);
       }
       refetch();
     } catch (error: unknown) {
-      showNotification(
+      showError(
         PRODUCT_MESSAGE_BUILDERS.API_ERROR(
           getApiErrorMessage(error, PRODUCT_MESSAGES.SAVE_FAILED),
         ),
-        PRODUCT_NOTIFICATION_TYPE.ERROR,
       );
       throw error;
     }
@@ -149,10 +124,7 @@ export const ProductList: React.FC<ProductListProps> = ({
 
   const handleEditProduct = (prod: IProduct) => {
     if (!isOwner) {
-      showNotification(
-        PRODUCT_MESSAGES.OWNER_EDIT_ONLY,
-        PRODUCT_NOTIFICATION_TYPE.ERROR,
-      );
+      showError(PRODUCT_MESSAGES.OWNER_EDIT_ONLY);
       return;
     }
     setEditingProduct(prod);
@@ -161,10 +133,7 @@ export const ProductList: React.FC<ProductListProps> = ({
 
   const handleDeleteProduct = (id: string, name: string) => {
     if (!isOwner) {
-      showNotification(
-        PRODUCT_MESSAGES.OWNER_DELETE_ONLY,
-        PRODUCT_NOTIFICATION_TYPE.ERROR,
-      );
+      showError(PRODUCT_MESSAGES.OWNER_DELETE_ONLY);
       return;
     }
     setProductToDelete({ id, name });
@@ -172,22 +141,20 @@ export const ProductList: React.FC<ProductListProps> = ({
   };
 
   const confirmDeleteProduct = async () => {
-    if (!productToDelete) return;
+    if (!productToDelete || isDeletingProduct) return;
     try {
       await deleteProduct(productToDelete.id).unwrap();
-      showNotification(
+      showSuccess(
         PRODUCT_MESSAGE_BUILDERS.PRODUCT_DELETE_SUCCESS(productToDelete.name),
-        PRODUCT_NOTIFICATION_TYPE.SUCCESS,
       );
       setIsDeleteModalOpen(false);
       setProductToDelete(null);
       refetch();
     } catch (error: unknown) {
-      showNotification(
+      showError(
         PRODUCT_MESSAGE_BUILDERS.API_ERROR(
           getApiErrorMessage(error, PRODUCT_MESSAGES.DELETE_FAILED),
         ),
-        PRODUCT_NOTIFICATION_TYPE.ERROR,
       );
     }
   };
@@ -207,7 +174,7 @@ export const ProductList: React.FC<ProductListProps> = ({
             placeholder={PRODUCT_LIST_COPY.SEARCH_PLACEHOLDER}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-4 h-9 bg-white border border-slate-300 rounded-lg focus:outline-none focus:border-kv-blue-primary text-xs font-semibold text-slate-700 shadow-sm transition-all"
+            className="h-11 w-full rounded-lg border border-slate-300 bg-white pl-9 pr-4 text-xs font-semibold text-slate-700 shadow-sm transition-all focus:border-kv-blue-primary focus:outline-none lg:h-9"
           />
         </div>
 
@@ -219,7 +186,7 @@ export const ProductList: React.FC<ProductListProps> = ({
                 setEditingProduct(null);
                 setIsModalOpen(true);
               }}
-              className="bg-kv-blue-primary hover:bg-kv-blue-dark transition-all text-white font-bold px-4 h-9 rounded-lg flex items-center gap-1.5 shadow-sm text-xs"
+              className="flex h-11 items-center gap-1.5 rounded-lg bg-kv-blue-primary px-4 text-xs font-bold text-white shadow-sm transition-all hover:bg-kv-blue-dark lg:h-9"
             >
               <Plus size={14} />
               {PRODUCT_LABELS.CREATE}
@@ -228,7 +195,7 @@ export const ProductList: React.FC<ProductListProps> = ({
             <button
               disabled
               title={PRODUCT_LIST_COPY.OWNER_CREATE_TOOLTIP}
-              className="bg-slate-200 text-slate-400 font-bold px-4 h-9 rounded-lg flex items-center gap-1.5 text-xs cursor-not-allowed"
+              className="flex h-11 cursor-not-allowed items-center gap-1.5 rounded-lg bg-slate-200 px-4 text-xs font-bold text-slate-400 lg:h-9"
             >
               <Plus size={14} />
               {PRODUCT_LABELS.CREATE}
@@ -263,7 +230,7 @@ export const ProductList: React.FC<ProductListProps> = ({
         ) : (
           <div className="flex flex-col flex-1 justify-between">
             <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
+              <table className="responsive-data-table responsive-data-table--page w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold text-xs">
                     <th className="p-3">{PRODUCT_LIST_COPY.TABLE_HEADERS.INDEX}</th>
@@ -336,18 +303,20 @@ export const ProductList: React.FC<ProductListProps> = ({
                       </td>
                       {isOwner && (
                         <td className="p-3">
-                          <div className="flex items-center justify-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <div className="flex items-center justify-center gap-1.5 opacity-100 transition-opacity lg:opacity-0 lg:group-hover:opacity-100 lg:group-focus-within:opacity-100">
                             <button
                               onClick={() => handleEditProduct(prod)}
                               title={PRODUCT_LIST_COPY.EDIT_TOOLTIP}
-                              className="p-1 hover:bg-slate-100 rounded text-slate-500 hover:text-kv-blue-primary transition-colors"
+                              aria-label={PRODUCT_LIST_COPY.EDIT_TOOLTIP}
+                              className="flex min-h-11 min-w-11 items-center justify-center rounded p-1 text-slate-500 transition-colors hover:bg-slate-100 hover:text-kv-blue-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-kv-blue-primary lg:min-h-0 lg:min-w-0"
                             >
                               <Edit size={14} />
                             </button>
                             <button
                               onClick={() => handleDeleteProduct(prod.id, prod.name)}
                               title={PRODUCT_LIST_COPY.DELETE_TOOLTIP}
-                              className="p-1 hover:bg-slate-100 rounded text-slate-500 hover:text-rose-600 transition-colors"
+                              aria-label={PRODUCT_LIST_COPY.DELETE_TOOLTIP}
+                              className="flex min-h-11 min-w-11 items-center justify-center rounded p-1 text-slate-500 transition-colors hover:bg-slate-100 hover:text-rose-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-rose-500 lg:min-h-0 lg:min-w-0"
                             >
                               <Trash2 size={14} />
                             </button>
@@ -379,7 +348,7 @@ export const ProductList: React.FC<ProductListProps> = ({
                       )
                     }
                     disabled={currentPage === PRODUCT_QUERY_CONFIG.INITIAL_PAGE}
-                    className="px-3 h-8 border rounded-lg bg-white hover:bg-slate-50 text-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                    className="h-11 rounded-lg border bg-white px-3 text-slate-700 transition-all hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 lg:h-8"
                   >
                     {PRODUCT_LIST_COPY.PREVIOUS_PAGE_ACTION}
                   </button>
@@ -400,7 +369,7 @@ export const ProductList: React.FC<ProductListProps> = ({
                     disabled={
                       currentPage === totalPages - PRODUCT_QUERY_CONFIG.PAGE_STEP
                     }
-                    className="px-3 h-8 border rounded-lg bg-white hover:bg-slate-50 text-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                    className="h-11 rounded-lg border bg-white px-3 text-slate-700 transition-all hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 lg:h-8"
                   >
                     {PRODUCT_LIST_COPY.NEXT_PAGE_ACTION}
                   </button>
@@ -421,13 +390,21 @@ export const ProductList: React.FC<ProductListProps> = ({
 
       {/* Custom Delete Confirmation Modal */}
       {isDeleteModalOpen && productToDelete && createPortal(
-        <div 
-          onClick={() => setIsDeleteModalOpen(false)}
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 overflow-y-auto animate-backdrop-fade-in"
+        <div
+          onClick={() => {
+            if (!isDeletingProduct) setIsDeleteModalOpen(false);
+          }}
+          className="app-modal-backdrop fixed inset-0 z-[100] flex items-start justify-center overflow-y-auto bg-slate-900/40 p-2 backdrop-blur-sm animate-backdrop-fade-in sm:items-center sm:p-4"
         >
-          <div 
+          <div
+            ref={deleteDialogRef}
+            tabIndex={-1}
             onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-xl shadow-2xl border border-slate-100 max-w-sm w-full overflow-hidden flex flex-col p-6 animate-modal-bounce-in text-center"
+            role="alertdialog"
+            aria-modal="true"
+            aria-label={PRODUCT_LIST_COPY.DELETE_TITLE}
+            aria-describedby="product-delete-description"
+            className="app-modal-panel flex w-full max-w-sm flex-col overflow-y-auto rounded-xl border border-slate-100 bg-white p-5 text-center shadow-2xl animate-modal-bounce-in sm:p-6"
           >
             <div className="w-12 h-12 bg-rose-50 rounded-full flex items-center justify-center text-rose-500 mx-auto mb-4 border border-rose-100">
               <Trash2 size={24} />
@@ -435,7 +412,10 @@ export const ProductList: React.FC<ProductListProps> = ({
             <h3 className="font-extrabold text-slate-800 text-sm mb-2">
               {PRODUCT_LIST_COPY.DELETE_TITLE}
             </h3>
-            <p className="text-slate-500 text-xs leading-relaxed mb-6 font-semibold">
+            <p
+              id="product-delete-description"
+              className="text-slate-500 text-xs leading-relaxed mb-6 font-semibold"
+            >
               {PRODUCT_LIST_COPY.DELETE_DESCRIPTION_PREFIX}{" "}
               <strong className="text-slate-700">"{productToDelete.name}"</strong>{" "}
               {PRODUCT_LIST_COPY.DELETE_DESCRIPTION_SUFFIX}
@@ -444,14 +424,16 @@ export const ProductList: React.FC<ProductListProps> = ({
               <button
                 onClick={() => setIsDeleteModalOpen(false)}
                 type="button"
-                className="flex-1 bg-slate-100 hover:bg-slate-200 transition-colors h-9 rounded-lg text-slate-700 font-bold text-xs"
+                disabled={isDeletingProduct}
+                className="h-11 flex-1 rounded-lg bg-slate-100 text-xs font-bold text-slate-700 transition-colors hover:bg-slate-200 disabled:cursor-wait disabled:opacity-60 lg:h-9"
               >
                 {PRODUCT_LIST_COPY.CANCEL_ACTION}
               </button>
               <button
                 onClick={confirmDeleteProduct}
                 type="button"
-                className="flex-1 bg-rose-600 hover:bg-rose-700 text-white transition-colors h-9 rounded-lg font-bold shadow-sm text-xs"
+                disabled={isDeletingProduct}
+                className="h-11 flex-1 rounded-lg bg-rose-600 text-xs font-bold text-white shadow-sm transition-colors hover:bg-rose-700 disabled:cursor-wait disabled:opacity-60 lg:h-9"
               >
                 {PRODUCT_LIST_COPY.DELETE_CONFIRM_ACTION}
               </button>
@@ -459,37 +441,6 @@ export const ProductList: React.FC<ProductListProps> = ({
           </div>
         </div>,
         document.body
-      )}
-
-      {/* Notification Toast */}
-      {notification && (
-        <div className="fixed top-5 right-5 z-[200] flex items-center gap-3 bg-white border border-slate-100 shadow-2xl px-4 py-3 rounded-xl max-w-sm animate-modal-bounce-in">
-          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white ${
-            notification.type === PRODUCT_NOTIFICATION_TYPE.SUCCESS
-              ? "bg-emerald-500"
-              : "bg-rose-500"
-          }`}>
-            {notification.type === PRODUCT_NOTIFICATION_TYPE.SUCCESS
-              ? PRODUCT_SYMBOLS.SUCCESS
-              : PRODUCT_SYMBOLS.CLOSE}
-          </div>
-          <div className="flex flex-col gap-0.5 max-w-[200px] text-left">
-            <span className="font-extrabold text-slate-800 text-[10px] uppercase tracking-wider">
-              {notification.type === PRODUCT_NOTIFICATION_TYPE.SUCCESS
-                ? PRODUCT_LABELS.NOTIFICATION_SUCCESS
-                : PRODUCT_LABELS.NOTIFICATION_NOTICE}
-            </span>
-            <span className="text-slate-500 text-[11px] font-semibold leading-snug break-words">
-              {notification.message}
-            </span>
-          </div>
-          <button 
-            onClick={() => setNotification(null)}
-            className="text-slate-400 hover:text-slate-600 ml-auto font-semibold text-xs"
-          >
-            {PRODUCT_SYMBOLS.CLOSE}
-          </button>
-        </div>
       )}
     </div>
   );
