@@ -17,6 +17,7 @@ import {
 } from "@/constants/product";
 import { useGetProductGroupsQuery } from "@/modules/product/services/productApi";
 import type { IProduct } from "@/modules/product/types/IProduct";
+import { useAccessibleDialog } from "@/hooks/useAccessibleDialog";
 
 interface ProductFormModalProps {
   isOpen: boolean;
@@ -119,6 +120,11 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
       status: PRODUCT_FORM_DEFAULTS.STATUS,
     },
   });
+  const dialogRef = useAccessibleDialog({
+    isOpen,
+    onClose,
+    canClose: !isSubmitting,
+  });
 
   // Explicitly register custom form field (price is updated manually to handle dynamic styling/dots formatting)
   useEffect(() => {
@@ -198,15 +204,22 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
 
   return createPortal(
     <div 
-      onClick={onClose}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 overflow-y-auto animate-backdrop-fade-in"
+      onClick={() => {
+        if (!isSubmitting) onClose();
+      }}
+      className="app-modal-backdrop fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-900/40 p-2 backdrop-blur-sm animate-backdrop-fade-in sm:items-center sm:p-4"
     >
-      <div 
+      <div
+        ref={dialogRef}
+        tabIndex={-1}
         onClick={(e) => e.stopPropagation()}
-        className="bg-white rounded-xl shadow-2xl border border-slate-100 max-w-xl w-full overflow-hidden flex flex-col my-4 animate-modal-bounce-in"
+        role="dialog"
+        aria-modal="true"
+        aria-label={product ? PRODUCT_FORM_COPY.UPDATE_TITLE : PRODUCT_FORM_COPY.CREATE_TITLE}
+        className="app-modal-panel flex w-full max-w-xl flex-col overflow-hidden rounded-xl border border-slate-100 bg-white shadow-2xl animate-modal-bounce-in"
       >
         {/* Header */}
-        <div className="bg-kv-blue-primary text-white px-5 py-3 flex items-center justify-between">
+        <div className="app-modal-header flex items-center justify-between bg-kv-blue-primary px-5 py-3 text-white">
           <h2 className="text-xs font-bold uppercase tracking-wider">
             {product
               ? PRODUCT_FORM_COPY.UPDATE_TITLE
@@ -215,17 +228,23 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
           <button
             onClick={onClose}
             type="button"
-            className="text-white/80 hover:text-white transition-colors text-lg"
+            disabled={isSubmitting}
+            aria-label={PRODUCT_FORM_COPY.CANCEL_ACTION}
+            className="flex min-h-11 min-w-11 items-center justify-center text-lg text-white/80 transition-colors hover:text-white"
           >
             {PRODUCT_SYMBOLS.CLOSE}
           </button>
         </div>
 
         {/* Form Body */}
-        <form onSubmit={handleSubmit(onSubmit)} className="p-5 flex flex-col gap-4 font-semibold text-slate-700 text-xs">
-          <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+        <form
+          onSubmit={handleSubmit(onSubmit)}
+          className="flex min-h-0 flex-1 flex-col text-xs font-semibold text-slate-700"
+        >
+          <div className="app-modal-body p-4 sm:p-5">
+          <div className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">
             {/* SKU */}
-            <div className="flex flex-col gap-1 col-span-2 sm:col-span-1">
+            <div className="flex flex-col gap-1">
               <label className="text-slate-600">{PRODUCT_FORM_COPY.SKU_LABEL}</label>
               <input
                 type="text"
@@ -237,7 +256,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
             </div>
 
             {/* Đơn vị tính */}
-            <div className="flex flex-col gap-1 col-span-2 sm:col-span-1">
+            <div className="flex flex-col gap-1">
               <label className="text-slate-600">{PRODUCT_FORM_COPY.UNIT_LABEL}</label>
               <input
                 type="text"
@@ -249,7 +268,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
             </div>
 
             {/* Tên hàng hóa */}
-            <div className="flex flex-col gap-1 col-span-2">
+            <div className="flex flex-col gap-1 sm:col-span-2">
               <label className="text-slate-600">{PRODUCT_FORM_COPY.NAME_LABEL}</label>
               <input
                 type="text"
@@ -261,7 +280,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
             </div>
 
             {/* Nhóm hàng */}
-            <div className="flex flex-col gap-1 col-span-2 sm:col-span-1">
+            <div className="flex flex-col gap-1">
               <label className="text-slate-600">{PRODUCT_FORM_COPY.GROUP_LABEL}</label>
               <select
                 {...register(PRODUCT_FORM_FIELD_NAMES.GROUP_ID)}
@@ -277,7 +296,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
             </div>
 
             {/* Trạng thái */}
-            <div className="flex flex-col gap-1 col-span-2 sm:col-span-1">
+            <div className="flex flex-col gap-1">
               <label className="text-slate-600">{PRODUCT_FORM_COPY.STATUS_LABEL}</label>
               <select
                 {...register(PRODUCT_FORM_FIELD_NAMES.STATUS)}
@@ -292,7 +311,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
             </div>
 
             {/* Giá bán lẻ */}
-            <div className="flex flex-col gap-1 col-span-2 sm:col-span-1">
+            <div className="flex flex-col gap-1">
               <label className="text-slate-600">{PRODUCT_FORM_COPY.PRICE_LABEL}</label>
               <input
                 type="text"
@@ -305,7 +324,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
             </div>
 
             {/* Tồn kho ban đầu */}
-            <div className="flex flex-col gap-1 col-span-2 sm:col-span-1">
+            <div className="flex flex-col gap-1">
               <label className="text-slate-600">{PRODUCT_FORM_COPY.STOCK_LABEL}</label>
               <input
                 type="number"
@@ -322,7 +341,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
             </div>
 
             {/* Thuế suất */}
-            <div className="flex flex-col gap-1 col-span-2">
+            <div className="flex flex-col gap-1 sm:col-span-2">
               <label className="text-slate-600">
                 {PRODUCT_FORM_COPY.TAX_RATE_LABEL}
               </label>
@@ -340,20 +359,22 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
               {errors.taxRateId && <span className="text-[10px] text-rose-500 font-bold">{errors.taxRateId.message}</span>}
             </div>
           </div>
+          </div>
 
           {/* Footer Buttons */}
-          <div className="flex items-center justify-end gap-2 border-t pt-4 mt-3">
+          <div className="app-modal-footer flex shrink-0 items-center justify-end gap-2 border-t bg-white p-4">
             <button
               onClick={onClose}
               type="button"
-              className="bg-slate-100 hover:bg-slate-200 transition-colors px-4 h-9 rounded-lg text-slate-700 font-bold"
+              disabled={isSubmitting}
+              className="min-h-11 rounded-lg bg-slate-100 px-4 font-bold text-slate-700 transition-colors hover:bg-slate-200 disabled:cursor-wait disabled:opacity-60 sm:min-h-9"
             >
               {PRODUCT_FORM_COPY.CANCEL_ACTION}
             </button>
             <button
               type="submit"
               disabled={isSubmitting}
-              className="bg-kv-blue-primary hover:bg-kv-blue-dark text-white transition-colors px-5 h-9 rounded-lg font-bold shadow-sm"
+              className="min-h-11 rounded-lg bg-kv-blue-primary px-5 font-bold text-white shadow-sm transition-colors hover:bg-kv-blue-dark disabled:cursor-wait disabled:opacity-60 sm:min-h-9"
             >
               {isSubmitting
                 ? PRODUCT_FORM_COPY.SAVING_ACTION

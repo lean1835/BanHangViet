@@ -14,8 +14,8 @@ export const AuthPage: React.FC = () => {
     }`;
 
   return (
-    <div className="absolute inset-0 bg-gradient-to-br from-[#1e3c72] to-[#2a5298] z-[10000] flex items-center justify-center p-4 overflow-y-auto">
-      <div className="bg-white w-full max-w-[920px] min-h-[550px] rounded-2xl shadow-2xl overflow-hidden grid grid-cols-1 md:grid-cols-[1.15fr_1fr] animate-auth-fade-in">
+    <div className="absolute inset-0 z-[10000] flex items-start justify-center overflow-y-auto bg-gradient-to-br from-[#1e3c72] to-[#2a5298] p-2 sm:p-4">
+      <div className="my-auto grid min-h-0 w-full max-w-[920px] grid-cols-1 overflow-hidden rounded-xl bg-white shadow-2xl animate-auth-fade-in sm:rounded-2xl md:min-h-[550px] md:grid-cols-[1.15fr_1fr]">
         
         {/* Left: Product Introduction & Animations */}
         <div className="bg-gradient-to-br from-[#070e27] to-[#0050df] text-white p-8 flex flex-col justify-between relative overflow-hidden hidden md:flex border-r border-white/5">
@@ -115,7 +115,7 @@ export const AuthPage: React.FC = () => {
         {/* Right: Auth Forms */}
         <div className="flex flex-col justify-between bg-white">
           
-          <div className="bg-slate-50 border-b border-slate-100 py-5 px-6 text-center flex flex-col items-center gap-1.5">
+          <div className="flex flex-col items-center gap-1.5 border-b border-slate-100 bg-slate-50 px-4 py-4 text-center sm:px-6 sm:py-5">
             <svg
               viewBox="0 0 24 24"
               fill="none"
@@ -156,7 +156,7 @@ export const AuthPage: React.FC = () => {
 
           <div
             key={location.pathname}
-            className="p-6 flex-1 flex flex-col justify-center"
+            className="flex flex-1 flex-col justify-center p-4 sm:p-6"
           >
             <Outlet />
           </div>

@@ -12,17 +12,14 @@ export interface IApiResponse<T> {
 
 export interface IOrderItemResponse {
   id: string;
-  orderId: string;
   productId: string;
   productName: string;
-  productSku: string;
   quantity: number;
   unitPrice: number;
-  totalPrice: number;
   discountAmount: number;
-  finalPrice: number;
-  createdAt: string;
-  updatedAt: string;
+  taxRatePercentage: number;
+  taxAmount: number;
+  subtotal: number;
 }
 
 export interface IOrderResponse {

@@ -124,7 +124,7 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
         {AUTH_UI.REGISTER.HOUSEHOLD_SECTION_LABEL}
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <Form.Item
           label={
             <span className="font-semibold text-gray-700 text-xs">
@@ -172,7 +172,7 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
         </Form.Item>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <Form.Item
           label={
             <span className="font-semibold text-gray-700 text-xs">
@@ -250,7 +250,7 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
         />
       </Form.Item>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <Form.Item
           label={
             <span className="font-semibold text-gray-700 text-xs">

@@ -14,6 +14,7 @@ import type {
   TInvoiceStatus,
 } from "@/modules/e_invoice/types/IInvoice";
 import { formatCurrency } from "@/utils/formatCurrency";
+import { useNotification } from "@/hooks/useNotification";
 
 const getStatusClassName = (status: TInvoiceStatus): string => {
   if (status === TAX_AUTHORITY_INVOICE_STATUS.ISSUED) {
@@ -58,6 +59,7 @@ export const TaxInvoiceApprovalPage: React.FC<TaxInvoiceApprovalPageProps> = ({
   setInvoices,
   addLogEntry,
 }) => {
+  const { showSuccess } = useNotification();
   return (
     <>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -114,7 +116,7 @@ export const TaxInvoiceApprovalPage: React.FC<TaxInvoiceApprovalPageProps> = ({
           {TAX_AUTHORITY_UI.APPROVAL.TITLE}
         </h3>
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse text-xs">
+          <table className="responsive-data-table responsive-data-table--page w-full text-left border-collapse text-xs">
             <thead>
               <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold">
                 <th className="p-3">{TAX_AUTHORITY_UI.APPROVAL.COLUMNS.INVOICE_CODE}</th>
@@ -172,7 +174,7 @@ export const TaxInvoiceApprovalPage: React.FC<TaxInvoiceApprovalPageProps> = ({
                               TAX_AUTHORITY_LOG_ACTIONS.APPROVE,
                               TAX_AUTHORITY_LOG_TARGETS.approve(invoice.lookupCode),
                             );
-                            alert(TAX_AUTHORITY_MESSAGES.APPROVE_SUCCESS);
+                            showSuccess(TAX_AUTHORITY_MESSAGES.APPROVE_SUCCESS);
                           }}
                           className="bg-emerald-500 hover:bg-emerald-600 text-white font-bold px-2 py-1 rounded text-[10px]"
                         >
@@ -197,7 +199,7 @@ export const TaxInvoiceApprovalPage: React.FC<TaxInvoiceApprovalPageProps> = ({
                               TAX_AUTHORITY_LOG_ACTIONS.REJECT,
                               TAX_AUTHORITY_LOG_TARGETS.reject(invoice.lookupCode),
                             );
-                            alert(TAX_AUTHORITY_MESSAGES.REJECT_SUCCESS);
+                            showSuccess(TAX_AUTHORITY_MESSAGES.REJECT_SUCCESS);
                           }}
                           className="bg-rose-500 hover:bg-rose-600 text-white font-bold px-2 py-1 rounded text-[10px]"
                         >

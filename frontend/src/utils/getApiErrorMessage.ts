@@ -15,6 +15,7 @@ export const getApiErrorMessage = (
   error: unknown,
   fallbackMessage: string,
 ): string => {
+  if (error instanceof Error && error.message.trim()) return error.message;
   if (!isRecord(error)) return fallbackMessage;
 
   // Case 1: API returned a JSON body with a `message` field

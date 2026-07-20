@@ -15,7 +15,7 @@ export const OrderSidebar = () => (
       </span>
       <div className="flex flex-col gap-2 font-medium text-slate-700">
         {ORDER_SIDEBAR_STATUS_OPTIONS.map((status) => (
-          <label key={status} className="flex items-center gap-2 cursor-pointer">
+          <label key={status} className="flex min-h-11 cursor-pointer items-center gap-2 lg:min-h-0">
             <input
               type="checkbox"
               defaultChecked={DEFAULT_ORDER_SIDEBAR_STATUSES.includes(status)}
@@ -31,7 +31,7 @@ export const OrderSidebar = () => (
         {ORDER_UI.SIDEBAR.DELIVERY_TIME_FILTER_LABEL}
       </span>
       <div className="flex flex-col gap-2 font-medium text-slate-600">
-        <label className="flex items-center gap-2 cursor-pointer">
+        <label className="flex min-h-11 cursor-pointer items-center gap-2 lg:min-h-0">
           <input
             type="radio"
             name={ORDER_UI.SIDEBAR.TIME_FILTER_NAME}
@@ -40,7 +40,7 @@ export const OrderSidebar = () => (
           />
           <span>{ORDER_UI.SIDEBAR.ALL_TIME_LABEL}</span>
         </label>
-        <label className="flex items-center gap-2 cursor-pointer">
+        <label className="flex min-h-11 cursor-pointer items-center gap-2 lg:min-h-0">
           <input
             type="radio"
             name={ORDER_UI.SIDEBAR.TIME_FILTER_NAME}

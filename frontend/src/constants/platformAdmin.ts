@@ -86,6 +86,11 @@ export const PLATFORM_ADMIN_HOUSEHOLD_ACTION = {
   RENEW: "RENEW",
 } as const;
 
+export const PLATFORM_ADMIN_MESSAGES = {
+  householdActionUnavailable: (actionLabel: string) =>
+    `Chức năng "${actionLabel}" hộ kinh doanh chưa được hỗ trợ trong phiên bản hiện tại.`,
+} as const;
+
 export const PLATFORM_ADMIN_HOUSEHOLDS = [
   {
     id: "tap-hoa-viet",
@@ -100,7 +105,6 @@ export const PLATFORM_ADMIN_HOUSEHOLDS = [
     statusLabel: "Hoạt động",
     action: PLATFORM_ADMIN_HOUSEHOLD_ACTION.LOCK,
     actionLabel: "Khóa",
-    actionMessage: "Khóa hộ kinh doanh Tạp Hóa Việt",
   },
   {
     id: "nha-thuoc-an-tam",
@@ -115,7 +119,6 @@ export const PLATFORM_ADMIN_HOUSEHOLDS = [
     statusLabel: "Hoạt động",
     action: PLATFORM_ADMIN_HOUSEHOLD_ACTION.LOCK,
     actionLabel: "Khóa",
-    actionMessage: "Khóa hộ kinh doanh Nhà Thuốc An Tâm",
   },
   {
     id: "quan-an-huong-que",
@@ -130,7 +133,6 @@ export const PLATFORM_ADMIN_HOUSEHOLDS = [
     statusLabel: "Bị khóa",
     action: PLATFORM_ADMIN_HOUSEHOLD_ACTION.RENEW,
     actionLabel: "Gia hạn (+1 năm)",
-    actionMessage: "Gia hạn và kích hoạt lại hộ Quán ăn Hương Quê",
   },
 ] as const;
 

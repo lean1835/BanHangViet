@@ -12,17 +12,21 @@ export const TaxReceivingConfigPage: React.FC = () => {
       </h3>
       <div className="flex flex-col gap-3 font-semibold text-xs text-slate-700">
         {TAX_RECEIVING_OPTIONS.map((option) => (
-          <div key={option.id} className="flex items-center gap-2 py-1">
+          <label
+            key={option.id}
+            htmlFor={option.id}
+            className="flex min-h-11 cursor-pointer items-center gap-2 py-1 lg:min-h-0"
+          >
             <input
               type="checkbox"
               id={option.id}
               defaultChecked={option.defaultChecked}
               className="rounded border-slate-300 text-rose-600 focus:ring-rose-500 w-4 h-4"
             />
-            <label htmlFor={option.id} className="cursor-pointer font-bold">
+            <span className="font-bold">
               {option.label}
-            </label>
-          </div>
+            </span>
+          </label>
         ))}
       </div>
     </div>

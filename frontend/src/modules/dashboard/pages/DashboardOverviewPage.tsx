@@ -12,9 +12,18 @@ import { QuickAccessPanel } from "../components/QuickAccessPanel";
 import { RecentActivityPanel } from "../components/RecentActivityPanel";
 import { RevenueChart } from "../components/RevenueChart";
 import { SalesKpiCards } from "../components/SalesKpiCards";
+import { getApiErrorMessage } from "@/utils/getApiErrorMessage";
 
 export const DashboardOverviewPage = () => {
-  const { currentRole, invoices, orders } = useDashboardDemo();
+  const {
+    currentRole,
+    invoices,
+    orders,
+    isOrdersLoading,
+    isOrdersError,
+    ordersError,
+    refetchOrders,
+  } = useDashboardDemo();
   const [dashTimeFilter, setDashTimeFilter] = useState<string>(DEFAULT_DASHBOARD_TIME_FILTER);
 
   const { totalRevenueToday, totalInvoiceCountToday } = useMemo(() => {
@@ -53,7 +62,37 @@ export const DashboardOverviewPage = () => {
           <CashierShiftDashboard />
         </div>
       ) : (
-        <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
+        <div className="flex flex-col gap-6">
+          {isOrdersLoading && (
+            <div
+              role="status"
+              className="rounded-xl border border-blue-100 bg-blue-50 p-4 text-center text-sm font-semibold text-blue-700"
+            >
+              Đang tải dữ liệu doanh thu...
+            </div>
+          )}
+          {isOrdersError && (
+            <div
+              role="alert"
+              className="flex flex-col gap-3 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm font-semibold text-rose-700 sm:flex-row sm:items-center sm:justify-between"
+            >
+              <span>
+                {getApiErrorMessage(
+                  ordersError,
+                  "Không thể tải dữ liệu đơn hàng nên doanh thu hiện chưa xác định.",
+                )}
+              </span>
+              <button
+                type="button"
+                onClick={refetchOrders}
+                className="min-h-11 shrink-0 rounded-lg border border-rose-300 bg-white px-4 font-bold transition-colors hover:bg-rose-100"
+              >
+                Thử lại
+              </button>
+            </div>
+          )}
+          {!isOrdersLoading && !isOrdersError && (
+          <div className="grid grid-cols-1 gap-6 xl:grid-cols-4">
           <div className="xl:col-span-3 flex flex-col gap-6">
             <SalesKpiCards
               totalRevenueToday={totalRevenueToday}
@@ -66,6 +105,8 @@ export const DashboardOverviewPage = () => {
             <QuickAccessPanel currentRole={currentRole} />
             <RecentActivityPanel />
           </div>
+          </div>
+          )}
         </div>
       )}
     </DashboardWorkspaceLayout>

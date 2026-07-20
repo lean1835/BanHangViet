@@ -21,8 +21,8 @@ export const DashboardNavigation = ({ currentRole }: DashboardNavigationProps) =
   const navigate = useNavigate();
 
   return (
-    <div className="h-10 bg-kv-blue-primary text-white flex items-center px-4 justify-between shadow-md shrink-0">
-      <div className="flex items-center h-full">
+    <div className="flex h-11 shrink-0 items-center justify-between gap-2 bg-kv-blue-primary px-2 text-white shadow-md sm:px-4">
+      <nav aria-label="Điều hướng chính" className="flex h-full min-w-0 flex-1 items-center overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {PRIMARY_NAVIGATION_ITEMS.filter((item) =>
           isNavigationItemVisible(item.id, currentRole)
         ).map((item) => (
@@ -36,7 +36,7 @@ export const DashboardNavigation = ({ currentRole }: DashboardNavigationProps) =
                   currentRole === USER_ROLES.TAX_AUTHORITY) &&
                 item.id === NAVIGATION_ITEM_IDS.DASHBOARD;
 
-              return `h-full px-5 flex items-center gap-1.5 font-bold hover:bg-kv-blue-dark transition-colors border-b-2 text-xs leading-none ${
+              return `h-full shrink-0 px-3 sm:px-5 flex items-center gap-1.5 font-bold hover:bg-kv-blue-dark transition-colors border-b-2 text-xs leading-none ${
                 isActive || isPortalOverview
                   ? "bg-white text-kv-blue-primary border-white"
                   : "border-transparent text-white/95"
@@ -46,16 +46,18 @@ export const DashboardNavigation = ({ currentRole }: DashboardNavigationProps) =
             {item.label}
           </NavLink>
         ))}
-      </div>
+      </nav>
 
       <button
         onClick={() => navigate(PRIMARY_NAVIGATION_ACTION.PATH)}
-        className="bg-kv-green hover:bg-emerald-600 transition-colors px-4 h-7 text-[11px] font-bold text-white rounded-md flex items-center gap-1.5 shadow-sm"
+        aria-label={PRIMARY_NAVIGATION_ACTION.LABEL}
+        title={PRIMARY_NAVIGATION_ACTION.LABEL}
+        className="flex h-11 min-w-11 shrink-0 items-center justify-center gap-1.5 rounded-md bg-kv-green px-2 text-[11px] font-bold text-white shadow-sm transition-colors hover:bg-emerald-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white sm:px-4"
       >
-        <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+        <svg aria-hidden="true" viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
           <path d="M2.57 7.57a2 2 0 0 1 1.44-.57H20a2 2 0 0 1 1.94 2.5l-2 8A2 2 0 0 1 18 19H6a2 2 0 0 1-1.94-1.5l-2-8A2 2 0 0 1 2.57 7.57zM16 11a4 4 0 0 1-8 0" />
         </svg>
-        {PRIMARY_NAVIGATION_ACTION.LABEL}
+        <span className="hidden sm:inline">{PRIMARY_NAVIGATION_ACTION.LABEL}</span>
       </button>
     </div>
   );

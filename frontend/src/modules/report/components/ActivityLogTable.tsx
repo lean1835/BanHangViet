@@ -15,7 +15,7 @@ export const ActivityLogTable: React.FC<ActivityLogTableProps> = ({ logs }) => {
         </h3>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
+          <table className="responsive-data-table responsive-data-table--page w-full text-left border-collapse">
             <thead>
               <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold">
                 <th className="p-3">{REPORT_UI.ACTIVITY_LOG.COLUMNS.TIME}</th>

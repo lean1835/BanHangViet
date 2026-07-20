@@ -23,8 +23,8 @@ export const CustomerSidebar: React.FC = () => {
               key={type}
               className={
                 type === CUSTOMER_FILTER_OPTIONS.DEFAULT_TYPE
-                  ? "bg-kv-blue-light text-kv-blue-primary font-bold px-2 py-1 rounded cursor-pointer"
-                  : "bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-2 py-1 rounded cursor-pointer"
+                  ? "rounded bg-kv-blue-light px-2 py-1 font-bold text-kv-blue-primary"
+                  : "rounded bg-slate-100 px-2 py-1 font-bold text-slate-700"
               }
             >
               {type}
@@ -42,8 +42,8 @@ export const CustomerSidebar: React.FC = () => {
               key={gender}
               className={
                 gender === CUSTOMER_FILTER_OPTIONS.DEFAULT_GENDER
-                  ? "bg-kv-blue-light text-kv-blue-primary font-bold px-2 py-1 rounded cursor-pointer"
-                  : "bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-2 py-1 rounded cursor-pointer"
+                  ? "rounded bg-kv-blue-light px-2 py-1 font-bold text-kv-blue-primary"
+                  : "rounded bg-slate-100 px-2 py-1 font-bold text-slate-700"
               }
             >
               {gender}

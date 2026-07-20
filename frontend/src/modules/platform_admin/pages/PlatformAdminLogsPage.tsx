@@ -37,7 +37,7 @@ export const PlatformAdminLogsPage: React.FC = () => {
         {PLATFORM_ADMIN_UI.LOGS.TITLE}
       </h3>
       <div className="overflow-x-auto">
-        <table className="w-full text-left border-collapse text-xs">
+        <table className="responsive-data-table responsive-data-table--page w-full text-left border-collapse text-xs">
           <thead>
             <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold">
               <th className="p-3">{PLATFORM_ADMIN_UI.LOGS.COLUMNS.TIME}</th>

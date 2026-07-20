@@ -98,8 +98,8 @@ export const EMPLOYEE_MESSAGES = {
   DELETED: "Xóa tài khoản nhân viên thành công!",
   DELETE_FAILED: "Không thể xóa nhân viên!",
   ERROR_PREFIX: "Lỗi: ",
-  ATTENDANCE_SYNC:
-    "Chức năng đồng bộ & phân quyền chấm công ca nhân viên...",
+  ATTENDANCE_UNAVAILABLE:
+    "Chức năng duyệt yêu cầu chấm công chưa được hỗ trợ trong phiên bản hiện tại.",
   INVALID_RESPONSE: "Phản hồi nhân viên không hợp lệ",
   INVALID_EMPLOYEE_DATA: "Dữ liệu nhân viên không hợp lệ",
   missingResponseField: (field: string) =>
@@ -151,6 +151,8 @@ export const EMPLOYEE_UI = {
     EMPTY_PHONE_LABEL: "--",
     EDIT_TITLE: "Chỉnh sửa",
     DELETE_TITLE: "Xóa tài khoản",
+    DELETE_CONFIRM_ACTION: "Xóa tài khoản",
+    DELETE_CANCEL_ACTION: "Hủy bỏ",
     EMPTY_TITLE: "Không tìm thấy tài khoản nhân viên nào.",
     EMPTY_DESCRIPTION:
       "Vui lòng thay đổi từ khóa hoặc thêm tài khoản nhân viên mới vào hệ thống.",

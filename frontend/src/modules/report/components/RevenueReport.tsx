@@ -127,7 +127,7 @@ export const RevenueReport: React.FC<RevenueReportProps> = ({ totalRevenueToday 
             {REPORT_UI.REVENUE.BEST_SELLERS_TITLE}
           </h3>
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs font-semibold text-slate-700">
+            <table className="responsive-data-table responsive-data-table--page w-full text-left text-xs font-semibold text-slate-700">
               <thead>
                 <tr className="border-b text-slate-400">
                   <th className="pb-2">{REPORT_UI.REVENUE.BEST_SELLER_COLUMNS.NAME}</th>
