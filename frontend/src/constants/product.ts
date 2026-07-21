@@ -128,6 +128,9 @@ export const PRODUCT_STOCK_ENTRY_CONFIG = {
   PRODUCT_QUERY_SIZE: 100,
   ID_PREFIX: "se",
   START_INDEX: 1,
+  GOODS_RECEIPT_PAGE_SIZE: 10,
+  GOODS_RECEIPT_BATCH_SIZE: 1000,
+  INITIAL_PAGE: 0,
 } as const;
 
 export const getNextStockEntryId = (currentEntryCount: number): string =>

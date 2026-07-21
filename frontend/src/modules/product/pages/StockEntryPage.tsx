@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   PRODUCT_LOG_ACTIONS,
   PRODUCT_MESSAGE_BUILDERS,
@@ -28,14 +28,15 @@ export const StockEntryPage = () => {
   const products = productsData?.content || [];
 
   // Manage pagination state
-  const [page, setPage] = useState(0);
-  const PAGE_SIZE = 10;
+  const [page, setPage] = useState<number>(PRODUCT_STOCK_ENTRY_CONFIG.INITIAL_PAGE);
+  const PAGE_SIZE = PRODUCT_STOCK_ENTRY_CONFIG.GOODS_RECEIPT_PAGE_SIZE;
 
-  // Call real API to fetch goods receipts list with pagination parameters
-  const { data: receiptsData } = useGetGoodsReceiptsQuery({ page, size: PAGE_SIZE });
+  // Call real API with large size to allow client-side search and pagination
+  const { data: receiptsData } = useGetGoodsReceiptsQuery({
+    page: PRODUCT_STOCK_ENTRY_CONFIG.INITIAL_PAGE,
+    size: PRODUCT_STOCK_ENTRY_CONFIG.GOODS_RECEIPT_BATCH_SIZE,
+  });
   const receipts = receiptsData?.content || [];
-  const totalPages = receiptsData?.totalPages || 0;
-  const totalElements = receiptsData?.totalElements || 0;
 
   const [createGoodsReceipt] = useCreateGoodsReceiptMutation();
 
@@ -44,6 +45,11 @@ export const StockEntryPage = () => {
   const [stockEntrySearch, setStockEntrySearch] = useState("");
 
   const canCreateGoodsReceipt = currentRole === USER_ROLES.OWNER;
+
+  // Reset page when search term changes
+  useEffect(() => {
+    setPage(0);
+  }, [stockEntrySearch]);
 
   // Filter goods receipts from backend using useMemo for performance
   const normalizedStockEntrySearch = stockEntrySearch.trim().toLocaleLowerCase("vi");
@@ -55,6 +61,16 @@ export const StockEntryPage = () => {
       )
     );
   }, [receipts, normalizedStockEntrySearch]);
+
+  const totalElements = filteredReceipts.length;
+  const totalPages = Math.ceil(totalElements / PAGE_SIZE);
+
+  // Get paginated slice in-memory
+  const paginatedReceipts = useMemo(() => {
+    const start = page * PAGE_SIZE;
+    const end = start + PAGE_SIZE;
+    return filteredReceipts.slice(start, end);
+  }, [filteredReceipts, page]);
 
   const handleAddStock = async (values: GoodsReceiptFormValues) => {
     const prodId = values.productId;
@@ -141,7 +157,7 @@ export const StockEntryPage = () => {
 
       {/* Receipts History Table */}
       <div className="grid grid-cols-1 gap-6">
-        <StockEntryHistoryTable receipts={filteredReceipts} onViewDetails={setSelectedReceiptId} />
+        <StockEntryHistoryTable receipts={paginatedReceipts} onViewDetails={setSelectedReceiptId} />
       </div>
 
       {/* Pagination Controls */}

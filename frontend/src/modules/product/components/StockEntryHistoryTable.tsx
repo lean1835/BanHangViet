@@ -1,55 +1,73 @@
 import { useGetGoodsReceiptByIdQuery } from "../services/productApi";
 import { formatCurrency } from "@/utils/formatCurrency";
 import { formatDateShort } from "@/utils/dateFormatter";
-
-export interface IGoodsReceipt {
-  id: string;
-  receiptNumber: string;
-  receivedAt: string; // ISO LocalDateTime string
-  notes: string;
-  createdByUserName: string;
-}
+import type { IGoodsReceipt } from "../types/IGoodsReceipt";
 
 interface StockEntryHistoryTableProps {
   receipts: IGoodsReceipt[];
   onViewDetails: (id: string) => void;
 }
 
-// Sub-component to fetch and render the total amount of a receipt
-const GoodsReceiptTotal = ({ receiptId }: { receiptId: string }) => {
-  const { data: detailData } = useGetGoodsReceiptByIdQuery(receiptId);
-  if (!detailData) return <span className="text-slate-400 font-medium">...</span>;
-  const details = detailData.details || [];
+const StockEntryHistoryRow = ({
+  receipt,
+  onClick,
+}: {
+  receipt: IGoodsReceipt;
+  onClick: () => void;
+}) => {
+  const { data: detailData, isLoading } = useGetGoodsReceiptByIdQuery(receipt.id);
+
+  const details = detailData?.details || [];
   const totalAmount = details.reduce(
-    (sum: number, d: any) => sum + Number(d.quantity || 0) * Number(d.purchasePrice || 0),
+    (sum: number, d) => sum + Number(d.quantity || 0) * Number(d.purchasePrice || 0),
     0
   );
-  return <span className="font-extrabold text-rose-600">{formatCurrency(totalAmount)}</span>;
-};
-
-// Sub-component to fetch and render the total quantity of items in a receipt
-const GoodsReceiptTotalQuantity = ({ receiptId }: { receiptId: string }) => {
-  const { data: detailData } = useGetGoodsReceiptByIdQuery(receiptId);
-  if (!detailData) return <span className="text-slate-400 font-medium">...</span>;
-  const details = detailData.details || [];
   const totalQty = details.reduce(
-    (sum: number, d: any) => sum + Number(d.quantity || 0),
+    (sum: number, d) => sum + Number(d.quantity || 0),
     0
   );
-  return <span className="font-extrabold text-indigo-600">{totalQty}</span>;
-};
+  const summaryStr = details.map((d) => d.productName).join(", ");
 
-// Sub-component to fetch and render the summary of product names in a receipt
-const GoodsReceiptProductsSummary = ({ receiptId }: { receiptId: string }) => {
-  const { data: detailData } = useGetGoodsReceiptByIdQuery(receiptId);
-  if (!detailData) return <span className="text-slate-400 font-medium">Đang tải...</span>;
-  const details = detailData.details || [];
-  if (details.length === 0) return <span className="text-slate-400">---</span>;
-  const summaryStr = details.map((d: any) => d.productName).join(", ");
   return (
-    <span className="text-slate-500 font-bold block max-w-[200px] truncate" title={summaryStr}>
-      {summaryStr}
-    </span>
+    <tr
+      onClick={onClick}
+      className="hover:bg-slate-50/70 cursor-pointer transition-all duration-150"
+      title="Nhấp để xem chi tiết phiếu nhập"
+    >
+      <td className="p-3 font-mono font-bold text-slate-600">
+        {receipt.receiptNumber.toUpperCase()}
+      </td>
+      <td className="p-3 text-slate-500">{formatDateShort(receipt.receivedAt)}</td>
+      <td className="p-3 font-bold text-slate-700">{receipt.createdByUserName}</td>
+      <td className="p-3">
+        {isLoading ? (
+          <span className="text-slate-400 font-medium">Đang tải...</span>
+        ) : details.length === 0 ? (
+          <span className="text-slate-400">---</span>
+        ) : (
+          <span className="text-slate-500 font-bold block max-w-[200px] truncate" title={summaryStr}>
+            {summaryStr}
+          </span>
+        )}
+      </td>
+      <td className="p-3 text-right">
+        {isLoading ? (
+          <span className="text-slate-400 font-medium">...</span>
+        ) : (
+          <span className="font-extrabold text-indigo-600">{totalQty}</span>
+        )}
+      </td>
+      <td className="p-3 text-right">
+        {isLoading ? (
+          <span className="text-slate-400 font-medium">...</span>
+        ) : (
+          <span className="font-extrabold text-rose-600">{formatCurrency(totalAmount)}</span>
+        )}
+      </td>
+      <td className="p-3 text-slate-500 max-w-[200px] truncate" title={receipt.notes}>
+        {receipt.notes || "---"}
+      </td>
+    </tr>
   );
 };
 
@@ -75,30 +93,11 @@ export const StockEntryHistoryTable = ({ receipts, onViewDetails }: StockEntryHi
           </thead>
           <tbody className="divide-y divide-slate-100 font-medium text-slate-700 text-xs">
             {receipts.map((receipt) => (
-              <tr
+              <StockEntryHistoryRow
                 key={receipt.id}
+                receipt={receipt}
                 onClick={() => onViewDetails(receipt.id)}
-                className="hover:bg-slate-50/70 cursor-pointer transition-all duration-150"
-                title="Nhấp để xem chi tiết phiếu nhập"
-              >
-                <td className="p-3 font-mono font-bold text-slate-600">
-                  {receipt.receiptNumber.toUpperCase()}
-                </td>
-                <td className="p-3 text-slate-500">{formatDateShort(receipt.receivedAt)}</td>
-                <td className="p-3 font-bold text-slate-700">{receipt.createdByUserName}</td>
-                <td className="p-3">
-                  <GoodsReceiptProductsSummary receiptId={receipt.id} />
-                </td>
-                <td className="p-3 text-right">
-                  <GoodsReceiptTotalQuantity receiptId={receipt.id} />
-                </td>
-                <td className="p-3 text-right">
-                  <GoodsReceiptTotal receiptId={receipt.id} />
-                </td>
-                <td className="p-3 text-slate-500 max-w-[200px] truncate" title={receipt.notes}>
-                  {receipt.notes || "---"}
-                </td>
-              </tr>
+              />
             ))}
             {receipts.length === 0 && (
               <tr>
