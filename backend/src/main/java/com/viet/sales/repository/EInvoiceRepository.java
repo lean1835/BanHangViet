@@ -18,11 +18,17 @@ public interface EInvoiceRepository extends JpaRepository<EInvoice, String>, Jpa
     @EntityGraph(attributePaths = {"items", "items.product", "createdByUser", "canceledByUser", "household", "order"})
     Page<EInvoice> findAll(Specification<EInvoice> spec, Pageable pageable);
 
+    @Override
+    @EntityGraph(attributePaths = {"items", "items.product", "createdByUser", "canceledByUser", "household", "order"})
+    Optional<EInvoice> findById(String id);
+
     @EntityGraph(attributePaths = {"items", "items.product", "createdByUser", "canceledByUser", "household", "order"})
     Optional<EInvoice> findByIdAndHouseholdIdAndDeletedAtIsNull(String id, String householdId);
 
+    @EntityGraph(attributePaths = {"items", "items.product", "createdByUser", "canceledByUser", "household", "order"})
     Optional<EInvoice> findByOrderIdAndDeletedAtIsNull(String orderId);
 
+    @EntityGraph(attributePaths = {"items", "items.product", "createdByUser", "canceledByUser", "household", "order"})
     Optional<EInvoice> findByLookupCodeAndDeletedAtIsNull(String lookupCode);
 
     boolean existsByLookupCodeAndDeletedAtIsNull(String lookupCode);
