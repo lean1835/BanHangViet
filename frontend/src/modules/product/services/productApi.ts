@@ -272,6 +272,70 @@ export const productApi = baseApi.injectEndpoints({
         { type: API_TAG_TYPES.PRODUCT, id: PRODUCT_API_TAG_IDS.LIST },
       ],
     }),
+    getGoodsReceipts: builder.query<
+      any,
+      { page?: number; size?: number } | void
+    >({
+      query: (params) => ({
+        url: PRODUCT_API_ENDPOINTS.GOODS_RECEIPTS,
+        method: HTTP_METHODS.GET,
+        params: params || {},
+      }),
+      transformResponse: (response: any) => response.result || {},
+      providesTags: (result: any) =>
+        result?.content
+          ? [
+              ...result.content.map(({ id }: any) => ({
+                type: API_TAG_TYPES.PRODUCT,
+                id,
+              })),
+              {
+                type: API_TAG_TYPES.PRODUCT,
+                id: PRODUCT_API_TAG_IDS.LIST,
+              },
+            ]
+          : [
+              {
+                type: API_TAG_TYPES.PRODUCT,
+                id: PRODUCT_API_TAG_IDS.LIST,
+              },
+            ],
+    }),
+    createGoodsReceipt: builder.mutation<
+      any,
+      {
+        receiptNumber?: string;
+        receivedAt: string;
+        notes?: string;
+        details: Array<{
+          productId: string;
+          quantity: number;
+          purchasePrice: number;
+        }>;
+      }
+    >({
+      query: (body) => ({
+        url: PRODUCT_API_ENDPOINTS.GOODS_RECEIPTS,
+        method: HTTP_METHODS.POST,
+        body,
+      }),
+      invalidatesTags: [
+        {
+          type: API_TAG_TYPES.PRODUCT,
+          id: PRODUCT_API_TAG_IDS.LIST,
+        },
+      ],
+    }),
+    getGoodsReceiptById: builder.query<any, string>({
+      query: (id) => ({
+        url: PRODUCT_API_ENDPOINTS.GOODS_RECEIPT_BY_ID(id),
+        method: HTTP_METHODS.GET,
+      }),
+      transformResponse: (response: any) => response.result,
+      providesTags: (_result, _error, id) => [
+        { type: API_TAG_TYPES.PRODUCT, id },
+      ],
+    }),
   }),
   overrideExisting: API_CONFIG.OVERRIDE_EXISTING_ENDPOINTS,
 });
@@ -285,4 +349,7 @@ export const {
   useCreateProductGroupMutation,
   useUpdateProductGroupMutation,
   useDeleteProductGroupMutation,
+  useGetGoodsReceiptsQuery,
+  useCreateGoodsReceiptMutation,
+  useGetGoodsReceiptByIdQuery,
 } = productApi;

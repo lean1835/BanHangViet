@@ -318,6 +318,7 @@ export const PRODUCT_LOG_ACTIONS = {
 
 const PRODUCT_API_BASE_ENDPOINT = "/products";
 const PRODUCT_GROUP_API_BASE_ENDPOINT = "/product-groups";
+const GOODS_RECEIPT_API_BASE_ENDPOINT = "/goods-receipts";
 
 export const PRODUCT_API_ENDPOINTS = {
   PRODUCTS: PRODUCT_API_BASE_ENDPOINT,
@@ -326,6 +327,9 @@ export const PRODUCT_API_ENDPOINTS = {
   PRODUCT_GROUPS: PRODUCT_GROUP_API_BASE_ENDPOINT,
   PRODUCT_GROUP_BY_ID: (groupId: string): string =>
     `${PRODUCT_GROUP_API_BASE_ENDPOINT}/${groupId}`,
+  GOODS_RECEIPTS: GOODS_RECEIPT_API_BASE_ENDPOINT,
+  GOODS_RECEIPT_BY_ID: (receiptId: string): string =>
+    `${GOODS_RECEIPT_API_BASE_ENDPOINT}/${receiptId}`,
 } as const;
 
 export const PRODUCT_API_TAG_IDS = {
