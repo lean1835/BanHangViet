@@ -11,6 +11,11 @@ import type { IProduct } from "@/modules/product/types/IProduct";
 import type { IProductGroup } from "@/modules/product/types/IProductGroup";
 import type { TProductStatus } from "@/modules/product/types/TProductStatus";
 import type { TStockFilter } from "@/modules/product/types/TStockFilter";
+import type {
+  IGoodsReceipt,
+  IGoodsReceiptDetail,
+  IGoodsReceiptDetailInfo,
+} from "@/modules/product/types/IGoodsReceipt";
 import { isRecord } from "@/utils/typeGuards";
 
 interface IPageResponse<T> {
@@ -92,6 +97,64 @@ const toProductPage = (response: unknown): IPageResponse<IProduct> => {
 
   return {
     content: content.map(toProduct),
+    pageNumber: readNumber(result.pageNumber),
+    pageSize:
+      readNumber(result.pageSize) || PRODUCT_QUERY_CONFIG.API_FALLBACK_PAGE_SIZE,
+    totalElements: readNumber(result.totalElements),
+    totalPages: readNumber(result.totalPages),
+    last: result.last !== false,
+  };
+};
+
+const toGoodsReceipt = (value: unknown): IGoodsReceipt => {
+  const receipt = isRecord(value) ? value : {};
+  return {
+    id: readString(receipt.id),
+    receiptNumber: readString(receipt.receiptNumber),
+    receivedAt: readString(receipt.receivedAt),
+    notes: readString(receipt.notes),
+    createdByUserId: readString(receipt.createdByUserId),
+    createdByUserName: readString(receipt.createdByUserName),
+    createdAt: readString(receipt.createdAt),
+    updatedAt: readString(receipt.updatedAt),
+  };
+};
+
+const toGoodsReceiptDetail = (value: unknown): IGoodsReceiptDetail => {
+  const detail = isRecord(value) ? value : {};
+  return {
+    id: readString(detail.id),
+    productId: readString(detail.productId),
+    productName: readString(detail.productName),
+    productSku: readString(detail.productSku),
+    quantity: readNumber(detail.quantity),
+    purchasePrice: readNumber(detail.purchasePrice),
+  };
+};
+
+const toGoodsReceiptDetailInfo = (value: unknown): IGoodsReceiptDetailInfo => {
+  const info = isRecord(value) ? value : {};
+  const details = Array.isArray(info.details) ? info.details : [];
+  return {
+    id: readString(info.id),
+    receiptNumber: readString(info.receiptNumber),
+    receivedAt: readString(info.receivedAt),
+    notes: readString(info.notes),
+    createdByUserId: readString(info.createdByUserId),
+    createdByUserName: readString(info.createdByUserName),
+    details: details.map(toGoodsReceiptDetail),
+    createdAt: readString(info.createdAt),
+    updatedAt: readString(info.updatedAt),
+  };
+};
+
+const toGoodsReceiptPage = (response: unknown): IPageResponse<IGoodsReceipt> => {
+  const rawResult = readResult(response);
+  const result = isRecord(rawResult) ? rawResult : {};
+  const content = Array.isArray(result.content) ? result.content : [];
+
+  return {
+    content: content.map(toGoodsReceipt),
     pageNumber: readNumber(result.pageNumber),
     pageSize:
       readNumber(result.pageSize) || PRODUCT_QUERY_CONFIG.API_FALLBACK_PAGE_SIZE,
@@ -272,6 +335,73 @@ export const productApi = baseApi.injectEndpoints({
         { type: API_TAG_TYPES.PRODUCT, id: PRODUCT_API_TAG_IDS.LIST },
       ],
     }),
+    getGoodsReceipts: builder.query<
+      IPageResponse<IGoodsReceipt>,
+      { page?: number; size?: number } | void
+    >({
+      query: (params) => ({
+        url: PRODUCT_API_ENDPOINTS.GOODS_RECEIPTS,
+        method: HTTP_METHODS.GET,
+        params: params || {},
+      }),
+      transformResponse: toGoodsReceiptPage,
+      providesTags: (result) =>
+        result?.content
+          ? [
+              ...result.content.map(({ id }) => ({
+                type: API_TAG_TYPES.PRODUCT,
+                id,
+              })),
+              {
+                type: API_TAG_TYPES.PRODUCT,
+                id: PRODUCT_API_TAG_IDS.LIST,
+              },
+            ]
+          : [
+              {
+                type: API_TAG_TYPES.PRODUCT,
+                id: PRODUCT_API_TAG_IDS.LIST,
+              },
+            ],
+    }),
+    createGoodsReceipt: builder.mutation<
+      IGoodsReceipt,
+      {
+        receiptNumber?: string;
+        receivedAt: string;
+        notes?: string;
+        details: Array<{
+          productId: string;
+          quantity: number;
+          purchasePrice: number;
+        }>;
+      }
+    >({
+      query: (body) => ({
+        url: PRODUCT_API_ENDPOINTS.GOODS_RECEIPTS,
+        method: HTTP_METHODS.POST,
+        body,
+      }),
+      transformResponse: (response: unknown): IGoodsReceipt =>
+        toGoodsReceipt(readResult(response)),
+      invalidatesTags: [
+        {
+          type: API_TAG_TYPES.PRODUCT,
+          id: PRODUCT_API_TAG_IDS.LIST,
+        },
+      ],
+    }),
+    getGoodsReceiptById: builder.query<IGoodsReceiptDetailInfo, string>({
+      query: (id) => ({
+        url: PRODUCT_API_ENDPOINTS.GOODS_RECEIPT_BY_ID(id),
+        method: HTTP_METHODS.GET,
+      }),
+      transformResponse: (response: unknown): IGoodsReceiptDetailInfo =>
+        toGoodsReceiptDetailInfo(readResult(response)),
+      providesTags: (_result, _error, id) => [
+        { type: API_TAG_TYPES.PRODUCT, id },
+      ],
+    }),
   }),
   overrideExisting: API_CONFIG.OVERRIDE_EXISTING_ENDPOINTS,
 });
@@ -285,4 +415,7 @@ export const {
   useCreateProductGroupMutation,
   useUpdateProductGroupMutation,
   useDeleteProductGroupMutation,
+  useGetGoodsReceiptsQuery,
+  useCreateGoodsReceiptMutation,
+  useGetGoodsReceiptByIdQuery,
 } = productApi;
