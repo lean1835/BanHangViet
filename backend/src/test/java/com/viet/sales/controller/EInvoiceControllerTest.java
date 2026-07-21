@@ -3,6 +3,7 @@ package com.viet.sales.controller;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.viet.sales.dto.request.CancelInvoiceRequest;
 import com.viet.sales.dto.request.TaxAuthorityActionRequest;
+import com.viet.sales.dto.request.UpdateInvoiceRequest;
 import com.viet.sales.entity.*;
 import com.viet.sales.repository.*;
 import org.junit.jupiter.api.BeforeEach;
@@ -350,5 +351,70 @@ public class EInvoiceControllerTest {
                         .content(objectMapper.writeValueAsString(req)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(1000));
+    }
+
+    @Test
+    @WithMockUser(username = "test_employee_inv", roles = {"VT-02"})
+    public void updateInvoice_successAndFailed() throws Exception {
+        // Setup Template
+        InvoiceTemplate template = InvoiceTemplate.builder()
+                .household(testHousehold)
+                .invoicePattern("1C26TAA")
+                .invoiceSymbol("C26TAA")
+                .title("MẪU HĐĐT MÔ PHỎNG")
+                .footerNote("Cảm ơn đã mua hàng")
+                .build();
+        invoiceTemplateRepository.save(template);
+
+        // Complete order
+        testOrder.setStatus("COMPLETED");
+        testOrder.setPaymentStatus("PAID");
+        orderRepository.save(testOrder);
+
+        // 1. Create Draft
+        String content = mockMvc.perform(post("/api/v1/invoices/draft")
+                        .param("orderId", testOrder.getId())
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(1000))
+                .andExpect(jsonPath("$.result.status").value("DRAFT"))
+                .andReturn().getResponse().getContentAsString();
+
+        String invoiceId = objectMapper.readTree(content).path("result").path("id").asText();
+
+        // 2. Update Draft (Success)
+        UpdateInvoiceRequest updateReq = UpdateInvoiceRequest.builder()
+                .buyerName("Nguyen Van B Updated")
+                .buyerTaxCode("1234567890")
+                .buyerAddress("Ha Noi, Viet Nam")
+                .buyerPhone("0987654321")
+                .buyerEmail("updated@gmail.com")
+                .build();
+
+        mockMvc.perform(put("/api/v1/invoices/" + invoiceId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(updateReq)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(1000))
+                .andExpect(jsonPath("$.result.buyerName").value("Nguyen Van B Updated"))
+                .andExpect(jsonPath("$.result.buyerTaxCode").value("1234567890"));
+
+        // Verify in DB
+        EInvoice inv = eInvoiceRepository.findById(invoiceId).orElse(null);
+        assertNotNull(inv);
+        assertEquals("Nguyen Van B Updated", inv.getBuyerName());
+        assertEquals("1234567890", inv.getBuyerTaxCode());
+
+        // 3. Submit to Tax (Transitions to WAITING_TAX_CODE)
+        mockMvc.perform(post("/api/v1/invoices/" + invoiceId + "/submit")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk());
+
+        // 4. Try updating while WAITING_TAX_CODE (Failed - status 400)
+        mockMvc.perform(put("/api/v1/invoices/" + invoiceId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(updateReq)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(4008));
     }
 }

@@ -1,19 +1,21 @@
-import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { LoginForm } from "../modules/auth/components/LoginForm";
-import { RegisterForm } from "../modules/auth/components/RegisterForm";
+import React from "react";
+import { NavLink, Outlet, useLocation } from "react-router-dom";
+import { APP_BRAND } from "@/constants/app";
+import { AUTH_TABS, AUTH_UI } from "@/constants/auth";
 
 export const AuthPage: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<"login" | "register">("login");
-  const navigate = useNavigate();
+  const location = useLocation();
 
-  const handleSuccess = () => {
-    navigate("/");
-  };
+  const getTabClassName = (isActive: boolean) =>
+    `flex-1 py-3.5 text-center font-bold text-xs uppercase tracking-wider border-b-2 transition-all duration-150 ${
+      isActive
+        ? "text-kv-blue-primary border-b-kv-blue-primary bg-white"
+        : "text-slate-400 border-b-transparent hover:text-slate-600"
+    }`;
 
   return (
-    <div className="absolute inset-0 bg-gradient-to-br from-[#1e3c72] to-[#2a5298] z-[10000] flex items-center justify-center p-4 overflow-y-auto">
-      <div className="bg-white w-full max-w-[920px] min-h-[550px] rounded-2xl shadow-2xl overflow-hidden grid grid-cols-1 md:grid-cols-[1.15fr_1fr] animate-auth-fade-in">
+    <div className="absolute inset-0 z-[10000] flex items-start justify-center overflow-y-auto bg-gradient-to-br from-[#1e3c72] to-[#2a5298] p-2 sm:p-4">
+      <div className="my-auto grid min-h-0 w-full max-w-[920px] grid-cols-1 overflow-hidden rounded-xl bg-white shadow-2xl animate-auth-fade-in sm:rounded-2xl md:min-h-[550px] md:grid-cols-[1.15fr_1fr]">
         
         {/* Left: Product Introduction & Animations */}
         <div className="bg-gradient-to-br from-[#070e27] to-[#0050df] text-white p-8 flex flex-col justify-between relative overflow-hidden hidden md:flex border-r border-white/5">
@@ -31,15 +33,18 @@ export const AuthPage: React.FC = () => {
                 <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
               </svg>
               <span className="font-extrabold text-xl tracking-wide">
-                Bán Hàng<span className="text-[#60A5FA] ml-0.5">Việt</span>
+                {APP_BRAND.PREFIX}
+                <span className="text-[#60A5FA] ml-0.5">
+                  {APP_BRAND.SUFFIX}
+                </span>
               </span>
             </div>
             
             <h2 className="text-xl font-extrabold leading-snug mb-3">
-              Giải pháp quản lý bán hàng &amp; hóa đơn điện tử thông minh
+              {AUTH_UI.INTRO_TITLE}
             </h2>
             <p className="text-xs text-slate-300 leading-relaxed">
-              Ứng dụng chuyên biệt cho hộ kinh doanh cá thể, tự động đồng bộ Tổng cục Thuế theo Nghị định 70/2025/NĐ-CP.
+              {AUTH_UI.INTRO_DESCRIPTION}
             </p>
           </div>
 
@@ -56,7 +61,9 @@ export const AuthPage: React.FC = () => {
                   />
                 </svg>
               </div>
-              <span className="text-[10px] text-slate-400 font-bold block mt-1">Tổng cục Thuế</span>
+              <span className="text-[10px] text-slate-400 font-bold block mt-1">
+                {AUTH_UI.TAX_AUTHORITY_LABEL}
+              </span>
             </div>
 
             {/* App Client Node (POS) */}
@@ -70,7 +77,9 @@ export const AuthPage: React.FC = () => {
                   />
                 </svg>
               </div>
-              <span className="text-[10px] text-slate-400 font-bold block mt-1">Bán Hàng Việt (POS)</span>
+              <span className="text-[10px] text-slate-400 font-bold block mt-1">
+                {AUTH_UI.POS_LABEL}
+              </span>
             </div>
 
             {/* Animated Data Packet */}
@@ -99,14 +108,14 @@ export const AuthPage: React.FC = () => {
                 clipRule="evenodd"
               />
             </svg>
-            <span>Bảo mật dữ liệu theo tiêu chuẩn ISO/IEC 27001</span>
+            <span>{AUTH_UI.SECURITY_LABEL}</span>
           </div>
         </div>
 
         {/* Right: Auth Forms */}
         <div className="flex flex-col justify-between bg-white">
           
-          <div className="bg-slate-50 border-b border-slate-100 py-5 px-6 text-center flex flex-col items-center gap-1.5">
+          <div className="flex flex-col items-center gap-1.5 border-b border-slate-100 bg-slate-50 px-4 py-4 text-center sm:px-6 sm:py-5">
             <svg
               viewBox="0 0 24 24"
               fill="none"
@@ -123,40 +132,33 @@ export const AuthPage: React.FC = () => {
               <polyline points="10 9 9 9 8 9"></polyline>
             </svg>
             <span className="font-extrabold text-lg text-kv-blue-primary tracking-wide">
-              Bán Hàng<strong className="text-gray-800 font-extrabold">Việt</strong>
+              {APP_BRAND.PREFIX}
+              <strong className="text-gray-800 font-extrabold">
+                {APP_BRAND.SUFFIX}
+              </strong>
             </span>
-            <span className="text-[11px] text-slate-500 font-medium">Hệ thống Bán hàng &amp; Hóa đơn điện tử</span>
+            <span className="text-[11px] text-slate-500 font-medium">
+              {APP_BRAND.SYSTEM_DESCRIPTION}
+            </span>
           </div>
 
           <div className="flex border-b border-slate-100 bg-slate-50">
-            <button
-              onClick={() => setActiveTab("login")}
-              className={`flex-1 py-3.5 text-center font-bold text-xs uppercase tracking-wider border-b-2 transition-all duration-150 ${
-                activeTab === "login"
-                  ? "text-kv-blue-primary border-b-kv-blue-primary bg-white"
-                  : "text-slate-400 border-b-transparent hover:text-slate-600"
-              }`}
-            >
-              Đăng nhập
-            </button>
-            <button
-              onClick={() => setActiveTab("register")}
-              className={`flex-1 py-3.5 text-center font-bold text-xs uppercase tracking-wider border-b-2 transition-all duration-150 ${
-                activeTab === "register"
-                  ? "text-kv-blue-primary border-b-kv-blue-primary bg-white"
-                  : "text-slate-400 border-b-transparent hover:text-slate-600"
-              }`}
-            >
-              Đăng ký hộ mới
-            </button>
+            {AUTH_TABS.map((tab) => (
+              <NavLink
+                key={tab.path}
+                to={tab.path}
+                className={({ isActive }) => getTabClassName(isActive)}
+              >
+                {tab.label}
+              </NavLink>
+            ))}
           </div>
 
-          <div className="p-6 flex-1 flex flex-col justify-center">
-            {activeTab === "login" ? (
-              <LoginForm onSuccess={handleSuccess} />
-            ) : (
-              <RegisterForm onSuccess={handleSuccess} />
-            )}
+          <div
+            key={location.pathname}
+            className="flex flex-1 flex-col justify-center p-4 sm:p-6"
+          >
+            <Outlet />
           </div>
         </div>
 

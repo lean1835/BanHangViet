@@ -2,6 +2,7 @@ package com.viet.sales.controller;
 
 import com.viet.sales.dto.ApiResponse;
 import com.viet.sales.dto.request.CancelInvoiceRequest;
+import com.viet.sales.dto.request.UpdateInvoiceRequest;
 import com.viet.sales.dto.response.InvoiceResponse;
 import com.viet.sales.dto.response.PageResponse;
 import com.viet.sales.service.interfaces.EInvoiceService;
@@ -59,6 +60,21 @@ public class EInvoiceController {
         ApiResponse<InvoiceResponse> response = ApiResponse.<InvoiceResponse>builder()
                 .code(1000)
                 .message("Đã gửi lại hóa đơn điện tử lên cơ quan thuế")
+                .result(result)
+                .build();
+        return ResponseEntity.ok(response);
+    }
+
+    @PutMapping("/{invoiceId}")
+    @PreAuthorize("hasAnyRole('VT-01', 'VT-02')")
+    public ResponseEntity<ApiResponse<InvoiceResponse>> updateInvoice(
+            Principal principal,
+            @PathVariable String invoiceId,
+            @Valid @RequestBody UpdateInvoiceRequest request) {
+        InvoiceResponse result = eInvoiceService.updateInvoice(principal.getName(), invoiceId, request);
+        ApiResponse<InvoiceResponse> response = ApiResponse.<InvoiceResponse>builder()
+                .code(1000)
+                .message("Cập nhật thông tin hóa đơn điện tử thành công")
                 .result(result)
                 .build();
         return ResponseEntity.ok(response);

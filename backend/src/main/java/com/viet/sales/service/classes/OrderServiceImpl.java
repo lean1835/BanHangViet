@@ -422,14 +422,14 @@ public class OrderServiceImpl implements OrderService {
             throw new AppException(ErrorCode.DISCOUNT_EXCEEDS_TOTAL);
         }
 
-        // Check salesperson limit (10% of total amount)
-        boolean isOwner = "VT-01".equals(currentUser.getRole().getCode());
-        if (!isOwner) {
-            BigDecimal maxAllowedDiscount = order.getTotalAmount().multiply(BigDecimal.valueOf(0.10));
-            if (discountAmount.compareTo(maxAllowedDiscount) > 0) {
-                throw new AppException(ErrorCode.DISCOUNT_LIMIT_EXCEEDED);
-            }
-        }
+        // Check salesperson limit (10% of total amount) - Removed/Commented out to allow up to 100% discount
+        // boolean isOwner = "VT-01".equals(currentUser.getRole().getCode());
+        // if (!isOwner) {
+        //     BigDecimal maxAllowedDiscount = order.getTotalAmount().multiply(BigDecimal.valueOf(0.10));
+        //     if (discountAmount.compareTo(maxAllowedDiscount) > 0) {
+        //         throw new AppException(ErrorCode.DISCOUNT_LIMIT_EXCEEDED);
+        //     }
+        // }
 
         order.setDiscountType(request.getDiscountType());
         order.setDiscountRateOrValue(request.getDiscountValue());
@@ -606,5 +606,28 @@ public class OrderServiceImpl implements OrderService {
         }
 
         return mapToResponse(order, warnings, null, qrCodeUrl);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<OrderResponse> getOrdersHistory(String currentUsername) {
+        User currentUser = getAuthenticatedUser(currentUsername);
+        BusinessHousehold household = currentUser.getHousehold();
+        if (household == null) {
+            throw new AppException(ErrorCode.FORBIDDEN);
+        }
+
+        List<Order> orders;
+        boolean isSalesperson = "VT-02".equals(currentUser.getRole().getCode());
+        if (isSalesperson) {
+            orders = orderRepository.findByHouseholdIdAndCreatedByUserIdAndDeletedAtIsNullOrderByCreatedAtDesc(
+                    household.getId(), currentUser.getId());
+        } else {
+            orders = orderRepository.findByHouseholdIdAndDeletedAtIsNullOrderByCreatedAtDesc(household.getId());
+        }
+
+        return orders.stream()
+                .map(order -> mapToResponse(order, new ArrayList<>(), null, null))
+                .collect(Collectors.toList());
     }
 }

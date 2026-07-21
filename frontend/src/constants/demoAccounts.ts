@@ -4,7 +4,7 @@
  * Thông tin xác thực thực tế được quản lý bởi Backend.
  */
 
-export interface DemoAccount {
+export interface IDemoAccount {
   /** Mã vai trò theo hệ thống (VT-01 ... VT-05) */
   roleId: string;
   /** Tên hiển thị của vai trò */
@@ -19,7 +19,7 @@ export interface DemoAccount {
   badgeColor: string;
 }
 
-export const DEMO_ACCOUNTS: DemoAccount[] = [
+export const DEMO_ACCOUNTS: IDemoAccount[] = [
   {
     roleId: "VT-01",
     roleName: "Chủ hộ kinh doanh",

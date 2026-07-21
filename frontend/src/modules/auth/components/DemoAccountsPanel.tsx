@@ -1,5 +1,7 @@
 import React, { useState } from "react";
-import { DEMO_ACCOUNTS, DemoAccount } from "@/constants/demoAccounts";
+import { AUTH_ENVIRONMENT, AUTH_UI } from "@/constants/auth";
+import { DEMO_ACCOUNTS } from "@/constants/demoAccounts";
+import type { IDemoAccount } from "@/constants/demoAccounts";
 
 interface DemoAccountsPanelProps {
   /** Callback khi người dùng click vào một tài khoản demo để điền vào form */
@@ -16,7 +18,7 @@ export const DemoAccountsPanel: React.FC<DemoAccountsPanelProps> = ({
   const [expanded, setExpanded] = useState(false);
 
   // Không hiển thị ở môi trường production
-  if (import.meta.env.VITE_APP_ENV === "production") {
+  if (import.meta.env.VITE_APP_ENV === AUTH_ENVIRONMENT.PRODUCTION) {
     return null;
   }
 
@@ -43,7 +45,7 @@ export const DemoAccountsPanel: React.FC<DemoAccountsPanelProps> = ({
             />
           </svg>
           <span className="text-xs font-bold text-blue-700">
-            Tài khoản Demo (môi trường phát triển)
+            {AUTH_UI.DEMO_ACCOUNTS.HEADER}
           </span>
         </div>
         <svg
@@ -62,7 +64,7 @@ export const DemoAccountsPanel: React.FC<DemoAccountsPanelProps> = ({
       {/* Account list */}
       {expanded && (
         <div className="p-2 bg-white flex flex-col gap-1.5">
-          {DEMO_ACCOUNTS.map((account: DemoAccount) => (
+          {DEMO_ACCOUNTS.map((account: IDemoAccount) => (
             <button
               key={account.roleId}
               type="button"
@@ -93,7 +95,7 @@ export const DemoAccountsPanel: React.FC<DemoAccountsPanelProps> = ({
             </button>
           ))}
           <p className="text-[10px] text-gray-400 text-center mt-1">
-            Click vào tài khoản để tự động điền vào form
+            {AUTH_UI.DEMO_ACCOUNTS.SELECT_HINT}
           </p>
         </div>
       )}

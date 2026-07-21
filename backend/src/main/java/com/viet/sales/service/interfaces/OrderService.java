@@ -2,6 +2,8 @@ package com.viet.sales.service.interfaces;
 
 import com.viet.sales.dto.request.*;
 import com.viet.sales.dto.response.OrderResponse;
+import java.util.List;
+
 
 public interface OrderService {
     OrderResponse createOrder(String currentUsername, CreateOrderRequest request);
@@ -12,4 +14,5 @@ public interface OrderService {
     OrderResponse setPaymentMethod(String currentUsername, String orderId, OrderPaymentRequest request);
     OrderResponse completeOrder(String currentUsername, String orderId, CompleteOrderRequest request);
     OrderResponse getOrder(String currentUsername, String orderId);
+    List<OrderResponse> getOrdersHistory(String currentUsername);
 }

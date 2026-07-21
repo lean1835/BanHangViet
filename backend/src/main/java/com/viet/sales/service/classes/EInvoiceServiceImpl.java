@@ -1,6 +1,7 @@
 package com.viet.sales.service.classes;
 
 import com.viet.sales.dto.request.CancelInvoiceRequest;
+import com.viet.sales.dto.request.UpdateInvoiceRequest;
 import com.viet.sales.dto.response.InvoiceItemResponse;
 import com.viet.sales.dto.response.InvoiceResponse;
 import com.viet.sales.dto.response.PageResponse;
@@ -379,6 +380,30 @@ public class EInvoiceServiceImpl implements EInvoiceService {
                 .build());
 
         log.info("Thuế từ chối cấp mã hóa đơn. ID={}, Lý do={}", invoiceId, saved.getTaxAuthorityResponse());
+        return mapToResponse(saved);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public InvoiceResponse updateInvoice(String currentUsername, String invoiceId, UpdateInvoiceRequest request) {
+        User currentUser = getAuthenticatedUser(currentUsername);
+        EInvoice invoice = eInvoiceRepository.findById(invoiceId)
+                .orElseThrow(() -> new AppException(ErrorCode.INVOICE_NOT_FOUND));
+
+        checkInvoiceOwnership(invoice, currentUser);
+
+        if (!"DRAFT".equals(invoice.getStatus()) && !"SEND_ERROR".equals(invoice.getStatus())) {
+            throw new AppException(ErrorCode.INVOICE_NOT_EDITABLE);
+        }
+
+        invoice.setBuyerName(request.getBuyerName());
+        invoice.setBuyerTaxCode(request.getBuyerTaxCode());
+        invoice.setBuyerAddress(request.getBuyerAddress());
+        invoice.setBuyerPhone(request.getBuyerPhone());
+        invoice.setBuyerEmail(request.getBuyerEmail());
+
+        EInvoice saved = eInvoiceRepository.save(invoice);
+        log.info("Cập nhật thông tin hóa đơn thành công. ID={}, Status={}", invoiceId, saved.getStatus());
         return mapToResponse(saved);
     }
 
