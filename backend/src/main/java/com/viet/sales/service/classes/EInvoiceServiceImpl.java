@@ -107,12 +107,18 @@ public class EInvoiceServiceImpl implements EInvoiceService {
     }
 
     private boolean checkDataDifference(EInvoice original, CreateAdjustmentInvoiceRequest request) {
-        // Kiểm tra thông tin người mua
-        if (!Objects.equals(original.getBuyerName(), request.getBuyerName())) return true;
-        if (!Objects.equals(original.getBuyerTaxCode(), request.getBuyerTaxCode())) return true;
-        if (!Objects.equals(original.getBuyerAddress(), request.getBuyerAddress())) return true;
-        if (!Objects.equals(original.getBuyerPhone(), request.getBuyerPhone())) return true;
-        if (!Objects.equals(original.getBuyerEmail(), request.getBuyerEmail())) return true;
+        // Kiểm tra thông tin người mua (sử dụng giá trị thực tế sẽ lưu nếu input là null)
+        String resolvedBuyerName = request.getBuyerName() != null ? request.getBuyerName() : original.getBuyerName();
+        String resolvedBuyerTaxCode = request.getBuyerTaxCode() != null ? request.getBuyerTaxCode() : original.getBuyerTaxCode();
+        String resolvedBuyerAddress = request.getBuyerAddress() != null ? request.getBuyerAddress() : original.getBuyerAddress();
+        String resolvedBuyerPhone = request.getBuyerPhone() != null ? request.getBuyerPhone() : original.getBuyerPhone();
+        String resolvedBuyerEmail = request.getBuyerEmail() != null ? request.getBuyerEmail() : original.getBuyerEmail();
+
+        if (!Objects.equals(original.getBuyerName(), resolvedBuyerName)) return true;
+        if (!Objects.equals(original.getBuyerTaxCode(), resolvedBuyerTaxCode)) return true;
+        if (!Objects.equals(original.getBuyerAddress(), resolvedBuyerAddress)) return true;
+        if (!Objects.equals(original.getBuyerPhone(), resolvedBuyerPhone)) return true;
+        if (!Objects.equals(original.getBuyerEmail(), resolvedBuyerEmail)) return true;
 
         // Kiểm tra danh sách hàng hóa
         List<EInvoiceItem> originalItems = original.getItems();
@@ -266,19 +272,22 @@ public class EInvoiceServiceImpl implements EInvoiceService {
         }
 
         BusinessHousehold household = user.getHousehold();
+        if (household == null) {
+            throw new AppException(ErrorCode.FORBIDDEN);
+        }
 
         // 1. Tìm hóa đơn gốc
         EInvoice original = eInvoiceRepository.findByIdAndHouseholdIdAndDeletedAtIsNull(originalInvoiceId, household.getId())
                 .orElseThrow(() -> new AppException(ErrorCode.INVOICE_NOT_FOUND));
 
-        // 2. Kiểm tra hóa đơn gốc đã được cấp mã chưa (trạng thái phải là ISSUED)
-        if (!"ISSUED".equals(original.getStatus())) {
-            throw new AppException(ErrorCode.INVOICE_NOT_ISSUED);
-        }
-
-        // 3. Kiểm tra hóa đơn gốc đã bị điều chỉnh hoặc hủy trước đó chưa
+        // 2. Kiểm tra hóa đơn gốc đã bị điều chỉnh hoặc hủy trước đó chưa
         if ("ADJUSTED".equals(original.getStatus()) || "CANCELED".equals(original.getStatus())) {
             throw new AppException(ErrorCode.INVOICE_ALREADY_ADJUSTED_OR_CANCELED);
+        }
+
+        // 3. Kiểm tra hóa đơn gốc đã được cấp mã chưa (trạng thái phải là ISSUED)
+        if (!"ISSUED".equals(original.getStatus())) {
+            throw new AppException(ErrorCode.INVOICE_NOT_ISSUED);
         }
 
         // 4. Kiểm tra xem dữ liệu điều chỉnh có khác so với gốc hay không
@@ -321,7 +330,13 @@ public class EInvoiceServiceImpl implements EInvoiceService {
             totalDiscountAmount = totalDiscountAmount.add(discountAmt);
             finalAmount = finalAmount.add(subtotal);
 
-            Product product = itemReq.getProductId() != null ? productMap.get(itemReq.getProductId()) : null;
+            Product product = null;
+            if (itemReq.getProductId() != null) {
+                product = productMap.get(itemReq.getProductId());
+                if (product == null) {
+                    throw new AppException(ErrorCode.PRODUCT_NOT_FOUND);
+                }
+            }
 
             EInvoiceItem newItem = EInvoiceItem.builder()
                     .product(product)
@@ -339,7 +354,10 @@ public class EInvoiceServiceImpl implements EInvoiceService {
         }
 
         // 6. Tạo hóa đơn điều chỉnh mới
-        String lookupCode = UUID.randomUUID().toString().replace("-", "").toUpperCase();
+        String lookupCode;
+        do {
+            lookupCode = UUID.randomUUID().toString().replaceAll("-", "").substring(0, 10).toUpperCase();
+        } while (eInvoiceRepository.existsByLookupCodeAndDeletedAtIsNull(lookupCode));
         
         EInvoice adjustmentInvoice = EInvoice.builder()
                 .household(household)
@@ -375,15 +393,6 @@ public class EInvoiceServiceImpl implements EInvoiceService {
         eInvoiceRepository.save(original);
 
         // 8. Ghi log trạng thái hóa đơn
-        InvoiceStatusLog originalLog = InvoiceStatusLog.builder()
-                .invoice(original)
-                .fromStatus(oldStatus)
-                .toStatus("ADJUSTED")
-                .changedByUser(user)
-                .notes("Bị điều chỉnh bởi hóa đơn ID: " + savedAdjustment.getId() + ". Lý do: " + request.getAdjustmentReason())
-                .build();
-        invoiceStatusLogRepository.save(originalLog);
-
         InvoiceStatusLog adjustmentLog = InvoiceStatusLog.builder()
                 .invoice(savedAdjustment)
                 .fromStatus("NONE")

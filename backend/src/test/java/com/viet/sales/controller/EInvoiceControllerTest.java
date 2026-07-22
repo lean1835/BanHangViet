@@ -85,21 +85,6 @@ public class EInvoiceControllerTest {
 
     @BeforeEach
     public void setUp() {
-        // Cập nhật lại ràng buộc chk_adjustment_ref trong MySQL database local để vượt qua kiểm tra check constraint
-        try {
-            jdbcTemplate.execute("ALTER TABLE e_invoices DROP CHECK chk_adjustment_ref");
-        } catch (Exception e) {
-            // Bỏ qua nếu constraint không tồn tại hoặc không thể drop trực tiếp
-        }
-        try {
-            jdbcTemplate.execute("ALTER TABLE e_invoices ADD CONSTRAINT chk_adjustment_ref CHECK (" +
-                    "(original_invoice_id IS NULL) OR " +
-                    "(original_invoice_id IS NOT NULL AND status <> 'ADJUSTED')" +
-                    ")");
-        } catch (Exception e) {
-            // Bỏ qua nếu đã được add thành công trước đó
-        }
-
         // 1. Hộ kinh doanh
         testHousehold = businessHouseholdRepository.findByTaxCode("9999999999").orElseGet(() -> {
             BusinessHousehold household = BusinessHousehold.builder()
