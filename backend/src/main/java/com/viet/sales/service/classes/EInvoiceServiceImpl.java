@@ -574,14 +574,6 @@ public class EInvoiceServiceImpl implements EInvoiceService {
         
         EInvoice saved = eInvoiceRepository.save(invoice);
 
-        invoiceStatusLogRepository.save(InvoiceStatusLog.builder()
-                .invoice(saved)
-                .fromStatus(oldStatus)
-                .toStatus("WAITING_TAX_CODE")
-                .changedByUser(currentUser)
-                .notes("Đẩy hóa đơn vào hàng đợi chờ cơ quan thuế cấp mã")
-                .build());
-
         log.info("HĐĐT ID={} được đưa vào hàng đợi chờ Cơ quan Thuế duyệt cấp mã.", invoiceId);
         return mapToInvoiceResponse(saved);
     }
@@ -605,14 +597,6 @@ public class EInvoiceServiceImpl implements EInvoiceService {
         invoice.setTaxAuthorityResponse(null);
 
         EInvoice saved = eInvoiceRepository.save(invoice);
-
-        invoiceStatusLogRepository.save(InvoiceStatusLog.builder()
-                .invoice(saved)
-                .fromStatus(oldStatus)
-                .toStatus("WAITING_TAX_CODE")
-                .changedByUser(currentUser)
-                .notes("Gửi lại hóa đơn bị lỗi lên cơ quan thuế")
-                .build());
 
         log.info("Gửi lại HĐĐT bị lỗi ID={} lên Cơ quan Thuế thành công.", invoiceId);
         return mapToInvoiceResponse(saved);
@@ -644,14 +628,6 @@ public class EInvoiceServiceImpl implements EInvoiceService {
         invoice.setCanceledByUser(currentUser);
 
         EInvoice saved = eInvoiceRepository.save(invoice);
-
-        invoiceStatusLogRepository.save(InvoiceStatusLog.builder()
-                .invoice(saved)
-                .fromStatus(oldStatus)
-                .toStatus("CANCELED")
-                .changedByUser(currentUser)
-                .notes("Hủy hóa đơn điện tử. Lý do: " + request.getCancelReason())
-                .build());
 
         log.info("Hủy HĐĐT thành công. ID={}, Lý do={}", invoiceId, request.getCancelReason());
         return mapToInvoiceResponse(saved);
@@ -787,14 +763,6 @@ public class EInvoiceServiceImpl implements EInvoiceService {
         invoice.setTaxResponseAt(LocalDateTime.now());
 
         EInvoice saved = eInvoiceRepository.save(invoice);
-        
-        invoiceStatusLogRepository.save(InvoiceStatusLog.builder()
-                .invoice(saved)
-                .fromStatus("WAITING_TAX_CODE")
-                .toStatus("ISSUED")
-                .changedByUser(invoice.getCreatedByUser())
-                .notes("Cơ quan Thuế phê duyệt cấp mã HĐĐT: " + saved.getTaxAuthorityCode())
-                .build());
 
         log.info("Thuế duyệt cấp mã hóa đơn thành công. ID={}, Số HĐ={}, Mã CQT={}", 
                 invoiceId, saved.getInvoiceNumber(), saved.getTaxAuthorityCode());
@@ -816,14 +784,6 @@ public class EInvoiceServiceImpl implements EInvoiceService {
         invoice.setTaxResponseAt(LocalDateTime.now());
 
         EInvoice saved = eInvoiceRepository.save(invoice);
-
-        invoiceStatusLogRepository.save(InvoiceStatusLog.builder()
-                .invoice(saved)
-                .fromStatus("WAITING_TAX_CODE")
-                .toStatus("SEND_ERROR")
-                .changedByUser(invoice.getCreatedByUser())
-                .notes("Cơ quan Thuế từ chối cấp mã. Lý do: " + saved.getTaxAuthorityResponse())
-                .build());
 
         log.info("Thuế từ chối cấp mã hóa đơn. ID={}, Lý do={}", invoiceId, saved.getTaxAuthorityResponse());
         return mapToInvoiceResponse(saved);

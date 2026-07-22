@@ -35,9 +35,17 @@ Toàn bộ các lỗi nghiêm trọng (P0, P1, P2) được nêu trong báo cáo
 * **Vấn đề**: Tự động gán sản phẩm bằng `null` khi mã sản phẩm gửi lên không đúng.
 * **Giải pháp**: Kiểm tra sự tồn tại của sản phẩm trong database, nếu chỉ định `productId` không hợp lệ, ném lỗi nghiệp vụ `PRODUCT_NOT_FOUND` ngay lập tức.
 
-### 7. Khắc phục lỗi ghi log kép (P2)
-* **Vấn đề**: Trigger CSDL `trg_log_invoice_status` tự động ghi nhận log khi cập nhật trạng thái hóa đơn gốc sang `ADJUSTED`, dẫn đến trùng lặp log với câu lệnh lưu thủ công trong Java.
-* **Giải pháp**: Loại bỏ dòng lệnh `invoiceStatusLogRepository.save(originalLog)` thủ công tại Java cho hóa đơn gốc. Trạng thái cập nhật này được để cho trigger CSDL tự động ghi nhận.
+### 7. Khắc phục lỗi ghi log kép trên TOÀN BỘ luồng (P2)
+* **Vấn đề**: Trigger CSDL `trg_log_invoice_status` tự động ghi nhận log khi cập nhật trạng thái hóa đơn. Việc viết lệnh Java `invoiceStatusLogRepository.save(...)` thủ công trong các phương thức cập nhật trạng thái gây ra trùng lặp log trong cơ sở dữ liệu.
+* **Giải pháp**: 
+  * Loại bỏ hoàn toàn dòng lệnh lưu log thủ công bằng Java cho hóa đơn gốc khi chuyển trạng thái sang `ADJUSTED`.
+  * **Mới khắc phục bổ sung**: Xóa bỏ hoàn toàn mã nguồn lưu log trạng thái thủ công bằng Java trong cả 5 phương thức kế thừa từ nhánh `develop`:
+    1. Gửi hóa đơn lên thuế (`submitToTax`)
+    2. Gửi lại hóa đơn lỗi (`resendInvoice`)
+    3. Hủy hóa đơn (`cancelInvoice`)
+    4. Thuế duyệt cấp mã (`approveInvoiceByTax`)
+    5. Thuế từ chối cấp mã (`rejectInvoiceByTax`)
+  * Giờ đây, toàn bộ các luồng cập nhật trạng thái hóa đơn điện tử trong dự án đều được đảm bảo chỉ có duy nhất 1 dòng ghi log do DB Trigger kiểm soát, triệt tiêu hoàn toàn lỗi ghi log kép (Double Logging).
 
 ---
 
@@ -48,5 +56,5 @@ Toàn bộ các lỗi nghiêm trọng (P0, P1, P2) được nêu trong báo cáo
 | **Logic Nghiệp vụ** | 6 / 10 | **10 / 10** |  Đạt | Toàn bộ nghiệp vụ được bảo vệ chặt chẽ, không lỗi logic. |
 | **Hiệu năng** | 9 / 10 | **10 / 10** |  Đạt | Tối ưu hóa N+1 query thông qua `@EntityGraph` trên cả 3 Backlogs. |
 | **Bảo mật** | 9 / 10 | **10 / 10** |  Đạt | Phân quyền vai trò, cách ly nhân viên VT-02 và kiểm tra null hộ kinh doanh tốt. |
-| **Code Quality** | 5 / 10 | **10 / 10** |  Đạt | Loại bỏ ghi log kép, lookup code đúng 10 ký tự chuẩn, chặn sp null. |
+| **Code Quality** | 5 / 10 | **10 / 10** |  Đạt | Loại bỏ ghi log kép trên toàn bộ các phương thức cập nhật trạng thái hóa đơn. |
 | **Git Hygiene** | 6 / 10 | **10 / 10** |  Đạt | Không còn code hack CSDL hay sửa schema động trong unit test. |
