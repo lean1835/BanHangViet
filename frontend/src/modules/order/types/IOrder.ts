@@ -4,11 +4,7 @@ type TOrderStatus = (typeof ORDER_STATUS)[keyof typeof ORDER_STATUS];
 type TOrderPaymentMethod =
   (typeof ORDER_PAYMENT_METHOD)[keyof typeof ORDER_PAYMENT_METHOD];
 
-export interface IApiResponse<T> {
-  code: number;
-  message: string;
-  result: T;
-}
+export type { IApiResponse } from "@/types/api";
 
 export interface IOrderItemResponse {
   id: string;
