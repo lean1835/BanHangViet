@@ -46,4 +46,14 @@ public interface EInvoiceService {
     InvoiceResponse approveInvoiceByTax(String currentUsername, String invoiceId, String taxCode);
 
     InvoiceResponse rejectInvoiceByTax(String currentUsername, String invoiceId, String errorMessage);
+
+    // Nghiệp vụ giao hóa đơn cho khách
+    com.viet.sales.dto.response.InvoiceQrResponse getInvoiceQr(String currentUsername, String invoiceId);
+    void deliverInvoiceViaEmail(String currentUsername, String invoiceId, String email);
+    com.viet.sales.dto.response.InvoicePrintResponse getInvoicePrintLayout(String currentUsername, String invoiceId, String pageSize);
+
+    // Nghiệp vụ tra cứu & tải lại công khai dành cho khách hàng
+    com.viet.sales.dto.response.PublicInvoiceResponse lookupInvoicePublicly(String lookupCode);
+    byte[] downloadInvoiceFilePublicly(String lookupCode, String format);
 }
+
