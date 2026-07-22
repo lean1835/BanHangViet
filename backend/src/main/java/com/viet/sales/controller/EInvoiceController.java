@@ -2,8 +2,11 @@ package com.viet.sales.controller;
 
 import com.viet.sales.dto.ApiResponse;
 import com.viet.sales.dto.request.CancelInvoiceRequest;
+import com.viet.sales.dto.request.CreateAdjustmentInvoiceRequest;
 import com.viet.sales.dto.request.UpdateInvoiceRequest;
+import com.viet.sales.dto.response.EInvoiceResponse;
 import com.viet.sales.dto.response.InvoiceResponse;
+import com.viet.sales.dto.response.InvoiceStatusLogResponse;
 import com.viet.sales.dto.response.PageResponse;
 import com.viet.sales.service.interfaces.EInvoiceService;
 import jakarta.validation.Valid;
@@ -15,6 +18,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.security.Principal;
 import java.time.LocalDate;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/invoices")
@@ -22,6 +26,43 @@ import java.time.LocalDate;
 public class EInvoiceController {
 
     private final EInvoiceService eInvoiceService;
+
+    // ==========================================
+    // NGHIỆP VỤ ĐIỀU CHỈNH HÓA ĐƠN (Của chúng ta)
+    // ==========================================
+
+    @PostMapping("/{id}/adjust")
+    @PreAuthorize("hasAnyRole('VT-01', 'VT-03')")
+    public ResponseEntity<ApiResponse<EInvoiceResponse>> adjustInvoice(
+            Principal principal,
+            @PathVariable String id,
+            @Valid @RequestBody CreateAdjustmentInvoiceRequest request) {
+        EInvoiceResponse result = eInvoiceService.createAdjustmentInvoice(principal.getName(), id, request);
+        ApiResponse<EInvoiceResponse> response = ApiResponse.<EInvoiceResponse>builder()
+                .code(1000)
+                .message("Lập hóa đơn điều chỉnh thành công")
+                .result(result)
+                .build();
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/{id}/logs")
+    @PreAuthorize("hasAnyRole('VT-01', 'VT-02', 'VT-03')")
+    public ResponseEntity<ApiResponse<List<InvoiceStatusLogResponse>>> getInvoiceLogs(
+            Principal principal,
+            @PathVariable String id) {
+        List<InvoiceStatusLogResponse> result = eInvoiceService.getInvoiceLogs(principal.getName(), id);
+        ApiResponse<List<InvoiceStatusLogResponse>> response = ApiResponse.<List<InvoiceStatusLogResponse>>builder()
+                .code(1000)
+                .message("Lấy lịch sử trạng thái hóa đơn thành công")
+                .result(result)
+                .build();
+        return ResponseEntity.ok(response);
+    }
+
+    // ============================================
+    // NGHIỆP VỤ PHÁT HÀNH HÓA ĐƠN GỐC (Develop Branch) & Tra cứu chung
+    // ============================================
 
     @PostMapping("/draft")
     @PreAuthorize("hasAnyRole('VT-01', 'VT-02')")
@@ -95,12 +136,12 @@ public class EInvoiceController {
         return ResponseEntity.ok(response);
     }
 
-    @GetMapping("/{invoiceId}")
+    @GetMapping("/{id}")
     @PreAuthorize("hasAnyRole('VT-01', 'VT-02', 'VT-03')")
     public ResponseEntity<ApiResponse<InvoiceResponse>> getInvoice(
             Principal principal,
-            @PathVariable String invoiceId) {
-        InvoiceResponse result = eInvoiceService.getInvoice(principal.getName(), invoiceId);
+            @PathVariable String id) {
+        InvoiceResponse result = eInvoiceService.getInvoice(principal.getName(), id);
         ApiResponse<InvoiceResponse> response = ApiResponse.<InvoiceResponse>builder()
                 .code(1000)
                 .message("Lấy chi tiết hóa đơn điện tử thành công")
@@ -116,9 +157,11 @@ public class EInvoiceController {
             @RequestParam(required = false) String status,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate,
+            @RequestParam(required = false) String search,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
-        PageResponse<InvoiceResponse> result = eInvoiceService.getInvoices(principal.getName(), status, fromDate, toDate, page, size);
+        PageResponse<InvoiceResponse> result = eInvoiceService.getInvoices(
+                principal.getName(), status, fromDate, toDate, search, page, size);
         ApiResponse<PageResponse<InvoiceResponse>> response = ApiResponse.<PageResponse<InvoiceResponse>>builder()
                 .code(1000)
                 .message("Lấy danh sách hóa đơn điện tử thành công")
