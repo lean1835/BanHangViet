@@ -22,6 +22,12 @@ const ProductListPage = React.lazy(() => import("@/modules/product/pages/Product
 const StockEntryPage = React.lazy(() => import("@/modules/product/pages/StockEntryPage"));
 const ShiftHistoryPage = React.lazy(() => import("@/modules/shift/pages/ShiftHistoryPage"));
 const OrderHistoryPage = React.lazy(() => import("@/modules/order/pages/OrderHistoryPage"));
+const InvoiceManagementPage = React.lazy(
+  () => import("@/modules/e_invoice/pages/InvoiceManagementPage")
+);
+const AdjustInvoicePage = React.lazy(
+  () => import("@/modules/e_invoice/pages/AdjustInvoicePage")
+);
 const CustomerPage = React.lazy(() => import("@/modules/customer/pages/CustomerPage"));
 const EmployeePage = React.lazy(() => import("@/modules/employee/pages/EmployeePage"));
 const ReportsLayout = React.lazy(() => import("@/modules/report/pages/ReportsLayout"));
@@ -59,9 +65,6 @@ const TaxAuthorityWorkspaceLayout = React.lazy(
 );
 const TaxInvoiceApprovalRoutePage = React.lazy(
   () => import("@/modules/tax_authority/pages/TaxInvoiceApprovalRoutePage")
-);
-const TaxReceivingConfigPage = React.lazy(
-  () => import("@/modules/tax_authority/pages/TaxReceivingConfigPage")
 );
 const PosPage = React.lazy(() => import("@/modules/pos/pages/PosPage"));
 
@@ -131,6 +134,22 @@ export const AppRouter = () => (
             element={
               <RoleRoute allowedRoles={ROLE_GROUPS.NORMAL_MANAGEMENT}>
                 <OrderHistoryPage />
+              </RoleRoute>
+            }
+          />
+          <Route
+            path={ROUTE_SEGMENTS.E_INVOICES}
+            element={
+              <RoleRoute allowedRoles={ROLE_GROUPS.NORMAL_MANAGEMENT}>
+                <InvoiceManagementPage />
+              </RoleRoute>
+            }
+          />
+          <Route
+            path={`${ROUTE_SEGMENTS.E_INVOICES}/:id/adjust`}
+            element={
+              <RoleRoute allowedRoles={ROLE_GROUPS.PRODUCT_MANAGEMENT}>
+                <AdjustInvoicePage />
               </RoleRoute>
             }
           />
@@ -212,7 +231,6 @@ export const AppRouter = () => (
           >
             <Route index element={<Navigate to={ROUTE_SEGMENTS.INVOICES} replace />} />
             <Route path={ROUTE_SEGMENTS.INVOICES} element={<TaxInvoiceApprovalRoutePage />} />
-            <Route path={ROUTE_SEGMENTS.CONFIG} element={<TaxReceivingConfigPage />} />
           </Route>
 
           <Route
