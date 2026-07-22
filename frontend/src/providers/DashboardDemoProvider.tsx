@@ -80,13 +80,21 @@ export const DashboardDemoProvider = ({ children }: DashboardDemoProviderProps) 
   ]);
   const [orders, setOrders] = useState<IOrderResponse[]>([]);
 
+  const canFetchOrders = Boolean(
+    user?.roleId &&
+      (user.roleId === USER_ROLES.OWNER ||
+        user.roleId === USER_ROLES.CASHIER ||
+        user.roleId === USER_ROLES.ACCOUNTANT) &&
+      user?.household != null
+  );
+
   const {
     data: apiOrdersData,
     error: ordersError,
     isError: isOrdersError,
     isLoading: isOrdersLoading,
     refetch: refetchOrdersQuery,
-  } = useGetOrdersHistoryQuery(undefined, { skip: !isOnline });
+  } = useGetOrdersHistoryQuery(undefined, { skip: !isOnline || !canFetchOrders });
 
   useEffect(() => {
     if (isOnline && apiOrdersData?.result) {

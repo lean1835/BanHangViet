@@ -89,6 +89,7 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
   if (!isOpen) return null;
 
   const isOwnerOrAccountant = currentRole === USER_ROLES.OWNER || currentRole === USER_ROLES.ACCOUNTANT;
+  const isTaxAuthority = currentRole === USER_ROLES.TAX_AUTHORITY || currentRole === "VT-05";
   const canCancel = invoice.status === E_INVOICE_STATUS.ISSUED && isOwnerOrAccountant;
 
   const handleSendToTaxClick = async () => {
@@ -234,7 +235,7 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
             {/* Buyer Info */}
             <div className="border-b pb-3 text-[10px] leading-relaxed text-slate-600">
               <p className="font-extrabold text-slate-800 text-xs uppercase mb-1">Thông tin người mua hàng</p>
-              {invoice.status === E_INVOICE_STATUS.DRAFT || invoice.status === E_INVOICE_STATUS.SEND_ERROR ? (
+              {!isTaxAuthority && (invoice.status === E_INVOICE_STATUS.DRAFT || invoice.status === E_INVOICE_STATUS.SEND_ERROR) ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 mt-1">
                   <div className="flex flex-col gap-0.5">
                     <label className="text-[9px] font-bold text-slate-400 uppercase">Họ tên người mua</label>
@@ -452,10 +453,11 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
             </div>
 
             {/* Admin actions block */}
-            <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm flex flex-col gap-4">
-              <h3 className="font-extrabold text-slate-800 text-xs border-b pb-2.5 uppercase tracking-wide">
-                Thao tác nghiệp vụ
-              </h3>
+            {!isTaxAuthority && (
+              <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm flex flex-col gap-4">
+                <h3 className="font-extrabold text-slate-800 text-xs border-b pb-2.5 uppercase tracking-wide">
+                  Thao tác nghiệp vụ
+                </h3>
 
               <div className="flex flex-col gap-2 font-bold">
                 {/* Submit to tax authority */}
@@ -522,6 +524,7 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
                 )}
               </div>
             </div>
+            )}
           </div>
         </div>
 

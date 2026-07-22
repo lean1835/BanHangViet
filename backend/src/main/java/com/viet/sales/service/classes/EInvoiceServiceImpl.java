@@ -5,8 +5,6 @@ import com.viet.sales.dto.request.CancelInvoiceRequest;
 import com.viet.sales.dto.request.CreateAdjustmentInvoiceItemRequest;
 import com.viet.sales.dto.request.CreateAdjustmentInvoiceRequest;
 import com.viet.sales.dto.request.UpdateInvoiceRequest;
-import com.viet.sales.dto.response.EInvoiceItemResponse;
-import com.viet.sales.dto.response.EInvoiceResponse;
 import com.viet.sales.dto.response.InvoiceItemResponse;
 import com.viet.sales.dto.response.InvoiceResponse;
 import com.viet.sales.dto.response.InvoiceStatusLogResponse;
@@ -17,6 +15,7 @@ import com.viet.sales.exception.ErrorCode;
 import com.viet.sales.repository.*;
 import com.viet.sales.service.interfaces.EInvoiceService;
 import com.viet.sales.specification.EInvoiceSpecification;
+import jakarta.persistence.criteria.JoinType;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -153,56 +152,6 @@ public class EInvoiceServiceImpl implements EInvoiceService {
         return false;
     }
 
-    private EInvoiceResponse mapToResponse(EInvoice invoice) {
-        List<EInvoiceItemResponse> itemResponses = invoice.getItems().stream().map(item -> EInvoiceItemResponse.builder()
-                .id(item.getId())
-                .productId(item.getProduct() != null ? item.getProduct().getId() : null)
-                .productName(item.getProductName())
-                .unit(item.getUnit())
-                .quantity(item.getQuantity())
-                .unitPrice(item.getUnitPrice())
-                .taxRatePercentage(item.getTaxRatePercentage())
-                .taxAmount(item.getTaxAmount())
-                .discountAmount(item.getDiscountAmount())
-                .subtotal(item.getSubtotal())
-                .createdAt(item.getCreatedAt())
-                .build()
-        ).collect(Collectors.toList());
-
-        return EInvoiceResponse.builder()
-                .id(invoice.getId())
-                .householdId(invoice.getHousehold().getId())
-                .orderId(invoice.getOrder() != null ? invoice.getOrder().getId() : null)
-                .originalInvoiceId(invoice.getOriginalInvoice() != null ? invoice.getOriginalInvoice().getId() : null)
-                .createdByUserId(invoice.getCreatedByUser().getId())
-                .createdByFullName(invoice.getCreatedByUser().getFullName())
-                .canceledByUserId(invoice.getCanceledByUser() != null ? invoice.getCanceledByUser().getId() : null)
-                .invoiceNumber(invoice.getInvoiceNumber())
-                .invoicePattern(invoice.getInvoicePattern())
-                .invoiceSymbol(invoice.getInvoiceSymbol())
-                .buyerName(invoice.getBuyerName())
-                .buyerTaxCode(invoice.getBuyerTaxCode())
-                .buyerAddress(invoice.getBuyerAddress())
-                .buyerPhone(invoice.getBuyerPhone())
-                .buyerEmail(invoice.getBuyerEmail())
-                .totalAmountBeforeTax(invoice.getTotalAmountBeforeTax())
-                .taxAmount(invoice.getTaxAmount())
-                .discountAmount(invoice.getDiscountAmount())
-                .finalAmount(invoice.getFinalAmount())
-                .status(invoice.getStatus())
-                .taxAuthorityCode(invoice.getTaxAuthorityCode())
-                .taxAuthorityResponse(invoice.getTaxAuthorityResponse())
-                .cancelReason(invoice.getCancelReason())
-                .lookupCode(invoice.getLookupCode())
-                .sentToTaxAt(invoice.getSentToTaxAt())
-                .taxResponseAt(invoice.getTaxResponseAt())
-                .canceledAt(invoice.getCanceledAt())
-                .createdAt(invoice.getCreatedAt())
-                .updatedAt(invoice.getUpdatedAt())
-                .items(itemResponses)
-                .build();
-    }
-
     private InvoiceResponse mapToInvoiceResponse(EInvoice invoice) {
         List<InvoiceItemResponse> items = invoice.getItems().stream()
                 .map(item -> InvoiceItemResponse.builder()
@@ -216,18 +165,20 @@ public class EInvoiceServiceImpl implements EInvoiceService {
                         .taxAmount(item.getTaxAmount())
                         .discountAmount(item.getDiscountAmount())
                         .subtotal(item.getSubtotal())
+                        .createdAt(item.getCreatedAt())
                         .build())
                 .collect(Collectors.toList());
 
         return InvoiceResponse.builder()
                 .id(invoice.getId())
-                .householdId(invoice.getHousehold().getId())
-                .householdName(invoice.getHousehold().getName())
+                .householdId(invoice.getHousehold() != null ? invoice.getHousehold().getId() : null)
+                .householdName(invoice.getHousehold() != null ? invoice.getHousehold().getName() : null)
                 .orderId(invoice.getOrder() != null ? invoice.getOrder().getId() : null)
                 .orderNumber(invoice.getOrder() != null ? invoice.getOrder().getOrderNumber() : null)
                 .originalInvoiceId(invoice.getOriginalInvoice() != null ? invoice.getOriginalInvoice().getId() : null)
-                .createdByUserId(invoice.getCreatedByUser().getId())
-                .createdByUsername(invoice.getCreatedByUser().getUsername())
+                .createdByUserId(invoice.getCreatedByUser() != null ? invoice.getCreatedByUser().getId() : null)
+                .createdByUsername(invoice.getCreatedByUser() != null ? invoice.getCreatedByUser().getUsername() : null)
+                .createdByFullName(invoice.getCreatedByUser() != null ? invoice.getCreatedByUser().getFullName() : null)
                 .canceledByUserId(invoice.getCanceledByUser() != null ? invoice.getCanceledByUser().getId() : null)
                 .canceledByUsername(invoice.getCanceledByUser() != null ? invoice.getCanceledByUser().getUsername() : null)
                 .invoiceNumber(invoice.getInvoiceNumber())
@@ -257,12 +208,12 @@ public class EInvoiceServiceImpl implements EInvoiceService {
     }
 
     // ==========================================
-    // NGHIỆP VỤ ĐIỀU CHỈNH HÓA ĐƠN (Của chúng ta)
+    // NGHIỆP VỤ ĐIỀU CHỈNH HÓA ĐƠN
     // ==========================================
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public EInvoiceResponse createAdjustmentInvoice(String currentUsername, String originalInvoiceId, CreateAdjustmentInvoiceRequest request) {
+    public InvoiceResponse createAdjustmentInvoice(String currentUsername, String originalInvoiceId, CreateAdjustmentInvoiceRequest request) {
         User user = getAuthenticatedUser(currentUsername);
         String role = user.getRole().getCode();
 
@@ -405,24 +356,7 @@ public class EInvoiceServiceImpl implements EInvoiceService {
         // 9. Ghi nhật ký hệ thống
         logActivity(household, user, "ADJUST_INVOICE", original.getId(), buildInvoiceLogMap(original), buildInvoiceLogMap(savedAdjustment));
 
-        return mapToResponse(savedAdjustment);
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public EInvoiceResponse getInvoiceById(String currentUsername, String id) {
-        User user = getAuthenticatedUser(currentUsername);
-        EInvoice invoice = eInvoiceRepository.findByIdAndHouseholdIdAndDeletedAtIsNull(id, user.getHousehold().getId())
-                .orElseThrow(() -> new AppException(ErrorCode.INVOICE_NOT_FOUND));
-
-        // Bảo mật cách ly dữ liệu: Nhân viên VT-02 chỉ được xem hóa đơn do chính mình tạo
-        if ("VT-02".equals(user.getRole().getCode())) {
-            if (!invoice.getCreatedByUser().getId().equals(user.getId())) {
-                throw new AppException(ErrorCode.FORBIDDEN);
-            }
-        }
-
-        return mapToResponse(invoice);
+        return mapToInvoiceResponse(savedAdjustment);
     }
 
     @Override
@@ -574,6 +508,14 @@ public class EInvoiceServiceImpl implements EInvoiceService {
         
         EInvoice saved = eInvoiceRepository.save(invoice);
 
+        invoiceStatusLogRepository.save(InvoiceStatusLog.builder()
+                .invoice(saved)
+                .fromStatus(oldStatus)
+                .toStatus("WAITING_TAX_CODE")
+                .changedByUser(currentUser)
+                .notes("Gửi hóa đơn điện tử chờ cơ quan thuế cấp mã")
+                .build());
+
         log.info("HĐĐT ID={} được đưa vào hàng đợi chờ Cơ quan Thuế duyệt cấp mã.", invoiceId);
         return mapToInvoiceResponse(saved);
     }
@@ -597,6 +539,14 @@ public class EInvoiceServiceImpl implements EInvoiceService {
         invoice.setTaxAuthorityResponse(null);
 
         EInvoice saved = eInvoiceRepository.save(invoice);
+
+        invoiceStatusLogRepository.save(InvoiceStatusLog.builder()
+                .invoice(saved)
+                .fromStatus(oldStatus)
+                .toStatus("WAITING_TAX_CODE")
+                .changedByUser(currentUser)
+                .notes("Gửi lại hóa đơn điện tử bị lỗi lên cơ quan thuế")
+                .build());
 
         log.info("Gửi lại HĐĐT bị lỗi ID={} lên Cơ quan Thuế thành công.", invoiceId);
         return mapToInvoiceResponse(saved);
@@ -628,6 +578,14 @@ public class EInvoiceServiceImpl implements EInvoiceService {
         invoice.setCanceledByUser(currentUser);
 
         EInvoice saved = eInvoiceRepository.save(invoice);
+
+        invoiceStatusLogRepository.save(InvoiceStatusLog.builder()
+                .invoice(saved)
+                .fromStatus(oldStatus)
+                .toStatus("CANCELED")
+                .changedByUser(currentUser)
+                .notes("Hủy hóa đơn điện tử. Lý do: " + request.getCancelReason())
+                .build());
 
         log.info("Hủy HĐĐT thành công. ID={}, Lý do={}", invoiceId, request.getCancelReason());
         return mapToInvoiceResponse(saved);
@@ -725,10 +683,15 @@ public class EInvoiceServiceImpl implements EInvoiceService {
     @Override
     @Transactional(readOnly = true)
     public PageResponse<InvoiceResponse> getWaitingInvoicesForTax(int page, int size) {
-        Specification<EInvoice> spec = (root, query, cb) -> cb.and(
-                cb.equal(root.get("status"), "WAITING_TAX_CODE"),
-                cb.isNull(root.get("deletedAt"))
-        );
+        Specification<EInvoice> spec = (root, query, cb) -> {
+            if (query != null && !Long.class.equals(query.getResultType()) && !long.class.equals(query.getResultType())) {
+                root.fetch("items", JoinType.LEFT);
+            }
+            return cb.and(
+                    cb.equal(root.get("status"), "WAITING_TAX_CODE"),
+                    cb.isNull(root.get("deletedAt"))
+            );
+        };
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
         Page<EInvoice> pageData = eInvoiceRepository.findAll(spec, pageable);
         List<InvoiceResponse> content = pageData.getContent().stream()
@@ -746,8 +709,37 @@ public class EInvoiceServiceImpl implements EInvoiceService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public PageResponse<InvoiceResponse> getProcessedInvoicesForTax(int page, int size) {
+        Specification<EInvoice> spec = (root, query, cb) -> {
+            if (query != null && !Long.class.equals(query.getResultType()) && !long.class.equals(query.getResultType())) {
+                root.fetch("items", JoinType.LEFT);
+            }
+            return cb.and(
+                    root.get("status").in("ISSUED", "SEND_ERROR"),
+                    cb.isNull(root.get("deletedAt"))
+            );
+        };
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "updatedAt"));
+        Page<EInvoice> pageData = eInvoiceRepository.findAll(spec, pageable);
+        List<InvoiceResponse> content = pageData.getContent().stream()
+                .map(this::mapToInvoiceResponse)
+                .collect(Collectors.toList());
+
+        return PageResponse.<InvoiceResponse>builder()
+                .content(content)
+                .pageNumber(pageData.getNumber())
+                .pageSize(pageData.getSize())
+                .totalElements(pageData.getTotalElements())
+                .totalPages(pageData.getTotalPages())
+                .last(pageData.isLast())
+                .build();
+    }
+
+    @Override
     @Transactional(rollbackFor = Exception.class)
-    public InvoiceResponse approveInvoiceByTax(String invoiceId, String taxCode) {
+    public InvoiceResponse approveInvoiceByTax(String currentUsername, String invoiceId, String taxCode) {
+        User currentUser = currentUsername != null ? getAuthenticatedUser(currentUsername) : null;
         EInvoice invoice = eInvoiceRepository.findById(invoiceId)
                 .orElseThrow(() -> new AppException(ErrorCode.INVOICE_NOT_FOUND));
 
@@ -755,6 +747,7 @@ public class EInvoiceServiceImpl implements EInvoiceService {
             throw new AppException(ErrorCode.INVOICE_NOT_SEND_ERROR);
         }
 
+        String oldStatus = invoice.getStatus();
         String invoiceNum = String.format("%07d", (int)(Math.random() * 10000000));
         
         invoice.setStatus("ISSUED");
@@ -764,6 +757,14 @@ public class EInvoiceServiceImpl implements EInvoiceService {
 
         EInvoice saved = eInvoiceRepository.save(invoice);
 
+        invoiceStatusLogRepository.save(InvoiceStatusLog.builder()
+                .invoice(saved)
+                .fromStatus(oldStatus)
+                .toStatus("ISSUED")
+                .changedByUser(currentUser != null ? currentUser : invoice.getCreatedByUser())
+                .notes("Cơ quan thuế phê duyệt cấp mã: " + saved.getTaxAuthorityCode())
+                .build());
+
         log.info("Thuế duyệt cấp mã hóa đơn thành công. ID={}, Số HĐ={}, Mã CQT={}", 
                 invoiceId, saved.getInvoiceNumber(), saved.getTaxAuthorityCode());
         return mapToInvoiceResponse(saved);
@@ -771,7 +772,8 @@ public class EInvoiceServiceImpl implements EInvoiceService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public InvoiceResponse rejectInvoiceByTax(String invoiceId, String errorMessage) {
+    public InvoiceResponse rejectInvoiceByTax(String currentUsername, String invoiceId, String errorMessage) {
+        User currentUser = currentUsername != null ? getAuthenticatedUser(currentUsername) : null;
         EInvoice invoice = eInvoiceRepository.findById(invoiceId)
                 .orElseThrow(() -> new AppException(ErrorCode.INVOICE_NOT_FOUND));
 
@@ -779,11 +781,20 @@ public class EInvoiceServiceImpl implements EInvoiceService {
             throw new AppException(ErrorCode.INVOICE_NOT_SEND_ERROR);
         }
 
+        String oldStatus = invoice.getStatus();
         invoice.setStatus("SEND_ERROR");
         invoice.setTaxAuthorityResponse(errorMessage != null ? errorMessage : "Dữ liệu hóa đơn không hợp lệ theo quy định.");
         invoice.setTaxResponseAt(LocalDateTime.now());
 
         EInvoice saved = eInvoiceRepository.save(invoice);
+
+        invoiceStatusLogRepository.save(InvoiceStatusLog.builder()
+                .invoice(saved)
+                .fromStatus(oldStatus)
+                .toStatus("SEND_ERROR")
+                .changedByUser(currentUser != null ? currentUser : invoice.getCreatedByUser())
+                .notes("Cơ quan thuế từ chối cấp mã: " + saved.getTaxAuthorityResponse())
+                .build());
 
         log.info("Thuế từ chối cấp mã hóa đơn. ID={}, Lý do={}", invoiceId, saved.getTaxAuthorityResponse());
         return mapToInvoiceResponse(saved);
