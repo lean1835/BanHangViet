@@ -35,19 +35,6 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(ErrorCode.INVALID_INPUT.getStatusCode()).body(apiResponse);
     }
 
-    @ExceptionHandler(value = jakarta.validation.ConstraintViolationException.class)
-    public ResponseEntity<ApiResponse<?>> handleConstraintViolationException(jakarta.validation.ConstraintViolationException exception) {
-        String detailMessage = exception.getConstraintViolations().stream()
-                .map(violation -> violation.getPropertyPath() + " " + violation.getMessage())
-                .collect(Collectors.joining(", "));
-
-        ApiResponse<?> apiResponse = ApiResponse.builder()
-                .code(ErrorCode.INVALID_INPUT.getCode())
-                .message(ErrorCode.INVALID_INPUT.getMessage() + ": " + detailMessage)
-                .build();
-        return ResponseEntity.status(ErrorCode.INVALID_INPUT.getStatusCode()).body(apiResponse);
-    }
-
     @ExceptionHandler(value = AccessDeniedException.class)
     public ResponseEntity<ApiResponse<?>> handleAccessDeniedException(AccessDeniedException exception) {
         ErrorCode errorCode = ErrorCode.FORBIDDEN;
