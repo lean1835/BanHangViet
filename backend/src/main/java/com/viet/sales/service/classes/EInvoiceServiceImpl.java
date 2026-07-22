@@ -333,6 +333,32 @@ public class EInvoiceServiceImpl implements EInvoiceService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public PageResponse<InvoiceResponse> getProcessedInvoicesForTax(int page, int size) {
+        Specification<EInvoice> spec = (root, query, cb) -> cb.and(
+                cb.or(
+                        cb.equal(root.get("status"), "ISSUED"),
+                        cb.equal(root.get("status"), "SEND_ERROR")
+                ),
+                cb.isNull(root.get("deletedAt"))
+        );
+        Pageable pageable = PageRequest.of(page, size, org.springframework.data.domain.Sort.by("updatedAt").descending());
+        Page<EInvoice> pageData = eInvoiceRepository.findAll(spec, pageable);
+        List<InvoiceResponse> content = pageData.getContent().stream()
+                .map(this::mapToResponse)
+                .collect(Collectors.toList());
+
+        return PageResponse.<InvoiceResponse>builder()
+                .content(content)
+                .pageNumber(pageData.getNumber())
+                .pageSize(pageData.getSize())
+                .totalElements(pageData.getTotalElements())
+                .totalPages(pageData.getTotalPages())
+                .last(pageData.isLast())
+                .build();
+    }
+
+    @Override
     @Transactional(rollbackFor = Exception.class)
     public InvoiceResponse approveInvoiceByTax(String invoiceId, String taxCode) {
         EInvoice invoice = eInvoiceRepository.findById(invoiceId)

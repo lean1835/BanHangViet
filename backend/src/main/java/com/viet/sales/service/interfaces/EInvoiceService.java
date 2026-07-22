@@ -18,6 +18,7 @@ public interface EInvoiceService {
     
     // Cổng tiếp nhận dành cho Cơ quan Thuế mô phỏng (VT-05)
     PageResponse<InvoiceResponse> getWaitingInvoicesForTax(int page, int size);
+    PageResponse<InvoiceResponse> getProcessedInvoicesForTax(int page, int size);
     InvoiceResponse approveInvoiceByTax(String invoiceId, String taxCode);
     InvoiceResponse rejectInvoiceByTax(String invoiceId, String errorMessage);
 }

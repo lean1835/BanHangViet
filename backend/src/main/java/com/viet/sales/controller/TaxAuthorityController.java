@@ -31,6 +31,20 @@ public class TaxAuthorityController {
         return ResponseEntity.ok(response);
     }
 
+    @GetMapping("/history")
+    @PreAuthorize("hasRole('VT-05')")
+    public ResponseEntity<ApiResponse<PageResponse<InvoiceResponse>>> getProcessedInvoices(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        PageResponse<InvoiceResponse> result = eInvoiceService.getProcessedInvoicesForTax(page, size);
+        ApiResponse<PageResponse<InvoiceResponse>> response = ApiResponse.<PageResponse<InvoiceResponse>>builder()
+                .code(1000)
+                .message("Lấy danh sách lịch sử hóa đơn đã xử lý thành công")
+                .result(result)
+                .build();
+        return ResponseEntity.ok(response);
+    }
+
     @PostMapping("/{invoiceId}/approve")
     @PreAuthorize("hasRole('VT-05')")
     public ResponseEntity<ApiResponse<InvoiceResponse>> approveInvoice(
