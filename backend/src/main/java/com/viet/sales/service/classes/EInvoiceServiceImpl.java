@@ -241,6 +241,14 @@ public class EInvoiceServiceImpl implements EInvoiceService {
 
         EInvoice saved = eInvoiceRepository.save(invoice);
 
+        invoiceStatusLogRepository.save(InvoiceStatusLog.builder()
+                .invoice(saved)
+                .fromStatus(oldStatus)
+                .toStatus("CANCELED")
+                .changedByUser(currentUser)
+                .notes("Hủy hóa đơn điện tử. Lý do: " + request.getCancelReason())
+                .build());
+
         log.info("Hủy HĐĐT thành công. ID={}, Lý do={}", invoiceId, request.getCancelReason());
         return mapToResponse(saved);
     }
