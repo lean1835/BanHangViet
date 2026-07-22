@@ -1,4 +1,5 @@
 import type { TProductStatus } from "@/modules/product/types/TProductStatus";
+import type { TStockFilter } from "@/modules/product/types/TStockFilter";
 
 export interface IProduct {
   id: string;
@@ -16,3 +17,14 @@ export interface IProduct {
   createdAt: string;
   updatedAt: string;
 }
+
+export interface IGetProductsParams {
+  search?: string;
+  groupId?: string;
+  status?: TProductStatus;
+  stockFilter?: TStockFilter;
+  page?: number;
+  size?: number;
+}
+
+export type TProductPayload = Partial<IProduct> & { taxRateId: string };

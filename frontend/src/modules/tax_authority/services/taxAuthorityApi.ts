@@ -1,8 +1,7 @@
 import { baseApi } from "@/stores/baseApi";
 import { HTTP_METHODS, API_TAG_TYPES } from "@/constants/api";
-import type { IApiResponse } from "@/modules/order/types/IOrder";
+import type { IApiResponse, IPageResponse } from "@/types/api";
 import type { IInvoice } from "@/modules/e_invoice/types/IInvoice";
-import type { IPageResponse } from "@/modules/e_invoice/services/eInvoiceApi";
 
 export const taxAuthorityApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
