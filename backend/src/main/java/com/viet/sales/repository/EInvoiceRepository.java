@@ -15,7 +15,7 @@ import java.util.Optional;
 public interface EInvoiceRepository extends JpaRepository<EInvoice, String>, JpaSpecificationExecutor<EInvoice> {
 
     @Override
-    @EntityGraph(attributePaths = {"items", "items.product", "createdByUser", "canceledByUser", "household", "order"})
+    @EntityGraph(attributePaths = {"createdByUser", "canceledByUser", "household", "order"})
     Page<EInvoice> findAll(Specification<EInvoice> spec, Pageable pageable);
 
     @Override

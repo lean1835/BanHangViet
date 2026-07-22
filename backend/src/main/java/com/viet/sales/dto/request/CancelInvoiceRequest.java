@@ -11,6 +11,6 @@ import lombok.*;
 public class CancelInvoiceRequest {
 
     @NotBlank(message = "Lý do hủy hóa đơn không được để trống")
-    @Size(max = 500, message = "Lý do hủy không vượt quá 500 ký tự")
+    @Size(min = 10, max = 500, message = "Lý do hủy hóa đơn phải từ 10 đến 500 ký tự")
     private String cancelReason;
 }

@@ -128,6 +128,7 @@ public class EInvoice {
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
 
+    @org.hibernate.annotations.BatchSize(size = 20)
     @OneToMany(mappedBy = "invoice", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @Builder.Default
     @ToString.Exclude

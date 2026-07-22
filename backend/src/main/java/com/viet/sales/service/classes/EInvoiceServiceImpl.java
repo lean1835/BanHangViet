@@ -62,13 +62,14 @@ public class EInvoiceServiceImpl implements EInvoiceService {
             throw new AppException(ErrorCode.FORBIDDEN);
         }
 
-        Order order = orderRepository.findById(orderId)
+        Order order = orderRepository.findByIdAndHouseholdIdAndDeletedAtIsNull(orderId, household.getId())
                 .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));
-        if (!order.getHousehold().getId().equals(household.getId())) {
-            throw new AppException(ErrorCode.FORBIDDEN);
-        }
 
         if (!"COMPLETED".equals(order.getStatus())) {
+            throw new AppException(ErrorCode.ORDER_NOT_COMPLETED);
+        }
+
+        if (!"PAID".equals(order.getPaymentStatus())) {
             throw new AppException(ErrorCode.ORDER_NOT_COMPLETED);
         }
 
