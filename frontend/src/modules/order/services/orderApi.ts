@@ -1,7 +1,8 @@
 import { baseApi } from "@/stores/baseApi";
 import { API_CONFIG, API_TAG_TYPES, HTTP_METHODS } from "@/constants/api";
 import { ORDER_API_ENDPOINTS, ORDER_API_TAG_IDS } from "@/constants/order";
-import type { IApiResponse, IOrderResponse } from "@/modules/order/types/IOrder";
+import type { IApiResponse } from "@/types/api";
+import type { IOrderResponse } from "@/modules/order/types/IOrder";
 
 export const orderApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({

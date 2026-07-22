@@ -54,3 +54,51 @@ export interface IInvoice {
   updatedAt?: string;
   items?: IInvoiceItem[];
 }
+
+export interface IGetInvoicesParams {
+  status?: string;
+  fromDate?: string;
+  toDate?: string;
+  search?: string;
+  page?: number;
+  size?: number;
+}
+
+export interface ICancelInvoiceRequest {
+  invoiceId: string;
+  cancelReason: string;
+}
+
+export interface IUpdateInvoiceRequest {
+  invoiceId: string;
+  buyerName?: string;
+  buyerTaxCode?: string;
+  buyerAddress?: string;
+  buyerPhone?: string;
+  buyerEmail?: string;
+}
+
+export interface ICreateAdjustmentInvoiceItemRequest {
+  productId?: string;
+  productName: string;
+  unit: string;
+  quantity: number;
+  unitPrice: number;
+  taxRatePercentage: number;
+  discountAmount: number;
+}
+
+export interface ICreateAdjustmentInvoiceRequest {
+  adjustmentReason: string;
+  buyerName?: string;
+  buyerTaxCode?: string;
+  buyerAddress?: string;
+  buyerPhone?: string;
+  buyerEmail?: string;
+  items: ICreateAdjustmentInvoiceItemRequest[];
+}
+
+export interface IAdjustInvoiceParams {
+  invoiceId: string;
+  body: ICreateAdjustmentInvoiceRequest;
+}

@@ -1,32 +1,21 @@
 import { baseApi } from "@/stores/baseApi";
 import { HTTP_METHODS, API_TAG_TYPES } from "@/constants/api";
-import type { IApiResponse } from "@/modules/order/types/IOrder";
-import type { IInvoice } from "../types/IInvoice";
-
-export interface IPageResponse<T> {
-  content: T[];
-  pageable: {
-    pageNumber: number;
-    pageSize: number;
-  };
-  totalPages: number;
-  totalElements: number;
-  last: boolean;
-  first: boolean;
-  size: number;
-  number: number;
-}
+import type { IApiResponse, IPageResponse } from "@/types/api";
+import type {
+  IAdjustInvoiceParams,
+  ICancelInvoiceRequest,
+  IGetInvoicesParams,
+  IInvoice,
+  IUpdateInvoiceRequest,
+} from "../types/IInvoice";
 
 export const eInvoiceApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
-    getInvoices: builder.query<
-      IApiResponse<IPageResponse<IInvoice>>,
-      { status?: string; fromDate?: string; toDate?: string; page?: number; size?: number }
-    >({
+    getInvoices: builder.query<IApiResponse<IPageResponse<IInvoice>>, IGetInvoicesParams | void>({
       query: (params) => ({
         url: "/invoices",
         method: HTTP_METHODS.GET,
-        params,
+        params: params || undefined,
       }),
       providesTags: (result) =>
         result?.result?.content
@@ -71,7 +60,7 @@ export const eInvoiceApi = baseApi.injectEndpoints({
         { type: API_TAG_TYPES.INVOICE, id: "LIST" },
       ],
     }),
-    cancelInvoice: builder.mutation<IApiResponse<IInvoice>, { invoiceId: string; cancelReason: string }>({
+    cancelInvoice: builder.mutation<IApiResponse<IInvoice>, ICancelInvoiceRequest>({
       query: ({ invoiceId, cancelReason }) => ({
         url: `/invoices/${invoiceId}/cancel`,
         method: HTTP_METHODS.POST,
@@ -82,17 +71,7 @@ export const eInvoiceApi = baseApi.injectEndpoints({
         { type: API_TAG_TYPES.INVOICE, id: "LIST" },
       ],
     }),
-    updateInvoice: builder.mutation<
-      IApiResponse<IInvoice>,
-      {
-        invoiceId: string;
-        buyerName?: string;
-        buyerTaxCode?: string;
-        buyerAddress?: string;
-        buyerPhone?: string;
-        buyerEmail?: string;
-      }
-    >({
+    updateInvoice: builder.mutation<IApiResponse<IInvoice>, IUpdateInvoiceRequest>({
       query: ({ invoiceId, ...body }) => ({
         url: `/invoices/${invoiceId}`,
         method: HTTP_METHODS.PUT,
@@ -103,29 +82,7 @@ export const eInvoiceApi = baseApi.injectEndpoints({
         { type: API_TAG_TYPES.INVOICE, id: "LIST" },
       ],
     }),
-    adjustInvoice: builder.mutation<
-      IApiResponse<IInvoice>,
-      {
-        invoiceId: string;
-        body: {
-          adjustmentReason: string;
-          buyerName?: string;
-          buyerTaxCode?: string;
-          buyerAddress?: string;
-          buyerPhone?: string;
-          buyerEmail?: string;
-          items: Array<{
-            productId?: string;
-            productName: string;
-            unit: string;
-            quantity: number;
-            unitPrice: number;
-            taxRatePercentage: number;
-            discountAmount: number;
-          }>;
-        };
-      }
-    >({
+    adjustInvoice: builder.mutation<IApiResponse<IInvoice>, IAdjustInvoiceParams>({
       query: ({ invoiceId, body }) => ({
         url: `/invoices/${invoiceId}/adjust`,
         method: HTTP_METHODS.POST,

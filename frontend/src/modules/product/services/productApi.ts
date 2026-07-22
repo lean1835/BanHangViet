@@ -7,36 +7,15 @@ import {
   PRODUCT_QUERY_CONFIG,
   PRODUCT_STATUS,
 } from "@/constants/product";
-import type { IProduct } from "@/modules/product/types/IProduct";
+import type { IProduct, IGetProductsParams, TProductPayload } from "@/modules/product/types/IProduct";
 import type { IProductGroup } from "@/modules/product/types/IProductGroup";
-import type { TProductStatus } from "@/modules/product/types/TProductStatus";
-import type { TStockFilter } from "@/modules/product/types/TStockFilter";
 import type {
   IGoodsReceipt,
   IGoodsReceiptDetail,
   IGoodsReceiptDetailInfo,
 } from "@/modules/product/types/IGoodsReceipt";
 import { isRecord } from "@/utils/typeGuards";
-
-interface IPageResponse<T> {
-  content: T[];
-  pageNumber: number;
-  pageSize: number;
-  totalElements: number;
-  totalPages: number;
-  last: boolean;
-}
-
-interface IGetProductsParams {
-  search?: string;
-  groupId?: string;
-  status?: TProductStatus;
-  stockFilter?: TStockFilter;
-  page?: number;
-  size?: number;
-}
-
-type TProductPayload = Partial<IProduct> & { taxRateId: string };
+import type { IPageResponse } from "@/types/api";
 
 const readString = (value: unknown): string =>
   typeof value === "string" ? value : "";
