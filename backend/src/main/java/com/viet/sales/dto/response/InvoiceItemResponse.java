@@ -3,6 +3,7 @@ package com.viet.sales.dto.response;
 import lombok.*;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 
 @Data
 @Builder
@@ -19,4 +20,5 @@ public class InvoiceItemResponse {
     private BigDecimal taxAmount;
     private BigDecimal discountAmount;
     private BigDecimal subtotal;
+    private LocalDateTime createdAt;
 }

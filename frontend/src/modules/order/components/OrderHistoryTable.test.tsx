@@ -29,6 +29,21 @@ const mocks = vi.hoisted(() => ({
   showError: vi.fn(),
   showInfo: vi.fn(),
   showWarning: vi.fn(),
+  navigate: vi.fn(),
+  createInvoiceDraft: vi.fn(),
+}));
+
+vi.mock("react-router-dom", async () => {
+  const actual = await vi.importActual<typeof import("react-router-dom")>("react-router-dom");
+  return {
+    ...actual,
+    useNavigate: () => mocks.navigate,
+  };
+});
+
+vi.mock("@/modules/e_invoice/services/eInvoiceApi", () => ({
+  useCreateInvoiceDraftMutation: () => [mocks.createInvoiceDraft, { isLoading: false }],
+  useGetInvoicesQuery: () => ({ data: undefined }),
 }));
 
 vi.mock("@/providers/DashboardDemoProvider", () => ({

@@ -19,6 +19,7 @@ public class InvoiceResponse {
     private String originalInvoiceId;
     private String createdByUserId;
     private String createdByUsername;
+    private String createdByFullName;
     private String canceledByUserId;
     private String canceledByUsername;
     private String invoiceNumber;

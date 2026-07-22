@@ -4,7 +4,6 @@ import com.viet.sales.dto.ApiResponse;
 import com.viet.sales.dto.request.CancelInvoiceRequest;
 import com.viet.sales.dto.request.CreateAdjustmentInvoiceRequest;
 import com.viet.sales.dto.request.UpdateInvoiceRequest;
-import com.viet.sales.dto.response.EInvoiceResponse;
 import com.viet.sales.dto.response.InvoiceResponse;
 import com.viet.sales.dto.response.InvoiceStatusLogResponse;
 import com.viet.sales.dto.response.PageResponse;
@@ -28,17 +27,17 @@ public class EInvoiceController {
     private final EInvoiceService eInvoiceService;
 
     // ==========================================
-    // NGHIỆP VỤ ĐIỀU CHỈNH HÓA ĐƠN (Của chúng ta)
+    // NGHIỆP VỤ ĐIỀU CHỈNH HÓA ĐƠN
     // ==========================================
 
     @PostMapping("/{id}/adjust")
     @PreAuthorize("hasAnyRole('VT-01', 'VT-03')")
-    public ResponseEntity<ApiResponse<EInvoiceResponse>> adjustInvoice(
+    public ResponseEntity<ApiResponse<InvoiceResponse>> adjustInvoice(
             Principal principal,
             @PathVariable String id,
             @Valid @RequestBody CreateAdjustmentInvoiceRequest request) {
-        EInvoiceResponse result = eInvoiceService.createAdjustmentInvoice(principal.getName(), id, request);
-        ApiResponse<EInvoiceResponse> response = ApiResponse.<EInvoiceResponse>builder()
+        InvoiceResponse result = eInvoiceService.createAdjustmentInvoice(principal.getName(), id, request);
+        ApiResponse<InvoiceResponse> response = ApiResponse.<InvoiceResponse>builder()
                 .code(1000)
                 .message("Lập hóa đơn điều chỉnh thành công")
                 .result(result)
@@ -61,7 +60,7 @@ public class EInvoiceController {
     }
 
     // ============================================
-    // NGHIỆP VỤ PHÁT HÀNH HÓA ĐƠN GỐC (Develop Branch) & Tra cứu chung
+    // NGHIỆP VỤ PHÁT HÀNH HÓA ĐƠN GỐC & TRA CỨU CHUNG
     // ============================================
 
     @PostMapping("/draft")
