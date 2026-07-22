@@ -33,6 +33,8 @@ public interface EInvoiceRepository extends JpaRepository<EInvoice, String>, Jpa
 
     boolean existsByLookupCodeAndDeletedAtIsNull(String lookupCode);
 
+    java.util.List<EInvoice> findByHouseholdIdAndDeletedAtIsNullOrderByCreatedAtDesc(String householdId);
+
     long countByHouseholdIdAndStatusAndDeletedAtIsNullAndCreatedAtBetween(
             String householdId, String status, java.time.LocalDateTime start, java.time.LocalDateTime end
     );
