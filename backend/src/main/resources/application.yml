@@ -29,3 +29,4 @@ app:
   jwt:
     secret: ${JWT_SECRET:9a4f2c8d3e1b7f0a5c8d2e4b6a1f3c5e7a9b0c2d4e6f8a0b1c3d5e7f9a1b3c5e}
     expiration-ms: ${JWT_EXPIRATION_MS:86400000} # 24 hours
+  frontend-url: ${FRONTEND_URL:http://localhost:5173}

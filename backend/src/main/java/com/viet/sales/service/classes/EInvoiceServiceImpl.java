@@ -55,6 +55,9 @@ public class EInvoiceServiceImpl implements EInvoiceService {
     private final com.viet.sales.service.interfaces.EmailService emailService;
     private final ObjectMapper objectMapper;
 
+    @org.springframework.beans.factory.annotation.Value("${app.frontend-url:http://localhost:5173}")
+    private String frontendUrl;
+
 
     private User getAuthenticatedUser(String username) {
         return userRepository.findByUsername(username)
@@ -403,6 +406,10 @@ public class EInvoiceServiceImpl implements EInvoiceService {
             throw new AppException(ErrorCode.FORBIDDEN);
         }
 
+        if (household.getRevenueThresholdEnabled() == null || !household.getRevenueThresholdEnabled()) {
+            throw new AppException(ErrorCode.FEATURE_NOT_ENABLED);
+        }
+
         Order order = orderRepository.findByIdAndHouseholdIdAndDeletedAtIsNull(orderId, household.getId())
                 .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));
 
@@ -505,6 +512,8 @@ public class EInvoiceServiceImpl implements EInvoiceService {
             throw new AppException(ErrorCode.INVOICE_NOT_SEND_ERROR);
         }
 
+        Map<String, Object> oldVal = buildInvoiceLogMap(invoice);
+
         String oldStatus = invoice.getStatus();
         invoice.setStatus("WAITING_TAX_CODE");
         invoice.setSentToTaxAt(LocalDateTime.now());
@@ -518,6 +527,8 @@ public class EInvoiceServiceImpl implements EInvoiceService {
                 .changedByUser(currentUser)
                 .notes("Gửi hóa đơn điện tử chờ cơ quan thuế cấp mã")
                 .build());
+
+        logActivity(invoice.getHousehold(), currentUser, "SUBMIT_TAX", saved.getId(), oldVal, buildInvoiceLogMap(saved));
 
         log.info("HĐĐT ID={} được đưa vào hàng đợi chờ Cơ quan Thuế duyệt cấp mã.", invoiceId);
         return mapToInvoiceResponse(saved);
@@ -574,6 +585,8 @@ public class EInvoiceServiceImpl implements EInvoiceService {
             throw new AppException(ErrorCode.INVOICE_CANNOT_BE_CANCELED);
         }
 
+        Map<String, Object> oldVal = buildInvoiceLogMap(invoice);
+
         String oldStatus = invoice.getStatus();
         invoice.setStatus("CANCELED");
         invoice.setCancelReason(request.getCancelReason());
@@ -589,6 +602,8 @@ public class EInvoiceServiceImpl implements EInvoiceService {
                 .changedByUser(currentUser)
                 .notes("Hủy hóa đơn điện tử. Lý do: " + request.getCancelReason())
                 .build());
+
+        logActivity(invoice.getHousehold(), currentUser, "CANCEL_INVOICE", saved.getId(), oldVal, buildInvoiceLogMap(saved));
 
         log.info("Hủy HĐĐT thành công. ID={}, Lý do={}", invoiceId, request.getCancelReason());
         return mapToInvoiceResponse(saved);
@@ -637,6 +652,9 @@ public class EInvoiceServiceImpl implements EInvoiceService {
 
         final String finalCreatedByUserId = createdByUserId;
         Specification<EInvoice> spec = (root, query, cb) -> {
+            if (query != null && !Long.class.equals(query.getResultType()) && !long.class.equals(query.getResultType())) {
+                root.fetch("items", JoinType.LEFT);
+            }
             List<Predicate> predicates = new ArrayList<>();
             
             predicates.add(cb.equal(root.get("household").get("id"), household.getId()));
@@ -741,8 +759,15 @@ public class EInvoiceServiceImpl implements EInvoiceService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public InvoiceResponse approveInvoiceByTax(String currentUsername, String invoiceId, String taxCode) {
+    public synchronized InvoiceResponse approveInvoiceByTax(String currentUsername, String invoiceId, String taxCode) {
         User currentUser = currentUsername != null ? getAuthenticatedUser(currentUsername) : null;
+        if (currentUser == null) {
+            currentUser = userRepository.findAll().stream()
+                    .filter(u -> u.getRole() != null && "VT-05".equals(u.getRole().getCode()))
+                    .findFirst()
+                    .orElseThrow(() -> new AppException(ErrorCode.UNAUTHORIZED));
+        }
+
         EInvoice invoice = eInvoiceRepository.findById(invoiceId)
                 .orElseThrow(() -> new AppException(ErrorCode.INVOICE_NOT_FOUND));
 
@@ -750,8 +775,24 @@ public class EInvoiceServiceImpl implements EInvoiceService {
             throw new AppException(ErrorCode.INVOICE_NOT_SEND_ERROR);
         }
 
+        Map<String, Object> oldVal = buildInvoiceLogMap(invoice);
+
         String oldStatus = invoice.getStatus();
-        String invoiceNum = String.format("%07d", (int)(Math.random() * 10000000));
+        
+        // Sequential numbering
+        String householdId = invoice.getHousehold().getId();
+        String pattern = invoice.getInvoicePattern();
+        String symbol = invoice.getInvoiceSymbol();
+        Optional<String> maxNumOpt = eInvoiceRepository.findMaxInvoiceNumber(householdId, pattern, symbol);
+        int nextNum = 1;
+        if (maxNumOpt.isPresent() && maxNumOpt.get() != null) {
+            try {
+                nextNum = Integer.parseInt(maxNumOpt.get()) + 1;
+            } catch (NumberFormatException e) {
+                // Ignore and keep 1
+            }
+        }
+        String invoiceNum = String.format("%07d", nextNum);
         
         invoice.setStatus("ISSUED");
         invoice.setInvoiceNumber(invoiceNum);
@@ -764,9 +805,11 @@ public class EInvoiceServiceImpl implements EInvoiceService {
                 .invoice(saved)
                 .fromStatus(oldStatus)
                 .toStatus("ISSUED")
-                .changedByUser(currentUser != null ? currentUser : invoice.getCreatedByUser())
-                .notes("Cơ quan thuế phê duyệt cấp mã: " + saved.getTaxAuthorityCode())
+                .changedByUser(currentUser)
+                .notes("Cơ quan thuế " + currentUser.getUsername() + " đã phê duyệt cấp mã: " + saved.getTaxAuthorityCode())
                 .build());
+
+        logActivity(invoice.getHousehold(), currentUser, "APPROVE_TAX", saved.getId(), oldVal, buildInvoiceLogMap(saved));
 
         log.info("Thuế duyệt cấp mã hóa đơn thành công. ID={}, Số HĐ={}, Mã CQT={}", 
                 invoiceId, saved.getInvoiceNumber(), saved.getTaxAuthorityCode());
@@ -777,12 +820,21 @@ public class EInvoiceServiceImpl implements EInvoiceService {
     @Transactional(rollbackFor = Exception.class)
     public InvoiceResponse rejectInvoiceByTax(String currentUsername, String invoiceId, String errorMessage) {
         User currentUser = currentUsername != null ? getAuthenticatedUser(currentUsername) : null;
+        if (currentUser == null) {
+            currentUser = userRepository.findAll().stream()
+                    .filter(u -> u.getRole() != null && "VT-05".equals(u.getRole().getCode()))
+                    .findFirst()
+                    .orElseThrow(() -> new AppException(ErrorCode.UNAUTHORIZED));
+        }
+
         EInvoice invoice = eInvoiceRepository.findById(invoiceId)
                 .orElseThrow(() -> new AppException(ErrorCode.INVOICE_NOT_FOUND));
 
         if (!"WAITING_TAX_CODE".equals(invoice.getStatus())) {
             throw new AppException(ErrorCode.INVOICE_NOT_SEND_ERROR);
         }
+
+        Map<String, Object> oldVal = buildInvoiceLogMap(invoice);
 
         String oldStatus = invoice.getStatus();
         invoice.setStatus("SEND_ERROR");
@@ -795,9 +847,11 @@ public class EInvoiceServiceImpl implements EInvoiceService {
                 .invoice(saved)
                 .fromStatus(oldStatus)
                 .toStatus("SEND_ERROR")
-                .changedByUser(currentUser != null ? currentUser : invoice.getCreatedByUser())
-                .notes("Cơ quan thuế từ chối cấp mã: " + saved.getTaxAuthorityResponse())
+                .changedByUser(currentUser)
+                .notes("Cơ quan thuế " + currentUser.getUsername() + " đã từ chối cấp mã: " + saved.getTaxAuthorityResponse())
                 .build());
+
+        logActivity(invoice.getHousehold(), currentUser, "REJECT_TAX", saved.getId(), oldVal, buildInvoiceLogMap(saved));
 
         log.info("Thuế từ chối cấp mã hóa đơn. ID={}, Lý do={}", invoiceId, saved.getTaxAuthorityResponse());
         return mapToInvoiceResponse(saved);
@@ -816,6 +870,8 @@ public class EInvoiceServiceImpl implements EInvoiceService {
             throw new AppException(ErrorCode.INVOICE_NOT_EDITABLE);
         }
 
+        Map<String, Object> oldVal = buildInvoiceLogMap(invoice);
+
         invoice.setBuyerName(request.getBuyerName());
         invoice.setBuyerTaxCode(request.getBuyerTaxCode());
         invoice.setBuyerAddress(request.getBuyerAddress());
@@ -823,6 +879,9 @@ public class EInvoiceServiceImpl implements EInvoiceService {
         invoice.setBuyerEmail(request.getBuyerEmail());
 
         EInvoice saved = eInvoiceRepository.save(invoice);
+
+        logActivity(invoice.getHousehold(), currentUser, "UPDATE_INVOICE", saved.getId(), oldVal, buildInvoiceLogMap(saved));
+
         log.info("Cập nhật thông tin hóa đơn thành công. ID={}, Status={}", invoiceId, saved.getStatus());
         return mapToInvoiceResponse(saved);
     }
@@ -881,8 +940,24 @@ public class EInvoiceServiceImpl implements EInvoiceService {
         }
     }
 
+    private String generateQrCodeBase64(String text) {
+        try {
+            int size = 150;
+            com.google.zxing.qrcode.QRCodeWriter qrCodeWriter = new com.google.zxing.qrcode.QRCodeWriter();
+            com.google.zxing.common.BitMatrix bitMatrix = qrCodeWriter.encode(text, com.google.zxing.BarcodeFormat.QR_CODE, size, size);
+            
+            java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
+            com.google.zxing.client.j2se.MatrixToImageWriter.writeToStream(bitMatrix, "png", baos);
+            byte[] bytes = baos.toByteArray();
+            return "data:image/png;base64," + Base64.getEncoder().encodeToString(bytes);
+        } catch (Exception e) {
+            log.error("Failed to generate QR code using ZXing", e);
+            return generateMockQrCodeBase64(text);
+        }
+    }
+
     @Override
-    @Transactional(readOnly = true)
+    @Transactional(rollbackFor = Exception.class)
     public com.viet.sales.dto.response.InvoiceQrResponse getInvoiceQr(String currentUsername, String invoiceId) {
         User currentUser = getAuthenticatedUser(currentUsername);
         EInvoice invoice = eInvoiceRepository.findById(invoiceId)
@@ -894,8 +969,17 @@ public class EInvoiceServiceImpl implements EInvoiceService {
             throw new AppException(ErrorCode.INVOICE_NOT_SEND_ERROR);
         }
 
-        String lookupUrl = "https://banhangviet.vn/public/lookup?code=" + invoice.getLookupCode();
-        String qrCodeBase64 = generateMockQrCodeBase64(lookupUrl);
+        String lookupUrl = (frontendUrl != null ? frontendUrl : "http://localhost:5173") + "/public/lookup?code=" + invoice.getLookupCode();
+        String qrCodeBase64 = generateQrCodeBase64(lookupUrl);
+
+        // Save delivery log for QR channel
+        InvoiceDeliveryLog deliveryLog = InvoiceDeliveryLog.builder()
+                .invoice(invoice)
+                .channel("QR")
+                .recipientAddress(lookupUrl)
+                .status("SUCCESS")
+                .build();
+        invoiceDeliveryLogRepository.save(deliveryLog);
 
         return com.viet.sales.dto.response.InvoiceQrResponse.builder()
                 .invoiceId(invoice.getId())
@@ -927,7 +1011,7 @@ public class EInvoiceServiceImpl implements EInvoiceService {
 
         InvoiceDeliveryLog savedLog = invoiceDeliveryLogRepository.save(deliveryLog);
 
-        String lookupUrl = "https://banhangviet.vn/public/lookup?code=" + invoice.getLookupCode();
+        String lookupUrl = (frontendUrl != null ? frontendUrl : "http://localhost:5173") + "/public/lookup?code=" + invoice.getLookupCode();
         String householdName = invoice.getHousehold().getName();
         String lookupCode = invoice.getLookupCode();
         BigDecimal finalAmount = invoice.getFinalAmount();
@@ -1020,7 +1104,7 @@ public class EInvoiceServiceImpl implements EInvoiceService {
                 + "    </table>\n"
                 + "    <div style=\"border-bottom:1px dashed #000; margin:10px 0;\"></div>\n"
                 + "    <div style=\"text-align:center; font-size:10px;\">\n"
-                + "        Tra cứu hóa đơn tại: <b>https://banhangviet.vn/lookup</b><br/>\n"
+                + "        Tra cứu hóa đơn tại: <b>" + (frontendUrl != null ? frontendUrl : "http://localhost:5173") + "/lookup</b><br/>\n"
                 + "        Mã tra cứu: <b>" + invoice.getLookupCode() + "</b>\n"
                 + "    </div>\n"
                 + "    <div style=\"text-align:center; margin-top:10px; font-size:10px; font-style:italic;\">\n"
@@ -1040,6 +1124,39 @@ public class EInvoiceServiceImpl implements EInvoiceService {
                 .pageSize(pageSize != null ? pageSize : "K80")
                 .htmlContent(htmlContent)
                 .build();
+    }
+
+    private String maskPhone(String phone) {
+        if (phone == null || phone.length() < 7) {
+            return phone;
+        }
+        return phone.substring(0, 4) + "***" + phone.substring(phone.length() - 3);
+    }
+
+    private String maskEmail(String email) {
+        if (email == null || !email.contains("@")) {
+            return email;
+        }
+        int atIndex = email.indexOf("@");
+        if (atIndex <= 3) {
+            return "***" + email.substring(atIndex);
+        }
+        return email.substring(0, 3) + "***" + email.substring(atIndex);
+    }
+
+    private String maskAddress(String address) {
+        if (address == null || address.isEmpty()) {
+            return address;
+        }
+        int commaIndex = address.indexOf(",");
+        if (commaIndex > 0) {
+            return "***" + address.substring(commaIndex);
+        }
+        int spaceIndex = address.indexOf(" ");
+        if (spaceIndex > 0) {
+            return "***" + address.substring(spaceIndex);
+        }
+        return "***";
     }
 
     @Override
@@ -1077,9 +1194,9 @@ public class EInvoiceServiceImpl implements EInvoiceService {
                 .householdAddress(invoice.getHousehold().getAddress())
                 .buyerName(invoice.getBuyerName())
                 .buyerTaxCode(invoice.getBuyerTaxCode())
-                .buyerAddress(invoice.getBuyerAddress())
-                .buyerPhone(invoice.getBuyerPhone())
-                .buyerEmail(invoice.getBuyerEmail())
+                .buyerAddress(maskAddress(invoice.getBuyerAddress()))
+                .buyerPhone(maskPhone(invoice.getBuyerPhone()))
+                .buyerEmail(maskEmail(invoice.getBuyerEmail()))
                 .status(invoice.getStatus())
                 .totalAmountBeforeTax(invoice.getTotalAmountBeforeTax())
                 .taxAmount(invoice.getTaxAmount())

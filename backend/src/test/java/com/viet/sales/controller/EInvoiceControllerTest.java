@@ -93,9 +93,14 @@ public class EInvoiceControllerTest {
                     .address("Địa chỉ Test")
                     .phoneNumber("0999999999")
                     .representativeName("Đại Diện Test")
+                    .revenueThresholdEnabled(true)
                     .build();
             return businessHouseholdRepository.save(household);
         });
+        if (testHousehold.getRevenueThresholdEnabled() == null || !testHousehold.getRevenueThresholdEnabled()) {
+            testHousehold.setRevenueThresholdEnabled(true);
+            testHousehold = businessHouseholdRepository.save(testHousehold);
+        }
 
         // 2. Vai trò
         Role ownerRole = roleRepository.findByCode("VT-01").orElseGet(() -> {
@@ -674,5 +679,23 @@ public class EInvoiceControllerTest {
                         .content(objectMapper.writeValueAsString(updateReq)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value(4008)); // INVOICE_NOT_EDITABLE
+    }
+
+    @Test
+    @WithMockUser(username = "test_owner_inv", roles = {"VT-01"})
+    public void createInvoiceDraft_revenueThresholdDisabled_fails() throws Exception {
+        testHousehold.setRevenueThresholdEnabled(false);
+        businessHouseholdRepository.save(testHousehold);
+
+        try {
+            mockMvc.perform(post("/api/v1/invoices/draft")
+                            .param("orderId", testOrder.getId())
+                            .contentType(MediaType.APPLICATION_JSON))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.code").value(4012)); // FEATURE_NOT_ENABLED
+        } finally {
+            testHousehold.setRevenueThresholdEnabled(true);
+            businessHouseholdRepository.save(testHousehold);
+        }
     }
 }
