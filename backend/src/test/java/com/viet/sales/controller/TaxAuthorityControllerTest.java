@@ -119,4 +119,26 @@ public class TaxAuthorityControllerTest {
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isForbidden());
     }
+
+    @Test
+    @WithMockUser(username = "test_tax_officer", roles = {"VT-05"})
+    public void getWaitingInvoices_invalidPage_badRequest() throws Exception {
+        mockMvc.perform(get("/api/v1/tax-authority/invoices/waiting")
+                        .param("page", "-1")
+                        .param("size", "10")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(2006));
+    }
+
+    @Test
+    @WithMockUser(username = "test_tax_officer", roles = {"VT-05"})
+    public void getWaitingInvoices_invalidSize_badRequest() throws Exception {
+        mockMvc.perform(get("/api/v1/tax-authority/invoices/waiting")
+                        .param("page", "0")
+                        .param("size", "101")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(2006));
+    }
 }

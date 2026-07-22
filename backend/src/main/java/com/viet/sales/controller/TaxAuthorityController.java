@@ -8,11 +8,15 @@ import com.viet.sales.service.interfaces.EInvoiceService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 
 @RestController
 @RequestMapping("/api/v1/tax-authority/invoices")
 @RequiredArgsConstructor
+@Validated
 public class TaxAuthorityController {
 
     private final EInvoiceService eInvoiceService;
@@ -20,8 +24,8 @@ public class TaxAuthorityController {
     @GetMapping("/waiting")
     @PreAuthorize("hasRole('VT-05')")
     public ResponseEntity<ApiResponse<PageResponse<InvoiceResponse>>> getWaitingInvoices(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size) {
+            @RequestParam(defaultValue = "0") @Min(value = 0, message = "Số trang không được nhỏ hơn 0") int page,
+            @RequestParam(defaultValue = "10") @Min(value = 1, message = "Kích thước trang phải lớn hơn hoặc bằng 1") @Max(value = 100, message = "Kích thước trang không được vượt quá 100") int size) {
         PageResponse<InvoiceResponse> result = eInvoiceService.getWaitingInvoicesForTax(page, size);
         ApiResponse<PageResponse<InvoiceResponse>> response = ApiResponse.<PageResponse<InvoiceResponse>>builder()
                 .code(1000)
@@ -34,8 +38,8 @@ public class TaxAuthorityController {
     @GetMapping("/history")
     @PreAuthorize("hasRole('VT-05')")
     public ResponseEntity<ApiResponse<PageResponse<InvoiceResponse>>> getProcessedInvoices(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size) {
+            @RequestParam(defaultValue = "0") @Min(value = 0, message = "Số trang không được nhỏ hơn 0") int page,
+            @RequestParam(defaultValue = "10") @Min(value = 1, message = "Kích thước trang phải lớn hơn hoặc bằng 1") @Max(value = 100, message = "Kích thước trang không được vượt quá 100") int size) {
         PageResponse<InvoiceResponse> result = eInvoiceService.getProcessedInvoicesForTax(page, size);
         ApiResponse<PageResponse<InvoiceResponse>> response = ApiResponse.<PageResponse<InvoiceResponse>>builder()
                 .code(1000)

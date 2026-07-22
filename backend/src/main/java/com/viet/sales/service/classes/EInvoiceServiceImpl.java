@@ -6,6 +6,7 @@ import com.viet.sales.dto.response.InvoiceItemResponse;
 import com.viet.sales.dto.response.InvoiceResponse;
 import com.viet.sales.dto.response.PageResponse;
 import com.viet.sales.entity.*;
+import com.viet.sales.constant.InvoiceStatus;
 import com.viet.sales.exception.AppException;
 import com.viet.sales.exception.ErrorCode;
 import com.viet.sales.repository.*;
@@ -102,7 +103,7 @@ public class EInvoiceServiceImpl implements EInvoiceService {
                 .buyerAddress(order.getCustomer() != null ? order.getCustomer().getAddress() : null)
                 .discountAmount(order.getDiscountAmount())
                 .finalAmount(order.getFinalAmount())
-                .status("DRAFT")
+                .status(InvoiceStatus.DRAFT.name())
                 .lookupCode(lookupCode)
                 .build();
 
@@ -142,7 +143,7 @@ public class EInvoiceServiceImpl implements EInvoiceService {
         invoiceStatusLogRepository.save(InvoiceStatusLog.builder()
                 .invoice(savedInvoice)
                 .fromStatus("-")
-                .toStatus("DRAFT")
+                .toStatus(InvoiceStatus.DRAFT.name())
                 .changedByUser(currentUser)
                 .notes("Khởi tạo hóa đơn điện tử nháp từ đơn bán " + order.getOrderNumber())
                 .build());
@@ -160,12 +161,12 @@ public class EInvoiceServiceImpl implements EInvoiceService {
         
         checkInvoiceOwnership(invoice, currentUser);
 
-        if (!"DRAFT".equals(invoice.getStatus())) {
+        if (!InvoiceStatus.DRAFT.name().equals(invoice.getStatus())) {
             throw new AppException(ErrorCode.INVOICE_NOT_SEND_ERROR);
         }
 
         String oldStatus = invoice.getStatus();
-        invoice.setStatus("WAITING_TAX_CODE");
+        invoice.setStatus(InvoiceStatus.WAITING_TAX_CODE.name());
         invoice.setSentToTaxAt(LocalDateTime.now());
         
         EInvoice saved = eInvoiceRepository.save(invoice);
@@ -173,7 +174,7 @@ public class EInvoiceServiceImpl implements EInvoiceService {
         invoiceStatusLogRepository.save(InvoiceStatusLog.builder()
                 .invoice(saved)
                 .fromStatus(oldStatus)
-                .toStatus("WAITING_TAX_CODE")
+                .toStatus(InvoiceStatus.WAITING_TAX_CODE.name())
                 .changedByUser(currentUser)
                 .notes("Đẩy hóa đơn vào hàng đợi chờ cơ quan thuế cấp mã")
                 .build());
@@ -191,12 +192,12 @@ public class EInvoiceServiceImpl implements EInvoiceService {
 
         checkInvoiceOwnership(invoice, currentUser);
 
-        if (!"SEND_ERROR".equals(invoice.getStatus())) {
+        if (!InvoiceStatus.SEND_ERROR.name().equals(invoice.getStatus())) {
             throw new AppException(ErrorCode.INVOICE_NOT_SEND_ERROR);
         }
 
         String oldStatus = invoice.getStatus();
-        invoice.setStatus("WAITING_TAX_CODE");
+        invoice.setStatus(InvoiceStatus.WAITING_TAX_CODE.name());
         invoice.setSentToTaxAt(LocalDateTime.now());
         invoice.setTaxAuthorityResponse(null);
 
@@ -205,7 +206,7 @@ public class EInvoiceServiceImpl implements EInvoiceService {
         invoiceStatusLogRepository.save(InvoiceStatusLog.builder()
                 .invoice(saved)
                 .fromStatus(oldStatus)
-                .toStatus("WAITING_TAX_CODE")
+                .toStatus(InvoiceStatus.WAITING_TAX_CODE.name())
                 .changedByUser(currentUser)
                 .notes("Gửi lại hóa đơn bị lỗi lên cơ quan thuế")
                 .build());
@@ -229,12 +230,12 @@ public class EInvoiceServiceImpl implements EInvoiceService {
 
         checkInvoiceOwnership(invoice, currentUser);
 
-        if (!"ISSUED".equals(invoice.getStatus())) {
+        if (!InvoiceStatus.ISSUED.name().equals(invoice.getStatus())) {
             throw new AppException(ErrorCode.INVOICE_CANNOT_BE_CANCELED);
         }
 
         String oldStatus = invoice.getStatus();
-        invoice.setStatus("CANCELED");
+        invoice.setStatus(InvoiceStatus.CANCELED.name());
         invoice.setCancelReason(request.getCancelReason());
         invoice.setCanceledAt(LocalDateTime.now());
         invoice.setCanceledByUser(currentUser);
@@ -244,7 +245,7 @@ public class EInvoiceServiceImpl implements EInvoiceService {
         invoiceStatusLogRepository.save(InvoiceStatusLog.builder()
                 .invoice(saved)
                 .fromStatus(oldStatus)
-                .toStatus("CANCELED")
+                .toStatus(InvoiceStatus.CANCELED.name())
                 .changedByUser(currentUser)
                 .notes("Hủy hóa đơn điện tử. Lý do: " + request.getCancelReason())
                 .build());
@@ -312,12 +313,8 @@ public class EInvoiceServiceImpl implements EInvoiceService {
     @Override
     @Transactional(readOnly = true)
     public PageResponse<InvoiceResponse> getWaitingInvoicesForTax(int page, int size) {
-        Specification<EInvoice> spec = (root, query, cb) -> cb.and(
-                cb.equal(root.get("status"), "WAITING_TAX_CODE"),
-                cb.isNull(root.get("deletedAt"))
-        );
         Pageable pageable = PageRequest.of(page, size);
-        Page<EInvoice> pageData = eInvoiceRepository.findAll(spec, pageable);
+        Page<EInvoice> pageData = eInvoiceRepository.findByStatusAndDeletedAtIsNull(InvoiceStatus.WAITING_TAX_CODE.name(), pageable);
         List<InvoiceResponse> content = pageData.getContent().stream()
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
@@ -335,15 +332,8 @@ public class EInvoiceServiceImpl implements EInvoiceService {
     @Override
     @Transactional(readOnly = true)
     public PageResponse<InvoiceResponse> getProcessedInvoicesForTax(int page, int size) {
-        Specification<EInvoice> spec = (root, query, cb) -> cb.and(
-                cb.or(
-                        cb.equal(root.get("status"), "ISSUED"),
-                        cb.equal(root.get("status"), "SEND_ERROR")
-                ),
-                cb.isNull(root.get("deletedAt"))
-        );
         Pageable pageable = PageRequest.of(page, size, org.springframework.data.domain.Sort.by("updatedAt").descending());
-        Page<EInvoice> pageData = eInvoiceRepository.findAll(spec, pageable);
+        Page<EInvoice> pageData = eInvoiceRepository.findByTaxResponseAtIsNotNullAndDeletedAtIsNull(pageable);
         List<InvoiceResponse> content = pageData.getContent().stream()
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
@@ -364,13 +354,13 @@ public class EInvoiceServiceImpl implements EInvoiceService {
         EInvoice invoice = eInvoiceRepository.findById(invoiceId)
                 .orElseThrow(() -> new AppException(ErrorCode.INVOICE_NOT_FOUND));
 
-        if (!"WAITING_TAX_CODE".equals(invoice.getStatus())) {
+        if (!InvoiceStatus.WAITING_TAX_CODE.name().equals(invoice.getStatus())) {
             throw new AppException(ErrorCode.INVOICE_NOT_SEND_ERROR);
         }
 
         String invoiceNum = String.format("%07d", (int)(Math.random() * 10000000));
         
-        invoice.setStatus("ISSUED");
+        invoice.setStatus(InvoiceStatus.ISSUED.name());
         invoice.setInvoiceNumber(invoiceNum);
         invoice.setTaxAuthorityCode(taxCode != null ? taxCode : "CQT-" + UUID.randomUUID().toString().substring(0, 15).toUpperCase());
         invoice.setTaxResponseAt(LocalDateTime.now());
@@ -379,8 +369,8 @@ public class EInvoiceServiceImpl implements EInvoiceService {
         
         invoiceStatusLogRepository.save(InvoiceStatusLog.builder()
                 .invoice(saved)
-                .fromStatus("WAITING_TAX_CODE")
-                .toStatus("ISSUED")
+                .fromStatus(InvoiceStatus.WAITING_TAX_CODE.name())
+                .toStatus(InvoiceStatus.ISSUED.name())
                 .changedByUser(invoice.getCreatedByUser())
                 .notes("Cơ quan Thuế phê duyệt cấp mã HĐĐT: " + saved.getTaxAuthorityCode())
                 .build());
@@ -396,11 +386,11 @@ public class EInvoiceServiceImpl implements EInvoiceService {
         EInvoice invoice = eInvoiceRepository.findById(invoiceId)
                 .orElseThrow(() -> new AppException(ErrorCode.INVOICE_NOT_FOUND));
 
-        if (!"WAITING_TAX_CODE".equals(invoice.getStatus())) {
+        if (!InvoiceStatus.WAITING_TAX_CODE.name().equals(invoice.getStatus())) {
             throw new AppException(ErrorCode.INVOICE_NOT_SEND_ERROR);
         }
 
-        invoice.setStatus("SEND_ERROR");
+        invoice.setStatus(InvoiceStatus.SEND_ERROR.name());
         invoice.setTaxAuthorityResponse(errorMessage != null ? errorMessage : "Dữ liệu hóa đơn không hợp lệ theo quy định.");
         invoice.setTaxResponseAt(LocalDateTime.now());
 
@@ -408,8 +398,8 @@ public class EInvoiceServiceImpl implements EInvoiceService {
 
         invoiceStatusLogRepository.save(InvoiceStatusLog.builder()
                 .invoice(saved)
-                .fromStatus("WAITING_TAX_CODE")
-                .toStatus("SEND_ERROR")
+                .fromStatus(InvoiceStatus.WAITING_TAX_CODE.name())
+                .toStatus(InvoiceStatus.SEND_ERROR.name())
                 .changedByUser(invoice.getCreatedByUser())
                 .notes("Cơ quan Thuế từ chối cấp mã. Lý do: " + saved.getTaxAuthorityResponse())
                 .build());
@@ -427,7 +417,7 @@ public class EInvoiceServiceImpl implements EInvoiceService {
 
         checkInvoiceOwnership(invoice, currentUser);
 
-        if (!"DRAFT".equals(invoice.getStatus()) && !"SEND_ERROR".equals(invoice.getStatus())) {
+        if (!InvoiceStatus.DRAFT.name().equals(invoice.getStatus()) && !InvoiceStatus.SEND_ERROR.name().equals(invoice.getStatus())) {
             throw new AppException(ErrorCode.INVOICE_NOT_EDITABLE);
         }
 
