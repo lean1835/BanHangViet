@@ -15,12 +15,24 @@ import java.util.Optional;
 @Repository
 public interface EInvoiceRepository extends JpaRepository<EInvoice, String>, JpaSpecificationExecutor<EInvoice> {
 
-    @EntityGraph(attributePaths = {"items", "household", "createdByUser", "originalInvoice"})
-    Optional<EInvoice> findByIdAndHouseholdIdAndDeletedAtIsNull(String id, String householdId);
-
-    List<EInvoice> findByHouseholdIdAndDeletedAtIsNullOrderByCreatedAtDesc(String householdId);
+    @Override
+    @EntityGraph(attributePaths = {"items", "items.product", "createdByUser", "canceledByUser", "household", "order", "originalInvoice"})
+    Page<EInvoice> findAll(Specification<EInvoice> spec, Pageable pageable);
 
     @Override
-    @EntityGraph(attributePaths = {"items", "household", "createdByUser", "originalInvoice"})
-    Page<EInvoice> findAll(Specification<EInvoice> spec, Pageable pageable);
+    @EntityGraph(attributePaths = {"items", "items.product", "createdByUser", "canceledByUser", "household", "order", "originalInvoice"})
+    Optional<EInvoice> findById(String id);
+
+    @EntityGraph(attributePaths = {"items", "items.product", "createdByUser", "canceledByUser", "household", "order", "originalInvoice"})
+    Optional<EInvoice> findByIdAndHouseholdIdAndDeletedAtIsNull(String id, String householdId);
+
+    @EntityGraph(attributePaths = {"items", "items.product", "createdByUser", "canceledByUser", "household", "order", "originalInvoice"})
+    Optional<EInvoice> findByOrderIdAndDeletedAtIsNull(String orderId);
+
+    @EntityGraph(attributePaths = {"items", "items.product", "createdByUser", "canceledByUser", "household", "order", "originalInvoice"})
+    Optional<EInvoice> findByLookupCodeAndDeletedAtIsNull(String lookupCode);
+
+    boolean existsByLookupCodeAndDeletedAtIsNull(String lookupCode);
+
+    List<EInvoice> findByHouseholdIdAndDeletedAtIsNullOrderByCreatedAtDesc(String householdId);
 }

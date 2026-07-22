@@ -26,13 +26,14 @@ public class EInvoiceItem {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "invoice_id", nullable = false)
+    @ToString.Exclude
     private EInvoice invoice;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "product_id")
     private Product product;
 
-    @Column(name = "product_name", nullable = false)
+    @Column(name = "product_name", nullable = false, length = 255)
     private String productName;
 
     @Column(nullable = false, length = 50)

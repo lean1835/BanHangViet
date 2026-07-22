@@ -29,22 +29,27 @@ public class EInvoice {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "household_id", nullable = false)
+    @ToString.Exclude
     private BusinessHousehold household;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "order_id")
+    @ToString.Exclude
     private Order order;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "original_invoice_id")
+    @ToString.Exclude
     private EInvoice originalInvoice;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "created_by_user_id", nullable = false)
+    @ToString.Exclude
     private User createdByUser;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "canceled_by_user_id")
+    @ToString.Exclude
     private User canceledByUser;
 
     @Column(name = "invoice_number", length = 20)
@@ -123,6 +128,7 @@ public class EInvoice {
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
 
+    @org.hibernate.annotations.BatchSize(size = 20)
     @OneToMany(mappedBy = "invoice", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @Builder.Default
     @ToString.Exclude

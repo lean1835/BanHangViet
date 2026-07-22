@@ -7,7 +7,7 @@ import org.hibernate.annotations.CreationTimestamp;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "invoice_status_logs")
+@Table(name = "invoice_delivery_logs")
 @Getter
 @Setter
 @ToString
@@ -15,7 +15,7 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
-public class InvoiceStatusLog {
+public class InvoiceDeliveryLog {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
@@ -28,19 +28,21 @@ public class InvoiceStatusLog {
     @ToString.Exclude
     private EInvoice invoice;
 
-    @Column(name = "from_status", nullable = false, length = 30)
-    private String fromStatus;
+    @Column(nullable = false, length = 20)
+    private String channel; // QR, EMAIL, ZALO, PRINT
 
-    @Column(name = "to_status", nullable = false, length = 30)
-    private String toStatus;
+    @Column(name = "recipient_address", nullable = false, length = 255)
+    private String recipientAddress;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "changed_by_user_id", nullable = false)
-    @ToString.Exclude
-    private User changedByUser;
+    @Column(nullable = false, length = 20)
+    private String status; // SUCCESS, FAILED
 
-    @Column(columnDefinition = "TEXT")
-    private String notes;
+    @Column(name = "error_message", columnDefinition = "TEXT")
+    private String errorMessage;
+
+    @CreationTimestamp
+    @Column(name = "sent_at", nullable = false, updatable = false)
+    private LocalDateTime sentAt;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
