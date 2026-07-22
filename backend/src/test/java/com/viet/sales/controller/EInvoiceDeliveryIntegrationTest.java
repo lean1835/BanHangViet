@@ -2,7 +2,6 @@ package com.viet.sales.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.viet.sales.dto.request.DeliverInvoiceEmailRequest;
-import com.viet.sales.dto.request.DeliverInvoiceZaloRequest;
 import com.viet.sales.entity.*;
 import com.viet.sales.repository.*;
 import org.junit.jupiter.api.BeforeEach;
@@ -14,6 +13,10 @@ import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
+
+import org.springframework.boot.test.mock.mockito.MockBean;
+import com.viet.sales.service.interfaces.EmailService;
+import org.mockito.Mockito;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -30,6 +33,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureMockMvc
 @Transactional
 public class EInvoiceDeliveryIntegrationTest {
+
+    @MockBean
+    private EmailService emailService;
 
     @Autowired
     private MockMvc mockMvc;
@@ -178,38 +184,23 @@ public class EInvoiceDeliveryIntegrationTest {
 
     @Test
     @WithMockUser(username = "test_employee_inv", roles = {"VT-02"})
-    public void deliverViaZalo_Success() throws Exception {
-        EInvoice inv = createTestInvoice("ISSUED", "HD00102");
-        DeliverInvoiceZaloRequest request = DeliverInvoiceZaloRequest.builder()
-                .phoneNumber("0987654321")
-                .build();
-
-        mockMvc.perform(post("/api/v1/invoices/" + inv.getId() + "/deliver/zalo")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value(1000));
-
-        List<InvoiceDeliveryLog> logs = invoiceDeliveryLogRepository.findByInvoiceIdOrderBySentAtDesc(inv.getId());
-        assertFalse(logs.isEmpty());
-        assertEquals("ZALO", logs.get(0).getChannel());
-        assertEquals("0987654321", logs.get(0).getRecipientAddress());
-        assertEquals("SUCCESS", logs.get(0).getStatus());
-    }
-
-    @Test
-    @WithMockUser(username = "test_employee_inv", roles = {"VT-02"})
     public void deliverViaEmail_Success() throws Exception {
         EInvoice inv = createTestInvoice("ISSUED", "HD00103");
         DeliverInvoiceEmailRequest request = DeliverInvoiceEmailRequest.builder()
                 .email("test_client@gmail.com")
                 .build();
 
+        Mockito.doNothing().when(emailService).sendInvoiceEmailAsync(
+                Mockito.anyString(), Mockito.anyString(), Mockito.anyString(), Mockito.anyString());
+
         mockMvc.perform(post("/api/v1/invoices/" + inv.getId() + "/deliver/email")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(1000));
+
+        Mockito.verify(emailService, Mockito.times(1)).sendInvoiceEmailAsync(
+                Mockito.eq("test_client@gmail.com"), Mockito.anyString(), Mockito.anyString(), Mockito.anyString());
 
         List<InvoiceDeliveryLog> logs = invoiceDeliveryLogRepository.findByInvoiceIdOrderBySentAtDesc(inv.getId());
         assertFalse(logs.isEmpty());

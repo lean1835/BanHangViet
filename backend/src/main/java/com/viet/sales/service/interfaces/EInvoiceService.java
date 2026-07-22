@@ -43,7 +43,6 @@ public interface EInvoiceService {
 
     // Nghiệp vụ giao hóa đơn cho khách (NCL-06)
     InvoiceQrResponse getInvoiceQr(String currentUsername, String invoiceId);
-    void deliverInvoiceViaZalo(String currentUsername, String invoiceId, String phoneNumber);
     void deliverInvoiceViaEmail(String currentUsername, String invoiceId, String email);
     InvoicePrintResponse getInvoicePrintLayout(String currentUsername, String invoiceId, String pageSize);
 

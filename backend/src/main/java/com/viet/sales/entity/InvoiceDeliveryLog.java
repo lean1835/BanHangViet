@@ -29,7 +29,7 @@ public class InvoiceDeliveryLog {
     private EInvoice invoice;
 
     @Column(nullable = false, length = 20)
-    private String channel; // QR, EMAIL, ZALO, PRINT
+    private String channel; // QR, EMAIL, PRINT
 
     @Column(name = "recipient_address", nullable = false, length = 255)
     private String recipientAddress;

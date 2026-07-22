@@ -4,7 +4,6 @@ import com.viet.sales.dto.ApiResponse;
 import com.viet.sales.dto.request.CancelInvoiceRequest;
 import com.viet.sales.dto.request.CreateAdjustmentInvoiceRequest;
 import com.viet.sales.dto.request.UpdateInvoiceRequest;
-import com.viet.sales.dto.request.DeliverInvoiceZaloRequest;
 import com.viet.sales.dto.request.DeliverInvoiceEmailRequest;
 import com.viet.sales.dto.response.EInvoiceResponse;
 import com.viet.sales.dto.response.InvoiceResponse;
@@ -184,20 +183,6 @@ public class EInvoiceController {
                 .code(1000)
                 .message("Lấy thông tin mã QR tra cứu thành công")
                 .result(result)
-                .build();
-        return ResponseEntity.ok(response);
-    }
-
-    @PostMapping("/{id}/deliver/zalo")
-    @PreAuthorize("hasAnyRole('VT-01', 'VT-02')")
-    public ResponseEntity<ApiResponse<Void>> deliverViaZalo(
-            Principal principal,
-            @PathVariable String id,
-            @Valid @RequestBody DeliverInvoiceZaloRequest request) {
-        eInvoiceService.deliverInvoiceViaZalo(principal.getName(), id, request.getPhoneNumber());
-        ApiResponse<Void> response = ApiResponse.<Void>builder()
-                .code(1000)
-                .message("Đã gửi hóa đơn qua Zalo thành công")
                 .build();
         return ResponseEntity.ok(response);
     }

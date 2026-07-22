@@ -43,6 +43,7 @@ import com.viet.sales.dto.response.InvoiceQrResponse;
 import com.viet.sales.dto.response.InvoicePrintResponse;
 import com.viet.sales.dto.response.PublicInvoiceResponse;
 import com.viet.sales.dto.response.EInvoiceItemResponse;
+import com.viet.sales.service.interfaces.EmailService;
 import java.nio.charset.StandardCharsets;
 
 @Service
@@ -59,6 +60,7 @@ public class EInvoiceServiceImpl implements EInvoiceService {
     private final InvoiceTemplateRepository invoiceTemplateRepository;
     private final OrderRepository orderRepository;
     private final InvoiceDeliveryLogRepository invoiceDeliveryLogRepository;
+    private final EmailService emailService;
     private final ObjectMapper objectMapper;
 
     private User getAuthenticatedUser(String username) {
@@ -900,30 +902,6 @@ public class EInvoiceServiceImpl implements EInvoiceService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public void deliverInvoiceViaZalo(String currentUsername, String invoiceId, String phoneNumber) {
-        User currentUser = getAuthenticatedUser(currentUsername);
-        EInvoice invoice = eInvoiceRepository.findById(invoiceId)
-                .orElseThrow(() -> new AppException(ErrorCode.INVOICE_NOT_FOUND));
-
-        checkInvoiceOwnership(invoice, currentUser);
-
-        if (!"ISSUED".equals(invoice.getStatus())) {
-            throw new AppException(ErrorCode.INVOICE_NOT_SEND_ERROR);
-        }
-
-        InvoiceDeliveryLog deliveryLog = InvoiceDeliveryLog.builder()
-                .invoice(invoice)
-                .channel("ZALO")
-                .recipientAddress(phoneNumber)
-                .status("SUCCESS")
-                .build();
-
-        invoiceDeliveryLogRepository.save(deliveryLog);
-        log.info("Gửi hóa đơn qua Zalo thành công đến số: {}. Hóa đơn ID={}", phoneNumber, invoiceId);
-    }
-
-    @Override
-    @Transactional(rollbackFor = Exception.class)
     public void deliverInvoiceViaEmail(String currentUsername, String invoiceId, String email) {
         User currentUser = getAuthenticatedUser(currentUsername);
         EInvoice invoice = eInvoiceRepository.findById(invoiceId)
@@ -941,8 +919,13 @@ public class EInvoiceServiceImpl implements EInvoiceService {
                 .recipientAddress(email)
                 .status("SUCCESS")
                 .build();
-
         invoiceDeliveryLogRepository.save(deliveryLog);
+
+        String lookupUrl = "https://banhangviet.vn/public/lookup?code=" + invoice.getLookupCode();
+        String householdName = invoice.getHousehold().getName();
+        String lookupCode = invoice.getLookupCode();
+
+        emailService.sendInvoiceEmailAsync(email, lookupUrl, householdName, lookupCode);
         log.info("Gửi hóa đơn qua Email thành công đến: {}. Hóa đơn ID={}", email, invoiceId);
     }
 
