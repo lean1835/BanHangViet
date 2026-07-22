@@ -11,6 +11,7 @@ import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.List;
 
 @Repository
 public interface EInvoiceRepository extends JpaRepository<EInvoice, String>, JpaSpecificationExecutor<EInvoice> {
@@ -18,6 +19,12 @@ public interface EInvoiceRepository extends JpaRepository<EInvoice, String>, Jpa
     @Override
     @EntityGraph(attributePaths = {"items", "items.product", "createdByUser", "canceledByUser", "household", "order", "originalInvoice"})
     Page<EInvoice> findAll(Specification<EInvoice> spec, Pageable pageable);
+
+    @EntityGraph(attributePaths = {"createdByUser", "canceledByUser", "household", "order"})
+    Page<EInvoice> findByTaxResponseAtIsNotNullAndDeletedAtIsNull(Pageable pageable);
+
+    @EntityGraph(attributePaths = {"createdByUser", "canceledByUser", "household", "order"})
+    Page<EInvoice> findByStatusAndDeletedAtIsNull(String status, Pageable pageable);
 
     @Override
     @EntityGraph(attributePaths = {"items", "items.product", "createdByUser", "canceledByUser", "household", "order", "originalInvoice"})
@@ -34,5 +41,13 @@ public interface EInvoiceRepository extends JpaRepository<EInvoice, String>, Jpa
 
     boolean existsByLookupCodeAndDeletedAtIsNull(String lookupCode);
 
+    long countByHouseholdIdAndStatusAndDeletedAtIsNullAndCreatedAtBetween(
+            String householdId, String status, java.time.LocalDateTime start, java.time.LocalDateTime end
+    );
+
+    @EntityGraph(attributePaths = {"items", "items.product", "createdByUser", "canceledByUser", "household", "order"})
+    List<EInvoice> findByHouseholdIdAndStatusAndDeletedAtIsNullAndCreatedAtBetween(
+            String householdId, String status, java.time.LocalDateTime start, java.time.LocalDateTime end
+    );
     List<EInvoice> findByHouseholdIdAndDeletedAtIsNullOrderByCreatedAtDesc(String householdId);
 }
