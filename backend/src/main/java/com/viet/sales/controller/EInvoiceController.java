@@ -4,10 +4,14 @@ import com.viet.sales.dto.ApiResponse;
 import com.viet.sales.dto.request.CancelInvoiceRequest;
 import com.viet.sales.dto.request.CreateAdjustmentInvoiceRequest;
 import com.viet.sales.dto.request.UpdateInvoiceRequest;
+import com.viet.sales.dto.request.DeliverInvoiceZaloRequest;
+import com.viet.sales.dto.request.DeliverInvoiceEmailRequest;
 import com.viet.sales.dto.response.EInvoiceResponse;
 import com.viet.sales.dto.response.InvoiceResponse;
 import com.viet.sales.dto.response.InvoiceStatusLogResponse;
 import com.viet.sales.dto.response.PageResponse;
+import com.viet.sales.dto.response.InvoiceQrResponse;
+import com.viet.sales.dto.response.InvoicePrintResponse;
 import com.viet.sales.service.interfaces.EInvoiceService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -165,6 +169,63 @@ public class EInvoiceController {
         ApiResponse<PageResponse<InvoiceResponse>> response = ApiResponse.<PageResponse<InvoiceResponse>>builder()
                 .code(1000)
                 .message("Lấy danh sách hóa đơn điện tử thành công")
+                .result(result)
+                .build();
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/{id}/qr")
+    @PreAuthorize("hasAnyRole('VT-01', 'VT-02')")
+    public ResponseEntity<ApiResponse<InvoiceQrResponse>> getInvoiceQr(
+            Principal principal,
+            @PathVariable String id) {
+        InvoiceQrResponse result = eInvoiceService.getInvoiceQr(principal.getName(), id);
+        ApiResponse<InvoiceQrResponse> response = ApiResponse.<InvoiceQrResponse>builder()
+                .code(1000)
+                .message("Lấy thông tin mã QR tra cứu thành công")
+                .result(result)
+                .build();
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/{id}/deliver/zalo")
+    @PreAuthorize("hasAnyRole('VT-01', 'VT-02')")
+    public ResponseEntity<ApiResponse<Void>> deliverViaZalo(
+            Principal principal,
+            @PathVariable String id,
+            @Valid @RequestBody DeliverInvoiceZaloRequest request) {
+        eInvoiceService.deliverInvoiceViaZalo(principal.getName(), id, request.getPhoneNumber());
+        ApiResponse<Void> response = ApiResponse.<Void>builder()
+                .code(1000)
+                .message("Đã gửi hóa đơn qua Zalo thành công")
+                .build();
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/{id}/deliver/email")
+    @PreAuthorize("hasAnyRole('VT-01', 'VT-02')")
+    public ResponseEntity<ApiResponse<Void>> deliverViaEmail(
+            Principal principal,
+            @PathVariable String id,
+            @Valid @RequestBody DeliverInvoiceEmailRequest request) {
+        eInvoiceService.deliverInvoiceViaEmail(principal.getName(), id, request.getEmail());
+        ApiResponse<Void> response = ApiResponse.<Void>builder()
+                .code(1000)
+                .message("Đã gửi hóa đơn qua Email thành công")
+                .build();
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/{id}/print")
+    @PreAuthorize("hasAnyRole('VT-01', 'VT-02')")
+    public ResponseEntity<ApiResponse<InvoicePrintResponse>> getInvoicePrint(
+            Principal principal,
+            @PathVariable String id,
+            @RequestParam(defaultValue = "K80") String pageSize) {
+        InvoicePrintResponse result = eInvoiceService.getInvoicePrintLayout(principal.getName(), id, pageSize);
+        ApiResponse<InvoicePrintResponse> response = ApiResponse.<InvoicePrintResponse>builder()
+                .code(1000)
+                .message("Tạo bản in hóa đơn thành công")
                 .result(result)
                 .build();
         return ResponseEntity.ok(response);

@@ -7,6 +7,9 @@ import com.viet.sales.dto.response.EInvoiceResponse;
 import com.viet.sales.dto.response.InvoiceResponse;
 import com.viet.sales.dto.response.InvoiceStatusLogResponse;
 import com.viet.sales.dto.response.PageResponse;
+import com.viet.sales.dto.response.InvoiceQrResponse;
+import com.viet.sales.dto.response.InvoicePrintResponse;
+import com.viet.sales.dto.response.PublicInvoiceResponse;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -37,4 +40,14 @@ public interface EInvoiceService {
     PageResponse<InvoiceResponse> getWaitingInvoicesForTax(int page, int size);
     InvoiceResponse approveInvoiceByTax(String invoiceId, String taxCode);
     InvoiceResponse rejectInvoiceByTax(String invoiceId, String errorMessage);
+
+    // Nghiệp vụ giao hóa đơn cho khách (NCL-06)
+    InvoiceQrResponse getInvoiceQr(String currentUsername, String invoiceId);
+    void deliverInvoiceViaZalo(String currentUsername, String invoiceId, String phoneNumber);
+    void deliverInvoiceViaEmail(String currentUsername, String invoiceId, String email);
+    InvoicePrintResponse getInvoicePrintLayout(String currentUsername, String invoiceId, String pageSize);
+
+    // Nghiệp vụ tra cứu & tải lại công khai dành cho khách hàng
+    PublicInvoiceResponse lookupInvoicePublicly(String lookupCode);
+    byte[] downloadInvoiceFilePublicly(String lookupCode, String format);
 }
