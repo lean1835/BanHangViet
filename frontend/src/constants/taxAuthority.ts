@@ -15,7 +15,6 @@ export const TAX_AUTHORITY_COPY = {
 
 export const TAX_AUTHORITY_NAV_ITEMS = [
   { to: APP_ROUTES.TAX_AUTHORITY_INVOICES, label: "Duyệt cấp mã hóa đơn" },
-  { to: APP_ROUTES.TAX_AUTHORITY_CONFIG, label: "Cấu hình tiếp nhận" },
 ] as const;
 
 export const TAX_AUTHORITY_INVOICE_STATUS = {

@@ -35,6 +35,9 @@ import { useAccessibleDialog } from "@/hooks/useAccessibleDialog";
 import { useAppSelector } from "@/hooks/useRedux";
 import { HTTP_STATUS } from "@/constants/api";
 import { isRecord } from "@/utils/typeGuards";
+import { useNavigate } from "react-router-dom";
+import { E_INVOICE_STATUS, E_INVOICE_DEFAULTS } from "@/constants/eInvoice";
+import { useCreateInvoiceDraftMutation, useGetInvoicesQuery } from "@/modules/e_invoice/services/eInvoiceApi";
 
 interface OrderHistoryTableProps {
   currentRole: string;
@@ -532,6 +535,8 @@ export const OrderHistoryTable: React.FC<OrderHistoryTableProps> = ({ currentRol
     orders,
     setOrders,
     customers,
+    invoices,
+    setInvoices,
     addLogEntry,
     isOrdersLoading,
     isOrdersError,
@@ -590,6 +595,78 @@ export const OrderHistoryTable: React.FC<OrderHistoryTableProps> = ({ currentRol
   const [isAbandoningDraft, setIsAbandoningDraft] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<IOrderResponse | null>(null);
   const [isSubmittingOrder, setIsSubmittingOrder] = useState(false);
+
+  const navigate = useNavigate();
+  const { isOnline } = useDashboardDemo();
+  const [createInvoiceDraftApi, { isLoading: isCreatingInvoice }] = useCreateInvoiceDraftMutation();
+
+  const handleIssueInvoice = async (order: IOrderResponse) => {
+    if (isOnline) {
+      try {
+        const response = await createInvoiceDraftApi({ orderId: order.id }).unwrap();
+        showSuccess("Phát hành hóa đơn nháp thành công!");
+        if (response?.result) {
+          navigate(`/e-invoices?id=${response.result.id}`);
+        }
+      } catch (err: unknown) {
+        showError(getApiErrorMessage(err, "Không thể phát hành hóa đơn nháp cho đơn hàng này."));
+      }
+    } else {
+      const newInvoiceId = "inv-" + Math.floor(1000 + Math.random() * 9000);
+      const lookupCode = "HD-" + order.orderNumber.replace("DH-", "VT");
+      const newInvoice = {
+        id: newInvoiceId,
+        orderId: order.id,
+        orderNumber: order.orderNumber,
+        lookupCode,
+        symbol: "1C26TAA",
+        customer: order.customerName || "Khách vãng lai",
+        amount: order.totalAmount,
+        taxAmount: order.items.reduce((sum, item) => sum + (item.taxAmount || 0), 0),
+        finalAmount: order.finalAmount,
+        status: E_INVOICE_STATUS.DRAFT,
+        taxAuthorityCode: E_INVOICE_DEFAULTS.EMPTY_TAX_AUTHORITY_CODE,
+        time: new Date().toISOString().replace("T", " ").substring(0, 19),
+        buyerName: order.customerName || "Khách vãng lai",
+        buyerTaxCode: "",
+        buyerAddress: "",
+        buyerPhone: "",
+        buyerEmail: "",
+        totalAmountBeforeTax: order.totalAmount,
+        discountAmount: order.discountAmount,
+        items: order.items.map((item) => ({
+          id: "item-" + Math.floor(1000 + Math.random() * 9000),
+          productId: item.productId,
+          productName: item.productName,
+          unit: "Lon",
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          taxRatePercentage: item.taxRatePercentage || 0,
+          taxAmount: item.taxAmount || 0,
+          discountAmount: item.discountAmount || 0,
+          subtotal: item.subtotal,
+        })),
+      };
+
+      setInvoices((prev) => [...prev, newInvoice]);
+      addLogEntry("PHÁT_HÀNH_NHÁP", `Phát hành hóa đơn nháp ${lookupCode} từ đơn ${order.orderNumber}`);
+      showSuccess("Phát hành hóa đơn nháp thành công!");
+      navigate(`/e-invoices?id=${newInvoiceId}`);
+    }
+  };
+
+  const { data: onlineInvoicesData } = useGetInvoicesQuery(
+    { page: 0, size: 100 },
+    { skip: !isOnline }
+  );
+
+  const orderInvoice = useMemo(() => {
+    if (!selectedOrder) return null;
+    const activeInvoices = isOnline
+      ? (onlineInvoicesData?.result?.content || [])
+      : invoices;
+    return activeInvoices.find((inv) => inv.orderId === selectedOrder.id) || null;
+  }, [selectedOrder, isOnline, onlineInvoicesData, invoices]);
 
   const [customerId, setCustomerId] = useState(
     pendingOrderDraft?.customerId ?? "",
@@ -2329,29 +2406,40 @@ export const OrderHistoryTable: React.FC<OrderHistoryTableProps> = ({ currentRol
                 <div className="overflow-x-auto border rounded-lg bg-white">
                   <table className="responsive-data-table responsive-data-table--compact w-full text-left border-collapse text-[10px]">
                     <thead>
-                      <tr className="bg-slate-50 text-slate-500 font-bold border-b">
+                      <tr className="bg-slate-50 text-slate-500 font-bold border-b text-[9px] uppercase">
                         <th className="p-2.5">Sản phẩm</th>
-                        <th className="p-2.5 text-center">SL</th>
+                        <th className="p-2.5 text-center w-10">SL</th>
                         <th className="p-2.5 text-right">Đơn giá</th>
-                        <th className="p-2.5 text-right">Thành tiền</th>
+                        <th className="p-2.5 text-right font-bold text-slate-700">Thành tiền</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 font-semibold text-slate-600">
                       {selectedOrder.items && selectedOrder.items.length > 0 ? (
-                        selectedOrder.items.map((item) => (
-                          <tr key={item.id}>
-                            <td className="p-2.5">
-                              <div className="font-bold text-slate-800">{item.productName}</div>
-                            </td>
-                            <td className="p-2.5 text-center font-bold">{item.quantity}</td>
-                            <td className="p-2.5 text-right">{formatCurrency(item.unitPrice)}</td>
-                            <td className="p-2.5 text-right text-slate-800 font-bold">
-                              {formatCurrency(
-                                item.subtotal ?? item.unitPrice * item.quantity,
-                              )}
-                            </td>
-                          </tr>
-                        ))
+                        selectedOrder.items.map((item) => {
+                          const rawItemTotal = item.unitPrice * item.quantity;
+                          const itemTaxAmount =
+                            item.taxAmount ??
+                            (item.taxRatePercentage
+                              ? Math.round((rawItemTotal * item.taxRatePercentage) / 100)
+                              : item.subtotal
+                              ? Math.max(0, item.subtotal - rawItemTotal + (item.discountAmount || 0))
+                              : 0);
+                          const finalItemSubtotal =
+                            item.subtotal ?? (rawItemTotal + itemTaxAmount - (item.discountAmount || 0));
+
+                          return (
+                            <tr key={item.id}>
+                              <td className="p-2.5">
+                                <div className="font-bold text-slate-800">{item.productName}</div>
+                              </td>
+                              <td className="p-2.5 text-center font-bold">{item.quantity}</td>
+                              <td className="p-2.5 text-right">{formatCurrency(item.unitPrice)}</td>
+                              <td className="p-2.5 text-right text-slate-800 font-bold">
+                                {formatCurrency(finalItemSubtotal)}
+                              </td>
+                            </tr>
+                          );
+                        })
                       ) : (
                         <tr>
                           <td colSpan={4} className="p-4 text-center text-slate-400 font-medium">
@@ -2365,45 +2453,113 @@ export const OrderHistoryTable: React.FC<OrderHistoryTableProps> = ({ currentRol
               </div>
 
               {/* Chi tiết thanh toán */}
-              <div className="bg-slate-50 p-4 rounded-lg border flex flex-col gap-2 text-xs">
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Tổng tiền hàng:</span>
-                  <span className="font-bold text-slate-800">{formatCurrency(selectedOrder.totalAmount)}</span>
-                </div>
-                <div className="flex justify-between text-rose-500">
-                  <span>Giảm giá:</span>
-                  <span className="font-bold">-{formatCurrency(selectedOrder.discountAmount)}</span>
-                </div>
-                <div className="flex justify-between border-t pt-2 text-slate-800 font-bold">
-                  <span>Cần thanh toán:</span>
-                  <span className="font-extrabold text-kv-blue-primary">
-                    {formatCurrency(selectedOrder.finalAmount)}
-                  </span>
-                </div>
-                <div className="flex justify-between border-t pt-2">
-                  <span className="text-slate-500">Khách đã trả:</span>
-                  <span className="font-bold text-slate-800">{formatCurrency(selectedOrder.finalAmount + (selectedOrder.changeAmount || 0))}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Tiền thối lại:</span>
-                  <span className="font-bold text-slate-800">{formatCurrency(selectedOrder.changeAmount || 0)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Phương thức thanh toán:</span>
-                  <span className="font-bold text-slate-800">
-                    {selectedOrder.paymentMethod === ORDER_PAYMENT_METHOD.CASH
-                      ? ORDER_PAYMENT_METHOD_LABELS[ORDER_PAYMENT_METHOD.CASH]
-                      : selectedOrder.paymentMethod === ORDER_PAYMENT_METHOD.BANK_TRANSFER
-                      ? ORDER_PAYMENT_METHOD_LABELS[ORDER_PAYMENT_METHOD.BANK_TRANSFER]
-                      : selectedOrder.paymentMethod === ORDER_PAYMENT_METHOD.DEBT
-                      ? ORDER_PAYMENT_METHOD_LABELS[ORDER_PAYMENT_METHOD.DEBT]
-                      : DEFAULT_ORDER_PAYMENT_METHOD_LABEL}
-                  </span>
-                </div>
-              </div>
+              {(() => {
+                const orderRawTotal =
+                  selectedOrder.items?.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0) ??
+                  selectedOrder.totalAmount;
 
-              {/* Close Button */}
-              <div className="flex justify-end mt-2">
+                const orderTotalTax =
+                  selectedOrder.items?.reduce((sum, item) => {
+                    const rawPriceTotal = item.unitPrice * item.quantity;
+                    const itemTax =
+                      item.taxAmount ??
+                      (item.taxRatePercentage
+                        ? Math.round((rawPriceTotal * item.taxRatePercentage) / 100)
+                        : item.subtotal
+                        ? Math.max(0, item.subtotal - rawPriceTotal + (item.discountAmount || 0))
+                        : 0);
+                    return sum + itemTax;
+                  }, 0) ?? 0;
+
+                return (
+                  <div className="bg-slate-50 p-4 rounded-lg border flex flex-col gap-2 text-xs">
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Tiền hàng (chưa thuế):</span>
+                      <span className="font-bold text-slate-800">{formatCurrency(orderRawTotal)}</span>
+                    </div>
+                    {orderTotalTax > 0 && (
+                      <div className="flex justify-between text-amber-700">
+                        <span className="font-semibold">Tổng thuế GTGT (+):</span>
+                        <span className="font-bold">+{formatCurrency(orderTotalTax)}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between text-rose-500">
+                      <span>Giảm giá (-):</span>
+                      <span className="font-bold">-{formatCurrency(selectedOrder.discountAmount)}</span>
+                    </div>
+                    <div className="flex justify-between border-t pt-2 text-slate-800 font-bold">
+                      <span>Cần thanh toán:</span>
+                      <span className="font-extrabold text-kv-blue-primary">
+                        {formatCurrency(selectedOrder.finalAmount)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between border-t pt-2">
+                      <span className="text-slate-500">Khách đã trả:</span>
+                      <span className="font-bold text-slate-800">
+                        {formatCurrency(selectedOrder.finalAmount + (selectedOrder.changeAmount || 0))}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Tiền thối lại:</span>
+                      <span className="font-bold text-slate-800">{formatCurrency(selectedOrder.changeAmount || 0)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Phương thức thanh toán:</span>
+                      <span className="font-bold text-slate-800">
+                        {selectedOrder.paymentMethod === ORDER_PAYMENT_METHOD.CASH
+                          ? ORDER_PAYMENT_METHOD_LABELS[ORDER_PAYMENT_METHOD.CASH]
+                          : selectedOrder.paymentMethod === ORDER_PAYMENT_METHOD.BANK_TRANSFER
+                          ? ORDER_PAYMENT_METHOD_LABELS[ORDER_PAYMENT_METHOD.BANK_TRANSFER]
+                          : selectedOrder.paymentMethod === ORDER_PAYMENT_METHOD.DEBT
+                          ? ORDER_PAYMENT_METHOD_LABELS[ORDER_PAYMENT_METHOD.DEBT]
+                          : DEFAULT_ORDER_PAYMENT_METHOD_LABEL}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Invoice Actions & Close Button */}
+              <div className="flex justify-end mt-2 items-center">
+                {selectedOrder.status === ORDER_STATUS.COMPLETED && (
+                  <>
+                    {!orderInvoice ? (
+                      <button
+                        type="button"
+                        disabled={isCreatingInvoice}
+                        onClick={() => handleIssueInvoice(selectedOrder)}
+                        className="bg-kv-green hover:bg-emerald-600 text-white font-bold h-9 px-4 rounded-lg transition-colors text-xs flex items-center justify-center gap-1 mr-2 disabled:opacity-60"
+                      >
+                        {isCreatingInvoice && (
+                          <span className="mr-1 h-3 w-3 animate-spin rounded-full border border-white/40 border-t-white" />
+                        )}
+                        Phát hành hóa đơn
+                      </button>
+                    ) : orderInvoice.status === E_INVOICE_STATUS.DRAFT ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowDetailModal(false);
+                          navigate(`/e-invoices?id=${orderInvoice.id}`);
+                        }}
+                        className="bg-kv-blue-primary hover:bg-kv-blue-dark text-white font-bold h-9 px-4 rounded-lg transition-colors text-xs mr-2"
+                      >
+                        Xem hóa đơn nháp
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowDetailModal(false);
+                          navigate(`/e-invoices?id=${orderInvoice.id}`);
+                        }}
+                        className="bg-slate-600 hover:bg-slate-700 text-white font-bold h-9 px-4 rounded-lg transition-colors text-xs mr-2"
+                      >
+                        Xem hóa đơn
+                      </button>
+                    )}
+                  </>
+                )}
                 <button
                   type="button"
                   onClick={() => setShowDetailModal(false)}

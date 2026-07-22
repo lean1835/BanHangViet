@@ -25,6 +25,7 @@ export const ROUTE_SEGMENTS = {
   INVOICES: "invoices",
   CONFIG: "config",
   POS: "pos",
+  E_INVOICES: "e-invoices",
   WILDCARD: "*",
 } as const;
 
@@ -96,4 +97,6 @@ export const APP_ROUTES = {
     ROUTE_SEGMENTS.CONFIG,
   ),
   POS: createRoute(ROUTE_SEGMENTS.POS),
+  E_INVOICES: createRoute(ROUTE_SEGMENTS.E_INVOICES),
+  E_INVOICES_ADJUST: (id: string) => `/e-invoices/${id}/adjust`,
 } as const;

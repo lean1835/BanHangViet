@@ -52,7 +52,9 @@ export const AuthenticatedAppLayout = () => {
         onToggleOnline={() => setIsOnline((currentValue) => !currentValue)}
         onConflictChange={setSimConflict}
       />
-      <DashboardNavigation currentRole={currentRole} />
+      {currentRole !== USER_ROLES.PLATFORM_ADMIN && currentRole !== USER_ROLES.TAX_AUTHORITY && (
+        <DashboardNavigation currentRole={currentRole} />
+      )}
       <Outlet />
     </div>
   );

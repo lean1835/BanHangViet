@@ -30,6 +30,7 @@ export const API_TAG_TYPES = {
   SHIFT: "Shift",
   ACTIVE_SHIFT: "ActiveShift",
   ORDER: "Order",
+  INVOICE: "Invoice",
 } as const;
 
 export const API_TAG_TYPE_VALUES = Object.values(API_TAG_TYPES);
