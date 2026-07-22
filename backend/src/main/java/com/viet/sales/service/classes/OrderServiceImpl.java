@@ -422,14 +422,14 @@ public class OrderServiceImpl implements OrderService {
             throw new AppException(ErrorCode.DISCOUNT_EXCEEDS_TOTAL);
         }
 
-        // Check salesperson limit (10% of total amount) - Removed/Commented out to allow up to 100% discount
-        // boolean isOwner = "VT-01".equals(currentUser.getRole().getCode());
-        // if (!isOwner) {
-        //     BigDecimal maxAllowedDiscount = order.getTotalAmount().multiply(BigDecimal.valueOf(0.10));
-        //     if (discountAmount.compareTo(maxAllowedDiscount) > 0) {
-        //         throw new AppException(ErrorCode.DISCOUNT_LIMIT_EXCEEDED);
-        //     }
-        // }
+        // Check salesperson limit (10% of total amount)
+        boolean isOwner = "VT-01".equals(currentUser.getRole().getCode());
+        if (!isOwner) {
+            BigDecimal maxAllowedDiscount = order.getTotalAmount().multiply(BigDecimal.valueOf(0.10));
+            if (discountAmount.compareTo(maxAllowedDiscount) > 0) {
+                throw new AppException(ErrorCode.DISCOUNT_LIMIT_EXCEEDED);
+            }
+        }
 
         order.setDiscountType(request.getDiscountType());
         order.setDiscountRateOrValue(request.getDiscountValue());
