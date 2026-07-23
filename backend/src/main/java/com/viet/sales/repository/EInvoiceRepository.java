@@ -35,4 +35,9 @@ public interface EInvoiceRepository extends JpaRepository<EInvoice, String>, Jpa
     boolean existsByLookupCodeAndDeletedAtIsNull(String lookupCode);
 
     List<EInvoice> findByHouseholdIdAndDeletedAtIsNullOrderByCreatedAtDesc(String householdId);
+
+    @org.springframework.data.jpa.repository.Query("SELECT MAX(e.invoiceNumber) FROM EInvoice e WHERE e.household.id = :householdId AND e.invoicePattern = :pattern AND e.invoiceSymbol = :symbol AND e.invoiceNumber IS NOT NULL AND e.deletedAt IS NULL")
+    Optional<String> findMaxInvoiceNumber(@org.springframework.data.repository.query.Param("householdId") String householdId,
+                                          @org.springframework.data.repository.query.Param("pattern") String pattern,
+                                          @org.springframework.data.repository.query.Param("symbol") String symbol);
 }
