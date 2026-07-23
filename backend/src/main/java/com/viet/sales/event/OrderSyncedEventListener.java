@@ -1,9 +1,11 @@
 package com.viet.sales.event;
 
 import com.viet.sales.entity.EInvoice;
+import com.viet.sales.entity.InvoiceTemplate;
 import com.viet.sales.entity.Order;
 import com.viet.sales.entity.User;
 import com.viet.sales.repository.EInvoiceRepository;
+import com.viet.sales.repository.InvoiceTemplateRepository;
 import com.viet.sales.repository.OrderRepository;
 import com.viet.sales.repository.UserRepository;
 import com.viet.sales.service.interfaces.EInvoiceService;
@@ -30,6 +32,7 @@ public class OrderSyncedEventListener {
     private final EInvoiceRepository eInvoiceRepository;
     private final OrderRepository orderRepository;
     private final UserRepository userRepository;
+    private final InvoiceTemplateRepository invoiceTemplateRepository;
 
     @Async("taskExecutor")
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
@@ -78,12 +81,22 @@ public class OrderSyncedEventListener {
                             lookupCode = java.util.UUID.randomUUID().toString().replaceAll("-", "").substring(0, 10).toUpperCase();
                         } while (eInvoiceRepository.existsByLookupCodeAndDeletedAtIsNull(lookupCode));
 
+                        String pattern = "1";
+                        String symbol = "C26TNV";
+                        if (order.getHousehold() != null) {
+                            Optional<InvoiceTemplate> templateOpt = invoiceTemplateRepository.findByHouseholdId(order.getHousehold().getId());
+                            if (templateOpt.isPresent()) {
+                                pattern = templateOpt.get().getInvoicePattern();
+                                symbol = templateOpt.get().getInvoiceSymbol();
+                            }
+                        }
+
                         EInvoice invoice = EInvoice.builder()
                                 .household(order.getHousehold())
                                 .order(order)
                                 .createdByUser(user)
-                                .invoicePattern("N/A")
-                                .invoiceSymbol("N/A")
+                                .invoicePattern(pattern)
+                                .invoiceSymbol(symbol)
                                 .buyerName(order.getCustomer() != null ? order.getCustomer().getName() : "Khách mua lẻ")
                                 .buyerPhone(order.getCustomer() != null ? order.getCustomer().getPhoneNumber() : null)
                                 .buyerEmail(order.getCustomer() != null ? order.getCustomer().getEmail() : null)
