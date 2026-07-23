@@ -64,6 +64,7 @@ const TaxReceivingConfigPage = React.lazy(
   () => import("@/modules/tax_authority/pages/TaxReceivingConfigPage")
 );
 const PosPage = React.lazy(() => import("@/modules/pos/pages/PosPage"));
+const LookupInvoicePage = React.lazy(() => import("@/pages/LookupInvoicePage"));
 
 const loadingFallback = (
   <div className="flex justify-center items-center h-screen">{APP_MESSAGES.LOADING}</div>
@@ -73,6 +74,10 @@ export const AppRouter = () => (
   <BrowserRouter>
     <Suspense fallback={loadingFallback}>
       <Routes>
+        <Route
+          path={APP_ROUTES.LOOKUP_INVOICE}
+          element={<LookupInvoicePage />}
+        />
         <Route
           path={APP_ROUTES.AUTH}
           element={

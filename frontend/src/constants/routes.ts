@@ -25,6 +25,7 @@ export const ROUTE_SEGMENTS = {
   INVOICES: "invoices",
   CONFIG: "config",
   POS: "pos",
+  LOOKUP_INVOICE: "lookup-invoice",
   WILDCARD: "*",
 } as const;
 
@@ -96,4 +97,5 @@ export const APP_ROUTES = {
     ROUTE_SEGMENTS.CONFIG,
   ),
   POS: createRoute(ROUTE_SEGMENTS.POS),
+  LOOKUP_INVOICE: createRoute(ROUTE_SEGMENTS.LOOKUP_INVOICE),
 } as const;
