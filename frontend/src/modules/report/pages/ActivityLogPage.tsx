@@ -154,6 +154,64 @@ export const ActivityLogPage = () => {
     };
   };
 
+interface IReconciliationDetail {
+  date?: string;
+  totalCash?: number;
+  totalTransfer?: number;
+  totalDebt?: number;
+  closingCashExpected?: number;
+  closingCashActual?: number;
+  errorInvoicesCount?: number;
+}
+
+interface IParsedLogPayload {
+  reconciliation?: IReconciliationDetail;
+  notes?: string;
+  note?: string;
+  date?: string;
+  totalCash?: number;
+  totalTransfer?: number;
+  totalDebt?: number;
+  closingCashExpected?: number;
+  closingCashActual?: number;
+  errorInvoicesCount?: number;
+  openingCash?: number;
+  name?: string;
+  productName?: string;
+  sku?: string;
+  price?: number;
+  sellingPrice?: number;
+  costPrice?: number;
+  stock?: number;
+  unit?: string;
+  category?: string;
+  code?: string;
+  orderCode?: string;
+  itemCount?: number;
+  itemsCount?: number;
+  totalAmount?: number;
+  totalPrice?: number;
+  finalAmount?: number;
+  totalPayment?: number;
+  paymentMethod?: string;
+  payment_method?: string;
+  customerName?: string;
+  receiptCode?: string;
+  supplierName?: string;
+  totalImportAmount?: number;
+  groupName?: string;
+  productCount?: number;
+  productIds?: string[];
+  description?: string;
+  username?: string;
+  fullName?: string;
+  role?: string;
+  phone?: string;
+  invoiceSymbol?: string;
+  invoiceNumber?: string;
+  status?: string;
+}
+
   const formatVnd = (val: number | string | undefined) => {
     if (val === undefined || val === null || isNaN(Number(val))) return "0 đ";
     return Number(val).toLocaleString("vi-VN") + " đ";
@@ -166,9 +224,9 @@ export const ActivityLogPage = () => {
     const actionUpper = (log.action || "").toUpperCase();
     const tableLower = (log.targetTable || "").toLowerCase();
 
-    let parsed: any = null;
+    let parsed: IParsedLogPayload | null = null;
     try {
-      parsed = JSON.parse(rawVal);
+      parsed = JSON.parse(rawVal) as IParsedLogPayload;
     } catch {
       return <span className="text-slate-700 font-medium">{rawVal}</span>;
     }
@@ -179,9 +237,10 @@ export const ActivityLogPage = () => {
 
     // 1. Chốt đối chiếu ngày (Lock Reconciliation)
     if (actionUpper.includes("CHOT_DOI_CHIEU") || actionUpper.includes("LOCK") || parsed.reconciliation) {
-      const r = parsed.reconciliation || parsed;
+      const r: IReconciliationDetail = (parsed.reconciliation || parsed) as IReconciliationDetail;
       const totalRevenue = Number(r.totalCash || 0) + Number(r.totalTransfer || 0) + Number(r.totalDebt || 0);
       const diff = Number(r.closingCashActual || 0) - Number(r.closingCashExpected || 0);
+      const errCount = Number(r.errorInvoicesCount || 0);
       return (
         <div className="flex flex-col gap-0.5 text-[11px] leading-relaxed py-0.5">
           {r.date && <span className="font-bold text-slate-800">Chốt ngày: {r.date.split("-").reverse().join("/")}</span>}
@@ -197,8 +256,8 @@ export const ActivityLogPage = () => {
               </strong>
             )}
           </span>
-          {r.errorInvoicesCount > 0 && (
-            <span className="text-amber-700 font-bold">⚠ {r.errorInvoicesCount} hóa đơn lỗi</span>
+          {errCount > 0 && (
+            <span className="text-amber-700 font-bold">⚠ {errCount} hóa đơn lỗi</span>
           )}
           {parsed.notes && (
             <span className="text-blue-700 italic">Ghi chú: "{parsed.notes}"</span>
@@ -332,7 +391,7 @@ export const ActivityLogPage = () => {
       ip: "Địa chỉ IP",
     };
 
-    Object.entries(parsed).forEach(([k, v]) => {
+    Object.entries(parsed as Record<string, unknown>).forEach(([k, v]) => {
       if (v !== null && v !== undefined && typeof v !== "object") {
         const label = keyMap[k.toLowerCase()] || k;
         let valStr = String(v);
@@ -356,7 +415,7 @@ export const ActivityLogPage = () => {
       );
     }
 
-    return <span className="text-slate-700 font-medium">{String(parsed)}</span>;
+    return <span className="text-slate-700 font-medium">{JSON.stringify(parsed)}</span>;
   };
 
   return (

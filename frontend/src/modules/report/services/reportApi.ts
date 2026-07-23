@@ -21,6 +21,7 @@ export const reportApi = baseApi.injectEndpoints({
         method: HTTP_METHODS.GET,
         params: params || undefined,
       }),
+      providesTags: [{ type: API_TAG_TYPES.REPORT, id: "OVERVIEW" }],
     }),
     getDailyRevenue: builder.query<
       IApiResponse<IDailyRevenueProjection[]>,
@@ -31,6 +32,7 @@ export const reportApi = baseApi.injectEndpoints({
         method: HTTP_METHODS.GET,
         params: params || undefined,
       }),
+      providesTags: [{ type: API_TAG_TYPES.REPORT, id: "DAILY" }],
     }),
     getProductRevenue: builder.query<
       IApiResponse<IProductRevenueProjection[]>,
@@ -41,6 +43,7 @@ export const reportApi = baseApi.injectEndpoints({
         method: HTTP_METHODS.GET,
         params: params || undefined,
       }),
+      providesTags: [{ type: API_TAG_TYPES.REPORT, id: "PRODUCTS" }],
     }),
     getTopSellingProducts: builder.query<
       IApiResponse<IProductRevenueProjection[]>,
@@ -51,6 +54,7 @@ export const reportApi = baseApi.injectEndpoints({
         method: HTTP_METHODS.GET,
         params: params || undefined,
       }),
+      providesTags: [{ type: API_TAG_TYPES.REPORT, id: "TOP_SELLING" }],
     }),
     getReconciliation: builder.query<
       IApiResponse<IReconciliationResponse>,
@@ -61,7 +65,10 @@ export const reportApi = baseApi.injectEndpoints({
         method: HTTP_METHODS.GET,
         params,
       }),
-      providesTags: (_result, _error, arg) => [{ type: API_TAG_TYPES.REPORT, id: `RECON_${arg.date}` }],
+      providesTags: (_result, _error, arg) => [
+        { type: API_TAG_TYPES.REPORT, id: `RECON_${arg.date}` },
+        { type: API_TAG_TYPES.REPORT, id: "RECON_LIST" },
+      ],
     }),
     lockReconciliation: builder.mutation<
       IApiResponse<void>,
@@ -74,7 +81,12 @@ export const reportApi = baseApi.injectEndpoints({
       }),
       invalidatesTags: (_result, _error, arg) => [
         { type: API_TAG_TYPES.REPORT, id: `RECON_${arg.date}` },
+        { type: API_TAG_TYPES.REPORT, id: "RECON_LIST" },
         { type: API_TAG_TYPES.REPORT, id: "LOGS" },
+        { type: API_TAG_TYPES.REPORT, id: "OVERVIEW" },
+        { type: API_TAG_TYPES.REPORT, id: "DAILY" },
+        { type: API_TAG_TYPES.REPORT, id: "PRODUCTS" },
+        { type: API_TAG_TYPES.REPORT, id: "TOP_SELLING" },
       ],
     }),
     compareRevenue: builder.query<

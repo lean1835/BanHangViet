@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { CheckCircle2 } from "lucide-react";
 import { useGetShiftsHistoryQuery } from "@/modules/shift/services/shiftApi";
+import type { IShiftResponse } from "@/modules/shift/types/IShift";
 import { useNotification } from "@/hooks/useNotification";
 import { formatCurrency } from "@/utils/formatCurrency";
 import {
@@ -39,7 +40,7 @@ export const ReconciliationTable = ({ date, currentRole }: ReconciliationTablePr
   const [updateInvoice] = useUpdateInvoiceMutation();
 
   const reconData = reconciliationData?.result;
-  const dbShifts = shiftsHistoryData?.result || [];
+  const dbShifts: IShiftResponse[] = shiftsHistoryData?.result || [];
 
   // Filter shifts strictly by selected date YYYY-MM-DD
   const shiftsList = useMemo(() => {
@@ -55,7 +56,7 @@ export const ReconciliationTable = ({ date, currentRole }: ReconciliationTablePr
 
   // Compute actual handed over cash, expected cash, and diff based on shifts or API reconData
   const closingCashActualSum = useMemo(() => {
-    const shiftSum = shiftsList.reduce((sum: number, s: any) => {
+    const shiftSum = shiftsList.reduce((sum: number, s: IShiftResponse) => {
       if (s.closingCashActual !== null && s.closingCashActual !== undefined) {
         return sum + s.closingCashActual;
       }
@@ -65,7 +66,7 @@ export const ReconciliationTable = ({ date, currentRole }: ReconciliationTablePr
   }, [shiftsList, reconData]);
 
   const closingCashExpectedSum = useMemo(() => {
-    const shiftSum = shiftsList.reduce((sum: number, s: any) => {
+    const shiftSum = shiftsList.reduce((sum: number, s: IShiftResponse) => {
       if (s.closingCashExpected !== null && s.closingCashExpected !== undefined) {
         return sum + s.closingCashExpected;
       }
@@ -76,7 +77,7 @@ export const ReconciliationTable = ({ date, currentRole }: ReconciliationTablePr
 
   // Diff: sum shift difference amounts or closingCashActualSum - closingCashExpectedSum
   const diff = useMemo(() => {
-    const shiftDiffSum = shiftsList.reduce((sum: number, s: any) => {
+    const shiftDiffSum = shiftsList.reduce((sum: number, s: IShiftResponse) => {
       if (s.differenceAmount !== null && s.differenceAmount !== undefined) {
         return sum + s.differenceAmount;
       }
@@ -169,14 +170,6 @@ export const ReconciliationTable = ({ date, currentRole }: ReconciliationTablePr
 
   const [showLockModal, setShowLockModal] = useState(false);
   const [lockNote, setLockNote] = useState("");
-  const [lockedDates, setLockedDates] = useState<Record<string, boolean>>(() => {
-    try {
-      const saved = localStorage.getItem("locked_recon_dates");
-      return saved ? JSON.parse(saved) : {};
-    } catch {
-      return {};
-    }
-  });
 
   const selectedLockDate = date || new Date().toISOString().split("T")[0];
 
@@ -187,12 +180,11 @@ export const ReconciliationTable = ({ date, currentRole }: ReconciliationTablePr
   });
 
   const isAlreadyLocked = useMemo(() => {
-    if (lockedDates[selectedLockDate]) return true;
     const logs = activityLogsRes?.result?.content || [];
     return logs.some(
       (l) => l.action?.toUpperCase().includes("CHOT_DOI_CHIEU") || l.action?.toUpperCase().includes("LOCK")
     );
-  }, [selectedLockDate, lockedDates, activityLogsRes]);
+  }, [activityLogsRes]);
 
   const handleLockDay = () => {
     if (isAlreadyLocked) return;
@@ -203,12 +195,6 @@ export const ReconciliationTable = ({ date, currentRole }: ReconciliationTablePr
     try {
       const lockDate = selectedLockDate;
       await lockReconciliation({ date: lockDate, notes: lockNote }).unwrap();
-
-      const newLocked = { ...lockedDates, [lockDate]: true };
-      setLockedDates(newLocked);
-      try {
-        localStorage.setItem("locked_recon_dates", JSON.stringify(newLocked));
-      } catch {}
 
       const [y, m, d] = lockDate.split("-");
       showSuccess(`Đã chốt đối chiếu ngày ${d}/${m}/${y} thành công!`);
@@ -331,7 +317,7 @@ export const ReconciliationTable = ({ date, currentRole }: ReconciliationTablePr
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {shiftsList.map((shift: any) => {
+                    {shiftsList.map((shift: IShiftResponse) => {
                       const diffVal = shift.differenceAmount ?? 0;
                       return (
                         <tr key={shift.id} className="hover:bg-slate-50/50 transition-colors">

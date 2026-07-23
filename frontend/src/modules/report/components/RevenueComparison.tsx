@@ -10,6 +10,29 @@ import {
 import { useCompareRevenueQuery } from "../services/reportApi";
 import { formatCurrency } from "@/utils/formatCurrency";
 
+import { z } from "zod";
+
+export const revenueComparisonSchema = z
+  .object({
+    period1Start: z.string().min(1, "Vui lòng chọn ngày bắt đầu Kỳ gốc."),
+    period1End: z.string().min(1, "Vui lòng chọn ngày kết thúc Kỳ gốc."),
+    period2Start: z.string().min(1, "Vui lòng chọn ngày bắt đầu Kỳ so sánh."),
+    period2End: z.string().min(1, "Vui lòng chọn ngày kết thúc Kỳ so sánh."),
+  })
+  .refine((data) => data.period1Start <= data.period1End, {
+    message: "Kỳ gốc: Ngày bắt đầu không được lớn hơn ngày kết thúc.",
+  })
+  .refine((data) => data.period2Start <= data.period2End, {
+    message: "Kỳ so sánh: Ngày bắt đầu không được lớn hơn ngày kết thúc.",
+  })
+  .refine(
+    (data) =>
+      data.period1Start > data.period2End || data.period1End < data.period2Start,
+    {
+      message: "Kỳ gốc và Kỳ so sánh không được có khoảng thời gian trùng lặp.",
+    }
+  );
+
 const getPresetPeriods = (preset: "monthVsMonth" | "weekVsWeek") => {
   const now = new Date();
   const todayStr = now.toISOString().split("T")[0];
@@ -55,20 +78,16 @@ export const RevenueComparison: React.FC = () => {
   const [period2End, setPeriod2End] = useState<string>(defaultPeriods.period2End);
   const [activePreset, setActivePreset] = useState<"monthVsMonth" | "weekVsWeek" | "custom">("monthVsMonth");
 
-  // Client-side overlap validation
+  // Zod validation
   const validationError = useMemo(() => {
-    if (!period1Start || !period1End || !period2Start || !period2End) {
-      return "Vui lòng chọn đầy đủ ngày bắt đầu và kết thúc cho cả hai kỳ.";
-    }
-    if (period1Start > period1End) {
-      return "Kỳ gốc: Ngày bắt đầu không được lớn hơn ngày kết thúc.";
-    }
-    if (period2Start > period2End) {
-      return "Kỳ so sánh: Ngày bắt đầu không được lớn hơn ngày kết thúc.";
-    }
-    // Check overlap: NOT (p1Start > p2End || p1End < p2Start)
-    if (!(period1Start > period2End || period1End < period2Start)) {
-      return "Kỳ gốc và Kỳ so sánh không được có khoảng thời gian trùng lặp.";
+    const parseResult = revenueComparisonSchema.safeParse({
+      period1Start,
+      period1End,
+      period2Start,
+      period2End,
+    });
+    if (!parseResult.success) {
+      return parseResult.error.issues[0]?.message || "Khoảng thời gian không hợp lệ.";
     }
     return null;
   }, [period1Start, period1End, period2Start, period2End]);
