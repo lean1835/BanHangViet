@@ -25,8 +25,19 @@ import java.util.concurrent.atomic.AtomicLong;
 public class RateLimitFilter extends OncePerRequestFilter {
 
     private static class RequestCount {
-        final AtomicInteger count = new AtomicInteger(0);
-        final AtomicLong resetTime = new AtomicLong(0);
+        private int count = 0;
+        private long resetTime = 0;
+
+        public synchronized boolean allowRequest(long now, long timeLimitMs, int maxRequests) {
+            if (now > resetTime) {
+                count = 1;
+                resetTime = now + timeLimitMs;
+                return true;
+            } else {
+                count++;
+                return count <= maxRequests;
+            }
+        }
     }
 
     private final ObjectMapper objectMapper;
@@ -51,35 +62,28 @@ public class RateLimitFilter extends OncePerRequestFilter {
             try {
                 requestCount = ipRequestCache.get(ip, () -> {
                     RequestCount rc = new RequestCount();
-                    rc.resetTime.set(now + TIME_LIMIT_MS);
-                    rc.count.set(0);
+                    rc.resetTime = now + TIME_LIMIT_MS;
+                    rc.count = 0;
                     return rc;
                 });
             } catch (ExecutionException e) {
                 requestCount = new RequestCount();
-                requestCount.resetTime.set(now + TIME_LIMIT_MS);
+                requestCount.resetTime = now + TIME_LIMIT_MS;
             }
 
-            long resetTime = requestCount.resetTime.get();
-            if (now > resetTime) {
-                // Time window expired, reset
-                requestCount.count.set(1);
-                requestCount.resetTime.set(now + TIME_LIMIT_MS);
-            } else {
-                int currentCount = requestCount.count.incrementAndGet();
-                if (currentCount > MAX_REQUESTS) {
-                    response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
-                    response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-                    response.setCharacterEncoding("UTF-8");
+            boolean allowed = requestCount.allowRequest(now, TIME_LIMIT_MS, MAX_REQUESTS);
+            if (!allowed) {
+                response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
+                response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+                response.setCharacterEncoding("UTF-8");
 
-                    ApiResponse<Void> apiResponse = ApiResponse.<Void>builder()
-                            .code(HttpStatus.TOO_MANY_REQUESTS.value())
-                            .message("Too many requests. Please try again after 1 minute.")
-                            .build();
+                ApiResponse<Void> apiResponse = ApiResponse.<Void>builder()
+                        .code(HttpStatus.TOO_MANY_REQUESTS.value())
+                        .message("Too many requests. Please try again after 1 minute.")
+                        .build();
 
-                    objectMapper.writeValue(response.getWriter(), apiResponse);
-                    return;
-                }
+                objectMapper.writeValue(response.getWriter(), apiResponse);
+                return;
             }
         }
 

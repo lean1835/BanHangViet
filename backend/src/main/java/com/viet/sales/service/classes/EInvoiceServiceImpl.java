@@ -1045,7 +1045,7 @@ public class EInvoiceServiceImpl implements EInvoiceService {
         StringBuilder itemsHtml = new StringBuilder();
         for (EInvoiceItem item : invoice.getItems()) {
             itemsHtml.append("<tr>")
-                    .append("<td colspan=\"4\" style=\"padding-top:4px;\">").append(item.getProductName()).append("</td>")
+                    .append("<td colspan=\"4\" style=\"padding-top:4px;\">").append(escHtml(item.getProductName())).append("</td>")
                     .append("</tr>")
                     .append("<tr style=\"border-bottom:1px dotted #ccc;\">")
                     .append("<td></td>")
@@ -1056,19 +1056,19 @@ public class EInvoiceServiceImpl implements EInvoiceService {
         }
 
         String htmlContent = "<div style=\"font-family:'Courier New',Courier,monospace; width:" + width + "; padding:10px; font-size:12px; line-height:1.4;\">\n"
-                + "    <div style=\"text-align:center; font-weight:bold; font-size:14px;\">" + invoice.getHousehold().getName() + "</div>\n"
-                + "    <div style=\"text-align:center;\">MST: " + invoice.getHousehold().getTaxCode() + "</div>\n"
-                + "    <div style=\"text-align:center;\">Đ/C: " + invoice.getHousehold().getAddress() + "</div>\n"
-                + "    <div style=\"text-align:center;\">SĐT: " + invoice.getHousehold().getPhoneNumber() + "</div>\n"
+                + "    <div style=\"text-align:center; font-weight:bold; font-size:14px;\">" + escHtml(invoice.getHousehold().getName()) + "</div>\n"
+                + "    <div style=\"text-align:center;\">MST: " + escHtml(invoice.getHousehold().getTaxCode()) + "</div>\n"
+                + "    <div style=\"text-align:center;\">Đ/C: " + escHtml(invoice.getHousehold().getAddress()) + "</div>\n"
+                + "    <div style=\"text-align:center;\">SĐT: " + escHtml(invoice.getHousehold().getPhoneNumber()) + "</div>\n"
                 + "    <div style=\"border-bottom:1px dashed #000; margin:10px 0;\"></div>\n"
-                + "    <div style=\"text-align:center; font-weight:bold; font-size:14px;\">" + title + "</div>\n"
-                + "    <div style=\"text-align:center; font-size:11px; font-weight:bold; color:red;\">(" + statusLabel + ")</div>\n"
-                + "    <div style=\"text-align:center; font-size:10px;\">Mẫu số: " + pattern + " | Ký hiệu: " + symbol + "</div>\n"
-                + "    <div style=\"text-align:center; font-size:10px;\">Số HD: " + (invoice.getInvoiceNumber() != null ? invoice.getInvoiceNumber() : "N/A") + "</div>\n"
+                + "    <div style=\"text-align:center; font-weight:bold; font-size:14px;\">" + escHtml(title) + "</div>\n"
+                + "    <div style=\"text-align:center; font-size:11px; font-weight:bold; color:red;\">(" + escHtml(statusLabel) + ")</div>\n"
+                + "    <div style=\"text-align:center; font-size:10px;\">Mẫu số: " + escHtml(pattern) + " | Ký hiệu: " + escHtml(symbol) + "</div>\n"
+                + "    <div style=\"text-align:center; font-size:10px;\">Số HD: " + escHtml(invoice.getInvoiceNumber() != null ? invoice.getInvoiceNumber() : "N/A") + "</div>\n"
                 + "    <div style=\"text-align:center; font-size:10px;\">Ngày lập: " + invoice.getCreatedAt().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss")) + "</div>\n"
                 + "    <div style=\"border-bottom:1px dashed #000; margin:10px 0;\"></div>\n"
-                + "    <div>Khách hàng: " + (invoice.getBuyerName() != null ? invoice.getBuyerName() : "Khách vãng lai") + "</div>\n"
-                + "    <div>MST KH: " + (invoice.getBuyerTaxCode() != null ? invoice.getBuyerTaxCode() : "N/A") + "</div>\n"
+                + "    <div>Khách hàng: " + escHtml(invoice.getBuyerName() != null ? invoice.getBuyerName() : "Khách vãng lai") + "</div>\n"
+                + "    <div>MST KH: " + escHtml(invoice.getBuyerTaxCode() != null ? invoice.getBuyerTaxCode() : "N/A") + "</div>\n"
                 + "    <div style=\"border-bottom:1px dashed #000; margin:5px 0;\"></div>\n"
                 + "    <table style=\"width:100%; border-collapse:collapse; font-size:12px;\">\n"
                 + "        <thead>\n"
@@ -1104,11 +1104,11 @@ public class EInvoiceServiceImpl implements EInvoiceService {
                 + "    </table>\n"
                 + "    <div style=\"border-bottom:1px dashed #000; margin:10px 0;\"></div>\n"
                 + "    <div style=\"text-align:center; font-size:10px;\">\n"
-                + "        Tra cứu hóa đơn tại: <b>" + (frontendUrl != null ? frontendUrl : "http://localhost:5173") + "/lookup</b><br/>\n"
-                + "        Mã tra cứu: <b>" + invoice.getLookupCode() + "</b>\n"
+                + "        Tra cứu hóa đơn tại: <b>" + escHtml(frontendUrl != null ? frontendUrl : "http://localhost:5173") + "/lookup</b><br/>\n"
+                + "        Mã tra cứu: <b>" + escHtml(invoice.getLookupCode()) + "</b>\n"
                 + "    </div>\n"
                 + "    <div style=\"text-align:center; margin-top:10px; font-size:10px; font-style:italic;\">\n"
-                + footer + "\n"
+                + escHtml(footer) + "\n"
                 + "    </div>\n"
                 + "</div>";
 
@@ -1272,14 +1272,14 @@ public class EInvoiceServiceImpl implements EInvoiceService {
             html.append("<!DOCTYPE html>\n<html>\n<head>\n<meta charset=\"UTF-8\">\n<title>Hoa don dien tu</title>\n</head>\n<body>\n")
                 .append("<div style=\"border:2px solid #000; padding:20px; font-family:Arial,sans-serif; max-width:800px; margin:0 auto;\">\n")
                 .append("  <h1 style=\"text-align:center; margin-bottom:5px;\">HÓA ĐƠN ĐIỆN TỬ</h1>\n")
-                .append("  <p style=\"text-align:center; font-style:italic;\">Mã tra cứu: ").append(invoice.getLookupCode()).append("</p>\n")
+                .append("  <p style=\"text-align:center; font-style:italic;\">Mã tra cứu: ").append(escHtml(invoice.getLookupCode())).append("</p>\n")
                 .append("  <hr/>\n")
-                .append("  <h3>BÊN BÁN: ").append(invoice.getHousehold() != null ? invoice.getHousehold().getName() : "").append("</h3>\n")
-                .append("  <p>Mã số thuế: ").append(invoice.getHousehold() != null ? invoice.getHousehold().getTaxCode() : "").append("</p>\n")
-                .append("  <p>Địa chỉ: ").append(invoice.getHousehold() != null ? invoice.getHousehold().getAddress() : "").append("</p>\n")
+                .append("  <h3>BÊN BÁN: ").append(escHtml(invoice.getHousehold() != null ? invoice.getHousehold().getName() : "")).append("</h3>\n")
+                .append("  <p>Mã số thuế: ").append(escHtml(invoice.getHousehold() != null ? invoice.getHousehold().getTaxCode() : "")).append("</p>\n")
+                .append("  <p>Địa chỉ: ").append(escHtml(invoice.getHousehold() != null ? invoice.getHousehold().getAddress() : "")).append("</p>\n")
                 .append("  <hr/>\n")
-                .append("  <h3>BÊN MUA: ").append(invoice.getBuyerName() != null ? invoice.getBuyerName() : "Khách vãng lai").append("</h3>\n")
-                .append("  <p>Địa chỉ: ").append(invoice.getBuyerAddress() != null ? invoice.getBuyerAddress() : "").append("</p>\n")
+                .append("  <h3>BÊN MUA: ").append(escHtml(invoice.getBuyerName() != null ? invoice.getBuyerName() : "Khách vãng lai")).append("</h3>\n")
+                .append("  <p>Địa chỉ: ").append(escHtml(invoice.getBuyerAddress() != null ? invoice.getBuyerAddress() : "")).append("</p>\n")
                 .append("  <hr/>\n")
                 .append("  <table border=\"1\" style=\"width:100%; border-collapse:collapse;\">\n")
                 .append("    <thead>\n")
@@ -1291,8 +1291,8 @@ public class EInvoiceServiceImpl implements EInvoiceService {
             
             for (EInvoiceItem item : invoice.getItems()) {
                 html.append("      <tr>\n")
-                    .append("        <td>").append(item.getProductName()).append("</td>\n")
-                    .append("        <td>").append(item.getUnit()).append("</td>\n")
+                    .append("        <td>").append(escHtml(item.getProductName())).append("</td>\n")
+                    .append("        <td>").append(escHtml(item.getUnit())).append("</td>\n")
                     .append("        <td align=\"right\">").append(item.getQuantity()).append("</td>\n")
                     .append("        <td align=\"right\">").append(item.getUnitPrice()).append("</td>\n")
                     .append("        <td align=\"right\">").append(item.getSubtotal()).append("</td>\n")
@@ -1312,6 +1312,10 @@ public class EInvoiceServiceImpl implements EInvoiceService {
 
     private String escXml(String val) {
         return org.apache.commons.text.StringEscapeUtils.escapeXml11(val != null ? val : "");
+    }
+
+    private String escHtml(String val) {
+        return org.apache.commons.text.StringEscapeUtils.escapeHtml4(val != null ? val : "");
     }
 }
 

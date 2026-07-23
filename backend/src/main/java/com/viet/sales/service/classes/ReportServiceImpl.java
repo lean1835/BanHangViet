@@ -56,12 +56,11 @@ public class ReportServiceImpl implements ReportService {
     @Transactional(readOnly = true)
     public List<DailyRevenueProjection> getDailyRevenue(String currentUsername, LocalDate fromDate, LocalDate toDate) {
         BusinessHousehold household = getHouseholdAndValidate(currentUsername);
-        if (fromDate != null && toDate != null && fromDate.isAfter(toDate)) {
-            throw new AppException(ErrorCode.INVALID_INPUT);
-        }
-
         LocalDateTime start = fromDate != null ? fromDate.atStartOfDay() : LocalDate.now().minusDays(30).atStartOfDay();
         LocalDateTime end = toDate != null ? toDate.atTime(LocalTime.MAX) : LocalDate.now().atTime(LocalTime.MAX);
+        if (start.isAfter(end)) {
+            throw new AppException(ErrorCode.INVALID_INPUT);
+        }
 
         return orderRepository.getDailyRevenue(household.getId(), start, end);
     }
@@ -76,12 +75,11 @@ public class ReportServiceImpl implements ReportService {
     @Transactional(readOnly = true)
     public List<ProductRevenueProjection> getProductRevenue(String currentUsername, LocalDate fromDate, LocalDate toDate, Integer limit) {
         BusinessHousehold household = getHouseholdAndValidate(currentUsername);
-        if (fromDate != null && toDate != null && fromDate.isAfter(toDate)) {
-            throw new AppException(ErrorCode.INVALID_INPUT);
-        }
-
         LocalDateTime start = fromDate != null ? fromDate.atStartOfDay() : LocalDate.now().minusDays(30).atStartOfDay();
         LocalDateTime end = toDate != null ? toDate.atTime(LocalTime.MAX) : LocalDate.now().atTime(LocalTime.MAX);
+        if (start.isAfter(end)) {
+            throw new AppException(ErrorCode.INVALID_INPUT);
+        }
 
         List<ProductRevenueProjection> list = orderRepository.getProductRevenue(household.getId(), start, end);
         if (limit != null && limit > 0 && list.size() > limit) {
@@ -178,12 +176,11 @@ public class ReportServiceImpl implements ReportService {
     @Transactional(readOnly = true)
     public DashboardOverviewResponse getDashboardOverview(String currentUsername, LocalDate fromDate, LocalDate toDate) {
         BusinessHousehold household = getHouseholdAndValidate(currentUsername);
-        if (fromDate != null && toDate != null && fromDate.isAfter(toDate)) {
-            throw new AppException(ErrorCode.INVALID_INPUT);
-        }
-
         LocalDateTime start = fromDate != null ? fromDate.atStartOfDay() : LocalDate.now().minusDays(30).atStartOfDay();
         LocalDateTime end = toDate != null ? toDate.atTime(LocalTime.MAX) : LocalDate.now().atTime(LocalTime.MAX);
+        if (start.isAfter(end)) {
+            throw new AppException(ErrorCode.INVALID_INPUT);
+        }
 
         BigDecimal totalRevenue = orderRepository.sumFinalAmountByHouseholdIdAndStatusAndDeletedAtIsNullAndCreatedAtBetween(
                 household.getId(), "COMPLETED", start, end
@@ -259,12 +256,11 @@ public class ReportServiceImpl implements ReportService {
     @Transactional(readOnly = true)
     public PageResponse<ActivityLogResponse> getActivityLogs(String currentUsername, String targetUsername, LocalDate fromDate, LocalDate toDate, int page, int size) {
         BusinessHousehold household = getHouseholdAndValidate(currentUsername);
-        if (fromDate != null && toDate != null && fromDate.isAfter(toDate)) {
-            throw new AppException(ErrorCode.INVALID_INPUT);
-        }
-
         LocalDateTime start = fromDate != null ? fromDate.atStartOfDay() : LocalDate.now().minusDays(30).atStartOfDay();
         LocalDateTime end = toDate != null ? toDate.atTime(LocalTime.MAX) : LocalDate.now().atTime(LocalTime.MAX);
+        if (start.isAfter(end)) {
+            throw new AppException(ErrorCode.INVALID_INPUT);
+        }
 
         Pageable pageable = PageRequest.of(page, size);
         Page<ActivityLog> logs = activityLogRepository.findLogs(
