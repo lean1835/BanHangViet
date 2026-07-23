@@ -408,6 +408,21 @@ public class SyncServiceImpl implements SyncService {
             serverOrder.setSyncStatus("SYNCED");
             serverOrder.setSyncedAt(LocalDateTime.now());
 
+            Shift shift = null;
+            if (clientData.getShiftId() != null && !clientData.getShiftId().trim().isEmpty()) {
+                shift = shiftRepository.findById(clientData.getShiftId()).orElse(null);
+            }
+            if (shift == null) {
+                shift = shiftRepository.findByUserIdAndStatus(currentUser.getId(), ShiftStatus.OPEN).orElse(null);
+            }
+            serverOrder.setShift(shift);
+
+            Customer customer = null;
+            if (clientData.getCustomerId() != null && !clientData.getCustomerId().trim().isEmpty()) {
+                customer = customerRepository.findByIdAndHouseholdIdAndDeletedAtIsNull(clientData.getCustomerId(), household.getId()).orElse(null);
+            }
+            serverOrder.setCustomer(customer);
+
             List<OrderItem> newItems = new ArrayList<>();
             List<String> warnings = new ArrayList<>();
 

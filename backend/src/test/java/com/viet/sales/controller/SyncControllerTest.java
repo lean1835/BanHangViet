@@ -6,6 +6,7 @@ import com.viet.sales.dto.request.OfflineOrderRequest;
 import com.viet.sales.dto.request.OfflineOrderItemRequest;
 import com.viet.sales.dto.request.SyncResolveRequest;
 import com.viet.sales.constant.ConflictResolutionStrategy;
+import com.viet.sales.constant.ShiftStatus;
 import com.viet.sales.entity.*;
 import com.viet.sales.repository.*;
 import org.junit.jupiter.api.BeforeEach;
@@ -55,6 +56,12 @@ public class SyncControllerTest {
 
     @Autowired
     private TaxRateRepository taxRateRepository;
+
+    @Autowired
+    private CustomerRepository customerRepository;
+
+    @Autowired
+    private ShiftRepository shiftRepository;
 
     private BusinessHousehold testHousehold;
     private Role ownerRole;
@@ -228,5 +235,91 @@ public class SyncControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(1000))
                 .andExpect(jsonPath("$.result.orderNumber").value("ORD-CONF-001"));
+    }
+
+    @Test
+    @WithMockUser(username = "nhanvien_viet", roles = {"VT-02"})
+    public void testBulkUpload_EmptyList_ReturnsValidationError() throws Exception {
+        mockMvc.perform(post("/api/v1/sync/bulk-upload")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Collections.emptyList())))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(2006))
+                .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("Danh sách đơn hàng đồng bộ không được trống")));
+    }
+
+    @Test
+    @WithMockUser(username = "chuho_viet", roles = {"VT-01"})
+    public void testResolveConflict_OverwriteServer_UpdatesCustomerAndShift() throws Exception {
+        // Create an existing order first
+        Order existing = Order.builder()
+                .household(testHousehold)
+                .createdByUser(testOwner)
+                .orderNumber("ORD-CONF-002")
+                .totalAmount(BigDecimal.valueOf(100000.00))
+                .discountAmount(BigDecimal.ZERO)
+                .finalAmount(BigDecimal.valueOf(100000.00))
+                .paymentMethod("CASH")
+                .paymentStatus("PAID")
+                .status("COMPLETED")
+                .syncStatus("SYNCED")
+                .isOffline(false)
+                .build();
+        existing = orderRepository.save(existing);
+
+        // Create test shift
+        Shift newShift = Shift.builder()
+                .household(testHousehold)
+                .user(testOwner)
+                .openedAt(LocalDateTime.now())
+                .openingCash(BigDecimal.valueOf(100000))
+                .status(ShiftStatus.OPEN)
+                .build();
+        newShift = shiftRepository.save(newShift);
+
+        // Create test customer
+        Customer newCustomer = Customer.builder()
+                .household(testHousehold)
+                .name("Khách Hàng Mới")
+                .phoneNumber("0999888777")
+                .build();
+        newCustomer = customerRepository.save(newCustomer);
+
+        OfflineOrderItemRequest itemReq = OfflineOrderItemRequest.builder()
+                .productId(testProduct.getId())
+                .quantity(BigDecimal.valueOf(1.0))
+                .unitPrice(testProduct.getPrice())
+                .discountAmount(BigDecimal.ZERO)
+                .taxRatePercentage(testTaxRate.getRatePercentage())
+                .taxAmount(BigDecimal.valueOf(10000.00))
+                .subtotal(BigDecimal.valueOf(110000.00))
+                .build();
+
+        OfflineOrderRequest clientData = OfflineOrderRequest.builder()
+                .orderNumber("ORD-CONF-002")
+                .customerId(newCustomer.getId())
+                .shiftId(newShift.getId())
+                .totalAmount(BigDecimal.valueOf(100000.00))
+                .discountAmount(BigDecimal.ZERO)
+                .finalAmount(BigDecimal.valueOf(110000.00))
+                .paymentMethod("CASH")
+                .paymentStatus("PAID")
+                .createdAt(LocalDateTime.now())
+                .items(Collections.singletonList(itemReq))
+                .build();
+
+        SyncResolveRequest resolveReq = SyncResolveRequest.builder()
+                .orderNumber("ORD-CONF-002")
+                .resolutionStrategy(ConflictResolutionStrategy.OVERWRITE_SERVER)
+                .clientOrderData(clientData)
+                .build();
+
+        mockMvc.perform(post("/api/v1/sync/resolve")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(resolveReq)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(1000))
+                .andExpect(jsonPath("$.result.customerId").value(newCustomer.getId()))
+                .andExpect(jsonPath("$.result.shiftId").value(newShift.getId()));
     }
 }

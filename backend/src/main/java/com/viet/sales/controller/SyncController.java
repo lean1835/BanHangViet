@@ -8,6 +8,7 @@ import com.viet.sales.dto.response.SyncCheckResponse;
 import com.viet.sales.dto.response.OrderResponse;
 import com.viet.sales.service.interfaces.SyncService;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotEmpty;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -43,7 +44,7 @@ public class SyncController {
     @PreAuthorize("hasAnyRole('VT-01', 'VT-02')")
     public ResponseEntity<ApiResponse<List<OrderResponse>>> bulkUpload(
             Principal principal,
-            @RequestBody List<@Valid OfflineOrderRequest> requests) {
+            @RequestBody @NotEmpty(message = "Danh sách đơn hàng đồng bộ không được trống") List<@Valid OfflineOrderRequest> requests) {
         List<OrderResponse> result = syncService.bulkUpload(principal.getName(), requests);
         ApiResponse<List<OrderResponse>> response = ApiResponse.<List<OrderResponse>>builder()
                 .code(1000)

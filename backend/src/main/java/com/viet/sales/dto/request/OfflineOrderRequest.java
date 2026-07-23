@@ -1,5 +1,6 @@
 package com.viet.sales.dto.request;
 
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 import lombok.*;
 import java.math.BigDecimal;
@@ -36,5 +37,5 @@ public class OfflineOrderRequest {
     private LocalDateTime createdAt;
 
     @NotEmpty(message = "Đơn hàng phải có ít nhất một sản phẩm")
-    private List<OfflineOrderItemRequest> items;
+    private List<@Valid OfflineOrderItemRequest> items;
 }
