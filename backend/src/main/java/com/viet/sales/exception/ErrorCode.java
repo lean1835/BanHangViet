@@ -59,7 +59,14 @@ public enum ErrorCode {
     INVOICE_NOT_ISSUED(4009, "Chỉ được điều chỉnh hóa đơn đã cấp mã (ISSUED)", HttpStatus.BAD_REQUEST),
     INVOICE_ADJUSTMENT_NO_CHANGE(4010, "Dữ liệu điều chỉnh phải khác biệt so với hóa đơn gốc", HttpStatus.BAD_REQUEST),
     INVOICE_ALREADY_ADJUSTED_OR_CANCELED(4011, "Hóa đơn đã bị điều chỉnh hoặc hủy trước đó", HttpStatus.BAD_REQUEST),
-    FEATURE_NOT_ENABLED(4012, "Chức năng hóa đơn điện tử chưa được kích hoạt cho hộ kinh doanh", HttpStatus.BAD_REQUEST);
+    FEATURE_NOT_ENABLED(4012, "Chức năng hóa đơn điện tử chưa được kích hoạt cho hộ kinh doanh", HttpStatus.BAD_REQUEST),
+
+    // Cấu hình Nền tảng & Thuế suất (NCL-09 Branch 1)
+    INVALID_TAX_CODE(2030, "Mã số thuế không đúng định dạng 10 hoặc 13 chữ số", HttpStatus.BAD_REQUEST),
+    INVALID_INVOICE_SYMBOL(2031, "Ký hiệu hóa đơn không đúng quy định TT78", HttpStatus.BAD_REQUEST),
+    INVALID_TAX_RATE_PERCENTAGE(2032, "Tỷ lệ phần trăm thuế không hợp lệ (từ 0% đến 100%)", HttpStatus.BAD_REQUEST),
+    TAX_RATE_ALREADY_EXISTS(2033, "Tên mức thuế suất đã tồn tại trong hộ kinh doanh", HttpStatus.BAD_REQUEST),
+    INACTIVE_TAX_RATE(2034, "Mức thuế suất đã bị ngừng hiệu lực", HttpStatus.BAD_REQUEST);
 
     private final int code;
     private final String message;
