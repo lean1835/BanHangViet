@@ -36,7 +36,6 @@ export const StockEntryPage = () => {
     page: PRODUCT_STOCK_ENTRY_CONFIG.INITIAL_PAGE,
     size: PRODUCT_STOCK_ENTRY_CONFIG.GOODS_RECEIPT_BATCH_SIZE,
   });
-  const receipts = receiptsData?.content || [];
 
   const [createGoodsReceipt] = useCreateGoodsReceiptMutation();
 
@@ -54,13 +53,14 @@ export const StockEntryPage = () => {
   // Filter goods receipts from backend using useMemo for performance
   const normalizedStockEntrySearch = stockEntrySearch.trim().toLocaleLowerCase("vi");
   const filteredReceipts = useMemo(() => {
-    if (!normalizedStockEntrySearch) return receipts;
-    return receipts.filter((receipt: any) =>
+    const list = receiptsData?.content || [];
+    if (!normalizedStockEntrySearch) return list;
+    return list.filter((receipt: any) =>
       [receipt.receiptNumber, receipt.notes, receipt.createdByUserName, receipt.receivedAt].some((value) =>
         (value || "").toLocaleLowerCase("vi").includes(normalizedStockEntrySearch)
       )
     );
-  }, [receipts, normalizedStockEntrySearch]);
+  }, [receiptsData?.content, normalizedStockEntrySearch]);
 
   const totalElements = filteredReceipts.length;
   const totalPages = Math.ceil(totalElements / PAGE_SIZE);
@@ -70,7 +70,7 @@ export const StockEntryPage = () => {
     const start = page * PAGE_SIZE;
     const end = start + PAGE_SIZE;
     return filteredReceipts.slice(start, end);
-  }, [filteredReceipts, page]);
+  }, [filteredReceipts, page, PAGE_SIZE]);
 
   const handleAddStock = async (values: GoodsReceiptFormValues) => {
     const prodId = values.productId;

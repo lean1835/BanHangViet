@@ -7,7 +7,10 @@ import { USER_ROLES } from "@/constants/roles";
 import { formatCurrency } from "@/utils/formatCurrency";
 import { formatDate } from "@/utils/dateFormatter";
 import type { IInvoice } from "../types/IInvoice";
+import type { IDeliveryLog } from "../types/IInvoiceDelivery";
 import { CancelInvoiceModal } from "./CancelInvoiceModal";
+import { SendInvoiceModal } from "./SendInvoiceModal";
+import { PrintInvoiceModal } from "./PrintInvoiceModal";
 import {
   getStatusClassName,
   getStatusLabel,
@@ -63,6 +66,9 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
 }) => {
   const navigate = useNavigate();
   const [showCancelModal, setShowCancelModal] = useState(false);
+  const [showSendModal, setShowSendModal] = useState(false);
+  const [showPrintModal, setShowPrintModal] = useState(false);
+  const [deliveryLogs, setDeliveryLogs] = useState<IDeliveryLog[]>(invoice.deliveryLogs || []);
   const [isActionPending, setIsActionPending] = useState(false);
 
   // States for buyer editing
@@ -460,6 +466,30 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
                 </h3>
 
               <div className="flex flex-col gap-2 font-bold">
+                {/* Send invoice to customer (QR, Zalo, Email) */}
+                <button
+                  type="button"
+                  onClick={() => setShowSendModal(true)}
+                  className="w-full flex min-h-9 py-1.5 items-center justify-center rounded-lg bg-emerald-600 text-white text-[11px] font-bold hover:bg-emerald-700 transition-colors shadow-sm"
+                >
+                  <svg className="w-3.5 h-3.5 mr-1.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
+                  </svg>
+                  GỬI HÓA ĐƠN CHO KHÁCH
+                </button>
+
+                {/* Print invoice */}
+                <button
+                  type="button"
+                  onClick={() => setShowPrintModal(true)}
+                  className="w-full flex min-h-9 py-1.5 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-700 text-[11px] font-bold hover:bg-slate-100 transition-colors shadow-2xs"
+                >
+                  <svg className="w-3.5 h-3.5 mr-1.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path>
+                  </svg>
+                  IN HÓA ĐƠN CHO KHÁCH
+                </button>
+
                 {/* Submit to tax authority */}
                 {(invoice.status === E_INVOICE_STATUS.DRAFT || invoice.status === E_INVOICE_STATUS.SEND_ERROR) && (
                   <button
@@ -535,6 +565,25 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
             onClose={() => setShowCancelModal(false)}
             onConfirm={handleCancelConfirm}
             invoiceLookupCode={invoice.lookupCode}
+          />
+        )}
+
+        {/* Send Invoice Modal Portal */}
+        {showSendModal && (
+          <SendInvoiceModal
+            isOpen={showSendModal}
+            onClose={() => setShowSendModal(false)}
+            invoice={invoice}
+            onDeliverySuccess={(log) => setDeliveryLogs([log, ...deliveryLogs])}
+          />
+        )}
+
+        {/* Print Invoice Modal Portal */}
+        {showPrintModal && (
+          <PrintInvoiceModal
+            isOpen={showPrintModal}
+            onClose={() => setShowPrintModal(false)}
+            invoice={invoice}
           />
         )}
       </div>

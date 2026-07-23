@@ -22,9 +22,7 @@ public class PublicInvoiceController {
 
     @GetMapping("/lookup")
     public ResponseEntity<ApiResponse<PublicInvoiceResponse>> lookupInvoice(
-            @RequestParam 
-            @NotBlank(message = "Mã tra cứu không được để trống") 
-            @Pattern(regexp = "^[A-Z0-9]{10}$", message = "Mã tra cứu không hợp lệ") String code) {
+            @RequestParam @NotBlank(message = "Mã tra cứu không được để trống") @Pattern(regexp = "^[A-Z0-9]{10}$", message = "Mã tra cứu không hợp lệ") String code) {
         PublicInvoiceResponse result = eInvoiceService.lookupInvoicePublicly(code);
         ApiResponse<PublicInvoiceResponse> response = ApiResponse.<PublicInvoiceResponse>builder()
                 .code(1000)
@@ -36,14 +34,13 @@ public class PublicInvoiceController {
 
     @GetMapping("/download")
     public ResponseEntity<byte[]> downloadInvoiceFile(
-            @RequestParam 
-            @NotBlank(message = "Mã tra cứu không được để trống") 
-            @Pattern(regexp = "^[A-Z0-9]{10}$", message = "Mã tra cứu không hợp lệ") String code,
+            @RequestParam @NotBlank(message = "Mã tra cứu không được để trống") @Pattern(regexp = "^[A-Z0-9]{10}$", message = "Mã tra cứu không hợp lệ") String code,
             @RequestParam(defaultValue = "pdf") String format) {
         byte[] fileBytes = eInvoiceService.downloadInvoiceFilePublicly(code, format);
-        
-        String filename = "HoaDon_" + code + ("xml".equalsIgnoreCase(format) ? ".xml" : ".html");
-        MediaType mediaType = "xml".equalsIgnoreCase(format) ? MediaType.APPLICATION_XML : MediaType.TEXT_HTML;
+
+        String extension = "xml".equalsIgnoreCase(format) ? ".xml" : ".pdf";
+        String filename = "HoaDon_" + code + extension;
+        MediaType mediaType = "xml".equalsIgnoreCase(format) ? MediaType.APPLICATION_XML : MediaType.APPLICATION_PDF;
 
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")

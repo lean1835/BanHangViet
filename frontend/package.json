@@ -18,6 +18,8 @@
     "@hookform/resolvers": "^5.4.0",
     "@reduxjs/toolkit": "^2.2.6",
     "antd": "^5.19.1",
+    "html2canvas": "^1.4.1",
+    "jspdf": "^4.2.1",
     "lucide-react": "^0.400.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
