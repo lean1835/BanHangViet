@@ -1,12 +1,18 @@
 package com.viet.sales.configuration;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
-import jakarta.servlet.*;
+import com.viet.sales.dto.ApiResponse;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
+import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.util.concurrent.ExecutionException;
@@ -15,12 +21,15 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 @Component
-public class RateLimitFilter implements Filter {
+@RequiredArgsConstructor
+public class RateLimitFilter extends OncePerRequestFilter {
 
     private static class RequestCount {
         final AtomicInteger count = new AtomicInteger(0);
         final AtomicLong resetTime = new AtomicLong(0);
     }
+
+    private final ObjectMapper objectMapper;
 
     private final Cache<String, RequestCount> ipRequestCache = CacheBuilder.newBuilder()
             .expireAfterWrite(1, TimeUnit.MINUTES)
@@ -30,19 +39,12 @@ public class RateLimitFilter implements Filter {
     private static final long TIME_LIMIT_MS = 60000; // 1 minute
 
     @Override
-    public void doFilter(ServletRequest servletRequest, ServletResponse servletResponse, FilterChain filterChain)
-            throws IOException, ServletException {
-        HttpServletRequest request = (HttpServletRequest) servletRequest;
-        HttpServletResponse response = (HttpServletResponse) servletResponse;
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
+            throws ServletException, IOException {
 
         String path = request.getRequestURI();
         if (path.startsWith("/api/v1/public/invoices/")) {
-            String ip = request.getRemoteAddr();
-            // In case of proxy, check X-Forwarded-For
-            String xff = request.getHeader("X-Forwarded-For");
-            if (xff != null && !xff.isEmpty()) {
-                ip = xff.split(",")[0].trim();
-            }
+            String ip = getClientIp(request);
 
             long now = System.currentTimeMillis();
             RequestCount requestCount;
@@ -67,14 +69,35 @@ public class RateLimitFilter implements Filter {
                 int currentCount = requestCount.count.incrementAndGet();
                 if (currentCount > MAX_REQUESTS) {
                     response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
-                    response.setContentType("application/json");
+                    response.setContentType(MediaType.APPLICATION_JSON_VALUE);
                     response.setCharacterEncoding("UTF-8");
-                    response.getWriter().write("{\"code\":429,\"message\":\"Too many requests. Please try again after 1 minute.\",\"result\":null}");
+
+                    ApiResponse<Void> apiResponse = ApiResponse.<Void>builder()
+                            .code(HttpStatus.TOO_MANY_REQUESTS.value())
+                            .message("Too many requests. Please try again after 1 minute.")
+                            .build();
+
+                    objectMapper.writeValue(response.getWriter(), apiResponse);
                     return;
                 }
             }
         }
 
-        filterChain.doFilter(servletRequest, servletResponse);
+        filterChain.doFilter(request, response);
+    }
+
+    private String getClientIp(HttpServletRequest request) {
+        String xff = request.getHeader("X-Forwarded-For");
+        if (xff != null && !xff.trim().isEmpty()) {
+            String[] ips = xff.split(",");
+            for (String rawIp : ips) {
+                String candidate = rawIp.trim();
+                if (!candidate.isEmpty() && !"unknown".equalsIgnoreCase(candidate)) {
+                    return candidate;
+                }
+            }
+        }
+        String remoteAddr = request.getRemoteAddr();
+        return remoteAddr != null ? remoteAddr : "unknown";
     }
 }

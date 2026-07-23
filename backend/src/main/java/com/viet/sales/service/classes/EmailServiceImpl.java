@@ -20,7 +20,6 @@ public class EmailServiceImpl implements EmailService {
 
     @Override
     @Async("taskExecutor")
-    @org.springframework.transaction.annotation.Transactional
     public void sendInvoiceEmailAsync(String deliveryLogId, String toEmail, String lookupUrl, String householdName, String lookupCode, java.math.BigDecimal finalAmount) {
         try {
             MimeMessage message = mailSender.createMimeMessage();
