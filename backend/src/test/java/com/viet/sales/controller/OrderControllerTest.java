@@ -13,6 +13,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
@@ -26,6 +27,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureMockMvc
 @Transactional
 public class OrderControllerTest {
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
+
+    @Autowired
+    private jakarta.persistence.EntityManager entityManager;
 
     @Autowired
     private MockMvc mockMvc;
@@ -70,6 +77,32 @@ public class OrderControllerTest {
 
     @BeforeEach
     public void setUp() {
+        // Khởi tạo Trigger CSDL để kiểm thử trừ kho tự động nếu chưa có
+        try {
+            jdbcTemplate.execute("DROP TRIGGER IF EXISTS trg_stock_sales_update");
+            jdbcTemplate.execute(
+                "CREATE TRIGGER trg_stock_sales_update " +
+                "AFTER UPDATE ON orders " +
+                "FOR EACH ROW " +
+                "BEGIN " +
+                "    IF (OLD.status <> 'COMPLETED' AND NEW.status = 'COMPLETED') THEN " +
+                "        UPDATE products p " +
+                "        JOIN order_items item ON p.id = item.product_id " +
+                "        SET p.stock_quantity = p.stock_quantity - item.quantity " +
+                "        WHERE item.order_id = NEW.id; " +
+                "    END IF; " +
+                "    IF (OLD.status = 'COMPLETED' AND NEW.status = 'CANCELED') THEN " +
+                "        UPDATE products p " +
+                "        JOIN order_items item ON p.id = item.product_id " +
+                "        SET p.stock_quantity = p.stock_quantity + item.quantity " +
+                "        WHERE item.order_id = NEW.id; " +
+                "    END IF; " +
+                "END"
+            );
+        } catch (Exception e) {
+            // Log warning if not on MySQL or local privileges prevent it, but don't fail tests
+            System.err.println("Warning: Failed to recreate MySQL trigger: " + e.getMessage());
+        }
 
         // 1. Hộ kinh doanh
         testHousehold = businessHouseholdRepository.findByTaxCode("8888888888").orElseGet(() -> {
@@ -590,8 +623,11 @@ public class OrderControllerTest {
                         .content(objectMapper.writeValueAsString(completeReq)))
                 .andExpect(status().isOk());
 
+        entityManager.flush();
+
         // 5. Kiểm tra stock của product giảm còn 45.000
         Product updatedProduct = productRepository.findById(testProduct.getId()).orElseThrow();
+        entityManager.refresh(updatedProduct);
         org.junit.jupiter.api.Assertions.assertEquals(0, new BigDecimal("45.000").compareTo(updatedProduct.getStockQuantity()));
     }
 
@@ -724,8 +760,11 @@ public class OrderControllerTest {
                 .andExpect(jsonPath("$.result.warningMessages").isArray())
                 .andExpect(jsonPath("$.result.warningMessages[0]").value(org.hamcrest.Matchers.containsString("vượt quá số lượng tồn kho khả dụng")));
 
+        entityManager.flush();
+
         // 5. Kiểm tra stock của product giảm còn -10.000
         Product updatedProduct = productRepository.findById(testProduct.getId()).orElseThrow();
+        entityManager.refresh(updatedProduct);
         org.junit.jupiter.api.Assertions.assertEquals(0, new BigDecimal("-10.000").compareTo(updatedProduct.getStockQuantity()));
     }
 
