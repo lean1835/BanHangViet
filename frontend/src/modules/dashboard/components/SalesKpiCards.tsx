@@ -1,4 +1,4 @@
-import { FileSpreadsheet, AlertCircle, TrendingUp, HelpCircle } from "lucide-react";
+import { FileSpreadsheet, AlertCircle, HelpCircle } from "lucide-react";
 import { formatCurrency } from "@/utils/formatCurrency";
 
 interface SalesKpiCardsProps {
@@ -23,10 +23,8 @@ export const SalesKpiCards = ({
           <h3 className="text-2xl font-black text-slate-800 mt-1">
             {totalOrders}
           </h3>
-          <div className="flex items-center gap-1 mt-1 text-[11px] text-emerald-600 font-bold">
-            <TrendingUp className="w-3.5 h-3.5" />
-            <span>+ 12.5%</span>
-            <span className="text-slate-400 font-medium ml-1">vs hôm qua</span>
+          <div className="flex items-center gap-1 mt-1 text-[11px] text-slate-500 font-medium">
+            <span>Đơn hàng trong kỳ</span>
           </div>
         </div>
         <div className="w-12 h-12 bg-blue-50 text-kv-blue-primary rounded-full flex items-center justify-center shrink-0">
@@ -62,10 +60,8 @@ export const SalesKpiCards = ({
           <h3 className="text-2xl font-black text-slate-800 mt-1">
             {formatCurrency(totalRevenue)}
           </h3>
-          <div className="flex items-center gap-1 mt-1 text-[11px] text-emerald-600 font-bold">
-            <TrendingUp className="w-3.5 h-3.5" />
-            <span>+ 15.3%</span>
-            <span className="text-slate-400 font-medium ml-1">vs hôm qua</span>
+          <div className="flex items-center gap-1 mt-1 text-[11px] text-slate-500 font-medium">
+            <span>Doanh thu thuần trong kỳ</span>
           </div>
         </div>
         <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center shrink-0">

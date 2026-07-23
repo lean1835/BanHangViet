@@ -93,3 +93,14 @@ export const normalizeDateToYYYYMMDD = (dateStr?: string | null): string => {
   return "";
 };
 
+/**
+ * Formats a Date object to local "YYYY-MM-DD" string in local timezone (GMT+7 in VN).
+ * Prevents Timezone Shift bugs caused by Date.prototype.toISOString() (which uses UTC).
+ */
+export const getLocalDateString = (d: Date = new Date()): string => {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+};
+

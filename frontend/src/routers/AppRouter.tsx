@@ -45,9 +45,6 @@ const BusinessInfoPage = React.lazy(
 const TaxRateSettingsPage = React.lazy(
   () => import("@/modules/settings/pages/TaxRateSettingsPage")
 );
-const PrinterSettingsPage = React.lazy(
-  () => import("@/modules/settings/pages/PrinterSettingsPage")
-);
 const PlatformAdminWorkspaceLayout = React.lazy(
   () => import("@/modules/platform_admin/pages/PlatformAdminWorkspaceLayout")
 );
@@ -200,7 +197,7 @@ export const AppRouter = () => (
             <Route index element={<Navigate to={ROUTE_SEGMENTS.BUSINESS_INFO} replace />} />
             <Route path={ROUTE_SEGMENTS.BUSINESS_INFO} element={<BusinessInfoPage />} />
             <Route path={ROUTE_SEGMENTS.TAX_RATES} element={<TaxRateSettingsPage />} />
-            <Route path={ROUTE_SEGMENTS.PRINTER} element={<PrinterSettingsPage />} />
+            <Route path={ROUTE_SEGMENTS.PRINTER} element={<Navigate to={ROUTE_SEGMENTS.BUSINESS_INFO} replace />} />
           </Route>
 
           <Route
