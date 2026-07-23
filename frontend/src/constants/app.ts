@@ -1,5 +1,5 @@
 export const APP_BRAND = {
-  PREFIX: "Bán Hàng",
+  PREFIX: "Bán Hàng ",
   SUFFIX: "Việt",
   FULL_NAME: "Bán Hàng Việt",
   DEMO_LABEL: "Demo Trải nghiệm Nghiệp vụ",
