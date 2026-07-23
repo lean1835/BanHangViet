@@ -40,4 +40,7 @@ public interface ShiftRepository extends JpaRepository<Shift, String> {
 
     @EntityGraph(attributePaths = {"user", "household"})
     List<Shift> findAllByIdInAndHouseholdId(Collection<String> ids, String householdId);
+
+    @EntityGraph(attributePaths = {"user", "household"})
+    Optional<Shift> findByIdAndHouseholdId(String id, String householdId);
 }

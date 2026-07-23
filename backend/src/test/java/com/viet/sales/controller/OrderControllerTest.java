@@ -153,6 +153,8 @@ public class OrderControllerTest {
                             .build();
                     return productRepository.save(p);
                 });
+        testProduct.setStockQuantity(new BigDecimal("50.000"));
+        testProduct = productRepository.saveAndFlush(testProduct);
 
         // 6. Khách hàng
         testCustomer = customerRepository.findAll().stream()
@@ -561,6 +563,9 @@ public class OrderControllerTest {
     @WithMockUser(username = "test_owner_order", roles = {"VT-01"})
     public void completeOrder_stockDeducted_success() throws Exception {
         openShiftForUser(testOwner);
+        testProduct.setStockQuantity(new BigDecimal("50.000"));
+        testProduct = productRepository.saveAndFlush(testProduct);
+        entityManager.clear();
 
         // 1. Tạo đơn hàng
         CreateOrderRequest orderReq = CreateOrderRequest.builder().build();
@@ -696,6 +701,9 @@ public class OrderControllerTest {
     @WithMockUser(username = "test_owner_order", roles = {"VT-01"})
     public void completeOrder_overStock_success_withWarning() throws Exception {
         openShiftForUser(testOwner);
+        testProduct.setStockQuantity(new BigDecimal("50.000"));
+        testProduct = productRepository.saveAndFlush(testProduct);
+        entityManager.clear();
 
         // 1. Tạo đơn hàng
         CreateOrderRequest orderReq = CreateOrderRequest.builder().build();

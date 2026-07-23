@@ -299,7 +299,7 @@ public class SyncServiceImpl implements SyncService {
                     .build();
 
             // Explicitly set createdAt using the offline timestamp
-            order.setCreatedAt(req.getCreatedAt());
+            order.setCreatedAt(req.getCreatedAt() != null ? req.getCreatedAt() : LocalDateTime.now());
 
             List<OrderItem> items = new ArrayList<>();
 
@@ -316,14 +316,10 @@ public class SyncServiceImpl implements SyncService {
                                 + itemReq.getQuantity() + ", Tồn kho: " + product.getStockQuantity() + ").");
                     }
 
-                    // Subtract stock atomically
+                    // Subtract stock atomically via SQL (do not mutate in-memory entity to prevent Hibernate dirty checking conflicts)
                     int affectedRows = productRepository.deductStock(product.getId(), household.getId(), itemReq.getQuantity());
                     if (affectedRows == 0) {
                         throw new AppException(ErrorCode.PRODUCT_NOT_FOUND);
-                    }
-
-                    if (product.getStockQuantity() != null) {
-                        product.setStockQuantity(product.getStockQuantity().subtract(itemReq.getQuantity()));
                     }
 
                     OrderItem orderItem = OrderItem.builder()
@@ -414,7 +410,7 @@ public class SyncServiceImpl implements SyncService {
 
             Shift shift = null;
             if (clientData.getShiftId() != null && !clientData.getShiftId().trim().isEmpty()) {
-                shift = shiftRepository.findById(clientData.getShiftId()).orElse(null);
+                shift = shiftRepository.findByIdAndHouseholdId(clientData.getShiftId(), household.getId()).orElse(null);
             }
             if (shift == null) {
                 shift = shiftRepository.findByUserIdAndStatus(currentUser.getId(), ShiftStatus.OPEN).orElse(null);
@@ -440,14 +436,10 @@ public class SyncServiceImpl implements SyncService {
                                 + itemReq.getQuantity() + ", Tồn kho: " + product.getStockQuantity() + ").");
                     }
 
-                    // Apply new stock subtraction atomically
+                    // Apply new stock subtraction atomically via SQL
                     int affectedRows = productRepository.deductStock(product.getId(), household.getId(), itemReq.getQuantity());
                     if (affectedRows == 0) {
                         throw new AppException(ErrorCode.PRODUCT_NOT_FOUND);
-                    }
-
-                    if (product.getStockQuantity() != null) {
-                        product.setStockQuantity(product.getStockQuantity().subtract(itemReq.getQuantity()));
                     }
 
                     OrderItem orderItem = OrderItem.builder()
@@ -501,7 +493,7 @@ public class SyncServiceImpl implements SyncService {
             // 1. Resolve shift
             Shift shift = null;
             if (clientData.getShiftId() != null && !clientData.getShiftId().trim().isEmpty()) {
-                shift = shiftRepository.findById(clientData.getShiftId()).orElse(null);
+                shift = shiftRepository.findByIdAndHouseholdId(clientData.getShiftId(), household.getId()).orElse(null);
             }
             if (shift == null) {
                 shift = shiftRepository.findByUserIdAndStatus(currentUser.getId(), ShiftStatus.OPEN).orElse(null);
@@ -533,7 +525,7 @@ public class SyncServiceImpl implements SyncService {
                     .discountRateOrValue(clientData.getDiscountRateOrValue())
                     .build();
 
-            newOrder.setCreatedAt(clientData.getCreatedAt());
+            newOrder.setCreatedAt(clientData.getCreatedAt() != null ? clientData.getCreatedAt() : LocalDateTime.now());
 
             List<OrderItem> items = new ArrayList<>();
             List<String> warnings = new ArrayList<>();
@@ -548,14 +540,10 @@ public class SyncServiceImpl implements SyncService {
                                 + itemReq.getQuantity() + ", Tồn kho: " + product.getStockQuantity() + ").");
                     }
 
-                    // Subtract stock atomically
+                    // Subtract stock atomically via SQL
                     int affectedRows = productRepository.deductStock(product.getId(), household.getId(), itemReq.getQuantity());
                     if (affectedRows == 0) {
                         throw new AppException(ErrorCode.PRODUCT_NOT_FOUND);
-                    }
-
-                    if (product.getStockQuantity() != null) {
-                        product.setStockQuantity(product.getStockQuantity().subtract(itemReq.getQuantity()));
                     }
 
                     OrderItem orderItem = OrderItem.builder()
