@@ -35,6 +35,13 @@ public interface ProductRepository extends JpaRepository<Product, String>, JpaSp
     @EntityGraph(attributePaths = {"group", "taxRate", "household"})
     List<Product> findAllByIdInAndHouseholdIdAndDeletedAtIsNull(Collection<String> ids, String householdId);
 
+    @Query("SELECT p.sku FROM Product p WHERE p.household.id = :householdId AND p.deletedAt IS NULL")
+    List<String> findSkusByHouseholdId(@Param("householdId") String householdId);
+
+    @Override
+    @EntityGraph(attributePaths = {"group", "taxRate", "household"})
+    List<Product> findAll(Specification<Product> spec);
+
     @Override
     @EntityGraph(attributePaths = {"group", "taxRate", "household"})
     Page<Product> findAll(Specification<Product> spec, Pageable pageable);

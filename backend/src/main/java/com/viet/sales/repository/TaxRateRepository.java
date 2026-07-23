@@ -9,4 +9,6 @@ import java.util.Optional;
 @Repository
 public interface TaxRateRepository extends JpaRepository<TaxRate, String> {
     Optional<TaxRate> findByIdAndHouseholdIdAndIsActiveTrue(String id, String householdId);
+
+    java.util.List<TaxRate> findByHouseholdIdAndIsActiveTrue(String householdId);
 }

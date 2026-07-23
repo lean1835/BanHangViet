@@ -11,6 +11,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.security.Principal;
 
@@ -20,6 +21,32 @@ import java.security.Principal;
 public class ProductController {
 
     private final ProductService productService;
+    private final com.viet.sales.service.interfaces.ProductImportService productImportService;
+
+    @GetMapping("/import-template")
+    @PreAuthorize("hasAnyRole('VT-01', 'OWNER')")
+    public ResponseEntity<org.springframework.core.io.Resource> getImportTemplate() throws Exception {
+        byte[] data = productImportService.getImportTemplate();
+        org.springframework.core.io.ByteArrayResource resource = new org.springframework.core.io.ByteArrayResource(data);
+        return ResponseEntity.ok()
+                .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"Product_Import_Template.xlsx\"")
+                .contentType(org.springframework.http.MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                .body(resource);
+    }
+
+    @PostMapping("/import")
+    @PreAuthorize("hasAnyRole('VT-01', 'OWNER')")
+    public ResponseEntity<ApiResponse<com.viet.sales.dto.response.ImportProductResultResponse>> importProducts(
+            Principal principal,
+            @RequestParam("file") MultipartFile file) {
+        com.viet.sales.dto.response.ImportProductResultResponse result = productImportService.importProducts(principal.getName(), file);
+        ApiResponse<com.viet.sales.dto.response.ImportProductResultResponse> response = ApiResponse.<com.viet.sales.dto.response.ImportProductResultResponse>builder()
+                .code(1000)
+                .message("Nhập danh mục sản phẩm từ tệp thành công")
+                .result(result)
+                .build();
+        return ResponseEntity.ok(response);
+    }
 
     @PostMapping
     @PreAuthorize("hasRole('VT-01')")
