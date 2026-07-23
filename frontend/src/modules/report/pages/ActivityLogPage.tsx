@@ -22,17 +22,42 @@ export const ActivityLogPage = () => {
   const [page, setPage] = useState(0);
   const pageSize = 9;
 
-  const { data, isLoading, isFetching, refetch } = useGetActivityLogsQuery({
-    fromDate: fromDate || undefined,
-    toDate: toDate || undefined,
-    page,
-    size: pageSize,
-  });
+  const isDateInvalid = Boolean(fromDate && toDate && fromDate > toDate);
+
+  const { data, isLoading, isFetching, refetch } = useGetActivityLogsQuery(
+    {
+      fromDate: fromDate || undefined,
+      toDate: toDate || undefined,
+      page,
+      size: pageSize,
+    },
+    { skip: isDateInvalid }
+  );
 
   const logsPage = data?.result;
   const logsList: IActivityLogResponse[] = logsPage?.content || [];
   const totalPages = logsPage?.totalPages || 1;
   const totalElements = logsPage?.totalElements || 0;
+
+  const formatReconDate = (dateStr?: string): string => {
+    if (!dateStr) return "";
+    try {
+      if (dateStr.includes("-")) {
+        const parts = dateStr.split("T")[0].split("-");
+        if (parts.length === 3) return parts.reverse().join("/");
+      }
+      const d = new Date(dateStr);
+      if (!isNaN(d.getTime())) {
+        const day = String(d.getDate()).padStart(2, "0");
+        const month = String(d.getMonth() + 1).padStart(2, "0");
+        const year = d.getFullYear();
+        return `${day}/${month}/${year}`;
+      }
+      return dateStr;
+    } catch {
+      return dateStr;
+    }
+  };
 
   const formatDateTime = (isoString?: string) => {
     if (!isoString) return "-";
@@ -243,7 +268,7 @@ interface IParsedLogPayload {
       const errCount = Number(r.errorInvoicesCount || 0);
       return (
         <div className="flex flex-col gap-0.5 text-[11px] leading-relaxed py-0.5">
-          {r.date && <span className="font-bold text-slate-800">Chốt ngày: {r.date.split("-").reverse().join("/")}</span>}
+          {r.date && <span className="font-bold text-slate-800">Chốt ngày: {formatReconDate(r.date)}</span>}
           <span>Doanh thu: <strong className="text-emerald-700">{formatVnd(totalRevenue)}</strong></span>
           <span className="text-slate-500">
             Tiền mặt: {formatVnd(r.totalCash)} · CK: {formatVnd(r.totalTransfer)} · Nợ: {formatVnd(r.totalDebt)}
@@ -421,54 +446,63 @@ interface IParsedLogPayload {
   return (
     <div className="max-w-7xl mx-auto flex flex-col gap-6">
       {/* Filter Bar */}
-      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-2 text-xs font-semibold text-slate-600">
-          <Calendar className="w-4 h-4 text-slate-400 shrink-0" />
-          <span>Từ:</span>
-          <input
-            type="date"
-            value={fromDate}
-            onChange={(e) => {
-              setFromDate(e.target.value);
-              setPage(0);
-            }}
-            className="border border-slate-200 rounded-lg px-2.5 py-1 text-xs font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-kv-blue-primary/20"
-          />
-          <span>Đến:</span>
-          <input
-            type="date"
-            value={toDate}
-            onChange={(e) => {
-              setToDate(e.target.value);
-              setPage(0);
-            }}
-            className="border border-slate-200 rounded-lg px-2.5 py-1 text-xs font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-kv-blue-primary/20"
-          />
-        </div>
-
-        <div className="flex items-center gap-3">
-          {(fromDate || toDate) && (
-            <button
-              onClick={() => {
-                setFromDate("");
-                setToDate("");
+      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col gap-2">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-2 text-xs font-semibold text-slate-600">
+            <Calendar className="w-4 h-4 text-slate-400 shrink-0" />
+            <span>Từ:</span>
+            <input
+              type="date"
+              value={fromDate}
+              onChange={(e) => {
+                setFromDate(e.target.value);
                 setPage(0);
               }}
-              className="text-xs text-rose-600 font-bold hover:underline"
-            >
-              Xóa bộ lọc
-            </button>
-          )}
+              className={`border ${isDateInvalid ? "border-rose-400" : "border-slate-200"} rounded-lg px-2.5 py-1 text-xs font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-kv-blue-primary/20`}
+            />
+            <span>Đến:</span>
+            <input
+              type="date"
+              value={toDate}
+              onChange={(e) => {
+                setToDate(e.target.value);
+                setPage(0);
+              }}
+              className={`border ${isDateInvalid ? "border-rose-400" : "border-slate-200"} rounded-lg px-2.5 py-1 text-xs font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-kv-blue-primary/20`}
+            />
+          </div>
 
-          <button
-            onClick={() => void refetch()}
-            disabled={isFetching}
-            className="flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-colors border border-slate-200"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${isFetching ? "animate-spin text-kv-blue-primary" : ""}`} />
-            <span>Làm mới</span>
-          </button>
+          <div className="flex items-center gap-3">
+            {(fromDate || toDate) && (
+              <button
+                onClick={() => {
+                  setFromDate("");
+                  setToDate("");
+                  setPage(0);
+                }}
+                className="text-xs font-bold text-rose-500 hover:text-rose-600 transition-colors"
+              >
+                Xóa bộ lọc
+              </button>
+            )}
+
+            <button
+              onClick={() => void refetch()}
+              disabled={isFetching || isDateInvalid}
+              className="bg-slate-100 hover:bg-slate-200 text-slate-700 p-2 rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center"
+              title="Làm mới dữ liệu"
+            >
+              <RefreshCw className={`w-4 h-4 ${isFetching ? "animate-spin" : ""}`} />
+            </button>
+          </div>
         </div>
+
+        {isDateInvalid && (
+          <div className="text-xs font-bold text-rose-500 flex items-center gap-1 mt-1">
+            <AlertTriangle className="w-3.5 h-3.5" />
+            <span>Ngày bắt đầu không được lớn hơn ngày kết thúc!</span>
+          </div>
+        )}
       </div>
 
       {/* Log Table Container */}

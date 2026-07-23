@@ -93,6 +93,12 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
     onClose,
   });
 
+  // Query status logs from Backend API GET /invoices/{id}/logs
+  const { data: logsResponse } = useGetInvoiceLogsQuery(invoice?.id, {
+    skip: !isOpen || !invoice?.id,
+  });
+  const backendLogs = logsResponse?.result;
+
   if (!isOpen) return null;
 
   const isOwnerOrAccountant = currentRole === USER_ROLES.OWNER || currentRole === USER_ROLES.ACCOUNTANT;
@@ -125,12 +131,6 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
   const handleCancelConfirm = async (reason: string) => {
     await onCancelInvoice(invoice.id, reason);
   };
-
-  // Query status logs from Backend API GET /invoices/{id}/logs
-  const { data: logsResponse } = useGetInvoiceLogsQuery(invoice?.id, {
-    skip: !isOpen || !invoice?.id,
-  });
-  const backendLogs = logsResponse?.result;
 
   // Build status logs timeline with robust active checks
   const timelineEvents =

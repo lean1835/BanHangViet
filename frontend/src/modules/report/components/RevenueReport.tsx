@@ -57,8 +57,9 @@ export const RevenueReport: React.FC = () => {
     refetch: refetchTopSelling,
   } = useGetTopSellingProductsQuery({ fromDate, toDate, limit: 10 });
 
-  const rawDailyList = dailyRes?.result || [];
+  const rawDailyList = dailyRes?.result;
   const dailyList = useMemo(() => {
+    if (!rawDailyList) return [];
     return [...rawDailyList].sort((a, b) => (a.salesDate || "").localeCompare(b.salesDate || ""));
   }, [rawDailyList]);
   const topSellingList = topSellingRes?.result || [];

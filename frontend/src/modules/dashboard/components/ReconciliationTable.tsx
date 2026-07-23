@@ -40,7 +40,7 @@ export const ReconciliationTable = ({ date, currentRole }: ReconciliationTablePr
   const [updateInvoice] = useUpdateInvoiceMutation();
 
   const reconData = reconciliationData?.result;
-  const dbShifts: IShiftResponse[] = shiftsHistoryData?.result || [];
+  const dbShifts = shiftsHistoryData?.result;
 
   // Filter shifts strictly by selected date YYYY-MM-DD
   const shiftsList = useMemo(() => {
