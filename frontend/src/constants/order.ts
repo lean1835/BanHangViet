@@ -66,7 +66,7 @@ export const DEFAULT_ORDER_SIDEBAR_STATUSES: readonly string[] = [
 export const ORDER_UI = {
   SIDEBAR: {
     TITLE: "Hóa đơn",
-    STATUS_FILTER_LABEL: "Trạng thái hóa đơn",
+    STATUS_FILTER_LABEL: "Trạng thái đơn hàng",
     DELIVERY_TIME_FILTER_LABEL: "Thời gian giao hàng",
     TIME_FILTER_NAME: "invTime",
     ALL_TIME_LABEL: "Toàn thời gian",

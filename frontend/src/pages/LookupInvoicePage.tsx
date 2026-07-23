@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { BrandLogo } from "@/components/common/BrandLogo";
 import {
   RotateCw,
   FileText,
@@ -222,14 +223,7 @@ export const LookupInvoicePage: React.FC = () => {
       <header className="bg-kv-blue-primary print:hidden">
         <div className="max-w-[980px] mx-auto w-full flex items-center gap-4 px-6 py-3">
           {/* Logo */}
-          <div className="flex items-center gap-0.5 text-white shrink-0">
-            <span className="font-black text-2xl tracking-tighter whitespace-nowrap">
-              Bán Hàng
-            </span>
-            <span className="bg-white text-kv-blue-primary font-black text-lg px-1.5 py-0.5 leading-tight rounded-sm ml-1 whitespace-nowrap">
-              Việt
-            </span>
-          </div>
+          <BrandLogo size="lg" variant="light" />
 
           {/* Divider */}
           <div className="hidden sm:block w-px h-8 bg-white/35 shrink-0" />

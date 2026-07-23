@@ -26,7 +26,7 @@ import {
 } from "@/modules/order/services/orderApi";
 import type { IOrderResponse } from "@/modules/order/types/IOrder";
 import { formatCurrency } from "@/utils/formatCurrency";
-import { formatDate, normalizeDateToYYYYMMDD } from "@/utils/dateFormatter";
+import { formatDate, getLocalDateTimeISOString, normalizeDateToYYYYMMDD } from "@/utils/dateFormatter";
 import { getApiErrorMessage } from "@/utils/getApiErrorMessage";
 import { useNotification } from "@/hooks/useNotification";
 import { useAccessibleDialog } from "@/hooks/useAccessibleDialog";
@@ -36,6 +36,9 @@ import { isRecord } from "@/utils/typeGuards";
 import { useNavigate } from "react-router-dom";
 import { E_INVOICE_STATUS, E_INVOICE_DEFAULTS } from "@/constants/eInvoice";
 import { useCreateInvoiceDraftMutation, useGetInvoicesQuery } from "@/modules/e_invoice/services/eInvoiceApi";
+import { saveOfflineOrder } from "@/modules/sync/utils/offlineSyncStorage";
+import { SyncStatusBadge } from "@/modules/sync/components/SyncStatusBadge";
+import type { IOfflineOrderRequest } from "@/modules/sync/types/ISync";
 
 interface OrderHistoryTableProps {
   currentRole: string;
@@ -1096,6 +1099,92 @@ export const OrderHistoryTable: React.FC<OrderHistoryTableProps> = ({
       return;
     }
 
+    // NCL 08: Xử lý tạo đơn hàng khi ở chế độ Mất mạng (Offline)
+    if (isOnline === false) {
+      const offlineOrderNumber = `HD-OFF-${Date.now()}`;
+      const calculatedTotal = selectedItems.reduce(
+        (sum, item) =>
+          sum +
+          (item.unitPrice * item.quantity +
+            Math.round((item.unitPrice * item.quantity * (item.taxRatePercentage || 0)) / 100)),
+        0
+      );
+      const calculatedDiscount =
+        discountType === "VALUE"
+          ? discountValueInput
+          : Math.round((calculatedTotal * discountValueInput) / 100);
+      const calculatedFinal = Math.max(0, calculatedTotal - calculatedDiscount);
+
+      const offlineOrderPayload: IOfflineOrderRequest = {
+        orderNumber: offlineOrderNumber,
+        shiftId: activeShift?.id || null,
+        customerId: customerId || null,
+        totalAmount: calculatedTotal,
+        discountAmount: calculatedDiscount,
+        finalAmount: calculatedFinal,
+        paymentMethod: paymentMethod,
+        paymentStatus: paymentMethod === "DEBT" ? "UNPAID" : "PAID",
+        createdAt: getLocalDateTimeISOString(),
+        discountType: discountType === "VALUE" ? "CASH" : "PERCENTAGE",
+        discountRateOrValue: discountValueInput,
+        items: selectedItems.map((item) => {
+          const itemSubtotal = item.unitPrice * item.quantity;
+          const itemTax = Math.round((itemSubtotal * (item.taxRatePercentage || 0)) / 100);
+          return {
+            productId: item.productId,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+            discountAmount: 0,
+            taxRatePercentage: item.taxRatePercentage || 0,
+            taxAmount: itemTax,
+            subtotal: itemSubtotal + itemTax,
+          };
+        }),
+      };
+
+      saveOfflineOrder(offlineOrderPayload);
+
+      const mockResponseOrder: IOrderResponse = {
+        id: `local_${offlineOrderNumber}`,
+        orderNumber: offlineOrderNumber,
+        householdId: authenticatedUser?.household?.id || "",
+        shiftId: activeShift?.id || "",
+        createdByUserId: authenticatedUser?.id || "",
+        createdByUsername: authenticatedUser?.username || "",
+        customerId: customerId || null,
+        customerName: customers.find((c) => c.id === customerId)?.name || "Khách vãng lai",
+        totalAmount: calculatedTotal,
+        discountAmount: calculatedDiscount,
+        finalAmount: calculatedFinal,
+        paymentMethod: paymentMethod,
+        paymentStatus: paymentMethod === "DEBT" ? "UNPAID" : "PAID",
+        status: "COMPLETED",
+        syncStatus: "PENDING",
+        isOffline: true,
+        createdAt: getLocalDateTimeISOString(),
+        updatedAt: getLocalDateTimeISOString(),
+        items: selectedItems.map((item, idx) => ({
+          id: `item_off_${idx}`,
+          productId: item.productId,
+          productName: item.productName,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          discountAmount: 0,
+          taxRatePercentage: item.taxRatePercentage || 0,
+          taxAmount: Math.round(((item.unitPrice * item.quantity) * (item.taxRatePercentage || 0)) / 100),
+          subtotal: item.unitPrice * item.quantity,
+        })),
+        syncedAt: null,
+        qrCodeUrl: null,
+        changeAmount: null,
+        warningMessages: [],
+      };
+
+      finishOrderWorkflow(mockResponseOrder);
+      showInfo("Đã lưu đơn hàng ở chế độ Ngoại tuyến. Đơn hàng sẽ tự động đồng bộ khi có kết nối mạng.");
+      return;
+    }
+
     let draft = pendingOrderDraft;
     setIsSubmittingOrder(true);
 
@@ -1813,7 +1902,7 @@ export const OrderHistoryTable: React.FC<OrderHistoryTableProps> = ({
           </span>
           <button
             type="button"
-            onClick={refetchOrders}
+            onClick={() => refetchOrders()}
             className="min-h-11 shrink-0 rounded-lg border border-rose-300 bg-white px-4 font-bold transition-colors hover:bg-rose-100 lg:min-h-8"
           >
             Thử lại
@@ -1909,7 +1998,7 @@ export const OrderHistoryTable: React.FC<OrderHistoryTableProps> = ({
                         ? ORDER_PAYMENT_METHOD_LABELS[ORDER_PAYMENT_METHOD.DEBT]
                         : DEFAULT_ORDER_PAYMENT_METHOD_LABEL}
                     </td>
-                    <td className="p-3 text-center">
+                    <td className="p-3 text-center flex flex-col items-center gap-1 justify-center">
                       <span
                         className={`px-2 py-0.5 rounded text-[10px] font-bold ${getStatusBadgeClass(
                           order.status
@@ -1917,6 +2006,9 @@ export const OrderHistoryTable: React.FC<OrderHistoryTableProps> = ({
                       >
                         {translateStatus(order.status)}
                       </span>
+                      {(order.isOffline || order.syncStatus) && (
+                        <SyncStatusBadge status={order.syncStatus} isOffline={order.isOffline} />
+                      )}
                     </td>
                   </tr>
                 );

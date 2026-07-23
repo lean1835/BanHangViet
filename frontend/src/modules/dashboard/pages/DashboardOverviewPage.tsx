@@ -55,7 +55,7 @@ export const DashboardOverviewPage = () => {
   const {
     data: failedInvoicesData,
     isLoading: isFailedInvoicesLoading,
-  } = useGetInvoicesQuery({ status: "SEND_ERROR", fromDate, toDate, page: 0, size: 10 });
+  } = useGetInvoicesQuery({ status: "SEND_ERROR", page: 0, size: 50 });
 
   // Map Stats
   const totalRevenue = overviewData?.result?.totalRevenue || 0;
@@ -176,14 +176,14 @@ export const DashboardOverviewPage = () => {
               </div>
 
               {/* Row 3: Reconciliation and Audit Logs (2-column layout) */}
-              <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 items-stretch">
                 {/* 3.1: Reconciliation & Failed Invoices (Left 66%) */}
-                <div className="xl:col-span-2">
+                <div className="xl:col-span-2 flex flex-col min-h-0">
                   <ReconciliationTable date={toDate} currentRole={currentRole} />
                 </div>
 
                 {/* 3.2: Recent Activity Audit Logs (Right 33%) */}
-                <div className="xl:col-span-1">
+                <div className="xl:col-span-1 flex flex-col min-h-0">
                   <RecentActivityPanel logs={mappedLogs} />
                 </div>
               </div>
