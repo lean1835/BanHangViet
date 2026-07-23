@@ -53,6 +53,7 @@ export interface IInvoice {
   createdAt?: string;
   updatedAt?: string;
   items?: IInvoiceItem[];
+  deliveryLogs?: import("./IInvoiceDelivery").IDeliveryLog[];
 }
 
 export interface IGetInvoicesParams {
