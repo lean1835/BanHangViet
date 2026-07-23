@@ -138,4 +138,33 @@ public class RateLimitFilterTest {
         // Since untrustedRemoteIp was used 10 times, the 11th request is blocked despite fake XFF!
         assertEquals(HttpStatus.TOO_MANY_REQUESTS.value(), rateLimitedResp.getStatus());
     }
+
+    @Test
+    public void doFilter_RightToLeftParsingPreventsSpoofingBehindProxy() throws Exception {
+        FilterChain filterChain = Mockito.mock(FilterChain.class);
+        String realClientIp = "203.0.113.88";
+
+        // Hacker attempts 10 requests changing the spoofed front IP: "1.1.1.0, 203.0.113.88", "1.1.1.1, 203.0.113.88"
+        // Nginx at 127.0.0.1 appended the realClientIp at the right end.
+        for (int i = 0; i < 10; i++) {
+            MockHttpServletRequest request = new MockHttpServletRequest();
+            request.setRequestURI("/api/v1/public/invoices/lookup");
+            request.addHeader("X-Forwarded-For", "1.1.1." + i + ", " + realClientIp);
+            request.setRemoteAddr("127.0.0.1");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            rateLimitFilter.doFilter(request, response, filterChain);
+        }
+
+        // 11th request from same realClientIp behind proxy with another fake front IP
+        MockHttpServletRequest rateLimitedReq = new MockHttpServletRequest();
+        rateLimitedReq.setRequestURI("/api/v1/public/invoices/lookup");
+        rateLimitedReq.addHeader("X-Forwarded-For", "9.9.9.9, " + realClientIp);
+        rateLimitedReq.setRemoteAddr("127.0.0.1");
+        MockHttpServletResponse rateLimitedResp = new MockHttpServletResponse();
+
+        rateLimitFilter.doFilter(rateLimitedReq, rateLimitedResp, filterChain);
+
+        // Right-to-left parsing identifies 203.0.113.88 as client IP, blocking 11th request
+        assertEquals(HttpStatus.TOO_MANY_REQUESTS.value(), rateLimitedResp.getStatus());
+    }
 }
