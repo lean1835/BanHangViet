@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { formatCurrency } from "@/utils/formatCurrency";
 import { formatDate } from "@/utils/dateFormatter";
 import type { IInvoice } from "../types/IInvoice";
@@ -9,7 +9,25 @@ interface InvoiceListProps {
   onSelectInvoice: (invoice: IInvoice) => void;
 }
 
+const PAGE_SIZE = 9;
+
 export const InvoiceList: React.FC<InvoiceListProps> = ({ invoices, onSelectInvoice }) => {
+  const [page, setPage] = useState(0);
+
+  // Reset về trang 0 khi kết quả lọc thay đổi
+  useEffect(() => {
+    setPage(0);
+  }, [invoices]);
+
+  const totalElements = invoices.length;
+  const totalPages = Math.ceil(totalElements / PAGE_SIZE);
+
+  const paginatedInvoices = useMemo(() => {
+    const start = page * PAGE_SIZE;
+    const end = start + PAGE_SIZE;
+    return invoices.slice(start, end);
+  }, [invoices, page]);
+
   return (
     <div className="xl:col-span-3 bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col gap-4">
       <h3 className="font-extrabold text-slate-800 text-sm border-b pb-4 mb-2">
@@ -28,19 +46,31 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({ invoices, onSelectInvo
               <th className="p-3 text-center">Trạng thái</th>
               <th className="p-3">Ký hiệu</th>
               <th className="p-3">Mã cơ quan thuế</th>
-              <th className="p-3 text-center">Thao tác</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 font-semibold text-slate-700">
             {invoices.length === 0 ? (
               <tr>
-                <td colSpan={9} className="p-8 text-center text-slate-400 font-medium">
+                <td colSpan={8} className="p-8 text-center text-slate-400 font-medium">
                   Không tìm thấy hóa đơn nào khớp với bộ lọc.
                 </td>
               </tr>
             ) : (
-              invoices.map((invoice) => (
-                <tr key={invoice.id} className="transition-colors hover:bg-slate-50/50">
+              paginatedInvoices.map((invoice) => (
+                <tr
+                  key={invoice.id}
+                  onClick={() => onSelectInvoice(invoice)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      onSelectInvoice(invoice);
+                    }
+                  }}
+                  tabIndex={0}
+                  role="button"
+                  aria-label={`Xem chi tiết hóa đơn ${invoice.lookupCode}`}
+                  className="transition-colors hover:bg-slate-100/80 cursor-pointer focus:outline-none focus:bg-slate-100"
+                >
                   <td className="p-3 font-mono font-bold text-slate-800">{invoice.invoiceNumber || "-"}</td>
                   <td className="p-3 font-mono text-slate-500 font-bold">{invoice.lookupCode}</td>
                   <td className="p-3 font-bold text-slate-700">{invoice.buyerName || invoice.customer || "-"}</td>
@@ -57,21 +87,68 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({ invoices, onSelectInvo
                   <td className="p-3 font-mono text-xs text-slate-500">
                     {invoice.taxAuthorityCode || "-"}
                   </td>
-                  <td className="p-3 text-center">
-                    <button
-                      type="button"
-                      onClick={() => onSelectInvoice(invoice)}
-                      className="inline-flex min-h-11 items-center gap-1 rounded-lg bg-slate-100 px-3 text-[10px] font-bold text-slate-600 transition-colors hover:bg-slate-200 focus:outline-none lg:min-h-8"
-                    >
-                      Chi tiết
-                    </button>
-                  </td>
                 </tr>
               ))
             )}
           </tbody>
         </table>
       </div>
+
+      {/* Điều khiển phân trang */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between border-t border-slate-200 pt-4 text-xs font-semibold text-slate-700">
+          <div className="flex flex-1 justify-between sm:hidden">
+            <button
+              type="button"
+              onClick={() => setPage((p) => Math.max(0, p - 1))}
+              disabled={page === 0}
+              className="relative inline-flex items-center rounded-md border border-slate-300 bg-white px-3 py-1.5 hover:bg-slate-50 disabled:opacity-50 transition-colors"
+            >
+              Trang trước
+            </button>
+            <button
+              type="button"
+              onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+              disabled={page + 1 >= totalPages}
+              className="relative ml-3 inline-flex items-center rounded-md border border-slate-300 bg-white px-3 py-1.5 hover:bg-slate-50 disabled:opacity-50 transition-colors"
+            >
+              Trang sau
+            </button>
+          </div>
+          <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
+            <div>
+              <p className="text-slate-500">
+                Hiển thị <span className="font-bold text-slate-800">{page * PAGE_SIZE + 1}</span> -{" "}
+                <span className="font-bold text-slate-800">
+                  {Math.min((page + 1) * PAGE_SIZE, totalElements)}
+                </span>{" "}
+                trong tổng số <span className="font-bold text-slate-800">{totalElements}</span> hóa đơn
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setPage((p) => Math.max(0, p - 1))}
+                disabled={page === 0}
+                className="px-3 h-8 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 transition-colors disabled:opacity-50 flex items-center justify-center font-bold"
+              >
+                Trang trước
+              </button>
+              <span className="px-3 h-8 flex items-center justify-center border border-slate-200 rounded-lg bg-slate-50 font-bold">
+                Trang {page + 1} / {totalPages}
+              </span>
+              <button
+                type="button"
+                onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+                disabled={page + 1 >= totalPages}
+                className="px-3 h-8 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 transition-colors disabled:opacity-50 flex items-center justify-center font-bold"
+              >
+                Trang sau
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

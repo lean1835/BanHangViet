@@ -103,3 +103,14 @@ export interface IAdjustInvoiceParams {
   invoiceId: string;
   body: ICreateAdjustmentInvoiceRequest;
 }
+
+export interface IInvoiceStatusLog {
+  id: string;
+  invoiceId: string;
+  fromStatus: string;
+  toStatus: string;
+  changedByUserId?: string;
+  changedByFullName?: string;
+  notes?: string;
+  createdAt: string;
+}

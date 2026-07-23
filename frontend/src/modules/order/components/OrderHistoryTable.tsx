@@ -2,8 +2,6 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { createPortal } from "react-dom";
 import {
   DEFAULT_ORDER_PAYMENT_METHOD_LABEL,
-  ORDER_FILTER_OPTIONS,
-  ORDER_FILTER_STATUS,
   ORDER_PAYMENT_METHOD,
   ORDER_PAYMENT_METHOD_LABELS,
   ORDER_STATUS,
@@ -28,7 +26,7 @@ import {
 } from "@/modules/order/services/orderApi";
 import type { IOrderResponse } from "@/modules/order/types/IOrder";
 import { formatCurrency } from "@/utils/formatCurrency";
-import { formatDate } from "@/utils/dateFormatter";
+import { formatDate, normalizeDateToYYYYMMDD } from "@/utils/dateFormatter";
 import { getApiErrorMessage } from "@/utils/getApiErrorMessage";
 import { useNotification } from "@/hooks/useNotification";
 import { useAccessibleDialog } from "@/hooks/useAccessibleDialog";
@@ -41,10 +39,12 @@ import { useCreateInvoiceDraftMutation, useGetInvoicesQuery } from "@/modules/e_
 
 interface OrderHistoryTableProps {
   currentRole: string;
+  statusFilter?: string[];
+  fromDate?: string;
+  toDate?: string;
+  searchQuery?: string;
 }
 
-type TOrderFilterStatus =
-  (typeof ORDER_FILTER_STATUS)[keyof typeof ORDER_FILTER_STATUS];
 type TOrderPaymentMethod =
   (typeof ORDER_PAYMENT_METHOD)[keyof typeof ORDER_PAYMENT_METHOD];
 
@@ -515,7 +515,13 @@ const runWithOrderCreationLock = async (
   }
 };
 
-export const OrderHistoryTable: React.FC<OrderHistoryTableProps> = ({ currentRole }) => {
+export const OrderHistoryTable: React.FC<OrderHistoryTableProps> = ({
+  currentRole,
+  statusFilter = [],
+  fromDate = "",
+  toDate = "",
+  searchQuery = "",
+}) => {
   const { showSuccess, showError, showInfo, showWarning } = useNotification();
   const authenticatedUser = useAppSelector((state) => state.auth.user);
   const pendingOrderIdentity = useMemo<IPendingOrderIdentity | null>(
@@ -553,7 +559,7 @@ export const OrderHistoryTable: React.FC<OrderHistoryTableProps> = ({ currentRol
     isError: isProductsError,
     isLoading: isProductsLoading,
     refetch: refetchProducts,
-  } = useGetProductsQuery({ size: 100 });
+  } = useGetProductsQuery({ size: 1000 });
   const availableProducts = productsPageData?.content || [];
 
   const {
@@ -575,9 +581,7 @@ export const OrderHistoryTable: React.FC<OrderHistoryTableProps> = ({ currentRol
   const [getOrderApi] = useLazyGetOrderQuery();
   const [getOrdersHistoryApi] = useLazyGetOrdersHistoryQuery();
 
-  const [orderFilterStatus, setOrderFilterStatus] = useState<TOrderFilterStatus>(
-    ORDER_FILTER_STATUS.ALL
-  );
+  const [page, setPage] = useState(0);
 
   const [pendingOrderDraft, setPendingOrderDraft] =
     useState<IPendingOrderDraft | null>(() =>
@@ -656,7 +660,7 @@ export const OrderHistoryTable: React.FC<OrderHistoryTableProps> = ({ currentRol
   };
 
   const { data: onlineInvoicesData } = useGetInvoicesQuery(
-    { page: 0, size: 100 },
+    { page: 0, size: 1000 },
     { skip: !isOnline }
   );
 
@@ -1681,10 +1685,47 @@ export const OrderHistoryTable: React.FC<OrderHistoryTableProps> = ({ currentRol
     canClose: !isAbandoningDraft,
   });
 
-  const filteredOrders = orders.filter(
-    (order) =>
-      orderFilterStatus === ORDER_FILTER_STATUS.ALL || order.status === orderFilterStatus
-  );
+  // Reset về trang 0 khi các giá trị lọc bên sidebar thay đổi
+  useEffect(() => {
+    setPage(0);
+  }, [statusFilter, fromDate, toDate, searchQuery]);
+
+  const filteredOrders = useMemo(() => {
+    return orders.filter((order) => {
+      // 1. Lọc theo trạng thái
+      if (statusFilter.length > 0 && !statusFilter.includes(order.status)) {
+        return false;
+      }
+      // 2. Lọc Từ ngày
+      const orderDate = normalizeDateToYYYYMMDD(order.createdAt);
+      if (fromDate) {
+        if (!orderDate || orderDate < fromDate) return false;
+      }
+      // 3. Lọc Đến ngày
+      if (toDate) {
+        if (!orderDate || orderDate > toDate) return false;
+      }
+      // 4. Tìm kiếm từ khóa (Mã đơn, thu ngân, khách hàng)
+      if (searchQuery.trim()) {
+        const query = searchQuery.toLowerCase().trim();
+        const matchNumber = (order.orderNumber || "").toLowerCase().includes(query);
+        const matchCustomer = (order.customerName || "").toLowerCase().includes(query);
+        const matchCashier = (order.createdByUsername || "").toLowerCase().includes(query);
+        if (!matchNumber && !matchCustomer && !matchCashier) return false;
+      }
+      return true;
+    });
+  }, [orders, statusFilter, fromDate, toDate, searchQuery]);
+
+  const PAGE_SIZE = 9;
+  const totalElements = filteredOrders.length;
+  const totalPages = Math.ceil(totalElements / PAGE_SIZE);
+
+  const paginatedOrders = useMemo(() => {
+    const start = page * PAGE_SIZE;
+    const end = start + PAGE_SIZE;
+    return filteredOrders.slice(start, end);
+  }, [filteredOrders, page]);
 
   return (
     <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col gap-4">
@@ -1693,47 +1734,28 @@ export const OrderHistoryTable: React.FC<OrderHistoryTableProps> = ({ currentRol
           {ORDER_UI.HISTORY.TITLE(filteredOrders.length)}
         </span>
 
-        <div className="flex w-full flex-wrap items-center gap-3 sm:w-auto sm:gap-4">
-          <div className="flex min-w-0 flex-1 items-center gap-2 sm:flex-none">
-            <span className="font-bold text-slate-500">
-              {ORDER_UI.HISTORY.STATUS_FILTER_LABEL}
-            </span>
-            <select
-              value={orderFilterStatus}
-              onChange={(e) => setOrderFilterStatus(e.target.value as TOrderFilterStatus)}
-              className="h-11 min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-2.5 text-xs font-bold text-slate-700 focus:border-kv-blue-primary focus:outline-none sm:flex-none lg:h-8"
-            >
-              {ORDER_FILTER_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {canMutateOrders && (
-            <button
-              type="button"
-              disabled={isActiveShiftFetching || isProductsLoading}
-              onClick={() => {
-                if (
-                  ensureOrderMutationAllowed(
-                    "Bạn cần mở ca bán hàng trước khi tạo đơn hàng!"
-                  )
-                ) {
-                  setShowCreateModal(true);
-                }
-              }}
-              className={`${
-                activeShift && !isActiveShiftError
-                  ? "bg-kv-green hover:bg-emerald-600 text-white"
-                  : "bg-slate-300 text-slate-500 cursor-not-allowed"
-              } flex min-h-11 items-center gap-1.5 rounded-lg px-4 text-xs font-bold shadow-sm transition-colors disabled:cursor-wait lg:min-h-8`}
-            >
-              <span>+ Tạo đơn hàng</span>
-            </button>
-          )}
-        </div>
+        {canMutateOrders && (
+          <button
+            type="button"
+            disabled={isActiveShiftFetching || isProductsLoading}
+            onClick={() => {
+              if (
+                ensureOrderMutationAllowed(
+                  "Bạn cần mở ca bán hàng trước khi tạo đơn hàng!"
+                )
+              ) {
+                setShowCreateModal(true);
+              }
+            }}
+            className={`${
+              activeShift && !isActiveShiftError
+                ? "bg-kv-green hover:bg-emerald-600 text-white"
+                : "bg-slate-300 text-slate-500 cursor-not-allowed"
+            } flex min-h-11 items-center gap-1.5 rounded-lg px-4 text-xs font-bold shadow-sm transition-colors disabled:cursor-wait lg:min-h-8`}
+          >
+            <span>+ Tạo đơn hàng</span>
+          </button>
+        )}
       </div>
 
       {canMutateOrders && isActiveShiftError && (
@@ -1821,97 +1843,150 @@ export const OrderHistoryTable: React.FC<OrderHistoryTableProps> = ({ currentRol
               <th className="p-3 text-right">{ORDER_UI.HISTORY.COLUMNS.PAID_AMOUNT}</th>
               <th className="p-3">{ORDER_UI.HISTORY.COLUMNS.PAYMENT_METHOD}</th>
               <th className="p-3 text-center">{ORDER_UI.HISTORY.COLUMNS.STATUS}</th>
-              <th className="p-3 text-center">{ORDER_UI.HISTORY.COLUMNS.ACTIONS}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
             {filteredOrders.length === 0 ? (
               <tr>
-                <td colSpan={10} className="p-8 text-center text-slate-400 font-medium">
+                <td colSpan={9} className="p-8 text-center text-slate-400 font-medium">
                   {ORDER_UI.HISTORY.EMPTY_MESSAGE}
                 </td>
               </tr>
             ) : (
-              filteredOrders.map((order) => (
-                <tr key={order.id} className="transition-colors hover:bg-slate-50/50">
-                  <td className="p-3 font-mono font-bold text-slate-800">{order.orderNumber}</td>
-                  <td className="p-3 text-slate-700 font-semibold">{order.createdByUsername}</td>
-                  <td className="p-3 text-slate-500">{formatDate(order.createdAt)}</td>
-                  <td className="p-3 font-bold text-slate-700">
-                    {order.customerName || ORDER_UI.HISTORY.WALK_IN_CUSTOMER_LABEL}
-                  </td>
-                  <td className="p-3 text-right">{formatCurrency(order.totalAmount)}</td>
-                  <td className="p-3 text-right text-rose-500 font-semibold">
-                    -{formatCurrency(order.discountAmount)}
-                  </td>
-                  <td className="p-3 text-right font-bold text-kv-blue-primary">
-                    {formatCurrency(order.finalAmount)}
-                  </td>
-                  <td className="p-3 text-slate-600 font-bold">
-                    {order.paymentMethod === ORDER_PAYMENT_METHOD.CASH
-                      ? ORDER_PAYMENT_METHOD_LABELS[ORDER_PAYMENT_METHOD.CASH]
-                      : order.paymentMethod === ORDER_PAYMENT_METHOD.BANK_TRANSFER
-                      ? ORDER_PAYMENT_METHOD_LABELS[ORDER_PAYMENT_METHOD.BANK_TRANSFER]
-                      : order.paymentMethod === ORDER_PAYMENT_METHOD.DEBT
-                      ? ORDER_PAYMENT_METHOD_LABELS[ORDER_PAYMENT_METHOD.DEBT]
-                      : DEFAULT_ORDER_PAYMENT_METHOD_LABEL}
-                  </td>
-                  <td className="p-3 text-center">
-                    <span
-                      className={`px-2 py-0.5 rounded text-[10px] font-bold ${getStatusBadgeClass(
-                        order.status
-                      )}`}
-                    >
-                      {translateStatus(order.status)}
-                    </span>
-                  </td>
-                  <td className="p-3 text-center">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const canResumeOrder =
-                          canMutateOrders &&
-                          order.status === ORDER_STATUS.CREATING &&
-                          order.shiftId === activeShift?.id &&
-                          (currentRole === USER_ROLES.OWNER ||
-                            order.createdByUserId === pendingOrderIdentity?.userId);
-                        if (canResumeOrder) {
-                          handleResumeServerOrder(order);
-                        } else {
-                          setSelectedOrder(order);
-                          setShowDetailModal(true);
-                        }
-                      }}
-                      className="inline-flex min-h-11 items-center gap-1 rounded-lg bg-slate-100 px-3 text-[10px] font-bold text-slate-600 transition-colors hover:bg-slate-200 focus:outline-none focus:ring-2 focus:ring-kv-blue-primary/30 lg:min-h-8"
-                      aria-label={
-                        (canMutateOrders &&
-                        order.status === ORDER_STATUS.CREATING &&
-                        order.shiftId === activeShift?.id
-                          ? "Tiếp tục"
-                          : "Xem chi tiết") +
-                        " đơn hàng " +
-                        order.orderNumber
+              paginatedOrders.map((order) => {
+                const canResumeOrder =
+                  canMutateOrders &&
+                  order.status === ORDER_STATUS.CREATING &&
+                  order.shiftId === activeShift?.id &&
+                  (currentRole === USER_ROLES.OWNER ||
+                    order.createdByUserId === pendingOrderIdentity?.userId);
+
+                const handleRowClick = () => {
+                  if (canResumeOrder) {
+                    handleResumeServerOrder(order);
+                  } else {
+                    setSelectedOrder(order);
+                    setShowDetailModal(true);
+                  }
+                };
+
+                return (
+                  <tr
+                    key={order.id}
+                    onClick={handleRowClick}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        handleRowClick();
                       }
-                    >
-                      {canMutateOrders &&
-                      order.status === ORDER_STATUS.CREATING &&
-                      order.shiftId === activeShift?.id
-                        ? "Tiếp tục"
-                        : "Chi tiết"}
-                    </button>
-                  </td>
-                </tr>
-              ))
+                    }}
+                    tabIndex={0}
+                    role="button"
+                    aria-label={`${
+                      canResumeOrder ? "Tiếp tục" : "Xem chi tiết"
+                    } đơn hàng ${order.orderNumber}`}
+                    className="transition-colors hover:bg-slate-100/80 cursor-pointer focus:outline-none focus:bg-slate-100"
+                  >
+                    <td className="p-3 font-mono font-bold text-slate-800">{order.orderNumber}</td>
+                    <td className="p-3 text-slate-700 font-semibold">{order.createdByUsername}</td>
+                    <td className="p-3 text-slate-500">{formatDate(order.createdAt)}</td>
+                    <td className="p-3 font-bold text-slate-700">
+                      {order.customerName || ORDER_UI.HISTORY.WALK_IN_CUSTOMER_LABEL}
+                    </td>
+                    <td className="p-3 text-right">{formatCurrency(order.totalAmount)}</td>
+                    <td className="p-3 text-right text-rose-500 font-semibold">
+                      -{formatCurrency(order.discountAmount)}
+                    </td>
+                    <td className="p-3 text-right font-bold text-kv-blue-primary">
+                      {formatCurrency(order.finalAmount)}
+                    </td>
+                    <td className="p-3 text-slate-600 font-bold">
+                      {order.paymentMethod === ORDER_PAYMENT_METHOD.CASH
+                        ? ORDER_PAYMENT_METHOD_LABELS[ORDER_PAYMENT_METHOD.CASH]
+                        : order.paymentMethod === ORDER_PAYMENT_METHOD.BANK_TRANSFER
+                        ? ORDER_PAYMENT_METHOD_LABELS[ORDER_PAYMENT_METHOD.BANK_TRANSFER]
+                        : order.paymentMethod === ORDER_PAYMENT_METHOD.DEBT
+                        ? ORDER_PAYMENT_METHOD_LABELS[ORDER_PAYMENT_METHOD.DEBT]
+                        : DEFAULT_ORDER_PAYMENT_METHOD_LABEL}
+                    </td>
+                    <td className="p-3 text-center">
+                      <span
+                        className={`px-2 py-0.5 rounded text-[10px] font-bold ${getStatusBadgeClass(
+                          order.status
+                        )}`}
+                      >
+                        {translateStatus(order.status)}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })
             )}
           </tbody>
         </table>
       </div>
 
+      {/* Điều khiển phân trang */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between border-t border-slate-200 pt-4 text-xs font-semibold text-slate-700">
+          <div className="flex flex-1 justify-between sm:hidden">
+            <button
+              type="button"
+              onClick={() => setPage((p) => Math.max(0, p - 1))}
+              disabled={page === 0}
+              className="relative inline-flex items-center rounded-md border border-slate-300 bg-white px-3 py-1.5 hover:bg-slate-50 disabled:opacity-50 transition-colors"
+            >
+              Trang trước
+            </button>
+            <button
+              type="button"
+              onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+              disabled={page + 1 >= totalPages}
+              className="relative ml-3 inline-flex items-center rounded-md border border-slate-300 bg-white px-3 py-1.5 hover:bg-slate-50 disabled:opacity-50 transition-colors"
+            >
+              Trang sau
+            </button>
+          </div>
+          <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
+            <div>
+              <p className="text-slate-500">
+                Hiển thị <span className="font-bold text-slate-800">{page * PAGE_SIZE + 1}</span> -{" "}
+                <span className="font-bold text-slate-800">
+                  {Math.min((page + 1) * PAGE_SIZE, totalElements)}
+                </span>{" "}
+                trong tổng số <span className="font-bold text-slate-800">{totalElements}</span> đơn hàng
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setPage((p) => Math.max(0, p - 1))}
+                disabled={page === 0}
+                className="px-3 h-8 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 transition-colors disabled:opacity-50 flex items-center justify-center font-bold"
+              >
+                Trang trước
+              </button>
+              <span className="px-3 h-8 flex items-center justify-center border border-slate-200 rounded-lg bg-slate-50 font-bold">
+                Trang {page + 1} / {totalPages}
+              </span>
+              <button
+                type="button"
+                onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+                disabled={page + 1 >= totalPages}
+                className="px-3 h-8 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 transition-colors disabled:opacity-50 flex items-center justify-center font-bold"
+              >
+                Trang sau
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Modal: Tạo đơn hàng mới */}
       {showCreateModal && createPortal(
         <div
           onClick={handleCloseCreateModal}
-          className="app-modal-backdrop fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-900/60 p-2 animate-backdrop-fade-in sm:items-center sm:p-4"
+          className="app-modal-backdrop fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-900/60 p-2 animate-backdrop-fade-in sm:p-4"
         >
           <div
             ref={createDialogRef}
@@ -1920,10 +1995,10 @@ export const OrderHistoryTable: React.FC<OrderHistoryTableProps> = ({ currentRol
             role="dialog"
             aria-modal="true"
             aria-label="Tạo đơn hàng bán lẻ mới"
-            className="app-modal-panel flex w-full max-w-[460px] flex-col overflow-hidden rounded-xl border border-slate-100 bg-white text-left text-xs font-semibold text-slate-700 shadow-2xl animate-modal-bounce-in"
+            className="app-modal-panel flex w-full max-w-[540px] max-h-[94vh] my-auto flex-col overflow-hidden rounded-xl border border-slate-100 bg-white text-left text-xs font-semibold text-slate-700 shadow-2xl animate-modal-bounce-in"
           >
             {/* Header */}
-            <div className="app-modal-header flex items-center justify-between bg-kv-blue-primary px-4 py-2.5 text-white">
+            <div className="app-modal-header shrink-0 flex items-center justify-between bg-kv-blue-primary px-4 py-2.5 text-white">
               <h2 className="text-xs font-bold uppercase tracking-wider">
                 Tạo Đơn Hàng Bán Lẻ Mới
               </h2>
@@ -1941,12 +2016,12 @@ export const OrderHistoryTable: React.FC<OrderHistoryTableProps> = ({ currentRol
             <form
               onSubmit={handleCreateOrder}
               aria-busy={isSubmittingOrder}
-              className="flex min-h-0 flex-1 flex-col"
+              className="flex min-h-0 flex-1 flex-col overflow-hidden"
             >
               {pendingOrderDraft && (
                 <div
                   role="status"
-                  className="border-b border-amber-200 bg-amber-50 px-3 py-2 text-[10px] font-bold text-amber-700"
+                  className="shrink-0 border-b border-amber-200 bg-amber-50 px-3 py-2 text-[10px] font-bold text-amber-700"
                 >
                   {pendingOrderDraft.orderId
                     ? `Đơn ${pendingOrderDraft.orderId} đang được hoàn tất.`
@@ -1956,252 +2031,255 @@ export const OrderHistoryTable: React.FC<OrderHistoryTableProps> = ({ currentRol
                   kiểm tra dữ liệu máy chủ trước khi tiếp tục để tránh tạo trùng.
                 </div>
               )}
-              <fieldset
-                disabled={isSubmittingOrder}
-                className="app-modal-body m-0 flex min-w-0 flex-col gap-2.5 border-0 p-3"
-              >
-              {errors.items && (
-                <div className="bg-rose-50 border border-rose-200 text-rose-600 p-2 rounded-lg text-[10px] font-bold">
-                  ⚠️ {errors.items}
-                </div>
-              )}
+              {/* Body cuộn dọc */}
+              <div className="app-modal-body flex-1 min-h-0 overflow-y-auto max-h-[calc(90vh-100px)] p-3.5">
+                <fieldset
+                  disabled={isSubmittingOrder}
+                  className="m-0 flex flex-col gap-2.5 border-0 p-0"
+                >
+                  {errors.items && (
+                    <div className="bg-rose-50 border border-rose-200 text-rose-600 p-2 rounded-lg text-[10px] font-bold">
+                      ⚠️ {errors.items}
+                    </div>
+                  )}
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-2">
-                {/* Khách hàng */}
-                <div className="flex flex-col gap-1 sm:col-span-2">
-                  <label className="text-slate-500 font-bold uppercase text-[9px]">
-                    Khách hàng:
-                  </label>
-                  <select
-                    value={customerId}
-                    onChange={(e) => setCustomerId(e.target.value)}
-                    disabled={Boolean(pendingOrderDraft)}
-                    className="border border-slate-300 h-8 px-2.5 rounded-lg focus:outline-none focus:border-kv-blue-primary bg-white text-xs"
-                  >
-                    <option value="">-- Khách vãng lai --</option>
-                    {customers.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name} ({c.phone})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Chọn sản phẩm bán */}
-                <div className="flex flex-col gap-1.5 rounded-lg border border-slate-200 bg-slate-50 p-2.5 sm:col-span-2">
-                  <span className="font-bold text-slate-700 text-[9px] uppercase block mb-0.5">
-                    Chọn sản phẩm bán hàng:
-                  </span>
-                  
-                  <div className="flex flex-col gap-1.5">
-                    {/* Hàng 1: Dropdown chọn sản phẩm */}
-                    <div className="flex flex-col gap-0.5 w-full">
-                      <label className="text-slate-400 text-[8px] font-bold uppercase">Sản phẩm:</label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-2">
+                    {/* Khách hàng */}
+                    <div className="flex flex-col gap-1 sm:col-span-2">
+                      <label className="text-slate-500 font-bold uppercase text-[9px]">
+                        Khách hàng:
+                      </label>
                       <select
-                        value={tempProductId}
-                        onChange={(e) => setTempProductId(e.target.value)}
-                        className="border border-slate-300 h-8 px-2 rounded-lg bg-white text-xs focus:outline-none w-full"
+                        value={customerId}
+                        onChange={(e) => setCustomerId(e.target.value)}
+                        disabled={Boolean(pendingOrderDraft)}
+                        className="border border-slate-300 h-8 px-2.5 rounded-lg focus:outline-none focus:border-kv-blue-primary bg-white text-xs"
                       >
-                        <option value="">-- Chọn sản phẩm --</option>
-                        {availableProducts.map((p) => (
-                          <option key={p.id} value={p.id}>
-                            {p.name} - Giá: {formatCurrency(p.price)} (Tồn: {p.stockQuantity})
+                        <option value="">-- Khách vãng lai --</option>
+                        {customers.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.name} ({c.phone})
                           </option>
                         ))}
                       </select>
                     </div>
 
-                    {/* Hàng 2: Nhập số lượng & Nút thêm */}
-                    <div className="flex gap-2 items-end w-full">
-                      <div className="flex-1 flex flex-col gap-0.5">
-                        <label className="text-slate-400 text-[8px] font-bold uppercase">Số lượng:</label>
-                        <input
-                          type="number"
-                          min="1"
-                          value={tempQuantity}
-                          onChange={(e) => setTempQuantity(Math.max(1, Number(e.target.value)))}
-                          className="border border-slate-300 h-8 px-2 rounded-lg text-xs font-bold text-center w-full"
-                        />
-                      </div>
-                      <button
-                        type="button"
-                        onClick={handleAddItem}
-                        className="bg-kv-blue-primary hover:bg-kv-blue-dark text-white font-bold h-8 px-4 rounded-lg text-[11px] transition-colors shrink-0"
-                      >
-                        Thêm sản phẩm
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* List of selected items */}
-                  {selectedItems.length > 0 && (
-                    <div className="mt-2 max-h-[85px] overflow-auto rounded-lg border bg-white">
-                      <table className="responsive-data-table responsive-data-table--compact w-full text-left border-collapse text-[10px]">
-                        <thead>
-                          <tr className="bg-slate-50 text-slate-500 font-bold border-b text-[8px]">
-                            <th className="p-1.5">Sản phẩm</th>
-                            <th className="p-1.5 text-center">SL</th>
-                            <th className="p-1.5 text-right">Đơn giá</th>
-                            <th className="p-1.5 text-right">Thành tiền</th>
-                            <th className="p-1.5 text-center">Thao tác</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100 font-semibold text-slate-600">
-                          {selectedItems.map((item, index) => (
-                            <tr key={item.productId} className="hover:bg-slate-50/50">
-                              <td className="p-1.5 max-w-[150px] truncate">
-                                <div className="font-bold text-slate-800 truncate" title={item.productName}>{item.productName}</div>
-                                <div className="text-[8px] text-slate-400 font-mono">{item.productSku}</div>
-                              </td>
-                              <td className="p-1.5 text-center font-bold">{item.quantity}</td>
-                              <td className="p-1.5 text-right">{formatCurrency(item.unitPrice)}</td>
-                              <td className="p-1.5 text-right text-slate-800 font-bold">
-                                {formatCurrency(item.unitPrice * item.quantity)}
-                              </td>
-                              <td className="p-1.5 text-center">
-                                <button
-                                  type="button"
-                                  onClick={() => handleRemoveItem(index)}
-                                  className="text-rose-600 hover:text-rose-800 text-[10px] font-bold"
-                                >
-                                  Xóa
-                                </button>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </div>
-
-                {/* Tổng tiền hàng (Tự động tính) */}
-                <div className="flex flex-col gap-0.5">
-                  <label className="text-slate-500 font-bold uppercase text-[9px]">
-                    Tổng tiền hàng (đ):
-                  </label>
-                  <div className="border border-slate-200 bg-slate-50 h-8 px-2.5 rounded-lg flex items-center text-xs font-bold text-slate-500 w-full">
-                    {formatCurrency(totalAmount)}
-                  </div>
-                </div>
-
-                {/* Loại giảm giá */}
-                <div className="flex flex-col gap-0.5">
-                  <label className="text-slate-500 font-bold uppercase text-[9px]">
-                    Loại giảm giá:
-                  </label>
-                  <select
-                    value={discountType}
-                    onChange={(e) => handleDiscountTypeChange(e.target.value as "VALUE" | "PERCENT")}
-                    className="border border-slate-300 h-8 px-2.5 rounded-lg focus:outline-none focus:border-kv-blue-primary bg-white text-xs w-full"
-                  >
-                    <option value="VALUE">Tiền mặt (đ)</option>
-                    <option value="PERCENT">Phần trăm (%)</option>
-                  </select>
-                </div>
-
-                {/* Giá trị giảm giá */}
-                <div className="flex flex-col gap-0.5">
-                  <label className="text-slate-500 font-bold uppercase text-[9px]">
-                    {discountType === "VALUE" ? "Nhập số tiền giảm (đ):" : "Nhập phần trăm giảm (%):"}
-                  </label>
-                  <input
-                    type="number"
-                    value={discountValueInput}
-                    min="0"
-                    max={discountType === "PERCENT" ? 100 : totalAmount}
-                    onChange={(e) => handleDiscountValueChange(Number(e.target.value))}
-                    className={`border ${errors.discount ? "border-rose-500" : "border-slate-300"} h-8 px-2.5 rounded-lg focus:outline-none focus:border-kv-blue-primary bg-white text-xs font-bold w-full`}
-                  />
-                  <span className="text-[8px] text-slate-400 font-semibold mt-0.5">
-                    Trị giá giảm: {formatCurrency(discountAmountInput)}
-                  </span>
-                  {errors.discount && (
-                    <span className="text-[8px] text-rose-500 font-bold">{errors.discount}</span>
-                  )}
-                </div>
-
-                {/* Khách đã trả */}
-                <div className="flex flex-col gap-0.5">
-                  <label className="text-slate-500 font-bold uppercase text-[9px]">
-                    Khách thực tế đã trả (đ)*:
-                  </label>
-                  <input
-                    type="number"
-                    value={paidAmountInput}
-                    min="0"
-                    onChange={(e) => setPaidAmountInput(Number(e.target.value))}
-                    required
-                    className={`border ${errors.paidAmount ? "border-rose-500" : "border-slate-300"} h-8 px-2.5 rounded-lg focus:outline-none focus:border-kv-blue-primary bg-white text-xs font-bold w-full`}
-                  />
-                  <span className="text-[8px] text-slate-400 font-semibold mt-0.5">
-                    Khách trả: {formatCurrency(paidAmountInput)}
-                  </span>
-                  {errors.paidAmount && (
-                    <span className="text-[8px] text-rose-500 font-bold">{errors.paidAmount}</span>
-                  )}
-                </div>
-
-                {/* Phải thanh toán (Final Amount) & Tiền thối lại banner */}
-                <div className="flex flex-col gap-1.5 rounded-lg border border-slate-100 bg-slate-50 p-2.5 text-xs font-bold text-slate-700 sm:col-span-2">
-                  <div className="flex justify-between items-center text-[10px] text-slate-500 font-semibold">
-                    <span>Tổng tiền (chưa thuế):</span>
-                    <span>{formatCurrency(totalPreTaxAmount)}</span>
-                  </div>
-                  <div className="flex justify-between items-center text-[10px] text-slate-500 font-semibold">
-                    <span>Thuế VAT:</span>
-                    <span className="text-slate-600">+{formatCurrency(totalTaxAmount)}</span>
-                  </div>
-                  {discountAmountInput > 0 && (
-                    <div className="flex justify-between items-center text-[10px] text-rose-500 font-semibold">
-                      <span>Giảm giá:</span>
-                      <span>-{formatCurrency(discountAmountInput)}</span>
-                    </div>
-                  )}
-                  <div className="flex justify-between items-center border-t pt-1.5 mt-0.5 text-slate-800">
-                    <span>CẦN THANH TOÁN:</span>
-                    <span className="text-xs font-extrabold text-kv-blue-primary">
-                      {formatCurrency(finalAmount)}
-                    </span>
-                  </div>
-                  {paidAmountInput > finalAmount && (
-                    <div className="flex justify-between items-center text-[9px] font-bold text-emerald-600 border-t pt-1 mt-0.5">
-                      <span>TIỀN THỐI LẠI:</span>
-                      <span className="font-extrabold text-xs">
-                        {formatCurrency(paidAmountInput - finalAmount)}
+                    {/* Chọn sản phẩm bán */}
+                    <div className="flex flex-col gap-1.5 rounded-lg border border-slate-200 bg-slate-50 p-2.5 sm:col-span-2">
+                      <span className="font-bold text-slate-700 text-[9px] uppercase block mb-0.5">
+                        Chọn sản phẩm bán hàng:
                       </span>
+                      
+                      <div className="flex flex-col gap-1.5">
+                        {/* Hàng 1: Dropdown chọn sản phẩm */}
+                        <div className="flex flex-col gap-0.5 w-full">
+                          <label className="text-slate-400 text-[8px] font-bold uppercase">Sản phẩm:</label>
+                          <select
+                            value={tempProductId}
+                            onChange={(e) => setTempProductId(e.target.value)}
+                            className="border border-slate-300 h-8 px-2 rounded-lg bg-white text-xs focus:outline-none w-full"
+                          >
+                            <option value="">-- Chọn sản phẩm --</option>
+                            {availableProducts.map((p) => (
+                              <option key={p.id} value={p.id}>
+                                {p.name} - Giá: {formatCurrency(p.price)} (Tồn: {p.stockQuantity})
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        {/* Hàng 2: Nhập số lượng & Nút thêm */}
+                        <div className="flex gap-2 items-end w-full">
+                          <div className="flex-1 flex flex-col gap-0.5">
+                            <label className="text-slate-400 text-[8px] font-bold uppercase">Số lượng:</label>
+                            <input
+                              type="number"
+                              min="1"
+                              value={tempQuantity}
+                              onChange={(e) => setTempQuantity(Math.max(1, Number(e.target.value)))}
+                              className="border border-slate-300 h-8 px-2 rounded-lg text-xs font-bold text-center w-full"
+                            />
+                          </div>
+                          <button
+                            type="button"
+                            onClick={handleAddItem}
+                            className="bg-kv-blue-primary hover:bg-kv-blue-dark text-white font-bold h-8 px-4 rounded-lg text-[11px] transition-colors shrink-0"
+                          >
+                            Thêm sản phẩm
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* List of selected items */}
+                      {selectedItems.length > 0 && (
+                        <div className="mt-2 max-h-[85px] overflow-auto rounded-lg border bg-white">
+                          <table className="responsive-data-table responsive-data-table--compact w-full text-left border-collapse text-[10px]">
+                            <thead>
+                              <tr className="bg-slate-50 text-slate-500 font-bold border-b text-[8px]">
+                                <th className="p-1.5">Sản phẩm</th>
+                                <th className="p-1.5 text-center">SL</th>
+                                <th className="p-1.5 text-right">Đơn giá</th>
+                                <th className="p-1.5 text-right">Thành tiền</th>
+                                <th className="p-1.5 text-center">Thao tác</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100 font-semibold text-slate-600">
+                              {selectedItems.map((item, index) => (
+                                <tr key={item.productId} className="hover:bg-slate-50/50">
+                                  <td className="p-1.5 max-w-[150px] truncate">
+                                    <div className="font-bold text-slate-800 truncate" title={item.productName}>{item.productName}</div>
+                                    <div className="text-[8px] text-slate-400 font-mono">{item.productSku}</div>
+                                  </td>
+                                  <td className="p-1.5 text-center font-bold">{item.quantity}</td>
+                                  <td className="p-1.5 text-right">{formatCurrency(item.unitPrice)}</td>
+                                  <td className="p-1.5 text-right text-slate-800 font-bold">
+                                    {formatCurrency(item.unitPrice * item.quantity)}
+                                  </td>
+                                  <td className="p-1.5 text-center">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleRemoveItem(index)}
+                                      className="text-rose-600 hover:text-rose-800 text-[10px] font-bold"
+                                    >
+                                      Xóa
+                                    </button>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
 
-                {/* Phương thức thanh toán */}
-                <div className="flex flex-col gap-0.5">
-                  <label className="text-slate-500 font-bold uppercase text-[9px]">
-                    Phương thức thanh toán:
-                  </label>
-                  <select
-                    value={paymentMethod}
-                    onChange={(e) =>
-                      handlePaymentMethodChange(
-                        e.target.value as TOrderPaymentMethod,
-                      )
-                    }
-                    className="border border-slate-300 h-8 px-2.5 rounded-lg focus:outline-none focus:border-kv-blue-primary bg-white text-xs w-full"
-                  >
-                    <option value={ORDER_PAYMENT_METHOD.CASH}>
-                      {ORDER_PAYMENT_METHOD_LABELS[ORDER_PAYMENT_METHOD.CASH]}
-                    </option>
-                    <option value={ORDER_PAYMENT_METHOD.BANK_TRANSFER}>
-                      {ORDER_PAYMENT_METHOD_LABELS[ORDER_PAYMENT_METHOD.BANK_TRANSFER]}
-                    </option>
-                    <option value={ORDER_PAYMENT_METHOD.DEBT}>
-                      {ORDER_PAYMENT_METHOD_LABELS[ORDER_PAYMENT_METHOD.DEBT]}
-                    </option>
-                  </select>
-                </div>
+                    {/* Tổng tiền hàng (Tự động tính) */}
+                    <div className="flex flex-col gap-0.5">
+                      <label className="text-slate-500 font-bold uppercase text-[9px]">
+                        Tổng tiền hàng (đ):
+                      </label>
+                      <div className="border border-slate-200 bg-slate-50 h-8 px-2.5 rounded-lg flex items-center text-xs font-bold text-slate-500 w-full">
+                        {formatCurrency(totalAmount)}
+                      </div>
+                    </div>
 
+                    {/* Loại giảm giá */}
+                    <div className="flex flex-col gap-0.5">
+                      <label className="text-slate-500 font-bold uppercase text-[9px]">
+                        Loại giảm giá:
+                      </label>
+                      <select
+                        value={discountType}
+                        onChange={(e) => handleDiscountTypeChange(e.target.value as "VALUE" | "PERCENT")}
+                        className="border border-slate-300 h-8 px-2.5 rounded-lg focus:outline-none focus:border-kv-blue-primary bg-white text-xs w-full"
+                      >
+                        <option value="VALUE">Tiền mặt (đ)</option>
+                        <option value="PERCENT">Phần trăm (%)</option>
+                      </select>
+                    </div>
+
+                    {/* Giá trị giảm giá */}
+                    <div className="flex flex-col gap-0.5">
+                      <label className="text-slate-500 font-bold uppercase text-[9px]">
+                        {discountType === "VALUE" ? "Nhập số tiền giảm (đ):" : "Nhập phần trăm giảm (%):"}
+                      </label>
+                      <input
+                        type="number"
+                        value={discountValueInput}
+                        min="0"
+                        max={discountType === "PERCENT" ? 100 : totalAmount}
+                        onChange={(e) => handleDiscountValueChange(Number(e.target.value))}
+                        className={`border ${errors.discount ? "border-rose-500" : "border-slate-300"} h-8 px-2.5 rounded-lg focus:outline-none focus:border-kv-blue-primary bg-white text-xs font-bold w-full`}
+                      />
+                      <span className="text-[8px] text-slate-400 font-semibold mt-0.5">
+                        Trị giá giảm: {formatCurrency(discountAmountInput)}
+                      </span>
+                      {errors.discount && (
+                        <span className="text-[8px] text-rose-500 font-bold">{errors.discount}</span>
+                      )}
+                    </div>
+
+                    {/* Khách đã trả */}
+                    <div className="flex flex-col gap-0.5">
+                      <label className="text-slate-500 font-bold uppercase text-[9px]">
+                        Khách thực tế đã trả (đ)*:
+                      </label>
+                      <input
+                        type="number"
+                        value={paidAmountInput}
+                        min="0"
+                        onChange={(e) => setPaidAmountInput(Number(e.target.value))}
+                        required
+                        className={`border ${errors.paidAmount ? "border-rose-500" : "border-slate-300"} h-8 px-2.5 rounded-lg focus:outline-none focus:border-kv-blue-primary bg-white text-xs font-bold w-full`}
+                      />
+                      <span className="text-[8px] text-slate-400 font-semibold mt-0.5">
+                        Khách trả: {formatCurrency(paidAmountInput)}
+                      </span>
+                      {errors.paidAmount && (
+                        <span className="text-[8px] text-rose-500 font-bold">{errors.paidAmount}</span>
+                      )}
+                    </div>
+
+                    {/* Phải thanh toán (Final Amount) & Tiền thối lại banner */}
+                    <div className="flex flex-col gap-1.5 rounded-lg border border-slate-100 bg-slate-50 p-2.5 text-xs font-bold text-slate-700 sm:col-span-2">
+                      <div className="flex justify-between items-center text-[10px] text-slate-500 font-semibold">
+                        <span>Tổng tiền (chưa thuế):</span>
+                        <span>{formatCurrency(totalPreTaxAmount)}</span>
+                      </div>
+                      <div className="flex justify-between items-center text-[10px] text-slate-500 font-semibold">
+                        <span>Thuế VAT:</span>
+                        <span className="text-slate-600">+{formatCurrency(totalTaxAmount)}</span>
+                      </div>
+                      {discountAmountInput > 0 && (
+                        <div className="flex justify-between items-center text-[10px] text-rose-500 font-semibold">
+                          <span>Giảm giá:</span>
+                          <span>-{formatCurrency(discountAmountInput)}</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between items-center border-t pt-1.5 mt-0.5 text-slate-800">
+                        <span>CẦN THANH TOÁN:</span>
+                        <span className="text-xs font-extrabold text-kv-blue-primary">
+                          {formatCurrency(finalAmount)}
+                        </span>
+                      </div>
+                      {paidAmountInput > finalAmount && (
+                        <div className="flex justify-between items-center text-[9px] font-bold text-emerald-600 border-t pt-1 mt-0.5">
+                          <span>TIỀN THỐI LẠI:</span>
+                          <span className="font-extrabold text-xs">
+                            {formatCurrency(paidAmountInput - finalAmount)}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Phương thức thanh toán */}
+                    <div className="flex flex-col gap-0.5">
+                      <label className="text-slate-500 font-bold uppercase text-[9px]">
+                        Phương thức thanh toán:
+                      </label>
+                      <select
+                        value={paymentMethod}
+                        onChange={(e) =>
+                          handlePaymentMethodChange(
+                            e.target.value as TOrderPaymentMethod,
+                          )
+                        }
+                        className="border border-slate-300 h-8 px-2.5 rounded-lg focus:outline-none focus:border-kv-blue-primary bg-white text-xs w-full"
+                      >
+                        <option value={ORDER_PAYMENT_METHOD.CASH}>
+                          {ORDER_PAYMENT_METHOD_LABELS[ORDER_PAYMENT_METHOD.CASH]}
+                        </option>
+                        <option value={ORDER_PAYMENT_METHOD.BANK_TRANSFER}>
+                          {ORDER_PAYMENT_METHOD_LABELS[ORDER_PAYMENT_METHOD.BANK_TRANSFER]}
+                        </option>
+                        <option value={ORDER_PAYMENT_METHOD.DEBT}>
+                          {ORDER_PAYMENT_METHOD_LABELS[ORDER_PAYMENT_METHOD.DEBT]}
+                        </option>
+                      </select>
+                    </div>
+
+                  </div>
+                </fieldset>
               </div>
-              </fieldset>
 
               {/* Footer actions */}
               <div className="app-modal-footer flex shrink-0 flex-col gap-2.5 border-t border-slate-200 bg-white p-3 sm:flex-row">
@@ -2343,7 +2421,7 @@ export const OrderHistoryTable: React.FC<OrderHistoryTableProps> = ({ currentRol
       {showDetailModal && selectedOrder && createPortal(
         <div
           onClick={() => setShowDetailModal(false)}
-          className="app-modal-backdrop fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-900/60 p-2 animate-backdrop-fade-in sm:items-center sm:p-4"
+          className="app-modal-backdrop fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-900/60 p-2 animate-backdrop-fade-in sm:p-4"
         >
           <div
             ref={detailDialogRef}
@@ -2352,10 +2430,10 @@ export const OrderHistoryTable: React.FC<OrderHistoryTableProps> = ({ currentRol
             role="dialog"
             aria-modal="true"
             aria-label={`Chi tiết đơn hàng ${selectedOrder.orderNumber}`}
-            className="app-modal-panel flex w-full max-w-xl flex-col overflow-hidden rounded-xl border border-slate-100 bg-white text-left text-xs font-semibold text-slate-700 shadow-2xl animate-modal-bounce-in"
+            className="app-modal-panel flex w-full max-w-xl max-h-[90vh] my-auto flex-col overflow-hidden rounded-xl border border-slate-100 bg-white text-left text-xs font-semibold text-slate-700 shadow-2xl animate-modal-bounce-in"
           >
             {/* Header */}
-            <div className="app-modal-header flex items-center justify-between bg-slate-800 px-5 py-3 text-white">
+            <div className="app-modal-header shrink-0 flex items-center justify-between bg-slate-800 px-5 py-3 text-white">
               <h2 className="text-xs font-bold uppercase tracking-wider flex items-center gap-1.5">
                 <span>Chi Tiết Đơn Hàng: {selectedOrder.orderNumber}</span>
               </h2>
@@ -2369,7 +2447,7 @@ export const OrderHistoryTable: React.FC<OrderHistoryTableProps> = ({ currentRol
               </button>
             </div>
 
-            <div className="app-modal-body flex flex-col gap-4 p-4 sm:p-5">
+            <div className="app-modal-body flex min-h-0 flex-1 flex-col gap-4 p-4 sm:p-5 overflow-y-auto">
               {/* Thông tin chung */}
               <div className="grid grid-cols-1 gap-3 rounded-lg border bg-slate-50 p-3 text-[11px] sm:grid-cols-2 sm:p-4">
                 <div>

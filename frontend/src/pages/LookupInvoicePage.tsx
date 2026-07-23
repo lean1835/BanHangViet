@@ -84,7 +84,7 @@ export const LookupInvoicePage: React.FC = () => {
                 minute: "2-digit",
                 second: "2-digit",
               })
-            : "23/07/2026 09:43:00";
+            : "-";
 
           const itemsList = data.items && data.items.length > 0 ? data.items : undefined;
           const preTaxAmount =
@@ -95,14 +95,11 @@ export const LookupInvoicePage: React.FC = () => {
 
           setSearchedInvoice({
             lookupCode: cleanCode,
-            symbol: data.invoiceSymbol || data.invoicePattern || "1C26TAA",
-            invoiceNumber:
-              data.invoiceNumber && data.invoiceNumber !== "Chưa cấp"
-                ? data.invoiceNumber
-                : "00000024",
-            householdName: data.householdName || "HỘ KINH DOANH BÁN HÀNG VIỆT",
-            householdTaxCode: data.householdTaxCode || "0102030405-999",
-            householdAddress: data.householdAddress || "Số 123 Nguyễn Trãi, Thanh Xuân, Hà Nội",
+            symbol: data.invoiceSymbol || data.invoicePattern || "-",
+            invoiceNumber: data.invoiceNumber || "Chưa cấp",
+            householdName: data.householdName || "-",
+            householdTaxCode: data.householdTaxCode || "-",
+            householdAddress: data.householdAddress || "-",
             customer: data.buyerName || "Khách mua lẻ",
             buyerTaxCode: data.buyerTaxCode || "-",
             buyerAddress: data.buyerAddress || "-",
@@ -213,10 +210,9 @@ export const LookupInvoicePage: React.FC = () => {
       pdf.save(`HoaDon_${searchedInvoice.lookupCode}.pdf`);
       hideLoadingMsg();
       message.success(`Đã tải xuống tệp HoaDon_${searchedInvoice.lookupCode}.pdf thành công!`);
-    } catch (error) {
+    } catch {
       hideLoadingMsg();
       message.error("Có lỗi xảy ra khi tạo tệp PDF. Vui lòng thử lại!");
-      console.error("PDF generation error:", error);
     }
   };
 
@@ -440,7 +436,7 @@ export const LookupInvoicePage: React.FC = () => {
                 </p>
                 <p>Mã số thuế: <span className="font-bold text-slate-800">{searchedInvoice.householdTaxCode}</span></p>
                 <p>Địa chỉ: {searchedInvoice.householdAddress}</p>
-                <p>Điện thoại: 024.1234.5678 &nbsp;|&nbsp; Email: support@banhangviet.vn</p>
+                <p>Email hỗ trợ: support@banhangviet.vn</p>
               </div>
 
               {/* Buyer Info */}

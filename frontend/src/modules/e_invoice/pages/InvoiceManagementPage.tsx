@@ -5,6 +5,7 @@ import { useDashboardDemo } from "@/providers/DashboardDemoProvider";
 import { E_INVOICE_STATUS } from "@/constants/eInvoice";
 import { useNotification } from "@/hooks/useNotification";
 import { getApiErrorMessage } from "@/utils/getApiErrorMessage";
+import { normalizeDateToYYYYMMDD } from "@/utils/dateFormatter";
 import type { IInvoice, TInvoiceStatus } from "../types/IInvoice";
 import {
   useGetInvoicesQuery,
@@ -47,11 +48,12 @@ export const InvoiceManagementPage = () => {
     error: apiError,
   } = useGetInvoicesQuery(
     {
-      status: statusFilter.join(","),
+      status: statusFilter.length === 1 ? statusFilter[0] : (statusFilter.length > 1 ? statusFilter.join(",") : undefined),
       fromDate: fromDate || undefined,
       toDate: toDate || undefined,
+      search: searchQuery.trim() || undefined,
       page: 0,
-      size: 100,
+      size: 1000,
     },
     { skip: !isOnline }
   );
@@ -61,48 +63,37 @@ export const InvoiceManagementPage = () => {
   const [cancelInvoiceApi] = useCancelInvoiceMutation();
   const [updateInvoiceApi] = useUpdateInvoiceMutation();
 
-  // Combine online/offline data
+  // Combine online/offline data với bộ lọc đa điều kiện chuẩn khớp Backend
   const displayedInvoices = useMemo(() => {
     if (isOnline) {
-      const apiList = apiInvoicesData?.result?.content || [];
-      // Filter the API list locally for search query as well (just in case)
-      if (!searchQuery.trim()) return apiList;
-      const query = searchQuery.toLowerCase();
-      return apiList.filter(
-        (inv) =>
-          (inv.lookupCode || "").toLowerCase().includes(query) ||
-          (inv.buyerName || inv.customer || "").toLowerCase().includes(query) ||
-          (inv.invoiceNumber && inv.invoiceNumber.toLowerCase().includes(query))
-      );
-    } else {
-      // Offline/Demo local filtering
-      return mockInvoices.filter((inv) => {
-        // Status filter
-        if (statusFilter.length > 0 && !statusFilter.includes(inv.status)) {
-          return false;
-        }
-        // Date range filter
-        if (fromDate) {
-          const invDate = inv.time.split(" ")[0];
-          if (invDate < fromDate) return false;
-        }
-        if (toDate) {
-          const invDate = inv.time.split(" ")[0];
-          if (invDate > toDate) return false;
-        }
-        // Search text
-        if (searchQuery.trim()) {
-          const query = searchQuery.toLowerCase();
-          const matchLookup = inv.lookupCode.toLowerCase().includes(query);
-          const matchCustomer = inv.customer.toLowerCase().includes(query);
-          const matchNumber = inv.invoiceNumber
-            ? inv.invoiceNumber.toLowerCase().includes(query)
-            : false;
-          if (!matchLookup && !matchCustomer && !matchNumber) return false;
-        }
-        return true;
-      });
+      return apiInvoicesData?.result?.content || [];
     }
+
+    return mockInvoices.filter((inv) => {
+      // 1. Lọc theo danh sách trạng thái
+      if (statusFilter.length > 0 && !statusFilter.includes(inv.status)) {
+        return false;
+      }
+      // 2. Lọc theo Từ ngày
+      const invDate = normalizeDateToYYYYMMDD(inv.createdAt || inv.time);
+      if (fromDate) {
+        if (!invDate || invDate < fromDate) return false;
+      }
+      // 3. Lọc theo Đến ngày
+      if (toDate) {
+        if (!invDate || invDate > toDate) return false;
+      }
+      // 4. Tìm kiếm từ khóa (mã tra cứu, số hóa đơn, người mua/khách hàng, mã CQT)
+      if (searchQuery.trim()) {
+        const query = searchQuery.toLowerCase().trim();
+        const matchLookup = (inv.lookupCode || "").toLowerCase().includes(query);
+        const matchCustomer = (inv.buyerName || inv.customer || "").toLowerCase().includes(query);
+        const matchNumber = (inv.invoiceNumber || "").toLowerCase().includes(query);
+        const matchTaxAuth = (inv.taxAuthorityCode || "").toLowerCase().includes(query);
+        if (!matchLookup && !matchCustomer && !matchNumber && !matchTaxAuth) return false;
+      }
+      return true;
+    });
   }, [isOnline, apiInvoicesData, mockInvoices, statusFilter, fromDate, toDate, searchQuery]);
 
   // Handle URL ID query param for highlighted invoice
