@@ -93,6 +93,13 @@ export const eInvoiceApi = baseApi.injectEndpoints({
         { type: API_TAG_TYPES.INVOICE, id: "LIST" },
       ],
     }),
+    getInvoiceLogs: builder.query<IApiResponse<import("../types/IInvoice").IInvoiceStatusLog[]>, string>({
+      query: (invoiceId) => ({
+        url: `/invoices/${invoiceId}/logs`,
+        method: HTTP_METHODS.GET,
+      }),
+      providesTags: (_result, _error, id) => [{ type: API_TAG_TYPES.INVOICE, id }],
+    }),
   }),
   overrideExisting: false,
 });
@@ -101,6 +108,7 @@ export const {
   useGetInvoicesQuery,
   useLazyGetInvoicesQuery,
   useGetInvoiceQuery,
+  useGetInvoiceLogsQuery,
   useCreateInvoiceDraftMutation,
   useSubmitToTaxMutation,
   useResendInvoiceMutation,

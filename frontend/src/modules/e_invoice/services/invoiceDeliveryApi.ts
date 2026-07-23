@@ -4,28 +4,16 @@ import type { IApiResponse } from "@/types/api";
 import type {
   IDeliveryLog,
   ISendEmailRequest,
-  ISendZaloRequest,
   IPublicInvoiceResponse,
 } from "../types/IInvoiceDelivery";
 
 export const invoiceDeliveryApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
-    sendInvoiceViaZalo: builder.mutation<IApiResponse<IDeliveryLog>, ISendZaloRequest>({
-      query: ({ invoiceId, phoneNumber, customerName, note }) => ({
-        url: `/invoices/${invoiceId}/deliver/zalo`,
-        method: HTTP_METHODS.POST,
-        body: { phoneNumber, customerName, note },
-      }),
-      invalidatesTags: (_result, _error, { invoiceId }) => [
-        { type: API_TAG_TYPES.INVOICE, id: invoiceId },
-      ],
-    }),
-
-    sendInvoiceViaEmail: builder.mutation<IApiResponse<IDeliveryLog>, ISendEmailRequest>({
-      query: ({ invoiceId, email, subject, content }) => ({
+    sendInvoiceViaEmail: builder.mutation<IApiResponse<void>, ISendEmailRequest>({
+      query: ({ invoiceId, email }) => ({
         url: `/invoices/${invoiceId}/deliver/email`,
         method: HTTP_METHODS.POST,
-        body: { email, subject, content },
+        body: { email },
       }),
       invalidatesTags: (_result, _error, { invoiceId }) => [
         { type: API_TAG_TYPES.INVOICE, id: invoiceId },
@@ -54,7 +42,6 @@ export const invoiceDeliveryApi = baseApi.injectEndpoints({
 });
 
 export const {
-  useSendInvoiceViaZaloMutation,
   useSendInvoiceViaEmailMutation,
   useGetDeliveryLogsQuery,
   useLookupInvoicePublicQuery,

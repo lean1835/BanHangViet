@@ -1,4 +1,4 @@
-export type TDeliveryMethod = "QR" | "ZALO" | "EMAIL" | "PRINT";
+export type TDeliveryMethod = "QR" | "EMAIL" | "PRINT";
 
 export interface IDeliveryLog {
   id: string;
@@ -7,13 +7,6 @@ export interface IDeliveryLog {
   recipient: string;
   sentAt: string;
   status: "SUCCESS" | "FAILED" | "PENDING";
-  note?: string;
-}
-
-export interface ISendZaloRequest {
-  invoiceId: string;
-  phoneNumber: string;
-  customerName?: string;
   note?: string;
 }
 

@@ -11,6 +11,7 @@ import type { IDeliveryLog } from "../types/IInvoiceDelivery";
 import { CancelInvoiceModal } from "./CancelInvoiceModal";
 import { SendInvoiceModal } from "./SendInvoiceModal";
 import { PrintInvoiceModal } from "./PrintInvoiceModal";
+import { useGetInvoiceLogsQuery } from "../services/eInvoiceApi";
 import {
   getStatusClassName,
   getStatusLabel,
@@ -125,49 +126,76 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
     await onCancelInvoice(invoice.id, reason);
   };
 
+  // Query status logs from Backend API GET /invoices/{id}/logs
+  const { data: logsResponse } = useGetInvoiceLogsQuery(invoice?.id, {
+    skip: !isOpen || !invoice?.id,
+  });
+  const backendLogs = logsResponse?.result;
+
   // Build status logs timeline with robust active checks
-  const timelineEvents = [
-    {
-      title: "Khởi tạo hóa đơn",
-      time: invoice.createdAt || invoice.time,
-      description: `Khởi tạo hóa đơn nháp từ đơn hàng ${invoice.orderNumber || ""}.`,
-      active: true,
-    },
-    {
-      title: "Gửi cơ quan thuế",
-      time: invoice.sentToTaxAt || invoice.createdAt || invoice.time,
-      description: "Hệ thống đã gửi dữ liệu lên Cơ quan Thuế mô phỏng.",
-      active:
-        invoice.status === E_INVOICE_STATUS.WAITING_TAX_CODE ||
-        invoice.status === E_INVOICE_STATUS.ISSUED ||
-        invoice.status === E_INVOICE_STATUS.SEND_ERROR ||
-        invoice.status === E_INVOICE_STATUS.ADJUSTED ||
-        !!invoice.sentToTaxAt,
-    },
-    {
-      title: invoice.status === E_INVOICE_STATUS.SEND_ERROR ? "Cơ quan thuế từ chối" : "Cơ quan thuế cấp mã",
-      time: invoice.taxResponseAt,
-      description:
-        invoice.status === E_INVOICE_STATUS.SEND_ERROR
-          ? `Lỗi: ${invoice.taxAuthorityResponse || "Dữ liệu hóa đơn không hợp lệ."}`
-          : `Cấp mã thành công: ${invoice.taxAuthorityCode || ""}`,
-      active:
-        invoice.status === E_INVOICE_STATUS.ISSUED ||
-        invoice.status === E_INVOICE_STATUS.SEND_ERROR ||
-        invoice.status === E_INVOICE_STATUS.ADJUSTED ||
-        !!invoice.taxResponseAt,
-      error: invoice.status === E_INVOICE_STATUS.SEND_ERROR,
-    },
-    {
-      title: "Hủy hóa đơn",
-      time: invoice.canceledAt,
-      description: `Hóa đơn đã bị hủy bởi ${invoice.canceledByUsername || "Chủ hộ/Kế toán"}. Lý do: ${
-        invoice.cancelReason || "Không có"
-      }`,
-      active: invoice.status === E_INVOICE_STATUS.CANCELED,
-      warning: true,
-    },
-  ].filter((e) => e.active);
+  const timelineEvents =
+    backendLogs && backendLogs.length > 0
+      ? backendLogs.map((log) => {
+          const isTaxResponse =
+            log.toStatus === E_INVOICE_STATUS.ISSUED ||
+            log.toStatus === E_INVOICE_STATUS.SEND_ERROR;
+          const performer = isTaxResponse
+            ? "Cơ quan Thuế"
+            : log.changedByFullName
+            ? `Thực hiện: ${log.changedByFullName}`
+            : "Hệ thống";
+
+          return {
+            title: getStatusLabel(log.toStatus as any) || "Chuyển trạng thái",
+            time: log.createdAt,
+            description: `${log.notes || "Thao tác hệ thống"} (${performer})`,
+            active: true,
+            error: log.toStatus === E_INVOICE_STATUS.SEND_ERROR,
+            warning: log.toStatus === E_INVOICE_STATUS.CANCELED,
+          };
+        })
+      : [
+          {
+            title: "Khởi tạo hóa đơn",
+            time: invoice.createdAt || invoice.time,
+            description: `Khởi tạo hóa đơn nháp từ đơn hàng ${invoice.orderNumber || ""}.`,
+            active: true,
+          },
+          {
+            title: "Gửi cơ quan thuế",
+            time: invoice.sentToTaxAt || invoice.createdAt || invoice.time,
+            description: "Hệ thống đã gửi dữ liệu lên Cơ quan Thuế mô phỏng.",
+            active:
+              invoice.status === E_INVOICE_STATUS.WAITING_TAX_CODE ||
+              invoice.status === E_INVOICE_STATUS.ISSUED ||
+              invoice.status === E_INVOICE_STATUS.SEND_ERROR ||
+              invoice.status === E_INVOICE_STATUS.ADJUSTED ||
+              !!invoice.sentToTaxAt,
+          },
+          {
+            title: invoice.status === E_INVOICE_STATUS.SEND_ERROR ? "Cơ quan thuế từ chối" : "Cơ quan thuế cấp mã",
+            time: invoice.taxResponseAt,
+            description:
+              invoice.status === E_INVOICE_STATUS.SEND_ERROR
+                ? `Lỗi: ${invoice.taxAuthorityResponse || "Dữ liệu hóa đơn không hợp lệ."}`
+                : `Cấp mã thành công: ${invoice.taxAuthorityCode || ""}`,
+            active:
+              invoice.status === E_INVOICE_STATUS.ISSUED ||
+              invoice.status === E_INVOICE_STATUS.SEND_ERROR ||
+              invoice.status === E_INVOICE_STATUS.ADJUSTED ||
+              !!invoice.taxResponseAt,
+            error: invoice.status === E_INVOICE_STATUS.SEND_ERROR,
+          },
+          {
+            title: "Hủy hóa đơn",
+            time: invoice.canceledAt,
+            description: `Hóa đơn đã bị hủy bởi ${invoice.canceledByUsername || "Chủ hộ/Kế toán"}. Lý do: ${
+              invoice.cancelReason || "Không có"
+            }`,
+            active: invoice.status === E_INVOICE_STATUS.CANCELED,
+            warning: true,
+          },
+        ].filter((e) => e.active);
 
   return createPortal(
     <div

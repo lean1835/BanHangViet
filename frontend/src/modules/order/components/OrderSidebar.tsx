@@ -1,54 +1,107 @@
-import {
-  DEFAULT_ORDER_SIDEBAR_STATUSES,
-  ORDER_SIDEBAR_STATUS_OPTIONS,
-  ORDER_UI,
-} from "@/constants/order";
+import React from "react";
+import { ORDER_UI } from "@/constants/order";
 
-export const OrderSidebar = () => (
-  <>
-    <div className="font-extrabold text-sm text-slate-800 border-b pb-2">
-      {ORDER_UI.SIDEBAR.TITLE}
-    </div>
-    <div className="flex flex-col gap-3">
-      <span className="font-bold text-slate-400 uppercase tracking-wide text-[10px]">
-        {ORDER_UI.SIDEBAR.STATUS_FILTER_LABEL}
-      </span>
-      <div className="flex flex-col gap-2 font-medium text-slate-700">
-        {ORDER_SIDEBAR_STATUS_OPTIONS.map((status) => (
-          <label key={status} className="flex min-h-11 cursor-pointer items-center gap-2 lg:min-h-0">
+interface OrderSidebarProps {
+  statusFilter: string[];
+  setStatusFilter: React.Dispatch<React.SetStateAction<string[]>>;
+  fromDate: string;
+  setFromDate: (date: string) => void;
+  toDate: string;
+  setToDate: (date: string) => void;
+  searchQuery: string;
+  setSearchQuery: (query: string) => void;
+}
+
+const ORDER_STATUS_OPTIONS = [
+  { value: "CREATING", label: "Đang tạo (Nháp)" },
+  { value: "COMPLETED", label: "Hoàn thành" },
+  { value: "CANCELED", label: "Đã hủy" },
+];
+
+export const OrderSidebar: React.FC<OrderSidebarProps> = ({
+  statusFilter,
+  setStatusFilter,
+  fromDate,
+  setFromDate,
+  toDate,
+  setToDate,
+  searchQuery,
+  setSearchQuery,
+}) => {
+  const handleStatusChange = (status: string, checked: boolean) => {
+    if (checked) {
+      setStatusFilter((prev) => [...prev, status]);
+    } else {
+      setStatusFilter((prev) => prev.filter((s) => s !== status));
+    }
+  };
+
+  return (
+    <>
+      <div className="font-extrabold text-sm text-slate-800 border-b pb-2">
+        {ORDER_UI.SIDEBAR.TITLE}
+      </div>
+
+      {/* Tìm kiếm nhanh */}
+      <div className="flex flex-col gap-2">
+        <span className="font-bold text-slate-400 uppercase tracking-wide text-[10px]">
+          Tìm kiếm nhanh
+        </span>
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Mã đơn, thu ngân, khách..."
+          className="border border-slate-300 h-9 px-3 rounded-lg focus:outline-none focus:border-kv-blue-primary text-xs font-semibold"
+        />
+      </div>
+
+      {/* Bộ lọc thời gian */}
+      <div className="flex flex-col gap-2">
+        <span className="font-bold text-slate-400 uppercase tracking-wide text-[10px]">
+          Thời gian tạo đơn
+        </span>
+        <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-1">
+            <span className="text-[9px] text-slate-500 font-bold uppercase">Từ ngày:</span>
             <input
-              type="checkbox"
-              defaultChecked={DEFAULT_ORDER_SIDEBAR_STATUSES.includes(status)}
-              className="rounded border-slate-300 text-kv-blue-primary focus:ring-kv-blue-primary w-3.5 h-3.5"
+              type="date"
+              value={fromDate}
+              onChange={(e) => setFromDate(e.target.value)}
+              className="border border-slate-300 h-8 px-2 rounded-lg focus:outline-none focus:border-kv-blue-primary text-xs font-bold text-slate-700"
             />
-            <span>{status}</span>
-          </label>
-        ))}
+          </div>
+          <div className="flex flex-col gap-1">
+            <span className="text-[9px] text-slate-500 font-bold uppercase">Đến ngày:</span>
+            <input
+              type="date"
+              value={toDate}
+              onChange={(e) => setToDate(e.target.value)}
+              className="border border-slate-300 h-8 px-2 rounded-lg focus:outline-none focus:border-kv-blue-primary text-xs font-bold text-slate-700"
+            />
+          </div>
+        </div>
       </div>
-    </div>
-    <div className="flex flex-col gap-2">
-      <span className="font-bold text-slate-400 uppercase tracking-wide text-[10px]">
-        {ORDER_UI.SIDEBAR.DELIVERY_TIME_FILTER_LABEL}
-      </span>
-      <div className="flex flex-col gap-2 font-medium text-slate-600">
-        <label className="flex min-h-11 cursor-pointer items-center gap-2 lg:min-h-0">
-          <input
-            type="radio"
-            name={ORDER_UI.SIDEBAR.TIME_FILTER_NAME}
-            defaultChecked
-            className="text-kv-blue-primary focus:ring-kv-blue-primary w-3.5 h-3.5"
-          />
-          <span>{ORDER_UI.SIDEBAR.ALL_TIME_LABEL}</span>
-        </label>
-        <label className="flex min-h-11 cursor-pointer items-center gap-2 lg:min-h-0">
-          <input
-            type="radio"
-            name={ORDER_UI.SIDEBAR.TIME_FILTER_NAME}
-            className="text-kv-blue-primary focus:ring-kv-blue-primary w-3.5 h-3.5"
-          />
-          <span>{ORDER_UI.SIDEBAR.CUSTOM_TIME_LABEL}</span>
-        </label>
+
+      {/* Bộ lọc trạng thái */}
+      <div className="flex flex-col gap-3">
+        <span className="font-bold text-slate-400 uppercase tracking-wide text-[10px]">
+          {ORDER_UI.SIDEBAR.STATUS_FILTER_LABEL}
+        </span>
+        <div className="flex flex-col gap-2 font-medium text-slate-700">
+          {ORDER_STATUS_OPTIONS.map((status) => (
+            <label key={status.value} className="flex min-h-11 cursor-pointer items-center gap-2 lg:min-h-0 text-xs">
+              <input
+                type="checkbox"
+                checked={statusFilter.includes(status.value)}
+                onChange={(e) => handleStatusChange(status.value, e.target.checked)}
+                className="rounded border-slate-300 text-kv-blue-primary focus:ring-kv-blue-primary w-3.5 h-3.5"
+              />
+              <span>{status.label}</span>
+            </label>
+          ))}
+        </div>
       </div>
-    </div>
-  </>
-);
+    </>
+  );
+};

@@ -5,7 +5,6 @@ import {
   QrCode,
   Send,
   Mail,
-  MessageCircle,
   Copy,
   Check,
   Download,
@@ -14,6 +13,7 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { useAccessibleDialog } from "@/hooks/useAccessibleDialog";
+import { useSendInvoiceViaEmailMutation } from "../services/invoiceDeliveryApi";
 import type { IInvoice } from "../types/IInvoice";
 import type { TDeliveryMethod, IDeliveryLog } from "../types/IInvoiceDelivery";
 
@@ -31,20 +31,16 @@ export const SendInvoiceModal: React.FC<SendInvoiceModalProps> = ({
   onDeliverySuccess,
 }) => {
   const [activeTab, setActiveTab] = useState<TDeliveryMethod>("QR");
-  const [phoneNumber, setPhoneNumber] = useState(invoice.buyerPhone || "");
   const [email, setEmail] = useState(invoice.buyerEmail || "");
-  const [emailSubject, setEmailSubject] = useState(
-    `[Bán Hàng Việt] Hóa đơn điện tử ${invoice.invoiceNumber || invoice.lookupCode}`
-  );
-  const [emailContent, setEmailContent] = useState(
-    `Kính gửi khách hàng ${invoice.buyerName || invoice.customer || ""},\n\nHộ kinh doanh Bán Hàng Việt xin gửi tới Quý khách thông tin hóa đơn điện tử số ${
-      invoice.invoiceNumber || invoice.lookupCode
-    }.\n\nQuý khách có thể tra cứu và tải lại hóa đơn tại đường dẫn:\n${
-      window.location.origin
-    }/lookup-invoice?code=${invoice.lookupCode}\n\nTrân trọng!`
-  );
+  const emailSubject = `[Bán Hàng Việt] Hóa đơn điện tử ${invoice.invoiceNumber || invoice.lookupCode}`;
+  const emailContent = `Kính gửi khách hàng ${invoice.buyerName || invoice.customer || ""},\n\nHộ kinh doanh Bán Hàng Việt xin gửi tới Quý khách thông tin hóa đơn điện tử số ${
+    invoice.invoiceNumber || invoice.lookupCode
+  }.\n\nQuý khách có thể tra cứu và tải lại hóa đơn tại đường dẫn:\n${
+    window.location.origin
+  }/lookup-invoice?code=${invoice.lookupCode}\n\nTrân trọng!`;
   const [isCopied, setIsCopied] = useState(false);
-  const [isSending, setIsSending] = useState(false);
+
+  const [sendInvoiceViaEmail, { isLoading: isSendingEmail }] = useSendInvoiceViaEmailMutation();
 
   const dialogRef = useAccessibleDialog({
     isOpen,
@@ -76,65 +72,35 @@ export const SendInvoiceModal: React.FC<SendInvoiceModalProps> = ({
     }
   };
 
-  const handleSendZalo = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!phoneNumber.trim()) {
-      message.warning("Vui lòng nhập số điện thoại Zalo của khách hàng!");
-      return;
-    }
-    setIsSending(true);
-    try {
-      // Simulate API call & Zalo share trigger
-      await new Promise((res) => setTimeout(res, 600));
-      const cleanPhone = phoneNumber.replace(/[^0-9]/g, "");
-      const zaloChatUrl = `https://zalo.me/${cleanPhone}`;
-      
-      const newLog: IDeliveryLog = {
-        id: `log-${Date.now()}`,
-        invoiceId: invoice.id,
-        method: "ZALO",
-        recipient: phoneNumber,
-        sentAt: new Date().toISOString(),
-        status: "SUCCESS",
-        note: `Gửi qua Zalo tới ${phoneNumber}`,
-      };
-
-      onDeliverySuccess?.(newLog);
-      message.success(`Đã phát liên kết hóa đơn tới Zalo số ${phoneNumber}`);
-      window.open(zaloChatUrl, "_blank");
-    } catch {
-      message.error("Gửi hóa đơn qua Zalo thất bại!");
-    } finally {
-      setIsSending(false);
-    }
-  };
-
   const handleSendEmail = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email.trim()) {
       message.warning("Vui lòng nhập địa chỉ email của khách hàng!");
       return;
     }
-    setIsSending(true);
     try {
-      // Simulate API call
-      await new Promise((res) => setTimeout(res, 800));
+      await sendInvoiceViaEmail({
+        invoiceId: invoice.id,
+        email: email.trim(),
+      }).unwrap();
+
       const newLog: IDeliveryLog = {
         id: `log-${Date.now()}`,
         invoiceId: invoice.id,
         method: "EMAIL",
-        recipient: email,
+        recipient: email.trim(),
         sentAt: new Date().toISOString(),
         status: "SUCCESS",
-        note: `Gửi email thành công tới ${email}`,
+        note: `Gửi email thành công tới ${email.trim()}`,
       };
 
       onDeliverySuccess?.(newLog);
-      message.success(`Đã gửi hóa đơn điện tử tới email ${email}`);
-    } catch {
-      message.error("Gửi thư điện tử thất bại!");
-    } finally {
-      setIsSending(false);
+      message.success(`Đã gửi hóa đơn điện tử tới email ${email.trim()}`);
+      onClose();
+    } catch (err: unknown) {
+      const errorObj = err as { data?: { message?: string }; message?: string };
+      const apiErrorMsg = errorObj?.data?.message || errorObj?.message;
+      message.error(apiErrorMsg || "Gửi thư điện tử thất bại!");
     }
   };
 
@@ -169,7 +135,7 @@ export const SendInvoiceModal: React.FC<SendInvoiceModalProps> = ({
         </div>
 
         {/* Channel Navigation Tabs */}
-        <div className="grid grid-cols-3 p-1.5 mx-6 mt-4 bg-slate-100/80 rounded-xl text-xs font-bold text-slate-600">
+        <div className="grid grid-cols-2 p-1.5 mx-6 mt-4 bg-slate-100/80 rounded-xl text-xs font-bold text-slate-600">
           <button
             type="button"
             onClick={() => setActiveTab("QR")}
@@ -180,20 +146,7 @@ export const SendInvoiceModal: React.FC<SendInvoiceModalProps> = ({
             }`}
           >
             <QrCode className="w-4 h-4" />
-            <span>Mã QR</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab("ZALO")}
-            className={`py-2 px-3 rounded-lg flex items-center justify-center gap-1.5 transition-all ${
-              activeTab === "ZALO"
-                ? "bg-white text-blue-600 shadow-sm font-extrabold"
-                : "hover:text-slate-900"
-            }`}
-          >
-            <MessageCircle className="w-4 h-4 text-blue-500" />
-            <span>Zalo</span>
+            <span>Mã QR Tra Cứu</span>
           </button>
 
           <button
@@ -206,7 +159,7 @@ export const SendInvoiceModal: React.FC<SendInvoiceModalProps> = ({
             }`}
           >
             <Mail className="w-4 h-4 text-emerald-500" />
-            <span>Email</span>
+            <span>Thư Điện Tử (Email)</span>
           </button>
         </div>
 
@@ -273,59 +226,7 @@ export const SendInvoiceModal: React.FC<SendInvoiceModalProps> = ({
             </div>
           )}
 
-          {/* TAB 2: ZALO */}
-          {activeTab === "ZALO" && (
-            <form onSubmit={handleSendZalo} className="flex flex-col gap-4">
-              <div>
-                <label className="block text-xs font-extrabold text-slate-700 mb-1.5">
-                  Số điện thoại Zalo của khách hàng:
-                </label>
-                <div className="relative">
-                  <input
-                    type="tel"
-                    value={phoneNumber}
-                    onChange={(e) => setPhoneNumber(e.target.value)}
-                    placeholder="Nhập SĐT (ví dụ: 0912345678)"
-                    className="w-full pl-9 pr-3 py-2.5 text-xs font-medium border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    required
-                  />
-                  <MessageCircle className="w-4 h-4 text-blue-500 absolute left-3 top-3" />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-600 mb-1">
-                  Nội dung gửi đính kèm liên kết:
-                </label>
-                <div className="bg-blue-50/60 border border-blue-200/80 rounded-xl p-3 text-xs text-slate-700 font-medium leading-relaxed">
-                  <p>
-                    Chào khách hàng, Bán Hàng Việt gửi liên kết tra cứu hóa đơn điện tử cho giao dịch số{" "}
-                    <strong>{invoice.invoiceNumber || invoice.lookupCode}</strong>:
-                  </p>
-                  <p className="mt-1 text-blue-700 font-mono text-[11px] underline break-all">
-                    {lookupUrl}
-                  </p>
-                </div>
-              </div>
-
-              <div className="pt-2">
-                <button
-                  type="submit"
-                  disabled={isSending}
-                  className="w-full py-2.5 bg-blue-600 text-white rounded-xl font-extrabold text-xs hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 shadow-sm disabled:opacity-60"
-                >
-                  {isSending ? (
-                    <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-                  ) : (
-                    <Send className="w-4 h-4" />
-                  )}
-                  <span>{isSending ? "Đang xử lý..." : "GỬI QUA ZALO KHÁCH HÀNG"}</span>
-                </button>
-              </div>
-            </form>
-          )}
-
-          {/* TAB 3: EMAIL */}
+          {/* TAB 2: EMAIL */}
           {activeTab === "EMAIL" && (
             <form onSubmit={handleSendEmail} className="flex flex-col gap-3.5">
               <div>
@@ -346,43 +247,35 @@ export const SendInvoiceModal: React.FC<SendInvoiceModalProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs font-extrabold text-slate-700 mb-1">
-                  Tiêu đề email:
+                <label className="block text-xs font-bold text-slate-600 mb-1">
+                  Tiêu đề thư (Mẫu tự động từ hệ thống):
                 </label>
-                <input
-                  type="text"
-                  value={emailSubject}
-                  onChange={(e) => setEmailSubject(e.target.value)}
-                  className="w-full px-3 py-2 text-xs font-medium border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  required
-                />
+                <div className="w-full px-3 py-2 text-xs font-semibold bg-slate-100/90 border border-slate-200 rounded-xl text-slate-600 select-none">
+                  {emailSubject}
+                </div>
               </div>
 
               <div>
-                <label className="block text-xs font-extrabold text-slate-700 mb-1">
-                  Nội dung email:
+                <label className="block text-xs font-bold text-slate-600 mb-1">
+                  Nội dung thư mẫu (Tự động đính kèm liên kết tra cứu):
                 </label>
-                <textarea
-                  rows={4}
-                  value={emailContent}
-                  onChange={(e) => setEmailContent(e.target.value)}
-                  className="w-full p-3 text-xs font-medium border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 leading-relaxed font-sans"
-                  required
-                />
+                <div className="w-full p-3 text-xs font-medium bg-slate-100/90 border border-slate-200 rounded-xl text-slate-600 leading-relaxed font-sans whitespace-pre-line select-none">
+                  {emailContent}
+                </div>
               </div>
 
               <div className="pt-2">
                 <button
                   type="submit"
-                  disabled={isSending}
+                  disabled={isSendingEmail}
                   className="w-full py-2.5 bg-emerald-600 text-white rounded-xl font-extrabold text-xs hover:bg-emerald-700 transition-colors flex items-center justify-center gap-2 shadow-sm disabled:opacity-60"
                 >
-                  {isSending ? (
+                  {isSendingEmail ? (
                     <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
                   ) : (
                     <Mail className="w-4 h-4" />
                   )}
-                  <span>{isSending ? "Đang gửi..." : "GỬI THƯ ĐIỆN TỬ"}</span>
+                  <span>{isSendingEmail ? "Đang gửi..." : "GỬI THƯ ĐIỆN TỬ"}</span>
                 </button>
               </div>
             </form>
