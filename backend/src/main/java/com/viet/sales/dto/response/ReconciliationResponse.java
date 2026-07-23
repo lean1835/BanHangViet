@@ -18,6 +18,8 @@ public class ReconciliationResponse {
     private BigDecimal totalCash;
     private BigDecimal totalTransfer;
     private BigDecimal totalDebt;
+    private BigDecimal closingCashExpected;
+    private BigDecimal closingCashActual;
     private long errorInvoicesCount;
     private List<InvoiceResponse> errorInvoices;
 }

@@ -152,6 +152,22 @@ public class ReportControllerTest {
 
     @Test
     @WithMockUser(username = "test_owner_report", roles = {"VT-01"})
+    public void compareRevenue_success() throws Exception {
+        mockMvc.perform(get("/api/v1/reports/comparison")
+                        .param("period1Start", "2026-06-01")
+                        .param("period1End", "2026-06-15")
+                        .param("period2Start", "2026-07-01")
+                        .param("period2End", "2026-07-15")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(1000))
+                .andExpect(jsonPath("$.result.period1Revenue").value(0))
+                .andExpect(jsonPath("$.result.period2Revenue").value(0))
+                .andExpect(jsonPath("$.result.differenceAmount").value(0));
+    }
+
+    @Test
+    @WithMockUser(username = "test_owner_report", roles = {"VT-01"})
     public void compareRevenue_overlappingPeriods_badRequest() throws Exception {
         mockMvc.perform(get("/api/v1/reports/comparison")
                         .param("period1Start", "2026-07-01")
@@ -169,7 +185,9 @@ public class ReportControllerTest {
                         .param("date", "2026-07-22")
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value(1000));
+                .andExpect(jsonPath("$.code").value(1000))
+                .andExpect(jsonPath("$.result.closingCashExpected").exists())
+                .andExpect(jsonPath("$.result.closingCashActual").exists());
     }
 
     @Test

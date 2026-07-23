@@ -35,6 +35,7 @@ public class ReportServiceImpl implements ReportService {
     private final OrderRepository orderRepository;
     private final EInvoiceRepository eInvoiceRepository;
     private final ActivityLogRepository activityLogRepository;
+    private final ShiftRepository shiftRepository;
     private final ObjectMapper objectMapper;
 
     private BusinessHousehold getHouseholdAndValidate(String username) {
@@ -125,11 +126,26 @@ public class ReportServiceImpl implements ReportService {
                 .map(this::mapInvoiceToResponse)
                 .collect(Collectors.toList());
 
+        List<Shift> shifts = shiftRepository.findByHouseholdIdAndOpenedAtBetween(household.getId(), start, end);
+        BigDecimal closingCashExpected = BigDecimal.ZERO;
+        BigDecimal closingCashActual = BigDecimal.ZERO;
+
+        for (Shift s : shifts) {
+            if (s.getClosingCashExpected() != null) {
+                closingCashExpected = closingCashExpected.add(s.getClosingCashExpected());
+            }
+            if (s.getClosingCashActual() != null) {
+                closingCashActual = closingCashActual.add(s.getClosingCashActual());
+            }
+        }
+
         return ReconciliationResponse.builder()
                 .date(date)
                 .totalCash(cash)
                 .totalTransfer(transfer)
                 .totalDebt(debt)
+                .closingCashExpected(closingCashExpected)
+                .closingCashActual(closingCashActual)
                 .errorInvoicesCount(errorInvoices.size())
                 .errorInvoices(errorInvoiceResponses)
                 .build();
@@ -231,6 +247,9 @@ public class ReportServiceImpl implements ReportService {
         BigDecimal p2Revenue = orderRepository.sumFinalAmountByHouseholdIdAndStatusAndDeletedAtIsNullAndCreatedAtBetween(
                 household.getId(), "COMPLETED", p2Start, p2End
         );
+
+        p1Revenue = p1Revenue != null ? p1Revenue : BigDecimal.ZERO;
+        p2Revenue = p2Revenue != null ? p2Revenue : BigDecimal.ZERO;
 
         BigDecimal diffAmount = p2Revenue.subtract(p1Revenue);
         BigDecimal diffPercent = BigDecimal.ZERO;
