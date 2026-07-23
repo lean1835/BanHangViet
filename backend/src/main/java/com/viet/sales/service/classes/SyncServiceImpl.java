@@ -9,7 +9,6 @@ import com.viet.sales.dto.request.SyncResolveRequest;
 import com.viet.sales.dto.response.SyncCheckResponse;
 import com.viet.sales.dto.response.OrderResponse;
 import com.viet.sales.dto.response.OrderItemResponse;
-import com.viet.sales.dto.response.InvoiceResponse;
 import com.viet.sales.entity.*;
 import com.viet.sales.exception.AppException;
 import com.viet.sales.exception.ErrorCode;
@@ -158,7 +157,13 @@ public class SyncServiceImpl implements SyncService {
         if (request.getOfflineOrderNumbers() != null && !request.getOfflineOrderNumbers().isEmpty()) {
             List<Order> existing = orderRepository.findByOrderNumberInAndHouseholdIdAndDeletedAtIsNull(
                     request.getOfflineOrderNumbers(), household.getId());
-            duplicates = existing.stream().map(Order::getOrderNumber).collect(Collectors.toList());
+            for (Order order : existing) {
+                if (Boolean.TRUE.equals(order.getIsOffline())) {
+                    duplicates.add(order.getOrderNumber());
+                } else {
+                    conflicts.add(order.getOrderNumber());
+                }
+            }
         }
 
         return SyncCheckResponse.builder()
@@ -312,7 +317,10 @@ public class SyncServiceImpl implements SyncService {
                     }
 
                     // Subtract stock atomically
-                    productRepository.deductStock(product.getId(), household.getId(), itemReq.getQuantity());
+                    int affectedRows = productRepository.deductStock(product.getId(), household.getId(), itemReq.getQuantity());
+                    if (affectedRows == 0) {
+                        throw new AppException(ErrorCode.PRODUCT_NOT_FOUND);
+                    }
 
                     OrderItem orderItem = OrderItem.builder()
                             .order(order)
@@ -414,7 +422,10 @@ public class SyncServiceImpl implements SyncService {
                     }
 
                     // Apply new stock subtraction atomically
-                    productRepository.deductStock(product.getId(), household.getId(), itemReq.getQuantity());
+                    int affectedRows = productRepository.deductStock(product.getId(), household.getId(), itemReq.getQuantity());
+                    if (affectedRows == 0) {
+                        throw new AppException(ErrorCode.PRODUCT_NOT_FOUND);
+                    }
 
                     OrderItem orderItem = OrderItem.builder()
                             .order(serverOrder)
@@ -515,7 +526,10 @@ public class SyncServiceImpl implements SyncService {
                     }
 
                     // Subtract stock atomically
-                    productRepository.deductStock(product.getId(), household.getId(), itemReq.getQuantity());
+                    int affectedRows = productRepository.deductStock(product.getId(), household.getId(), itemReq.getQuantity());
+                    if (affectedRows == 0) {
+                        throw new AppException(ErrorCode.PRODUCT_NOT_FOUND);
+                    }
 
                     OrderItem orderItem = OrderItem.builder()
                             .order(newOrder)

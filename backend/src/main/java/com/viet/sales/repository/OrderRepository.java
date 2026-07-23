@@ -27,6 +27,7 @@ public interface OrderRepository extends JpaRepository<Order, String> {
 
     Optional<Order> findByOrderNumberAndHouseholdIdAndDeletedAtIsNull(String orderNumber, String householdId);
 
+    @EntityGraph(attributePaths = {"items", "items.product", "customer", "shift", "createdByUser", "household"})
     List<Order> findByOrderNumberInAndHouseholdIdAndDeletedAtIsNull(Collection<String> orderNumbers, String householdId);
 
     List<Order> findByShiftIdAndDeletedAtIsNull(String shiftId);
