@@ -225,7 +225,7 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 flex flex-col lg:flex-row lg:items-start gap-6">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 flex flex-col lg:flex-row lg:items-stretch gap-6">
           <div className="flex-1 shrink-0 bg-white border border-slate-200 rounded-xl p-6 shadow-sm flex flex-col gap-6 text-[10px] text-slate-800 font-medium relative overflow-hidden">
             {/* Watermark */}
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none opacity-[0.03] text-slate-800 text-[3.5rem] font-extrabold rotate-[30deg] uppercase whitespace-nowrap">
@@ -449,46 +449,48 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
           </div>
 
           {/* Right panel - Timeline & Admin Controls */}
-          <div className="w-full lg:w-72 shrink-0 flex flex-col gap-6">
+          <div className="w-full lg:w-72 shrink-0 flex flex-col gap-6 self-stretch">
             {/* Timeline */}
-            <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm flex flex-col gap-4">
-              <h3 className="font-extrabold text-slate-800 text-xs border-b pb-2.5 uppercase tracking-wide">
+            <div className="flex-1 min-h-[220px] bg-white border border-slate-200 rounded-xl p-5 shadow-sm flex flex-col gap-4">
+              <h3 className="font-extrabold text-slate-800 text-xs border-b pb-2.5 uppercase tracking-wide shrink-0">
                 Lịch sử trạng thái
               </h3>
-              <div className="relative border-l border-slate-200 pl-4 ml-2 flex flex-col gap-5 text-[10px]">
-                {timelineEvents.map((event, idx) => (
-                  <div key={idx} className="relative">
-                    {/* Circle Node */}
-                    <span className={`absolute -left-[21px] top-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full border bg-white ${
-                      event.error 
-                        ? "border-rose-500 text-rose-500" 
-                        : event.warning 
-                        ? "border-amber-500 text-amber-500" 
-                        : "border-kv-blue-primary text-kv-blue-primary"
-                    }`}>
-                      <span className={`h-1.5 w-1.5 rounded-full ${
+              <div className="flex-1 min-h-0 overflow-y-auto pr-1">
+                <div className="relative border-l border-slate-200 pl-4 ml-2 flex flex-col gap-5 text-[10px] py-1">
+                  {timelineEvents.map((event, idx) => (
+                    <div key={idx} className="relative">
+                      {/* Circle Node */}
+                      <span className={`absolute -left-[21px] top-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full border bg-white ${
                         event.error 
-                          ? "bg-rose-500" 
+                          ? "border-rose-500 text-rose-500" 
                           : event.warning 
-                          ? "bg-amber-500" 
-                          : "bg-kv-blue-primary"
-                      }`} />
-                    </span>
-                    <div className="flex flex-col gap-0.5">
-                      <span className="font-extrabold text-slate-800 text-xs">{event.title}</span>
-                      <span className="font-bold text-slate-400 font-mono text-[9px]">
-                        {event.time ? formatDate(event.time) : "Đang chờ..."}
+                          ? "border-amber-500 text-amber-500" 
+                          : "border-kv-blue-primary text-kv-blue-primary"
+                      }`}>
+                        <span className={`h-1.5 w-1.5 rounded-full ${
+                          event.error 
+                            ? "bg-rose-500" 
+                            : event.warning 
+                            ? "bg-amber-500" 
+                            : "bg-kv-blue-primary"
+                        }`} />
                       </span>
-                      <p className="text-slate-500 leading-normal font-medium mt-1 pr-1">{event.description}</p>
+                      <div className="flex flex-col gap-0.5">
+                        <span className="font-extrabold text-slate-800 text-xs">{event.title}</span>
+                        <span className="font-bold text-slate-400 font-mono text-[9px]">
+                          {event.time ? formatDate(event.time) : "Đang chờ..."}
+                        </span>
+                        <p className="text-slate-500 leading-normal font-medium mt-1 pr-1">{event.description}</p>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             </div>
 
             {/* Admin actions block */}
             {!isTaxAuthority && (
-              <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm flex flex-col gap-4">
+              <div className="shrink-0 bg-white border border-slate-200 rounded-xl p-5 shadow-sm flex flex-col gap-4">
                 <h3 className="font-extrabold text-slate-800 text-xs border-b pb-2.5 uppercase tracking-wide">
                   Thao tác nghiệp vụ
                 </h3>
