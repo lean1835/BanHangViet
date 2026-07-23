@@ -1223,29 +1223,29 @@ public class EInvoiceServiceImpl implements EInvoiceService {
             xml.append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n")
                .append("<HieuDonDienTu>\n")
                .append("    <ThongTinChung>\n")
-               .append("        <MauSo>").append(invoice.getInvoicePattern()).append("</MauSo>\n")
-               .append("        <KyHieu>").append(invoice.getInvoiceSymbol()).append("</KyHieu>\n")
-               .append("        <So>").append(invoice.getInvoiceNumber() != null ? invoice.getInvoiceNumber() : "").append("</So>\n")
-               .append("        <NgayLap>").append(invoice.getCreatedAt().toString()).append("</NgayLap>\n")
-               .append("        <MaTraCuu>").append(invoice.getLookupCode()).append("</MaTraCuu>\n")
-               .append("        <MaCoQuanThue>").append(invoice.getTaxAuthorityCode() != null ? invoice.getTaxAuthorityCode() : "").append("</MaCoQuanThue>\n")
+               .append("        <MauSo>").append(escXml(invoice.getInvoicePattern())).append("</MauSo>\n")
+               .append("        <KyHieu>").append(escXml(invoice.getInvoiceSymbol())).append("</KyHieu>\n")
+               .append("        <So>").append(escXml(invoice.getInvoiceNumber())).append("</So>\n")
+               .append("        <NgayLap>").append(escXml(invoice.getCreatedAt().toString())).append("</NgayLap>\n")
+               .append("        <MaTraCuu>").append(escXml(invoice.getLookupCode())).append("</MaTraCuu>\n")
+               .append("        <MaCoQuanThue>").append(escXml(invoice.getTaxAuthorityCode())).append("</MaCoQuanThue>\n")
                .append("    </ThongTinChung>\n")
                .append("    <BenBan>\n")
-               .append("        <Ten>").append(invoice.getHousehold().getName()).append("</Ten>\n")
-               .append("        <MST>").append(invoice.getHousehold().getTaxCode()).append("</MST>\n")
-               .append("        <DiaChi>").append(invoice.getHousehold().getAddress()).append("</DiaChi>\n")
+               .append("        <Ten>").append(escXml(invoice.getHousehold().getName())).append("</Ten>\n")
+               .append("        <MST>").append(escXml(invoice.getHousehold().getTaxCode())).append("</MST>\n")
+               .append("        <DiaChi>").append(escXml(invoice.getHousehold().getAddress())).append("</DiaChi>\n")
                .append("    </BenBan>\n")
                .append("    <BenMua>\n")
-               .append("        <Ten>").append(invoice.getBuyerName() != null ? invoice.getBuyerName() : "Khách hàng không lấy hóa đơn").append("</Ten>\n")
-               .append("        <MST>").append(invoice.getBuyerTaxCode() != null ? invoice.getBuyerTaxCode() : "").append("</MST>\n")
-               .append("        <DiaChi>").append(invoice.getBuyerAddress() != null ? invoice.getBuyerAddress() : "").append("</DiaChi>\n")
+               .append("        <Ten>").append(escXml(invoice.getBuyerName() != null ? invoice.getBuyerName() : "Khách hàng không lấy hóa đơn")).append("</Ten>\n")
+               .append("        <MST>").append(escXml(invoice.getBuyerTaxCode())).append("</MST>\n")
+               .append("        <DiaChi>").append(escXml(invoice.getBuyerAddress())).append("</DiaChi>\n")
                .append("    </BenMua>\n")
                .append("    <ChiTietHangHoa>\n");
             
             for (EInvoiceItem item : invoice.getItems()) {
                 xml.append("        <HangHoa>\n")
-                   .append("            <Ten>").append(item.getProductName()).append("</Ten>\n")
-                   .append("            <DonVi>").append(item.getUnit()).append("</DonVi>\n")
+                   .append("            <Ten>").append(escXml(item.getProductName())).append("</Ten>\n")
+                   .append("            <DonVi>").append(escXml(item.getUnit())).append("</DonVi>\n")
                    .append("            <SoLuong>").append(item.getQuantity()).append("</SoLuong>\n")
                    .append("            <DonGia>").append(item.getUnitPrice()).append("</DonGia>\n")
                    .append("            <ThueSuat>").append(item.getTaxRatePercentage()).append("</ThueSuat>\n")
@@ -1304,6 +1304,10 @@ public class EInvoiceServiceImpl implements EInvoiceService {
                 .append("</div>\n</body>\n</html>");
             return html.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
         }
+    }
+
+    private String escXml(String val) {
+        return org.apache.commons.text.StringEscapeUtils.escapeXml11(val != null ? val : "");
     }
 }
 

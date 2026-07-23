@@ -1,5 +1,7 @@
 package com.viet.sales.configuration;
 
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
 import jakarta.servlet.*;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -7,7 +9,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -19,7 +22,10 @@ public class RateLimitFilter implements Filter {
         final AtomicLong resetTime = new AtomicLong(0);
     }
 
-    private final ConcurrentHashMap<String, RequestCount> ipRequestMap = new ConcurrentHashMap<>();
+    private final Cache<String, RequestCount> ipRequestCache = CacheBuilder.newBuilder()
+            .expireAfterWrite(1, TimeUnit.MINUTES)
+            .build();
+
     private static final int MAX_REQUESTS = 10;
     private static final long TIME_LIMIT_MS = 60000; // 1 minute
 
@@ -39,11 +45,18 @@ public class RateLimitFilter implements Filter {
             }
 
             long now = System.currentTimeMillis();
-            RequestCount requestCount = ipRequestMap.computeIfAbsent(ip, k -> {
-                RequestCount rc = new RequestCount();
-                rc.resetTime.set(now + TIME_LIMIT_MS);
-                return rc;
-            });
+            RequestCount requestCount;
+            try {
+                requestCount = ipRequestCache.get(ip, () -> {
+                    RequestCount rc = new RequestCount();
+                    rc.resetTime.set(now + TIME_LIMIT_MS);
+                    rc.count.set(0);
+                    return rc;
+                });
+            } catch (ExecutionException e) {
+                requestCount = new RequestCount();
+                requestCount.resetTime.set(now + TIME_LIMIT_MS);
+            }
 
             long resetTime = requestCount.resetTime.get();
             if (now > resetTime) {
