@@ -97,6 +97,10 @@ public class SyncControllerTest {
                     .build();
             return userRepository.save(u);
         });
+        if (testOwner.getHousehold() == null || !testHousehold.getId().equals(testOwner.getHousehold().getId())) {
+            testOwner.setHousehold(testHousehold);
+            testOwner = userRepository.save(testOwner);
+        }
 
         testEmployee = userRepository.findByUsername("nhanvien_viet").orElseGet(() -> {
             User u = User.builder()
@@ -109,30 +113,40 @@ public class SyncControllerTest {
                     .build();
             return userRepository.save(u);
         });
+        if (testEmployee.getHousehold() == null || !testHousehold.getId().equals(testEmployee.getHousehold().getId())) {
+            testEmployee.setHousehold(testHousehold);
+            testEmployee = userRepository.save(testEmployee);
+        }
 
-        testTaxRate = taxRateRepository.findAll().stream().findFirst().orElseGet(() -> {
-            TaxRate tr = TaxRate.builder()
-                    .household(testHousehold)
-                    .name("VAT 10%")
-                    .ratePercentage(BigDecimal.valueOf(10.0))
-                    .isActive(true)
-                    .build();
-            return taxRateRepository.save(tr);
-        });
+        testTaxRate = taxRateRepository.findAll().stream()
+                .filter(tr -> tr.getHousehold() != null && testHousehold.getId().equals(tr.getHousehold().getId()))
+                .findFirst()
+                .orElseGet(() -> {
+                    TaxRate tr = TaxRate.builder()
+                            .household(testHousehold)
+                            .name("VAT 10%")
+                            .ratePercentage(BigDecimal.valueOf(10.0))
+                            .isActive(true)
+                            .build();
+                    return taxRateRepository.save(tr);
+                });
 
-        testProduct = productRepository.findAll().stream().findFirst().orElseGet(() -> {
-            Product p = Product.builder()
-                    .household(testHousehold)
-                    .sku("SKU-SYNC-TEST")
-                    .name("Sản phẩm Sync Test")
-                    .unit("Cái")
-                    .price(BigDecimal.valueOf(100000.00))
-                    .stockQuantity(BigDecimal.valueOf(50.0))
-                    .taxRate(testTaxRate)
-                    .status("ACTIVE")
-                    .build();
-            return productRepository.save(p);
-        });
+        testProduct = productRepository.findAll().stream()
+                .filter(p -> p.getHousehold() != null && testHousehold.getId().equals(p.getHousehold().getId()))
+                .findFirst()
+                .orElseGet(() -> {
+                    Product p = Product.builder()
+                            .household(testHousehold)
+                            .sku("SKU-SYNC-TEST")
+                            .name("Sản phẩm Sync Test")
+                            .unit("Cái")
+                            .price(BigDecimal.valueOf(100000.00))
+                            .stockQuantity(BigDecimal.valueOf(50.0))
+                            .taxRate(testTaxRate)
+                            .status("ACTIVE")
+                            .build();
+                    return productRepository.save(p);
+                });
     }
 
     @Test

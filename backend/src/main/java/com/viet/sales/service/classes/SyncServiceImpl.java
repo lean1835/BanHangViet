@@ -220,7 +220,7 @@ public class SyncServiceImpl implements SyncService {
                 .distinct()
                 .collect(Collectors.toList());
         List<Shift> shifts = shiftIds.isEmpty() ? new ArrayList<>() :
-                shiftRepository.findAllById(shiftIds);
+                shiftRepository.findAllByIdInAndHouseholdId(shiftIds, household.getId());
         Map<String, Shift> shiftMap = shifts.stream()
                 .collect(Collectors.toMap(Shift::getId, s -> s));
 
@@ -440,8 +440,13 @@ public class SyncServiceImpl implements SyncService {
 
             // Find existing invoice if any and delete/cancel in DB
             eInvoiceRepository.findByOrderIdAndDeletedAtIsNull(serverOrder.getId()).ifPresent(inv -> {
-                inv.setDeletedAt(LocalDateTime.now());
-                eInvoiceRepository.save(inv);
+                if ("ISSUED".equals(inv.getStatus()) || inv.getTaxAuthorityCode() != null) {
+                    throw new AppException(ErrorCode.CANNOT_OVERWRITE_ISSUED_INVOICE);
+                }
+                if ("DRAFT".equals(inv.getStatus())) {
+                    inv.setDeletedAt(LocalDateTime.now());
+                    eInvoiceRepository.save(inv);
+                }
             });
             // Decoupled automatic invoice generation via Event Listener (running post-commit asynchronously)
             eventPublisher.publishEvent(new OrderSyncedEvent(username, serverOrder.getId()));
