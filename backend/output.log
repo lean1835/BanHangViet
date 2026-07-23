@@ -1,0 +1,1289 @@
+Testcase Name: testOrderSyncedEventListener_FallbackInvoiceOnError
+System Out:
+Hibernate: 
+    select
+        bh1_0.id,
+        bh1_0.address,
+        bh1_0.created_at,
+        bh1_0.deleted_at,
+        bh1_0.name,
+        bh1_0.phone_number,
+        bh1_0.representative_name,
+        bh1_0.revenue_threshold_enabled,
+        bh1_0.tax_code,
+        bh1_0.updated_at 
+    from
+        business_households bh1_0
+Hibernate: 
+    select
+        r1_0.id,
+        r1_0.code,
+        r1_0.created_at,
+        r1_0.description,
+        r1_0.name,
+        r1_0.updated_at 
+    from
+        roles r1_0 
+    where
+        r1_0.code=?
+Hibernate: 
+    select
+        r1_0.id,
+        r1_0.code,
+        r1_0.created_at,
+        r1_0.description,
+        r1_0.name,
+        r1_0.updated_at 
+    from
+        roles r1_0 
+    where
+        r1_0.code=?
+Hibernate: 
+    select
+        u1_0.id,
+        u1_0.created_at,
+        u1_0.deleted_at,
+        u1_0.full_name,
+        h1_0.id,
+        h1_0.address,
+        h1_0.created_at,
+        h1_0.deleted_at,
+        h1_0.name,
+        h1_0.phone_number,
+        h1_0.representative_name,
+        h1_0.revenue_threshold_enabled,
+        h1_0.tax_code,
+        h1_0.updated_at,
+        u1_0.is_active,
+        u1_0.password_hash,
+        u1_0.phone_number,
+        u1_0.role_id,
+        r1_0.id,
+        r1_0.code,
+        r1_0.created_at,
+        r1_0.description,
+        r1_0.name,
+        r1_0.updated_at,
+        u1_0.updated_at,
+        u1_0.username 
+    from
+        users u1_0 
+    left join
+        business_households h1_0 
+            on h1_0.id=u1_0.household_id 
+    join
+        roles r1_0 
+            on r1_0.id=u1_0.role_id 
+    where
+        u1_0.username=?
+Hibernate: 
+    select
+        u1_0.id,
+        u1_0.created_at,
+        u1_0.deleted_at,
+        u1_0.full_name,
+        h1_0.id,
+        h1_0.address,
+        h1_0.created_at,
+        h1_0.deleted_at,
+        h1_0.name,
+        h1_0.phone_number,
+        h1_0.representative_name,
+        h1_0.revenue_threshold_enabled,
+        h1_0.tax_code,
+        h1_0.updated_at,
+        u1_0.is_active,
+        u1_0.password_hash,
+        u1_0.phone_number,
+        u1_0.role_id,
+        r1_0.id,
+        r1_0.code,
+        r1_0.created_at,
+        r1_0.description,
+        r1_0.name,
+        r1_0.updated_at,
+        u1_0.updated_at,
+        u1_0.username 
+    from
+        users u1_0 
+    left join
+        business_households h1_0 
+            on h1_0.id=u1_0.household_id 
+    join
+        roles r1_0 
+            on r1_0.id=u1_0.role_id 
+    where
+        u1_0.username=?
+Hibernate: 
+    select
+        tr1_0.id,
+        tr1_0.created_at,
+        tr1_0.household_id,
+        tr1_0.is_active,
+        tr1_0.name,
+        tr1_0.rate_percentage,
+        tr1_0.updated_at 
+    from
+        tax_rates tr1_0
+Hibernate: 
+    select
+        p1_0.id,
+        p1_0.created_at,
+        p1_0.deleted_at,
+        p1_0.group_id,
+        p1_0.household_id,
+        p1_0.name,
+        p1_0.price,
+        p1_0.sku,
+        p1_0.status,
+        p1_0.stock_quantity,
+        p1_0.tax_rate_id,
+        p1_0.unit,
+        p1_0.updated_at 
+    from
+        products p1_0
+Hibernate: 
+    select
+        it1_0.id,
+        it1_0.created_at,
+        it1_0.footer_note,
+        it1_0.household_id,
+        it1_0.invoice_pattern,
+        it1_0.invoice_symbol,
+        it1_0.title,
+        it1_0.updated_at 
+    from
+        invoice_templates it1_0 
+    where
+        it1_0.household_id=?
+Hibernate: 
+    select
+        u1_0.id,
+        u1_0.created_at,
+        u1_0.deleted_at,
+        u1_0.full_name,
+        h1_0.id,
+        h1_0.address,
+        h1_0.created_at,
+        h1_0.deleted_at,
+        h1_0.name,
+        h1_0.phone_number,
+        h1_0.representative_name,
+        h1_0.revenue_threshold_enabled,
+        h1_0.tax_code,
+        h1_0.updated_at,
+        u1_0.is_active,
+        u1_0.password_hash,
+        u1_0.phone_number,
+        u1_0.role_id,
+        r1_0.id,
+        r1_0.code,
+        r1_0.created_at,
+        r1_0.description,
+        r1_0.name,
+        r1_0.updated_at,
+        u1_0.updated_at,
+        u1_0.username 
+    from
+        users u1_0 
+    left join
+        business_households h1_0 
+            on h1_0.id=u1_0.household_id 
+    join
+        roles r1_0 
+            on r1_0.id=u1_0.role_id 
+    where
+        u1_0.username=?
+Hibernate: 
+    select
+        o1_0.id,
+        o1_0.created_at,
+        o1_0.created_by_user_id,
+        cbu1_0.id,
+        cbu1_0.created_at,
+        cbu1_0.deleted_at,
+        cbu1_0.full_name,
+        cbu1_0.household_id,
+        cbu1_0.is_active,
+        cbu1_0.password_hash,
+        cbu1_0.phone_number,
+        cbu1_0.role_id,
+        cbu1_0.updated_at,
+        cbu1_0.username,
+        c1_0.id,
+        c1_0.address,
+        c1_0.created_at,
+        c1_0.credit_limit,
+        c1_0.current_debt,
+        c1_0.deleted_at,
+        c1_0.email,
+        c1_0.household_id,
+        c1_0.name,
+        c1_0.phone_number,
+        c1_0.updated_at,
+        o1_0.deleted_at,
+        o1_0.discount_amount,
+        o1_0.discount_rate_or_value,
+        o1_0.discount_type,
+        o1_0.final_amount,
+        o1_0.household_id,
+        h4_0.id,
+        h4_0.address,
+        h4_0.created_at,
+        h4_0.deleted_at,
+        h4_0.name,
+        h4_0.phone_number,
+        h4_0.representative_name,
+        h4_0.revenue_threshold_enabled,
+        h4_0.tax_code,
+        h4_0.updated_at,
+        o1_0.is_offline,
+        i1_0.order_id,
+        i1_0.id,
+        i1_0.created_at,
+        i1_0.discount_amount,
+        p1_0.id,
+        p1_0.created_at,
+        p1_0.deleted_at,
+        p1_0.group_id,
+        p1_0.household_id,
+        p1_0.name,
+        p1_0.price,
+        p1_0.sku,
+        p1_0.status,
+        p1_0.stock_quantity,
+        p1_0.tax_rate_id,
+        p1_0.unit,
+        p1_0.updated_at,
+        i1_0.product_name,
+        i1_0.quantity,
+        i1_0.subtotal,
+        i1_0.tax_amount,
+        i1_0.tax_rate_percentage,
+        i1_0.unit_price,
+        i1_0.updated_at,
+        o1_0.order_number,
+        o1_0.payment_method,
+        o1_0.payment_status,
+        s1_0.id,
+        s1_0.closed_at,
+        s1_0.closing_cash_actual,
+        s1_0.closing_cash_expected,
+        s1_0.created_at,
+        s1_0.difference_amount,
+        s1_0.difference_reason,
+        s1_0.household_id,
+        s1_0.opened_at,
+        s1_0.opening_cash,
+        s1_0.status,
+        s1_0.updated_at,
+        s1_0.user_id,
+        o1_0.status,
+        o1_0.sync_status,
+        o1_0.synced_at,
+        o1_0.total_amount,
+        o1_0.updated_at 
+    from
+        orders o1_0 
+    join
+        users cbu1_0 
+            on cbu1_0.id=o1_0.created_by_user_id 
+    left join
+        customers c1_0 
+            on c1_0.id=o1_0.customer_id 
+    join
+        business_households h4_0 
+            on h4_0.id=o1_0.household_id 
+    left join
+        order_items i1_0 
+            on o1_0.id=i1_0.order_id 
+    left join
+        products p1_0 
+            on p1_0.id=i1_0.product_id 
+    left join
+        shifts s1_0 
+            on s1_0.id=o1_0.shift_id 
+    where
+        o1_0.order_number in (?) 
+        and o1_0.household_id=? 
+        and o1_0.deleted_at is null
+Hibernate: 
+    select
+        s1_0.id,
+        s1_0.closed_at,
+        s1_0.closing_cash_actual,
+        s1_0.closing_cash_expected,
+        s1_0.created_at,
+        s1_0.difference_amount,
+        s1_0.difference_reason,
+        s1_0.household_id,
+        h1_0.id,
+        h1_0.address,
+        h1_0.created_at,
+        h1_0.deleted_at,
+        h1_0.name,
+        h1_0.phone_number,
+        h1_0.representative_name,
+        h1_0.revenue_threshold_enabled,
+        h1_0.tax_code,
+        h1_0.updated_at,
+        s1_0.opened_at,
+        s1_0.opening_cash,
+        s1_0.status,
+        s1_0.updated_at,
+        s1_0.user_id,
+        u2_0.id,
+        u2_0.created_at,
+        u2_0.deleted_at,
+        u2_0.full_name,
+        u2_0.household_id,
+        u2_0.is_active,
+        u2_0.password_hash,
+        u2_0.phone_number,
+        u2_0.role_id,
+        u2_0.updated_at,
+        u2_0.username 
+    from
+        shifts s1_0 
+    join
+        business_households h1_0 
+            on h1_0.id=s1_0.household_id 
+    join
+        users u2_0 
+            on u2_0.id=s1_0.user_id 
+    where
+        s1_0.user_id=? 
+        and s1_0.status=?
+Hibernate: 
+    select
+        p1_0.id,
+        p1_0.created_at,
+        p1_0.deleted_at,
+        g1_0.id,
+        g1_0.created_at,
+        g1_0.deleted_at,
+        g1_0.household_id,
+        g1_0.name,
+        g1_0.updated_at,
+        p1_0.household_id,
+        h3_0.id,
+        h3_0.address,
+        h3_0.created_at,
+        h3_0.deleted_at,
+        h3_0.name,
+        h3_0.phone_number,
+        h3_0.representative_name,
+        h3_0.revenue_threshold_enabled,
+        h3_0.tax_code,
+        h3_0.updated_at,
+        p1_0.name,
+        p1_0.price,
+        p1_0.sku,
+        p1_0.status,
+        p1_0.stock_quantity,
+        p1_0.tax_rate_id,
+        tr1_0.id,
+        tr1_0.created_at,
+        tr1_0.household_id,
+        tr1_0.is_active,
+        tr1_0.name,
+        tr1_0.rate_percentage,
+        tr1_0.updated_at,
+        p1_0.unit,
+        p1_0.updated_at 
+    from
+        products p1_0 
+    left join
+        product_groups g1_0 
+            on g1_0.id=p1_0.group_id 
+    join
+        business_households h3_0 
+            on h3_0.id=p1_0.household_id 
+    join
+        tax_rates tr1_0 
+            on tr1_0.id=p1_0.tax_rate_id 
+    where
+        p1_0.id in (?) 
+        and p1_0.household_id=? 
+        and p1_0.deleted_at is null
+Hibernate: 
+    update
+        products p1_0 
+    set
+        stock_quantity=(p1_0.stock_quantity-?) 
+    where
+        p1_0.id=? 
+        and p1_0.household_id=? 
+        and p1_0.deleted_at is null
+Hibernate: 
+    insert 
+    into
+        orders
+        (created_at, created_by_user_id, customer_id, deleted_at, discount_amount, discount_rate_or_value, discount_type, final_amount, household_id, is_offline, order_number, payment_method, payment_status, shift_id, status, sync_status, synced_at, total_amount, updated_at, id) 
+    values
+        (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+Hibernate: 
+    insert 
+    into
+        order_items
+        (created_at, discount_amount, order_id, product_id, product_name, quantity, subtotal, tax_amount, tax_rate_percentage, unit_price, updated_at, id) 
+    values
+        (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+Hibernate: 
+    insert 
+    into
+        activity_logs
+        (action, client_ip, created_at, household_id, new_value, old_value, target_id, target_table, user_id, user_agent, id) 
+    values
+        (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+Hibernate: 
+    select
+        o1_0.id,
+        o1_0.created_at,
+        o1_0.created_by_user_id,
+        cbu1_0.id,
+        cbu1_0.created_at,
+        cbu1_0.deleted_at,
+        cbu1_0.full_name,
+        cbu1_0.household_id,
+        cbu1_0.is_active,
+        cbu1_0.password_hash,
+        cbu1_0.phone_number,
+        cbu1_0.role_id,
+        cbu1_0.updated_at,
+        cbu1_0.username,
+        c1_0.id,
+        c1_0.address,
+        c1_0.created_at,
+        c1_0.credit_limit,
+        c1_0.current_debt,
+        c1_0.deleted_at,
+        c1_0.email,
+        c1_0.household_id,
+        c1_0.name,
+        c1_0.phone_number,
+        c1_0.updated_at,
+        o1_0.deleted_at,
+        o1_0.discount_amount,
+        o1_0.discount_rate_or_value,
+        o1_0.discount_type,
+        o1_0.final_amount,
+        o1_0.household_id,
+        h4_0.id,
+        h4_0.address,
+        h4_0.created_at,
+        h4_0.deleted_at,
+        h4_0.name,
+        h4_0.phone_number,
+        h4_0.representative_name,
+        h4_0.revenue_threshold_enabled,
+        h4_0.tax_code,
+        h4_0.updated_at,
+        o1_0.is_offline,
+        i1_0.order_id,
+        i1_0.id,
+        i1_0.created_at,
+        i1_0.discount_amount,
+        p1_0.id,
+        p1_0.created_at,
+        p1_0.deleted_at,
+        p1_0.group_id,
+        p1_0.household_id,
+        p1_0.name,
+        p1_0.price,
+        p1_0.sku,
+        p1_0.status,
+        p1_0.stock_quantity,
+        p1_0.tax_rate_id,
+        p1_0.unit,
+        p1_0.updated_at,
+        i1_0.product_name,
+        i1_0.quantity,
+        i1_0.subtotal,
+        i1_0.tax_amount,
+        i1_0.tax_rate_percentage,
+        i1_0.unit_price,
+        i1_0.updated_at,
+        o1_0.order_number,
+        o1_0.payment_method,
+        o1_0.payment_status,
+        s1_0.id,
+        s1_0.closed_at,
+        s1_0.closing_cash_actual,
+        s1_0.closing_cash_expected,
+        s1_0.created_at,
+        s1_0.difference_amount,
+        s1_0.difference_reason,
+        s1_0.household_id,
+        s1_0.opened_at,
+        s1_0.opening_cash,
+        s1_0.status,
+        s1_0.updated_at,
+        s1_0.user_id,
+        o1_0.status,
+        o1_0.sync_status,
+        o1_0.synced_at,
+        o1_0.total_amount,
+        o1_0.updated_at 
+    from
+        orders o1_0 
+    join
+        users cbu1_0 
+            on cbu1_0.id=o1_0.created_by_user_id 
+    left join
+        customers c1_0 
+            on c1_0.id=o1_0.customer_id 
+    join
+        business_households h4_0 
+            on h4_0.id=o1_0.household_id 
+    left join
+        order_items i1_0 
+            on o1_0.id=i1_0.order_id 
+    left join
+        products p1_0 
+            on p1_0.id=i1_0.product_id 
+    left join
+        shifts s1_0 
+            on s1_0.id=o1_0.shift_id 
+    where
+        o1_0.order_number in (?) 
+        and o1_0.household_id=? 
+        and o1_0.deleted_at is null
+2026-07-23T22:47:30.394+07:00  INFO 12240 --- [sales-service] [           main] c.v.s.event.OrderSyncedEventListener     : Starting automatic invoice generation for order ID: cf3b88f5-8382-48eb-92bc-bd7e974e1f8a
+Hibernate: 
+    select
+        u1_0.id,
+        u1_0.created_at,
+        u1_0.deleted_at,
+        u1_0.full_name,
+        h1_0.id,
+        h1_0.address,
+        h1_0.created_at,
+        h1_0.deleted_at,
+        h1_0.name,
+        h1_0.phone_number,
+        h1_0.representative_name,
+        h1_0.revenue_threshold_enabled,
+        h1_0.tax_code,
+        h1_0.updated_at,
+        u1_0.is_active,
+        u1_0.password_hash,
+        u1_0.phone_number,
+        u1_0.role_id,
+        r1_0.id,
+        r1_0.code,
+        r1_0.created_at,
+        r1_0.description,
+        r1_0.name,
+        r1_0.updated_at,
+        u1_0.updated_at,
+        u1_0.username 
+    from
+        users u1_0 
+    left join
+        business_households h1_0 
+            on h1_0.id=u1_0.household_id 
+    join
+        roles r1_0 
+            on r1_0.id=u1_0.role_id 
+    where
+        u1_0.username=?
+Hibernate: 
+    select
+        o1_0.id,
+        o1_0.created_at,
+        o1_0.created_by_user_id,
+        cbu1_0.id,
+        cbu1_0.created_at,
+        cbu1_0.deleted_at,
+        cbu1_0.full_name,
+        cbu1_0.household_id,
+        cbu1_0.is_active,
+        cbu1_0.password_hash,
+        cbu1_0.phone_number,
+        cbu1_0.role_id,
+        cbu1_0.updated_at,
+        cbu1_0.username,
+        c1_0.id,
+        c1_0.address,
+        c1_0.created_at,
+        c1_0.credit_limit,
+        c1_0.current_debt,
+        c1_0.deleted_at,
+        c1_0.email,
+        c1_0.household_id,
+        c1_0.name,
+        c1_0.phone_number,
+        c1_0.updated_at,
+        o1_0.deleted_at,
+        o1_0.discount_amount,
+        o1_0.discount_rate_or_value,
+        o1_0.discount_type,
+        o1_0.final_amount,
+        o1_0.household_id,
+        h4_0.id,
+        h4_0.address,
+        h4_0.created_at,
+        h4_0.deleted_at,
+        h4_0.name,
+        h4_0.phone_number,
+        h4_0.representative_name,
+        h4_0.revenue_threshold_enabled,
+        h4_0.tax_code,
+        h4_0.updated_at,
+        o1_0.is_offline,
+        i1_0.order_id,
+        i1_0.id,
+        i1_0.created_at,
+        i1_0.discount_amount,
+        p1_0.id,
+        p1_0.created_at,
+        p1_0.deleted_at,
+        p1_0.group_id,
+        p1_0.household_id,
+        p1_0.name,
+        p1_0.price,
+        p1_0.sku,
+        p1_0.status,
+        p1_0.stock_quantity,
+        p1_0.tax_rate_id,
+        p1_0.unit,
+        p1_0.updated_at,
+        i1_0.product_name,
+        i1_0.quantity,
+        i1_0.subtotal,
+        i1_0.tax_amount,
+        i1_0.tax_rate_percentage,
+        i1_0.unit_price,
+        i1_0.updated_at,
+        o1_0.order_number,
+        o1_0.payment_method,
+        o1_0.payment_status,
+        s1_0.id,
+        s1_0.closed_at,
+        s1_0.closing_cash_actual,
+        s1_0.closing_cash_expected,
+        s1_0.created_at,
+        s1_0.difference_amount,
+        s1_0.difference_reason,
+        s1_0.household_id,
+        s1_0.opened_at,
+        s1_0.opening_cash,
+        s1_0.status,
+        s1_0.updated_at,
+        s1_0.user_id,
+        o1_0.status,
+        o1_0.sync_status,
+        o1_0.synced_at,
+        o1_0.total_amount,
+        o1_0.updated_at 
+    from
+        orders o1_0 
+    join
+        users cbu1_0 
+            on cbu1_0.id=o1_0.created_by_user_id 
+    left join
+        customers c1_0 
+            on c1_0.id=o1_0.customer_id 
+    join
+        business_households h4_0 
+            on h4_0.id=o1_0.household_id 
+    left join
+        order_items i1_0 
+            on o1_0.id=i1_0.order_id 
+    left join
+        products p1_0 
+            on p1_0.id=i1_0.product_id 
+    left join
+        shifts s1_0 
+            on s1_0.id=o1_0.shift_id 
+    where
+        o1_0.id=? 
+        and o1_0.household_id=? 
+        and o1_0.deleted_at is null
+Hibernate: 
+    select
+        e1_0.id,
+        e1_0.buyer_address,
+        e1_0.buyer_email,
+        e1_0.buyer_name,
+        e1_0.buyer_phone,
+        e1_0.buyer_tax_code,
+        e1_0.cancel_reason,
+        e1_0.canceled_at,
+        cbu1_0.id,
+        cbu1_0.created_at,
+        cbu1_0.deleted_at,
+        cbu1_0.full_name,
+        cbu1_0.household_id,
+        cbu1_0.is_active,
+        cbu1_0.password_hash,
+        cbu1_0.phone_number,
+        cbu1_0.role_id,
+        cbu1_0.updated_at,
+        cbu1_0.username,
+        e1_0.created_at,
+        e1_0.created_by_user_id,
+        cbu2_0.id,
+        cbu2_0.created_at,
+        cbu2_0.deleted_at,
+        cbu2_0.full_name,
+        cbu2_0.household_id,
+        cbu2_0.is_active,
+        cbu2_0.password_hash,
+        cbu2_0.phone_number,
+        cbu2_0.role_id,
+        cbu2_0.updated_at,
+        cbu2_0.username,
+        e1_0.deleted_at,
+        e1_0.discount_amount,
+        e1_0.final_amount,
+        e1_0.household_id,
+        h3_0.id,
+        h3_0.address,
+        h3_0.created_at,
+        h3_0.deleted_at,
+        h3_0.name,
+        h3_0.phone_number,
+        h3_0.representative_name,
+        h3_0.revenue_threshold_enabled,
+        h3_0.tax_code,
+        h3_0.updated_at,
+        e1_0.invoice_number,
+        e1_0.invoice_pattern,
+        e1_0.invoice_symbol,
+        i1_0.invoice_id,
+        i1_0.id,
+        i1_0.created_at,
+        i1_0.discount_amount,
+        p1_0.id,
+        p1_0.created_at,
+        p1_0.deleted_at,
+        p1_0.group_id,
+        p1_0.household_id,
+        p1_0.name,
+        p1_0.price,
+        p1_0.sku,
+        p1_0.status,
+        p1_0.stock_quantity,
+        p1_0.tax_rate_id,
+        p1_0.unit,
+        p1_0.updated_at,
+        i1_0.product_name,
+        i1_0.quantity,
+        i1_0.subtotal,
+        i1_0.tax_amount,
+        i1_0.tax_rate_percentage,
+        i1_0.unit,
+        i1_0.unit_price,
+        e1_0.lookup_code,
+        o1_0.id,
+        o1_0.created_at,
+        o1_0.created_by_user_id,
+        o1_0.customer_id,
+        o1_0.deleted_at,
+        o1_0.discount_amount,
+        o1_0.discount_rate_or_value,
+        o1_0.discount_type,
+        o1_0.final_amount,
+        o1_0.household_id,
+        o1_0.is_offline,
+        o1_0.order_number,
+        o1_0.payment_method,
+        o1_0.payment_status,
+        o1_0.shift_id,
+        o1_0.status,
+        o1_0.sync_status,
+        o1_0.synced_at,
+        o1_0.total_amount,
+        o1_0.updated_at,
+        oi1_0.id,
+        oi1_0.buyer_address,
+        oi1_0.buyer_email,
+        oi1_0.buyer_name,
+        oi1_0.buyer_phone,
+        oi1_0.buyer_tax_code,
+        oi1_0.cancel_reason,
+        oi1_0.canceled_at,
+        oi1_0.canceled_by_user_id,
+        oi1_0.created_at,
+        oi1_0.created_by_user_id,
+        oi1_0.deleted_at,
+        oi1_0.discount_amount,
+        oi1_0.final_amount,
+        oi1_0.household_id,
+        oi1_0.invoice_number,
+        oi1_0.invoice_pattern,
+        oi1_0.invoice_symbol,
+        oi1_0.lookup_code,
+        oi1_0.order_id,
+        oi1_0.original_invoice_id,
+        oi1_0.sent_to_tax_at,
+        oi1_0.status,
+        oi1_0.tax_amount,
+        oi1_0.tax_authority_code,
+        oi1_0.tax_authority_response,
+        oi1_0.tax_response_at,
+        oi1_0.total_amount_before_tax,
+        oi1_0.updated_at,
+        e1_0.sent_to_tax_at,
+        e1_0.status,
+        e1_0.tax_amount,
+        e1_0.tax_authority_code,
+        e1_0.tax_authority_response,
+        e1_0.tax_response_at,
+        e1_0.total_amount_before_tax,
+        e1_0.updated_at 
+    from
+        e_invoices e1_0 
+    left join
+        orders o1_0 
+            on o1_0.id=e1_0.order_id 
+    left join
+        users cbu1_0 
+            on cbu1_0.id=e1_0.canceled_by_user_id 
+    join
+        users cbu2_0 
+            on cbu2_0.id=e1_0.created_by_user_id 
+    join
+        business_households h3_0 
+            on h3_0.id=e1_0.household_id 
+    left join
+        e_invoice_items i1_0 
+            on e1_0.id=i1_0.invoice_id 
+    left join
+        products p1_0 
+            on p1_0.id=i1_0.product_id 
+    left join
+        e_invoices oi1_0 
+            on oi1_0.id=e1_0.original_invoice_id 
+    where
+        e1_0.order_id=? 
+        and e1_0.deleted_at is null
+Hibernate: 
+    select
+        it1_0.id,
+        it1_0.created_at,
+        it1_0.footer_note,
+        it1_0.household_id,
+        it1_0.invoice_pattern,
+        it1_0.invoice_symbol,
+        it1_0.title,
+        it1_0.updated_at 
+    from
+        invoice_templates it1_0 
+    where
+        it1_0.household_id=?
+2026-07-23T22:47:30.427+07:00 ERROR 12240 --- [sales-service] [           main] c.v.s.event.OrderSyncedEventListener     : Failed to automatically issue electronic invoice for synced order ID: cf3b88f5-8382-48eb-92bc-bd7e974e1f8a
+
+com.viet.sales.exception.AppException: H? kinh doanh ch?a thi?t l?p c?u hình m?u hóa ??n (ký hi?u, m?u s?)
+	at com.viet.sales.service.classes.EInvoiceServiceImpl.lambda$createInvoiceDraft$9(EInvoiceServiceImpl.java:429) ~[classes/:na]
+	at java.base/java.util.Optional.orElseThrow(Optional.java:403) ~[na:na]
+	at com.viet.sales.service.classes.EInvoiceServiceImpl.createInvoiceDraft(EInvoiceServiceImpl.java:429) ~[classes/:na]
+	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method) ~[na:na]
+	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:77) ~[na:na]
+	at java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43) ~[na:na]
+	at java.base/java.lang.reflect.Method.invoke(Method.java:568) ~[na:na]
+	at org.springframework.aop.support.AopUtils.invokeJoinpointUsingReflection(AopUtils.java:354) ~[spring-aop-6.1.10.jar:6.1.10]
+	at org.springframework.aop.framework.ReflectiveMethodInvocation.invokeJoinpoint(ReflectiveMethodInvocation.java:196) ~[spring-aop-6.1.10.jar:6.1.10]
+	at org.springframework.aop.framework.ReflectiveMethodInvocation.proceed(ReflectiveMethodInvocation.java:163) ~[spring-aop-6.1.10.jar:6.1.10]
+	at org.springframework.aop.framework.CglibAopProxy$CglibMethodInvocation.proceed(CglibAopProxy.java:768) ~[spring-aop-6.1.10.jar:6.1.10]
+	at org.springframework.transaction.interceptor.TransactionInterceptor$1.proceedWithInvocation(TransactionInterceptor.java:123) ~[spring-tx-6.1.10.jar:6.1.10]
+	at org.springframework.transaction.interceptor.TransactionAspectSupport.invokeWithinTransaction(TransactionAspectSupport.java:392) ~[spring-tx-6.1.10.jar:6.1.10]
+	at org.springframework.transaction.interceptor.TransactionInterceptor.invoke(TransactionInterceptor.java:119) ~[spring-tx-6.1.10.jar:6.1.10]
+	at org.springframework.aop.framework.ReflectiveMethodInvocation.proceed(ReflectiveMethodInvocation.java:184) ~[spring-aop-6.1.10.jar:6.1.10]
+	at org.springframework.aop.framework.CglibAopProxy$CglibMethodInvocation.proceed(CglibAopProxy.java:768) ~[spring-aop-6.1.10.jar:6.1.10]
+	at org.springframework.aop.framework.CglibAopProxy$DynamicAdvisedInterceptor.intercept(CglibAopProxy.java:720) ~[spring-aop-6.1.10.jar:6.1.10]
+	at com.viet.sales.service.classes.EInvoiceServiceImpl$$SpringCGLIB$$0.createInvoiceDraft(<generated>) ~[classes/:na]
+	at com.viet.sales.event.OrderSyncedEventListener.handleOrderSyncedEvent(OrderSyncedEventListener.java:41) ~[classes/:na]
+	at com.viet.sales.controller.SyncControllerTest.testOrderSyncedEventListener_FallbackInvoiceOnError(SyncControllerTest.java:518) ~[test-classes/:na]
+	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method) ~[na:na]
+	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:77) ~[na:na]
+	at java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43) ~[na:na]
+	at java.base/java.lang.reflect.Method.invoke(Method.java:568) ~[na:na]
+	at org.junit.platform.commons.util.ReflectionUtils.invokeMethod(ReflectionUtils.java:728) ~[junit-platform-commons-1.10.2.jar:1.10.2]
+	at org.junit.jupiter.engine.execution.MethodInvocation.proceed(MethodInvocation.java:60) ~[junit-jupiter-engine-5.10.2.jar:5.10.2]
+	at org.junit.jupiter.engine.execution.InvocationInterceptorChain$ValidatingInvocation.proceed(InvocationInterceptorChain.java:131) ~[junit-jupiter-engine-5.10.2.jar:5.10.2]
+	at org.junit.jupiter.engine.extension.TimeoutExtension.intercept(TimeoutExtension.java:156) ~[junit-jupiter-engine-5.10.2.jar:5.10.2]
+	at org.junit.jupiter.engine.extension.TimeoutExtension.interceptTestableMethod(TimeoutExtension.java:147) ~[junit-jupiter-engine-5.10.2.jar:5.10.2]
+	at org.junit.jupiter.engine.extension.TimeoutExtension.interceptTestMethod(TimeoutExtension.java:86) ~[junit-jupiter-engine-5.10.2.jar:5.10.2]
+	at org.junit.jupiter.engine.execution.InterceptingExecutableInvoker$ReflectiveInterceptorCall.lambda$ofVoidMethod$0(InterceptingExecutableInvoker.java:103) ~[junit-jupiter-engine-5.10.2.jar:5.10.2]
+	at org.junit.jupiter.engine.execution.InterceptingExecutableInvoker.lambda$invoke$0(InterceptingExecutableInvoker.java:93) ~[junit-jupiter-engine-5.10.2.jar:5.10.2]
+	at org.junit.jupiter.engine.execution.InvocationInterceptorChain$InterceptedInvocation.proceed(InvocationInterceptorChain.java:106) ~[junit-jupiter-engine-5.10.2.jar:5.10.2]
+	at org.junit.jupiter.engine.execution.InvocationInterceptorChain.proceed(InvocationInterceptorChain.java:64) ~[junit-jupiter-engine-5.10.2.jar:5.10.2]
+	at org.junit.jupiter.engine.execution.InvocationInterceptorChain.chainAndInvoke(InvocationInterceptorChain.java:45) ~[junit-jupiter-engine-5.10.2.jar:5.10.2]
+	at org.junit.jupiter.engine.execution.InvocationInterceptorChain.invoke(InvocationInterceptorChain.java:37) ~[junit-jupiter-engine-5.10.2.jar:5.10.2]
+	at org.junit.jupiter.engine.execution.InterceptingExecutableInvoker.invoke(InterceptingExecutableInvoker.java:92) ~[junit-jupiter-engine-5.10.2.jar:5.10.2]
+	at org.junit.jupiter.engine.execution.InterceptingExecutableInvoker.invoke(InterceptingExecutableInvoker.java:86) ~[junit-jupiter-engine-5.10.2.jar:5.10.2]
+	at org.junit.jupiter.engine.descriptor.TestMethodTestDescriptor.lambda$invokeTestMethod$7(TestMethodTestDescriptor.java:218) ~[junit-jupiter-engine-5.10.2.jar:5.10.2]
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73) ~[junit-platform-engine-1.10.2.jar:1.10.2]
+	at org.junit.jupiter.engine.descriptor.TestMethodTestDescriptor.invokeTestMethod(TestMethodTestDescriptor.java:214) ~[junit-jupiter-engine-5.10.2.jar:5.10.2]
+	at org.junit.jupiter.engine.descriptor.TestMethodTestDescriptor.execute(TestMethodTestDescriptor.java:139) ~[junit-jupiter-engine-5.10.2.jar:5.10.2]
+	at org.junit.jupiter.engine.descriptor.TestMethodTestDescriptor.execute(TestMethodTestDescriptor.java:69) ~[junit-jupiter-engine-5.10.2.jar:5.10.2]
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$6(NodeTestTask.java:151) ~[junit-platform-engine-1.10.2.jar:1.10.2]
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73) ~[junit-platform-engine-1.10.2.jar:1.10.2]
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$8(NodeTestTask.java:141) ~[junit-platform-engine-1.10.2.jar:1.10.2]
+	at org.junit.platform.engine.support.hierarchical.Node.around(Node.java:137) ~[junit-platform-engine-1.10.2.jar:1.10.2]
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$9(NodeTestTask.java:139) ~[junit-platform-engine-1.10.2.jar:1.10.2]
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73) ~[junit-platform-engine-1.10.2.jar:1.10.2]
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.executeRecursively(NodeTestTask.java:138) ~[junit-platform-engine-1.10.2.jar:1.10.2]
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.execute(NodeTestTask.java:95) ~[junit-platform-engine-1.10.2.jar:1.10.2]
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1511) ~[na:na]
+	at org.junit.platform.engine.support.hierarchical.SameThreadHierarchicalTestExecutorService.invokeAll(SameThreadHierarchicalTestExecutorService.java:41) ~[junit-platform-engine-1.10.2.jar:1.10.2]
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$6(NodeTestTask.java:155) ~[junit-platform-engine-1.10.2.jar:1.10.2]
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73) ~[junit-platform-engine-1.10.2.jar:1.10.2]
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$8(NodeTestTask.java:141) ~[junit-platform-engine-1.10.2.jar:1.10.2]
+	at org.junit.platform.engine.support.hierarchical.Node.around(Node.java:137) ~[junit-platform-engine-1.10.2.jar:1.10.2]
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$9(NodeTestTask.java:139) ~[junit-platform-engine-1.10.2.jar:1.10.2]
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73) ~[junit-platform-engine-1.10.2.jar:1.10.2]
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.executeRecursively(NodeTestTask.java:138) ~[junit-platform-engine-1.10.2.jar:1.10.2]
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.execute(NodeTestTask.java:95) ~[junit-platform-engine-1.10.2.jar:1.10.2]
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1511) ~[na:na]
+	at org.junit.platform.engine.support.hierarchical.SameThreadHierarchicalTestExecutorService.invokeAll(SameThreadHierarchicalTestExecutorService.java:41) ~[junit-platform-engine-1.10.2.jar:1.10.2]
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$6(NodeTestTask.java:155) ~[junit-platform-engine-1.10.2.jar:1.10.2]
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73) ~[junit-platform-engine-1.10.2.jar:1.10.2]
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$8(NodeTestTask.java:141) ~[junit-platform-engine-1.10.2.jar:1.10.2]
+	at org.junit.platform.engine.support.hierarchical.Node.around(Node.java:137) ~[junit-platform-engine-1.10.2.jar:1.10.2]
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$9(NodeTestTask.java:139) ~[junit-platform-engine-1.10.2.jar:1.10.2]
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73) ~[junit-platform-engine-1.10.2.jar:1.10.2]
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.executeRecursively(NodeTestTask.java:138) ~[junit-platform-engine-1.10.2.jar:1.10.2]
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.execute(NodeTestTask.java:95) ~[junit-platform-engine-1.10.2.jar:1.10.2]
+	at org.junit.platform.engine.support.hierarchical.SameThreadHierarchicalTestExecutorService.submit(SameThreadHierarchicalTestExecutorService.java:35) ~[junit-platform-engine-1.10.2.jar:1.10.2]
+	at org.junit.platform.engine.support.hierarchical.HierarchicalTestExecutor.execute(HierarchicalTestExecutor.java:57) ~[junit-platform-engine-1.10.2.jar:1.10.2]
+	at org.junit.platform.engine.support.hierarchical.HierarchicalTestEngine.execute(HierarchicalTestEngine.java:54) ~[junit-platform-engine-1.10.2.jar:1.10.2]
+	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.execute(EngineExecutionOrchestrator.java:198) ~[junit-platform-launcher-1.10.2.jar:1.10.2]
+	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.execute(EngineExecutionOrchestrator.java:169) ~[junit-platform-launcher-1.10.2.jar:1.10.2]
+	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.execute(EngineExecutionOrchestrator.java:93) ~[junit-platform-launcher-1.10.2.jar:1.10.2]
+	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.lambda$execute$0(EngineExecutionOrchestrator.java:58) ~[junit-platform-launcher-1.10.2.jar:1.10.2]
+	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.withInterceptedStreams(EngineExecutionOrchestrator.java:141) ~[junit-platform-launcher-1.10.2.jar:1.10.2]
+	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.execute(EngineExecutionOrchestrator.java:57) ~[junit-platform-launcher-1.10.2.jar:1.10.2]
+	at org.junit.platform.launcher.core.DefaultLauncher.execute(DefaultLauncher.java:103) ~[junit-platform-launcher-1.10.2.jar:1.10.2]
+	at org.junit.platform.launcher.core.DefaultLauncher.execute(DefaultLauncher.java:85) ~[junit-platform-launcher-1.10.2.jar:1.10.2]
+	at org.junit.platform.launcher.core.DelegatingLauncher.execute(DelegatingLauncher.java:47) ~[junit-platform-launcher-1.10.2.jar:1.10.2]
+	at org.apache.maven.surefire.junitplatform.LazyLauncher.execute(LazyLauncher.java:56) ~[surefire-junit-platform-3.2.5.jar:3.2.5]
+	at org.apache.maven.surefire.junitplatform.JUnitPlatformProvider.execute(JUnitPlatformProvider.java:184) ~[surefire-junit-platform-3.2.5.jar:3.2.5]
+	at org.apache.maven.surefire.junitplatform.JUnitPlatformProvider.invokeAllTests(JUnitPlatformProvider.java:148) ~[surefire-junit-platform-3.2.5.jar:3.2.5]
+	at org.apache.maven.surefire.junitplatform.JUnitPlatformProvider.invoke(JUnitPlatformProvider.java:122) ~[surefire-junit-platform-3.2.5.jar:3.2.5]
+	at org.apache.maven.surefire.booter.ForkedBooter.runSuitesInProcess(ForkedBooter.java:385) ~[surefire-booter-3.2.5.jar:3.2.5]
+	at org.apache.maven.surefire.booter.ForkedBooter.execute(ForkedBooter.java:162) ~[surefire-booter-3.2.5.jar:3.2.5]
+	at org.apache.maven.surefire.booter.ForkedBooter.run(ForkedBooter.java:507) ~[surefire-booter-3.2.5.jar:3.2.5]
+	at org.apache.maven.surefire.booter.ForkedBooter.main(ForkedBooter.java:495) ~[surefire-booter-3.2.5.jar:3.2.5]
+
+Hibernate: 
+    select
+        e1_0.id,
+        e1_0.buyer_address,
+        e1_0.buyer_email,
+        e1_0.buyer_name,
+        e1_0.buyer_phone,
+        e1_0.buyer_tax_code,
+        e1_0.cancel_reason,
+        e1_0.canceled_at,
+        cbu1_0.id,
+        cbu1_0.created_at,
+        cbu1_0.deleted_at,
+        cbu1_0.full_name,
+        cbu1_0.household_id,
+        cbu1_0.is_active,
+        cbu1_0.password_hash,
+        cbu1_0.phone_number,
+        cbu1_0.role_id,
+        cbu1_0.updated_at,
+        cbu1_0.username,
+        e1_0.created_at,
+        e1_0.created_by_user_id,
+        cbu2_0.id,
+        cbu2_0.created_at,
+        cbu2_0.deleted_at,
+        cbu2_0.full_name,
+        cbu2_0.household_id,
+        cbu2_0.is_active,
+        cbu2_0.password_hash,
+        cbu2_0.phone_number,
+        cbu2_0.role_id,
+        cbu2_0.updated_at,
+        cbu2_0.username,
+        e1_0.deleted_at,
+        e1_0.discount_amount,
+        e1_0.final_amount,
+        e1_0.household_id,
+        h3_0.id,
+        h3_0.address,
+        h3_0.created_at,
+        h3_0.deleted_at,
+        h3_0.name,
+        h3_0.phone_number,
+        h3_0.representative_name,
+        h3_0.revenue_threshold_enabled,
+        h3_0.tax_code,
+        h3_0.updated_at,
+        e1_0.invoice_number,
+        e1_0.invoice_pattern,
+        e1_0.invoice_symbol,
+        i1_0.invoice_id,
+        i1_0.id,
+        i1_0.created_at,
+        i1_0.discount_amount,
+        p1_0.id,
+        p1_0.created_at,
+        p1_0.deleted_at,
+        p1_0.group_id,
+        p1_0.household_id,
+        p1_0.name,
+        p1_0.price,
+        p1_0.sku,
+        p1_0.status,
+        p1_0.stock_quantity,
+        p1_0.tax_rate_id,
+        p1_0.unit,
+        p1_0.updated_at,
+        i1_0.product_name,
+        i1_0.quantity,
+        i1_0.subtotal,
+        i1_0.tax_amount,
+        i1_0.tax_rate_percentage,
+        i1_0.unit,
+        i1_0.unit_price,
+        e1_0.lookup_code,
+        o1_0.id,
+        o1_0.created_at,
+        o1_0.created_by_user_id,
+        o1_0.customer_id,
+        o1_0.deleted_at,
+        o1_0.discount_amount,
+        o1_0.discount_rate_or_value,
+        o1_0.discount_type,
+        o1_0.final_amount,
+        o1_0.household_id,
+        o1_0.is_offline,
+        o1_0.order_number,
+        o1_0.payment_method,
+        o1_0.payment_status,
+        o1_0.shift_id,
+        o1_0.status,
+        o1_0.sync_status,
+        o1_0.synced_at,
+        o1_0.total_amount,
+        o1_0.updated_at,
+        oi1_0.id,
+        oi1_0.buyer_address,
+        oi1_0.buyer_email,
+        oi1_0.buyer_name,
+        oi1_0.buyer_phone,
+        oi1_0.buyer_tax_code,
+        oi1_0.cancel_reason,
+        oi1_0.canceled_at,
+        oi1_0.canceled_by_user_id,
+        oi1_0.created_at,
+        oi1_0.created_by_user_id,
+        oi1_0.deleted_at,
+        oi1_0.discount_amount,
+        oi1_0.final_amount,
+        oi1_0.household_id,
+        oi1_0.invoice_number,
+        oi1_0.invoice_pattern,
+        oi1_0.invoice_symbol,
+        oi1_0.lookup_code,
+        oi1_0.order_id,
+        oi1_0.original_invoice_id,
+        oi1_0.sent_to_tax_at,
+        oi1_0.status,
+        oi1_0.tax_amount,
+        oi1_0.tax_authority_code,
+        oi1_0.tax_authority_response,
+        oi1_0.tax_response_at,
+        oi1_0.total_amount_before_tax,
+        oi1_0.updated_at,
+        e1_0.sent_to_tax_at,
+        e1_0.status,
+        e1_0.tax_amount,
+        e1_0.tax_authority_code,
+        e1_0.tax_authority_response,
+        e1_0.tax_response_at,
+        e1_0.total_amount_before_tax,
+        e1_0.updated_at 
+    from
+        e_invoices e1_0 
+    left join
+        orders o1_0 
+            on o1_0.id=e1_0.order_id 
+    left join
+        users cbu1_0 
+            on cbu1_0.id=e1_0.canceled_by_user_id 
+    join
+        users cbu2_0 
+            on cbu2_0.id=e1_0.created_by_user_id 
+    join
+        business_households h3_0 
+            on h3_0.id=e1_0.household_id 
+    left join
+        e_invoice_items i1_0 
+            on e1_0.id=i1_0.invoice_id 
+    left join
+        products p1_0 
+            on p1_0.id=i1_0.product_id 
+    left join
+        e_invoices oi1_0 
+            on oi1_0.id=e1_0.original_invoice_id 
+    where
+        e1_0.order_id=? 
+        and e1_0.deleted_at is null
+Hibernate: 
+    select
+        u1_0.id,
+        u1_0.created_at,
+        u1_0.deleted_at,
+        u1_0.full_name,
+        h1_0.id,
+        h1_0.address,
+        h1_0.created_at,
+        h1_0.deleted_at,
+        h1_0.name,
+        h1_0.phone_number,
+        h1_0.representative_name,
+        h1_0.revenue_threshold_enabled,
+        h1_0.tax_code,
+        h1_0.updated_at,
+        u1_0.is_active,
+        u1_0.password_hash,
+        u1_0.phone_number,
+        u1_0.role_id,
+        r1_0.id,
+        r1_0.code,
+        r1_0.created_at,
+        r1_0.description,
+        r1_0.name,
+        r1_0.updated_at,
+        u1_0.updated_at,
+        u1_0.username 
+    from
+        users u1_0 
+    left join
+        business_households h1_0 
+            on h1_0.id=u1_0.household_id 
+    join
+        roles r1_0 
+            on r1_0.id=u1_0.role_id 
+    where
+        u1_0.username=?
+Hibernate: 
+    select
+        it1_0.id,
+        it1_0.created_at,
+        it1_0.footer_note,
+        it1_0.household_id,
+        it1_0.invoice_pattern,
+        it1_0.invoice_symbol,
+        it1_0.title,
+        it1_0.updated_at 
+    from
+        invoice_templates it1_0 
+    where
+        it1_0.household_id=?
+Hibernate: 
+    select
+        e1_0.id 
+    from
+        e_invoices e1_0 
+    where
+        e1_0.lookup_code=? 
+        and e1_0.deleted_at is null 
+    limit
+        ?
+2026-07-23T22:47:30.472+07:00  INFO 12240 --- [sales-service] [           main] c.v.s.event.OrderSyncedEventListener     : Created fallback SEND_ERROR EInvoice for order ID: cf3b88f5-8382-48eb-92bc-bd7e974e1f8a
+Hibernate: 
+    insert 
+    into
+        e_invoices
+        (buyer_address, buyer_email, buyer_name, buyer_phone, buyer_tax_code, cancel_reason, canceled_at, canceled_by_user_id, created_at, created_by_user_id, deleted_at, discount_amount, final_amount, household_id, invoice_number, invoice_pattern, invoice_symbol, lookup_code, order_id, original_invoice_id, sent_to_tax_at, status, tax_amount, tax_authority_code, tax_authority_response, tax_response_at, total_amount_before_tax, updated_at, id) 
+    values
+        (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+Hibernate: 
+    insert 
+    into
+        e_invoice_items
+        (created_at, discount_amount, invoice_id, product_id, product_name, quantity, subtotal, tax_amount, tax_rate_percentage, unit, unit_price, id) 
+    values
+        (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+Hibernate: 
+    insert 
+    into
+        invoice_status_logs
+        (changed_by_user_id, created_at, from_status, invoice_id, notes, to_status, id) 
+    values
+        (?, ?, ?, ?, ?, ?, ?)
+Hibernate: 
+    select
+        e1_0.id,
+        e1_0.buyer_address,
+        e1_0.buyer_email,
+        e1_0.buyer_name,
+        e1_0.buyer_phone,
+        e1_0.buyer_tax_code,
+        e1_0.cancel_reason,
+        e1_0.canceled_at,
+        e1_0.canceled_by_user_id,
+        e1_0.created_at,
+        e1_0.created_by_user_id,
+        e1_0.deleted_at,
+        e1_0.discount_amount,
+        e1_0.final_amount,
+        e1_0.household_id,
+        e1_0.invoice_number,
+        e1_0.invoice_pattern,
+        e1_0.invoice_symbol,
+        e1_0.lookup_code,
+        e1_0.order_id,
+        e1_0.original_invoice_id,
+        e1_0.sent_to_tax_at,
+        e1_0.status,
+        e1_0.tax_amount,
+        e1_0.tax_authority_code,
+        e1_0.tax_authority_response,
+        e1_0.tax_response_at,
+        e1_0.total_amount_before_tax,
+        e1_0.updated_at 
+    from
+        e_invoices e1_0
+allInvoices size: 3
+CHECK INV ID: 1f9c29a9-83bb-4349-a328-187fdde860d6, OrderID: 26b479b7-3139-4c88-b373-2c9f116fd46f, Expected OrderID: cf3b88f5-8382-48eb-92bc-bd7e974e1f8a, Equals: false
+CHECK INV ID: c78cd049-cac4-46b0-bb8d-081a39f87a28, OrderID: 34f001a4-0658-48eb-aed1-d02d76711dab, Expected OrderID: cf3b88f5-8382-48eb-92bc-bd7e974e1f8a, Equals: false
+CHECK INV ID: ce073469-83ae-4fa9-8bc5-5ffd2803f638, OrderID: cf3b88f5-8382-48eb-92bc-bd7e974e1f8a, Expected OrderID: cf3b88f5-8382-48eb-92bc-bd7e974e1f8a, Equals: true
+
+MockHttpServletRequest:
+      HTTP Method = POST
+      Request URI = /api/v1/sync/bulk-upload
+       Parameters = {}
+          Headers = [Content-Type:"application/json;charset=UTF-8", Content-Length:"453"]
+             Body = [{"orderNumber":"ORD-OFF-ERRINV-001","customerId":null,"shiftId":null,"totalAmount":100000.0,"discountAmount":0,"finalAmount":110000.0,"paymentMethod":"CASH","paymentStatus":"PAID","discountType":null,"discountRateOrValue":null,"createdAt":"2026-07-23T22:47:30.3310902","items":[{"productId":"58947d56-80eb-11f1-83e2-d4939028848d","quantity":1.0,"unitPrice":8500.00,"discountAmount":0,"taxRatePercentage":1.00,"taxAmount":10000.0,"subtotal":110000.0}]}]
+    Session Attrs = {}
+
+Handler:
+             Type = com.viet.sales.controller.SyncController
+           Method = com.viet.sales.controller.SyncController#bulkUpload(Principal, List)
+
+Async:
+    Async started = false
+     Async result = null
+
+Resolved Exception:
+             Type = null
+
+ModelAndView:
+        View name = null
+             View = null
+            Model = null
+
+FlashMap:
+       Attributes = null
+
+MockHttpServletResponse:
+           Status = 200
+    Error message = null
+          Headers = [Vary:"Origin", "Access-Control-Request-Method", "Access-Control-Request-Headers", Content-Type:"application/json", X-Content-Type-Options:"nosniff", X-XSS-Protection:"0", Cache-Control:"no-cache, no-store, max-age=0, must-revalidate", Pragma:"no-cache", Expires:"0", X-Frame-Options:"DENY"]
+     Content type = application/json
+             Body = {"code":1000,"message":"Đồng bộ danh sách đơn hàng hoàn tất","result":[{"id":"cf3b88f5-8382-48eb-92bc-bd7e974e1f8a","orderNumber":"ORD-OFF-ERRINV-001","householdId":"a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11","shiftId":"518d75bf-e14f-4227-8f08-aa81c6d70699","createdByUserId":"b0eebc99-9c0b-4ef8-bb6d-6bb9bd380a33","createdByUsername":"nhanvien_viet","customerId":null,"customerName":null,"totalAmount":100000.0,"discountAmount":0,"finalAmount":110000.0,"paymentMethod":"CASH","paymentStatus":"PAID","status":"COMPLETED","syncStatus":"SYNCED","isOffline":true,"syncedAt":"2026-07-23T22:47:30.3556492","createdAt":"2026-07-23T22:47:30.3310902","updatedAt":"2026-07-23T22:47:30.35987","items":[{"id":"5045cb1d-89a5-42e8-94a9-d7e9aa1ec17e","productId":"58947d56-80eb-11f1-83e2-d4939028848d","productName":"Sữa tươi tiệt trùng Vinamilk 180ml","quantity":1.0,"unitPrice":8500.00,"discountAmount":0,"taxRatePercentage":1.00,"taxAmount":10000.0,"subtotal":110000.0}],"warningMessages":[],"qrCodeUrl":null,"changeAmount":null}]}
+    Forwarded URL = null
+   Redirected URL = null
+          Cookies = []
+

@@ -322,6 +322,10 @@ public class SyncServiceImpl implements SyncService {
                         throw new AppException(ErrorCode.PRODUCT_NOT_FOUND);
                     }
 
+                    if (product.getStockQuantity() != null) {
+                        product.setStockQuantity(product.getStockQuantity().subtract(itemReq.getQuantity()));
+                    }
+
                     OrderItem orderItem = OrderItem.builder()
                             .order(order)
                             .product(product)
@@ -442,6 +446,10 @@ public class SyncServiceImpl implements SyncService {
                         throw new AppException(ErrorCode.PRODUCT_NOT_FOUND);
                     }
 
+                    if (product.getStockQuantity() != null) {
+                        product.setStockQuantity(product.getStockQuantity().subtract(itemReq.getQuantity()));
+                    }
+
                     OrderItem orderItem = OrderItem.builder()
                             .order(serverOrder)
                             .product(product)
@@ -488,7 +496,7 @@ public class SyncServiceImpl implements SyncService {
             }
 
             // Modify order number to be unique
-            String newOrderNo = orderNo + "-OFF-" + System.currentTimeMillis();
+            String newOrderNo = orderNo + "-OFF-" + java.util.UUID.randomUUID().toString().substring(0, 8).toUpperCase();
 
             // 1. Resolve shift
             Shift shift = null;
@@ -544,6 +552,10 @@ public class SyncServiceImpl implements SyncService {
                     int affectedRows = productRepository.deductStock(product.getId(), household.getId(), itemReq.getQuantity());
                     if (affectedRows == 0) {
                         throw new AppException(ErrorCode.PRODUCT_NOT_FOUND);
+                    }
+
+                    if (product.getStockQuantity() != null) {
+                        product.setStockQuantity(product.getStockQuantity().subtract(itemReq.getQuantity()));
                     }
 
                     OrderItem orderItem = OrderItem.builder()
