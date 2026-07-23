@@ -296,6 +296,6 @@ public class EInvoiceDeliveryIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
                 .andExpect(header().string("Content-Disposition", org.hamcrest.Matchers.containsString("HoaDon_")))
-                .andExpect(content().contentType(MediaType.TEXT_HTML));
+                .andExpect(content().contentType(MediaType.APPLICATION_PDF));
     }
 }
