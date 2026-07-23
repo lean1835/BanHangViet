@@ -305,6 +305,12 @@ public class SyncServiceImpl implements SyncService {
                         throw new AppException(ErrorCode.PRODUCT_NOT_FOUND);
                     }
 
+                    // Check stock warning before atomic deduction
+                    if (product.getStockQuantity() != null && product.getStockQuantity().compareTo(itemReq.getQuantity()) < 0) {
+                        warnings.add("Sản phẩm '" + product.getName() + "' vượt quá số lượng tồn kho khả dụng khi đồng bộ (Yêu cầu: "
+                                + itemReq.getQuantity() + ", Tồn kho: " + product.getStockQuantity() + ").");
+                    }
+
                     // Subtract stock atomically
                     productRepository.deductStock(product.getId(), household.getId(), itemReq.getQuantity());
 
@@ -395,11 +401,17 @@ public class SyncServiceImpl implements SyncService {
             serverOrder.setSyncedAt(LocalDateTime.now());
 
             List<OrderItem> newItems = new ArrayList<>();
+            List<String> warnings = new ArrayList<>();
 
             if (clientData.getItems() != null) {
                 for (OfflineOrderItemRequest itemReq : clientData.getItems()) {
                     Product product = productRepository.findByIdAndHouseholdIdAndDeletedAtIsNull(itemReq.getProductId(), household.getId())
                             .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_NOT_FOUND));
+
+                    if (product.getStockQuantity() != null && product.getStockQuantity().compareTo(itemReq.getQuantity()) < 0) {
+                        warnings.add("Sản phẩm '" + product.getName() + "' vượt quá số lượng tồn kho khả dụng khi giải quyết xung đột (Yêu cầu: "
+                                + itemReq.getQuantity() + ", Tồn kho: " + product.getStockQuantity() + ").");
+                    }
 
                     // Apply new stock subtraction atomically
                     productRepository.deductStock(product.getId(), household.getId(), itemReq.getQuantity());
@@ -434,7 +446,9 @@ public class SyncServiceImpl implements SyncService {
             // Decoupled automatic invoice generation via Event Listener (running post-commit asynchronously)
             eventPublisher.publishEvent(new OrderSyncedEvent(username, serverOrder.getId()));
 
-            return mapToResponse(serverOrder);
+            OrderResponse response = mapToResponse(serverOrder);
+            response.setWarningMessages(warnings);
+            return response;
 
         } else if (ConflictResolutionStrategy.KEEP_BOTH.equals(strategy)) {
             OfflineOrderRequest clientData = request.getClientOrderData();
@@ -483,11 +497,17 @@ public class SyncServiceImpl implements SyncService {
             newOrder.setCreatedAt(clientData.getCreatedAt());
 
             List<OrderItem> items = new ArrayList<>();
+            List<String> warnings = new ArrayList<>();
 
             if (clientData.getItems() != null) {
                 for (OfflineOrderItemRequest itemReq : clientData.getItems()) {
                     Product product = productRepository.findByIdAndHouseholdIdAndDeletedAtIsNull(itemReq.getProductId(), household.getId())
                             .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_NOT_FOUND));
+
+                    if (product.getStockQuantity() != null && product.getStockQuantity().compareTo(itemReq.getQuantity()) < 0) {
+                        warnings.add("Sản phẩm '" + product.getName() + "' vượt quá số lượng tồn kho khả dụng khi giải quyết xung đột (Yêu cầu: "
+                                + itemReq.getQuantity() + ", Tồn kho: " + product.getStockQuantity() + ").");
+                    }
 
                     // Subtract stock atomically
                     productRepository.deductStock(product.getId(), household.getId(), itemReq.getQuantity());
@@ -516,7 +536,9 @@ public class SyncServiceImpl implements SyncService {
             // Decoupled automatic invoice generation via Event Listener (running post-commit asynchronously)
             eventPublisher.publishEvent(new OrderSyncedEvent(username, newOrder.getId()));
 
-            return mapToResponse(newOrder);
+            OrderResponse response = mapToResponse(newOrder);
+            response.setWarningMessages(warnings);
+            return response;
         } else {
             throw new AppException(ErrorCode.INVALID_INPUT);
         }

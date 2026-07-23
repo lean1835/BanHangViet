@@ -77,12 +77,6 @@ public class OrderControllerTest {
 
     @BeforeEach
     public void setUp() {
-        try {
-            jdbcTemplate.execute("DROP TRIGGER IF EXISTS trg_stock_sales_update");
-        } catch (Exception e) {
-            System.err.println("Warning: Failed to drop trigger: " + e.getMessage());
-        }
-
         // 1. Hộ kinh doanh
         testHousehold = businessHouseholdRepository.findByTaxCode("8888888888").orElseGet(() -> {
             BusinessHousehold household = BusinessHousehold.builder()
