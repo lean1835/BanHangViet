@@ -7,8 +7,11 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -36,8 +39,17 @@ public interface EInvoiceRepository extends JpaRepository<EInvoice, String>, Jpa
 
     List<EInvoice> findByHouseholdIdAndDeletedAtIsNullOrderByCreatedAtDesc(String householdId);
 
-    @org.springframework.data.jpa.repository.Query("SELECT MAX(e.invoiceNumber) FROM EInvoice e WHERE e.household.id = :householdId AND e.invoicePattern = :pattern AND e.invoiceSymbol = :symbol AND e.invoiceNumber IS NOT NULL AND e.deletedAt IS NULL")
-    Optional<String> findMaxInvoiceNumber(@org.springframework.data.repository.query.Param("householdId") String householdId,
-                                          @org.springframework.data.repository.query.Param("pattern") String pattern,
-                                          @org.springframework.data.repository.query.Param("symbol") String symbol);
+    @Query("SELECT MAX(e.invoiceNumber) FROM EInvoice e WHERE e.household.id = :householdId AND e.invoicePattern = :pattern AND e.invoiceSymbol = :symbol AND e.invoiceNumber IS NOT NULL AND e.deletedAt IS NULL")
+    Optional<String> findMaxInvoiceNumber(@Param("householdId") String householdId,
+                                          @Param("pattern") String pattern,
+                                          @Param("symbol") String symbol);
+
+    long countByHouseholdIdAndStatusAndDeletedAtIsNullAndCreatedAtBetween(
+            String householdId, String status, LocalDateTime start, LocalDateTime end
+    );
+
+    @EntityGraph(attributePaths = {"items", "items.product", "createdByUser", "canceledByUser", "household", "order"})
+    List<EInvoice> findByHouseholdIdAndStatusAndDeletedAtIsNullAndCreatedAtBetween(
+            String householdId, String status, LocalDateTime start, LocalDateTime end
+    );
 }
