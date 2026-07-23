@@ -87,17 +87,50 @@ public class RateLimitFilter extends OncePerRequestFilter {
     }
 
     private String getClientIp(HttpServletRequest request) {
-        String xff = request.getHeader("X-Forwarded-For");
-        if (xff != null && !xff.trim().isEmpty()) {
-            String[] ips = xff.split(",");
-            for (String rawIp : ips) {
-                String candidate = rawIp.trim();
-                if (!candidate.isEmpty() && !"unknown".equalsIgnoreCase(candidate)) {
-                    return candidate;
+        String remoteAddr = request.getRemoteAddr();
+        if (remoteAddr == null || remoteAddr.isBlank()) {
+            remoteAddr = "unknown";
+        }
+
+        // Only inspect X-Forwarded-For if connection comes from a trusted reverse proxy
+        if (isTrustedProxy(remoteAddr)) {
+            String xff = request.getHeader("X-Forwarded-For");
+            if (xff != null && !xff.trim().isEmpty()) {
+                String[] ips = xff.split(",");
+                for (String rawIp : ips) {
+                    String candidate = rawIp.trim();
+                    if (!candidate.isEmpty() && !"unknown".equalsIgnoreCase(candidate)) {
+                        return candidate;
+                    }
                 }
             }
         }
-        String remoteAddr = request.getRemoteAddr();
-        return remoteAddr != null ? remoteAddr : "unknown";
+
+        return remoteAddr;
+    }
+
+    private boolean isTrustedProxy(String ip) {
+        if (ip == null || ip.isBlank() || "unknown".equalsIgnoreCase(ip)) {
+            return false;
+        }
+        if ("127.0.0.1".equals(ip) || "0:0:0:0:0:0:0:1".equals(ip) || "::1".equals(ip) || "localhost".equalsIgnoreCase(ip)) {
+            return true;
+        }
+        // Check local private IP ranges: 10.x.x.x, 192.168.x.x, 172.16-31.x.x
+        if (ip.startsWith("10.") || ip.startsWith("192.168.")) {
+            return true;
+        }
+        if (ip.startsWith("172.")) {
+            try {
+                String[] parts = ip.split("\\.");
+                if (parts.length >= 2) {
+                    int second = Integer.parseInt(parts[1]);
+                    if (second >= 16 && second <= 31) {
+                        return true;
+                    }
+                }
+            } catch (NumberFormatException ignored) {}
+        }
+        return false;
     }
 }

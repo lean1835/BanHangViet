@@ -1218,6 +1218,10 @@ public class EInvoiceServiceImpl implements EInvoiceService {
             throw new AppException(ErrorCode.INVOICE_NOT_FOUND);
         }
 
+        if (invoice.getHousehold() == null) {
+            throw new AppException(ErrorCode.HOUSEHOLD_NOT_FOUND);
+        }
+
         if ("xml".equalsIgnoreCase(format)) {
             StringBuilder xml = new StringBuilder();
             xml.append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n")

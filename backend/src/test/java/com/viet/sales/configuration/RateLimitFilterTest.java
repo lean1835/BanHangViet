@@ -110,4 +110,32 @@ public class RateLimitFilterTest {
 
         assertEquals(HttpStatus.TOO_MANY_REQUESTS.value(), rateLimitedResp.getStatus());
     }
+
+    @Test
+    public void doFilter_IgnoresXForwardedForFromUntrustedProxy() throws Exception {
+        FilterChain filterChain = Mockito.mock(FilterChain.class);
+        String untrustedRemoteIp = "198.51.100.22";
+
+        // Attacker attempts 10 requests sending different fake XFF headers each time
+        for (int i = 0; i < 10; i++) {
+            MockHttpServletRequest request = new MockHttpServletRequest();
+            request.setRequestURI("/api/v1/public/invoices/lookup");
+            request.addHeader("X-Forwarded-For", "1.2.3." + i);
+            request.setRemoteAddr(untrustedRemoteIp);
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            rateLimitFilter.doFilter(request, response, filterChain);
+        }
+
+        // 11th request from same untrustedRemoteIp with another fake XFF header
+        MockHttpServletRequest rateLimitedReq = new MockHttpServletRequest();
+        rateLimitedReq.setRequestURI("/api/v1/public/invoices/lookup");
+        rateLimitedReq.addHeader("X-Forwarded-For", "9.9.9.9");
+        rateLimitedReq.setRemoteAddr(untrustedRemoteIp);
+        MockHttpServletResponse rateLimitedResp = new MockHttpServletResponse();
+
+        rateLimitFilter.doFilter(rateLimitedReq, rateLimitedResp, filterChain);
+
+        // Since untrustedRemoteIp was used 10 times, the 11th request is blocked despite fake XFF!
+        assertEquals(HttpStatus.TOO_MANY_REQUESTS.value(), rateLimitedResp.getStatus());
+    }
 }
