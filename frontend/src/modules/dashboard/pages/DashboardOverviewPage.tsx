@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { Link } from "react-router-dom";
 import { DashboardWorkspaceLayout } from "@/components/layouts/DashboardWorkspaceLayout";
 import { USER_ROLES, ROLE_LABELS } from "@/constants/roles";
 import { CashierShiftDashboard } from "@/modules/shift/components/CashierShiftDashboard";
@@ -10,6 +11,7 @@ import { BestSellersWidget } from "../components/BestSellersWidget";
 import { ReconciliationTable } from "../components/ReconciliationTable";
 import { RecentActivityPanel } from "../components/RecentActivityPanel";
 import { getApiErrorMessage } from "@/utils/getApiErrorMessage";
+import { getLocalDateString } from "@/utils/dateFormatter";
 import { Calendar, AlertTriangle } from "lucide-react";
 import { useGetInvoicesQuery } from "@/modules/e_invoice/services/eInvoiceApi";
 import {
@@ -25,10 +27,10 @@ export const DashboardOverviewPage = () => {
   const [fromDate, setFromDate] = useState(() => {
     const d = new Date();
     d.setDate(d.getDate() - 30);
-    return d.toISOString().split("T")[0]; // YYYY-MM-DD
+    return getLocalDateString(d); // YYYY-MM-DD
   });
   const [toDate, setToDate] = useState(() => {
-    return new Date().toISOString().split("T")[0]; // YYYY-MM-DD
+    return getLocalDateString(); // YYYY-MM-DD
   });
 
   // API Queries
@@ -195,8 +197,8 @@ export const DashboardOverviewPage = () => {
           <p className="text-xs text-slate-400 font-semibold mb-6">
             Giao diện Báo cáo Doanh thu Tổng quan không khả dụng cho vai trò của bạn ({ROLE_LABELS[currentRole]}).
           </p>
-          <a
-            href={
+          <Link
+            to={
               currentRole === USER_ROLES.PLATFORM_ADMIN
                 ? "/admin"
                 : currentRole === USER_ROLES.TAX_AUTHORITY
@@ -206,7 +208,7 @@ export const DashboardOverviewPage = () => {
             className="bg-kv-blue-primary text-white border-none py-2 px-6 text-xs font-bold rounded hover:bg-kv-blue-dark transition-colors"
           >
             Đi tới trang làm việc phù hợp
-          </a>
+          </Link>
         </div>
       )}
     </DashboardWorkspaceLayout>

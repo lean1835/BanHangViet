@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { useCompareRevenueQuery } from "../services/reportApi";
 import { formatCurrency } from "@/utils/formatCurrency";
+import { getLocalDateString } from "@/utils/dateFormatter";
 
 import { z } from "zod";
 
@@ -35,7 +36,7 @@ export const revenueComparisonSchema = z
 
 const getPresetPeriods = (preset: "monthVsMonth" | "weekVsWeek") => {
   const now = new Date();
-  const todayStr = now.toISOString().split("T")[0];
+  const todayStr = getLocalDateString(now);
 
   if (preset === "weekVsWeek") {
     // Period 2: last 7 days (today - 6 to today)
@@ -49,9 +50,9 @@ const getPresetPeriods = (preset: "monthVsMonth" | "weekVsWeek") => {
     p1Start.setDate(now.getDate() - 13);
 
     return {
-      period1Start: p1Start.toISOString().split("T")[0],
-      period1End: p1End.toISOString().split("T")[0],
-      period2Start: p2Start.toISOString().split("T")[0],
+      period1Start: getLocalDateString(p1Start),
+      period1End: getLocalDateString(p1End),
+      period2Start: getLocalDateString(p2Start),
       period2End: todayStr,
     };
   }
@@ -62,9 +63,9 @@ const getPresetPeriods = (preset: "monthVsMonth" | "weekVsWeek") => {
   const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0);
 
   return {
-    period1Start: lastMonthStart.toISOString().split("T")[0],
-    period1End: lastMonthEnd.toISOString().split("T")[0],
-    period2Start: thisMonthStart.toISOString().split("T")[0],
+    period1Start: getLocalDateString(lastMonthStart),
+    period1End: getLocalDateString(lastMonthEnd),
+    period2Start: getLocalDateString(thisMonthStart),
     period2End: todayStr,
   };
 };

@@ -14,10 +14,11 @@ import {
   useGetTopSellingProductsQuery,
 } from "../services/reportApi";
 import { formatCurrency } from "@/utils/formatCurrency";
+import { getLocalDateString } from "@/utils/dateFormatter";
 
 const getPresetDates = (preset: "today" | "last7days" | "thisMonth") => {
   const now = new Date();
-  const todayStr = now.toISOString().split("T")[0];
+  const todayStr = getLocalDateString(now);
 
   if (preset === "today") {
     return { fromDate: todayStr, toDate: todayStr };
@@ -26,13 +27,13 @@ const getPresetDates = (preset: "today" | "last7days" | "thisMonth") => {
   if (preset === "last7days") {
     const d = new Date();
     d.setDate(d.getDate() - 6);
-    return { fromDate: d.toISOString().split("T")[0], toDate: todayStr };
+    return { fromDate: getLocalDateString(d), toDate: todayStr };
   }
 
   // thisMonth
   const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
   return {
-    fromDate: firstDay.toISOString().split("T")[0],
+    fromDate: getLocalDateString(firstDay),
     toDate: todayStr,
   };
 };

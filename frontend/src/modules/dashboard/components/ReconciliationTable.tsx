@@ -5,6 +5,7 @@ import { useGetShiftsHistoryQuery } from "@/modules/shift/services/shiftApi";
 import type { IShiftResponse } from "@/modules/shift/types/IShift";
 import { useNotification } from "@/hooks/useNotification";
 import { formatCurrency } from "@/utils/formatCurrency";
+import { getLocalDateString } from "@/utils/dateFormatter";
 import {
   useGetReconciliationQuery,
   useLockReconciliationMutation,
@@ -171,7 +172,7 @@ export const ReconciliationTable = ({ date, currentRole }: ReconciliationTablePr
   const [showLockModal, setShowLockModal] = useState(false);
   const [lockNote, setLockNote] = useState("");
 
-  const selectedLockDate = date || new Date().toISOString().split("T")[0];
+  const selectedLockDate = date || getLocalDateString();
 
   const { data: activityLogsRes } = useGetActivityLogsQuery({
     fromDate: selectedLockDate,

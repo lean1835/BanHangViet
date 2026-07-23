@@ -544,15 +544,17 @@ interface IParsedLogPayload {
                       <td className="py-3 px-4 whitespace-nowrap">
                         <div className="flex items-center gap-2">
                           <div className="w-6 h-6 rounded-full bg-slate-100 text-slate-600 font-black text-[10px] flex items-center justify-center shrink-0 uppercase border border-slate-200">
-                            {log.fullName ? log.fullName.charAt(0) : log.username.charAt(0)}
+                            {(log.fullName || log.username || "U").charAt(0).toUpperCase()}
                           </div>
                           <div>
                             <span className="font-extrabold text-slate-800 block leading-tight">
-                              {log.fullName || log.username}
+                              {log.fullName || log.username || "Hệ thống"}
                             </span>
-                            <span className="text-[10px] text-slate-400 font-mono font-semibold">
-                              @{log.username}
-                            </span>
+                            {log.username && (
+                              <span className="text-[10px] text-slate-400 font-mono font-semibold">
+                                @{log.username}
+                              </span>
+                            )}
                           </div>
                         </div>
                       </td>
