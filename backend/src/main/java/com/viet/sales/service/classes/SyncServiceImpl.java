@@ -16,6 +16,9 @@ import com.viet.sales.exception.ErrorCode;
 import com.viet.sales.repository.*;
 import com.viet.sales.service.interfaces.SyncService;
 import com.viet.sales.service.interfaces.EInvoiceService;
+import com.viet.sales.constant.ConflictResolutionStrategy;
+import com.viet.sales.event.OrderSyncedEvent;
+import org.springframework.context.ApplicationEventPublisher;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -51,6 +54,7 @@ public class SyncServiceImpl implements SyncService {
     private final EInvoiceRepository eInvoiceRepository;
     private final EInvoiceService eInvoiceService;
     private final ObjectMapper objectMapper;
+    private final ApplicationEventPublisher eventPublisher;
 
     private User getAuthenticatedUser(String username) {
         return userRepository.findByUsername(username)
@@ -178,6 +182,15 @@ public class SyncServiceImpl implements SyncService {
             return responses;
         }
 
+        // Deduplicate payload by orderNumber to avoid duplicate orders in the same batch
+        Map<String, OfflineOrderRequest> uniqueRequestsMap = new java.util.LinkedHashMap<>();
+        for (OfflineOrderRequest req : requests) {
+            if (req.getOrderNumber() != null && !req.getOrderNumber().trim().isEmpty()) {
+                uniqueRequestsMap.putIfAbsent(req.getOrderNumber(), req);
+            }
+        }
+        requests = new ArrayList<>(uniqueRequestsMap.values());
+
         // --- BATCH PRE-FETCHING (To prevent N+1 Queries) ---
         // 1. Existing orders map
         List<String> orderNumbers = requests.stream()
@@ -292,8 +305,8 @@ public class SyncServiceImpl implements SyncService {
                         throw new AppException(ErrorCode.PRODUCT_NOT_FOUND);
                     }
 
-                    // Subtract stock
-                    product.setStockQuantity(product.getStockQuantity().subtract(itemReq.getQuantity()));
+                    // Subtract stock atomically
+                    productRepository.deductStock(product.getId(), household.getId(), itemReq.getQuantity());
 
                     OrderItem orderItem = OrderItem.builder()
                             .order(order)
@@ -317,23 +330,12 @@ public class SyncServiceImpl implements SyncService {
             // Write activity logs
             logActivity(household, currentUser, "SYNC_OFFLINE_ORDER", order.getId(), null, buildOrderLogMap(order));
 
-            // 5. Automatic invoice generation
-            try {
-                InvoiceResponse invoiceDraft = eInvoiceService.createInvoiceDraft(username, order.getId());
-                eInvoiceService.submitToTax(username, invoiceDraft.getId());
-            } catch (Exception e) {
-                log.error("Failed to automatically issue electronic invoice for synced order: {}", order.getOrderNumber(), e);
-                warnings.add("Tự động phát hành hóa đơn thất bại: " + e.getMessage());
-            }
+            // 5. Decoupled automatic invoice generation via Event Listener (running post-commit asynchronously)
+            eventPublisher.publishEvent(new OrderSyncedEvent(username, order.getId()));
 
             OrderResponse orderResponse = mapToResponse(order);
             orderResponse.setWarningMessages(warnings);
             responses.add(orderResponse);
-        }
-
-        // Save all updated product stock quantities at once
-        if (!productMap.isEmpty()) {
-            productRepository.saveAll(productMap.values());
         }
 
         return responses;
@@ -353,34 +355,28 @@ public class SyncServiceImpl implements SyncService {
             throw new AppException(ErrorCode.FORBIDDEN);
         }
 
-        String strategy = request.getResolutionStrategy();
+        ConflictResolutionStrategy strategy = request.getResolutionStrategy();
         String orderNo = request.getOrderNumber();
 
         Order serverOrder = orderRepository.findByOrderNumberAndHouseholdIdAndDeletedAtIsNull(orderNo, household.getId())
                 .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));
 
-        if ("KEEP_SERVER".equalsIgnoreCase(strategy)) {
+        if (ConflictResolutionStrategy.KEEP_SERVER.equals(strategy)) {
             // Keep server data as-is, just log activity
             logActivity(household, currentUser, "RESOLVE_CONFLICT_KEEP_SERVER", serverOrder.getId(), null, buildOrderLogMap(serverOrder));
             return mapToResponse(serverOrder);
 
-        } else if ("OVERWRITE_SERVER".equalsIgnoreCase(strategy)) {
+        } else if (ConflictResolutionStrategy.OVERWRITE_SERVER.equals(strategy)) {
             OfflineOrderRequest clientData = request.getClientOrderData();
             if (clientData == null) {
                 throw new AppException(ErrorCode.INVALID_INPUT);
             }
 
-            // 1. Revert previous stock changes
-            List<Product> productsToRestore = new ArrayList<>();
+            // 1. Revert previous stock changes atomically
             for (OrderItem item : serverOrder.getItems()) {
                 if (item.getProduct() != null) {
-                    Product product = item.getProduct();
-                    product.setStockQuantity(product.getStockQuantity().add(item.getQuantity()));
-                    productsToRestore.add(product);
+                    productRepository.addStock(item.getProduct().getId(), household.getId(), item.getQuantity());
                 }
-            }
-            if (!productsToRestore.isEmpty()) {
-                productRepository.saveAll(productsToRestore);
             }
 
             // 2. Clear old items
@@ -399,16 +395,14 @@ public class SyncServiceImpl implements SyncService {
             serverOrder.setSyncedAt(LocalDateTime.now());
 
             List<OrderItem> newItems = new ArrayList<>();
-            List<Product> newProductsToSave = new ArrayList<>();
 
             if (clientData.getItems() != null) {
                 for (OfflineOrderItemRequest itemReq : clientData.getItems()) {
                     Product product = productRepository.findByIdAndHouseholdIdAndDeletedAtIsNull(itemReq.getProductId(), household.getId())
                             .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_NOT_FOUND));
 
-                    // Apply new stock subtraction
-                    product.setStockQuantity(product.getStockQuantity().subtract(itemReq.getQuantity()));
-                    newProductsToSave.add(product);
+                    // Apply new stock subtraction atomically
+                    productRepository.deductStock(product.getId(), household.getId(), itemReq.getQuantity());
 
                     OrderItem orderItem = OrderItem.builder()
                             .order(serverOrder)
@@ -429,29 +423,20 @@ public class SyncServiceImpl implements SyncService {
             serverOrder.getItems().addAll(newItems);
             serverOrder = orderRepository.save(serverOrder);
 
-            if (!newProductsToSave.isEmpty()) {
-                productRepository.saveAll(newProductsToSave);
-            }
-
             // Log activity
             logActivity(household, currentUser, "RESOLVE_CONFLICT_OVERWRITE_SERVER", serverOrder.getId(), null, buildOrderLogMap(serverOrder));
 
-            // Re-draft invoice if exists, or recreate
-            try {
-                // Find existing invoice if any and delete/cancel
-                eInvoiceRepository.findByOrderIdAndDeletedAtIsNull(serverOrder.getId()).ifPresent(inv -> {
-                    inv.setDeletedAt(LocalDateTime.now());
-                    eInvoiceRepository.save(inv);
-                });
-                InvoiceResponse invoiceDraft = eInvoiceService.createInvoiceDraft(username, serverOrder.getId());
-                eInvoiceService.submitToTax(username, invoiceDraft.getId());
-            } catch (Exception e) {
-                log.error("Failed to automatically reissue invoice on resolve conflict for: {}", serverOrder.getOrderNumber(), e);
-            }
+            // Find existing invoice if any and delete/cancel in DB
+            eInvoiceRepository.findByOrderIdAndDeletedAtIsNull(serverOrder.getId()).ifPresent(inv -> {
+                inv.setDeletedAt(LocalDateTime.now());
+                eInvoiceRepository.save(inv);
+            });
+            // Decoupled automatic invoice generation via Event Listener (running post-commit asynchronously)
+            eventPublisher.publishEvent(new OrderSyncedEvent(username, serverOrder.getId()));
 
             return mapToResponse(serverOrder);
 
-        } else if ("KEEP_BOTH".equalsIgnoreCase(strategy)) {
+        } else if (ConflictResolutionStrategy.KEEP_BOTH.equals(strategy)) {
             OfflineOrderRequest clientData = request.getClientOrderData();
             if (clientData == null) {
                 throw new AppException(ErrorCode.INVALID_INPUT);
@@ -498,15 +483,14 @@ public class SyncServiceImpl implements SyncService {
             newOrder.setCreatedAt(clientData.getCreatedAt());
 
             List<OrderItem> items = new ArrayList<>();
-            List<Product> productsToSave = new ArrayList<>();
 
             if (clientData.getItems() != null) {
                 for (OfflineOrderItemRequest itemReq : clientData.getItems()) {
                     Product product = productRepository.findByIdAndHouseholdIdAndDeletedAtIsNull(itemReq.getProductId(), household.getId())
                             .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_NOT_FOUND));
 
-                    product.setStockQuantity(product.getStockQuantity().subtract(itemReq.getQuantity()));
-                    productsToSave.add(product);
+                    // Subtract stock atomically
+                    productRepository.deductStock(product.getId(), household.getId(), itemReq.getQuantity());
 
                     OrderItem orderItem = OrderItem.builder()
                             .order(newOrder)
@@ -527,18 +511,10 @@ public class SyncServiceImpl implements SyncService {
             newOrder.setItems(items);
             newOrder = orderRepository.save(newOrder);
 
-            if (!productsToSave.isEmpty()) {
-                productRepository.saveAll(productsToSave);
-            }
-
             logActivity(household, currentUser, "RESOLVE_CONFLICT_KEEP_BOTH", newOrder.getId(), null, buildOrderLogMap(newOrder));
 
-            try {
-                InvoiceResponse invoiceDraft = eInvoiceService.createInvoiceDraft(username, newOrder.getId());
-                eInvoiceService.submitToTax(username, invoiceDraft.getId());
-            } catch (Exception e) {
-                log.error("Failed to automatically issue invoice on resolve KEEP_BOTH for: {}", newOrder.getOrderNumber(), e);
-            }
+            // Decoupled automatic invoice generation via Event Listener (running post-commit asynchronously)
+            eventPublisher.publishEvent(new OrderSyncedEvent(username, newOrder.getId()));
 
             return mapToResponse(newOrder);
         } else {

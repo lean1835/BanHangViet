@@ -77,31 +77,10 @@ public class OrderControllerTest {
 
     @BeforeEach
     public void setUp() {
-        // Khởi tạo Trigger CSDL để kiểm thử trừ kho tự động nếu chưa có
         try {
             jdbcTemplate.execute("DROP TRIGGER IF EXISTS trg_stock_sales_update");
-            jdbcTemplate.execute(
-                "CREATE TRIGGER trg_stock_sales_update " +
-                "AFTER UPDATE ON orders " +
-                "FOR EACH ROW " +
-                "BEGIN " +
-                "    IF (OLD.status <> 'COMPLETED' AND NEW.status = 'COMPLETED') THEN " +
-                "        UPDATE products p " +
-                "        JOIN order_items item ON p.id = item.product_id " +
-                "        SET p.stock_quantity = p.stock_quantity - item.quantity " +
-                "        WHERE item.order_id = NEW.id; " +
-                "    END IF; " +
-                "    IF (OLD.status = 'COMPLETED' AND NEW.status = 'CANCELED') THEN " +
-                "        UPDATE products p " +
-                "        JOIN order_items item ON p.id = item.product_id " +
-                "        SET p.stock_quantity = p.stock_quantity + item.quantity " +
-                "        WHERE item.order_id = NEW.id; " +
-                "    END IF; " +
-                "END"
-            );
         } catch (Exception e) {
-            // Log warning if not on MySQL or local privileges prevent it, but don't fail tests
-            System.err.println("Warning: Failed to recreate MySQL trigger: " + e.getMessage());
+            System.err.println("Warning: Failed to drop trigger: " + e.getMessage());
         }
 
         // 1. Hộ kinh doanh

@@ -561,6 +561,19 @@ public class OrderServiceImpl implements OrderService {
         // Get warnings before deduction
         List<String> warnings = checkStockWarnings(order);
 
+        // Logic fix: Subtract physical stock quantity
+        List<Product> productsToSave = new ArrayList<>();
+        for (OrderItem item : order.getItems()) {
+            if (item.getProduct() != null) {
+                Product product = item.getProduct();
+                product.setStockQuantity(product.getStockQuantity().subtract(item.getQuantity()));
+                productsToSave.add(product);
+            }
+        }
+        if (!productsToSave.isEmpty()) {
+            productRepository.saveAll(productsToSave);
+        }
+
         order.setStatus("COMPLETED");
         order.setSyncedAt(LocalDateTime.now());
 

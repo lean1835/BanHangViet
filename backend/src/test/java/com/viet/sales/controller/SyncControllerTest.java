@@ -5,6 +5,7 @@ import com.viet.sales.dto.request.SyncCheckRequest;
 import com.viet.sales.dto.request.OfflineOrderRequest;
 import com.viet.sales.dto.request.OfflineOrderItemRequest;
 import com.viet.sales.dto.request.SyncResolveRequest;
+import com.viet.sales.constant.ConflictResolutionStrategy;
 import com.viet.sales.entity.*;
 import com.viet.sales.repository.*;
 import org.junit.jupiter.api.BeforeEach;
@@ -204,7 +205,7 @@ public class SyncControllerTest {
 
         SyncResolveRequest resolveReq = SyncResolveRequest.builder()
                 .orderNumber("ORD-CONF-001")
-                .resolutionStrategy("KEEP_SERVER")
+                .resolutionStrategy(ConflictResolutionStrategy.KEEP_SERVER)
                 .build();
 
         mockMvc.perform(post("/api/v1/sync/resolve")
