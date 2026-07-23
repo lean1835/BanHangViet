@@ -19,7 +19,7 @@ public class InvoiceTemplateController {
 
     private final InvoiceTemplateService invoiceTemplateService;
 
-    @GetMapping
+    @GetMapping({"", "/my-template"})
     @PreAuthorize("hasAnyRole('VT-01', 'VT-03')")
     public ResponseEntity<ApiResponse<InvoiceTemplateResponse>> getTemplate(Principal principal) {
         InvoiceTemplateResponse result = invoiceTemplateService.getTemplateByHousehold(principal.getName());
@@ -31,7 +31,7 @@ public class InvoiceTemplateController {
         return ResponseEntity.ok(response);
     }
 
-    @PutMapping
+    @PutMapping({"", "/my-template"})
     @PreAuthorize("hasAnyRole('VT-01', 'VT-03')")
     public ResponseEntity<ApiResponse<InvoiceTemplateResponse>> updateTemplate(
             Principal principal,
