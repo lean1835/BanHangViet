@@ -5,21 +5,20 @@ import com.viet.sales.dto.request.CancelInvoiceRequest;
 import com.viet.sales.dto.request.CreateAdjustmentInvoiceItemRequest;
 import com.viet.sales.dto.request.CreateAdjustmentInvoiceRequest;
 import com.viet.sales.dto.request.UpdateInvoiceRequest;
-import com.viet.sales.dto.response.InvoiceItemResponse;
-import com.viet.sales.dto.response.InvoiceResponse;
-import com.viet.sales.dto.response.InvoiceStatusLogResponse;
-import com.viet.sales.dto.response.PageResponse;
+import com.viet.sales.dto.response.*;
 import com.viet.sales.entity.*;
 import com.viet.sales.exception.AppException;
 import com.viet.sales.exception.ErrorCode;
 import com.viet.sales.repository.*;
 import com.viet.sales.service.interfaces.EInvoiceService;
+import com.viet.sales.service.interfaces.EmailService;
 import com.viet.sales.specification.EInvoiceSpecification;
 import jakarta.persistence.criteria.JoinType;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -35,6 +34,7 @@ import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -52,10 +52,10 @@ public class EInvoiceServiceImpl implements EInvoiceService {
     private final InvoiceTemplateRepository invoiceTemplateRepository;
     private final OrderRepository orderRepository;
     private final InvoiceDeliveryLogRepository invoiceDeliveryLogRepository;
-    private final com.viet.sales.service.interfaces.EmailService emailService;
+    private final EmailService emailService;
     private final ObjectMapper objectMapper;
 
-    @org.springframework.beans.factory.annotation.Value("${app.frontend-url:http://localhost:5173}")
+    @Value("${app.frontend-url:http://localhost:5173}")
     private String frontendUrl;
 
 
@@ -958,7 +958,7 @@ public class EInvoiceServiceImpl implements EInvoiceService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public com.viet.sales.dto.response.InvoiceQrResponse getInvoiceQr(String currentUsername, String invoiceId) {
+    public InvoiceQrResponse getInvoiceQr(String currentUsername, String invoiceId) {
         User currentUser = getAuthenticatedUser(currentUsername);
         EInvoice invoice = eInvoiceRepository.findById(invoiceId)
                 .orElseThrow(() -> new AppException(ErrorCode.INVOICE_NOT_FOUND));
@@ -981,7 +981,7 @@ public class EInvoiceServiceImpl implements EInvoiceService {
                 .build();
         invoiceDeliveryLogRepository.save(deliveryLog);
 
-        return com.viet.sales.dto.response.InvoiceQrResponse.builder()
+        return InvoiceQrResponse.builder()
                 .invoiceId(invoice.getId())
                 .lookupCode(invoice.getLookupCode())
                 .lookupUrl(lookupUrl)
@@ -1023,7 +1023,7 @@ public class EInvoiceServiceImpl implements EInvoiceService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public com.viet.sales.dto.response.InvoicePrintResponse getInvoicePrintLayout(String currentUsername, String invoiceId, String pageSize) {
+    public InvoicePrintResponse getInvoicePrintLayout(String currentUsername, String invoiceId, String pageSize) {
         User currentUser = getAuthenticatedUser(currentUsername);
         EInvoice invoice = eInvoiceRepository.findById(invoiceId)
                 .orElseThrow(() -> new AppException(ErrorCode.INVOICE_NOT_FOUND));
@@ -1065,7 +1065,7 @@ public class EInvoiceServiceImpl implements EInvoiceService {
                 + "    <div style=\"text-align:center; font-size:11px; font-weight:bold; color:red;\">(" + statusLabel + ")</div>\n"
                 + "    <div style=\"text-align:center; font-size:10px;\">Mẫu số: " + pattern + " | Ký hiệu: " + symbol + "</div>\n"
                 + "    <div style=\"text-align:center; font-size:10px;\">Số HD: " + (invoice.getInvoiceNumber() != null ? invoice.getInvoiceNumber() : "N/A") + "</div>\n"
-                + "    <div style=\"text-align:center; font-size:10px;\">Ngày lập: " + invoice.getCreatedAt().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss")) + "</div>\n"
+                + "    <div style=\"text-align:center; font-size:10px;\">Ngày lập: " + invoice.getCreatedAt().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss")) + "</div>\n"
                 + "    <div style=\"border-bottom:1px dashed #000; margin:10px 0;\"></div>\n"
                 + "    <div>Khách hàng: " + (invoice.getBuyerName() != null ? invoice.getBuyerName() : "Khách vãng lai") + "</div>\n"
                 + "    <div>MST KH: " + (invoice.getBuyerTaxCode() != null ? invoice.getBuyerTaxCode() : "N/A") + "</div>\n"
@@ -1120,7 +1120,7 @@ public class EInvoiceServiceImpl implements EInvoiceService {
                 .build();
         invoiceDeliveryLogRepository.save(deliveryLog);
 
-        return com.viet.sales.dto.response.InvoicePrintResponse.builder()
+        return InvoicePrintResponse.builder()
                 .pageSize(pageSize != null ? pageSize : "K80")
                 .htmlContent(htmlContent)
                 .build();
@@ -1161,7 +1161,7 @@ public class EInvoiceServiceImpl implements EInvoiceService {
 
     @Override
     @Transactional(readOnly = true)
-    public com.viet.sales.dto.response.PublicInvoiceResponse lookupInvoicePublicly(String lookupCode) {
+    public PublicInvoiceResponse lookupInvoicePublicly(String lookupCode) {
         EInvoice invoice = eInvoiceRepository.findByLookupCodeAndDeletedAtIsNull(lookupCode)
                 .orElseThrow(() -> new AppException(ErrorCode.INVOICE_NOT_FOUND));
 
@@ -1169,8 +1169,8 @@ public class EInvoiceServiceImpl implements EInvoiceService {
             throw new AppException(ErrorCode.INVOICE_NOT_FOUND);
         }
 
-        List<com.viet.sales.dto.response.EInvoiceItemResponse> items = invoice.getItems().stream()
-                .map(item -> com.viet.sales.dto.response.EInvoiceItemResponse.builder()
+        List<EInvoiceItemResponse> items = invoice.getItems().stream()
+                .map(item -> EInvoiceItemResponse.builder()
                         .id(item.getId())
                         .productId(item.getProduct() != null ? item.getProduct().getId() : null)
                         .productName(item.getProductName())
@@ -1185,7 +1185,7 @@ public class EInvoiceServiceImpl implements EInvoiceService {
                         .build())
                 .collect(Collectors.toList());
 
-        return com.viet.sales.dto.response.PublicInvoiceResponse.builder()
+        return PublicInvoiceResponse.builder()
                 .invoiceNumber(invoice.getInvoiceNumber())
                 .invoicePattern(invoice.getInvoicePattern())
                 .invoiceSymbol(invoice.getInvoiceSymbol())
