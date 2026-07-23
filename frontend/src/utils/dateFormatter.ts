@@ -104,3 +104,12 @@ export const getLocalDateString = (d: Date = new Date()): string => {
   return `${y}-${m}-${day}`;
 };
 
+/**
+ * Formats a Date object to local "YYYY-MM-DDTHH:mm:ss" ISO string in local timezone (GMT+7 in VN).
+ * Prevents Timezone Shift bugs caused by Date.prototype.toISOString() (which converts to UTC).
+ */
+export const getLocalDateTimeISOString = (d: Date = new Date()): string => {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+};
+

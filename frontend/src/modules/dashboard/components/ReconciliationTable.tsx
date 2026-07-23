@@ -12,6 +12,7 @@ import {
   useGetActivityLogsQuery,
 } from "@/modules/report/services/reportApi";
 import {
+  useGetInvoicesQuery,
   useResendInvoiceMutation,
   useSubmitToTaxMutation,
   useCancelInvoiceMutation,
@@ -34,6 +35,7 @@ export const ReconciliationTable = ({ date, currentRole }: ReconciliationTablePr
   // Queries
   const { data: reconciliationData, isLoading: isReconLoading, refetch: refetchRecon } = useGetReconciliationQuery({ date });
   const { data: shiftsHistoryData, isLoading: isShiftsLoading } = useGetShiftsHistoryQuery();
+  const { data: allFailedInvoicesData } = useGetInvoicesQuery({ status: "SEND_ERROR", page: 0, size: 50 });
   const [lockReconciliation, { isLoading: isLocking }] = useLockReconciliationMutation();
   const [resendInvoice] = useResendInvoiceMutation();
   const [submitToTax] = useSubmitToTaxMutation();
@@ -90,8 +92,22 @@ export const ReconciliationTable = ({ date, currentRole }: ReconciliationTablePr
     return closingCashActualSum - closingCashExpectedSum;
   }, [shiftsList, closingCashActualSum, closingCashExpectedSum]);
 
-  // Failed invoices list from API
+  // Failed invoices list from API (lists all pending SEND_ERROR invoices needing action)
   const failedInvoices = useMemo(() => {
+    const listFromApi = allFailedInvoicesData?.result?.content;
+    if (listFromApi && listFromApi.length > 0) {
+      return listFromApi.map((inv) => ({
+        id: inv.id,
+        lookupCode: inv.lookupCode || "-",
+        symbol: inv.invoiceSymbol || inv.invoicePattern || "-",
+        customer: inv.buyerName || "Khách mua lẻ",
+        finalAmount: inv.finalAmount || 0,
+        time: inv.createdAt ? new Date(inv.createdAt).toLocaleString("vi-VN") : "-",
+        errorDetails: inv.taxAuthorityResponse || "Lỗi truyền nhận dữ liệu CQT",
+        status: inv.status,
+        raw: inv,
+      }));
+    }
     if (reconData?.errorInvoices && reconData.errorInvoices.length > 0) {
       return reconData.errorInvoices.map((inv) => ({
         id: inv.id,
@@ -106,7 +122,7 @@ export const ReconciliationTable = ({ date, currentRole }: ReconciliationTablePr
       }));
     }
     return [];
-  }, [reconData]);
+  }, [allFailedInvoicesData, reconData]);
 
   const handleSendToTax = async (id: string) => {
     try {
@@ -209,7 +225,7 @@ export const ReconciliationTable = ({ date, currentRole }: ReconciliationTablePr
 
 
   return (
-    <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col h-[400px]">
+    <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col h-full min-h-[420px] max-h-[440px]">
       {/* Tabs Header */}
       <div className="bg-slate-50 border-b border-slate-200 flex justify-between items-center px-4 shrink-0">
         <div className="flex gap-4">

@@ -1,5 +1,6 @@
 import React from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
+import { BrandLogo } from "@/components/common/BrandLogo";
 import { APP_BRAND } from "@/constants/app";
 import { AUTH_TABS, AUTH_UI } from "@/constants/auth";
 
@@ -20,24 +21,8 @@ export const AuthPage: React.FC = () => {
         {/* Left: Product Introduction & Animations */}
         <div className="bg-gradient-to-br from-[#070e27] to-[#0050df] text-white p-8 flex flex-col justify-between relative overflow-hidden hidden md:flex border-r border-white/5">
           <div>
-            <div className="flex items-center gap-2 mb-6">
-              <svg
-                width="28"
-                height="28"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.5"
-                viewBox="0 0 24 24"
-                className="text-[#60A5FA]"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-              </svg>
-              <span className="font-extrabold text-xl tracking-wide">
-                {APP_BRAND.PREFIX}
-                <span className="text-[#60A5FA] ml-0.5">
-                  {APP_BRAND.SUFFIX}
-                </span>
-              </span>
+            <div className="mb-6">
+              <BrandLogo size="lg" variant="light" />
             </div>
             
             <h2 className="text-xl font-extrabold leading-snug mb-3">
@@ -116,27 +101,7 @@ export const AuthPage: React.FC = () => {
         <div className="flex flex-col justify-between bg-white">
           
           <div className="flex flex-col items-center gap-1.5 border-b border-slate-100 bg-slate-50 px-4 py-4 text-center sm:px-6 sm:py-5">
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="w-10 h-10 text-kv-blue-primary"
-            >
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-              <polyline points="14 2 14 8 20 8"></polyline>
-              <line x1="16" y1="13" x2="8" y2="13"></line>
-              <line x1="16" y1="17" x2="8" y2="17"></line>
-              <polyline points="10 9 9 9 8 9"></polyline>
-            </svg>
-            <span className="font-extrabold text-lg text-kv-blue-primary tracking-wide">
-              {APP_BRAND.PREFIX}
-              <strong className="text-gray-800 font-extrabold">
-                {APP_BRAND.SUFFIX}
-              </strong>
-            </span>
+            <BrandLogo size="lg" className="my-1" />
             <span className="text-[11px] text-slate-500 font-medium">
               {APP_BRAND.SYSTEM_DESCRIPTION}
             </span>

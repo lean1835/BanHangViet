@@ -521,12 +521,12 @@ interface IParsedLogPayload {
           ) : (
             <table className="w-full text-left border-collapse text-xs">
               <thead>
-                <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase tracking-wider">
-                  <th className="py-3 px-4">Thời gian</th>
-                  <th className="py-3 px-4">Người thực hiện</th>
-                  <th className="py-3 px-4">Thao tác / Hành động</th>
-                  <th className="py-3 px-4">Đối tượng</th>
-                  <th className="py-3 px-4">Chi tiết / Ghi chú</th>
+                <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase tracking-wider text-[11px]">
+                  <th className="py-3.5 px-5 min-w-[180px]">Người thực hiện</th>
+                  <th className="py-3.5 px-5 min-w-[160px]">Thời gian</th>
+                  <th className="py-3.5 px-5 min-w-[170px]">Thao tác</th>
+                  <th className="py-3.5 px-5 min-w-[130px]">Đối tượng</th>
+                  <th className="py-3.5 px-6 min-w-[340px] w-full">Chi tiết</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-medium">
@@ -535,19 +535,14 @@ interface IParsedLogPayload {
                   const notesText = parseLogNotes(log);
                   return (
                     <tr key={log.id} className="hover:bg-slate-50/70 transition-colors">
-                      {/* Time */}
-                      <td className="py-3 px-4 font-mono font-bold text-slate-500 whitespace-nowrap">
-                        {formatDateTime(log.createdAt)}
-                      </td>
-
                       {/* User */}
-                      <td className="py-3 px-4 whitespace-nowrap">
-                        <div className="flex items-center gap-2">
-                          <div className="w-6 h-6 rounded-full bg-slate-100 text-slate-600 font-black text-[10px] flex items-center justify-center shrink-0 uppercase border border-slate-200">
+                      <td className="py-3.5 px-5 whitespace-nowrap">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-7 h-7 rounded-full bg-slate-100 text-slate-600 font-black text-xs flex items-center justify-center shrink-0 uppercase border border-slate-200 shadow-2xs">
                             {(log.fullName || log.username || "U").charAt(0).toUpperCase()}
                           </div>
                           <div>
-                            <span className="font-extrabold text-slate-800 block leading-tight">
+                            <span className="font-extrabold text-slate-800 block leading-tight text-xs">
                               {log.fullName || log.username || "Hệ thống"}
                             </span>
                             {log.username && (
@@ -559,8 +554,13 @@ interface IParsedLogPayload {
                         </div>
                       </td>
 
+                      {/* Time */}
+                      <td className="py-3.5 px-5 font-mono font-bold text-slate-500 whitespace-nowrap text-xs">
+                        {formatDateTime(log.createdAt)}
+                      </td>
+
                       {/* Action Badge */}
-                      <td className="py-3 px-4 whitespace-nowrap">
+                      <td className="py-3.5 px-5 whitespace-nowrap">
                         <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-[10px] font-extrabold border shadow-2xs ${badge.className}`}>
                           {badge.icon}
                           {badge.label}
@@ -568,12 +568,12 @@ interface IParsedLogPayload {
                       </td>
 
                       {/* Target Table */}
-                      <td className="py-3 px-4 whitespace-nowrap text-xs text-slate-700 font-bold">
+                      <td className="py-3.5 px-5 whitespace-nowrap text-xs text-slate-700 font-bold">
                         {getTargetTableLabel(log.targetTable)}
                       </td>
 
                       {/* Detail / Notes */}
-                      <td className="py-3 px-4 text-slate-700 font-medium min-w-[260px]">
+                      <td className="py-3.5 px-6 text-slate-700 font-medium min-w-[340px]">
                         {notesText}
                       </td>
                     </tr>
