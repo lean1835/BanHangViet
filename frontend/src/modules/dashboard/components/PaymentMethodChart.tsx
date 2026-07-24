@@ -1,37 +1,29 @@
 import { useMemo } from "react";
-import { ORDER_PAYMENT_METHOD, ORDER_STATUS } from "@/constants/order";
-import type { IOrderResponse } from "@/modules/order/types/IOrder";
+import type { IDailyRevenueProjection } from "@/modules/report/types/IReport";
 
 interface PaymentMethodChartProps {
-  orders: IOrderResponse[];
+  dailyRevenues?: IDailyRevenueProjection[];
 }
 
-export const PaymentMethodChart = ({ orders }: PaymentMethodChartProps) => {
+export const PaymentMethodChart = ({ dailyRevenues }: PaymentMethodChartProps) => {
   const stats = useMemo(() => {
     let cashTotal = 0;
     let transferTotal = 0;
     let debtTotal = 0;
 
-    orders.forEach((o) => {
-      if (o.status === ORDER_STATUS.COMPLETED) {
-        if (o.paymentMethod === ORDER_PAYMENT_METHOD.CASH) {
-          cashTotal += o.finalAmount;
-        } else if (o.paymentMethod === ORDER_PAYMENT_METHOD.BANK_TRANSFER) {
-          transferTotal += o.finalAmount;
-        } else if (o.paymentMethod === ORDER_PAYMENT_METHOD.DEBT) {
-          debtTotal += o.finalAmount;
-        }
-      }
+    dailyRevenues?.forEach((r) => {
+      cashTotal += r.cashRevenue || 0;
+      transferTotal += r.bankRevenue || 0;
+      debtTotal += r.debtRevenue || 0;
     });
 
     const total = cashTotal + transferTotal + debtTotal;
 
     if (total === 0) {
-      // High-fidelity fallback values matching the dashboard mockup style
       return [
-        { name: "Tiền mặt", percentage: 55, amount: 25000000, color: "#0068FF" },
-        { name: "Chuyển khoản", percentage: 35, amount: 15900000, color: "#8b5cf6" },
-        { name: "Ghi nợ", percentage: 10, amount: 4500000, color: "#10b981" },
+        { name: "Tiền mặt", percentage: 0, amount: 0, color: "#0068FF" },
+        { name: "Chuyển khoản", percentage: 0, amount: 0, color: "#8b5cf6" },
+        { name: "Ghi nợ", percentage: 0, amount: 0, color: "#10b981" },
       ];
     }
 
@@ -55,7 +47,7 @@ export const PaymentMethodChart = ({ orders }: PaymentMethodChartProps) => {
         color: "#10b981", // Emerald
       },
     ].filter((item) => item.amount > 0);
-  }, [orders]);
+  }, [dailyRevenues]);
 
   const totalAmount = stats.reduce((sum, item) => sum + item.amount, 0);
 

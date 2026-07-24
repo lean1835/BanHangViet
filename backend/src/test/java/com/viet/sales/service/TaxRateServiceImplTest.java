@@ -9,9 +9,10 @@ import com.viet.sales.entity.TaxRate;
 import com.viet.sales.entity.User;
 import com.viet.sales.exception.AppException;
 import com.viet.sales.exception.ErrorCode;
-import com.viet.sales.repository.ActivityLogRepository;
+import com.viet.sales.repository.ProductRepository;
 import com.viet.sales.repository.TaxRateRepository;
 import com.viet.sales.repository.UserRepository;
+import com.viet.sales.service.classes.ActivityLogHelper;
 import com.viet.sales.service.classes.TaxRateServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -22,10 +23,12 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -38,7 +41,10 @@ class TaxRateServiceImplTest {
     private UserRepository userRepository;
 
     @Mock
-    private ActivityLogRepository activityLogRepository;
+    private ProductRepository productRepository;
+
+    @Mock
+    private ActivityLogHelper activityLogHelper;
 
     @Mock
     private ObjectMapper objectMapper;
@@ -47,11 +53,13 @@ class TaxRateServiceImplTest {
     private TaxRateServiceImpl taxRateService;
 
     private User ownerUser;
+    private User staffUser;
     private BusinessHousehold household;
 
     @BeforeEach
     void setUp() {
         Role ownerRole = Role.builder().code("VT-01").name("Chủ hộ").build();
+        Role staffRole = Role.builder().code("VT-02").name("Nhân viên bán hàng").build();
 
         household = BusinessHousehold.builder()
                 .id("house-001")
@@ -65,6 +73,34 @@ class TaxRateServiceImplTest {
                 .role(ownerRole)
                 .household(household)
                 .build();
+
+        staffUser = User.builder()
+                .id("user-002")
+                .username("staff")
+                .role(staffRole)
+                .household(household)
+                .build();
+    }
+
+    @Test
+    @DisplayName("Lấy danh sách thuế suất theo Hộ kinh doanh thành công")
+    void getAllTaxRates_Success() {
+        when(userRepository.findByUsername("owner")).thenReturn(Optional.of(ownerUser));
+        TaxRate rate = TaxRate.builder()
+                .id("tax-001")
+                .household(household)
+                .name("VAT 10%")
+                .ratePercentage(new BigDecimal("10.00"))
+                .isActive(true)
+                .build();
+
+        when(taxRateRepository.findByHouseholdIdOrderByCreatedAtDesc("house-001")).thenReturn(List.of(rate));
+
+        List<TaxRateResponse> responses = taxRateService.getAllTaxRates("owner");
+
+        assertNotNull(responses);
+        assertEquals(1, responses.size());
+        assertEquals("VAT 10%", responses.get(0).getName());
     }
 
     @Test
@@ -92,7 +128,9 @@ class TaxRateServiceImplTest {
         assertTrue(response.getIsActive());
 
         verify(taxRateRepository, times(1)).save(any(TaxRate.class));
-        verify(activityLogRepository, times(1)).save(any());
+        verify(activityLogHelper, times(1)).logActivityInNewTransaction(
+                eq(household), eq(ownerUser), eq("CREATE_TAX_RATE"), eq("tax_rates"), eq("tax-001"), any(), any(), any(), any()
+        );
     }
 
     @Test
@@ -135,6 +173,63 @@ class TaxRateServiceImplTest {
     }
 
     @Test
+    @DisplayName("Cập nhật thông tin thuế suất thành công")
+    void updateTaxRate_Success() {
+        when(userRepository.findByUsername("owner")).thenReturn(Optional.of(ownerUser));
+        TaxRate existing = TaxRate.builder()
+                .id("tax-001")
+                .household(household)
+                .name("VAT 5%")
+                .ratePercentage(new BigDecimal("5.00"))
+                .isActive(true)
+                .build();
+        when(taxRateRepository.findByIdAndHouseholdId("tax-001", "house-001")).thenReturn(Optional.of(existing));
+        when(taxRateRepository.existsByHouseholdIdAndNameAndIdNot("house-001", "VAT 8%", "tax-001")).thenReturn(false);
+        when(taxRateRepository.save(any(TaxRate.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        TaxRateRequest request = TaxRateRequest.builder()
+                .name("VAT 8%")
+                .ratePercentage(new BigDecimal("8.00"))
+                .isActive(true)
+                .build();
+
+        TaxRateResponse response = taxRateService.updateTaxRate("owner", "tax-001", request);
+
+        assertNotNull(response);
+        assertEquals("VAT 8%", response.getName());
+        assertEquals(new BigDecimal("8.00"), response.getRatePercentage());
+    }
+
+    @Test
+    @DisplayName("Cập nhật ngắt hiệu lực thuế suất đang gán cho sản phẩm ném ngoại lệ TAX_RATE_IN_USE")
+    void updateTaxRate_TaxRateInUse_ThrowsException() {
+        when(userRepository.findByUsername("owner")).thenReturn(Optional.of(ownerUser));
+        TaxRate existing = TaxRate.builder()
+                .id("tax-001")
+                .household(household)
+                .name("VAT 10%")
+                .ratePercentage(new BigDecimal("10.00"))
+                .isActive(true)
+                .build();
+        when(taxRateRepository.findByIdAndHouseholdId("tax-001", "house-001")).thenReturn(Optional.of(existing));
+        when(taxRateRepository.existsByHouseholdIdAndNameAndIdNot("house-001", "VAT 10%", "tax-001")).thenReturn(false);
+        when(productRepository.existsByHouseholdIdAndTaxRateIdAndDeletedAtIsNull("house-001", "tax-001")).thenReturn(true);
+
+        TaxRateRequest request = TaxRateRequest.builder()
+                .name("VAT 10%")
+                .ratePercentage(new BigDecimal("10.00"))
+                .isActive(false)
+                .build();
+
+        AppException exception = assertThrows(AppException.class, () ->
+                taxRateService.updateTaxRate("owner", "tax-001", request)
+        );
+
+        assertEquals(ErrorCode.TAX_RATE_IN_USE, exception.getErrorCode());
+        verify(taxRateRepository, never()).save(any());
+    }
+
+    @Test
     @DisplayName("Bật/tắt trạng thái hiệu lực thuế suất thành công")
     void toggleTaxRateStatus_Success() {
         when(userRepository.findByUsername("owner")).thenReturn(Optional.of(ownerUser));
@@ -146,6 +241,7 @@ class TaxRateServiceImplTest {
                 .isActive(true)
                 .build();
         when(taxRateRepository.findByIdAndHouseholdId("tax-001", "house-001")).thenReturn(Optional.of(existing));
+        when(productRepository.existsByHouseholdIdAndTaxRateIdAndDeletedAtIsNull("house-001", "tax-001")).thenReturn(false);
         when(taxRateRepository.save(any(TaxRate.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         TaxRateResponse response = taxRateService.toggleTaxRateStatus("owner", "tax-001", false);
@@ -153,6 +249,42 @@ class TaxRateServiceImplTest {
         assertNotNull(response);
         assertFalse(response.getIsActive());
 
-        verify(activityLogRepository, times(1)).save(any());
+        verify(activityLogHelper, times(1)).logActivityInNewTransaction(
+                eq(household), eq(ownerUser), eq("TOGGLE_TAX_RATE_STATUS"), eq("tax_rates"), eq("tax-001"), any(), any(), any(), any()
+        );
+    }
+
+    @Test
+    @DisplayName("Tắt hiệu lực thuế suất đang gán cho sản phẩm ném ngoại lệ TAX_RATE_IN_USE")
+    void toggleTaxRateStatus_TaxRateInUse_ThrowsException() {
+        when(userRepository.findByUsername("owner")).thenReturn(Optional.of(ownerUser));
+        TaxRate existing = TaxRate.builder()
+                .id("tax-001")
+                .household(household)
+                .name("VAT 10%")
+                .ratePercentage(new BigDecimal("10.00"))
+                .isActive(true)
+                .build();
+        when(taxRateRepository.findByIdAndHouseholdId("tax-001", "house-001")).thenReturn(Optional.of(existing));
+        when(productRepository.existsByHouseholdIdAndTaxRateIdAndDeletedAtIsNull("house-001", "tax-001")).thenReturn(true);
+
+        AppException exception = assertThrows(AppException.class, () ->
+                taxRateService.toggleTaxRateStatus("owner", "tax-001", false)
+        );
+
+        assertEquals(ErrorCode.TAX_RATE_IN_USE, exception.getErrorCode());
+        verify(taxRateRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Nhân viên không có quyền VT-01/VT-03 bị ném ngoại lệ FORBIDDEN")
+    void validateUserAndHousehold_ForbiddenRole() {
+        when(userRepository.findByUsername("staff")).thenReturn(Optional.of(staffUser));
+
+        AppException exception = assertThrows(AppException.class, () ->
+                taxRateService.getAllTaxRates("staff")
+        );
+
+        assertEquals(ErrorCode.FORBIDDEN, exception.getErrorCode());
     }
 }

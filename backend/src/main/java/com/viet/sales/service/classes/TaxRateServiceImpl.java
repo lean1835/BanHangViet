@@ -3,13 +3,12 @@ package com.viet.sales.service.classes;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.viet.sales.dto.request.TaxRateRequest;
 import com.viet.sales.dto.response.TaxRateResponse;
-import com.viet.sales.entity.ActivityLog;
 import com.viet.sales.entity.BusinessHousehold;
 import com.viet.sales.entity.TaxRate;
 import com.viet.sales.entity.User;
 import com.viet.sales.exception.AppException;
 import com.viet.sales.exception.ErrorCode;
-import com.viet.sales.repository.ActivityLogRepository;
+import com.viet.sales.repository.ProductRepository;
 import com.viet.sales.repository.TaxRateRepository;
 import com.viet.sales.repository.UserRepository;
 import com.viet.sales.service.interfaces.TaxRateService;
@@ -34,7 +33,8 @@ public class TaxRateServiceImpl implements TaxRateService {
 
     private final TaxRateRepository taxRateRepository;
     private final UserRepository userRepository;
-    private final ActivityLogRepository activityLogRepository;
+    private final ProductRepository productRepository;
+    private final ActivityLogHelper activityLogHelper;
     private final ObjectMapper objectMapper;
 
     private User getAuthenticatedUser(String username) {
@@ -42,11 +42,9 @@ public class TaxRateServiceImpl implements TaxRateService {
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
     }
 
-    private BusinessHousehold validateUserAndHousehold(String currentUsername) {
-        User currentUser = getAuthenticatedUser(currentUsername);
-
+    private BusinessHousehold validateUserAndHousehold(User currentUser) {
         // Chủ hộ (VT-01) hoặc Kế toán (VT-03)
-        String roleCode = currentUser.getRole().getCode();
+        String roleCode = currentUser.getRole() != null ? currentUser.getRole().getCode() : null;
         if (!"VT-01".equals(roleCode) && !"VT-03".equals(roleCode)) {
             throw new AppException(ErrorCode.FORBIDDEN);
         }
@@ -62,7 +60,8 @@ public class TaxRateServiceImpl implements TaxRateService {
     @Override
     @Transactional(readOnly = true)
     public List<TaxRateResponse> getAllTaxRates(String currentUsername) {
-        BusinessHousehold household = validateUserAndHousehold(currentUsername);
+        User currentUser = getAuthenticatedUser(currentUsername);
+        BusinessHousehold household = validateUserAndHousehold(currentUser);
         List<TaxRate> taxRates = taxRateRepository.findByHouseholdIdOrderByCreatedAtDesc(household.getId());
         return taxRates.stream().map(this::mapToResponse).collect(Collectors.toList());
     }
@@ -71,7 +70,7 @@ public class TaxRateServiceImpl implements TaxRateService {
     @Transactional(rollbackFor = Exception.class)
     public TaxRateResponse createTaxRate(String currentUsername, TaxRateRequest request) {
         User currentUser = getAuthenticatedUser(currentUsername);
-        BusinessHousehold household = validateUserAndHousehold(currentUsername);
+        BusinessHousehold household = validateUserAndHousehold(currentUser);
 
         validateTaxRateRequest(request, household.getId(), null);
 
@@ -95,12 +94,16 @@ public class TaxRateServiceImpl implements TaxRateService {
     @Transactional(rollbackFor = Exception.class)
     public TaxRateResponse updateTaxRate(String currentUsername, String id, TaxRateRequest request) {
         User currentUser = getAuthenticatedUser(currentUsername);
-        BusinessHousehold household = validateUserAndHousehold(currentUsername);
+        BusinessHousehold household = validateUserAndHousehold(currentUser);
 
         TaxRate taxRate = taxRateRepository.findByIdAndHouseholdId(id, household.getId())
                 .orElseThrow(() -> new AppException(ErrorCode.TAX_RATE_NOT_FOUND));
 
         validateTaxRateRequest(request, household.getId(), id);
+
+        if (Boolean.FALSE.equals(request.getIsActive()) && productRepository.existsByHouseholdIdAndTaxRateIdAndDeletedAtIsNull(household.getId(), id)) {
+            throw new AppException(ErrorCode.TAX_RATE_IN_USE);
+        }
 
         Map<String, Object> oldValue = buildTaxRateLogMap(taxRate);
 
@@ -122,15 +125,23 @@ public class TaxRateServiceImpl implements TaxRateService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public TaxRateResponse toggleTaxRateStatus(String currentUsername, String id, Boolean isActive) {
+        if (isActive == null) {
+            throw new AppException(ErrorCode.INVALID_INPUT);
+        }
+
         User currentUser = getAuthenticatedUser(currentUsername);
-        BusinessHousehold household = validateUserAndHousehold(currentUsername);
+        BusinessHousehold household = validateUserAndHousehold(currentUser);
 
         TaxRate taxRate = taxRateRepository.findByIdAndHouseholdId(id, household.getId())
                 .orElseThrow(() -> new AppException(ErrorCode.TAX_RATE_NOT_FOUND));
 
+        if (Boolean.FALSE.equals(isActive) && productRepository.existsByHouseholdIdAndTaxRateIdAndDeletedAtIsNull(household.getId(), id)) {
+            throw new AppException(ErrorCode.TAX_RATE_IN_USE);
+        }
+
         Map<String, Object> oldValue = buildTaxRateLogMap(taxRate);
 
-        taxRate.setIsActive(isActive != null ? isActive : !taxRate.getIsActive());
+        taxRate.setIsActive(isActive);
 
         TaxRate saved = taxRateRepository.save(taxRate);
 
@@ -171,19 +182,9 @@ public class TaxRateServiceImpl implements TaxRateService {
             String oldStr = oldValue != null ? objectMapper.writeValueAsString(oldValue) : null;
             String newStr = newValue != null ? objectMapper.writeValueAsString(newValue) : null;
 
-            ActivityLog logRecord = ActivityLog.builder()
-                    .household(household)
-                    .user(actor)
-                    .action(action)
-                    .targetTable("tax_rates")
-                    .targetId(targetId)
-                    .oldValue(oldStr)
-                    .newValue(newStr)
-                    .clientIp(clientIp)
-                    .userAgent(userAgent)
-                    .build();
-
-            activityLogRepository.save(logRecord);
+            activityLogHelper.logActivityInNewTransaction(
+                    household, actor, action, "tax_rates", targetId, oldStr, newStr, clientIp, userAgent
+            );
         } catch (Exception e) {
             log.error("Không thể ghi activity log cho thuế suất", e);
         }

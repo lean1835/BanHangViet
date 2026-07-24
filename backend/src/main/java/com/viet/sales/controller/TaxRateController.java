@@ -2,6 +2,7 @@ package com.viet.sales.controller;
 
 import com.viet.sales.dto.ApiResponse;
 import com.viet.sales.dto.request.TaxRateRequest;
+import com.viet.sales.dto.request.TaxRateStatusRequest;
 import com.viet.sales.dto.response.TaxRateResponse;
 import com.viet.sales.service.interfaces.TaxRateService;
 import jakarta.validation.Valid;
@@ -12,7 +13,6 @@ import org.springframework.web.bind.annotation.*;
 
 import java.security.Principal;
 import java.util.List;
-import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/tax-rates")
@@ -67,9 +67,8 @@ public class TaxRateController {
     public ResponseEntity<ApiResponse<TaxRateResponse>> updateTaxRateStatus(
             Principal principal,
             @PathVariable("id") String id,
-            @RequestBody(required = false) Map<String, Boolean> body) {
-        Boolean isActive = body != null ? body.get("isActive") : null;
-        TaxRateResponse result = taxRateService.toggleTaxRateStatus(principal.getName(), id, isActive);
+            @Valid @RequestBody TaxRateStatusRequest request) {
+        TaxRateResponse result = taxRateService.toggleTaxRateStatus(principal.getName(), id, request.getIsActive());
         ApiResponse<TaxRateResponse> response = ApiResponse.<TaxRateResponse>builder()
                 .code(1000)
                 .message("Cập nhật trạng thái hiệu lực thuế suất thành công")

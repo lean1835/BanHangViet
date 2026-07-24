@@ -11,6 +11,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import jakarta.persistence.LockModeType;
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -36,4 +37,10 @@ public interface ShiftRepository extends JpaRepository<Shift, String> {
 
     @EntityGraph(attributePaths = {"user", "household"})
     List<Shift> findByHouseholdIdAndOpenedAtBetween(String householdId, LocalDateTime start, LocalDateTime end);
+
+    @EntityGraph(attributePaths = {"user", "household"})
+    List<Shift> findAllByIdInAndHouseholdId(Collection<String> ids, String householdId);
+
+    @EntityGraph(attributePaths = {"user", "household"})
+    Optional<Shift> findByIdAndHouseholdId(String id, String householdId);
 }

@@ -13,7 +13,8 @@ interface InvoiceSidebarProps {
   setSearchQuery: (query: string) => void;
 }
 
-const INVOICE_STATUS_OPTIONS = [
+const INVOICE_STATUS_OPTIONS: Array<{ value: string; label: string }> = [
+  { value: "ALL", label: "Tất cả" },
   { value: E_INVOICE_STATUS.DRAFT, label: "Nháp (DRAFT)" },
   { value: E_INVOICE_STATUS.WAITING_TAX_CODE, label: "Chờ cấp mã (WAITING)" },
   { value: E_INVOICE_STATUS.ISSUED, label: "Đã cấp mã (ISSUED)" },
@@ -32,11 +33,13 @@ export const InvoiceSidebar: React.FC<InvoiceSidebarProps> = ({
   searchQuery,
   setSearchQuery,
 }) => {
-  const handleStatusChange = (status: TInvoiceStatus, checked: boolean) => {
-    if (checked) {
-      setStatusFilter((prev) => [...prev, status]);
+  const selectedStatus = statusFilter.length === 0 ? "ALL" : statusFilter[0];
+
+  const handleStatusRadioChange = (val: string) => {
+    if (val === "ALL") {
+      setStatusFilter([]);
     } else {
-      setStatusFilter((prev) => prev.filter((s) => s !== status));
+      setStatusFilter([val as TInvoiceStatus]);
     }
   };
 
@@ -96,10 +99,12 @@ export const InvoiceSidebar: React.FC<InvoiceSidebarProps> = ({
           {INVOICE_STATUS_OPTIONS.map((status) => (
             <label key={status.value} className="flex min-h-11 cursor-pointer items-center gap-2 lg:min-h-0 text-xs">
               <input
-                type="checkbox"
-                checked={statusFilter.includes(status.value)}
-                onChange={(e) => handleStatusChange(status.value, e.target.checked)}
-                className="rounded border-slate-300 text-kv-blue-primary focus:ring-kv-blue-primary w-3.5 h-3.5"
+                type="radio"
+                name="invoiceStatusFilter"
+                value={status.value}
+                checked={selectedStatus === status.value}
+                onChange={() => handleStatusRadioChange(status.value)}
+                className="border-slate-300 text-kv-blue-primary focus:ring-kv-blue-primary w-3.5 h-3.5"
               />
               <span>{status.label}</span>
             </label>
