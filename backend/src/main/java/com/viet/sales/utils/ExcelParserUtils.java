@@ -1,7 +1,7 @@
 package com.viet.sales.utils;
 
 import org.apache.poi.ss.usermodel.*;
-import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.apache.poi.xssf.streaming.SXSSFWorkbook;
 
 import java.io.ByteArrayOutputStream;
 import java.math.BigDecimal;
@@ -13,8 +13,8 @@ public class ExcelParserUtils {
     }
 
     public static byte[] generateProductImportTemplate() throws Exception {
-        try (Workbook workbook = new XSSFWorkbook();
-             ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+        SXSSFWorkbook workbook = new SXSSFWorkbook(100);
+        try (ByteArrayOutputStream out = new ByteArrayOutputStream()) {
 
             Sheet sheet = workbook.createSheet("Danh_Muc_Hang_Hoa");
 
@@ -52,6 +52,8 @@ public class ExcelParserUtils {
 
             workbook.write(out);
             return out.toByteArray();
+        } finally {
+            workbook.dispose();
         }
     }
 
