@@ -11,6 +11,7 @@ import com.viet.sales.entity.User;
 import com.viet.sales.exception.AppException;
 import com.viet.sales.exception.ErrorCode;
 import com.viet.sales.repository.ActivityLogRepository;
+import com.viet.sales.repository.CustomerDebtRepository;
 import com.viet.sales.repository.CustomerRepository;
 import com.viet.sales.repository.UserRepository;
 import com.viet.sales.service.interfaces.CustomerService;
@@ -36,6 +37,7 @@ public class CustomerServiceImpl implements CustomerService {
 
     private final UserRepository userRepository;
     private final CustomerRepository customerRepository;
+    private final CustomerDebtRepository customerDebtRepository;
     private final ActivityLogRepository activityLogRepository;
     private final ObjectMapper objectMapper;
 
@@ -222,7 +224,13 @@ public class CustomerServiceImpl implements CustomerService {
         Customer customer = customerRepository.findByIdAndHouseholdIdAndDeletedAtIsNull(customerId, household.getId())
                 .orElseThrow(() -> new AppException(ErrorCode.CUSTOMER_NOT_FOUND));
 
-        if (customer.getCurrentDebt() != null && customer.getCurrentDebt().compareTo(BigDecimal.ZERO) > 0) {
+        if (customer.getCurrentDebt() != null && customer.getCurrentDebt().compareTo(BigDecimal.ZERO) != 0) {
+            throw new AppException(ErrorCode.CUSTOMER_HAS_OUTSTANDING_DEBT);
+        }
+
+        boolean hasActiveDebts = customerDebtRepository.existsByCustomerIdAndHouseholdIdAndStatusIn(
+                customer.getId(), household.getId(), List.of("PENDING", "OVERDUE"));
+        if (hasActiveDebts) {
             throw new AppException(ErrorCode.CUSTOMER_HAS_OUTSTANDING_DEBT);
         }
 

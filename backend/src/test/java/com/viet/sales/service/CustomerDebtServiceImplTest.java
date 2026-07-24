@@ -262,12 +262,12 @@ class CustomerDebtServiceImplTest {
     }
 
     @Test
-    @DisplayName("Lấy danh sách nhắc nợ - Tự động quét quá hạn thành công")
-    void getDebtReminders_AutoScanOverdue_Success() {
+    @DisplayName("Lấy danh sách nhắc nợ thành công")
+    void getDebtReminders_Success() {
         when(userRepository.findByUsername("nhanvien")).thenReturn(Optional.of(currentUser));
 
-        CustomerDebt expiredDebt = CustomerDebt.builder()
-                .id("debt-expired")
+        CustomerDebt pendingDebt = CustomerDebt.builder()
+                .id("debt-pending")
                 .household(household)
                 .customer(customer)
                 .amount(new BigDecimal("100000.00"))
@@ -275,26 +275,21 @@ class CustomerDebtServiceImplTest {
                 .type("DEBT_CREATED")
                 .status("PENDING")
                 .createdByUser(currentUser)
-                .dueDate(LocalDateTime.now().minusDays(1)) // Đã quá hạn
+                .dueDate(LocalDateTime.now().plusDays(5))
                 .build();
 
-        List<CustomerDebt> expiredList = new ArrayList<>();
-        expiredList.add(expiredDebt);
-
-        when(customerDebtRepository.findByHouseholdIdAndStatusInAndTypeAndDueDateBefore(
-                eq("house-001"), eq(List.of("PENDING")), eq("DEBT_CREATED"), any(LocalDateTime.class)))
-                .thenReturn(expiredList);
+        List<CustomerDebt> remindersList = List.of(pendingDebt);
 
         when(customerDebtRepository.findByHouseholdIdAndStatusInAndTypeOrderByDueDateAscWithRelations(
                 eq("house-001"), eq(List.of("PENDING", "OVERDUE")), eq("DEBT_CREATED")))
-                .thenReturn(expiredList);
+                .thenReturn(remindersList);
 
         List<CustomerDebtResponse> responses = customerDebtService.getDebtReminders("nhanvien", null);
 
         assertNotNull(responses);
         assertEquals(1, responses.size());
-        assertEquals("OVERDUE", expiredDebt.getStatus()); // Đã tự động cập nhật trạng thái
+        assertEquals("PENDING", responses.get(0).getStatus());
 
-        verify(customerDebtRepository, times(1)).saveAll(expiredList);
+        verify(customerDebtRepository, never()).saveAll(any());
     }
 }

@@ -8,6 +8,7 @@ import com.viet.sales.entity.User;
 import com.viet.sales.exception.AppException;
 import com.viet.sales.exception.ErrorCode;
 import com.viet.sales.repository.ActivityLogRepository;
+import com.viet.sales.repository.CustomerDebtRepository;
 import com.viet.sales.repository.CustomerRepository;
 import com.viet.sales.repository.UserRepository;
 import com.viet.sales.service.classes.CustomerServiceImpl;
@@ -39,6 +40,9 @@ class CustomerServiceImplTest {
 
     @Mock
     private ObjectMapper objectMapper;
+
+    @Mock
+    private CustomerDebtRepository customerDebtRepository;
 
     @InjectMocks
     private CustomerServiceImpl customerService;
@@ -87,6 +91,9 @@ class CustomerServiceImplTest {
         when(userRepository.findByUsername("chuho")).thenReturn(Optional.of(currentUser));
         when(customerRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("cust-002", "house-001"))
                 .thenReturn(Optional.of(customerNoDebt));
+        when(customerDebtRepository.existsByCustomerIdAndHouseholdIdAndStatusIn(
+                eq("cust-002"), eq("house-001"), any()))
+                .thenReturn(false);
 
         assertDoesNotThrow(() -> customerService.deleteCustomer("chuho", "cust-002"));
 
@@ -108,5 +115,47 @@ class CustomerServiceImplTest {
         assertEquals(ErrorCode.CUSTOMER_HAS_OUTSTANDING_DEBT, exception.getErrorCode());
         assertNull(customerWithDebt.getDeletedAt());
         verify(customerRepository, never()).save(customerWithDebt);
+    }
+
+    @Test
+    @DisplayName("Xóa khách hàng thất bại ném ngoại lệ khi có dư nợ âm (trả thừa)")
+    void deleteCustomer_WithNegativeDebt_ThrowsException() {
+        Customer customerNegativeDebt = Customer.builder()
+                .id("cust-003")
+                .household(household)
+                .name("Lê Văn C")
+                .currentDebt(new BigDecimal("-50000.00"))
+                .build();
+
+        when(userRepository.findByUsername("chuho")).thenReturn(Optional.of(currentUser));
+        when(customerRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("cust-003", "house-001"))
+                .thenReturn(Optional.of(customerNegativeDebt));
+
+        AppException exception = assertThrows(AppException.class, () ->
+                customerService.deleteCustomer("chuho", "cust-003")
+        );
+
+        assertEquals(ErrorCode.CUSTOMER_HAS_OUTSTANDING_DEBT, exception.getErrorCode());
+        assertNull(customerNegativeDebt.getDeletedAt());
+        verify(customerRepository, never()).save(customerNegativeDebt);
+    }
+
+    @Test
+    @DisplayName("Xóa khách hàng thất bại ném ngoại lệ khi có các bản ghi công nợ chưa khép")
+    void deleteCustomer_WithActiveDebtRecords_ThrowsException() {
+        when(userRepository.findByUsername("chuho")).thenReturn(Optional.of(currentUser));
+        when(customerRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("cust-002", "house-001"))
+                .thenReturn(Optional.of(customerNoDebt));
+        when(customerDebtRepository.existsByCustomerIdAndHouseholdIdAndStatusIn(
+                eq("cust-002"), eq("house-001"), any()))
+                .thenReturn(true); // Có bản ghi nợ chưa khép
+
+        AppException exception = assertThrows(AppException.class, () ->
+                customerService.deleteCustomer("chuho", "cust-002")
+        );
+
+        assertEquals(ErrorCode.CUSTOMER_HAS_OUTSTANDING_DEBT, exception.getErrorCode());
+        assertNull(customerNoDebt.getDeletedAt());
+        verify(customerRepository, never()).save(customerNoDebt);
     }
 }

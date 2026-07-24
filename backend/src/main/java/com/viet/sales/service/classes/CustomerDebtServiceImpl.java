@@ -214,23 +214,12 @@ public class CustomerDebtServiceImpl implements CustomerDebtService {
     }
 
     @Override
-    @Transactional(rollbackFor = Exception.class)
+    @Transactional(readOnly = true)
     public List<CustomerDebtResponse> getDebtReminders(String currentUsername, String statusFilter) {
         User currentUser = getAuthenticatedUser(currentUsername);
         BusinessHousehold household = currentUser.getHousehold();
         if (household == null) {
             throw new AppException(ErrorCode.FORBIDDEN);
-        }
-
-        // Quét tự động các khoản nợ PENDING đã quá hạn và chuyển sang OVERDUE
-        List<CustomerDebt> expiredDebts = customerDebtRepository.findByHouseholdIdAndStatusInAndTypeAndDueDateBefore(
-                household.getId(), List.of("PENDING"), "DEBT_CREATED", LocalDateTime.now());
-
-        if (!expiredDebts.isEmpty()) {
-            for (CustomerDebt debt : expiredDebts) {
-                debt.setStatus("OVERDUE");
-            }
-            customerDebtRepository.saveAll(expiredDebts);
         }
 
         List<CustomerDebt> reminders;

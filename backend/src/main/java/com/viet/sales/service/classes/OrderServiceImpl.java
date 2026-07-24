@@ -558,6 +558,8 @@ public class OrderServiceImpl implements OrderService {
             order.setCustomer(customer);
             order.setPaymentStatus("DEBT");
 
+            LocalDateTime debtDueDate = request.getDueDate() != null ? request.getDueDate() : LocalDateTime.now().plusDays(7);
+
             // Tạo và lưu bản ghi công nợ customer_debts (DEBT_CREATED)
             CustomerDebt debtRecord = CustomerDebt.builder()
                     .household(household)
@@ -567,7 +569,7 @@ public class OrderServiceImpl implements OrderService {
                     .remainingAmount(order.getFinalAmount())
                     .type("DEBT_CREATED")
                     .status("PENDING")
-                    .dueDate(LocalDateTime.now().plusDays(7)) // Hạn nợ mặc định là 7 ngày
+                    .dueDate(debtDueDate)
                     .notes("Ghi nợ từ đơn hàng " + order.getOrderNumber())
                     .createdByUser(currentUser)
                     .build();

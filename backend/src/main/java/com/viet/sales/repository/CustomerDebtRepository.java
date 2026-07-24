@@ -15,7 +15,7 @@ public interface CustomerDebtRepository extends JpaRepository<CustomerDebt, Stri
 
     List<CustomerDebt> findByCustomerIdAndHouseholdIdOrderByCreatedAtDesc(String customerId, String householdId);
 
-    @Query("SELECT d FROM CustomerDebt d JOIN FETCH d.customer LEFT JOIN FETCH d.order " +
+    @Query("SELECT d FROM CustomerDebt d JOIN FETCH d.customer JOIN FETCH d.createdByUser LEFT JOIN FETCH d.order " +
            "WHERE d.customer.id = :customerId AND d.household.id = :householdId ORDER BY d.createdAt DESC")
     List<CustomerDebt> findByCustomerIdAndHouseholdIdOrderByCreatedAtDescWithRelations(
             @Param("customerId") String customerId, @Param("householdId") String householdId);
@@ -26,7 +26,7 @@ public interface CustomerDebtRepository extends JpaRepository<CustomerDebt, Stri
     List<CustomerDebt> findByHouseholdIdAndStatusInAndTypeOrderByDueDateAsc(
             String householdId, Collection<String> statuses, String type);
 
-    @Query("SELECT d FROM CustomerDebt d JOIN FETCH d.customer LEFT JOIN FETCH d.order " +
+    @Query("SELECT d FROM CustomerDebt d JOIN FETCH d.customer JOIN FETCH d.createdByUser LEFT JOIN FETCH d.order " +
            "WHERE d.household.id = :householdId AND d.status IN :statuses AND d.type = :type ORDER BY d.dueDate Asc")
     List<CustomerDebt> findByHouseholdIdAndStatusInAndTypeOrderByDueDateAscWithRelations(
             @Param("householdId") String householdId,
@@ -35,6 +35,12 @@ public interface CustomerDebtRepository extends JpaRepository<CustomerDebt, Stri
 
     List<CustomerDebt> findByHouseholdIdAndStatusInAndTypeAndDueDateBefore(
             String householdId, Collection<String> statuses, String type, LocalDateTime dateTime);
+
+    List<CustomerDebt> findByStatusInAndTypeAndDueDateBefore(
+            Collection<String> statuses, String type, LocalDateTime dateTime);
+
+    boolean existsByCustomerIdAndHouseholdIdAndStatusIn(
+            String customerId, String householdId, Collection<String> statuses);
 
     @Query("SELECT COALESCE(SUM(d.remainingAmount), 0) FROM CustomerDebt d " +
            "WHERE d.household.id = :householdId AND d.type = 'DEBT_CREATED' AND d.status IN ('PENDING', 'OVERDUE')")
