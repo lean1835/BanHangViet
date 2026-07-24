@@ -3,6 +3,9 @@ export interface ICustomer {
   name: string;
   phone: string;
   email: string;
+  address?: string;
   creditLimit: number;
   debt: number;
+  dueDate?: string;
+  createdAt?: string;
 }
