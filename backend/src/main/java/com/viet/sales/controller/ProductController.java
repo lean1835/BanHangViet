@@ -24,7 +24,7 @@ public class ProductController {
     private final com.viet.sales.service.interfaces.ProductImportService productImportService;
 
     @GetMapping("/import-template")
-    @PreAuthorize("hasAnyRole('VT-01', 'OWNER')")
+    @PreAuthorize("hasRole('VT-01')")
     public ResponseEntity<org.springframework.core.io.Resource> getImportTemplate() throws Exception {
         byte[] data = productImportService.getImportTemplate();
         org.springframework.core.io.ByteArrayResource resource = new org.springframework.core.io.ByteArrayResource(data);
@@ -35,7 +35,7 @@ public class ProductController {
     }
 
     @PostMapping("/import")
-    @PreAuthorize("hasAnyRole('VT-01', 'OWNER')")
+    @PreAuthorize("hasRole('VT-01')")
     public ResponseEntity<ApiResponse<com.viet.sales.dto.response.ImportProductResultResponse>> importProducts(
             Principal principal,
             @RequestParam("file") MultipartFile file) {

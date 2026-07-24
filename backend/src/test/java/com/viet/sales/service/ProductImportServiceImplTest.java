@@ -397,6 +397,143 @@ class ProductImportServiceImplTest {
 
         assertEquals(ErrorCode.FORBIDDEN, exception.getErrorCode());
     }
+
+    @Test
+    @DisplayName("NCL-09-FIX-P1-05: Thuế suất nhập '0.5' (không ký hiệu %) -> Khớp đúng mức thuế 0.5% không bị nhân 50%")
+    void importProducts_TaxRateWithoutPercentSymbol_Success() throws Exception {
+        com.viet.sales.entity.TaxRate sampleTaxHalfPercent = com.viet.sales.entity.TaxRate.builder()
+                .id("tax-005")
+                .name("Thuế 0.5%")
+                .ratePercentage(new java.math.BigDecimal("0.50"))
+                .isActive(true)
+                .build();
+
+        when(userRepository.findByUsername("owner")).thenReturn(Optional.of(ownerUser));
+        when(taxRateRepository.findByHouseholdIdAndIsActiveTrueOrderByCreatedAtAsc("house-001")).thenReturn(Collections.singletonList(sampleTaxHalfPercent));
+        when(productRepository.findSkusByHouseholdId("house-001")).thenReturn(Collections.emptyList());
+
+        byte[] excelBytes;
+        try (Workbook workbook = new XSSFWorkbook();
+             ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+            Sheet sheet = workbook.createSheet();
+            Row header = sheet.createRow(0);
+            header.createCell(0).setCellValue("Mã SKU");
+            header.createCell(1).setCellValue("Tên hàng hóa");
+            header.createCell(2).setCellValue("Đơn vị tính");
+            header.createCell(4).setCellValue("Giá bán");
+            header.createCell(5).setCellValue("% Thuế suất");
+
+            Row dataRow = sheet.createRow(1);
+            dataRow.createCell(0).setCellValue("SP005B");
+            dataRow.createCell(1).setCellValue("Sản phẩm 0.5 không %");
+            dataRow.createCell(2).setCellValue("Cái");
+            dataRow.createCell(4).setCellValue(50000);
+            dataRow.createCell(5).setCellValue("0.5"); // String "0.5" without % symbol
+
+            workbook.write(out);
+            excelBytes = out.toByteArray();
+        }
+
+        MockMultipartFile file = new MockMultipartFile("file", "products.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", excelBytes);
+
+        ImportProductResultResponse response = productImportService.importProducts("owner", file);
+
+        assertNotNull(response);
+        assertEquals(1, response.getTotalRows());
+        assertEquals(1, response.getSuccessCount());
+        assertEquals(0, response.getErrorCount());
+    }
+
+    @Test
+    @DisplayName("NCL-09-FIX-P1-06: Thuế suất nhập dấu phẩy tiếng Việt ('8,5%') -> Khớp đúng mức thuế 8.5%")
+    void importProducts_TaxRateVietnameseComma_Success() throws Exception {
+        com.viet.sales.entity.TaxRate sampleTax8Point5 = com.viet.sales.entity.TaxRate.builder()
+                .id("tax-085")
+                .name("Thuế 8.5%")
+                .ratePercentage(new java.math.BigDecimal("8.50"))
+                .isActive(true)
+                .build();
+
+        when(userRepository.findByUsername("owner")).thenReturn(Optional.of(ownerUser));
+        when(taxRateRepository.findByHouseholdIdAndIsActiveTrueOrderByCreatedAtAsc("house-001")).thenReturn(Collections.singletonList(sampleTax8Point5));
+        when(productRepository.findSkusByHouseholdId("house-001")).thenReturn(Collections.emptyList());
+
+        byte[] excelBytes;
+        try (Workbook workbook = new XSSFWorkbook();
+             ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+            Sheet sheet = workbook.createSheet();
+            Row header = sheet.createRow(0);
+            header.createCell(0).setCellValue("Mã SKU");
+            header.createCell(1).setCellValue("Tên hàng hóa");
+            header.createCell(2).setCellValue("Đơn vị tính");
+            header.createCell(4).setCellValue("Giá bán");
+            header.createCell(5).setCellValue("% Thuế suất");
+
+            Row dataRow = sheet.createRow(1);
+            dataRow.createCell(0).setCellValue("SP085");
+            dataRow.createCell(1).setCellValue("Sản phẩm 8.5%");
+            dataRow.createCell(2).setCellValue("Cái");
+            dataRow.createCell(4).setCellValue(50000);
+            dataRow.createCell(5).setCellValue("8,5%"); // Vietnamese comma "8,5%"
+
+            workbook.write(out);
+            excelBytes = out.toByteArray();
+        }
+
+        MockMultipartFile file = new MockMultipartFile("file", "products.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", excelBytes);
+
+        ImportProductResultResponse response = productImportService.importProducts("owner", file);
+
+        assertNotNull(response);
+        assertEquals(1, response.getTotalRows());
+        assertEquals(1, response.getSuccessCount());
+        assertEquals(0, response.getErrorCount());
+    }
+
+    @Test
+    @DisplayName("NCL-09-FIX-P1-07: Chuỗi rác trong ô số ('chuỗi rác') -> Ghi nhận lỗi dòng chi tiết, không nuốt lỗi")
+    void importProducts_GarbageNumberInExcel_RecordsRowError() throws Exception {
+        com.viet.sales.entity.TaxRate sampleTax = com.viet.sales.entity.TaxRate.builder()
+                .id("tax-001")
+                .name("Thuế 1%")
+                .ratePercentage(new java.math.BigDecimal("1.00"))
+                .isActive(true)
+                .build();
+
+        when(userRepository.findByUsername("owner")).thenReturn(Optional.of(ownerUser));
+        when(taxRateRepository.findByHouseholdIdAndIsActiveTrueOrderByCreatedAtAsc("house-001")).thenReturn(Collections.singletonList(sampleTax));
+        when(productRepository.findSkusByHouseholdId("house-001")).thenReturn(Collections.emptyList());
+
+        byte[] excelBytes;
+        try (Workbook workbook = new XSSFWorkbook();
+             ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+            Sheet sheet = workbook.createSheet();
+            Row header = sheet.createRow(0);
+            header.createCell(0).setCellValue("Mã SKU");
+            header.createCell(1).setCellValue("Tên hàng hóa");
+            header.createCell(2).setCellValue("Đơn vị tính");
+            header.createCell(4).setCellValue("Giá bán");
+
+            Row dataRow = sheet.createRow(1);
+            dataRow.createCell(0).setCellValue("SP999");
+            dataRow.createCell(1).setCellValue("Sản phẩm giá rác");
+            dataRow.createCell(2).setCellValue("Cái");
+            dataRow.createCell(4).setCellValue("chuỗi rác"); // Garbage string in price cell
+
+            workbook.write(out);
+            excelBytes = out.toByteArray();
+        }
+
+        MockMultipartFile file = new MockMultipartFile("file", "products.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", excelBytes);
+
+        ImportProductResultResponse response = productImportService.importProducts("owner", file);
+
+        assertNotNull(response);
+        assertEquals(1, response.getTotalRows());
+        assertEquals(0, response.getSuccessCount());
+        assertEquals(1, response.getErrorCount());
+        assertEquals("Dữ liệu số không đúng định dạng", response.getErrors().get(0).getErrorMessage());
+    }
 }
 
 

@@ -51,4 +51,30 @@ class ExcelParserUtilsTest {
             assertEquals(new BigDecimal("150000.5"), ExcelParserUtils.getCellValueAsBigDecimal(cellNum));
         }
     }
+
+    @Test
+    @DisplayName("Đọc số có dấu phẩy tiếng Việt '150000,5' -> Chuyển thành BigDecimal 150000.5")
+    void getCellValueAsBigDecimal_VietnameseComma_Success() throws Exception {
+        try (Workbook workbook = new XSSFWorkbook()) {
+            Sheet sheet = workbook.createSheet();
+            Row row = sheet.createRow(0);
+            Cell cellComma = row.createCell(0);
+            cellComma.setCellValue("150000,5");
+
+            assertEquals(new BigDecimal("150000.5"), ExcelParserUtils.getCellValueAsBigDecimal(cellComma));
+        }
+    }
+
+    @Test
+    @DisplayName("Chuỗi rác không đúng định dạng số -> Ném NumberFormatException")
+    void getCellValueAsBigDecimal_GarbageString_ThrowsNumberFormatException() throws Exception {
+        try (Workbook workbook = new XSSFWorkbook()) {
+            Sheet sheet = workbook.createSheet();
+            Row row = sheet.createRow(0);
+            Cell cellGarbage = row.createCell(0);
+            cellGarbage.setCellValue("chuỗi rác");
+
+            assertThrows(NumberFormatException.class, () -> ExcelParserUtils.getCellValueAsBigDecimal(cellGarbage));
+        }
+    }
 }

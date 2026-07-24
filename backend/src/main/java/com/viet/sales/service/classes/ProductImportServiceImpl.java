@@ -54,7 +54,7 @@ public class ProductImportServiceImpl implements ProductImportService {
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
 
         String roleCode = currentUser.getRole() != null ? currentUser.getRole().getCode() : null;
-        if (!"VT-01".equals(roleCode) && !"OWNER".equals(roleCode)) {
+        if (!"VT-01".equals(roleCode)) {
             throw new AppException(ErrorCode.FORBIDDEN);
         }
 
@@ -97,14 +97,29 @@ public class ProductImportServiceImpl implements ProductImportService {
                 totalRows++;
                 int actualRowNumber = rowIndex + 1; // 1-based line number for user feedback
 
-                String sku = ExcelParserUtils.getCellValueAsString(row.getCell(0));
-                String name = ExcelParserUtils.getCellValueAsString(row.getCell(1));
-                String unit = ExcelParserUtils.getCellValueAsString(row.getCell(2));
-                BigDecimal importPrice = ExcelParserUtils.getCellValueAsBigDecimal(row.getCell(3));
-                BigDecimal price = ExcelParserUtils.getCellValueAsBigDecimal(row.getCell(4));
-                String taxRateStr = ExcelParserUtils.getCellValueAsString(row.getCell(5));
-                String groupName = ExcelParserUtils.getCellValueAsString(row.getCell(6));
-                BigDecimal stock = ExcelParserUtils.getCellValueAsBigDecimal(row.getCell(7));
+                String sku;
+                String name;
+                String unit;
+                BigDecimal importPrice;
+                BigDecimal price;
+                String taxRateStr;
+                String groupName;
+                BigDecimal stock;
+
+                try {
+                    sku = ExcelParserUtils.getCellValueAsString(row.getCell(0));
+                    name = ExcelParserUtils.getCellValueAsString(row.getCell(1));
+                    unit = ExcelParserUtils.getCellValueAsString(row.getCell(2));
+                    importPrice = ExcelParserUtils.getCellValueAsBigDecimal(row.getCell(3));
+                    price = ExcelParserUtils.getCellValueAsBigDecimal(row.getCell(4));
+                    taxRateStr = ExcelParserUtils.getCellValueAsString(row.getCell(5));
+                    groupName = ExcelParserUtils.getCellValueAsString(row.getCell(6));
+                    stock = ExcelParserUtils.getCellValueAsBigDecimal(row.getCell(7));
+                } catch (NumberFormatException e) {
+                    String rowName = ExcelParserUtils.getCellValueAsString(row.getCell(1));
+                    errors.add(new ImportProductResultResponse.RowErrorDetail(actualRowNumber, rowName, "Dữ liệu số không đúng định dạng"));
+                    continue;
+                }
 
                 // Auto generate clean shorter SKU if empty
                 if (!StringUtils.hasText(sku)) {
@@ -143,19 +158,26 @@ public class ProductImportServiceImpl implements ProductImportService {
                 TaxRate resolvedTaxRate = null;
                 if (StringUtils.hasText(taxRateStr)) {
                     try {
-                        boolean hasPercentSymbol = taxRateStr.contains("%");
-                        BigDecimal targetRate = new BigDecimal(taxRateStr.replace("%", "").trim());
-                        if (!hasPercentSymbol && targetRate.compareTo(BigDecimal.ONE) < 0 && targetRate.compareTo(BigDecimal.ZERO) > 0) {
-                            targetRate = targetRate.multiply(new BigDecimal("100"));
-                        }
-                        final BigDecimal searchRate = targetRate;
+                        String cleanStr = taxRateStr.replace("%", "").replace(",", ".").trim();
+                        BigDecimal targetRate = new BigDecimal(cleanStr);
+
+                        final BigDecimal directRate = targetRate;
                         resolvedTaxRate = activeTaxRates.stream()
-                                .filter(tr -> tr.getRatePercentage().compareTo(searchRate) == 0)
+                                .filter(tr -> tr.getRatePercentage().compareTo(directRate) == 0)
                                 .findFirst()
                                 .orElse(null);
+
+                        if (resolvedTaxRate == null) {
+                            final BigDecimal scaledRate = targetRate.multiply(new BigDecimal("100"));
+                            resolvedTaxRate = activeTaxRates.stream()
+                                    .filter(tr -> tr.getRatePercentage().compareTo(scaledRate) == 0)
+                                    .findFirst()
+                                    .orElse(null);
+                        }
+
                         if (resolvedTaxRate == null) {
                             errors.add(new ImportProductResultResponse.RowErrorDetail(actualRowNumber, name,
-                                    "Không tìm thấy thuế suất (" + taxRateStr + "%) phù hợp trong danh mục thuế suất của hộ kinh doanh"));
+                                    "Không tìm thấy thuế suất (" + taxRateStr + ") phù hợp trong danh mục thuế suất của hộ kinh doanh"));
                             continue;
                         }
                     } catch (Exception e) {

@@ -85,7 +85,7 @@ public class ExcelParserUtils {
 
     public static BigDecimal getCellValueAsBigDecimal(Cell cell) {
         if (cell == null) {
-            return BigDecimal.ZERO;
+            return null;
         }
         CellType type = cell.getCellType();
         if (type == CellType.FORMULA) {
@@ -95,13 +95,9 @@ public class ExcelParserUtils {
             return BigDecimal.valueOf(cell.getNumericCellValue());
         } else if (type == CellType.STRING) {
             String val = cell.getStringCellValue().trim();
-            if (val.isEmpty()) return BigDecimal.ZERO;
-            try {
-                return new BigDecimal(val);
-            } catch (Exception e) {
-                return BigDecimal.ZERO;
-            }
+            if (val.isEmpty()) return null;
+            return new BigDecimal(val.replace(",", "."));
         }
-        return BigDecimal.ZERO;
+        return null;
     }
 }
