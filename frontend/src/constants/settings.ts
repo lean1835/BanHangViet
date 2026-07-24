@@ -7,8 +7,16 @@ export const SETTINGS_NAVIGATION_ITEMS = [
     label: "Thông tin cửa hàng",
   },
   {
+    path: APP_ROUTES.SETTINGS_INVOICE_TEMPLATE,
+    label: "Mẫu hóa đơn",
+  },
+  {
     path: APP_ROUTES.SETTINGS_TAX_RATES,
     label: "Thuế suất",
+  },
+  {
+    path: APP_ROUTES.SETTINGS_BACKUP_EXPORT,
+    label: "Sao lưu dữ liệu",
   },
 ] as const;
 
