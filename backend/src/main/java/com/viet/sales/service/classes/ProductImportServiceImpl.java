@@ -143,8 +143,9 @@ public class ProductImportServiceImpl implements ProductImportService {
                 TaxRate resolvedTaxRate = null;
                 if (StringUtils.hasText(taxRateStr)) {
                     try {
+                        boolean hasPercentSymbol = taxRateStr.contains("%");
                         BigDecimal targetRate = new BigDecimal(taxRateStr.replace("%", "").trim());
-                        if (targetRate.compareTo(BigDecimal.ONE) < 0 && targetRate.compareTo(BigDecimal.ZERO) > 0) {
+                        if (!hasPercentSymbol && targetRate.compareTo(BigDecimal.ONE) < 0 && targetRate.compareTo(BigDecimal.ZERO) > 0) {
                             targetRate = targetRate.multiply(new BigDecimal("100"));
                         }
                         final BigDecimal searchRate = targetRate;

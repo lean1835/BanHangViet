@@ -284,6 +284,52 @@ class ProductImportServiceImplTest {
     }
 
     @Test
+    @DisplayName("NCL-09-FIX-P1-04: Thuế suất nhập trực tiếp chuỗi chứa '%' có giá trị < 1 ('0.5%') -> Giữ nguyên 0.5% không nhân 100")
+    void importProducts_ExplicitPercentSymbolUnderOnePercent_Success() throws Exception {
+        com.viet.sales.entity.TaxRate sampleTaxHalfPercent = com.viet.sales.entity.TaxRate.builder()
+                .id("tax-005")
+                .name("Thuế 0.5%")
+                .ratePercentage(new java.math.BigDecimal("0.50"))
+                .isActive(true)
+                .build();
+
+        when(userRepository.findByUsername("owner")).thenReturn(Optional.of(ownerUser));
+        when(taxRateRepository.findByHouseholdIdAndIsActiveTrueOrderByCreatedAtAsc("house-001")).thenReturn(Collections.singletonList(sampleTaxHalfPercent));
+        when(productRepository.findSkusByHouseholdId("house-001")).thenReturn(Collections.emptyList());
+
+        byte[] excelBytes;
+        try (Workbook workbook = new XSSFWorkbook();
+             ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+            Sheet sheet = workbook.createSheet();
+            Row header = sheet.createRow(0);
+            header.createCell(0).setCellValue("Mã SKU");
+            header.createCell(1).setCellValue("Tên hàng hóa");
+            header.createCell(2).setCellValue("Đơn vị tính");
+            header.createCell(4).setCellValue("Giá bán");
+            header.createCell(5).setCellValue("% Thuế suất");
+
+            Row dataRow = sheet.createRow(1);
+            dataRow.createCell(0).setCellValue("SP005");
+            dataRow.createCell(1).setCellValue("Sản phẩm 0.5%");
+            dataRow.createCell(2).setCellValue("Cái");
+            dataRow.createCell(4).setCellValue(50000);
+            dataRow.createCell(5).setCellValue("0.5%"); // Explicit string with % symbol
+
+            workbook.write(out);
+            excelBytes = out.toByteArray();
+        }
+
+        MockMultipartFile file = new MockMultipartFile("file", "products.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", excelBytes);
+
+        ImportProductResultResponse response = productImportService.importProducts("owner", file);
+
+        assertNotNull(response);
+        assertEquals(1, response.getTotalRows());
+        assertEquals(1, response.getSuccessCount());
+        assertEquals(0, response.getErrorCount());
+    }
+
+    @Test
     @DisplayName("NCL-09-FIX-P1-02: Dòng rỗng chỉ có style (getFirstCellNum == -1) -> Bỏ qua không văng ngoại lệ")
     void importProducts_EmptyStyledRow_SkippedWithoutCrash() throws Exception {
         com.viet.sales.entity.TaxRate sampleTax = com.viet.sales.entity.TaxRate.builder()
