@@ -31,7 +31,7 @@ public class HouseholdServiceImpl implements HouseholdService {
 
     private final BusinessHouseholdRepository householdRepository;
     private final UserRepository userRepository;
-    private final ActivityLogRepository activityLogRepository;
+    private final ActivityLogHelper activityLogHelper;
     private final ObjectMapper objectMapper;
 
     private static final Pattern TAX_CODE_PATTERN = Pattern.compile("^[0-9]{10}(-[0-9]{3})?$");
@@ -74,15 +74,22 @@ public class HouseholdServiceImpl implements HouseholdService {
             throw new AppException(ErrorCode.HOUSEHOLD_NOT_FOUND);
         }
 
+        String newTaxCode = request.getTaxCode() != null ? request.getTaxCode().trim() : "";
+
         // Validate MST định dạng 10 hoặc 13 chữ số
-        if (request.getTaxCode() == null || !TAX_CODE_PATTERN.matcher(request.getTaxCode().trim()).matches()) {
+        if (!TAX_CODE_PATTERN.matcher(newTaxCode).matches()) {
             throw new AppException(ErrorCode.INVALID_TAX_CODE);
+        }
+
+        // Kiểm tra trùng MST với các hộ kinh doanh khác
+        if (householdRepository.existsByTaxCodeAndIdNot(newTaxCode, household.getId())) {
+            throw new AppException(ErrorCode.TAX_CODE_ALREADY_EXISTS);
         }
 
         Map<String, Object> oldValue = buildHouseholdLogMap(household);
 
         household.setName(request.getName().trim());
-        household.setTaxCode(request.getTaxCode().trim());
+        household.setTaxCode(newTaxCode);
         household.setAddress(request.getAddress().trim());
         household.setPhoneNumber(request.getPhoneNumber().trim());
         if (request.getRepresentativeName() != null) {
@@ -109,19 +116,8 @@ public class HouseholdServiceImpl implements HouseholdService {
             String oldStr = oldValue != null ? objectMapper.writeValueAsString(oldValue) : null;
             String newStr = newValue != null ? objectMapper.writeValueAsString(newValue) : null;
 
-            ActivityLog logRecord = ActivityLog.builder()
-                    .household(household)
-                    .user(actor)
-                    .action(action)
-                    .targetTable("business_households")
-                    .targetId(targetId)
-                    .oldValue(oldStr)
-                    .newValue(newStr)
-                    .clientIp(clientIp)
-                    .userAgent(userAgent)
-                    .build();
-
-            activityLogRepository.save(logRecord);
+            activityLogHelper.logActivityInNewTransaction(
+                    household, actor, action, "business_households", targetId, oldStr, newStr, clientIp, userAgent);
         } catch (Exception e) {
             log.error("Không thể ghi activity log cho cập nhật hộ kinh doanh", e);
         }

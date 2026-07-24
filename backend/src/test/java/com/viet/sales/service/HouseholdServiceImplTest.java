@@ -8,9 +8,9 @@ import com.viet.sales.entity.Role;
 import com.viet.sales.entity.User;
 import com.viet.sales.exception.AppException;
 import com.viet.sales.exception.ErrorCode;
-import com.viet.sales.repository.ActivityLogRepository;
 import com.viet.sales.repository.BusinessHouseholdRepository;
 import com.viet.sales.repository.UserRepository;
+import com.viet.sales.service.classes.ActivityLogHelper;
 import com.viet.sales.service.classes.HouseholdServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -36,7 +36,7 @@ class HouseholdServiceImplTest {
     private UserRepository userRepository;
 
     @Mock
-    private ActivityLogRepository activityLogRepository;
+    private ActivityLogHelper activityLogHelper;
 
     @Mock
     private ObjectMapper objectMapper;
@@ -79,9 +79,23 @@ class HouseholdServiceImplTest {
     }
 
     @Test
+    @DisplayName("NCL-09-CN-001-TC-04: Lấy thông tin hộ kinh doanh thành công")
+    void getMyHousehold_Success() {
+        when(userRepository.findByUsername("owner")).thenReturn(Optional.of(ownerUser));
+
+        HouseholdResponse response = householdService.getMyHousehold("owner");
+
+        assertNotNull(response);
+        assertEquals("house-001", response.getId());
+        assertEquals("0123456789", response.getTaxCode());
+        assertEquals("Cửa Hàng Việt", response.getName());
+    }
+
+    @Test
     @DisplayName("NCL-09-CN-001-TC-01: Cập nhật thông tin hộ kinh doanh hợp lệ thành công")
     void updateMyHousehold_Success() {
         when(userRepository.findByUsername("owner")).thenReturn(Optional.of(ownerUser));
+        when(householdRepository.existsByTaxCodeAndIdNot("9876543210", "house-001")).thenReturn(false);
         when(householdRepository.save(any(BusinessHousehold.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         UpdateHouseholdRequest request = UpdateHouseholdRequest.builder()
@@ -101,7 +115,7 @@ class HouseholdServiceImplTest {
         assertEquals("0912345678", response.getPhoneNumber());
 
         verify(householdRepository, times(1)).save(any(BusinessHousehold.class));
-        verify(activityLogRepository, times(1)).save(any());
+        verify(activityLogHelper, times(1)).logActivityInNewTransaction(any(), any(), any(), any(), any(), any(), any(), any(), any());
     }
 
     @Test
@@ -121,6 +135,27 @@ class HouseholdServiceImplTest {
         );
 
         assertEquals(ErrorCode.INVALID_TAX_CODE, exception.getErrorCode());
+        verify(householdRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Mã số thuế trùng với hộ kinh doanh khác ném ngoại lệ TAX_CODE_ALREADY_EXISTS")
+    void updateMyHousehold_DuplicateTaxCode_ThrowsException() {
+        when(userRepository.findByUsername("owner")).thenReturn(Optional.of(ownerUser));
+        when(householdRepository.existsByTaxCodeAndIdNot("9876543210", "house-001")).thenReturn(true);
+
+        UpdateHouseholdRequest request = UpdateHouseholdRequest.builder()
+                .name("Cửa Hàng Bán Hàng Việt")
+                .taxCode("9876543210")
+                .address("123 Phố Huế")
+                .phoneNumber("0987654321")
+                .build();
+
+        AppException exception = assertThrows(AppException.class, () ->
+                householdService.updateMyHousehold("owner", request)
+        );
+
+        assertEquals(ErrorCode.TAX_CODE_ALREADY_EXISTS, exception.getErrorCode());
         verify(householdRepository, never()).save(any());
     }
 
