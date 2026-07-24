@@ -30,8 +30,8 @@ import { formatDate, getLocalDateTimeISOString, normalizeDateToYYYYMMDD } from "
 import { getApiErrorMessage } from "@/utils/getApiErrorMessage";
 import { useNotification } from "@/hooks/useNotification";
 import { useAccessibleDialog } from "@/hooks/useAccessibleDialog";
-import { useAppSelector } from "@/hooks/useRedux";
-import { HTTP_STATUS } from "@/constants/api";
+import { useAppDispatch, useAppSelector } from "@/hooks/useRedux";
+import { API_TAG_TYPES, HTTP_STATUS } from "@/constants/api";
 import { isRecord } from "@/utils/typeGuards";
 import { useNavigate } from "react-router-dom";
 import { E_INVOICE_STATUS, E_INVOICE_DEFAULTS } from "@/constants/eInvoice";
@@ -39,6 +39,7 @@ import { useCreateInvoiceDraftMutation, useGetInvoicesQuery } from "@/modules/e_
 import { saveOfflineOrder } from "@/modules/sync/utils/offlineSyncStorage";
 import { SyncStatusBadge } from "@/modules/sync/components/SyncStatusBadge";
 import type { IOfflineOrderRequest } from "@/modules/sync/types/ISync";
+import { customerApi, useUpdateCustomerMutation } from "@/modules/customer/services/customerApi";
 
 interface OrderHistoryTableProps {
   currentRole: string;
@@ -526,6 +527,8 @@ export const OrderHistoryTable: React.FC<OrderHistoryTableProps> = ({
   searchQuery = "",
 }) => {
   const { showSuccess, showError, showInfo, showWarning } = useNotification();
+  const dispatch = useAppDispatch();
+  const [updateCustomer] = useUpdateCustomerMutation();
   const authenticatedUser = useAppSelector((state) => state.auth.user);
   const pendingOrderIdentity = useMemo<IPendingOrderIdentity | null>(
     () =>
@@ -544,6 +547,7 @@ export const OrderHistoryTable: React.FC<OrderHistoryTableProps> = ({
     orders,
     setOrders,
     customers,
+    setCustomers,
     invoices,
     setInvoices,
     addLogEntry,
@@ -693,6 +697,7 @@ export const OrderHistoryTable: React.FC<OrderHistoryTableProps> = ({
   const [paymentMethod, setPaymentMethod] = useState<TOrderPaymentMethod>(
     pendingOrderDraft?.paymentMethod ?? ORDER_PAYMENT_METHOD.CASH,
   );
+  const [isOwnerDebtApproved, setIsOwnerDebtApproved] = useState(false);
   
   // Temp states for adding an item
   const [tempProductId, setTempProductId] = useState("");
@@ -1032,10 +1037,50 @@ export const OrderHistoryTable: React.FC<OrderHistoryTableProps> = ({
       ...currentOrders.filter((order) => order.id !== completedOrder.id),
     ]);
 
+    // Update customer debt if payment method is DEBT and a customer is selected
+    const isDebtPayment = paymentMethod === "DEBT" || completedOrder.paymentMethod === "DEBT";
+    const targetCustomerId = customerId || completedOrder.customerId;
+    if (targetCustomerId && isDebtPayment) {
+      const paid = paidAmountInput || 0;
+      const unpaidBalance = Math.max(0, completedOrder.finalAmount - paid);
+      if (unpaidBalance > 0) {
+        if (typeof setCustomers === "function") {
+          setCustomers((prevCustomers) =>
+            prevCustomers.map((cust) =>
+              cust.id === targetCustomerId
+                ? { ...cust, debt: cust.debt + unpaidBalance }
+                : cust,
+            ),
+          );
+        }
+
+        // Mutation & RTK Query Tag Invalidation for customer debt on backend
+        const targetCust = customers.find((c) => c.id === targetCustomerId);
+        if (targetCust) {
+          updateCustomer({
+            id: targetCust.id,
+            name: targetCust.name,
+            phone: targetCust.phone,
+            email: targetCust.email,
+            address: targetCust.address,
+            creditLimit: targetCust.creditLimit,
+          }).catch(() => {
+            // Fallback for demo state
+          });
+        }
+        dispatch(
+          customerApi.util.invalidateTags([
+            { type: API_TAG_TYPES.CUSTOMER, id: targetCustomerId },
+            { type: API_TAG_TYPES.CUSTOMER, id: "LIST" },
+          ]),
+        );
+      }
+    }
+
     const itemDetails = selectedItems
       .map((item) => `${item.productName} (x${item.quantity})`)
       .join(", ");
-    const selectedCustomer = customers.find((customer) => customer.id === customerId);
+    const selectedCustomer = customers.find((customer) => customer.id === (targetCustomerId || customerId));
     const logDetails = `Khách: ${
       selectedCustomer?.name || "Khách vãng lai"
     } - SP: [${itemDetails}] - Tổng tiền: ${completedOrder.finalAmount.toLocaleString(
@@ -1092,6 +1137,20 @@ export const OrderHistoryTable: React.FC<OrderHistoryTableProps> = ({
     }
     if (paymentMethod === "DEBT" && !customerId) {
       newErrors.paidAmount = "Vui lòng chọn khách hàng cụ thể để ghi nợ";
+    } else if (paymentMethod === "DEBT" && customerId) {
+      const selectedCustomer = customers.find((c) => c.id === customerId);
+      if (selectedCustomer) {
+        const unpaidBalance = Math.max(0, finalAmount - paidAmountInput);
+        const potentialDebt = selectedCustomer.debt + unpaidBalance;
+        if (potentialDebt > selectedCustomer.creditLimit && !isOwnerDebtApproved) {
+          const isOwner = currentRole === USER_ROLES.OWNER || currentRole === "VT-01";
+          if (isOwner) {
+            newErrors.paidAmount = `Khách hàng "${selectedCustomer.name}" sẽ bị vượt hạn mức nợ! Vui lòng tích chọn "Chủ hộ (VT-01) xác nhận cho nợ vượt hạn mức" bên dưới để tiếp tục.`;
+          } else {
+            newErrors.paidAmount = `Khách hàng "${selectedCustomer.name}" sẽ bị vượt hạn mức nợ! (Hạn mức: ${selectedCustomer.creditLimit.toLocaleString("vi-VN")} đ, Dư nợ hiện tại: ${selectedCustomer.debt.toLocaleString("vi-VN")} đ). Vui lòng yêu cầu Chủ hộ (VT-01) xác nhận duyệt vượt hạn mức.`;
+          }
+        }
+      }
     }
 
     if (Object.keys(newErrors).length > 0) {
@@ -1820,7 +1879,7 @@ export const OrderHistoryTable: React.FC<OrderHistoryTableProps> = ({
     <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col gap-4">
       <div className="flex items-center justify-between border-b pb-4 mb-2 flex-wrap gap-3">
         <span className="font-extrabold text-sm text-slate-800">
-          {ORDER_UI.HISTORY.TITLE(filteredOrders.length)}
+          {ORDER_UI.HISTORY.TITLE}
         </span>
 
         {canMutateOrders && (
@@ -2369,6 +2428,39 @@ export const OrderHistoryTable: React.FC<OrderHistoryTableProps> = ({
                       </select>
                     </div>
 
+                    {paymentMethod === "DEBT" && customerId && (() => {
+                      const selectedCustomer = customers.find((c) => c.id === customerId);
+                      if (!selectedCustomer) return null;
+                      const unpaidBalance = Math.max(0, finalAmount - paidAmountInput);
+                      const potentialDebt = selectedCustomer.debt + unpaidBalance;
+                      const isExceeded = potentialDebt > selectedCustomer.creditLimit;
+                      const isOwner = currentRole === USER_ROLES.OWNER || currentRole === "VT-01";
+
+                      if (!isExceeded) return null;
+
+                      return (
+                        <div className="col-span-2 p-3 rounded-xl bg-amber-50 border border-amber-200/80 flex flex-col gap-2 mt-1">
+                          <span className="text-xs font-bold text-amber-800 flex items-center gap-1">
+                            ⚠️ Đơn nợ này khiến khách vượt hạn mức ({formatCurrency(potentialDebt)} đ / {formatCurrency(selectedCustomer.creditLimit)} đ)!
+                          </span>
+                          {isOwner ? (
+                            <label className="flex items-center gap-2 cursor-pointer text-xs font-extrabold text-slate-800 bg-white p-2 rounded-lg border border-amber-300 shadow-sm">
+                              <input
+                                type="checkbox"
+                                checked={isOwnerDebtApproved}
+                                onChange={(e) => setIsOwnerDebtApproved(e.target.checked)}
+                                className="h-4 w-4 text-kv-blue-primary rounded accent-kv-blue-primary cursor-pointer"
+                              />
+                              <span>👑 Chủ hộ (VT-01) xác nhận cho nợ vượt hạn mức</span>
+                            </label>
+                          ) : (
+                            <p className="text-[11px] font-semibold text-rose-600 bg-white p-2 rounded-lg border border-rose-200">
+                              🔒 Bạn không có quyền Chủ hộ (VT-01) để duyệt nợ vượt hạn mức. Vui lòng yêu cầu Chủ hộ phê duyệt.
+                            </p>
+                          )}
+                        </div>
+                      );
+                    })()}
                   </div>
                 </fieldset>
               </div>
