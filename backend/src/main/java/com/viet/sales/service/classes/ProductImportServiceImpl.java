@@ -53,7 +53,7 @@ public class ProductImportServiceImpl implements ProductImportService {
         User currentUser = userRepository.findByUsername(currentUsername)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
 
-        String roleCode = currentUser.getRole().getCode();
+        String roleCode = currentUser.getRole() != null ? currentUser.getRole().getCode() : null;
         if (!"VT-01".equals(roleCode) && !"OWNER".equals(roleCode)) {
             throw new AppException(ErrorCode.FORBIDDEN);
         }
@@ -144,8 +144,12 @@ public class ProductImportServiceImpl implements ProductImportService {
                 if (StringUtils.hasText(taxRateStr)) {
                     try {
                         BigDecimal targetRate = new BigDecimal(taxRateStr.replace("%", "").trim());
+                        if (targetRate.compareTo(BigDecimal.ONE) < 0 && targetRate.compareTo(BigDecimal.ZERO) > 0) {
+                            targetRate = targetRate.multiply(new BigDecimal("100"));
+                        }
+                        final BigDecimal searchRate = targetRate;
                         resolvedTaxRate = activeTaxRates.stream()
-                                .filter(tr -> tr.getRatePercentage().compareTo(targetRate) == 0)
+                                .filter(tr -> tr.getRatePercentage().compareTo(searchRate) == 0)
                                 .findFirst()
                                 .orElse(null);
                         if (resolvedTaxRate == null) {
@@ -232,7 +236,7 @@ public class ProductImportServiceImpl implements ProductImportService {
     }
 
     private boolean isRowEmpty(Row row) {
-        if (row == null) {
+        if (row == null || row.getFirstCellNum() < 0) {
             return true;
         }
         for (int c = row.getFirstCellNum(); c < row.getLastCellNum(); c++) {

@@ -236,5 +236,121 @@ class ProductImportServiceImplTest {
         assertEquals(1, response.getErrorCount());
         assertTrue(response.getErrors().get(0).getErrorMessage().contains("Giá nhập không được là số âm"));
     }
+
+    @Test
+    @DisplayName("NCL-09-FIX-P1-01: Thuế suất dạng % thập phân (0.08) -> Khớp đúng mức thuế 8.00%")
+    void importProducts_PercentageFormattedTaxRate_Success() throws Exception {
+        com.viet.sales.entity.TaxRate sampleTax8Percent = com.viet.sales.entity.TaxRate.builder()
+                .id("tax-008")
+                .name("Thuế 8%")
+                .ratePercentage(new java.math.BigDecimal("8.00"))
+                .isActive(true)
+                .build();
+
+        when(userRepository.findByUsername("owner")).thenReturn(Optional.of(ownerUser));
+        when(taxRateRepository.findByHouseholdIdAndIsActiveTrueOrderByCreatedAtAsc("house-001")).thenReturn(Collections.singletonList(sampleTax8Percent));
+        when(productRepository.findSkusByHouseholdId("house-001")).thenReturn(Collections.emptyList());
+
+        byte[] excelBytes;
+        try (Workbook workbook = new XSSFWorkbook();
+             ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+            Sheet sheet = workbook.createSheet();
+            Row header = sheet.createRow(0);
+            header.createCell(0).setCellValue("Mã SKU");
+            header.createCell(1).setCellValue("Tên hàng hóa");
+            header.createCell(2).setCellValue("Đơn vị tính");
+            header.createCell(4).setCellValue("Giá bán");
+            header.createCell(5).setCellValue("% Thuế suất");
+
+            Row dataRow = sheet.createRow(1);
+            dataRow.createCell(0).setCellValue("SP008");
+            dataRow.createCell(1).setCellValue("Bánh ngọt 8%");
+            dataRow.createCell(2).setCellValue("Cái");
+            dataRow.createCell(4).setCellValue(50000);
+            dataRow.createCell(5).setCellValue("0.08"); // POI percentage read value
+
+            workbook.write(out);
+            excelBytes = out.toByteArray();
+        }
+
+        MockMultipartFile file = new MockMultipartFile("file", "products.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", excelBytes);
+
+        ImportProductResultResponse response = productImportService.importProducts("owner", file);
+
+        assertNotNull(response);
+        assertEquals(1, response.getTotalRows());
+        assertEquals(1, response.getSuccessCount());
+        assertEquals(0, response.getErrorCount());
+    }
+
+    @Test
+    @DisplayName("NCL-09-FIX-P1-02: Dòng rỗng chỉ có style (getFirstCellNum == -1) -> Bỏ qua không văng ngoại lệ")
+    void importProducts_EmptyStyledRow_SkippedWithoutCrash() throws Exception {
+        com.viet.sales.entity.TaxRate sampleTax = com.viet.sales.entity.TaxRate.builder()
+                .id("tax-001")
+                .name("Thuế 1%")
+                .ratePercentage(new java.math.BigDecimal("1.00"))
+                .isActive(true)
+                .build();
+
+        when(userRepository.findByUsername("owner")).thenReturn(Optional.of(ownerUser));
+        when(taxRateRepository.findByHouseholdIdAndIsActiveTrueOrderByCreatedAtAsc("house-001")).thenReturn(Collections.singletonList(sampleTax));
+        when(productRepository.findSkusByHouseholdId("house-001")).thenReturn(Collections.emptyList());
+
+        byte[] excelBytes;
+        try (Workbook workbook = new XSSFWorkbook();
+             ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+            Sheet sheet = workbook.createSheet();
+            Row header = sheet.createRow(0);
+            header.createCell(0).setCellValue("Mã SKU");
+            header.createCell(1).setCellValue("Tên hàng hóa");
+            header.createCell(2).setCellValue("Đơn vị tính");
+            header.createCell(4).setCellValue("Giá bán");
+
+            Row validRow = sheet.createRow(1);
+            validRow.createCell(0).setCellValue("SP001");
+            validRow.createCell(1).setCellValue("Sản phẩm 1");
+            validRow.createCell(2).setCellValue("Hộp");
+            validRow.createCell(4).setCellValue(10000);
+
+            // Empty row (no cells created at all)
+            sheet.createRow(2);
+
+            workbook.write(out);
+            excelBytes = out.toByteArray();
+        }
+
+        MockMultipartFile file = new MockMultipartFile("file", "products.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", excelBytes);
+
+        ImportProductResultResponse response = assertDoesNotThrow(() ->
+                productImportService.importProducts("owner", file)
+        );
+
+        assertNotNull(response);
+        assertEquals(1, response.getTotalRows());
+        assertEquals(1, response.getSuccessCount());
+    }
+
+    @Test
+    @DisplayName("NCL-09-FIX-P1-03: User chưa có Role (role == null) -> Ném ngoại lệ FORBIDDEN thay vì NPE")
+    void importProducts_NullRoleUser_ThrowsForbidden() {
+        User userWithoutRole = User.builder()
+                .id("user-norole")
+                .username("norole")
+                .role(null)
+                .household(household)
+                .build();
+
+        when(userRepository.findByUsername("norole")).thenReturn(Optional.of(userWithoutRole));
+
+        MockMultipartFile file = new MockMultipartFile("file", "products.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", new byte[]{1, 2, 3});
+
+        AppException exception = assertThrows(AppException.class, () ->
+                productImportService.importProducts("norole", file)
+        );
+
+        assertEquals(ErrorCode.FORBIDDEN, exception.getErrorCode());
+    }
 }
+
 
