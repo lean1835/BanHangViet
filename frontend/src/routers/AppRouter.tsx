@@ -45,6 +45,12 @@ const BusinessInfoPage = React.lazy(
 const TaxRateSettingsPage = React.lazy(
   () => import("@/modules/settings/pages/TaxRateSettingsPage")
 );
+const InvoiceTemplatePage = React.lazy(
+  () => import("@/modules/settings/pages/InvoiceTemplatePage")
+);
+const BackupExportPage = React.lazy(
+  () => import("@/modules/settings/pages/BackupExportPage")
+);
 const PlatformAdminWorkspaceLayout = React.lazy(
   () => import("@/modules/platform_admin/pages/PlatformAdminWorkspaceLayout")
 );
@@ -196,7 +202,9 @@ export const AppRouter = () => (
           >
             <Route index element={<Navigate to={ROUTE_SEGMENTS.BUSINESS_INFO} replace />} />
             <Route path={ROUTE_SEGMENTS.BUSINESS_INFO} element={<BusinessInfoPage />} />
+            <Route path={ROUTE_SEGMENTS.INVOICE_TEMPLATE} element={<InvoiceTemplatePage />} />
             <Route path={ROUTE_SEGMENTS.TAX_RATES} element={<TaxRateSettingsPage />} />
+            <Route path={ROUTE_SEGMENTS.BACKUP_EXPORT} element={<BackupExportPage />} />
             <Route path={ROUTE_SEGMENTS.PRINTER} element={<Navigate to={ROUTE_SEGMENTS.BUSINESS_INFO} replace />} />
           </Route>
 

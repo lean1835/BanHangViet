@@ -60,6 +60,9 @@ public class SecurityConfig {
         // Các header được phép gửi lên
         config.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept"));
 
+        // Cho phép browser đọc header Content-Disposition khi tải tệp
+        config.setExposedHeaders(List.of("Content-Disposition"));
+
         // Cho phép gửi cookie/credentials
         config.setAllowCredentials(true);
 
