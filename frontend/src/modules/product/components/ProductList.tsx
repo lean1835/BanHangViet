@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { Search, Plus, Edit, Trash2 } from "lucide-react";
+import { Search, Plus, Edit, Trash2, FileSpreadsheet } from "lucide-react";
+import { ImportProductsModal } from "@/modules/product/components/ImportProductsModal";
 import {
   PRODUCT_FILTER,
   PRODUCT_API_RESPONSE_DEFAULTS,
@@ -58,6 +59,9 @@ export const ProductList: React.FC<ProductListProps> = ({
   // Modal form controls
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<IProduct | null>(null);
+
+  // Import Excel modal controls
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
 
   // Delete modal controls
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -180,6 +184,16 @@ export const ProductList: React.FC<ProductListProps> = ({
 
         {/* Buttons */}
         <div className="flex items-center gap-2 flex-wrap">
+          {isOwner && (
+            <button
+              onClick={() => setIsImportModalOpen(true)}
+              className="flex h-11 items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3.5 text-xs font-bold text-slate-700 shadow-sm transition-all hover:bg-slate-50 lg:h-9"
+            >
+              <FileSpreadsheet size={14} className="text-emerald-600" />
+              Nhập từ file Excel
+            </button>
+          )}
+
           {isOwner ? (
             <button
               onClick={() => {
@@ -442,6 +456,15 @@ export const ProductList: React.FC<ProductListProps> = ({
         </div>,
         document.body
       )}
+
+      {/* Import Products Modal */}
+      <ImportProductsModal
+        isOpen={isImportModalOpen}
+        onClose={() => setIsImportModalOpen(false)}
+        onImportSuccess={() => {
+          refetch();
+        }}
+      />
     </div>
   );
 };
