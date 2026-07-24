@@ -195,6 +195,18 @@ class BackupServiceImplTest {
     }
 
     @Test
+    @DisplayName("NCL-09-CN-006: toDate bị null và fromDate hơn 1 năm trước -> Báo lỗi INVALID_INPUT (400)")
+    void exportBackupData_NullToDateExceedsOneYear_ThrowsInvalidInput() {
+        LocalDate fromDate = LocalDate.now().minusYears(1).minusDays(5);
+
+        AppException exception = assertThrows(AppException.class, () ->
+                backupService.exportBackupData("owner", BackupType.INVOICES, fromDate, null)
+        );
+
+        assertEquals(ErrorCode.INVALID_INPUT, exception.getErrorCode());
+    }
+
+    @Test
     @DisplayName("NCL-09-CN-006-TC-01: Chủ hộ chọn xuất hóa đơn -> Tạo tệp `.xlsx` sao lưu hóa đơn thành công")
     void exportBackupData_Invoices_Success() throws Exception {
         when(userRepository.findByUsername("owner")).thenReturn(Optional.of(ownerUser));

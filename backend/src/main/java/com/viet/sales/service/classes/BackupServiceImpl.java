@@ -45,10 +45,11 @@ public class BackupServiceImpl implements BackupService {
     @Override
     @Transactional(readOnly = true)
     public ResponseEntity<Resource> exportBackupData(String currentUsername, BackupType type, LocalDate fromDate, LocalDate toDate) {
-        if (fromDate != null && toDate != null) {
-            if (fromDate.isAfter(toDate) || fromDate.plusYears(1).isBefore(toDate)) {
-                throw new AppException(ErrorCode.INVALID_INPUT);
-            }
+        LocalDate effectiveToDate = toDate != null ? toDate : LocalDate.now();
+        LocalDate effectiveFromDate = fromDate != null ? fromDate : effectiveToDate.minusYears(1);
+
+        if (effectiveFromDate.isAfter(effectiveToDate) || effectiveFromDate.plusYears(1).isBefore(effectiveToDate)) {
+            throw new AppException(ErrorCode.INVALID_INPUT);
         }
 
         User currentUser = userRepository.findByUsername(currentUsername)
@@ -68,7 +69,7 @@ public class BackupServiceImpl implements BackupService {
         }
 
         String householdId = currentUser.getHousehold().getId();
-        String dateStr = formatDateRangeStr(fromDate, toDate);
+        String dateStr = formatDateRangeStr(effectiveFromDate, effectiveToDate);
 
         if (type == BackupType.PRODUCTS) {
             List<Product> products = productRepository.findAll(ProductSpecification.filterProducts(householdId, null, null, null, null, null));
@@ -80,7 +81,7 @@ public class BackupServiceImpl implements BackupService {
             return createDownloadResponse(excelData, filename, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
 
         } else if (type == BackupType.INVOICES) {
-            List<EInvoice> invoices = eInvoiceRepository.findAll(EInvoiceSpecification.filterInvoices(householdId, null, fromDate, toDate, null, null));
+            List<EInvoice> invoices = eInvoiceRepository.findAll(EInvoiceSpecification.filterInvoices(householdId, null, effectiveFromDate, effectiveToDate, null, null));
             if (invoices.isEmpty()) {
                 throw new AppException(ErrorCode.NO_DATA_TO_EXPORT);
             }
@@ -90,7 +91,7 @@ public class BackupServiceImpl implements BackupService {
 
         } else if (type == BackupType.FULL) {
             List<Product> products = productRepository.findAll(ProductSpecification.filterProducts(householdId, null, null, null, null, null));
-            List<EInvoice> invoices = eInvoiceRepository.findAll(EInvoiceSpecification.filterInvoices(householdId, null, fromDate, toDate, null, null));
+            List<EInvoice> invoices = eInvoiceRepository.findAll(EInvoiceSpecification.filterInvoices(householdId, null, effectiveFromDate, effectiveToDate, null, null));
 
             if (products.isEmpty() && invoices.isEmpty()) {
                 throw new AppException(ErrorCode.NO_DATA_TO_EXPORT);
