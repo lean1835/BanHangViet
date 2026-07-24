@@ -381,6 +381,39 @@ export const productApi = baseApi.injectEndpoints({
         { type: API_TAG_TYPES.PRODUCT, id },
       ],
     }),
+    importProducts: builder.mutation<
+      {
+        totalRows: number;
+        successCount: number;
+        errorCount: number;
+        errors: Array<{
+          rowNumber: number;
+          productName: string;
+          errorMessage: string;
+        }>;
+      },
+      File
+    >({
+      query: (file) => {
+        const formData = new FormData();
+        formData.append("file", file);
+        return {
+          url: "/products/import",
+          method: HTTP_METHODS.POST,
+          body: formData,
+        };
+      },
+      transformResponse: (response: unknown) => {
+        const result = readResult(response) as any;
+        return {
+          totalRows: result?.totalRows || 0,
+          successCount: result?.successCount || 0,
+          errorCount: result?.errorCount || 0,
+          errors: Array.isArray(result?.errors) ? result.errors : [],
+        };
+      },
+      invalidatesTags: [{ type: API_TAG_TYPES.PRODUCT, id: PRODUCT_API_TAG_IDS.LIST }],
+    }),
   }),
   overrideExisting: API_CONFIG.OVERRIDE_EXISTING_ENDPOINTS,
 });
@@ -397,4 +430,5 @@ export const {
   useGetGoodsReceiptsQuery,
   useCreateGoodsReceiptMutation,
   useGetGoodsReceiptByIdQuery,
+  useImportProductsMutation,
 } = productApi;

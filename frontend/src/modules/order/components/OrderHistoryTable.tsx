@@ -734,6 +734,10 @@ export const OrderHistoryTable: React.FC<OrderHistoryTableProps> = ({
   const totalPreTaxAmount = selectedItems.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
   const totalTaxAmount = selectedItems.reduce((sum, item) => sum + Math.round((item.unitPrice * item.quantity * (item.taxRatePercentage || 0)) / 100), 0);
   const totalAmount = totalPreTaxAmount + totalTaxAmount;
+  const effectiveVatRate = totalPreTaxAmount > 0 ? (totalTaxAmount / totalPreTaxAmount) * 100 : 0;
+  const formattedVatRate = effectiveVatRate > 0
+    ? (effectiveVatRate % 1 === 0 ? `${effectiveVatRate.toFixed(0)}%` : `${effectiveVatRate.toFixed(1)}%`)
+    : "0%";
   
   const discountAmountInput = discountType === "VALUE"
     ? discountValueInput
@@ -2377,7 +2381,7 @@ export const OrderHistoryTable: React.FC<OrderHistoryTableProps> = ({
                         <span>{formatCurrency(totalPreTaxAmount)}</span>
                       </div>
                       <div className="flex justify-between items-center text-[10px] text-slate-500 font-semibold">
-                        <span>Thuế VAT:</span>
+                        <span>Thuế VAT ({formattedVatRate}):</span>
                         <span className="text-slate-600">+{formatCurrency(totalTaxAmount)}</span>
                       </div>
                       {discountAmountInput > 0 && (
@@ -2741,7 +2745,9 @@ export const OrderHistoryTable: React.FC<OrderHistoryTableProps> = ({
                     </div>
                     {orderTotalTax > 0 && (
                       <div className="flex justify-between text-amber-700">
-                        <span className="font-semibold">Tổng thuế GTGT (+):</span>
+                        <span className="font-semibold">
+                          Tổng thuế GTGT ({orderRawTotal > 0 ? `${((orderTotalTax / orderRawTotal) * 100) % 1 === 0 ? ((orderTotalTax / orderRawTotal) * 100).toFixed(0) : ((orderTotalTax / orderRawTotal) * 100).toFixed(1)}%` : "0%"}) (+):
+                        </span>
                         <span className="font-bold">+{formatCurrency(orderTotalTax)}</span>
                       </div>
                     )}

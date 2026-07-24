@@ -2,6 +2,8 @@ import React, { useState } from "react";
 import { useDashboardDemo } from "@/providers/DashboardDemoProvider";
 import { USER_ROLES, ROLE_LABELS } from "@/constants/roles";
 import { useNotification } from "@/hooks/useNotification";
+import { STORAGE_KEYS } from "@/constants/app";
+import { getApiErrorMessage } from "@/utils/getApiErrorMessage";
 import { Download, Database, ShieldAlert, CheckCircle2, Loader2, Calendar } from "lucide-react";
 
 export const BackupExportPanel: React.FC = () => {
@@ -13,7 +15,6 @@ export const BackupExportPanel: React.FC = () => {
     products: true,
     orders: true,
     invoices: true,
-    logs: false,
   });
   const [isExporting, setIsExporting] = useState(false);
 
@@ -34,7 +35,7 @@ export const BackupExportPanel: React.FC = () => {
     );
   }
 
-  const handleExport = () => {
+  const handleExport = async () => {
     const selectedScopes = Object.entries(scopes)
       .filter(([, val]) => val)
       .map(([key]) => key);
@@ -44,28 +45,88 @@ export const BackupExportPanel: React.FC = () => {
       return;
     }
 
-    setIsExporting(true);
-    setTimeout(() => {
-      setIsExporting(false);
-      showSuccess("Tạo tệp sao lưu thành công! Tệp tin đang được tải xuống.");
-      addLogEntry("XUẤT_SAO_LƯU_DỮ_LIỆU", `Phạm vi: ${selectedScopes.join(", ")}`);
+    // Map scope selection to Backend BackupType
+    let type = "FULL";
+    if (scopes.products && !scopes.invoices && !scopes.orders) {
+      type = "PRODUCTS";
+    } else if (scopes.invoices && !scopes.products && !scopes.orders) {
+      type = "INVOICES";
+    }
 
-      // Simulate downloading a mock json backup file
-      const backupData = {
-        exportedAt: new Date().toISOString(),
-        household: "BÁN HÀNG VIỆT",
-        scope: selectedScopes,
-        dataVersion: "1.0",
-      };
-      const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: "application/json" });
-      const url = URL.createObjectURL(blob);
+    // Calculate fromDate and toDate
+    const now = new Date();
+    let fromDateStr: string | undefined;
+    let toDateStr: string | undefined = now.toISOString().split("T")[0];
+
+    if (dateRange === "TODAY") {
+      fromDateStr = toDateStr;
+    } else if (dateRange === "THIS_MONTH") {
+      const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+      fromDateStr = firstDay.toISOString().split("T")[0];
+    } else if (dateRange === "LAST_3_MONTHS") {
+      const threeMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 3, 1);
+      fromDateStr = threeMonthsAgo.toISOString().split("T")[0];
+    } else {
+      // ALL
+      fromDateStr = undefined;
+      toDateStr = undefined;
+    }
+
+    setIsExporting(true);
+
+    try {
+      const token = localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
+      const queryParams = new URLSearchParams({ type });
+      if (fromDateStr) queryParams.append("fromDate", fromDateStr);
+      if (toDateStr) queryParams.append("toDate", toDateStr);
+
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL}/backup/export?${queryParams.toString()}`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`HTTP Error ${response.status}`);
+      }
+
+      const blob = await response.blob();
+      const contentDisposition = response.headers.get("content-disposition");
+      const defaultExt = type === "FULL" ? "zip" : "xlsx";
+      let filename = `BanHangViet_Backup_${type}_${now.toISOString().split("T")[0]}.${defaultExt}`;
+
+      if (contentDisposition) {
+        const match = contentDisposition.match(/filename="?([^"]+)"?/);
+        if (match && match[1]) filename = match[1];
+      }
+
+      const url = window.URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = `BanHangViet_Backup_${new Date().toISOString().split("T")[0]}.json`;
+      link.download = filename;
+      document.body.appendChild(link);
       link.click();
-      URL.revokeObjectURL(url);
-    }, 1500);
+      link.remove();
+      window.URL.revokeObjectURL(url);
+
+      showSuccess("Tạo tệp sao lưu thành công! Tệp tin đang được tải xuống.");
+      addLogEntry("XUẤT_SAO_LƯU_DỮ_LIỆU", `Phạm vi: ${type} (${dateRange})`);
+    } catch (err: unknown) {
+      const errMsg = getApiErrorMessage(
+        err,
+        "Không thể tải tệp sao lưu từ máy chủ. Vui lòng thử lại sau!"
+      );
+      showError(errMsg);
+    } finally {
+      setIsExporting(false);
+    }
   };
+
+  const isZipExport = (scopes.products && (scopes.invoices || scopes.orders)) || (scopes.invoices && scopes.orders);
 
   return (
     <div className="grid grid-cols-1 gap-6 w-full">
@@ -129,7 +190,7 @@ export const BackupExportPanel: React.FC = () => {
                 <span className="font-bold">Lịch sử Đơn bán hàng (Orders)</span>
               </label>
 
-              <label className="flex items-center gap-2.5 cursor-pointer">
+              <label className="flex items-center gap-2.5 cursor-pointer sm:col-span-2">
                 <input
                   type="checkbox"
                   checked={scopes.invoices}
@@ -138,23 +199,15 @@ export const BackupExportPanel: React.FC = () => {
                 />
                 <span className="font-bold">Danh sách Hóa đơn thuế GTGT</span>
               </label>
-
-              <label className="flex items-center gap-2.5 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={scopes.logs}
-                  onChange={(e) => setScopes({ ...scopes, logs: e.target.checked })}
-                  className="rounded border-slate-300 text-kv-blue-primary focus:ring-kv-blue-primary w-4 h-4"
-                />
-                <span className="font-bold">Nhật ký thao tác hệ thống (Audit Logs)</span>
-              </label>
             </div>
           </div>
 
           <div className="bg-amber-50 border border-amber-100 rounded-xl p-3.5 flex gap-2.5 text-amber-800 text-xs">
             <CheckCircle2 className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
             <span className="font-semibold leading-relaxed">
-              Tệp sao lưu mã hóa định dạng chuẩn giúp bạn dễ dàng lưu trữ độc lập hoặc đối chiếu sổ sách kinh doanh bất kỳ lúc nào.
+              {isZipExport
+                ? "Tệp sao lưu nén (.zip) chứa 2 bản Excel (.xlsx) độc lập được xuất trực tiếp từ CSDL giúp bạn lưu trữ hoặc đối chiếu sổ sách kinh doanh."
+                : "Tệp sao lưu Excel (.xlsx) định dạng chuẩn được xuất trực tiếp từ CSDL giúp bạn lưu trữ độc lập hoặc đối chiếu sổ sách kinh doanh."}
             </span>
           </div>
 
@@ -166,11 +219,11 @@ export const BackupExportPanel: React.FC = () => {
             >
               {isExporting ? (
                 <>
-                  <Loader2 className="w-4 h-4 animate-spin" /> Đang khởi tạo tệp sao lưu...
+                  <Loader2 className="w-4 h-4 animate-spin" /> Đang tạo tệp sao lưu từ máy chủ...
                 </>
               ) : (
                 <>
-                  <Download className="w-4 h-4" /> Tải về tệp sao lưu
+                  <Download className="w-4 h-4" /> Tải về tệp sao lưu ({isZipExport ? ".zip" : ".xlsx"})
                 </>
               )}
             </button>

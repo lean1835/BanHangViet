@@ -1,35 +1,98 @@
-import React, { useState } from "react";
+import React, { useEffect } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import {
+  invoiceTemplateSchema,
+  type TInvoiceTemplateFormData,
+} from "../schemas/settingsSchemas";
+import {
+  useGetInvoiceTemplateQuery,
+  useUpdateInvoiceTemplateMutation,
+} from "../services/settingsApi";
 import { useNotification } from "@/hooks/useNotification";
 import { useDashboardDemo } from "@/providers/DashboardDemoProvider";
-import { Save, FileText, Eye, CheckCircle2 } from "lucide-react";
+import { getApiErrorMessage } from "@/utils/getApiErrorMessage";
+import { Save, FileText, Eye, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
 
 export const InvoiceTemplatePanel: React.FC = () => {
-  const { showSuccess } = useNotification();
+  const { showSuccess, showError } = useNotification();
   const { addLogEntry } = useDashboardDemo();
 
-  const [template, setTemplate] = useState(() => {
-    const saved = localStorage.getItem("invoice_template_config");
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch {
-        // fallback
-      }
-    }
-    return {
-      templateCode: "1C26TAA",
-      serialNumber: "1",
+  // API Queries & Mutations
+  const { data: response, isLoading: isFetching, isError: isFetchError } = useGetInvoiceTemplateQuery();
+  const [updateTemplate, { isLoading: isUpdating }] = useUpdateInvoiceTemplateMutation();
+
+  const template = response?.result;
+
+  const {
+    register,
+    handleSubmit,
+    reset,
+    watch,
+    formState: { errors },
+  } = useForm<TInvoiceTemplateFormData>({
+    resolver: zodResolver(invoiceTemplateSchema),
+    defaultValues: {
+      invoicePattern: "1",
+      invoiceSymbol: "1C26TAA",
       title: "HÓA ĐƠN GIÁ TRỊ GIA TĂNG",
       footerNote: "Cảm ơn quý khách đã mua hàng! Hóa đơn điện tử khởi tạo từ máy tính tiền có mã của CQT.",
-    };
+    },
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    localStorage.setItem("invoice_template_config", JSON.stringify(template));
-    showSuccess("Lưu thiết lập mẫu hóa đơn thành công và đã áp dụng cho tất cả hóa đơn mới!");
-    addLogEntry("CẬP_NHẬT_MẪU_HÓA_ĐƠN", `Mẫu ${template.templateCode}`);
+  // Watch form fields to drive real-time live preview
+  const watchedValues = watch();
+
+  useEffect(() => {
+    if (template) {
+      reset({
+        invoicePattern: template.invoicePattern || "1",
+        invoiceSymbol: template.invoiceSymbol || "1C26TAA",
+        title: template.title || "HÓA ĐƠN GIÁ TRỊ GIA TĂNG",
+        footerNote: template.footerNote || "",
+      });
+    }
+  }, [template, reset]);
+
+  const onSubmit = async (data: TInvoiceTemplateFormData) => {
+    try {
+      await updateTemplate({
+        invoicePattern: data.invoicePattern,
+        invoiceSymbol: data.invoiceSymbol,
+        title: data.title,
+        footerNote: data.footerNote || undefined,
+      }).unwrap();
+
+      showSuccess("Lưu thiết lập mẫu hóa đơn thành công và đã áp dụng cho tất cả hóa đơn mới!");
+      addLogEntry("CẬP_NHẬT_MẪU_HÓA_ĐƠN", `Mẫu ${data.invoiceSymbol}`);
+    } catch (err: unknown) {
+      const errMsg = getApiErrorMessage(
+        err,
+        "Lưu thiết lập mẫu hóa đơn thất bại. Vui lòng kiểm tra lại các trường!"
+      );
+      showError(errMsg);
+    }
   };
+
+  if (isFetching) {
+    return (
+      <div className="bg-white p-12 rounded-xl border border-slate-200 shadow-sm flex flex-col items-center justify-center text-slate-500 gap-3">
+        <Loader2 className="w-8 h-8 text-kv-blue-primary animate-spin" />
+        <span className="text-xs font-bold">Đang tải cấu hình mẫu hóa đơn từ máy chủ...</span>
+      </div>
+    );
+  }
+
+  if (isFetchError) {
+    return (
+      <div className="bg-rose-50 p-6 rounded-xl border border-rose-200 text-rose-700 flex items-center gap-3">
+        <AlertCircle className="w-6 h-6 shrink-0" />
+        <span className="text-xs font-bold">
+          Không thể kết nối máy chủ để lấy mẫu hóa đơn. Vui lòng thử lại sau.
+        </span>
+      </div>
+    );
+  }
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -49,7 +112,7 @@ export const InvoiceTemplatePanel: React.FC = () => {
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="flex flex-col gap-1.5">
               <label className="text-xs font-bold text-slate-700">
@@ -57,25 +120,36 @@ export const InvoiceTemplatePanel: React.FC = () => {
               </label>
               <input
                 type="text"
-                value={template.templateCode}
-                onChange={(e) => setTemplate({ ...template, templateCode: e.target.value })}
-                className="border border-slate-300 h-10 px-3 rounded-lg focus:outline-none focus:border-kv-blue-primary text-xs font-bold text-slate-800 uppercase font-mono"
+                {...register("invoiceSymbol")}
+                className={`border ${
+                  errors.invoiceSymbol ? "border-rose-500" : "border-slate-300"
+                } h-10 px-3 rounded-lg focus:outline-none focus:border-kv-blue-primary text-xs font-bold text-slate-800 uppercase font-mono`}
                 placeholder="VD: 1C26TAA"
-                required
               />
+              {errors.invoiceSymbol && (
+                <span className="text-[11px] font-bold text-rose-500 flex items-center gap-1 mt-0.5">
+                  <AlertCircle className="w-3 h-3 shrink-0" /> {errors.invoiceSymbol.message}
+                </span>
+              )}
             </div>
+
             <div className="flex flex-col gap-1.5">
               <label className="text-xs font-bold text-slate-700">
                 Mẫu số hóa đơn <span className="text-rose-500">*</span>
               </label>
               <input
                 type="text"
-                value={template.serialNumber}
-                onChange={(e) => setTemplate({ ...template, serialNumber: e.target.value })}
-                className="border border-slate-300 h-10 px-3 rounded-lg focus:outline-none focus:border-kv-blue-primary text-xs font-bold text-slate-800"
+                {...register("invoicePattern")}
+                className={`border ${
+                  errors.invoicePattern ? "border-rose-500" : "border-slate-300"
+                } h-10 px-3 rounded-lg focus:outline-none focus:border-kv-blue-primary text-xs font-bold text-slate-800`}
                 placeholder="VD: 1"
-                required
               />
+              {errors.invoicePattern && (
+                <span className="text-[11px] font-bold text-rose-500 flex items-center gap-1 mt-0.5">
+                  <AlertCircle className="w-3 h-3 shrink-0" /> {errors.invoicePattern.message}
+                </span>
+              )}
             </div>
           </div>
 
@@ -85,12 +159,17 @@ export const InvoiceTemplatePanel: React.FC = () => {
             </label>
             <input
               type="text"
-              value={template.title}
-              onChange={(e) => setTemplate({ ...template, title: e.target.value })}
-              className="border border-slate-300 h-10 px-3 rounded-lg focus:outline-none focus:border-kv-blue-primary text-xs font-bold text-slate-800 uppercase"
+              {...register("title")}
+              className={`border ${
+                errors.title ? "border-rose-500" : "border-slate-300"
+              } h-10 px-3 rounded-lg focus:outline-none focus:border-kv-blue-primary text-xs font-bold text-slate-800 uppercase`}
               placeholder="VD: HÓA ĐƠN GIÁ TRỊ GIA TĂNG"
-              required
             />
+            {errors.title && (
+              <span className="text-[11px] font-bold text-rose-500 flex items-center gap-1 mt-0.5">
+                <AlertCircle className="w-3 h-3 shrink-0" /> {errors.title.message}
+              </span>
+            )}
           </div>
 
           <div className="flex flex-col gap-1.5">
@@ -99,11 +178,15 @@ export const InvoiceTemplatePanel: React.FC = () => {
             </label>
             <textarea
               rows={3}
-              value={template.footerNote}
-              onChange={(e) => setTemplate({ ...template, footerNote: e.target.value })}
+              {...register("footerNote")}
               className="border border-slate-300 p-3 rounded-lg focus:outline-none focus:border-kv-blue-primary text-xs font-medium text-slate-800"
               placeholder="Nhập lời cảm ơn hoặc ghi chú chân trang..."
             />
+            {errors.footerNote && (
+              <span className="text-[11px] font-bold text-rose-500 flex items-center gap-1 mt-0.5">
+                <AlertCircle className="w-3 h-3 shrink-0" /> {errors.footerNote.message}
+              </span>
+            )}
           </div>
 
           <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-3.5 flex gap-2.5 text-emerald-800 text-xs mt-1">
@@ -116,10 +199,18 @@ export const InvoiceTemplatePanel: React.FC = () => {
           <div className="flex justify-end pt-2">
             <button
               type="submit"
-              className="bg-kv-blue-primary hover:bg-kv-blue-dark text-white font-bold px-6 h-10 rounded-lg transition-colors flex items-center gap-2 text-xs shadow-sm"
+              disabled={isUpdating}
+              className="bg-kv-blue-primary hover:bg-kv-blue-dark text-white font-bold px-6 h-10 rounded-lg transition-colors flex items-center gap-2 text-xs shadow-sm disabled:opacity-50"
             >
-              <Save className="w-4 h-4" />
-              Lưu thiết lập mẫu hóa đơn
+              {isUpdating ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" /> Đang lưu...
+                </>
+              ) : (
+                <>
+                  <Save className="w-4 h-4" /> Lưu thiết lập mẫu hóa đơn
+                </>
+              )}
             </button>
           </div>
         </form>
@@ -138,14 +229,14 @@ export const InvoiceTemplatePanel: React.FC = () => {
         <div className="bg-white p-5 rounded-lg border border-slate-200 shadow-md font-sans flex flex-col gap-4 text-[11px] text-slate-700">
           <div className="text-center border-b border-slate-200 pb-3">
             <h2 className="text-base font-black text-blue-900 uppercase tracking-tight">
-              {template.title || "HÓA ĐƠN GIÁ TRỊ GIA TĂNG"}
+              {watchedValues.title || "HÓA ĐƠN GIÁ TRỊ GIA TĂNG"}
             </h2>
             <p className="text-[10px] text-slate-400 font-bold mt-0.5">
               (Khởi tạo từ máy tính tiền)
             </p>
             <div className="flex justify-center gap-4 mt-2 text-[10px] text-slate-500 font-semibold">
-              <span>Ký hiệu: <strong className="text-slate-800 font-mono">{template.templateCode}</strong></span>
-              <span>Mẫu số: <strong className="text-slate-800 font-mono">{template.serialNumber}</strong></span>
+              <span>Ký hiệu: <strong className="text-slate-800 font-mono">{watchedValues.invoiceSymbol || "1C26TAA"}</strong></span>
+              <span>Mẫu số: <strong className="text-slate-800 font-mono">{watchedValues.invoicePattern || "1"}</strong></span>
             </div>
           </div>
 
@@ -194,7 +285,7 @@ export const InvoiceTemplatePanel: React.FC = () => {
           </div>
 
           <div className="border-t border-dashed border-slate-200 pt-3 text-center text-[10px] text-slate-500 italic">
-            {template.footerNote || "Cảm ơn quý khách!"}
+            {watchedValues.footerNote || "Cảm ơn quý khách!"}
           </div>
         </div>
       </div>

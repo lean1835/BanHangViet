@@ -1,27 +1,35 @@
 import React, { useState } from "react";
+import { useForm, type SubmitHandler } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import {
+  taxRateSchema,
+  type TTaxRateFormData,
+} from "../schemas/settingsSchemas";
+import {
+  useGetAllTaxRatesQuery,
+  useCreateTaxRateMutation,
+  useUpdateTaxRateStatusMutation,
+} from "../services/settingsApi";
 import { SETTINGS_UI } from "@/constants/settings";
-import { MOCK_TAX_RATES } from "@/constants/mockData/settings";
 import { useNotification } from "@/hooks/useNotification";
 import { useDashboardDemo } from "@/providers/DashboardDemoProvider";
-import { Plus, Percent, CheckCircle2, XCircle, AlertCircle, X, BookOpen } from "lucide-react";
-
-interface TaxRateItem {
-  code: string;
-  description: string;
-  vatRateLabel: string;
-  vatRateValue: number;
-  personalIncomeTaxRateLabel: string;
-  personalIncomeTaxRateValue: number;
-  status: "ACTIVE" | "INACTIVE";
-}
+import { getApiErrorMessage } from "@/utils/getApiErrorMessage";
+import {
+  Plus,
+  Percent,
+  CheckCircle2,
+  XCircle,
+  AlertCircle,
+  X,
+  BookOpen,
+  Loader2,
+} from "lucide-react";
 
 interface TaxSectorPreset {
   id: string;
   label: string;
-  codePrefix: string;
+  name: string;
   vatRate: number;
-  pitRate: number;
-  description: string;
 }
 
 // Khung thuế suất chuẩn đối với Hộ kinh doanh theo Thông tư 40/2021/TT-BTC
@@ -29,206 +37,148 @@ const TAX_SECTOR_PRESETS: TaxSectorPreset[] = [
   {
     id: "DISTRIBUTION",
     label: "Phân phối, cung cấp hàng hóa (GTGT 1.0% - TNCN 0.5%)",
-    codePrefix: "VAT-01",
+    name: "VAT-01 (Phân phối, cung cấp hàng hóa)",
     vatRate: 1.0,
-    pitRate: 0.5,
-    description: "Ngành bán buôn, bán lẻ hàng hóa thông thường",
   },
   {
     id: "SERVICES",
     label: "Dịch vụ, ăn uống, thi công không bao thầu (GTGT 5.0% - TNCN 2.0%)",
-    codePrefix: "VAT-05",
+    name: "VAT-05 (Dịch vụ, ăn uống, thi công)",
     vatRate: 5.0,
-    pitRate: 2.0,
-    description: "Ngành dịch vụ, ăn uống, thi công xây dựng không bao thầu NVL",
   },
   {
     id: "PRODUCTION",
     label: "Sản xuất, vận tải, dịch vụ gắn hàng hóa (GTGT 3.0% - TNCN 1.5%)",
-    codePrefix: "VAT-03",
+    name: "VAT-03 (Sản xuất, vận tải, dịch vụ hàng hóa)",
     vatRate: 3.0,
-    pitRate: 1.5,
-    description: "Ngành sản xuất, vận tải, dịch vụ có gắn với hàng hóa",
   },
   {
     id: "OTHER",
     label: "Hoạt động kinh doanh khác (GTGT 2.0% - TNCN 1.0%)",
-    codePrefix: "VAT-02",
+    name: "VAT-02 (Hoạt động kinh doanh khác)",
     vatRate: 2.0,
-    pitRate: 1.0,
-    description: "Hoạt động kinh doanh khác",
   },
   {
     id: "EXEMPT",
     label: "Không chịu thuế / Miễn thuế (GTGT 0.0% - TNCN 0.0%)",
-    codePrefix: "VAT-00",
+    name: "VAT-00 (Miễn thuế / Không chịu thuế)",
     vatRate: 0.0,
-    pitRate: 0.0,
-    description: "Hàng hóa, dịch vụ không thuộc diện chịu thuế",
   },
 ];
 
-// Hàm tự động tra % Thuế TNCN tương ứng theo tỷ lệ % GTGT nhập vào theo luật thuế HKD
-const getAutoPitFromVat = (vat: number): number => {
-  if (vat === 1.0) return 0.5;
-  if (vat === 3.0) return 1.5;
-  if (vat === 5.0) return 2.0;
-  if (vat === 2.0) return 1.0;
-  if (vat === 0.0) return 0.0;
-  // Trường hợp nhập % GTGT khác: tự tính ước lệ theo tỷ lệ chuẩn
-  return Math.round(vat * 0.4 * 10) / 10;
-};
-
 export const TaxRateSettings: React.FC = () => {
-  const { showSuccess } = useNotification();
+  const { showSuccess, showError } = useNotification();
   const { addLogEntry } = useDashboardDemo();
 
-  // Dynamic tax rates list
-  const [taxRates, setTaxRates] = useState<TaxRateItem[]>(() => {
-    const saved = localStorage.getItem("tax_rates_list");
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch {
-        // fallback
-      }
-    }
-    return MOCK_TAX_RATES.map((item) => ({
-      code: item.code,
-      description: item.description,
-      vatRateLabel: item.vatRateLabel,
-      vatRateValue: parseFloat(item.vatRateLabel.replace("%", "")) || 0,
-      personalIncomeTaxRateLabel: item.personalIncomeTaxRateLabel,
-      personalIncomeTaxRateValue: parseFloat(item.personalIncomeTaxRateLabel.replace("%", "")) || 0,
-      status: "ACTIVE" as const,
-    }));
-  });
+  // API Query & Mutations
+  const {
+    data: response,
+    isLoading: isFetching,
+    isError: isFetchError,
+  } = useGetAllTaxRatesQuery();
+  const [createTaxRate, { isLoading: isCreating }] = useCreateTaxRateMutation();
+  const [updateTaxRateStatus] = useUpdateTaxRateStatusMutation();
+
+  const taxRates = response?.result || [];
 
   // Modal State
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedPresetId, setSelectedPresetId] = useState<string>("");
-  const [newCode, setNewCode] = useState("");
-  const [newDesc, setNewDesc] = useState("");
-  const [newVat, setNewVat] = useState<number | "">(0);
-  const [newPit, setNewPit] = useState<number | "">(0);
-  const [isPitManuallyEdited, setIsPitManuallyEdited] = useState(false);
-  const [formError, setFormError] = useState("");
 
-  const saveTaxRatesToStorage = (updated: TaxRateItem[]) => {
-    setTaxRates(updated);
-    localStorage.setItem("tax_rates_list", JSON.stringify(updated));
-  };
+  const {
+    register,
+    handleSubmit,
+    setValue,
+    reset,
+    formState: { errors },
+  } = useForm<TTaxRateFormData>({
+    resolver: zodResolver(taxRateSchema),
+    defaultValues: {
+      name: "",
+      ratePercentage: 0,
+      isActive: true,
+    },
+  });
 
-  const handleToggleStatus = (code: string) => {
-    const updated = taxRates.map((item) => {
-      if (item.code === code) {
-        const nextStatus = item.status === "ACTIVE" ? ("INACTIVE" as const) : ("ACTIVE" as const);
-        showSuccess(`Đã thay đổi trạng thái thuế suất ${item.code} sang ${nextStatus === "ACTIVE" ? "Áp dụng" : "Ngừng áp dụng"}`);
-        addLogEntry("CẬP_NHẬT_THUẾ_SUẤT", `${item.code} (${nextStatus})`);
-        return { ...item, status: nextStatus };
-      }
-      return item;
-    });
-    saveTaxRatesToStorage(updated);
-  };
-
-  // Chọn mẫu thuế suất kinh doanh chuẩn từ Dropdown
+  // Select standard tax rate preset (Thông tư 40/2021/TT-BTC)
   const handleSelectPreset = (presetId: string) => {
     setSelectedPresetId(presetId);
-    setFormError("");
     const preset = TAX_SECTOR_PRESETS.find((p) => p.id === presetId);
     if (preset) {
-      setNewCode(preset.codePrefix);
-      setNewDesc(preset.description);
-      setNewVat(preset.vatRate);
-      setNewPit(preset.pitRate);
-      setIsPitManuallyEdited(false);
+      setValue("name", preset.name, { shouldValidate: true });
+      setValue("ratePercentage", preset.vatRate, { shouldValidate: true });
     }
   };
 
-  // Cập nhật % GTGT và tự động nhảy % TNCN
-  const handleVatChange = (valStr: string) => {
-    setFormError("");
-    if (valStr === "") {
-      setNewVat("");
-      if (!isPitManuallyEdited) {
-        setNewPit("");
-      }
-      return;
-    }
-    const vatVal = parseFloat(valStr);
-    setNewVat(isNaN(vatVal) ? "" : vatVal);
+  const onSubmit: SubmitHandler<TTaxRateFormData> = async (data) => {
+    try {
+      await createTaxRate({
+        name: data.name,
+        ratePercentage: data.ratePercentage,
+        isActive: data.isActive,
+      }).unwrap();
 
-    if (!isPitManuallyEdited && !isNaN(vatVal)) {
-      setNewPit(getAutoPitFromVat(vatVal));
-    }
-  };
+      showSuccess(`Thêm mới mức thuế suất "${data.name}" thành công!`);
+      addLogEntry("THÊM_THUẾ_SUẤT", `${data.name} (${data.ratePercentage}%)`);
 
-  // Người dùng tự đè % Thuế TNCN
-  const handlePitChange = (valStr: string) => {
-    setFormError("");
-    setIsPitManuallyEdited(true);
-    if (valStr === "") {
-      setNewPit("");
-    } else {
-      const pitVal = parseFloat(valStr);
-      setNewPit(isNaN(pitVal) ? "" : pitVal);
+      reset();
+      setSelectedPresetId("");
+      setShowAddModal(false);
+    } catch (err: unknown) {
+      const errMsg = getApiErrorMessage(
+        err,
+        "Thêm mới mức thuế suất thất bại. Vui lòng kiểm tra lại!"
+      );
+      showError(errMsg);
     }
   };
 
-  const handleAddTaxRate = (e: React.FormEvent) => {
-    e.preventDefault();
-    setFormError("");
+  const handleToggleStatus = async (
+    id: string,
+    currentStatus: boolean,
+    name: string
+  ) => {
+    try {
+      const nextStatus = !currentStatus;
+      await updateTaxRateStatus({
+        id,
+        body: { isActive: nextStatus },
+      }).unwrap();
 
-    if (!newCode.trim() || !newDesc.trim()) {
-      setFormError("Vui lòng nhập đầy đủ Mã ngành và Mô tả thuế suất");
-      return;
+      showSuccess(
+        `Đã thay đổi trạng thái thuế suất "${name}" sang ${
+          nextStatus ? "Đang áp dụng" : "Ngừng áp dụng"
+        }`
+      );
+      addLogEntry("CẬP_NHẬT_THUẾ_SUẤT", `${name} (${nextStatus ? "Áp dụng" : "Ngừng"})`);
+    } catch (err: unknown) {
+      const errMsg = getApiErrorMessage(
+        err,
+        "Cập nhật trạng thái thuế suất thất bại. Vui lòng thử lại!"
+      );
+      showError(errMsg);
     }
-
-    const vatNum = typeof newVat === "number" ? newVat : 0;
-    const pitNum = typeof newPit === "number" ? newPit : 0;
-
-    // TC-02: Chặn số âm
-    if (vatNum < 0 || pitNum < 0) {
-      setFormError("Tỷ lệ thuế suất không được là số âm!");
-      return;
-    }
-    if (vatNum > 100 || pitNum > 100) {
-      setFormError("Tỷ lệ thuế suất không được vượt quá 100%!");
-      return;
-    }
-
-    // TC-03: Chặn trùng lặp
-    const cleanCode = newCode.trim().toUpperCase();
-    if (taxRates.some((item) => item.code.toUpperCase() === cleanCode)) {
-      setFormError(`Mã ngành/thuế "${cleanCode}" đã tồn tại trong danh mục!`);
-      return;
-    }
-
-    const newItem: TaxRateItem = {
-      code: cleanCode,
-      description: newDesc.trim(),
-      vatRateLabel: `${vatNum}%`,
-      vatRateValue: vatNum,
-      personalIncomeTaxRateLabel: `${pitNum}%`,
-      personalIncomeTaxRateValue: pitNum,
-      status: "ACTIVE",
-    };
-
-    const updated = [...taxRates, newItem];
-    saveTaxRatesToStorage(updated);
-    showSuccess(`Thêm mới mức thuế suất ${newItem.code} thành công!`);
-    addLogEntry("THÊM_THUẾ_SUẤT", `Mức thuế ${newItem.code}`);
-
-    // Reset Form
-    setNewCode("");
-    setNewDesc("");
-    setNewVat(0);
-    setNewPit(0);
-    setSelectedPresetId("");
-    setIsPitManuallyEdited(false);
-    setShowAddModal(false);
   };
+
+  if (isFetching) {
+    return (
+      <div className="bg-white p-12 rounded-xl border border-slate-200 shadow-sm flex flex-col items-center justify-center text-slate-500 gap-3">
+        <Loader2 className="w-8 h-8 text-kv-blue-primary animate-spin" />
+        <span className="text-xs font-bold">Đang tải danh mục thuế suất từ máy chủ...</span>
+      </div>
+    );
+  }
+
+  if (isFetchError) {
+    return (
+      <div className="bg-rose-50 p-6 rounded-xl border border-rose-200 text-rose-700 flex items-center gap-3">
+        <AlertCircle className="w-6 h-6 shrink-0" />
+        <span className="text-xs font-bold">
+          Không thể kết nối máy chủ để lấy danh mục thuế suất. Vui lòng thử lại sau.
+        </span>
+      </div>
+    );
+  }
 
   return (
     <div className="grid grid-cols-1 gap-6 w-full">
@@ -243,19 +193,14 @@ export const TaxRateSettings: React.FC = () => {
                 {SETTINGS_UI.TAX_RATE.TITLE}
               </h3>
               <p className="text-xs text-slate-400 font-semibold mt-0.5">
-                Quản lý các tỷ lệ tính thuế GTGT và thuế TNCN theo ngành nghề áp dụng
+                Quản lý các tỷ lệ tính thuế GTGT áp dụng cho danh mục sản phẩm hộ kinh doanh
               </p>
             </div>
           </div>
           <button
             onClick={() => {
-              setNewCode("");
-              setNewDesc("");
-              setNewVat(0);
-              setNewPit(0);
+              reset({ name: "", ratePercentage: 0, isActive: true });
               setSelectedPresetId("");
-              setIsPitManuallyEdited(false);
-              setFormError("");
               setShowAddModal(true);
             }}
             className="bg-kv-blue-primary hover:bg-kv-blue-dark text-white font-bold px-4 h-9 rounded-lg transition-colors flex items-center gap-2 text-xs shadow-sm shrink-0"
@@ -270,55 +215,61 @@ export const TaxRateSettings: React.FC = () => {
             <thead>
               <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase tracking-wider">
                 <th className="p-3">{SETTINGS_UI.TAX_RATE.COLUMNS.CODE}</th>
-                <th className="p-3">{SETTINGS_UI.TAX_RATE.COLUMNS.DESCRIPTION}</th>
                 <th className="p-3 text-right">{SETTINGS_UI.TAX_RATE.COLUMNS.VAT_RATE}</th>
-                <th className="p-3 text-right">{SETTINGS_UI.TAX_RATE.COLUMNS.PERSONAL_INCOME_TAX_RATE}</th>
                 <th className="p-3 text-center">{SETTINGS_UI.TAX_RATE.COLUMNS.STATUS}</th>
                 <th className="p-3 text-center">Hành động</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
-              {taxRates.map((taxRate) => (
-                <tr key={taxRate.code} className="hover:bg-slate-50/50 transition-colors">
-                  <td className="p-3 font-mono font-bold text-slate-800">{taxRate.code}</td>
-                  <td className="p-3 font-bold text-slate-700">{taxRate.description}</td>
-                  <td className="p-3 text-right font-bold text-kv-blue-primary">
-                    {taxRate.vatRateLabel}
-                  </td>
-                  <td className="p-3 text-right font-bold text-indigo-600">
-                    {taxRate.personalIncomeTaxRateLabel}
-                  </td>
-                  <td className="p-3 text-center">
-                    <span
-                      className={`inline-flex items-center gap-1 font-bold px-2.5 py-0.5 rounded text-[10px] ${taxRate.status === "ACTIVE"
-                          ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                          : "bg-slate-100 text-slate-500 border border-slate-200"
-                        }`}
-                    >
-                      {taxRate.status === "ACTIVE" ? (
-                        <>
-                          <CheckCircle2 className="w-3 h-3 text-emerald-600" /> Đang áp dụng
-                        </>
-                      ) : (
-                        <>
-                          <XCircle className="w-3 h-3 text-slate-400" /> Ngừng áp dụng
-                        </>
-                      )}
-                    </span>
-                  </td>
-                  <td className="p-3 text-center">
-                    <button
-                      onClick={() => handleToggleStatus(taxRate.code)}
-                      className={`text-[11px] font-bold px-3 py-1 rounded transition-colors ${taxRate.status === "ACTIVE"
-                          ? "bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200"
-                          : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200"
-                        }`}
-                    >
-                      {taxRate.status === "ACTIVE" ? "Tắt" : "Bật"}
-                    </button>
+              {taxRates.length === 0 ? (
+                <tr>
+                  <td colSpan={4} className="p-8 text-center text-slate-400 font-semibold">
+                    Chưa có mức thuế suất nào được cấu hình trong CSDL.
                   </td>
                 </tr>
-              ))}
+              ) : (
+                taxRates.map((taxRate) => (
+                  <tr key={taxRate.id} className="hover:bg-slate-50/50 transition-colors">
+                    <td className="p-3 font-bold text-slate-800">{taxRate.name}</td>
+                    <td className="p-3 text-right font-bold text-kv-blue-primary">
+                      {taxRate.ratePercentage}%
+                    </td>
+                    <td className="p-3 text-center">
+                      <span
+                        className={`inline-flex items-center gap-1 font-bold px-2.5 py-0.5 rounded text-[10px] ${
+                          taxRate.isActive
+                            ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                            : "bg-slate-100 text-slate-500 border border-slate-200"
+                        }`}
+                      >
+                        {taxRate.isActive ? (
+                          <>
+                            <CheckCircle2 className="w-3 h-3 text-emerald-600" /> Đang áp dụng
+                          </>
+                        ) : (
+                          <>
+                            <XCircle className="w-3 h-3 text-slate-400" /> Ngừng áp dụng
+                          </>
+                        )}
+                      </span>
+                    </td>
+                    <td className="p-3 text-center">
+                      <button
+                        onClick={() =>
+                          handleToggleStatus(taxRate.id, taxRate.isActive, taxRate.name)
+                        }
+                        className={`text-[11px] font-bold px-3 py-1 rounded transition-colors ${
+                          taxRate.isActive
+                            ? "bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200"
+                            : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200"
+                        }`}
+                      >
+                        {taxRate.isActive ? "Tắt" : "Bật"}
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
@@ -343,14 +294,7 @@ export const TaxRateSettings: React.FC = () => {
               </button>
             </div>
 
-            <form onSubmit={handleAddTaxRate} className="p-5 flex flex-col gap-4 text-xs">
-              {formError && (
-                <div className="bg-rose-50 border border-rose-200 text-rose-700 p-3 rounded-lg flex items-center gap-2 font-bold">
-                  <AlertCircle className="w-4 h-4 shrink-0" />
-                  <span>{formError}</span>
-                </div>
-              )}
-
+            <form onSubmit={handleSubmit(onSubmit)} className="p-5 flex flex-col gap-4 text-xs">
               {/* Gợi ý Mẫu Ngành Nghề Kinh Doanh (TT 40/2021/TT-BTC) */}
               <div className="flex flex-col gap-1.5 bg-indigo-50/60 border border-indigo-100 p-3 rounded-xl">
                 <label className="font-extrabold text-indigo-900 flex items-center gap-1.5">
@@ -370,69 +314,62 @@ export const TaxRateSettings: React.FC = () => {
                   ))}
                 </select>
                 <p className="text-[10px] text-indigo-600/80 font-medium leading-tight">
-                  Tự động điền tỷ lệ GTGT & TNCN chuẩn theo nhóm ngành nghề kinh doanh của hộ.
+                  Tự động điền tên và tỷ lệ % thuế GTGT chuẩn theo Thông tư 40.
                 </p>
               </div>
 
+              {/* Tên mức thuế */}
               <div className="flex flex-col gap-1.5">
                 <label className="font-bold text-slate-700">
-                  Mã ngành / Thuế <span className="text-rose-500">*</span>
+                  Tên mức thuế / Nhóm hàng <span className="text-rose-500">*</span>
                 </label>
                 <input
                   type="text"
-                  value={newCode}
-                  onChange={(e) => setNewCode(e.target.value)}
-                  placeholder="VD: VAT-01"
-                  className="border border-slate-300 h-9 px-3 rounded-lg focus:outline-none focus:border-kv-blue-primary font-mono font-bold uppercase"
-                  required
+                  {...register("name")}
+                  placeholder="VD: VAT-01 (Phân phối, cung cấp hàng hóa)"
+                  className={`border ${
+                    errors.name ? "border-rose-500" : "border-slate-300"
+                  } h-9 px-3 rounded-lg focus:outline-none focus:border-kv-blue-primary font-bold`}
                 />
+                {errors.name && (
+                  <span className="text-[11px] font-bold text-rose-500 flex items-center gap-1 mt-0.5">
+                    <AlertCircle className="w-3 h-3 shrink-0" /> {errors.name.message}
+                  </span>
+                )}
               </div>
 
+              {/* Tỷ lệ phần trăm GTGT */}
               <div className="flex flex-col gap-1.5">
                 <label className="font-bold text-slate-700">
-                  Mô tả nhóm hàng hóa <span className="text-rose-500">*</span>
+                  Tỷ lệ thuế GTGT (%) <span className="text-rose-500">*</span>
                 </label>
                 <input
-                  type="text"
-                  value={newDesc}
-                  onChange={(e) => setNewDesc(e.target.value)}
-                  placeholder="VD: Ngành bán buôn, bán lẻ hàng hóa thông thường"
-                  className="border border-slate-300 h-9 px-3 rounded-lg focus:outline-none focus:border-kv-blue-primary font-bold"
-                  required
+                  type="number"
+                  step="0.1"
+                  {...register("ratePercentage")}
+                  placeholder="VD: 1.0"
+                  className={`border ${
+                    errors.ratePercentage ? "border-rose-500" : "border-slate-300"
+                  } h-9 px-3 rounded-lg focus:outline-none focus:border-kv-blue-primary font-bold text-kv-blue-primary`}
                 />
+                {errors.ratePercentage && (
+                  <span className="text-[11px] font-bold text-rose-500 flex items-center gap-1 mt-0.5">
+                    <AlertCircle className="w-3 h-3 shrink-0" /> {errors.ratePercentage.message}
+                  </span>
+                )}
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="flex flex-col gap-1.5">
-                  <label className="font-bold text-slate-700">Tỷ lệ thuế GTGT (%)</label>
-                  <input
-                    type="number"
-                    min="0"
-                    max="100"
-                    step="0.1"
-                    value={newVat}
-                    onChange={(e) => handleVatChange(e.target.value)}
-                    className="border border-slate-300 h-9 px-3 rounded-lg focus:outline-none focus:border-kv-blue-primary font-bold text-kv-blue-primary"
-                    required
-                  />
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <label className="font-bold text-slate-700">Tỷ lệ thuế TNCN (%)</label>
-                  <input
-                    type="number"
-                    min="0"
-                    max="100"
-                    step="0.1"
-                    value={newPit}
-                    onChange={(e) => handlePitChange(e.target.value)}
-                    className="border border-slate-300 h-9 px-3 rounded-lg focus:outline-none focus:border-kv-blue-primary font-bold text-indigo-600"
-                    required
-                  />
-                </div>
+              <div className="flex items-center gap-2 pt-1">
+                <input
+                  type="checkbox"
+                  id="isActiveCheck"
+                  {...register("isActive")}
+                  className="rounded border-slate-300 text-kv-blue-primary focus:ring-kv-blue-primary w-4 h-4"
+                />
+                <label htmlFor="isActiveCheck" className="font-bold text-slate-700 cursor-pointer">
+                  Kích hoạt áp dụng ngay sau khi tạo
+                </label>
               </div>
-              <p className="text-[10px] text-slate-400 font-medium">
-                * Thuế TNCN được gợi ý tự động theo tỷ lệ % GTGT. Bạn vẫn có thể chỉnh sửa thủ công nếu thuộc đối tượng đặc biệt.
-              </p>
 
               <div className="flex justify-end gap-3 pt-3 border-t border-slate-100">
                 <button
@@ -444,9 +381,16 @@ export const TaxRateSettings: React.FC = () => {
                 </button>
                 <button
                   type="submit"
-                  className="px-5 h-9 rounded-lg font-bold bg-kv-blue-primary hover:bg-kv-blue-dark text-white transition-colors"
+                  disabled={isCreating}
+                  className="px-5 h-9 rounded-lg font-bold bg-kv-blue-primary hover:bg-kv-blue-dark text-white transition-colors flex items-center gap-1.5 disabled:opacity-50"
                 >
-                  Lưu mức thuế
+                  {isCreating ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" /> Đang lưu...
+                    </>
+                  ) : (
+                    "Lưu mức thuế"
+                  )}
                 </button>
               </div>
             </form>
@@ -456,4 +400,3 @@ export const TaxRateSettings: React.FC = () => {
     </div>
   );
 };
-

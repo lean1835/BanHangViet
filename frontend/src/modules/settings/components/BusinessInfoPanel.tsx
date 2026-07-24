@@ -1,77 +1,99 @@
-import React, { useState } from "react";
-import { useAppSelector } from "@/hooks/useRedux";
-import { DEFAULT_BUSINESS_INFO, SETTINGS_UI } from "@/constants/settings";
+import React, { useEffect } from "react";
+import { useForm, type SubmitHandler } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import {
+  householdInfoSchema,
+  type THouseholdInfoFormData,
+} from "../schemas/settingsSchemas";
+import {
+  useGetMyHouseholdQuery,
+  useUpdateMyHouseholdMutation,
+} from "../services/settingsApi";
+import { SETTINGS_UI } from "@/constants/settings";
 import { useNotification } from "@/hooks/useNotification";
 import { useDashboardDemo } from "@/providers/DashboardDemoProvider";
-import { Save, Building2, CheckCircle2, AlertCircle } from "lucide-react";
+import { getApiErrorMessage } from "@/utils/getApiErrorMessage";
+import { Save, Building2, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
 
 export const BusinessInfoPanel: React.FC = () => {
-  const household = useAppSelector((state) => state.auth.user?.household);
   const { showSuccess, showError } = useNotification();
   const { addLogEntry } = useDashboardDemo();
 
-  // Load from localStorage or Redux/Fallback
-  const [formData, setFormData] = useState(() => {
-    const saved = localStorage.getItem("household_info");
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch {
-        // fallback
-      }
-    }
-    return {
-      name: household?.name || DEFAULT_BUSINESS_INFO.NAME,
-      taxCode: household?.taxCode || DEFAULT_BUSINESS_INFO.TAX_CODE,
-      phone: household?.phoneNumber || DEFAULT_BUSINESS_INFO.PHONE_NUMBER,
-      address: household?.address || DEFAULT_BUSINESS_INFO.ADDRESS,
-      representative: "Nguyễn Văn Việt",
-    };
+  // API Query & Mutation
+  const { data: response, isLoading: isFetching, isError: isFetchError } = useGetMyHouseholdQuery();
+  const [updateMyHousehold, { isLoading: isUpdating }] = useUpdateMyHouseholdMutation();
+
+  const household = response?.result;
+
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors },
+  } = useForm<THouseholdInfoFormData>({
+    resolver: zodResolver(householdInfoSchema),
+    defaultValues: {
+      name: "",
+      taxCode: "",
+      phoneNumber: "",
+      address: "",
+      representativeName: "",
+    },
   });
 
-  const [errors, setErrors] = useState<{ [key: string]: string }>({});
-
-  const validate = () => {
-    const newErrors: { [key: string]: string } = {};
-
-    // TC-03: Tên cửa hàng & địa chỉ bắt buộc
-    if (!formData.name.trim()) {
-      newErrors.name = "Tên hộ kinh doanh không được để trống";
+  // Reset form when data is loaded from server API
+  useEffect(() => {
+    if (household) {
+      reset({
+        name: household.name || "",
+        taxCode: household.taxCode || "",
+        phoneNumber: household.phoneNumber || "",
+        address: household.address || "",
+        representativeName: household.representativeName || "",
+      });
     }
-    if (!formData.address.trim()) {
-      newErrors.address = "Địa chỉ cửa hàng không được để trống";
-    }
+  }, [household, reset]);
 
-    // TC-02: Mã số thuế đúng định dạng (10 hoặc 13 chữ số)
-    const taxCodeClean = formData.taxCode.trim();
-    if (!taxCodeClean) {
-      newErrors.taxCode = "Mã số thuế không được để trống";
-    } else if (!/^\d{10}(\d{3})?$/.test(taxCodeClean)) {
-      newErrors.taxCode = "Mã số thuế không hợp lệ (Phải bao gồm 10 hoặc 13 chữ số)";
-    }
+  const onSubmit: SubmitHandler<THouseholdInfoFormData> = async (data) => {
+    try {
+      await updateMyHousehold({
+        name: data.name,
+        taxCode: data.taxCode,
+        address: data.address,
+        phoneNumber: data.phoneNumber,
+        representativeName: data.representativeName || undefined,
+      }).unwrap();
 
-    // Phone validation
-    if (!formData.phone.trim()) {
-      newErrors.phone = "Số điện thoại không được để trống";
-    } else if (!/^(0[3|5|7|8|9])+([0-9]{8})$/.test(formData.phone.trim())) {
-      newErrors.phone = "Số điện thoại không hợp lệ (Ví dụ: 0988888888)";
+      showSuccess("Cập nhật thông tin hộ kinh doanh thành công!");
+      addLogEntry("CẬP_NHẬT_THÔNG_TIN_HỘ", `Hộ kinh doanh ${data.name}`);
+    } catch (err: unknown) {
+      const errMsg = getApiErrorMessage(
+        err,
+        "Cập nhật thông tin hộ kinh doanh thất bại. Vui lòng kiểm tra lại!"
+      );
+      showError(errMsg);
     }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!validate()) {
-      showError("Thông tin cập nhật không hợp lệ. Vui lòng kiểm tra lại các trường báo lỗi!");
-      return;
-    }
+  if (isFetching) {
+    return (
+      <div className="bg-white p-12 rounded-xl border border-slate-200 shadow-sm flex flex-col items-center justify-center text-slate-500 gap-3">
+        <Loader2 className="w-8 h-8 text-kv-blue-primary animate-spin" />
+        <span className="text-xs font-bold">Đang tải thông tin hộ kinh doanh từ máy chủ...</span>
+      </div>
+    );
+  }
 
-    localStorage.setItem("household_info", JSON.stringify(formData));
-    showSuccess("Cập nhật thông tin hộ kinh doanh thành công và đã đồng bộ lên hệ thống!");
-    addLogEntry("CẬP_NHẬT_THÔNG_TIN_HỘ", `Hộ kinh doanh ${formData.name}`);
-  };
+  if (isFetchError) {
+    return (
+      <div className="bg-rose-50 p-6 rounded-xl border border-rose-200 text-rose-700 flex items-center gap-3">
+        <AlertCircle className="w-6 h-6 shrink-0" />
+        <span className="text-xs font-bold">
+          Không thể kết nối máy chủ để lấy thông tin hộ kinh doanh. Vui lòng thử lại sau.
+        </span>
+      </div>
+    );
+  }
 
   return (
     <div className="grid grid-cols-1 gap-6 w-full">
@@ -86,13 +108,13 @@ export const BusinessInfoPanel: React.FC = () => {
                 {SETTINGS_UI.BUSINESS_INFO.TITLE}
               </h3>
               <p className="text-xs text-slate-400 font-semibold mt-0.5">
-                Cập nhật thông tin đăng ký hộ kinh doanh hiển thị trên hóa đơnGTGT
+                Cập nhật thông tin đăng ký hộ kinh doanh hiển thị trên hóa đơn GTGT
               </p>
             </div>
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+        <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-5">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             {/* Tên hộ kinh doanh */}
             <div className="flex flex-col gap-1.5">
@@ -101,8 +123,7 @@ export const BusinessInfoPanel: React.FC = () => {
               </label>
               <input
                 type="text"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                {...register("name")}
                 className={`border ${
                   errors.name ? "border-rose-500" : "border-slate-300"
                 } h-10 px-3 rounded-lg focus:outline-none focus:border-kv-blue-primary text-xs font-bold text-slate-800 bg-white`}
@@ -110,7 +131,7 @@ export const BusinessInfoPanel: React.FC = () => {
               />
               {errors.name && (
                 <span className="text-[11px] font-bold text-rose-500 flex items-center gap-1 mt-0.5">
-                  <AlertCircle className="w-3 h-3 shrink-0" /> {errors.name}
+                  <AlertCircle className="w-3 h-3 shrink-0" /> {errors.name.message}
                 </span>
               )}
             </div>
@@ -122,8 +143,7 @@ export const BusinessInfoPanel: React.FC = () => {
               </label>
               <input
                 type="text"
-                value={formData.taxCode}
-                onChange={(e) => setFormData({ ...formData, taxCode: e.target.value })}
+                {...register("taxCode")}
                 className={`border ${
                   errors.taxCode ? "border-rose-500" : "border-slate-300"
                 } h-10 px-3 rounded-lg focus:outline-none focus:border-kv-blue-primary text-xs font-bold font-mono tracking-wider text-slate-800 bg-white`}
@@ -131,7 +151,7 @@ export const BusinessInfoPanel: React.FC = () => {
               />
               {errors.taxCode && (
                 <span className="text-[11px] font-bold text-rose-500 flex items-center gap-1 mt-0.5">
-                  <AlertCircle className="w-3 h-3 shrink-0" /> {errors.taxCode}
+                  <AlertCircle className="w-3 h-3 shrink-0" /> {errors.taxCode.message}
                 </span>
               )}
             </div>
@@ -143,16 +163,15 @@ export const BusinessInfoPanel: React.FC = () => {
               </label>
               <input
                 type="text"
-                value={formData.phone}
-                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                {...register("phoneNumber")}
                 className={`border ${
-                  errors.phone ? "border-rose-500" : "border-slate-300"
+                  errors.phoneNumber ? "border-rose-500" : "border-slate-300"
                 } h-10 px-3 rounded-lg focus:outline-none focus:border-kv-blue-primary text-xs font-bold text-slate-800 bg-white`}
                 placeholder="Nhập số điện thoại liên hệ..."
               />
-              {errors.phone && (
+              {errors.phoneNumber && (
                 <span className="text-[11px] font-bold text-rose-500 flex items-center gap-1 mt-0.5">
-                  <AlertCircle className="w-3 h-3 shrink-0" /> {errors.phone}
+                  <AlertCircle className="w-3 h-3 shrink-0" /> {errors.phoneNumber.message}
                 </span>
               )}
             </div>
@@ -162,11 +181,17 @@ export const BusinessInfoPanel: React.FC = () => {
               <label className="text-xs font-bold text-slate-700">Người đại diện pháp luật:</label>
               <input
                 type="text"
-                value={formData.representative}
-                onChange={(e) => setFormData({ ...formData, representative: e.target.value })}
-                className="border border-slate-300 h-10 px-3 rounded-lg focus:outline-none focus:border-kv-blue-primary text-xs font-bold text-slate-800 bg-white"
+                {...register("representativeName")}
+                className={`border ${
+                  errors.representativeName ? "border-rose-500" : "border-slate-300"
+                } h-10 px-3 rounded-lg focus:outline-none focus:border-kv-blue-primary text-xs font-bold text-slate-800 bg-white`}
                 placeholder="Tên chủ hộ đại diện..."
               />
+              {errors.representativeName && (
+                <span className="text-[11px] font-bold text-rose-500 flex items-center gap-1 mt-0.5">
+                  <AlertCircle className="w-3 h-3 shrink-0" /> {errors.representativeName.message}
+                </span>
+              )}
             </div>
 
             {/* Địa chỉ cửa hàng */}
@@ -176,8 +201,7 @@ export const BusinessInfoPanel: React.FC = () => {
               </label>
               <input
                 type="text"
-                value={formData.address}
-                onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                {...register("address")}
                 className={`border ${
                   errors.address ? "border-rose-500" : "border-slate-300"
                 } h-10 px-3 rounded-lg focus:outline-none focus:border-kv-blue-primary text-xs font-bold text-slate-800 bg-white`}
@@ -185,7 +209,7 @@ export const BusinessInfoPanel: React.FC = () => {
               />
               {errors.address && (
                 <span className="text-[11px] font-bold text-rose-500 flex items-center gap-1 mt-0.5">
-                  <AlertCircle className="w-3 h-3 shrink-0" /> {errors.address}
+                  <AlertCircle className="w-3 h-3 shrink-0" /> {errors.address.message}
                 </span>
               )}
             </div>
@@ -201,10 +225,18 @@ export const BusinessInfoPanel: React.FC = () => {
           <div className="flex justify-end pt-3">
             <button
               type="submit"
-              className="bg-kv-blue-primary hover:bg-kv-blue-dark text-white font-bold px-6 h-10 rounded-lg transition-colors flex items-center gap-2 text-xs shadow-sm"
+              disabled={isUpdating}
+              className="bg-kv-blue-primary hover:bg-kv-blue-dark text-white font-bold px-6 h-10 rounded-lg transition-colors flex items-center gap-2 text-xs shadow-sm disabled:opacity-50"
             >
-              <Save className="w-4 h-4" />
-              Lưu thay đổi thông tin hộ
+              {isUpdating ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" /> Đang lưu...
+                </>
+              ) : (
+                <>
+                  <Save className="w-4 h-4" /> Lưu thay đổi thông tin hộ
+                </>
+              )}
             </button>
           </div>
         </form>
