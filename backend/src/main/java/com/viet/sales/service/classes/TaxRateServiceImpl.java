@@ -101,7 +101,10 @@ public class TaxRateServiceImpl implements TaxRateService {
 
         validateTaxRateRequest(request, household.getId(), id);
 
-        if (Boolean.FALSE.equals(request.getIsActive()) && productRepository.existsByHouseholdIdAndTaxRateIdAndDeletedAtIsNull(household.getId(), id)) {
+        boolean isRateChanged = taxRate.getRatePercentage().compareTo(request.getRatePercentage()) != 0;
+        boolean isDeactivating = Boolean.FALSE.equals(request.getIsActive());
+
+        if ((isDeactivating || isRateChanged) && productRepository.existsByHouseholdIdAndTaxRateIdAndDeletedAtIsNull(household.getId(), id)) {
             throw new AppException(ErrorCode.TAX_RATE_IN_USE);
         }
 
@@ -153,6 +156,10 @@ public class TaxRateServiceImpl implements TaxRateService {
     }
 
     private void validateTaxRateRequest(TaxRateRequest request, String householdId, String excludeId) {
+        if (request.getName() == null || request.getName().isBlank()) {
+            throw new AppException(ErrorCode.INVALID_INPUT);
+        }
+
         // Kiểm tra tỷ lệ từ 0.00% đến 100.00%
         if (request.getRatePercentage() == null 
                 || request.getRatePercentage().compareTo(BigDecimal.ZERO) < 0 

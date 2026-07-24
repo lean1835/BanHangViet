@@ -2,6 +2,7 @@ package com.viet.sales.dto.request;
 
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -25,6 +26,7 @@ public class TaxRateRequest {
     @NotNull(message = "Tỷ lệ phần trăm thuế không được để trống")
     @DecimalMin(value = "0.00", message = "Tỷ lệ thuế không được nhỏ hơn 0%")
     @DecimalMax(value = "100.00", message = "Tỷ lệ thuế không được vượt quá 100%")
+    @Digits(integer = 3, fraction = 2, message = "Tỷ lệ thuế tối đa 3 chữ số nguyên và 2 chữ số thập phân")
     private BigDecimal ratePercentage;
 
     @NotNull(message = "Trạng thái hoạt động không được để trống")

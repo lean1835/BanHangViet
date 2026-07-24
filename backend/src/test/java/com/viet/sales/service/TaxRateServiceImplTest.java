@@ -230,6 +230,35 @@ class TaxRateServiceImplTest {
     }
 
     @Test
+    @DisplayName("Cập nhật tỷ lệ phần trăm của thuế suất đang gán cho sản phẩm ném ngoại lệ TAX_RATE_IN_USE")
+    void updateTaxRate_RateChanged_TaxRateInUse_ThrowsException() {
+        when(userRepository.findByUsername("owner")).thenReturn(Optional.of(ownerUser));
+        TaxRate existing = TaxRate.builder()
+                .id("tax-001")
+                .household(household)
+                .name("VAT 10%")
+                .ratePercentage(new BigDecimal("10.00"))
+                .isActive(true)
+                .build();
+        when(taxRateRepository.findByIdAndHouseholdId("tax-001", "house-001")).thenReturn(Optional.of(existing));
+        when(taxRateRepository.existsByHouseholdIdAndNameAndIdNot("house-001", "VAT 10%", "tax-001")).thenReturn(false);
+        when(productRepository.existsByHouseholdIdAndTaxRateIdAndDeletedAtIsNull("house-001", "tax-001")).thenReturn(true);
+
+        TaxRateRequest request = TaxRateRequest.builder()
+                .name("VAT 10%")
+                .ratePercentage(new BigDecimal("5.00")) // Đổi từ 10% xuống 5%
+                .isActive(true)
+                .build();
+
+        AppException exception = assertThrows(AppException.class, () ->
+                taxRateService.updateTaxRate("owner", "tax-001", request)
+        );
+
+        assertEquals(ErrorCode.TAX_RATE_IN_USE, exception.getErrorCode());
+        verify(taxRateRepository, never()).save(any());
+    }
+
+    @Test
     @DisplayName("Bật/tắt trạng thái hiệu lực thuế suất thành công")
     void toggleTaxRateStatus_Success() {
         when(userRepository.findByUsername("owner")).thenReturn(Optional.of(ownerUser));
@@ -286,5 +315,43 @@ class TaxRateServiceImplTest {
         );
 
         assertEquals(ErrorCode.FORBIDDEN, exception.getErrorCode());
+    }
+
+    @Test
+    @DisplayName("Tên mức thuế null hoặc khoảng trắng ném ngoại lệ INVALID_INPUT")
+    void createTaxRate_NullOrBlankName_ThrowsException() {
+        when(userRepository.findByUsername("owner")).thenReturn(Optional.of(ownerUser));
+
+        TaxRateRequest requestBlank = TaxRateRequest.builder()
+                .name("   ")
+                .ratePercentage(new BigDecimal("10.00"))
+                .isActive(true)
+                .build();
+
+        AppException exception = assertThrows(AppException.class, () ->
+                taxRateService.createTaxRate("owner", requestBlank)
+        );
+
+        assertEquals(ErrorCode.INVALID_INPUT, exception.getErrorCode());
+        verify(taxRateRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Tỷ lệ phần trăm vượt quá 100% ném ngoại lệ INVALID_TAX_RATE_PERCENTAGE")
+    void createTaxRate_RateExceeds100_ThrowsException() {
+        when(userRepository.findByUsername("owner")).thenReturn(Optional.of(ownerUser));
+
+        TaxRateRequest request = TaxRateRequest.builder()
+                .name("Thuế quá cao")
+                .ratePercentage(new BigDecimal("105.00"))
+                .isActive(true)
+                .build();
+
+        AppException exception = assertThrows(AppException.class, () ->
+                taxRateService.createTaxRate("owner", request)
+        );
+
+        assertEquals(ErrorCode.INVALID_TAX_RATE_PERCENTAGE, exception.getErrorCode());
+        verify(taxRateRepository, never()).save(any());
     }
 }
