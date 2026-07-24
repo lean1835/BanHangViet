@@ -62,7 +62,8 @@ public enum ErrorCode {
     FEATURE_NOT_ENABLED(4012, "Chức năng hóa đơn điện tử chưa được kích hoạt cho hộ kinh doanh", HttpStatus.BAD_REQUEST),
 
     // Cấu hình Nền tảng & Thuế suất (NCL-09 Branch 1)
-    INVALID_TAX_CODE(2030, "Mã số thuế không đúng định dạng 10 hoặc 13 chữ số", HttpStatus.BAD_REQUEST);
+    INVALID_TAX_CODE(2030, "Mã số thuế không đúng định dạng 10 hoặc 13 chữ số", HttpStatus.BAD_REQUEST),
+    CANNOT_OVERWRITE_ISSUED_INVOICE(4013, "Không thể ghi đè hóa đơn đã phát hành hoặc cấp mã", HttpStatus.BAD_REQUEST);
 
     private final int code;
     private final String message;

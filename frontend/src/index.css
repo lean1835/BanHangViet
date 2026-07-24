@@ -33,6 +33,33 @@
   }
 }
 
+@keyframes logoTextGlow {
+  0%, 100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+@keyframes logoShimmer {
+  0% {
+    transform: translateX(-150%);
+  }
+  50%, 100% {
+    transform: translateX(150%);
+  }
+}
+
+.animate-logo-text-glow {
+  background-size: 200% auto;
+  animation: logoTextGlow 4s ease infinite;
+}
+
+.animate-logo-shimmer {
+  animation: logoShimmer 2.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
 @layer components {
   .responsive-data-table {
     min-width: 100%;
