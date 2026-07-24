@@ -23,6 +23,9 @@ public interface EInvoiceRepository extends JpaRepository<EInvoice, String>, Jpa
     Page<EInvoice> findAll(Specification<EInvoice> spec, Pageable pageable);
 
     @Override
+    List<EInvoice> findAll(Specification<EInvoice> spec);
+
+    @Override
     @EntityGraph(attributePaths = {"items", "items.product", "createdByUser", "canceledByUser", "household", "order", "originalInvoice"})
     Optional<EInvoice> findById(String id);
 

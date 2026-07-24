@@ -26,13 +26,10 @@ export const OfflineSyncBanner: React.FC<OfflineSyncBannerProps> = ({
         <div className="flex items-center gap-2.5 min-w-0">
           <span className="flex h-2 w-2 rounded-full bg-white animate-ping shrink-0" />
           <span className="truncate">
-            ⚠️ <strong>Chế độ Mất mạng (Offline):</strong> Mọi đơn hàng mới sẽ được lưu tạm tại thiết bị và đồng bộ sau.
+            <strong>Chế độ Ngoại tuyến (Offline):</strong> Mọi đơn hàng mới sẽ được lưu tạm tại thiết bị và đồng bộ sau.
             {pendingCount > 0 && ` (Đang có ${pendingCount} đơn chờ đồng bộ)`}
           </span>
         </div>
-        <span className="text-[11px] bg-rose-700/80 px-2.5 py-1 rounded font-bold shrink-0">
-          NCL 08 Offline Active
-        </span>
       </div>
     );
   }
