@@ -64,8 +64,8 @@ export const useOfflineSync = ({
       const checkRes = await checkConflicts({ offlineOrderNumbers: orderNumbers }).unwrap();
       const { duplicates = [], conflicts = [] } = checkRes.result || {};
 
-      let effectiveConflicts = [...conflicts];
-      let effectiveDuplicates = [...duplicates];
+      const effectiveConflicts = [...conflicts];
+      const effectiveDuplicates = [...duplicates];
 
       // Nếu bật simConflict (giả lập xung đột), chọn đơn đầu tiên chưa bị trùng làm đơn xung đột
       if (simConflict && currentList.length > 0 && effectiveConflicts.length === 0) {
@@ -98,7 +98,7 @@ export const useOfflineSync = ({
 
       if (cleanOrders.length > 0) {
         // Bước 2: Tải danh sách đơn hàng hợp lệ lên máy chủ
-        const payload = cleanOrders.map(({ localId, syncStatus, errorMessage, ...rest }) => rest);
+        const payload = cleanOrders.map(({ localId: _localId, syncStatus: _syncStatus, errorMessage: _errorMessage, ...rest }) => rest);
         const uploadRes = await bulkUpload(payload).unwrap();
 
         syncedOrderNumbers = uploadRes.result?.map((r) => r.orderNumber) || [];
@@ -149,7 +149,7 @@ export const useOfflineSync = ({
 
       setIsSyncing(true);
       try {
-        const { localId, syncStatus, errorMessage, ...clientData } = target;
+        const { localId: _localId, syncStatus: _syncStatus, errorMessage: _errorMessage, ...clientData } = target;
         await resolveConflictMutation({
           orderNumber,
           resolutionStrategy: strategy,
