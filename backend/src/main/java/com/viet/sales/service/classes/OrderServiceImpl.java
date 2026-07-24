@@ -40,6 +40,7 @@ public class OrderServiceImpl implements OrderService {
     private final UserRepository userRepository;
     private final ActivityLogRepository activityLogRepository;
     private final ObjectMapper objectMapper;
+    private final CustomerDebtRepository customerDebtRepository;
 
     private User getAuthenticatedUser(String username) {
         return userRepository.findByUsername(username)
@@ -556,6 +557,21 @@ public class OrderServiceImpl implements OrderService {
             customerRepository.save(customer);
             order.setCustomer(customer);
             order.setPaymentStatus("DEBT");
+
+            // Tạo và lưu bản ghi công nợ customer_debts (DEBT_CREATED)
+            CustomerDebt debtRecord = CustomerDebt.builder()
+                    .household(household)
+                    .customer(customer)
+                    .order(order)
+                    .amount(order.getFinalAmount())
+                    .remainingAmount(order.getFinalAmount())
+                    .type("DEBT_CREATED")
+                    .status("PENDING")
+                    .dueDate(LocalDateTime.now().plusDays(7)) // Hạn nợ mặc định là 7 ngày
+                    .notes("Ghi nợ từ đơn hàng " + order.getOrderNumber())
+                    .createdByUser(currentUser)
+                    .build();
+            customerDebtRepository.save(debtRecord);
         }
 
         // Get warnings before deduction
