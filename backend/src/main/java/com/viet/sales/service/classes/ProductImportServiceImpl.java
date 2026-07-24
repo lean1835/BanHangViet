@@ -64,14 +64,18 @@ public class ProductImportServiceImpl implements ProductImportService {
         }
 
         // 3. Pre-fetch tax rates, SKUs, and groups to eliminate N+1 queries
-        List<TaxRate> activeTaxRates = taxRateRepository.findByHouseholdIdAndIsActiveTrue(household.getId());
+        List<TaxRate> activeTaxRates = taxRateRepository.findByHouseholdIdAndIsActiveTrueOrderByCreatedAtAsc(household.getId());
         TaxRate defaultTaxRate = activeTaxRates.isEmpty() ? null : activeTaxRates.get(0);
 
         Set<String> existingSkusInDb = new HashSet<>(productRepository.findSkusByHouseholdId(household.getId()));
 
         Map<String, ProductGroup> existingGroupsMap = productGroupRepository.findByHouseholdIdAndDeletedAtIsNull(household.getId())
                 .stream()
-                .collect(java.util.stream.Collectors.toMap(ProductGroup::getName, g -> g, (g1, g2) -> g1));
+                .collect(java.util.stream.Collectors.toMap(
+                        g -> g.getName().trim().toLowerCase(),
+                        g -> g,
+                        (g1, g2) -> g1
+                ));
 
         List<ImportProductResultResponse.RowErrorDetail> errors = new ArrayList<>();
         List<Product> productBatch = new ArrayList<>();
@@ -96,14 +100,15 @@ public class ProductImportServiceImpl implements ProductImportService {
                 String sku = ExcelParserUtils.getCellValueAsString(row.getCell(0));
                 String name = ExcelParserUtils.getCellValueAsString(row.getCell(1));
                 String unit = ExcelParserUtils.getCellValueAsString(row.getCell(2));
+                BigDecimal importPrice = ExcelParserUtils.getCellValueAsBigDecimal(row.getCell(3));
                 BigDecimal price = ExcelParserUtils.getCellValueAsBigDecimal(row.getCell(4));
                 String taxRateStr = ExcelParserUtils.getCellValueAsString(row.getCell(5));
                 String groupName = ExcelParserUtils.getCellValueAsString(row.getCell(6));
                 BigDecimal stock = ExcelParserUtils.getCellValueAsBigDecimal(row.getCell(7));
 
-                // Auto generate SKU if empty
+                // Auto generate clean shorter SKU if empty
                 if (!StringUtils.hasText(sku)) {
-                    sku = "SP" + System.currentTimeMillis() + String.format("%03d", rowIndex);
+                    sku = "SP" + String.format("%06d", System.currentTimeMillis() % 1000000L) + String.format("%03d", rowIndex);
                 }
 
                 // Row validations
@@ -114,6 +119,12 @@ public class ProductImportServiceImpl implements ProductImportService {
                 if (!StringUtils.hasText(unit)) {
                     errors.add(new ImportProductResultResponse.RowErrorDetail(actualRowNumber, name, "Đơn vị tính không được để trống"));
                     continue;
+                }
+                if (row.getCell(3) != null && StringUtils.hasText(ExcelParserUtils.getCellValueAsString(row.getCell(3)))) {
+                    if (importPrice != null && importPrice.compareTo(BigDecimal.ZERO) < 0) {
+                        errors.add(new ImportProductResultResponse.RowErrorDetail(actualRowNumber, name, "Giá nhập không được là số âm"));
+                        continue;
+                    }
                 }
                 if (price == null || price.compareTo(BigDecimal.ZERO) <= 0) {
                     errors.add(new ImportProductResultResponse.RowErrorDetail(actualRowNumber, name, "Giá bán phải lớn hơn 0"));
@@ -157,18 +168,20 @@ public class ProductImportServiceImpl implements ProductImportService {
                     continue;
                 }
 
-                // Match or auto-create ProductGroup from in-memory cache
+                // Match or auto-create ProductGroup from in-memory cache (case-insensitive)
                 ProductGroup group = null;
                 if (StringUtils.hasText(groupName)) {
-                    group = existingGroupsMap.get(groupName);
+                    String normalizedGroupName = groupName.trim().toLowerCase();
+                    group = existingGroupsMap.get(normalizedGroupName);
                     if (group == null) {
                         group = productGroupRepository.save(ProductGroup.builder()
                                 .household(household)
-                                .name(groupName)
+                                .name(groupName.trim())
                                 .build());
-                        existingGroupsMap.put(groupName, group);
+                        existingGroupsMap.put(normalizedGroupName, group);
                     }
                 }
+
 
                 Product product = Product.builder()
                         .household(household)

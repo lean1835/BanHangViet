@@ -1,8 +1,7 @@
-import { useMemo } from "react";
+import { useState, useMemo } from "react";
+import { Link } from "react-router-dom";
 import { DashboardWorkspaceLayout } from "@/components/layouts/DashboardWorkspaceLayout";
-import { E_INVOICE_STATUS } from "@/constants/eInvoice";
 import { USER_ROLES, ROLE_LABELS } from "@/constants/roles";
-import { ORDER_STATUS } from "@/constants/order";
 import { CashierShiftDashboard } from "@/modules/shift/components/CashierShiftDashboard";
 import { useDashboardDemo } from "@/providers/DashboardDemoProvider";
 import { SalesKpiCards } from "../components/SalesKpiCards";
@@ -12,40 +11,77 @@ import { BestSellersWidget } from "../components/BestSellersWidget";
 import { ReconciliationTable } from "../components/ReconciliationTable";
 import { RecentActivityPanel } from "../components/RecentActivityPanel";
 import { getApiErrorMessage } from "@/utils/getApiErrorMessage";
+import { getLocalDateString } from "@/utils/dateFormatter";
 import { Calendar, AlertTriangle } from "lucide-react";
+import { useGetInvoicesQuery } from "@/modules/e_invoice/services/eInvoiceApi";
+import {
+  useGetDashboardOverviewQuery,
+  useGetTopSellingProductsQuery,
+  useGetActivityLogsQuery,
+} from "@/modules/report/services/reportApi";
 
 export const DashboardOverviewPage = () => {
+  const { currentRole } = useDashboardDemo();
+
+  // Date Filter States - defaults to last 30 days
+  const [fromDate, setFromDate] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 30);
+    return getLocalDateString(d); // YYYY-MM-DD
+  });
+  const [toDate, setToDate] = useState(() => {
+    return getLocalDateString(); // YYYY-MM-DD
+  });
+
+  // API Queries
   const {
-    currentRole,
-    invoices,
-    setInvoices,
-    orders,
-    logs,
-    addLogEntry,
-    isOrdersLoading,
-    isOrdersError,
-    ordersError,
-    refetchOrders,
-  } = useDashboardDemo();
+    data: overviewData,
+    isLoading: isOverviewLoading,
+    isError: isOverviewError,
+    error: overviewError,
+    refetch: refetchOverview,
+  } = useGetDashboardOverviewQuery({ fromDate, toDate });
 
-  // Compute stats dynamically
-  const { totalRevenue, totalOrders, totalFailedInvoices } = useMemo(() => {
-    const completedOrders = orders.filter((o) => o.status === ORDER_STATUS.COMPLETED);
-    const orderRevenue = completedOrders.reduce((sum, o) => sum + o.finalAmount, 0);
+  const {
+    data: topSellingData,
+    isLoading: isTopSellingLoading,
+  } = useGetTopSellingProductsQuery({ fromDate, toDate, limit: 5 });
 
-    const failedInvoices = invoices.filter((inv) => inv.status === E_INVOICE_STATUS.SEND_ERROR);
-    
-    // Support realistic demo numbers if CSDL is empty
-    const calculatedRevenue = orderRevenue || 3560000;
-    const calculatedOrders = completedOrders.length || 128;
-    const calculatedFailed = failedInvoices.length || 2;
+  const {
+    data: logsData,
+    isLoading: isLogsLoading,
+  } = useGetActivityLogsQuery({ fromDate, toDate, page: 0, size: 5 });
 
-    return {
-      totalRevenue: calculatedRevenue,
-      totalOrders: calculatedOrders,
-      totalFailedInvoices: calculatedFailed,
-    };
-  }, [orders, invoices]);
+  const {
+    data: failedInvoicesData,
+    isLoading: isFailedInvoicesLoading,
+  } = useGetInvoicesQuery({ status: "SEND_ERROR", page: 0, size: 50 });
+
+  // Map Stats
+  const totalRevenue = overviewData?.result?.totalRevenue || 0;
+  const totalOrders = overviewData?.result?.orderCount || 0;
+  const totalFailedInvoices = failedInvoicesData?.result?.totalElements || 0;
+  const dailyRevenues = overviewData?.result?.dailyRevenues || [];
+  const topSellingProducts = topSellingData?.result || [];
+
+  // Map Activity Logs to match the frontend shape
+  const mappedLogs = useMemo(() => {
+    if (!logsData?.result?.content) return [];
+    return logsData.result.content.map((log) => {
+      const timeStr = log.createdAt
+        ? new Date(log.createdAt).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })
+        : "-";
+      return {
+        id: log.id,
+        time: timeStr,
+        user: log.fullName || log.username || "Nhân viên",
+        action: log.action || "Thao tác",
+        target: `${log.targetTable || ""}${log.targetId ? ` (ID: ${log.targetId})` : ""}`,
+      };
+    });
+  }, [logsData]);
+
+  const isLoading = isOverviewLoading || isTopSellingLoading || isLogsLoading || isFailedInvoicesLoading;
 
   return (
     <DashboardWorkspaceLayout>
@@ -63,14 +99,26 @@ export const DashboardOverviewPage = () => {
                 Chào mừng trở lại, <span className="text-kv-blue-primary font-bold">{ROLE_LABELS[currentRole]}</span>! Dưới đây là thông tin tổng quan về hoạt động kinh doanh của Hộ Bán Hàng Việt.
               </p>
             </div>
-            {/* Time range selection display matching mockup */}
-            <div className="flex items-center gap-2 bg-white px-3.5 py-2 rounded-lg border border-slate-200 shadow-sm text-xs font-bold text-slate-700 cursor-pointer hover:bg-slate-50 transition-colors shrink-0">
+            {/* Time range selection inputs */}
+            <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-lg border border-slate-200 shadow-sm text-xs font-bold text-slate-700 shrink-0">
               <Calendar className="w-4 h-4 text-slate-400" />
-              <span>12 Tháng 5 - 12 Tháng 6, 2026</span>
+              <input
+                type="date"
+                value={fromDate}
+                onChange={(e) => setFromDate(e.target.value)}
+                className="border-none outline-none text-slate-700 bg-transparent text-[11px] font-bold"
+              />
+              <span className="text-slate-300 px-1">—</span>
+              <input
+                type="date"
+                value={toDate}
+                onChange={(e) => setToDate(e.target.value)}
+                className="border-none outline-none text-slate-700 bg-transparent text-[11px] font-bold"
+              />
             </div>
           </div>
 
-          {isOrdersLoading && (
+          {isLoading && (
             <div
               role="status"
               className="rounded-xl border border-blue-100 bg-blue-50 p-4 text-center text-sm font-semibold text-blue-700"
@@ -78,20 +126,21 @@ export const DashboardOverviewPage = () => {
               Đang tải dữ liệu doanh thu...
             </div>
           )}
-          {isOrdersError && (
+
+          {isOverviewError && (
             <div
               role="alert"
               className="flex flex-col gap-3 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm font-semibold text-rose-700 sm:flex-row sm:items-center sm:justify-between"
             >
               <span>
                 {getApiErrorMessage(
-                  ordersError,
-                  "Không thể tải dữ liệu đơn hàng nên doanh thu hiện chưa xác định.",
+                  overviewError,
+                  "Không thể tải dữ liệu báo cáo nên doanh thu hiện chưa xác định.",
                 )}
               </span>
               <button
                 type="button"
-                onClick={refetchOrders}
+                onClick={refetchOverview}
                 className="min-h-11 shrink-0 rounded-lg border border-rose-300 bg-white px-4 font-bold transition-colors hover:bg-rose-100"
               >
                 Thử lại
@@ -99,7 +148,7 @@ export const DashboardOverviewPage = () => {
             </div>
           )}
 
-          {!isOrdersLoading && !isOrdersError && (
+          {!isLoading && !isOverviewError && (
             <div className="flex flex-col gap-6">
               {/* Row 1: KPI Cards */}
               <SalesKpiCards
@@ -112,34 +161,30 @@ export const DashboardOverviewPage = () => {
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* 2.1: Revenue Line Chart */}
                 <div className="lg:col-span-1 flex">
-                  <RevenueChart totalRevenueToday={totalRevenue} />
+                  <RevenueChart totalRevenueToday={totalRevenue} dailyRevenues={dailyRevenues} />
                 </div>
 
                 {/* 2.2: Payment Method Donut Chart */}
                 <div className="lg:col-span-1 flex">
-                  <PaymentMethodChart orders={orders} />
+                  <PaymentMethodChart dailyRevenues={dailyRevenues} />
                 </div>
 
                 {/* 2.3: Top Selling Products */}
                 <div className="lg:col-span-1 flex">
-                  <BestSellersWidget orders={orders} />
+                  <BestSellersWidget topSellingProducts={topSellingProducts} />
                 </div>
               </div>
 
               {/* Row 3: Reconciliation and Audit Logs (2-column layout) */}
-              <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 items-stretch">
                 {/* 3.1: Reconciliation & Failed Invoices (Left 66%) */}
-                <div className="xl:col-span-2">
-                  <ReconciliationTable
-                    invoices={invoices}
-                    setInvoices={setInvoices}
-                    addLogEntry={addLogEntry}
-                  />
+                <div className="xl:col-span-2 flex flex-col min-h-0">
+                  <ReconciliationTable date={toDate} currentRole={currentRole} />
                 </div>
 
                 {/* 3.2: Recent Activity Audit Logs (Right 33%) */}
-                <div className="xl:col-span-1">
-                  <RecentActivityPanel logs={logs} />
+                <div className="xl:col-span-1 flex flex-col min-h-0">
+                  <RecentActivityPanel logs={mappedLogs} />
                 </div>
               </div>
             </div>
@@ -152,8 +197,8 @@ export const DashboardOverviewPage = () => {
           <p className="text-xs text-slate-400 font-semibold mb-6">
             Giao diện Báo cáo Doanh thu Tổng quan không khả dụng cho vai trò của bạn ({ROLE_LABELS[currentRole]}).
           </p>
-          <a
-            href={
+          <Link
+            to={
               currentRole === USER_ROLES.PLATFORM_ADMIN
                 ? "/admin"
                 : currentRole === USER_ROLES.TAX_AUTHORITY
@@ -163,7 +208,7 @@ export const DashboardOverviewPage = () => {
             className="bg-kv-blue-primary text-white border-none py-2 px-6 text-xs font-bold rounded hover:bg-kv-blue-dark transition-colors"
           >
             Đi tới trang làm việc phù hợp
-          </a>
+          </Link>
         </div>
       )}
     </DashboardWorkspaceLayout>

@@ -52,7 +52,7 @@ interface IDashboardDemoContext {
   isOrdersLoading: boolean;
   isOrdersError: boolean;
   ordersError: unknown;
-  refetchOrders: () => void;
+  refetchOrders: (syncedOrderNumbers?: string[]) => void;
 }
 
 const DashboardDemoContext = createContext<IDashboardDemoContext | null>(null);
@@ -102,9 +102,42 @@ export const DashboardDemoProvider = ({ children }: DashboardDemoProviderProps) 
     }
   }, [apiOrdersData, isOnline]);
 
-  const refetchOrders = useCallback(() => {
-    if (isOnline) void refetchOrdersQuery();
-  }, [isOnline, refetchOrdersQuery]);
+  const refetchOrders = useCallback(
+    async (syncedOrderNumbers?: string[]) => {
+      setOrders((prevOrders) =>
+        prevOrders.map((ord) => {
+          if (
+            (syncedOrderNumbers && syncedOrderNumbers.length > 0 && syncedOrderNumbers.includes(ord.orderNumber)) ||
+            (!syncedOrderNumbers && (ord.isOffline || ord.syncStatus === "PENDING"))
+          ) {
+            return { ...ord, isOffline: false, syncStatus: "SYNCED" };
+          }
+          return ord;
+        })
+      );
+
+      if (isOnline) {
+        const res = await refetchOrdersQuery();
+        const serverResult = res.data?.result;
+        if (serverResult && serverResult.length > 0) {
+          setOrders((prevOrders) => {
+            const serverOrdersMap = new Map(serverResult.map((o) => [o.orderNumber, o]));
+            const updated = prevOrders.map((o) => {
+              const serverMatch = serverOrdersMap.get(o.orderNumber);
+              if (serverMatch) {
+                return { ...serverMatch, isOffline: false, syncStatus: "SYNCED" };
+              }
+              return o;
+            });
+            const prevNumbers = new Set(prevOrders.map((o) => o.orderNumber));
+            const newServerOrders = serverResult.filter((o) => !prevNumbers.has(o.orderNumber));
+            return [...newServerOrders, ...updated];
+          });
+        }
+      }
+    },
+    [isOnline, refetchOrdersQuery]
+  );
 
   const addLogEntry = useCallback(
     (action: string, target: string) => {

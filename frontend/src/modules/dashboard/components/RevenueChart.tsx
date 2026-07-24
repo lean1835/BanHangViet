@@ -1,36 +1,47 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { formatCurrency } from "@/utils/formatCurrency";
+import type { IDailyRevenueProjection } from "@/modules/report/types/IReport";
 
 interface RevenueChartProps {
   totalRevenueToday: number;
+  dailyRevenues?: IDailyRevenueProjection[];
 }
 
-export const RevenueChart = ({ totalRevenueToday }: RevenueChartProps) => {
-  const [activeTab, setActiveTab] = useState<"today" | "week">("today");
+export const RevenueChart = ({ totalRevenueToday, dailyRevenues }: RevenueChartProps) => {
+  const [activeTab, setActiveTab] = useState<"today" | "week">("week");
 
-  // Chart coordinates & points for smooth rendering
-  // Width: 500, Height: 200
-  const pointsToday = [
-    { x: 30, y: 170, label: "08:00", val: 0 },
-    { x: 100, y: 140, label: "10:00", val: 120000 },
-    { x: 170, y: 80, label: "12:00", val: 560000 },
-    { x: 240, y: 110, label: "14:00", val: 320000 },
-    { x: 310, y: 60, label: "16:00", val: 890000 },
-    { x: 380, y: 95, label: "18:00", val: 420000 },
-    { x: 450, y: 40, label: "20:00", val: 1250000 },
-  ];
+  const currentPoints = useMemo(() => {
+    const rawList = activeTab === "today"
+      ? (dailyRevenues || []).slice(0, 7)
+      : (dailyRevenues || []);
 
-  const pointsWeek = [
-    { x: 30, y: 160, label: "T2", val: 1200000 },
-    { x: 100, y: 110, label: "T3", val: 2400000 },
-    { x: 170, y: 130, label: "T4", val: 1800000 },
-    { x: 240, y: 70, label: "T5", val: 3500000 },
-    { x: 310, y: 90, label: "T6", val: 2900000 },
-    { x: 380, y: 50, label: "T7", val: 4800000 },
-    { x: 450, y: 30, label: "CN", val: 5500000 },
-  ];
+    const listToUse = [...rawList].reverse();
 
-  const currentPoints = activeTab === "today" ? pointsToday : pointsWeek;
+    if (listToUse.length === 0) {
+      return [
+        { x: 30, y: 170, label: "-", val: 0 },
+        { x: 450, y: 170, label: "-", val: 0 },
+      ];
+    }
+
+    const maxVal = Math.max(...listToUse.map((r) => r.netRevenue), 1);
+    const count = listToUse.length;
+
+    return listToUse.map((item, idx) => {
+      const x = 30 + (idx * 420) / Math.max(count - 1, 1);
+      const y = 170 - (item.netRevenue * 130) / maxVal;
+
+      const dateParts = item.salesDate.split("-");
+      const label = dateParts.length >= 3 ? `${dateParts[2]}/${dateParts[1]}` : item.salesDate;
+
+      return {
+        x,
+        y,
+        label,
+        val: item.netRevenue,
+      };
+    });
+  }, [dailyRevenues, activeTab]);
 
   // Render SVG Path D attributes
   const linePath = currentPoints
@@ -43,9 +54,9 @@ export const RevenueChart = ({ totalRevenueToday }: RevenueChartProps) => {
     <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col justify-between flex-1 min-h-[300px]">
       <div className="p-4 border-b border-slate-100 flex items-center justify-between flex-wrap gap-2 shrink-0">
         <span className="font-extrabold text-slate-800 text-sm">
-          Biểu đồ doanh thu ngày:{" "}
+          Biểu đồ doanh thu kỳ:{" "}
           <span className="text-kv-blue-primary">
-            {formatCurrency(totalRevenueToday || 3560000)}
+            {formatCurrency(totalRevenueToday)}
           </span>
         </span>
         <div className="flex bg-slate-100 p-0.5 rounded-lg border text-[10px]">
@@ -57,7 +68,7 @@ export const RevenueChart = ({ totalRevenueToday }: RevenueChartProps) => {
                 : "text-slate-500 hover:text-slate-700"
             }`}
           >
-            Hôm nay
+            7 ngày qua
           </button>
           <button
             onClick={() => setActiveTab("week")}
@@ -67,7 +78,7 @@ export const RevenueChart = ({ totalRevenueToday }: RevenueChartProps) => {
                 : "text-slate-500 hover:text-slate-700"
             }`}
           >
-            Tuần này
+            Kỳ báo cáo
           </button>
         </div>
       </div>

@@ -94,7 +94,7 @@ class ProductImportServiceImplTest {
                 .build();
 
         when(userRepository.findByUsername("owner")).thenReturn(Optional.of(ownerUser));
-        when(taxRateRepository.findByHouseholdIdAndIsActiveTrue("house-001")).thenReturn(Collections.singletonList(sampleTax));
+        when(taxRateRepository.findByHouseholdIdAndIsActiveTrueOrderByCreatedAtAsc("house-001")).thenReturn(Collections.singletonList(sampleTax));
         when(productRepository.findSkusByHouseholdId("house-001")).thenReturn(Collections.emptyList());
 
         byte[] excelBytes;
@@ -141,7 +141,7 @@ class ProductImportServiceImplTest {
                 .build();
 
         when(userRepository.findByUsername("owner")).thenReturn(Optional.of(ownerUser));
-        when(taxRateRepository.findByHouseholdIdAndIsActiveTrue("house-001")).thenReturn(Collections.singletonList(sampleTax));
+        when(taxRateRepository.findByHouseholdIdAndIsActiveTrueOrderByCreatedAtAsc("house-001")).thenReturn(Collections.singletonList(sampleTax));
         when(productRepository.findSkusByHouseholdId("house-001")).thenReturn(Collections.singletonList("SP_EXISTING"));
 
         byte[] excelBytes;
@@ -189,4 +189,52 @@ class ProductImportServiceImplTest {
         assertEquals(2, response.getErrorCount());
         assertEquals(2, response.getErrors().size());
     }
+
+    @Test
+    @DisplayName("NCL-09-CN-005-TC-05: Giá nhập âm -> Báo lỗi dòng chi tiết")
+    void importProducts_NegativeCostPrice_RecordsError() throws Exception {
+        com.viet.sales.entity.TaxRate sampleTax = com.viet.sales.entity.TaxRate.builder()
+                .id("tax-001")
+                .name("Thuế 1%")
+                .ratePercentage(new java.math.BigDecimal("1.00"))
+                .isActive(true)
+                .build();
+
+        when(userRepository.findByUsername("owner")).thenReturn(Optional.of(ownerUser));
+        when(taxRateRepository.findByHouseholdIdAndIsActiveTrueOrderByCreatedAtAsc("house-001")).thenReturn(Collections.singletonList(sampleTax));
+        when(productRepository.findSkusByHouseholdId("house-001")).thenReturn(Collections.emptyList());
+
+        byte[] excelBytes;
+        try (Workbook workbook = new XSSFWorkbook();
+             ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+            Sheet sheet = workbook.createSheet();
+            Row header = sheet.createRow(0);
+            header.createCell(0).setCellValue("Mã SKU");
+            header.createCell(1).setCellValue("Tên hàng hóa");
+            header.createCell(2).setCellValue("Đơn vị tính");
+            header.createCell(3).setCellValue("Giá nhập");
+            header.createCell(4).setCellValue("Giá bán");
+
+            Row r1 = sheet.createRow(1);
+            r1.createCell(0).setCellValue("SP001");
+            r1.createCell(1).setCellValue("Trà Chanh");
+            r1.createCell(2).setCellValue("Ly");
+            r1.createCell(3).setCellValue(-5000); // Negative cost price
+            r1.createCell(4).setCellValue(20000);
+
+            workbook.write(out);
+            excelBytes = out.toByteArray();
+        }
+
+        MockMultipartFile file = new MockMultipartFile("file", "products.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", excelBytes);
+
+        ImportProductResultResponse response = productImportService.importProducts("owner", file);
+
+        assertNotNull(response);
+        assertEquals(1, response.getTotalRows());
+        assertEquals(0, response.getSuccessCount());
+        assertEquals(1, response.getErrorCount());
+        assertTrue(response.getErrors().get(0).getErrorMessage().contains("Giá nhập không được là số âm"));
+    }
 }
+

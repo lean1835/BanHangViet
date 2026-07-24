@@ -11,6 +11,7 @@ import org.springframework.stereotype.Repository;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -21,6 +22,13 @@ public interface OrderRepository extends JpaRepository<Order, String> {
     Optional<Order> findByIdAndHouseholdIdAndDeletedAtIsNull(String id, String householdId);
 
     boolean existsByOrderNumber(String orderNumber);
+
+    Optional<Order> findByOrderNumberAndDeletedAtIsNull(String orderNumber);
+
+    Optional<Order> findByOrderNumberAndHouseholdIdAndDeletedAtIsNull(String orderNumber, String householdId);
+
+    @EntityGraph(attributePaths = {"items", "items.product", "customer", "shift", "createdByUser", "household"})
+    List<Order> findByOrderNumberInAndHouseholdIdAndDeletedAtIsNull(Collection<String> orderNumbers, String householdId);
 
     List<Order> findByShiftIdAndDeletedAtIsNull(String shiftId);
 
