@@ -45,8 +45,10 @@ public class BackupServiceImpl implements BackupService {
     @Override
     @Transactional(readOnly = true)
     public ResponseEntity<Resource> exportBackupData(String currentUsername, BackupType type, LocalDate fromDate, LocalDate toDate) {
-        if (fromDate != null && toDate != null && fromDate.isAfter(toDate)) {
-            throw new AppException(ErrorCode.INVALID_INPUT);
+        if (fromDate != null && toDate != null) {
+            if (fromDate.isAfter(toDate) || fromDate.plusYears(1).isBefore(toDate)) {
+                throw new AppException(ErrorCode.INVALID_INPUT);
+            }
         }
 
         User currentUser = userRepository.findByUsername(currentUsername)
@@ -74,7 +76,7 @@ public class BackupServiceImpl implements BackupService {
                 throw new AppException(ErrorCode.NO_DATA_TO_EXPORT);
             }
             byte[] excelData = createProductsExcel(products);
-            String filename = "backup_products_" + dateStr + ".xlsx";
+            String filename = "backup_products_all.xlsx";
             return createDownloadResponse(excelData, filename, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
 
         } else if (type == BackupType.INVOICES) {
@@ -94,10 +96,7 @@ public class BackupServiceImpl implements BackupService {
                 throw new AppException(ErrorCode.NO_DATA_TO_EXPORT);
             }
 
-            byte[] productsExcel = products.isEmpty() ? new byte[0] : createProductsExcel(products);
-            byte[] invoicesExcel = invoices.isEmpty() ? new byte[0] : createInvoicesExcel(invoices);
-
-            byte[] zipData = createZipArchive(productsExcel, invoicesExcel);
+            byte[] zipData = createZipArchive(products, invoices);
             String filename = "backup_full_" + dateStr + ".zip";
             return createDownloadResponse(zipData, filename, "application/zip");
         }
@@ -112,95 +111,122 @@ public class BackupServiceImpl implements BackupService {
         return from + "_" + to;
     }
 
-    private byte[] createProductsExcel(List<Product> products) {
-        SXSSFWorkbook workbook = new SXSSFWorkbook(100);
-        try (ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+    private CellStyle createHeaderStyle(Workbook workbook) {
+        CellStyle headerStyle = workbook.createCellStyle();
+        Font headerFont = workbook.createFont();
+        headerFont.setBold(true);
+        headerFont.setColor(IndexedColors.WHITE.getIndex());
+        headerStyle.setFont(headerFont);
+        headerStyle.setFillForegroundColor(IndexedColors.ROYAL_BLUE.getIndex());
+        headerStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+        return headerStyle;
+    }
 
+    private void writeProductsExcelToStream(List<Product> products, java.io.OutputStream out) throws IOException {
+        SXSSFWorkbook workbook = new SXSSFWorkbook(100);
+        try {
             Sheet sheet = workbook.createSheet("Danh_Muc_Hang_Hoa");
+            CellStyle headerStyle = createHeaderStyle(workbook);
 
             Row headerRow = sheet.createRow(0);
             String[] headers = {"STT", "Mã SKU", "Tên hàng hóa", "Đơn vị tính", "Giá bán", "Tồn kho", "Nhóm hàng", "Trạng thái"};
             for (int i = 0; i < headers.length; i++) {
                 Cell cell = headerRow.createCell(i);
                 cell.setCellValue(headers[i]);
+                cell.setCellStyle(headerStyle);
+                sheet.setColumnWidth(i, 20 * 256);
             }
 
             int rowIdx = 1;
             for (Product p : products) {
                 Row row = sheet.createRow(rowIdx++);
                 row.createCell(0).setCellValue(rowIdx - 1);
-                row.createCell(1).setCellValue(p.getSku());
-                row.createCell(2).setCellValue(p.getName());
-                row.createCell(3).setCellValue(p.getUnit());
+                row.createCell(1).setCellValue(p.getSku() != null ? p.getSku() : "");
+                row.createCell(2).setCellValue(p.getName() != null ? p.getName() : "");
+                row.createCell(3).setCellValue(p.getUnit() != null ? p.getUnit() : "");
                 row.createCell(4).setCellValue(p.getPrice() != null ? p.getPrice().doubleValue() : 0);
                 row.createCell(5).setCellValue(p.getStockQuantity() != null ? p.getStockQuantity().doubleValue() : 0);
                 row.createCell(6).setCellValue(p.getGroup() != null ? p.getGroup().getName() : "");
-                row.createCell(7).setCellValue(p.getStatus());
+                row.createCell(7).setCellValue(p.getStatus() != null ? p.getStatus() : "");
             }
 
             workbook.write(out);
-            return out.toByteArray();
-        } catch (IOException e) {
-            log.error("Lỗi tạo file Excel backup sản phẩm", e);
-            throw new AppException(ErrorCode.UNCATEGORIZED_EXCEPTION);
         } finally {
             workbook.dispose();
         }
     }
 
-    private byte[] createInvoicesExcel(List<EInvoice> invoices) {
-        SXSSFWorkbook workbook = new SXSSFWorkbook(100);
+    private byte[] createProductsExcel(List<Product> products) {
         try (ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+            writeProductsExcelToStream(products, out);
+            return out.toByteArray();
+        } catch (IOException e) {
+            log.error("Lỗi tạo file Excel backup sản phẩm", e);
+            throw new AppException(ErrorCode.UNCATEGORIZED_EXCEPTION);
+        }
+    }
 
+    private void writeInvoicesExcelToStream(List<EInvoice> invoices, java.io.OutputStream out) throws IOException {
+        SXSSFWorkbook workbook = new SXSSFWorkbook(100);
+        try {
             Sheet sheet = workbook.createSheet("Danh_Sach_Hoa_Don");
+            CellStyle headerStyle = createHeaderStyle(workbook);
 
             Row headerRow = sheet.createRow(0);
             String[] headers = {"STT", "Mã tra cứu", "Số hóa đơn", "Tên người mua", "MST người mua", "Tổng tiền trước thuế", "Tiền thuế", "Tổng thanh toán", "Trạng thái", "Ngày tạo"};
             for (int i = 0; i < headers.length; i++) {
                 Cell cell = headerRow.createCell(i);
                 cell.setCellValue(headers[i]);
+                cell.setCellStyle(headerStyle);
+                sheet.setColumnWidth(i, 20 * 256);
             }
 
             int rowIdx = 1;
             for (EInvoice inv : invoices) {
                 Row row = sheet.createRow(rowIdx++);
                 row.createCell(0).setCellValue(rowIdx - 1);
-                row.createCell(1).setCellValue(inv.getLookupCode());
+                row.createCell(1).setCellValue(inv.getLookupCode() != null ? inv.getLookupCode() : "");
                 row.createCell(2).setCellValue(inv.getInvoiceNumber() != null ? inv.getInvoiceNumber() : "");
                 row.createCell(3).setCellValue(inv.getBuyerName() != null ? inv.getBuyerName() : "");
                 row.createCell(4).setCellValue(inv.getBuyerTaxCode() != null ? inv.getBuyerTaxCode() : "");
                 row.createCell(5).setCellValue(inv.getTotalAmountBeforeTax() != null ? inv.getTotalAmountBeforeTax().doubleValue() : 0);
                 row.createCell(6).setCellValue(inv.getTaxAmount() != null ? inv.getTaxAmount().doubleValue() : 0);
                 row.createCell(7).setCellValue(inv.getFinalAmount() != null ? inv.getFinalAmount().doubleValue() : 0);
-                row.createCell(8).setCellValue(inv.getStatus());
+                row.createCell(8).setCellValue(inv.getStatus() != null ? inv.getStatus() : "");
                 row.createCell(9).setCellValue(inv.getCreatedAt() != null ? inv.getCreatedAt().toString() : "");
             }
 
             workbook.write(out);
-            return out.toByteArray();
-        } catch (IOException e) {
-            log.error("Lỗi tạo file Excel backup hóa đơn", e);
-            throw new AppException(ErrorCode.UNCATEGORIZED_EXCEPTION);
         } finally {
             workbook.dispose();
         }
     }
 
-    private byte[] createZipArchive(byte[] productsExcel, byte[] invoicesExcel) {
+    private byte[] createInvoicesExcel(List<EInvoice> invoices) {
+        try (ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+            writeInvoicesExcelToStream(invoices, out);
+            return out.toByteArray();
+        } catch (IOException e) {
+            log.error("Lỗi tạo file Excel backup hóa đơn", e);
+            throw new AppException(ErrorCode.UNCATEGORIZED_EXCEPTION);
+        }
+    }
+
+    private byte[] createZipArchive(List<Product> products, List<EInvoice> invoices) {
         try (ByteArrayOutputStream baos = new ByteArrayOutputStream();
              ZipOutputStream zos = new ZipOutputStream(baos)) {
 
-            if (productsExcel.length > 0) {
+            if (!products.isEmpty()) {
                 ZipEntry entryProd = new ZipEntry("products.xlsx");
                 zos.putNextEntry(entryProd);
-                zos.write(productsExcel);
+                writeProductsExcelToStream(products, zos);
                 zos.closeEntry();
             }
 
-            if (invoicesExcel.length > 0) {
+            if (!invoices.isEmpty()) {
                 ZipEntry entryInv = new ZipEntry("invoices.xlsx");
                 zos.putNextEntry(entryInv);
-                zos.write(invoicesExcel);
+                writeInvoicesExcelToStream(invoices, zos);
                 zos.closeEntry();
             }
 

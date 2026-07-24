@@ -178,7 +178,20 @@ class BackupServiceImplTest {
         assertNotNull(response);
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertNotNull(response.getBody());
-        assertTrue(response.getHeaders().get(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION).get(0).contains("backup_products_20260101_20260131.xlsx"));
+        assertTrue(response.getHeaders().get(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION).get(0).contains("backup_products_all.xlsx"));
+    }
+
+    @Test
+    @DisplayName("NCL-09-CN-006: Khoảng thời gian sao lưu vượt quá 1 năm (> 365 ngày) -> Báo lỗi INVALID_INPUT (400)")
+    void exportBackupData_DateRangeExceedsOneYear_ThrowsInvalidInput() {
+        LocalDate fromDate = LocalDate.of(2025, 1, 1);
+        LocalDate toDate = LocalDate.of(2026, 1, 5);
+
+        AppException exception = assertThrows(AppException.class, () ->
+                backupService.exportBackupData("owner", BackupType.INVOICES, fromDate, toDate)
+        );
+
+        assertEquals(ErrorCode.INVALID_INPUT, exception.getErrorCode());
     }
 
     @Test
