@@ -15,6 +15,6 @@ export const DashboardWorkspaceLayout = ({
         {sidebar}
       </aside>
     )}
-    <main className="min-w-0 flex-1 overflow-y-visible bg-slate-50 p-3 sm:p-4 lg:overflow-y-auto lg:p-6">{children}</main>
+    <main className="min-w-0 flex-1 overflow-y-visible bg-slate-50 p-3 sm:p-4 lg:overflow-y-auto lg:p-3 lg:px-6 lg:pb-6">{children}</main>
   </div>
 );

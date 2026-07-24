@@ -24,6 +24,10 @@ public interface EInvoiceRepository extends JpaRepository<EInvoice, String>, Jpa
 
     @Override
     @EntityGraph(attributePaths = {"items", "items.product", "createdByUser", "canceledByUser", "household", "order", "originalInvoice"})
+    List<EInvoice> findAll(Specification<EInvoice> spec);
+
+    @Override
+    @EntityGraph(attributePaths = {"items", "items.product", "createdByUser", "canceledByUser", "household", "order", "originalInvoice"})
     Optional<EInvoice> findById(String id);
 
     @EntityGraph(attributePaths = {"items", "items.product", "createdByUser", "canceledByUser", "household", "order", "originalInvoice"})

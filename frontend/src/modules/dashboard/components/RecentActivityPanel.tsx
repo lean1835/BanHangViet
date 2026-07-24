@@ -1,4 +1,6 @@
 import { RotateCw, FileText, PlusCircle, AlertTriangle, Key, Activity, Trash2, ArrowUpRight } from "lucide-react";
+import { Link } from "react-router-dom";
+import { APP_ROUTES } from "@/constants/routes";
 import type { IActivityLog } from "@/modules/report/types/IActivityLog";
 
 interface RecentActivityPanelProps {
@@ -44,18 +46,18 @@ export const RecentActivityPanel = ({ logs }: RecentActivityPanelProps) => {
     return "bg-slate-50";
   };
 
-  const recentLogs = logs.slice(0, 5);
+  const recentLogs = logs.slice(0, 15);
 
   return (
-    <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col h-[380px]">
-      <div className="p-4 border-b border-slate-100 font-extrabold text-slate-800 text-sm shrink-0 flex justify-between items-center">
+    <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col h-full min-h-[420px] max-h-[440px]">
+      <div className="p-4 border-b border-slate-100 font-extrabold text-slate-800 text-sm shrink-0 flex justify-between items-center bg-slate-50/50">
         <span>Nhật ký hoạt động</span>
-        <span className="text-[10px] text-kv-blue-primary font-bold uppercase tracking-wider cursor-pointer hover:underline flex items-center gap-0.5">
+        <Link to={APP_ROUTES.REPORT_ACTIVITY_LOGS} className="text-[10px] text-kv-blue-primary font-bold uppercase tracking-wider cursor-pointer hover:underline flex items-center gap-0.5">
           Xem tất cả <ArrowUpRight className="w-3 h-3" />
-        </span>
+        </Link>
       </div>
 
-      <div className="flex-1 overflow-auto p-4 flex flex-col gap-4">
+      <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3.5 min-h-0">
         {recentLogs.length === 0 ? (
           <div className="flex-1 flex flex-col justify-center items-center text-slate-400 text-center">
             <Activity className="w-10 h-10 text-slate-300 mb-2" />

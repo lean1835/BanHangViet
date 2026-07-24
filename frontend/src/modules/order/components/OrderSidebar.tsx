@@ -13,6 +13,7 @@ interface OrderSidebarProps {
 }
 
 const ORDER_STATUS_OPTIONS = [
+  { value: "ALL", label: "Tất cả" },
   { value: "CREATING", label: "Đang tạo (Nháp)" },
   { value: "COMPLETED", label: "Hoàn thành" },
   { value: "CANCELED", label: "Đã hủy" },
@@ -28,11 +29,13 @@ export const OrderSidebar: React.FC<OrderSidebarProps> = ({
   searchQuery,
   setSearchQuery,
 }) => {
-  const handleStatusChange = (status: string, checked: boolean) => {
-    if (checked) {
-      setStatusFilter((prev) => [...prev, status]);
+  const selectedStatus = statusFilter.length === 0 ? "ALL" : statusFilter[0];
+
+  const handleStatusRadioChange = (val: string) => {
+    if (val === "ALL") {
+      setStatusFilter([]);
     } else {
-      setStatusFilter((prev) => prev.filter((s) => s !== status));
+      setStatusFilter([val]);
     }
   };
 
@@ -92,10 +95,12 @@ export const OrderSidebar: React.FC<OrderSidebarProps> = ({
           {ORDER_STATUS_OPTIONS.map((status) => (
             <label key={status.value} className="flex min-h-11 cursor-pointer items-center gap-2 lg:min-h-0 text-xs">
               <input
-                type="checkbox"
-                checked={statusFilter.includes(status.value)}
-                onChange={(e) => handleStatusChange(status.value, e.target.checked)}
-                className="rounded border-slate-300 text-kv-blue-primary focus:ring-kv-blue-primary w-3.5 h-3.5"
+                type="radio"
+                name="orderStatusFilter"
+                value={status.value}
+                checked={selectedStatus === status.value}
+                onChange={() => handleStatusRadioChange(status.value)}
+                className="border-slate-300 text-kv-blue-primary focus:ring-kv-blue-primary w-3.5 h-3.5"
               />
               <span>{status.label}</span>
             </label>

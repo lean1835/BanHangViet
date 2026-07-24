@@ -10,10 +10,6 @@ export const SETTINGS_NAVIGATION_ITEMS = [
     path: APP_ROUTES.SETTINGS_TAX_RATES,
     label: "Thuế suất",
   },
-  {
-    path: APP_ROUTES.SETTINGS_PRINTER,
-    label: "Cấu hình máy in",
-  },
 ] as const;
 
 export const SETTINGS_UI = {

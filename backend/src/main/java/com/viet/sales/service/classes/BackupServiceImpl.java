@@ -15,6 +15,7 @@ import com.viet.sales.specification.ProductSpecification;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.ss.usermodel.*;
+import org.apache.poi.xssf.streaming.SXSSFWorkbook;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.Resource;
@@ -44,8 +45,16 @@ public class BackupServiceImpl implements BackupService {
     @Override
     @Transactional(readOnly = true)
     public ResponseEntity<Resource> exportBackupData(String currentUsername, BackupType type, LocalDate fromDate, LocalDate toDate) {
+        if (fromDate != null && toDate != null && fromDate.isAfter(toDate)) {
+            throw new AppException(ErrorCode.INVALID_INPUT);
+        }
+
         User currentUser = userRepository.findByUsername(currentUsername)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+
+        if (currentUser.getRole() == null) {
+            throw new AppException(ErrorCode.FORBIDDEN);
+        }
 
         String roleCode = currentUser.getRole().getCode();
         if (!"VT-01".equals(roleCode) && !"OWNER".equals(roleCode)) {
@@ -104,8 +113,8 @@ public class BackupServiceImpl implements BackupService {
     }
 
     private byte[] createProductsExcel(List<Product> products) {
-        try (Workbook workbook = new XSSFWorkbook();
-             ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+        SXSSFWorkbook workbook = new SXSSFWorkbook(100);
+        try (ByteArrayOutputStream out = new ByteArrayOutputStream()) {
 
             Sheet sheet = workbook.createSheet("Danh_Muc_Hang_Hoa");
 
@@ -134,12 +143,14 @@ public class BackupServiceImpl implements BackupService {
         } catch (IOException e) {
             log.error("Lỗi tạo file Excel backup sản phẩm", e);
             throw new AppException(ErrorCode.UNCATEGORIZED_EXCEPTION);
+        } finally {
+            workbook.dispose();
         }
     }
 
     private byte[] createInvoicesExcel(List<EInvoice> invoices) {
-        try (Workbook workbook = new XSSFWorkbook();
-             ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+        SXSSFWorkbook workbook = new SXSSFWorkbook(100);
+        try (ByteArrayOutputStream out = new ByteArrayOutputStream()) {
 
             Sheet sheet = workbook.createSheet("Danh_Sach_Hoa_Don");
 
@@ -170,6 +181,8 @@ public class BackupServiceImpl implements BackupService {
         } catch (IOException e) {
             log.error("Lỗi tạo file Excel backup hóa đơn", e);
             throw new AppException(ErrorCode.UNCATEGORIZED_EXCEPTION);
+        } finally {
+            workbook.dispose();
         }
     }
 

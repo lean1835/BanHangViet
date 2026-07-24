@@ -1,5 +1,7 @@
-import { FileSpreadsheet, AlertCircle, TrendingUp, HelpCircle } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { FileSpreadsheet, AlertCircle, BarChart3 } from "lucide-react";
 import { formatCurrency } from "@/utils/formatCurrency";
+import { APP_ROUTES } from "@/constants/routes";
 
 interface SalesKpiCardsProps {
   totalRevenue: number;
@@ -12,6 +14,8 @@ export const SalesKpiCards = ({
   totalOrders,
   totalFailedInvoices,
 }: SalesKpiCardsProps) => {
+  const navigate = useNavigate();
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
       {/* Card 1: Số đơn bán hàng */}
@@ -23,10 +27,8 @@ export const SalesKpiCards = ({
           <h3 className="text-2xl font-black text-slate-800 mt-1">
             {totalOrders}
           </h3>
-          <div className="flex items-center gap-1 mt-1 text-[11px] text-emerald-600 font-bold">
-            <TrendingUp className="w-3.5 h-3.5" />
-            <span>+ 12.5%</span>
-            <span className="text-slate-400 font-medium ml-1">vs hôm qua</span>
+          <div className="flex items-center gap-1 mt-1 text-[11px] text-slate-500 font-medium">
+            <span>Đơn hàng trong kỳ</span>
           </div>
         </div>
         <div className="w-12 h-12 bg-blue-50 text-kv-blue-primary rounded-full flex items-center justify-center shrink-0">
@@ -62,10 +64,8 @@ export const SalesKpiCards = ({
           <h3 className="text-2xl font-black text-slate-800 mt-1">
             {formatCurrency(totalRevenue)}
           </h3>
-          <div className="flex items-center gap-1 mt-1 text-[11px] text-emerald-600 font-bold">
-            <TrendingUp className="w-3.5 h-3.5" />
-            <span>+ 15.3%</span>
-            <span className="text-slate-400 font-medium ml-1">vs hôm qua</span>
+          <div className="flex items-center gap-1 mt-1 text-[11px] text-slate-500 font-medium">
+            <span>Doanh thu thuần trong kỳ</span>
           </div>
         </div>
         <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center shrink-0">
@@ -76,26 +76,30 @@ export const SalesKpiCards = ({
         </div>
       </div>
 
-      {/* Card 4: So sánh hai kỳ (Có thể phát triển sau) */}
-      <div className="bg-slate-50/50 p-5 rounded-xl border border-dashed border-slate-200 flex items-center justify-between relative group overflow-hidden">
+      {/* Card 4: So sánh hai kỳ */}
+      <div
+        onClick={() => navigate(APP_ROUTES.REPORT_COMPARISON)}
+        className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between transition-all hover:shadow-md hover:border-indigo-300 cursor-pointer group"
+      >
         <div>
           <div className="flex items-center gap-1.5">
             <span className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">
               So sánh hai kỳ
             </span>
-            <span className="bg-amber-100 text-amber-800 text-[8px] font-bold px-1.5 py-0.2 rounded-full uppercase scale-90">
-              Khảo sát
+            <span className="bg-purple-100 text-purple-700 text-[8px] font-bold px-1.5 py-0.5 rounded-full uppercase">
+              Báo cáo
             </span>
           </div>
-          <h3 className="text-base font-black text-slate-500 mt-1.5 italic">
-            Có thể phát triển sau
+          <h3 className="text-xl font-black text-slate-800 mt-1 flex items-center gap-1 group-hover:text-indigo-600 transition-colors">
+            Đối soát doanh thu
           </h3>
-          <span className="text-[10px] text-slate-400 mt-1 block font-medium">
-            (Tính năng đang lên kế hoạch)
-          </span>
+          <div className="flex items-center gap-1 mt-1 text-[11px] text-indigo-600 font-semibold">
+            <span>Xem báo cáo so sánh</span>
+            <span className="transition-transform group-hover:translate-x-1">→</span>
+          </div>
         </div>
-        <div className="w-12 h-12 bg-slate-100 text-slate-400 rounded-full flex items-center justify-center shrink-0">
-          <HelpCircle className="w-6 h-6" />
+        <div className="w-12 h-12 bg-purple-50 text-purple-600 rounded-full flex items-center justify-center shrink-0 group-hover:bg-purple-600 group-hover:text-white transition-all">
+          <BarChart3 className="w-6 h-6" />
         </div>
       </div>
     </div>
