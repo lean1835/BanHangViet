@@ -27,6 +27,8 @@ export const ROUTE_SEGMENTS = {
   POS: "pos",
   E_INVOICES: "e-invoices",
   LOOKUP_INVOICE: "lookup-invoice",
+  INVOICE_TEMPLATE: "invoice-template",
+  BACKUP_EXPORT: "backup-export",
   WILDCARD: "*",
 } as const;
 
@@ -73,6 +75,14 @@ export const APP_ROUTES = {
   SETTINGS_TAX_RATES: createRoute(
     ROUTE_SEGMENTS.SETTINGS,
     ROUTE_SEGMENTS.TAX_RATES,
+  ),
+  SETTINGS_INVOICE_TEMPLATE: createRoute(
+    ROUTE_SEGMENTS.SETTINGS,
+    ROUTE_SEGMENTS.INVOICE_TEMPLATE,
+  ),
+  SETTINGS_BACKUP_EXPORT: createRoute(
+    ROUTE_SEGMENTS.SETTINGS,
+    ROUTE_SEGMENTS.BACKUP_EXPORT,
   ),
   SETTINGS_PRINTER: createRoute(
     ROUTE_SEGMENTS.SETTINGS,
