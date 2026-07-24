@@ -73,7 +73,13 @@ public enum ErrorCode {
     TAX_RATE_ALREADY_EXISTS(2033, "Tên mức thuế suất đã tồn tại trong hộ kinh doanh", HttpStatus.BAD_REQUEST),
     INACTIVE_TAX_RATE(2034, "Mức thuế suất đã bị ngừng hiệu lực", HttpStatus.BAD_REQUEST),
     TAX_RATE_IN_USE(2035, "Mức thuế suất đang được sử dụng bởi các sản phẩm trong hệ thống", HttpStatus.BAD_REQUEST),
-    CANNOT_OVERWRITE_ISSUED_INVOICE(4013, "Không thể ghi đè hóa đơn đã phát hành hoặc cấp mã", HttpStatus.BAD_REQUEST);
+    CANNOT_OVERWRITE_ISSUED_INVOICE(4013, "Không thể ghi đè hóa đơn đã phát hành hoặc cấp mã", HttpStatus.BAD_REQUEST),
+
+    // Quản lý khách hàng thân thiết và công nợ (NCL-10)
+    CUSTOMER_PHONE_EXISTS(3026, "Số điện thoại khách hàng đã tồn tại trong hộ kinh doanh", HttpStatus.BAD_REQUEST),
+    DEBT_NOT_FOUND(3027, "Khoản công nợ không tồn tại", HttpStatus.NOT_FOUND),
+    INVALID_DEBT_PAYMENT_AMOUNT(3028, "Số tiền thu nợ không hợp lệ", HttpStatus.BAD_REQUEST),
+    CUSTOMER_HAS_OUTSTANDING_DEBT(3029, "Không thể xóa khách hàng đang còn dư nợ công nợ", HttpStatus.BAD_REQUEST);
 
     private final int code;
     private final String message;
