@@ -20,6 +20,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.math.BigDecimal;
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -71,7 +72,7 @@ public class ProductImportServiceImpl implements ProductImportService {
 
         Map<String, ProductGroup> existingGroupsMap = productGroupRepository.findByHouseholdIdAndDeletedAtIsNull(household.getId())
                 .stream()
-                .collect(java.util.stream.Collectors.toMap(
+                .collect(Collectors.toMap(
                         g -> g.getName().trim().toLowerCase(),
                         g -> g,
                         (g1, g2) -> g1

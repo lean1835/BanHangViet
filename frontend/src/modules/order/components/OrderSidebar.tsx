@@ -87,25 +87,21 @@ export const OrderSidebar: React.FC<OrderSidebarProps> = ({
       </div>
 
       {/* Bộ lọc trạng thái */}
-      <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-2">
         <span className="font-bold text-slate-400 uppercase tracking-wide text-[10px]">
           {ORDER_UI.SIDEBAR.STATUS_FILTER_LABEL}
         </span>
-        <div className="flex flex-col gap-2 font-medium text-slate-700">
+        <select
+          value={selectedStatus}
+          onChange={(e) => handleStatusRadioChange(e.target.value)}
+          className="w-full border border-slate-300 h-9 px-3 rounded-lg focus:outline-none focus:border-kv-blue-primary text-xs font-semibold bg-white text-slate-700 cursor-pointer"
+        >
           {ORDER_STATUS_OPTIONS.map((status) => (
-            <label key={status.value} className="flex min-h-11 cursor-pointer items-center gap-2 lg:min-h-0 text-xs">
-              <input
-                type="radio"
-                name="orderStatusFilter"
-                value={status.value}
-                checked={selectedStatus === status.value}
-                onChange={() => handleStatusRadioChange(status.value)}
-                className="border-slate-300 text-kv-blue-primary focus:ring-kv-blue-primary w-3.5 h-3.5"
-              />
-              <span>{status.label}</span>
-            </label>
+            <option key={status.value} value={status.value}>
+              {status.label}
+            </option>
           ))}
-        </div>
+        </select>
       </div>
     </>
   );

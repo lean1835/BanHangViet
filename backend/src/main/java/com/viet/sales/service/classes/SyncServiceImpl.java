@@ -31,9 +31,11 @@ import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -188,7 +190,7 @@ public class SyncServiceImpl implements SyncService {
         }
 
         // Deduplicate payload by orderNumber to avoid duplicate orders in the same batch
-        Map<String, OfflineOrderRequest> uniqueRequestsMap = new java.util.LinkedHashMap<>();
+        Map<String, OfflineOrderRequest> uniqueRequestsMap = new LinkedHashMap<>();
         for (OfflineOrderRequest req : requests) {
             if (req.getOrderNumber() != null && !req.getOrderNumber().trim().isEmpty()) {
                 uniqueRequestsMap.putIfAbsent(req.getOrderNumber(), req);
@@ -387,14 +389,16 @@ public class SyncServiceImpl implements SyncService {
             }
 
             // 1. Revert previous stock changes atomically
-            for (OrderItem item : serverOrder.getItems()) {
-                if (item.getProduct() != null) {
-                    productRepository.addStock(item.getProduct().getId(), household.getId(), item.getQuantity());
+            if (serverOrder.getItems() != null) {
+                for (OrderItem item : serverOrder.getItems()) {
+                    if (item.getProduct() != null) {
+                        productRepository.addStock(item.getProduct().getId(), household.getId(), item.getQuantity());
+                    }
                 }
+                serverOrder.getItems().clear();
+            } else {
+                serverOrder.setItems(new ArrayList<>());
             }
-
-            // 2. Clear old items
-            serverOrder.getItems().clear();
             orderRepository.saveAndFlush(serverOrder);
 
             // 3. Set new values
@@ -488,7 +492,7 @@ public class SyncServiceImpl implements SyncService {
             }
 
             // Modify order number to be unique
-            String newOrderNo = orderNo + "-OFF-" + java.util.UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+            String newOrderNo = orderNo + "-OFF-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
 
             // 1. Resolve shift
             Shift shift = null;

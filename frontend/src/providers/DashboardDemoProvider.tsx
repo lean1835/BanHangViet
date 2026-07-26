@@ -16,17 +16,10 @@ import {
   DEMO_WORKSPACE_DEFAULTS,
   getNextActivityLogId,
 } from "@/constants/app";
-import {
-  MOCK_ACTIVITY_LOGS,
-  MOCK_CUSTOMERS,
-  MOCK_INVOICES,
-} from "@/constants/mockData";
 import { useGetOrdersHistoryQuery } from "@/modules/order/services/orderApi";
-import { isDemoRole, USER_ROLES } from "@/constants/roles";
+import { isDemoRole, USER_ROLES, type TDemoRole } from "@/constants/roles";
 import type { ICustomer } from "@/modules/customer/types/ICustomer";
-import type { TDemoRole } from "@/constants/roles";
 import type { IInvoice } from "@/modules/e_invoice/types/IInvoice";
-import { MOCK_STOCK_ENTRIES } from "@/constants/mockData/product";
 import type { IStockEntry } from "@/modules/product/types/IStockEntry";
 import type { IOrderResponse } from "@/modules/order/types/IOrder";
 import type { IActivityLog } from "@/modules/report/types/IActivityLog";
@@ -72,12 +65,10 @@ export const DashboardDemoProvider = ({ children }: DashboardDemoProviderProps) 
   const [simConflict, setSimConflict] = useState<boolean>(
     DEMO_WORKSPACE_DEFAULTS.SIMULATE_CONFLICT,
   );
-  const [invoices, setInvoices] = useState<IInvoice[]>(() => [...MOCK_INVOICES]);
-  const [customers, setCustomers] = useState<ICustomer[]>(() => [...MOCK_CUSTOMERS]);
-  const [logs, setLogs] = useState<IActivityLog[]>(() => [...MOCK_ACTIVITY_LOGS]);
-  const [stockEntries, setStockEntries] = useState<IStockEntry[]>(() => [
-    ...MOCK_STOCK_ENTRIES,
-  ]);
+  const [invoices, setInvoices] = useState<IInvoice[]>([]);
+  const [customers, setCustomers] = useState<ICustomer[]>([]);
+  const [logs, setLogs] = useState<IActivityLog[]>([]);
+  const [stockEntries, setStockEntries] = useState<IStockEntry[]>([]);
   const [orders, setOrders] = useState<IOrderResponse[]>([]);
 
   const canFetchOrders = Boolean(

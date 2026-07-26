@@ -42,4 +42,6 @@ export interface IOrderResponse {
   warningMessages: string[];
   qrCodeUrl: string | null;
   changeAmount: number | null;
+  paidAmount?: number;
+  debtAmount?: number;
 }

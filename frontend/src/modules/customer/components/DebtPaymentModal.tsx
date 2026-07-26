@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { X, Wallet, CheckCircle2 } from "lucide-react";
 import { CUSTOMER_UI } from "@/constants/customer";
-import { formatCurrency } from "@/utils/formatCurrency";
+import { formatCurrency, formatNumber } from "@/utils/formatCurrency";
 import { useAccessibleDialog } from "@/hooks/useAccessibleDialog";
 import type { ICustomer } from "../types/ICustomer";
 
@@ -199,14 +199,11 @@ export const DebtPaymentModal: React.FC<DebtPaymentModalProps> = ({
             </div>
 
             <input
-              type="number"
-              min="1"
-              max={customer.debt}
-              step="1"
-              value={amount}
+              type="text"
+              value={amount === "" ? "" : formatNumber(Number(amount))}
               onChange={(e) => {
-                const val = e.target.value;
-                setAmount(val === "" ? "" : Number(val));
+                const rawVal = e.target.value.replace(/\D/g, "");
+                setAmount(rawVal ? Number(rawVal) : "");
                 setErrorMessage("");
               }}
               placeholder={CUSTOMER_UI.PAY_DEBT_MODAL.PLACEHOLDER_AMOUNT}

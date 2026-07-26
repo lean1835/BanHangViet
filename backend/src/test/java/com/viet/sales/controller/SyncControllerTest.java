@@ -63,6 +63,9 @@ public class SyncControllerTest {
     @Autowired
     private ShiftRepository shiftRepository;
 
+    @Autowired
+    private EInvoiceRepository eInvoiceRepository;
+
     private BusinessHousehold testHousehold;
     private Role ownerRole;
     private Role employeeRole;
@@ -73,6 +76,9 @@ public class SyncControllerTest {
 
     @BeforeEach
     public void setUp() {
+        eInvoiceRepository.deleteAll();
+        orderRepository.deleteAll();
+        shiftRepository.deleteAll();
         testHousehold = businessHouseholdRepository.findAll().stream().findFirst().orElseGet(() -> {
             BusinessHousehold household = BusinessHousehold.builder()
                     .taxCode("1234567890")
@@ -266,6 +272,12 @@ public class SyncControllerTest {
                 .isOffline(false)
                 .build();
         existing = orderRepository.save(existing);
+
+        // Close any existing open shift for testOwner to satisfy QTN-15 DB trigger constraint
+        shiftRepository.findByUserIdAndStatus(testOwner.getId(), ShiftStatus.OPEN).ifPresent(s -> {
+            s.setStatus(ShiftStatus.CLOSED);
+            shiftRepository.save(s);
+        });
 
         // Create test shift
         Shift newShift = Shift.builder()

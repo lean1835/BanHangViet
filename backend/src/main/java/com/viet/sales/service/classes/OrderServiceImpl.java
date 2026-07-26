@@ -133,6 +133,25 @@ public class OrderServiceImpl implements OrderService {
                         .build())
                 .collect(Collectors.toList());
 
+        BigDecimal debtAmount = BigDecimal.ZERO;
+        BigDecimal paidAmount = order.getFinalAmount();
+
+        if ("DEBT".equals(order.getPaymentMethod())) {
+            CustomerDebt debtRecord = customerDebtRepository.findFirstByOrderIdAndType(order.getId(), "DEBT_CREATED").orElse(null);
+            if (debtRecord != null) {
+                debtAmount = debtRecord.getAmount();
+                paidAmount = order.getFinalAmount().subtract(debtAmount).max(BigDecimal.ZERO);
+            } else if ("PAID".equals(order.getPaymentStatus())) {
+                debtAmount = BigDecimal.ZERO;
+                paidAmount = order.getFinalAmount();
+            } else {
+                debtAmount = order.getFinalAmount();
+                paidAmount = BigDecimal.ZERO;
+            }
+        } else if ("CASH".equals(order.getPaymentMethod())) {
+            paidAmount = order.getFinalAmount().add(changeAmount != null ? changeAmount : BigDecimal.ZERO);
+        }
+
         return OrderResponse.builder()
                 .id(order.getId())
                 .orderNumber(order.getOrderNumber())
@@ -156,6 +175,8 @@ public class OrderServiceImpl implements OrderService {
                 .items(itemResponses)
                 .warningMessages(warnings)
                 .changeAmount(changeAmount)
+                .paidAmount(paidAmount)
+                .debtAmount(debtAmount)
                 .qrCodeUrl(qrCodeUrl)
                 .build();
     }
@@ -549,31 +570,41 @@ public class OrderServiceImpl implements OrderService {
                     customer.getId(), household.getId())
                     .orElseThrow(() -> new AppException(ErrorCode.CUSTOMER_NOT_FOUND));
 
-            BigDecimal potentialDebt = customer.getCurrentDebt().add(order.getFinalAmount());
+            BigDecimal paidAmount = (request != null && request.getAmountGiven() != null)
+                    ? request.getAmountGiven()
+                    : BigDecimal.ZERO;
+            if (paidAmount.compareTo(order.getFinalAmount()) > 0) {
+                paidAmount = order.getFinalAmount();
+            }
+            BigDecimal netDebtAmount = order.getFinalAmount().subtract(paidAmount);
+
+            BigDecimal potentialDebt = customer.getCurrentDebt().add(netDebtAmount);
             if (potentialDebt.compareTo(customer.getCreditLimit()) > 0) {
                 throw new AppException(ErrorCode.CREDIT_LIMIT_EXCEEDED);
             }
             customer.setCurrentDebt(potentialDebt);
             customerRepository.save(customer);
             order.setCustomer(customer);
-            order.setPaymentStatus("DEBT");
+            order.setPaymentStatus(netDebtAmount.compareTo(BigDecimal.ZERO) == 0 ? "PAID" : "DEBT");
 
-            LocalDateTime debtDueDate = request.getDueDate() != null ? request.getDueDate() : LocalDateTime.now().plusDays(7);
+            if (netDebtAmount.compareTo(BigDecimal.ZERO) > 0) {
+                LocalDateTime debtDueDate = request != null && request.getDueDate() != null ? request.getDueDate() : LocalDateTime.now().plusDays(7);
 
-            // Tạo và lưu bản ghi công nợ customer_debts (DEBT_CREATED)
-            CustomerDebt debtRecord = CustomerDebt.builder()
-                    .household(household)
-                    .customer(customer)
-                    .order(order)
-                    .amount(order.getFinalAmount())
-                    .remainingAmount(order.getFinalAmount())
-                    .type("DEBT_CREATED")
-                    .status("PENDING")
-                    .dueDate(debtDueDate)
-                    .notes("Ghi nợ từ đơn hàng " + order.getOrderNumber())
-                    .createdByUser(currentUser)
-                    .build();
-            customerDebtRepository.save(debtRecord);
+                // Tạo và lưu bản ghi công nợ customer_debts (DEBT_CREATED) với số tiền nợ thực tế
+                CustomerDebt debtRecord = CustomerDebt.builder()
+                        .household(household)
+                        .customer(customer)
+                        .order(order)
+                        .amount(netDebtAmount)
+                        .remainingAmount(netDebtAmount)
+                        .type("DEBT_CREATED")
+                        .status("PENDING")
+                        .dueDate(debtDueDate)
+                        .notes("Ghi nợ từ đơn hàng " + order.getOrderNumber() + (paidAmount.compareTo(BigDecimal.ZERO) > 0 ? " (Đã tạm trả: " + paidAmount + ")" : ""))
+                        .createdByUser(currentUser)
+                        .build();
+                customerDebtRepository.save(debtRecord);
+            }
         }
 
         // Get warnings before deduction

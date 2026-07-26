@@ -39,7 +39,7 @@ export const ShiftHistoryTable: React.FC<ShiftHistoryTableProps> = ({ currentRol
     isFetching: isHistoryFetching,
     isLoading,
     refetch: refetchShiftsHistory,
-  } = useGetShiftsHistoryQuery();
+  } = useGetShiftsHistoryQuery(undefined, { refetchOnMountOrArgChange: true });
   const shifts = shiftsHistoryData?.result || [];
 
   const {
@@ -49,6 +49,7 @@ export const ShiftHistoryTable: React.FC<ShiftHistoryTableProps> = ({ currentRol
     refetch: refetchActiveShift,
   } = useGetActiveShiftQuery(undefined, {
       skip: currentRole === USER_ROLES.ACCOUNTANT,
+      refetchOnMountOrArgChange: true,
     });
   const currentShift = activeShiftData?.result ?? null;
 

@@ -55,18 +55,19 @@ public class EInvoiceServiceImpl implements EInvoiceService {
     private final EmailService emailService;
     private final ObjectMapper objectMapper;
 
-    @Value("${app.frontend-url:http://localhost:5173}")
+    @Value("${app.frontend-url:http://localhost:3000}")
     private String frontendUrl;
-
 
     private User getAuthenticatedUser(String username) {
         return userRepository.findByUsername(username)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
     }
 
-    private void logActivity(BusinessHousehold household, User actor, String action, String targetId, Object oldValue, Object newValue) {
+    private void logActivity(BusinessHousehold household, User actor, String action, String targetId, Object oldValue,
+            Object newValue) {
         try {
-            ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+            ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder
+                    .getRequestAttributes();
             HttpServletRequest request = attributes != null ? attributes.getRequest() : null;
 
             String clientIp = request != null ? request.getRemoteAddr() : null;
@@ -94,8 +95,8 @@ public class EInvoiceServiceImpl implements EInvoiceService {
     }
 
     private void checkInvoiceOwnership(EInvoice invoice, User currentUser) {
-        if (currentUser.getHousehold() == null || 
-            !currentUser.getHousehold().getId().equals(invoice.getHousehold().getId())) {
+        if (currentUser.getHousehold() == null ||
+                !currentUser.getHousehold().getId().equals(invoice.getHousehold().getId())) {
             throw new AppException(ErrorCode.FORBIDDEN);
         }
     }
@@ -107,36 +108,51 @@ public class EInvoiceServiceImpl implements EInvoiceService {
         map.put("buyerName", invoice.getBuyerName());
         map.put("finalAmount", invoice.getFinalAmount());
         map.put("status", invoice.getStatus());
-        map.put("originalInvoiceId", invoice.getOriginalInvoice() != null ? invoice.getOriginalInvoice().getId() : null);
+        map.put("originalInvoiceId",
+                invoice.getOriginalInvoice() != null ? invoice.getOriginalInvoice().getId() : null);
         return map;
     }
 
     private boolean checkDataDifference(EInvoice original, CreateAdjustmentInvoiceRequest request) {
-        // Kiểm tra thông tin người mua (sử dụng giá trị thực tế sẽ lưu nếu input là null)
+        // Kiểm tra thông tin người mua (sử dụng giá trị thực tế sẽ lưu nếu input là
+        // null)
         String resolvedBuyerName = request.getBuyerName() != null ? request.getBuyerName() : original.getBuyerName();
-        String resolvedBuyerTaxCode = request.getBuyerTaxCode() != null ? request.getBuyerTaxCode() : original.getBuyerTaxCode();
-        String resolvedBuyerAddress = request.getBuyerAddress() != null ? request.getBuyerAddress() : original.getBuyerAddress();
-        String resolvedBuyerPhone = request.getBuyerPhone() != null ? request.getBuyerPhone() : original.getBuyerPhone();
-        String resolvedBuyerEmail = request.getBuyerEmail() != null ? request.getBuyerEmail() : original.getBuyerEmail();
+        String resolvedBuyerTaxCode = request.getBuyerTaxCode() != null ? request.getBuyerTaxCode()
+                : original.getBuyerTaxCode();
+        String resolvedBuyerAddress = request.getBuyerAddress() != null ? request.getBuyerAddress()
+                : original.getBuyerAddress();
+        String resolvedBuyerPhone = request.getBuyerPhone() != null ? request.getBuyerPhone()
+                : original.getBuyerPhone();
+        String resolvedBuyerEmail = request.getBuyerEmail() != null ? request.getBuyerEmail()
+                : original.getBuyerEmail();
 
-        if (!Objects.equals(original.getBuyerName(), resolvedBuyerName)) return true;
-        if (!Objects.equals(original.getBuyerTaxCode(), resolvedBuyerTaxCode)) return true;
-        if (!Objects.equals(original.getBuyerAddress(), resolvedBuyerAddress)) return true;
-        if (!Objects.equals(original.getBuyerPhone(), resolvedBuyerPhone)) return true;
-        if (!Objects.equals(original.getBuyerEmail(), resolvedBuyerEmail)) return true;
+        if (!Objects.equals(original.getBuyerName(), resolvedBuyerName))
+            return true;
+        if (!Objects.equals(original.getBuyerTaxCode(), resolvedBuyerTaxCode))
+            return true;
+        if (!Objects.equals(original.getBuyerAddress(), resolvedBuyerAddress))
+            return true;
+        if (!Objects.equals(original.getBuyerPhone(), resolvedBuyerPhone))
+            return true;
+        if (!Objects.equals(original.getBuyerEmail(), resolvedBuyerEmail))
+            return true;
 
         // Kiểm tra danh sách hàng hóa
         List<EInvoiceItem> originalItems = original.getItems();
         List<CreateAdjustmentInvoiceItemRequest> reqItems = request.getItems();
 
-        if (originalItems.size() != reqItems.size()) return true;
+        if (originalItems.size() != reqItems.size())
+            return true;
 
-        // So sánh từng cặp sản phẩm (để đơn giản và chính xác, chúng ta sort theo productId hoặc productName nếu productId null)
+        // So sánh từng cặp sản phẩm (để đơn giản và chính xác, chúng ta sort theo
+        // productId hoặc productName nếu productId null)
         List<EInvoiceItem> sortedOriginal = new ArrayList<>(originalItems);
-        sortedOriginal.sort(Comparator.comparing(item -> item.getProductName() + "_" + (item.getProduct() != null ? item.getProduct().getId() : "")));
+        sortedOriginal.sort(Comparator.comparing(
+                item -> item.getProductName() + "_" + (item.getProduct() != null ? item.getProduct().getId() : "")));
 
         List<CreateAdjustmentInvoiceItemRequest> sortedReq = new ArrayList<>(reqItems);
-        sortedReq.sort(Comparator.comparing(item -> item.getProductName() + "_" + (item.getProductId() != null ? item.getProductId() : "")));
+        sortedReq.sort(Comparator.comparing(
+                item -> item.getProductName() + "_" + (item.getProductId() != null ? item.getProductId() : "")));
 
         for (int i = 0; i < sortedOriginal.size(); i++) {
             EInvoiceItem origItem = sortedOriginal.get(i);
@@ -144,15 +160,23 @@ public class EInvoiceServiceImpl implements EInvoiceService {
 
             String origProdId = origItem.getProduct() != null ? origItem.getProduct().getId() : null;
             String reqProdId = reqItem.getProductId();
-            if (!Objects.equals(origProdId, reqProdId)) return true;
-            if (!Objects.equals(origItem.getProductName(), reqItem.getProductName())) return true;
-            if (!Objects.equals(origItem.getUnit(), reqItem.getUnit())) return true;
-            if (origItem.getQuantity().compareTo(reqItem.getQuantity()) != 0) return true;
-            if (origItem.getUnitPrice().compareTo(reqItem.getUnitPrice()) != 0) return true;
-            if (origItem.getTaxRatePercentage().compareTo(reqItem.getTaxRatePercentage()) != 0) return true;
-            
-            BigDecimal reqDiscount = reqItem.getDiscountAmount() != null ? reqItem.getDiscountAmount() : BigDecimal.ZERO;
-            if (origItem.getDiscountAmount().compareTo(reqDiscount) != 0) return true;
+            if (!Objects.equals(origProdId, reqProdId))
+                return true;
+            if (!Objects.equals(origItem.getProductName(), reqItem.getProductName()))
+                return true;
+            if (!Objects.equals(origItem.getUnit(), reqItem.getUnit()))
+                return true;
+            if (origItem.getQuantity().compareTo(reqItem.getQuantity()) != 0)
+                return true;
+            if (origItem.getUnitPrice().compareTo(reqItem.getUnitPrice()) != 0)
+                return true;
+            if (origItem.getTaxRatePercentage().compareTo(reqItem.getTaxRatePercentage()) != 0)
+                return true;
+
+            BigDecimal reqDiscount = reqItem.getDiscountAmount() != null ? reqItem.getDiscountAmount()
+                    : BigDecimal.ZERO;
+            if (origItem.getDiscountAmount().compareTo(reqDiscount) != 0)
+                return true;
         }
 
         return false;
@@ -179,6 +203,9 @@ public class EInvoiceServiceImpl implements EInvoiceService {
                 .id(invoice.getId())
                 .householdId(invoice.getHousehold() != null ? invoice.getHousehold().getId() : null)
                 .householdName(invoice.getHousehold() != null ? invoice.getHousehold().getName() : null)
+                .householdTaxCode(invoice.getHousehold() != null ? invoice.getHousehold().getTaxCode() : null)
+                .householdAddress(invoice.getHousehold() != null ? invoice.getHousehold().getAddress() : null)
+                .householdPhone(invoice.getHousehold() != null ? invoice.getHousehold().getPhoneNumber() : null)
                 .orderId(invoice.getOrder() != null ? invoice.getOrder().getId() : null)
                 .orderNumber(invoice.getOrder() != null ? invoice.getOrder().getOrderNumber() : null)
                 .originalInvoiceId(invoice.getOriginalInvoice() != null ? invoice.getOriginalInvoice().getId() : null)
@@ -186,10 +213,13 @@ public class EInvoiceServiceImpl implements EInvoiceService {
                 .createdByUsername(invoice.getCreatedByUser() != null ? invoice.getCreatedByUser().getUsername() : null)
                 .createdByFullName(invoice.getCreatedByUser() != null ? invoice.getCreatedByUser().getFullName() : null)
                 .canceledByUserId(invoice.getCanceledByUser() != null ? invoice.getCanceledByUser().getId() : null)
-                .canceledByUsername(invoice.getCanceledByUser() != null ? invoice.getCanceledByUser().getUsername() : null)
+                .canceledByUsername(
+                        invoice.getCanceledByUser() != null ? invoice.getCanceledByUser().getUsername() : null)
                 .invoiceNumber(invoice.getInvoiceNumber())
                 .invoicePattern(invoice.getInvoicePattern())
                 .invoiceSymbol(invoice.getInvoiceSymbol())
+                .title(invoice.getTitle() != null ? invoice.getTitle() : "HÓA ĐƠN GIÁ TRỊ GIA TĂNG")
+                .footerNote(invoice.getFooterNote())
                 .buyerName(invoice.getBuyerName())
                 .buyerTaxCode(invoice.getBuyerTaxCode())
                 .buyerPhone(invoice.getBuyerPhone())
@@ -219,7 +249,8 @@ public class EInvoiceServiceImpl implements EInvoiceService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public InvoiceResponse createAdjustmentInvoice(String currentUsername, String originalInvoiceId, CreateAdjustmentInvoiceRequest request) {
+    public InvoiceResponse createAdjustmentInvoice(String currentUsername, String originalInvoiceId,
+            CreateAdjustmentInvoiceRequest request) {
         User user = getAuthenticatedUser(currentUsername);
         String role = user.getRole().getCode();
 
@@ -234,7 +265,8 @@ public class EInvoiceServiceImpl implements EInvoiceService {
         }
 
         // 1. Tìm hóa đơn gốc
-        EInvoice original = eInvoiceRepository.findByIdAndHouseholdIdAndDeletedAtIsNull(originalInvoiceId, household.getId())
+        EInvoice original = eInvoiceRepository
+                .findByIdAndHouseholdIdAndDeletedAtIsNull(originalInvoiceId, household.getId())
                 .orElseThrow(() -> new AppException(ErrorCode.INVOICE_NOT_FOUND));
 
         // 2. Kiểm tra hóa đơn gốc đã bị điều chỉnh hoặc hủy trước đó chưa
@@ -274,12 +306,16 @@ public class EInvoiceServiceImpl implements EInvoiceService {
         for (CreateAdjustmentInvoiceItemRequest itemReq : request.getItems()) {
             BigDecimal quantity = itemReq.getQuantity();
             BigDecimal unitPrice = itemReq.getUnitPrice();
-            BigDecimal discountAmt = itemReq.getDiscountAmount() != null ? itemReq.getDiscountAmount() : BigDecimal.ZERO;
-            BigDecimal taxRate = itemReq.getTaxRatePercentage() != null ? itemReq.getTaxRatePercentage() : BigDecimal.ZERO;
+            BigDecimal discountAmt = itemReq.getDiscountAmount() != null ? itemReq.getDiscountAmount()
+                    : BigDecimal.ZERO;
+            BigDecimal taxRate = itemReq.getTaxRatePercentage() != null ? itemReq.getTaxRatePercentage()
+                    : BigDecimal.ZERO;
 
             BigDecimal itemAmount = quantity.multiply(unitPrice).setScale(2, RoundingMode.HALF_UP);
             BigDecimal taxableAmount = itemAmount.subtract(discountAmt).setScale(2, RoundingMode.HALF_UP);
-            BigDecimal taxAmount = taxableAmount.multiply(taxRate.divide(BigDecimal.valueOf(100), 4, RoundingMode.HALF_UP)).setScale(2, RoundingMode.HALF_UP);
+            BigDecimal taxAmount = taxableAmount
+                    .multiply(taxRate.divide(BigDecimal.valueOf(100), 4, RoundingMode.HALF_UP))
+                    .setScale(2, RoundingMode.HALF_UP);
             BigDecimal subtotal = taxableAmount.add(taxAmount).setScale(2, RoundingMode.HALF_UP);
 
             totalAmountBeforeTax = totalAmountBeforeTax.add(taxableAmount);
@@ -315,7 +351,7 @@ public class EInvoiceServiceImpl implements EInvoiceService {
         do {
             lookupCode = UUID.randomUUID().toString().replaceAll("-", "").substring(0, 10).toUpperCase();
         } while (eInvoiceRepository.existsByLookupCodeAndDeletedAtIsNull(lookupCode));
-        
+
         EInvoice adjustmentInvoice = EInvoice.builder()
                 .household(household)
                 .order(original.getOrder())
@@ -323,9 +359,13 @@ public class EInvoiceServiceImpl implements EInvoiceService {
                 .createdByUser(user)
                 .invoicePattern(original.getInvoicePattern())
                 .invoiceSymbol(original.getInvoiceSymbol())
+                .title(original.getTitle() != null ? original.getTitle() : "HÓA ĐƠN GIÁ TRỊ GIA TĂNG")
+                .footerNote(original.getFooterNote())
                 .buyerName(request.getBuyerName() != null ? request.getBuyerName() : original.getBuyerName())
-                .buyerTaxCode(request.getBuyerTaxCode() != null ? request.getBuyerTaxCode() : original.getBuyerTaxCode())
-                .buyerAddress(request.getBuyerAddress() != null ? request.getBuyerAddress() : original.getBuyerAddress())
+                .buyerTaxCode(
+                        request.getBuyerTaxCode() != null ? request.getBuyerTaxCode() : original.getBuyerTaxCode())
+                .buyerAddress(
+                        request.getBuyerAddress() != null ? request.getBuyerAddress() : original.getBuyerAddress())
                 .buyerPhone(request.getBuyerPhone() != null ? request.getBuyerPhone() : original.getBuyerPhone())
                 .buyerEmail(request.getBuyerEmail() != null ? request.getBuyerEmail() : original.getBuyerEmail())
                 .totalAmountBeforeTax(totalAmountBeforeTax)
@@ -360,7 +400,8 @@ public class EInvoiceServiceImpl implements EInvoiceService {
         invoiceStatusLogRepository.save(adjustmentLog);
 
         // 9. Ghi nhật ký hệ thống
-        logActivity(household, user, "ADJUST_INVOICE", original.getId(), buildInvoiceLogMap(original), buildInvoiceLogMap(savedAdjustment));
+        logActivity(household, user, "ADJUST_INVOICE", original.getId(), buildInvoiceLogMap(original),
+                buildInvoiceLogMap(savedAdjustment));
 
         return mapToInvoiceResponse(savedAdjustment);
     }
@@ -372,7 +413,8 @@ public class EInvoiceServiceImpl implements EInvoiceService {
         EInvoice invoice = eInvoiceRepository.findByIdAndHouseholdIdAndDeletedAtIsNull(id, user.getHousehold().getId())
                 .orElseThrow(() -> new AppException(ErrorCode.INVOICE_NOT_FOUND));
 
-        // Bảo mật cách ly dữ liệu: Nhân viên VT-02 chỉ được xem log trạng thái hóa đơn của chính mình
+        // Bảo mật cách ly dữ liệu: Nhân viên VT-02 chỉ được xem log trạng thái hóa đơn
+        // của chính mình
         if ("VT-02".equals(user.getRole().getCode())) {
             if (!invoice.getCreatedByUser().getId().equals(user.getId())) {
                 throw new AppException(ErrorCode.FORBIDDEN);
@@ -389,8 +431,7 @@ public class EInvoiceServiceImpl implements EInvoiceService {
                 .changedByFullName(log.getChangedByUser().getFullName())
                 .notes(log.getNotes())
                 .createdAt(log.getCreatedAt())
-                .build()
-        ).collect(Collectors.toList());
+                .build()).collect(Collectors.toList());
     }
 
     // ============================================
@@ -426,7 +467,14 @@ public class EInvoiceServiceImpl implements EInvoiceService {
         }
 
         InvoiceTemplate template = invoiceTemplateRepository.findByHouseholdId(household.getId())
-                .orElseThrow(() -> new AppException(ErrorCode.INVOICE_TEMPLATE_NOT_FOUND));
+                .orElseGet(() -> invoiceTemplateRepository.save(InvoiceTemplate.builder()
+                        .household(household)
+                        .invoicePattern("1")
+                        .invoiceSymbol("1C26TAA")
+                        .title("HÓA ĐƠN GIÁ TRỊ GIA TĂNG")
+                        .footerNote(
+                                "Cảm ơn quý khách đã mua hàng! Hóa đơn điện tử khởi tạo từ máy tính tiền có mã của CQT.")
+                        .build()));
 
         String lookupCode;
         do {
@@ -435,15 +483,17 @@ public class EInvoiceServiceImpl implements EInvoiceService {
 
         BigDecimal totalBeforeTax = BigDecimal.ZERO;
         BigDecimal totalTaxAmount = BigDecimal.ZERO;
-        
+
         List<EInvoiceItem> invoiceItems = new ArrayList<>();
-        
+
         EInvoice invoice = EInvoice.builder()
                 .household(household)
                 .order(order)
                 .createdByUser(currentUser)
                 .invoicePattern(template.getInvoicePattern())
                 .invoiceSymbol(template.getInvoiceSymbol())
+                .title(template.getTitle() != null ? template.getTitle() : "HÓA ĐƠN GIÁ TRỊ GIA TĂNG")
+                .footerNote(template.getFooterNote())
                 .buyerName(order.getCustomer() != null ? order.getCustomer().getName() : "Khách mua lẻ")
                 .buyerPhone(order.getCustomer() != null ? order.getCustomer().getPhoneNumber() : null)
                 .buyerEmail(order.getCustomer() != null ? order.getCustomer().getEmail() : null)
@@ -460,7 +510,7 @@ public class EInvoiceServiceImpl implements EInvoiceService {
             BigDecimal disc = orderItem.getDiscountAmount();
             BigDecimal taxRate = orderItem.getTaxRatePercentage();
             BigDecimal taxAmt = orderItem.getTaxAmount();
-            
+
             BigDecimal lineBeforeTax = qty.multiply(price).subtract(disc);
             totalBeforeTax = totalBeforeTax.add(lineBeforeTax);
             totalTaxAmount = totalTaxAmount.add(taxAmt);
@@ -477,7 +527,7 @@ public class EInvoiceServiceImpl implements EInvoiceService {
                     .discountAmount(disc)
                     .subtotal(orderItem.getSubtotal())
                     .build();
-            
+
             invoiceItems.add(invItem);
         }
 
@@ -486,7 +536,7 @@ public class EInvoiceServiceImpl implements EInvoiceService {
         invoice.setItems(invoiceItems);
 
         EInvoice savedInvoice = eInvoiceRepository.save(invoice);
-        
+
         invoiceStatusLogRepository.save(InvoiceStatusLog.builder()
                 .invoice(savedInvoice)
                 .fromStatus("-")
@@ -495,7 +545,8 @@ public class EInvoiceServiceImpl implements EInvoiceService {
                 .notes("Khởi tạo hóa đơn điện tử nháp từ đơn bán " + order.getOrderNumber())
                 .build());
 
-        log.info("Khởi tạo HĐĐT nháp thành công. ID={}, LookupCode={}", savedInvoice.getId(), savedInvoice.getLookupCode());
+        log.info("Khởi tạo HĐĐT nháp thành công. ID={}, LookupCode={}", savedInvoice.getId(),
+                savedInvoice.getLookupCode());
         return mapToInvoiceResponse(savedInvoice);
     }
 
@@ -505,7 +556,7 @@ public class EInvoiceServiceImpl implements EInvoiceService {
         User currentUser = getAuthenticatedUser(currentUsername);
         EInvoice invoice = eInvoiceRepository.findById(invoiceId)
                 .orElseThrow(() -> new AppException(ErrorCode.INVOICE_NOT_FOUND));
-        
+
         checkInvoiceOwnership(invoice, currentUser);
 
         if (!"DRAFT".equals(invoice.getStatus())) {
@@ -517,7 +568,7 @@ public class EInvoiceServiceImpl implements EInvoiceService {
         String oldStatus = invoice.getStatus();
         invoice.setStatus("WAITING_TAX_CODE");
         invoice.setSentToTaxAt(LocalDateTime.now());
-        
+
         EInvoice saved = eInvoiceRepository.save(invoice);
 
         invoiceStatusLogRepository.save(InvoiceStatusLog.builder()
@@ -528,7 +579,8 @@ public class EInvoiceServiceImpl implements EInvoiceService {
                 .notes("Gửi hóa đơn điện tử chờ cơ quan thuế cấp mã")
                 .build());
 
-        logActivity(invoice.getHousehold(), currentUser, "SUBMIT_TAX", saved.getId(), oldVal, buildInvoiceLogMap(saved));
+        logActivity(invoice.getHousehold(), currentUser, "SUBMIT_TAX", saved.getId(), oldVal,
+                buildInvoiceLogMap(saved));
 
         log.info("HĐĐT ID={} được đưa vào hàng đợi chờ Cơ quan Thuế duyệt cấp mã.", invoiceId);
         return mapToInvoiceResponse(saved);
@@ -570,7 +622,7 @@ public class EInvoiceServiceImpl implements EInvoiceService {
     @Transactional(rollbackFor = Exception.class)
     public InvoiceResponse cancelInvoice(String currentUsername, String invoiceId, CancelInvoiceRequest request) {
         User currentUser = getAuthenticatedUser(currentUsername);
-        
+
         String role = currentUser.getRole().getCode();
         if (!"VT-01".equals(role) && !"VT-03".equals(role)) {
             throw new AppException(ErrorCode.FORBIDDEN);
@@ -603,7 +655,8 @@ public class EInvoiceServiceImpl implements EInvoiceService {
                 .notes("Hủy hóa đơn điện tử. Lý do: " + request.getCancelReason())
                 .build());
 
-        logActivity(invoice.getHousehold(), currentUser, "CANCEL_INVOICE", saved.getId(), oldVal, buildInvoiceLogMap(saved));
+        logActivity(invoice.getHousehold(), currentUser, "CANCEL_INVOICE", saved.getId(), oldVal,
+                buildInvoiceLogMap(saved));
 
         log.info("Hủy HĐĐT thành công. ID={}, Lý do={}", invoiceId, request.getCancelReason());
         return mapToInvoiceResponse(saved);
@@ -618,7 +671,8 @@ public class EInvoiceServiceImpl implements EInvoiceService {
 
         checkInvoiceOwnership(invoice, currentUser);
 
-        // Bảo mật cách ly dữ liệu: Nhân viên VT-02 chỉ được xem hóa đơn do chính mình tạo
+        // Bảo mật cách ly dữ liệu: Nhân viên VT-02 chỉ được xem hóa đơn do chính mình
+        // tạo
         if ("VT-02".equals(currentUser.getRole().getCode())) {
             if (!invoice.getCreatedByUser().getId().equals(currentUser.getId())) {
                 throw new AppException(ErrorCode.FORBIDDEN);
@@ -652,11 +706,12 @@ public class EInvoiceServiceImpl implements EInvoiceService {
 
         final String finalCreatedByUserId = createdByUserId;
         Specification<EInvoice> spec = (root, query, cb) -> {
-            if (query != null && !Long.class.equals(query.getResultType()) && !long.class.equals(query.getResultType())) {
+            if (query != null && !Long.class.equals(query.getResultType())
+                    && !long.class.equals(query.getResultType())) {
                 root.fetch("items", JoinType.LEFT);
             }
             List<Predicate> predicates = new ArrayList<>();
-            
+
             predicates.add(cb.equal(root.get("household").get("id"), household.getId()));
             predicates.add(cb.isNull(root.get("deletedAt")));
 
@@ -705,13 +760,13 @@ public class EInvoiceServiceImpl implements EInvoiceService {
     @Transactional(readOnly = true)
     public PageResponse<InvoiceResponse> getWaitingInvoicesForTax(int page, int size) {
         Specification<EInvoice> spec = (root, query, cb) -> {
-            if (query != null && !Long.class.equals(query.getResultType()) && !long.class.equals(query.getResultType())) {
+            if (query != null && !Long.class.equals(query.getResultType())
+                    && !long.class.equals(query.getResultType())) {
                 root.fetch("items", JoinType.LEFT);
             }
             return cb.and(
                     cb.equal(root.get("status"), "WAITING_TAX_CODE"),
-                    cb.isNull(root.get("deletedAt"))
-            );
+                    cb.isNull(root.get("deletedAt")));
         };
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
         Page<EInvoice> pageData = eInvoiceRepository.findAll(spec, pageable);
@@ -733,13 +788,13 @@ public class EInvoiceServiceImpl implements EInvoiceService {
     @Transactional(readOnly = true)
     public PageResponse<InvoiceResponse> getProcessedInvoicesForTax(int page, int size) {
         Specification<EInvoice> spec = (root, query, cb) -> {
-            if (query != null && !Long.class.equals(query.getResultType()) && !long.class.equals(query.getResultType())) {
+            if (query != null && !Long.class.equals(query.getResultType())
+                    && !long.class.equals(query.getResultType())) {
                 root.fetch("items", JoinType.LEFT);
             }
             return cb.and(
                     root.get("status").in("ISSUED", "SEND_ERROR"),
-                    cb.isNull(root.get("deletedAt"))
-            );
+                    cb.isNull(root.get("deletedAt")));
         };
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "updatedAt"));
         Page<EInvoice> pageData = eInvoiceRepository.findAll(spec, pageable);
@@ -778,7 +833,7 @@ public class EInvoiceServiceImpl implements EInvoiceService {
         Map<String, Object> oldVal = buildInvoiceLogMap(invoice);
 
         String oldStatus = invoice.getStatus();
-        
+
         // Sequential numbering
         String householdId = invoice.getHousehold().getId();
         String pattern = invoice.getInvoicePattern();
@@ -793,10 +848,11 @@ public class EInvoiceServiceImpl implements EInvoiceService {
             }
         }
         String invoiceNum = String.format("%07d", nextNum);
-        
+
         invoice.setStatus("ISSUED");
         invoice.setInvoiceNumber(invoiceNum);
-        invoice.setTaxAuthorityCode(taxCode != null ? taxCode : "CQT-" + UUID.randomUUID().toString().substring(0, 15).toUpperCase());
+        invoice.setTaxAuthorityCode(
+                taxCode != null ? taxCode : "CQT-" + UUID.randomUUID().toString().substring(0, 15).toUpperCase());
         invoice.setTaxResponseAt(LocalDateTime.now());
 
         EInvoice saved = eInvoiceRepository.save(invoice);
@@ -806,12 +862,14 @@ public class EInvoiceServiceImpl implements EInvoiceService {
                 .fromStatus(oldStatus)
                 .toStatus("ISSUED")
                 .changedByUser(currentUser)
-                .notes("Cơ quan thuế " + currentUser.getUsername() + " đã phê duyệt cấp mã: " + saved.getTaxAuthorityCode())
+                .notes("Cơ quan thuế " + currentUser.getUsername() + " đã phê duyệt cấp mã: "
+                        + saved.getTaxAuthorityCode())
                 .build());
 
-        logActivity(invoice.getHousehold(), currentUser, "APPROVE_TAX", saved.getId(), oldVal, buildInvoiceLogMap(saved));
+        logActivity(invoice.getHousehold(), currentUser, "APPROVE_TAX", saved.getId(), oldVal,
+                buildInvoiceLogMap(saved));
 
-        log.info("Thuế duyệt cấp mã hóa đơn thành công. ID={}, Số HĐ={}, Mã CQT={}", 
+        log.info("Thuế duyệt cấp mã hóa đơn thành công. ID={}, Số HĐ={}, Mã CQT={}",
                 invoiceId, saved.getInvoiceNumber(), saved.getTaxAuthorityCode());
         return mapToInvoiceResponse(saved);
     }
@@ -838,7 +896,8 @@ public class EInvoiceServiceImpl implements EInvoiceService {
 
         String oldStatus = invoice.getStatus();
         invoice.setStatus("SEND_ERROR");
-        invoice.setTaxAuthorityResponse(errorMessage != null ? errorMessage : "Dữ liệu hóa đơn không hợp lệ theo quy định.");
+        invoice.setTaxAuthorityResponse(
+                errorMessage != null ? errorMessage : "Dữ liệu hóa đơn không hợp lệ theo quy định.");
         invoice.setTaxResponseAt(LocalDateTime.now());
 
         EInvoice saved = eInvoiceRepository.save(invoice);
@@ -848,10 +907,12 @@ public class EInvoiceServiceImpl implements EInvoiceService {
                 .fromStatus(oldStatus)
                 .toStatus("SEND_ERROR")
                 .changedByUser(currentUser)
-                .notes("Cơ quan thuế " + currentUser.getUsername() + " đã từ chối cấp mã: " + saved.getTaxAuthorityResponse())
+                .notes("Cơ quan thuế " + currentUser.getUsername() + " đã từ chối cấp mã: "
+                        + saved.getTaxAuthorityResponse())
                 .build());
 
-        logActivity(invoice.getHousehold(), currentUser, "REJECT_TAX", saved.getId(), oldVal, buildInvoiceLogMap(saved));
+        logActivity(invoice.getHousehold(), currentUser, "REJECT_TAX", saved.getId(), oldVal,
+                buildInvoiceLogMap(saved));
 
         log.info("Thuế từ chối cấp mã hóa đơn. ID={}, Lý do={}", invoiceId, saved.getTaxAuthorityResponse());
         return mapToInvoiceResponse(saved);
@@ -880,7 +941,8 @@ public class EInvoiceServiceImpl implements EInvoiceService {
 
         EInvoice saved = eInvoiceRepository.save(invoice);
 
-        logActivity(invoice.getHousehold(), currentUser, "UPDATE_INVOICE", saved.getId(), oldVal, buildInvoiceLogMap(saved));
+        logActivity(invoice.getHousehold(), currentUser, "UPDATE_INVOICE", saved.getId(), oldVal,
+                buildInvoiceLogMap(saved));
 
         log.info("Cập nhật thông tin hóa đơn thành công. ID={}, Status={}", invoiceId, saved.getStatus());
         return mapToInvoiceResponse(saved);
@@ -889,12 +951,13 @@ public class EInvoiceServiceImpl implements EInvoiceService {
     private String generateMockQrCodeBase64(String text) {
         try {
             int size = 150;
-            java.awt.image.BufferedImage image = new java.awt.image.BufferedImage(size, size, java.awt.image.BufferedImage.TYPE_INT_RGB);
+            java.awt.image.BufferedImage image = new java.awt.image.BufferedImage(size, size,
+                    java.awt.image.BufferedImage.TYPE_INT_RGB);
             java.awt.Graphics2D g = image.createGraphics();
-            
+
             g.setColor(java.awt.Color.WHITE);
             g.fillRect(0, 0, size, size);
-            
+
             g.setColor(java.awt.Color.BLACK);
             // Top-left corner box
             g.fillRect(10, 10, 35, 35);
@@ -902,21 +965,21 @@ public class EInvoiceServiceImpl implements EInvoiceService {
             g.fillRect(15, 15, 25, 25);
             g.setColor(java.awt.Color.BLACK);
             g.fillRect(20, 20, 15, 15);
-            
+
             // Top-right corner box
             g.fillRect(105, 10, 35, 35);
             g.setColor(java.awt.Color.WHITE);
             g.fillRect(110, 15, 25, 25);
             g.setColor(java.awt.Color.BLACK);
             g.fillRect(115, 20, 15, 15);
-            
+
             // Bottom-left corner box
             g.fillRect(10, 105, 35, 35);
             g.setColor(java.awt.Color.WHITE);
             g.fillRect(15, 110, 25, 25);
             g.setColor(java.awt.Color.BLACK);
             g.fillRect(20, 115, 15, 15);
-            
+
             Random random = new Random(text.hashCode());
             for (int x = 10; x < 140; x += 5) {
                 for (int y = 10; y < 140; y += 5) {
@@ -928,7 +991,7 @@ public class EInvoiceServiceImpl implements EInvoiceService {
                     }
                 }
             }
-            
+
             g.dispose();
             java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
             javax.imageio.ImageIO.write(image, "png", baos);
@@ -944,8 +1007,9 @@ public class EInvoiceServiceImpl implements EInvoiceService {
         try {
             int size = 150;
             com.google.zxing.qrcode.QRCodeWriter qrCodeWriter = new com.google.zxing.qrcode.QRCodeWriter();
-            com.google.zxing.common.BitMatrix bitMatrix = qrCodeWriter.encode(text, com.google.zxing.BarcodeFormat.QR_CODE, size, size);
-            
+            com.google.zxing.common.BitMatrix bitMatrix = qrCodeWriter.encode(text,
+                    com.google.zxing.BarcodeFormat.QR_CODE, size, size);
+
             java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
             com.google.zxing.client.j2se.MatrixToImageWriter.writeToStream(bitMatrix, "png", baos);
             byte[] bytes = baos.toByteArray();
@@ -969,7 +1033,8 @@ public class EInvoiceServiceImpl implements EInvoiceService {
             throw new AppException(ErrorCode.INVOICE_NOT_SEND_ERROR);
         }
 
-        String lookupUrl = (frontendUrl != null ? frontendUrl : "http://localhost:5173") + "/public/lookup?code=" + invoice.getLookupCode();
+        String lookupUrl = (frontendUrl != null ? frontendUrl : "http://localhost:3000") + "/lookup-invoice?code="
+                + invoice.getLookupCode();
         String qrCodeBase64 = generateQrCodeBase64(lookupUrl);
 
         // Save delivery log for QR channel
@@ -1011,7 +1076,8 @@ public class EInvoiceServiceImpl implements EInvoiceService {
 
         InvoiceDeliveryLog savedLog = invoiceDeliveryLogRepository.save(deliveryLog);
 
-        String lookupUrl = (frontendUrl != null ? frontendUrl : "http://localhost:5173") + "/public/lookup?code=" + invoice.getLookupCode();
+        String lookupUrl = (frontendUrl != null ? frontendUrl : "http://localhost:3000") + "/lookup-invoice?code="
+                + invoice.getLookupCode();
         String householdName = invoice.getHousehold().getName();
         String lookupCode = invoice.getLookupCode();
         BigDecimal finalAmount = invoice.getFinalAmount();
@@ -1045,7 +1111,8 @@ public class EInvoiceServiceImpl implements EInvoiceService {
         StringBuilder itemsHtml = new StringBuilder();
         for (EInvoiceItem item : invoice.getItems()) {
             itemsHtml.append("<tr>")
-                    .append("<td colspan=\"4\" style=\"padding-top:4px;\">").append(escHtml(item.getProductName())).append("</td>")
+                    .append("<td colspan=\"4\" style=\"padding-top:4px;\">").append(escHtml(item.getProductName()))
+                    .append("</td>")
                     .append("</tr>")
                     .append("<tr style=\"border-bottom:1px dotted #ccc;\">")
                     .append("<td></td>")
@@ -1055,20 +1122,32 @@ public class EInvoiceServiceImpl implements EInvoiceService {
                     .append("</tr>");
         }
 
-        String htmlContent = "<div style=\"font-family:'Courier New',Courier,monospace; width:" + width + "; padding:10px; font-size:12px; line-height:1.4;\">\n"
-                + "    <div style=\"text-align:center; font-weight:bold; font-size:14px;\">" + escHtml(invoice.getHousehold().getName()) + "</div>\n"
-                + "    <div style=\"text-align:center;\">MST: " + escHtml(invoice.getHousehold().getTaxCode()) + "</div>\n"
-                + "    <div style=\"text-align:center;\">Đ/C: " + escHtml(invoice.getHousehold().getAddress()) + "</div>\n"
-                + "    <div style=\"text-align:center;\">SĐT: " + escHtml(invoice.getHousehold().getPhoneNumber()) + "</div>\n"
+        String htmlContent = "<div style=\"font-family:'Courier New',Courier,monospace; width:" + width
+                + "; padding:10px; font-size:12px; line-height:1.4;\">\n"
+                + "    <div style=\"text-align:center; font-weight:bold; font-size:14px;\">"
+                + escHtml(invoice.getHousehold().getName()) + "</div>\n"
+                + "    <div style=\"text-align:center;\">MST: " + escHtml(invoice.getHousehold().getTaxCode())
+                + "</div>\n"
+                + "    <div style=\"text-align:center;\">Đ/C: " + escHtml(invoice.getHousehold().getAddress())
+                + "</div>\n"
+                + "    <div style=\"text-align:center;\">SĐT: " + escHtml(invoice.getHousehold().getPhoneNumber())
+                + "</div>\n"
                 + "    <div style=\"border-bottom:1px dashed #000; margin:10px 0;\"></div>\n"
-                + "    <div style=\"text-align:center; font-weight:bold; font-size:14px;\">" + escHtml(title) + "</div>\n"
-                + "    <div style=\"text-align:center; font-size:11px; font-weight:bold; color:red;\">(" + escHtml(statusLabel) + ")</div>\n"
-                + "    <div style=\"text-align:center; font-size:10px;\">Mẫu số: " + escHtml(pattern) + " | Ký hiệu: " + escHtml(symbol) + "</div>\n"
-                + "    <div style=\"text-align:center; font-size:10px;\">Số HD: " + escHtml(invoice.getInvoiceNumber() != null ? invoice.getInvoiceNumber() : "N/A") + "</div>\n"
-                + "    <div style=\"text-align:center; font-size:10px;\">Ngày lập: " + invoice.getCreatedAt().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss")) + "</div>\n"
+                + "    <div style=\"text-align:center; font-weight:bold; font-size:14px;\">" + escHtml(title)
+                + "</div>\n"
+                + "    <div style=\"text-align:center; font-size:11px; font-weight:bold; color:red;\">("
+                + escHtml(statusLabel) + ")</div>\n"
+                + "    <div style=\"text-align:center; font-size:10px;\">Mẫu số: " + escHtml(pattern) + " | Ký hiệu: "
+                + escHtml(symbol) + "</div>\n"
+                + "    <div style=\"text-align:center; font-size:10px;\">Số HD: "
+                + escHtml(invoice.getInvoiceNumber() != null ? invoice.getInvoiceNumber() : "N/A") + "</div>\n"
+                + "    <div style=\"text-align:center; font-size:10px;\">Ngày lập: "
+                + invoice.getCreatedAt().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss")) + "</div>\n"
                 + "    <div style=\"border-bottom:1px dashed #000; margin:10px 0;\"></div>\n"
-                + "    <div>Khách hàng: " + escHtml(invoice.getBuyerName() != null ? invoice.getBuyerName() : "Khách vãng lai") + "</div>\n"
-                + "    <div>MST KH: " + escHtml(invoice.getBuyerTaxCode() != null ? invoice.getBuyerTaxCode() : "N/A") + "</div>\n"
+                + "    <div>Khách hàng: "
+                + escHtml(invoice.getBuyerName() != null ? invoice.getBuyerName() : "Khách vãng lai") + "</div>\n"
+                + "    <div>MST KH: " + escHtml(invoice.getBuyerTaxCode() != null ? invoice.getBuyerTaxCode() : "N/A")
+                + "</div>\n"
                 + "    <div style=\"border-bottom:1px dashed #000; margin:5px 0;\"></div>\n"
                 + "    <table style=\"width:100%; border-collapse:collapse; font-size:12px;\">\n"
                 + "        <thead>\n"
@@ -1104,7 +1183,8 @@ public class EInvoiceServiceImpl implements EInvoiceService {
                 + "    </table>\n"
                 + "    <div style=\"border-bottom:1px dashed #000; margin:10px 0;\"></div>\n"
                 + "    <div style=\"text-align:center; font-size:10px;\">\n"
-                + "        Tra cứu hóa đơn tại: <b>" + escHtml(frontendUrl != null ? frontendUrl : "http://localhost:5173") + "/lookup</b><br/>\n"
+                + "        Tra cứu hóa đơn tại: <b>"
+                + escHtml(frontendUrl != null ? frontendUrl : "http://localhost:3000") + "/lookup-invoice</b><br/>\n"
                 + "        Mã tra cứu: <b>" + escHtml(invoice.getLookupCode()) + "</b>\n"
                 + "    </div>\n"
                 + "    <div style=\"text-align:center; margin-top:10px; font-size:10px; font-style:italic;\">\n"
@@ -1165,7 +1245,8 @@ public class EInvoiceServiceImpl implements EInvoiceService {
         EInvoice invoice = eInvoiceRepository.findByLookupCodeAndDeletedAtIsNull(lookupCode)
                 .orElseThrow(() -> new AppException(ErrorCode.INVOICE_NOT_FOUND));
 
-        if (!"ISSUED".equals(invoice.getStatus()) && !"CANCELED".equals(invoice.getStatus()) && !"ADJUSTED".equals(invoice.getStatus())) {
+        if (!"ISSUED".equals(invoice.getStatus()) && !"CANCELED".equals(invoice.getStatus())
+                && !"ADJUSTED".equals(invoice.getStatus())) {
             throw new AppException(ErrorCode.INVOICE_NOT_FOUND);
         }
 
@@ -1189,9 +1270,12 @@ public class EInvoiceServiceImpl implements EInvoiceService {
                 .invoiceNumber(invoice.getInvoiceNumber())
                 .invoicePattern(invoice.getInvoicePattern())
                 .invoiceSymbol(invoice.getInvoiceSymbol())
-                .householdName(invoice.getHousehold().getName())
-                .householdTaxCode(invoice.getHousehold().getTaxCode())
-                .householdAddress(invoice.getHousehold().getAddress())
+                .title(invoice.getTitle() != null ? invoice.getTitle() : "HÓA ĐƠN GIÁ TRỊ GIA TĂNG")
+                .footerNote(invoice.getFooterNote())
+                .householdName(invoice.getHousehold() != null ? invoice.getHousehold().getName() : null)
+                .householdTaxCode(invoice.getHousehold() != null ? invoice.getHousehold().getTaxCode() : null)
+                .householdAddress(invoice.getHousehold() != null ? invoice.getHousehold().getAddress() : null)
+                .householdPhone(invoice.getHousehold() != null ? invoice.getHousehold().getPhoneNumber() : null)
                 .buyerName(invoice.getBuyerName())
                 .buyerTaxCode(invoice.getBuyerTaxCode())
                 .buyerAddress(maskAddress(invoice.getBuyerAddress()))
@@ -1214,7 +1298,8 @@ public class EInvoiceServiceImpl implements EInvoiceService {
         EInvoice invoice = eInvoiceRepository.findByLookupCodeAndDeletedAtIsNull(lookupCode)
                 .orElseThrow(() -> new AppException(ErrorCode.INVOICE_NOT_FOUND));
 
-        if (!"ISSUED".equals(invoice.getStatus()) && !"CANCELED".equals(invoice.getStatus()) && !"ADJUSTED".equals(invoice.getStatus())) {
+        if (!"ISSUED".equals(invoice.getStatus()) && !"CANCELED".equals(invoice.getStatus())
+                && !"ADJUSTED".equals(invoice.getStatus())) {
             throw new AppException(ErrorCode.INVOICE_NOT_FOUND);
         }
 
@@ -1225,87 +1310,117 @@ public class EInvoiceServiceImpl implements EInvoiceService {
         if ("xml".equalsIgnoreCase(format)) {
             StringBuilder xml = new StringBuilder();
             xml.append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n")
-               .append("<HieuDonDienTu>\n")
-               .append("    <ThongTinChung>\n")
-               .append("        <MauSo>").append(escXml(invoice.getInvoicePattern())).append("</MauSo>\n")
-               .append("        <KyHieu>").append(escXml(invoice.getInvoiceSymbol())).append("</KyHieu>\n")
-               .append("        <So>").append(escXml(invoice.getInvoiceNumber())).append("</So>\n")
-               .append("        <NgayLap>").append(escXml(invoice.getCreatedAt() != null ? invoice.getCreatedAt().toString() : "")).append("</NgayLap>\n")
-               .append("        <MaTraCuu>").append(escXml(invoice.getLookupCode())).append("</MaTraCuu>\n")
-               .append("        <MaCoQuanThue>").append(escXml(invoice.getTaxAuthorityCode())).append("</MaCoQuanThue>\n")
-               .append("    </ThongTinChung>\n")
-               .append("    <BenBan>\n")
-               .append("        <Ten>").append(escXml(invoice.getHousehold() != null ? invoice.getHousehold().getName() : "")).append("</Ten>\n")
-               .append("        <MST>").append(escXml(invoice.getHousehold() != null ? invoice.getHousehold().getTaxCode() : "")).append("</MST>\n")
-               .append("        <DiaChi>").append(escXml(invoice.getHousehold() != null ? invoice.getHousehold().getAddress() : "")).append("</DiaChi>\n")
-               .append("    </BenBan>\n")
-               .append("    <BenMua>\n")
-               .append("        <Ten>").append(escXml(invoice.getBuyerName() != null ? invoice.getBuyerName() : "Khách hàng không lấy hóa đơn")).append("</Ten>\n")
-               .append("        <MST>").append(escXml(invoice.getBuyerTaxCode())).append("</MST>\n")
-               .append("        <DiaChi>").append(escXml(invoice.getBuyerAddress())).append("</DiaChi>\n")
-               .append("    </BenMua>\n")
-               .append("    <ChiTietHangHoa>\n");
-            
+                    .append("<HieuDonDienTu>\n")
+                    .append("    <ThongTinChung>\n")
+                    .append("        <MauSo>").append(escXml(invoice.getInvoicePattern())).append("</MauSo>\n")
+                    .append("        <KyHieu>").append(escXml(invoice.getInvoiceSymbol())).append("</KyHieu>\n")
+                    .append("        <So>").append(escXml(invoice.getInvoiceNumber())).append("</So>\n")
+                    .append("        <NgayLap>")
+                    .append(escXml(invoice.getCreatedAt() != null ? invoice.getCreatedAt().toString() : ""))
+                    .append("</NgayLap>\n")
+                    .append("        <MaTraCuu>").append(escXml(invoice.getLookupCode())).append("</MaTraCuu>\n")
+                    .append("        <MaCoQuanThue>").append(escXml(invoice.getTaxAuthorityCode()))
+                    .append("</MaCoQuanThue>\n")
+                    .append("    </ThongTinChung>\n")
+                    .append("    <BenBan>\n")
+                    .append("        <Ten>")
+                    .append(escXml(invoice.getHousehold() != null ? invoice.getHousehold().getName() : ""))
+                    .append("</Ten>\n")
+                    .append("        <MST>")
+                    .append(escXml(invoice.getHousehold() != null ? invoice.getHousehold().getTaxCode() : ""))
+                    .append("</MST>\n")
+                    .append("        <DiaChi>")
+                    .append(escXml(invoice.getHousehold() != null ? invoice.getHousehold().getAddress() : ""))
+                    .append("</DiaChi>\n")
+                    .append("    </BenBan>\n")
+                    .append("    <BenMua>\n")
+                    .append("        <Ten>")
+                    .append(escXml(
+                            invoice.getBuyerName() != null ? invoice.getBuyerName() : "Khách hàng không lấy hóa đơn"))
+                    .append("</Ten>\n")
+                    .append("        <MST>").append(escXml(invoice.getBuyerTaxCode())).append("</MST>\n")
+                    .append("        <DiaChi>").append(escXml(invoice.getBuyerAddress())).append("</DiaChi>\n")
+                    .append("    </BenMua>\n")
+                    .append("    <ChiTietHangHoa>\n");
+
             for (EInvoiceItem item : invoice.getItems()) {
                 xml.append("        <HangHoa>\n")
-                   .append("            <Ten>").append(escXml(item.getProductName())).append("</Ten>\n")
-                   .append("            <DonVi>").append(escXml(item.getUnit())).append("</DonVi>\n")
-                   .append("            <SoLuong>").append(item.getQuantity()).append("</SoLuong>\n")
-                   .append("            <DonGia>").append(item.getUnitPrice()).append("</DonGia>\n")
-                   .append("            <ThueSuat>").append(item.getTaxRatePercentage()).append("</ThueSuat>\n")
-                   .append("            <ThanhTien>").append(item.getSubtotal()).append("</ThanhTien>\n")
-                   .append("        </HangHoa>\n");
+                        .append("            <Ten>").append(escXml(item.getProductName())).append("</Ten>\n")
+                        .append("            <DonVi>").append(escXml(item.getUnit())).append("</DonVi>\n")
+                        .append("            <SoLuong>").append(item.getQuantity()).append("</SoLuong>\n")
+                        .append("            <DonGia>").append(item.getUnitPrice()).append("</DonGia>\n")
+                        .append("            <ThueSuat>").append(item.getTaxRatePercentage()).append("</ThueSuat>\n")
+                        .append("            <ThanhTien>").append(item.getSubtotal()).append("</ThanhTien>\n")
+                        .append("        </HangHoa>\n");
             }
-            
+
             xml.append("    </ChiTietHangHoa>\n")
-               .append("    <TongHop>\n")
-               .append("        <TongTienTruocThue>").append(invoice.getTotalAmountBeforeTax()).append("</TongTienTruocThue>\n")
-               .append("        <TongTienThue>").append(invoice.getTaxAmount()).append("</TongTienThue>\n")
-               .append("        <TongTienChietKhau>").append(invoice.getDiscountAmount()).append("</TongTienChietKhau>\n")
-               .append("        <TongTienThanhToan>").append(invoice.getFinalAmount()).append("</TongTienThanhToan>\n")
-               .append("    </TongHop>\n")
-               .append("</HieuDonDienTu>\n");
-            
+                    .append("    <TongHop>\n")
+                    .append("        <TongTienTruocThue>").append(invoice.getTotalAmountBeforeTax())
+                    .append("</TongTienTruocThue>\n")
+                    .append("        <TongTienThue>").append(invoice.getTaxAmount()).append("</TongTienThue>\n")
+                    .append("        <TongTienChietKhau>").append(invoice.getDiscountAmount())
+                    .append("</TongTienChietKhau>\n")
+                    .append("        <TongTienThanhToan>").append(invoice.getFinalAmount())
+                    .append("</TongTienThanhToan>\n")
+                    .append("    </TongHop>\n")
+                    .append("</HieuDonDienTu>\n");
+
             return xml.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
         } else {
             StringBuilder html = new StringBuilder();
-            html.append("<!DOCTYPE html>\n<html>\n<head>\n<meta charset=\"UTF-8\">\n<title>Hoa don dien tu</title>\n</head>\n<body>\n")
-                .append("<div style=\"border:2px solid #000; padding:20px; font-family:Arial,sans-serif; max-width:800px; margin:0 auto;\">\n")
-                .append("  <h1 style=\"text-align:center; margin-bottom:5px;\">HÓA ĐƠN ĐIỆN TỬ</h1>\n")
-                .append("  <p style=\"text-align:center; font-style:italic;\">Mã tra cứu: ").append(escHtml(invoice.getLookupCode())).append("</p>\n")
-                .append("  <hr/>\n")
-                .append("  <h3>BÊN BÁN: ").append(escHtml(invoice.getHousehold() != null ? invoice.getHousehold().getName() : "")).append("</h3>\n")
-                .append("  <p>Mã số thuế: ").append(escHtml(invoice.getHousehold() != null ? invoice.getHousehold().getTaxCode() : "")).append("</p>\n")
-                .append("  <p>Địa chỉ: ").append(escHtml(invoice.getHousehold() != null ? invoice.getHousehold().getAddress() : "")).append("</p>\n")
-                .append("  <hr/>\n")
-                .append("  <h3>BÊN MUA: ").append(escHtml(invoice.getBuyerName() != null ? invoice.getBuyerName() : "Khách vãng lai")).append("</h3>\n")
-                .append("  <p>Địa chỉ: ").append(escHtml(invoice.getBuyerAddress() != null ? invoice.getBuyerAddress() : "")).append("</p>\n")
-                .append("  <hr/>\n")
-                .append("  <table border=\"1\" style=\"width:100%; border-collapse:collapse;\">\n")
-                .append("    <thead>\n")
-                .append("      <tr>\n")
-                .append("        <th>Tên hàng hóa</th><th>ĐVT</th><th>Số lượng</th><th>Đơn giá</th><th>Thành tiền</th>\n")
-                .append("      </tr>\n")
-                .append("    </thead>\n")
-                .append("    <tbody>\n");
-            
+            html.append(
+                    "<!DOCTYPE html>\n<html>\n<head>\n<meta charset=\"UTF-8\">\n<title>Hoa don dien tu</title>\n</head>\n<body>\n")
+                    .append("<div style=\"border:2px solid #000; padding:20px; font-family:Arial,sans-serif; max-width:800px; margin:0 auto;\">\n")
+                    .append("  <h1 style=\"text-align:center; margin-bottom:5px;\">HÓA ĐƠN ĐIỆN TỬ</h1>\n")
+                    .append("  <p style=\"text-align:center; font-style:italic;\">Mã tra cứu: ")
+                    .append(escHtml(invoice.getLookupCode())).append("</p>\n")
+                    .append("  <hr/>\n")
+                    .append("  <h3>BÊN BÁN: ")
+                    .append(escHtml(invoice.getHousehold() != null ? invoice.getHousehold().getName() : ""))
+                    .append("</h3>\n")
+                    .append("  <p>Mã số thuế: ")
+                    .append(escHtml(invoice.getHousehold() != null ? invoice.getHousehold().getTaxCode() : ""))
+                    .append("</p>\n")
+                    .append("  <p>Địa chỉ: ")
+                    .append(escHtml(invoice.getHousehold() != null ? invoice.getHousehold().getAddress() : ""))
+                    .append("</p>\n")
+                    .append("  <hr/>\n")
+                    .append("  <h3>BÊN MUA: ")
+                    .append(escHtml(invoice.getBuyerName() != null ? invoice.getBuyerName() : "Khách vãng lai"))
+                    .append("</h3>\n")
+                    .append("  <p>Địa chỉ: ")
+                    .append(escHtml(invoice.getBuyerAddress() != null ? invoice.getBuyerAddress() : ""))
+                    .append("</p>\n")
+                    .append("  <hr/>\n")
+                    .append("  <table border=\"1\" style=\"width:100%; border-collapse:collapse;\">\n")
+                    .append("    <thead>\n")
+                    .append("      <tr>\n")
+                    .append("        <th>Tên hàng hóa</th><th>ĐVT</th><th>Số lượng</th><th>Đơn giá</th><th>Thành tiền</th>\n")
+                    .append("      </tr>\n")
+                    .append("    </thead>\n")
+                    .append("    <tbody>\n");
+
             for (EInvoiceItem item : invoice.getItems()) {
                 html.append("      <tr>\n")
-                    .append("        <td>").append(escHtml(item.getProductName())).append("</td>\n")
-                    .append("        <td>").append(escHtml(item.getUnit())).append("</td>\n")
-                    .append("        <td align=\"right\">").append(item.getQuantity()).append("</td>\n")
-                    .append("        <td align=\"right\">").append(item.getUnitPrice()).append("</td>\n")
-                    .append("        <td align=\"right\">").append(item.getSubtotal()).append("</td>\n")
-                    .append("      </tr>\n");
+                        .append("        <td>").append(escHtml(item.getProductName())).append("</td>\n")
+                        .append("        <td>").append(escHtml(item.getUnit())).append("</td>\n")
+                        .append("        <td align=\"right\">").append(item.getQuantity()).append("</td>\n")
+                        .append("        <td align=\"right\">").append(item.getUnitPrice()).append("</td>\n")
+                        .append("        <td align=\"right\">").append(item.getSubtotal()).append("</td>\n")
+                        .append("      </tr>\n");
             }
-            
+
             html.append("    </tbody>\n")
-                .append("  </table>\n")
-                .append("  <p align=\"right\"><b>Cộng tiền trước thuế:</b> ").append(invoice.getTotalAmountBeforeTax()).append("</p>\n")
-                .append("  <p align=\"right\"><b>Thuế GTGT:</b> ").append(invoice.getTaxAmount()).append("</p>\n")
-                .append("  <p align=\"right\"><b>Chiết khấu:</b> ").append(invoice.getDiscountAmount()).append("</p>\n")
-                .append("  <p align=\"right\" style=\"font-size:18px;\"><b>TỔNG THANH TOÁN:</b> ").append(invoice.getFinalAmount()).append("</p>\n")
-                .append("</div>\n</body>\n</html>");
+                    .append("  </table>\n")
+                    .append("  <p align=\"right\"><b>Cộng tiền trước thuế:</b> ")
+                    .append(invoice.getTotalAmountBeforeTax()).append("</p>\n")
+                    .append("  <p align=\"right\"><b>Thuế GTGT:</b> ").append(invoice.getTaxAmount()).append("</p>\n")
+                    .append("  <p align=\"right\"><b>Chiết khấu:</b> ").append(invoice.getDiscountAmount())
+                    .append("</p>\n")
+                    .append("  <p align=\"right\" style=\"font-size:18px;\"><b>TỔNG THANH TOÁN:</b> ")
+                    .append(invoice.getFinalAmount()).append("</p>\n")
+                    .append("</div>\n</body>\n</html>");
             return html.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
         }
     }
@@ -1318,4 +1433,3 @@ public class EInvoiceServiceImpl implements EInvoiceService {
         return org.apache.commons.text.StringEscapeUtils.escapeHtml4(val != null ? val : "");
     }
 }
-

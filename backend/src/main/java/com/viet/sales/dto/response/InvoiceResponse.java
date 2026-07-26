@@ -14,6 +14,9 @@ public class InvoiceResponse {
     private String id;
     private String householdId;
     private String householdName;
+    private String householdTaxCode;
+    private String householdAddress;
+    private String householdPhone;
     private String orderId;
     private String orderNumber;
     private String originalInvoiceId;
@@ -25,6 +28,8 @@ public class InvoiceResponse {
     private String invoiceNumber;
     private String invoicePattern;
     private String invoiceSymbol;
+    private String title;
+    private String footerNote;
     private String buyerName;
     private String buyerTaxCode;
     private String buyerAddress;

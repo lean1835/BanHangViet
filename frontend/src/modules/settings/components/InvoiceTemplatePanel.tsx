@@ -11,12 +11,14 @@ import {
 } from "../services/settingsApi";
 import { useNotification } from "@/hooks/useNotification";
 import { useDashboardDemo } from "@/providers/DashboardDemoProvider";
+import { useAppSelector } from "@/hooks/useRedux";
 import { getApiErrorMessage } from "@/utils/getApiErrorMessage";
 import { Save, FileText, Eye, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
 
 export const InvoiceTemplatePanel: React.FC = () => {
   const { showSuccess, showError } = useNotification();
   const { addLogEntry } = useDashboardDemo();
+  const currentUser = useAppSelector((state) => state.auth.user);
 
   // API Queries & Mutations
   const { data: response, isLoading: isFetching, isError: isFetchError } = useGetInvoiceTemplateQuery();
@@ -221,71 +223,163 @@ export const InvoiceTemplatePanel: React.FC = () => {
         <div className="flex items-center gap-2 border-b border-slate-200 pb-3">
           <Eye className="w-4 h-4 text-slate-500" />
           <h4 className="font-extrabold text-slate-700 text-xs uppercase tracking-wider">
-            Bản xem trước trực tiếp (Live VAT Preview)
+            Bản xem trước trực tiếp hóa đơn điện tử (Official E-Invoice Preview)
           </h4>
         </div>
 
-        {/* VAT Invoice Mock Card */}
-        <div className="bg-white p-5 rounded-lg border border-slate-200 shadow-md font-sans flex flex-col gap-4 text-[11px] text-slate-700">
-          <div className="text-center border-b border-slate-200 pb-3">
-            <h2 className="text-base font-black text-blue-900 uppercase tracking-tight">
-              {watchedValues.title || "HÓA ĐƠN GIÁ TRỊ GIA TĂNG"}
-            </h2>
-            <p className="text-[10px] text-slate-400 font-bold mt-0.5">
-              (Khởi tạo từ máy tính tiền)
+        {/* Official VAT E-Invoice Document Card */}
+        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-md font-sans relative flex flex-col gap-5 text-[10px] text-slate-800 font-medium overflow-hidden">
+          {/* Watermark */}
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none opacity-[0.03] text-slate-800 text-[2.8rem] font-extrabold rotate-[30deg] uppercase whitespace-nowrap overflow-hidden">
+            Hóa đơn điện tử
+          </div>
+
+          {/* Invoice Header */}
+          <div className="flex justify-between border-b pb-3 flex-wrap gap-3">
+            <div>
+              <h2 className="text-xs font-black text-kv-blue-primary tracking-wide uppercase">
+                {watchedValues.title || "HÓA ĐƠN GIÁ TRỊ GIA TĂNG"}
+              </h2>
+              <p className="text-[9px] text-slate-500 font-bold mt-0.5">
+                (Bản thể hiện hóa đơn điện tử)
+              </p>
+              <p className="text-[9px] font-bold text-slate-600 mt-1.5 flex items-center gap-2">
+                <span>Ngày lập: {new Date().toLocaleDateString("vi-VN")}</span>
+                <span className="px-1.5 py-0.5 rounded text-[8px] font-extrabold border bg-emerald-100 text-emerald-800 border-emerald-300">
+                  Đã phát hành
+                </span>
+              </p>
+            </div>
+            <div className="text-right flex flex-col gap-0.5 font-bold text-slate-600 text-[9px]">
+              <p>Mẫu số: <span className="text-slate-800 font-extrabold">{watchedValues.invoicePattern || "1"}</span></p>
+              <p>Ký hiệu: <span className="text-slate-800 font-extrabold">{watchedValues.invoiceSymbol || "1C26TAA"}</span></p>
+              <p>Số HĐ: <span className="text-kv-blue-primary font-mono font-extrabold">00000001</span></p>
+              <p>Mã tra cứu: <span className="text-slate-800 font-mono font-extrabold">EB8BBD6893</span></p>
+            </div>
+          </div>
+
+          {/* Seller Info */}
+          <div className="border-b pb-3 text-[9px] leading-relaxed text-slate-600">
+            <p className="font-extrabold text-slate-800 text-[10px] uppercase mb-0.5">
+              Đơn vị bán hàng: {currentUser?.household?.name || "HỘ KINH DOANH BÁN HÀNG VIỆT"}
             </p>
-            <div className="flex justify-center gap-4 mt-2 text-[10px] text-slate-500 font-semibold">
-              <span>Ký hiệu: <strong className="text-slate-800 font-mono">{watchedValues.invoiceSymbol || "1C26TAA"}</strong></span>
-              <span>Mẫu số: <strong className="text-slate-800 font-mono">{watchedValues.invoicePattern || "1"}</strong></span>
+            <p>Mã số thuế: <span className="font-bold text-slate-800">{currentUser?.household?.taxCode || "0101234567"}</span></p>
+            <p>Địa chỉ: {currentUser?.household?.address || "123 Đường Nguyễn Trãi, Quận Thanh Xuân, Hà Nội"}</p>
+            {currentUser?.household?.phoneNumber && (
+              <p>Điện thoại: {currentUser.household.phoneNumber}</p>
+            )}
+          </div>
+
+          {/* Buyer Info */}
+          <div className="border-b pb-3 text-[9px] leading-relaxed text-slate-600">
+            <p className="font-extrabold text-slate-800 text-[10px] uppercase mb-0.5">Thông tin người mua hàng</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-0.5">
+              <p>Họ tên người mua: <span className="font-bold text-slate-800">Nguyễn Văn A (Khách hàng mẫu)</span></p>
+              <p>Mã số thuế: <span className="font-bold text-slate-800">0312345678</span></p>
+              <p className="sm:col-span-2">Địa chỉ: 456 Đường Lê Lợi, Quận 1, TP. Hồ Chí Minh</p>
+              <p>Điện thoại: 0912345678</p>
+              <p>Email: khachhang@example.com</p>
             </div>
           </div>
 
-          {/* Business details preview */}
-          <div className="flex flex-col gap-1 text-[10px] bg-slate-50 p-2.5 rounded border border-slate-100">
-            <div><span className="font-bold">Đơn vị bán hàng:</span> HỘ KINH DOANH BÁN HÀNG VIỆT</div>
-            <div><span className="font-bold">Mã số thuế:</span> 8934567890</div>
-            <div><span className="font-bold">Địa chỉ:</span> Số 123 Đường Bán Hàng, Hà Nội</div>
+          {/* Items Table */}
+          <div className="flex-1 overflow-x-auto">
+            <table className="w-full text-left border-collapse border border-slate-200 text-[9px]">
+              <thead>
+                <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold text-[8px] uppercase">
+                  <th className="p-1.5 border-r border-slate-200 text-center w-6">STT</th>
+                  <th className="p-1.5 border-r border-slate-200">Tên hàng hóa, dịch vụ</th>
+                  <th className="p-1.5 border-r border-slate-200 text-center w-10">ĐVT</th>
+                  <th className="p-1.5 border-r border-slate-200 text-center w-8">SL</th>
+                  <th className="p-1.5 border-r border-slate-200 text-right w-16">Đơn giá</th>
+                  <th className="p-1.5 border-r border-slate-200 text-center w-12">Thuế (%)</th>
+                  <th className="p-1.5 text-right w-20">Thành tiền</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-200 text-slate-700 font-semibold">
+                <tr>
+                  <td className="p-1.5 border-r border-slate-200 text-center">1</td>
+                  <td className="p-1.5 border-r border-slate-200 font-bold text-slate-800">Sữa tươi tiệt trùng Vinamilk 1L</td>
+                  <td className="p-1.5 border-r border-slate-200 text-center text-slate-500">Hộp</td>
+                  <td className="p-1.5 border-r border-slate-200 text-center font-bold">2</td>
+                  <td className="p-1.5 border-r border-slate-200 text-right">35.000 đ</td>
+                  <td className="p-1.5 border-r border-slate-200 text-center text-slate-500">8%</td>
+                  <td className="p-1.5 text-right font-bold text-slate-800">70.000 đ</td>
+                </tr>
+                <tr>
+                  <td className="p-1.5 border-r border-slate-200 text-center">2</td>
+                  <td className="p-1.5 border-r border-slate-200 font-bold text-slate-800">Bánh quy bơ Danisa 454g</td>
+                  <td className="p-1.5 border-r border-slate-200 text-center text-slate-500">Hộp</td>
+                  <td className="p-1.5 border-r border-slate-200 text-center font-bold">1</td>
+                  <td className="p-1.5 border-r border-slate-200 text-right">145.000 đ</td>
+                  <td className="p-1.5 border-r border-slate-200 text-center text-slate-500">8%</td>
+                  <td className="p-1.5 text-right font-bold text-slate-800">145.000 đ</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
 
-          {/* Sample items table preview */}
-          <table className="w-full text-left border-collapse text-[10px]">
-            <thead>
-              <tr className="border-b border-slate-200 bg-slate-100 text-slate-600 font-bold">
-                <th className="p-1.5">Tên hàng hóa</th>
-                <th className="p-1.5 text-center">SL</th>
-                <th className="p-1.5 text-right">Đơn giá</th>
-                <th className="p-1.5 text-right">Thành tiền</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              <tr>
-                <td className="p-1.5 font-semibold">Sữa tươi tiệt trùng 1L</td>
-                <td className="p-1.5 text-center">2</td>
-                <td className="p-1.5 text-right">35,000</td>
-                <td className="p-1.5 text-right font-bold">70,000 đ</td>
-              </tr>
-              <tr>
-                <td className="p-1.5 font-semibold">Bánh quy bơ Pháp</td>
-                <td className="p-1.5 text-center">1</td>
-                <td className="p-1.5 text-right">45,000</td>
-                <td className="p-1.5 text-right font-bold">45,000 đ</td>
-              </tr>
-            </tbody>
-          </table>
-
-          <div className="border-t border-slate-200 pt-2 flex flex-col gap-1 text-[10px] font-bold text-right">
-            <div className="flex justify-between">
-              <span className="text-slate-500 font-semibold">Tổng tiền hàng:</span>
-              <span>115,000 đ</span>
+          {/* Total Area */}
+          <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 flex flex-col gap-1.5 font-bold text-slate-700 text-[10px]">
+            <div className="flex justify-between text-[9px]">
+              <span className="font-semibold text-slate-500">Cộng tiền hàng (Chưa thuế):</span>
+              <span>215.000 đ</span>
             </div>
-            <div className="flex justify-between text-kv-blue-primary">
+            <div className="flex justify-between text-[9px]">
+              <span className="font-semibold text-slate-500">Tổng tiền thuế GTGT (8%):</span>
+              <span>17.200 đ</span>
+            </div>
+            <div className="flex justify-between border-t border-slate-200 pt-1.5 text-[10px] text-slate-950">
               <span>Tổng tiền thanh toán:</span>
-              <span className="text-xs">115,000 đ</span>
+              <span className="font-extrabold text-kv-blue-primary">232.200 đ</span>
             </div>
+            <div className="border-t border-dashed border-slate-200 pt-1.5 text-[8px] font-semibold text-slate-500 italic leading-relaxed">
+              Số tiền viết bằng chữ: <span className="text-slate-800 font-bold not-italic">Hai trăm ba mươi hai nghìn hai trăm đồng.</span>
+            </div>
+            {watchedValues.footerNote && (
+              <div className="border-t border-dashed border-slate-200 pt-1.5 text-[8px] font-semibold text-slate-500 italic text-center">
+                {watchedValues.footerNote}
+              </div>
+            )}
           </div>
 
-          <div className="border-t border-dashed border-slate-200 pt-3 text-center text-[10px] text-slate-500 italic">
-            {watchedValues.footerNote || "Cảm ơn quý khách!"}
+          {/* Digital Signatures Area */}
+          <div className="grid grid-cols-2 gap-4 mt-3 pt-3 border-t border-slate-100">
+            {/* Buyer column */}
+            <div className="flex flex-col items-center text-center">
+              <span className="font-extrabold text-[9px] text-slate-700 uppercase tracking-wide">Người mua hàng</span>
+              <span className="text-[7px] text-slate-400 mt-0.5 italic">(Ký, ghi rõ họ tên)</span>
+              <div className="h-12 flex items-center justify-center text-slate-300 font-semibold text-[8px] italic">
+                (Ký số điện tử)
+              </div>
+            </div>
+
+            {/* Seller column */}
+            <div className="flex flex-col items-center text-center relative">
+              <span className="font-extrabold text-[9px] text-slate-700 uppercase tracking-wide">Người bán hàng</span>
+              <span className="text-[7px] text-slate-400 mt-0.5 italic">(Ký, đóng dấu điện tử)</span>
+              
+              <div className="mt-1.5 px-2 py-1.5 border-2 border-rose-500 rounded bg-rose-50/40 text-[7px] text-rose-700 font-bold flex flex-col items-center gap-0.5 rotate-[-2deg] shadow-sm max-w-[160px] leading-normal select-none">
+                <span className="text-[8px] text-rose-600 flex items-center gap-1 font-black">
+                  🛡️ ĐÃ KÝ SỐ ĐIỆN TỬ
+                </span>
+                <span className="uppercase tracking-wide text-[6px] text-rose-600">{currentUser?.household?.name || "HỘ KINH DOANH BÁN HÀNG VIỆT"}</span>
+                <span>MST: {currentUser?.household?.taxCode || "0101234567"}</span>
+                <span>Ngày ký: {new Date().toLocaleDateString("vi-VN")}</span>
+              </div>
+            </div>
+
+            {/* Tax Authority Stamp */}
+            <div className="col-span-2 flex justify-center mt-1">
+              <div className="px-3 py-1.5 border-2 border-emerald-500 rounded bg-emerald-50/40 text-[7px] text-emerald-800 font-bold flex items-center gap-2 rotate-[1deg] shadow-sm max-w-[280px] leading-normal select-none">
+                <span className="text-[10px] text-emerald-600 font-black">✓</span>
+                <div className="flex flex-col text-left">
+                  <span className="font-black uppercase tracking-wider text-[8px]">MÃ CƠ QUAN THUẾ CẤP</span>
+                  <span className="font-mono text-[8px] tracking-wider text-slate-800 font-extrabold">00E123456789ABCDEF</span>
+                  <span>Ngày cấp: {new Date().toLocaleDateString("vi-VN")}</span>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>

@@ -14,6 +14,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
@@ -65,10 +66,10 @@ public interface ProductRepository extends JpaRepository<Product, String>, JpaSp
 
     @Modifying
     @Query("UPDATE Product p SET p.stockQuantity = p.stockQuantity - :quantity WHERE p.id = :id AND p.household.id = :householdId AND p.deletedAt IS NULL")
-    int deductStock(@Param("id") String id, @Param("householdId") String householdId, @Param("quantity") java.math.BigDecimal quantity);
+    int deductStock(@Param("id") String id, @Param("householdId") String householdId, @Param("quantity") BigDecimal quantity);
 
     @Modifying
     @Query("UPDATE Product p SET p.stockQuantity = p.stockQuantity + :quantity WHERE p.id = :id AND p.household.id = :householdId AND p.deletedAt IS NULL")
-    int addStock(@Param("id") String id, @Param("householdId") String householdId, @Param("quantity") java.math.BigDecimal quantity);
+    int addStock(@Param("id") String id, @Param("householdId") String householdId, @Param("quantity") BigDecimal quantity);
 }
 

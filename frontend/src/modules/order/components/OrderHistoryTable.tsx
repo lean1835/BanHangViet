@@ -12,7 +12,8 @@ import { USER_ROLES } from "@/constants/roles";
 import { SHIFT_MESSAGES } from "@/constants/shift";
 import { useDashboardDemo } from "@/providers/DashboardDemoProvider";
 import { useGetProductsQuery } from "@/modules/product/services/productApi";
-import { useGetActiveShiftQuery } from "@/modules/shift/services/shiftApi";
+import { useGetActiveShiftQuery, shiftApi } from "@/modules/shift/services/shiftApi";
+import { baseApi } from "@/stores/baseApi";
 import {
   useCreateOrderMutation,
   useAddOrderItemMutation,
@@ -25,7 +26,7 @@ import {
   useLazyGetOrdersHistoryQuery,
 } from "@/modules/order/services/orderApi";
 import type { IOrderResponse } from "@/modules/order/types/IOrder";
-import { formatCurrency } from "@/utils/formatCurrency";
+import { formatCurrency, formatNumber } from "@/utils/formatCurrency";
 import { formatDate, getLocalDateTimeISOString, normalizeDateToYYYYMMDD } from "@/utils/dateFormatter";
 import { getApiErrorMessage } from "@/utils/getApiErrorMessage";
 import { useNotification } from "@/hooks/useNotification";
@@ -39,7 +40,11 @@ import { useCreateInvoiceDraftMutation, useGetInvoicesQuery } from "@/modules/e_
 import { saveOfflineOrder } from "@/modules/sync/utils/offlineSyncStorage";
 import { SyncStatusBadge } from "@/modules/sync/components/SyncStatusBadge";
 import type { IOfflineOrderRequest } from "@/modules/sync/types/ISync";
-import { customerApi, useUpdateCustomerMutation } from "@/modules/customer/services/customerApi";
+import {
+  customerApi,
+  useGetCustomersQuery,
+  useUpdateCustomerMutation,
+} from "@/modules/customer/services/customerApi";
 
 interface OrderHistoryTableProps {
   currentRole: string;
@@ -528,7 +533,6 @@ export const OrderHistoryTable: React.FC<OrderHistoryTableProps> = ({
 }) => {
   const { showSuccess, showError, showInfo, showWarning } = useNotification();
   const dispatch = useAppDispatch();
-  const [updateCustomer] = useUpdateCustomerMutation();
   const authenticatedUser = useAppSelector((state) => state.auth.user);
   const pendingOrderIdentity = useMemo<IPendingOrderIdentity | null>(
     () =>
@@ -577,6 +581,10 @@ export const OrderHistoryTable: React.FC<OrderHistoryTableProps> = ({
     refetch: refetchActiveShift,
   } = useGetActiveShiftQuery(undefined, { skip: !canMutateOrders });
   const activeShift = activeShiftData?.result ?? null;
+
+  const { data: apiCustomersList = [] } = useGetCustomersQuery();
+  const effectiveCustomers = apiCustomersList.length > 0 ? apiCustomersList : customers;
+  const [updateCustomer] = useUpdateCustomerMutation();
 
   const [createOrderApi] = useCreateOrderMutation();
   const [addOrderItemApi] = useAddOrderItemMutation();
@@ -1059,7 +1067,7 @@ export const OrderHistoryTable: React.FC<OrderHistoryTableProps> = ({
         }
 
         // Mutation & RTK Query Tag Invalidation for customer debt on backend
-        const targetCust = customers.find((c) => c.id === targetCustomerId);
+        const targetCust = effectiveCustomers.find((c) => c.id === targetCustomerId);
         if (targetCust) {
           updateCustomer({
             id: targetCust.id,
@@ -1081,10 +1089,22 @@ export const OrderHistoryTable: React.FC<OrderHistoryTableProps> = ({
       }
     }
 
+    dispatch(
+      shiftApi.util.invalidateTags([
+        API_TAG_TYPES.SHIFT,
+        API_TAG_TYPES.ACTIVE_SHIFT,
+      ]),
+    );
+    dispatch(
+      baseApi.util.invalidateTags([
+        API_TAG_TYPES.REPORT,
+      ]),
+    );
+
     const itemDetails = selectedItems
       .map((item) => `${item.productName} (x${item.quantity})`)
       .join(", ");
-    const selectedCustomer = customers.find((customer) => customer.id === (targetCustomerId || customerId));
+    const selectedCustomer = effectiveCustomers.find((customer) => customer.id === (targetCustomerId || customerId));
     const logDetails = `Khách: ${
       selectedCustomer?.name || "Khách vãng lai"
     } - SP: [${itemDetails}] - Tổng tiền: ${completedOrder.finalAmount.toLocaleString(
@@ -1142,7 +1162,7 @@ export const OrderHistoryTable: React.FC<OrderHistoryTableProps> = ({
     if (paymentMethod === "DEBT" && !customerId) {
       newErrors.paidAmount = "Vui lòng chọn khách hàng cụ thể để ghi nợ";
     } else if (paymentMethod === "DEBT" && customerId) {
-      const selectedCustomer = customers.find((c) => c.id === customerId);
+      const selectedCustomer = effectiveCustomers.find((c) => c.id === customerId);
       if (selectedCustomer) {
         const unpaidBalance = Math.max(0, finalAmount - paidAmountInput);
         const potentialDebt = selectedCustomer.debt + unpaidBalance;
@@ -1215,7 +1235,7 @@ export const OrderHistoryTable: React.FC<OrderHistoryTableProps> = ({
         createdByUserId: authenticatedUser?.id || "",
         createdByUsername: authenticatedUser?.username || "",
         customerId: customerId || null,
-        customerName: customers.find((c) => c.id === customerId)?.name || "Khách vãng lai",
+        customerName: effectiveCustomers.find((c) => c.id === customerId)?.name || "Khách vãng lai",
         totalAmount: calculatedTotal,
         discountAmount: calculatedDiscount,
         finalAmount: calculatedFinal,
@@ -2050,7 +2070,12 @@ export const OrderHistoryTable: React.FC<OrderHistoryTableProps> = ({
                       -{formatCurrency(order.discountAmount)}
                     </td>
                     <td className="p-3 text-right font-bold text-kv-blue-primary">
-                      {formatCurrency(order.finalAmount)}
+                      {formatCurrency(
+                        order.paidAmount ??
+                          (order.paymentMethod === ORDER_PAYMENT_METHOD.DEBT
+                            ? 0
+                            : order.finalAmount),
+                      )}
                     </td>
                     <td className="p-3 text-slate-600 font-bold">
                       {order.paymentMethod === ORDER_PAYMENT_METHOD.CASH
@@ -2211,9 +2236,9 @@ export const OrderHistoryTable: React.FC<OrderHistoryTableProps> = ({
                         className="border border-slate-300 h-8 px-2.5 rounded-lg focus:outline-none focus:border-kv-blue-primary bg-white text-xs"
                       >
                         <option value="">-- Khách vãng lai --</option>
-                        {customers.map((c) => (
+                        {effectiveCustomers.map((c) => (
                           <option key={c.id} value={c.id}>
-                            {c.name} ({c.phone})
+                            {c.name} ({c.phone || c.phoneNumber})
                           </option>
                         ))}
                       </select>
@@ -2338,11 +2363,18 @@ export const OrderHistoryTable: React.FC<OrderHistoryTableProps> = ({
                         {discountType === "VALUE" ? "Nhập số tiền giảm (đ):" : "Nhập phần trăm giảm (%):"}
                       </label>
                       <input
-                        type="number"
-                        value={discountValueInput}
+                        type={discountType === "VALUE" ? "text" : "number"}
+                        value={discountType === "VALUE" ? formatNumber(discountValueInput) : discountValueInput}
                         min="0"
                         max={discountType === "PERCENT" ? 100 : totalAmount}
-                        onChange={(e) => handleDiscountValueChange(Number(e.target.value))}
+                        onChange={(e) => {
+                          if (discountType === "VALUE") {
+                            const rawVal = e.target.value.replace(/\D/g, "");
+                            handleDiscountValueChange(rawVal ? Number(rawVal) : 0);
+                          } else {
+                            handleDiscountValueChange(Number(e.target.value));
+                          }
+                        }}
                         className={`border ${errors.discount ? "border-rose-500" : "border-slate-300"} h-8 px-2.5 rounded-lg focus:outline-none focus:border-kv-blue-primary bg-white text-xs font-bold w-full`}
                       />
                       <span className="text-[8px] text-slate-400 font-semibold mt-0.5">
@@ -2359,10 +2391,12 @@ export const OrderHistoryTable: React.FC<OrderHistoryTableProps> = ({
                         Khách thực tế đã trả (đ)*:
                       </label>
                       <input
-                        type="number"
-                        value={paidAmountInput}
-                        min="0"
-                        onChange={(e) => setPaidAmountInput(Number(e.target.value))}
+                        type="text"
+                        value={formatNumber(paidAmountInput)}
+                        onChange={(e) => {
+                          const rawVal = e.target.value.replace(/\D/g, "");
+                          setPaidAmountInput(rawVal ? Number(rawVal) : 0);
+                        }}
                         required
                         className={`border ${errors.paidAmount ? "border-rose-500" : "border-slate-300"} h-8 px-2.5 rounded-lg focus:outline-none focus:border-kv-blue-primary bg-white text-xs font-bold w-full`}
                       />
@@ -2433,7 +2467,7 @@ export const OrderHistoryTable: React.FC<OrderHistoryTableProps> = ({
                     </div>
 
                     {paymentMethod === "DEBT" && customerId && (() => {
-                      const selectedCustomer = customers.find((c) => c.id === customerId);
+                      const selectedCustomer = effectiveCustomers.find((c) => c.id === customerId);
                       if (!selectedCustomer) return null;
                       const unpaidBalance = Math.max(0, finalAmount - paidAmountInput);
                       const potentialDebt = selectedCustomer.debt + unpaidBalance;
@@ -2764,9 +2798,20 @@ export const OrderHistoryTable: React.FC<OrderHistoryTableProps> = ({
                     <div className="flex justify-between border-t pt-2">
                       <span className="text-slate-500">Khách đã trả:</span>
                       <span className="font-bold text-slate-800">
-                        {formatCurrency(selectedOrder.finalAmount + (selectedOrder.changeAmount || 0))}
+                        {formatCurrency(
+                          selectedOrder.paidAmount ??
+                            (selectedOrder.paymentMethod === ORDER_PAYMENT_METHOD.DEBT
+                              ? 0
+                              : selectedOrder.finalAmount + (selectedOrder.changeAmount || 0)),
+                        )}
                       </span>
                     </div>
+                    {selectedOrder.debtAmount !== undefined && selectedOrder.debtAmount > 0 && (
+                      <div className="flex justify-between text-amber-700">
+                        <span className="font-semibold">Còn nợ ghi sổ:</span>
+                        <span className="font-bold">{formatCurrency(selectedOrder.debtAmount)}</span>
+                      </div>
+                    )}
                     <div className="flex justify-between">
                       <span className="text-slate-500">Tiền thối lại:</span>
                       <span className="font-bold text-slate-800">{formatCurrency(selectedOrder.changeAmount || 0)}</span>

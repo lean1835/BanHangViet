@@ -9,6 +9,7 @@ import {
   CUSTOMER_UI,
 } from "@/constants/customer";
 import { useAccessibleDialog } from "@/hooks/useAccessibleDialog";
+import { formatNumber } from "@/utils/formatCurrency";
 import type { ICustomer } from "../types/ICustomer";
 
 const customerSchema = z.object({
@@ -78,6 +79,7 @@ export const CustomerFormModal: React.FC<CustomerFormModalProps> = ({
     handleSubmit,
     reset,
     setError,
+    setValue,
     formState: { errors },
   } = useForm<CustomerFormValues>({
     resolver: zodResolver(customerSchema),
@@ -91,25 +93,31 @@ export const CustomerFormModal: React.FC<CustomerFormModalProps> = ({
     },
   });
 
+  const [creditLimitDisplay, setCreditLimitDisplay] = useState<string>("");
+
   useEffect(() => {
     if (customer) {
+      const val = customer.creditLimit ?? CUSTOMER_FORM_DEFAULTS.CREDIT_LIMIT;
       reset({
         name: customer.name || "",
         phone: customer.phone || "",
         email: customer.email || "",
         address: customer.address || "",
-        creditLimit: customer.creditLimit ?? CUSTOMER_FORM_DEFAULTS.CREDIT_LIMIT,
+        creditLimit: val,
         dueDate: customer.dueDate || "",
       });
+      setCreditLimitDisplay(formatNumber(val));
     } else {
+      const val = CUSTOMER_FORM_DEFAULTS.CREDIT_LIMIT;
       reset({
         name: "",
         phone: "",
         email: "",
         address: "",
-        creditLimit: CUSTOMER_FORM_DEFAULTS.CREDIT_LIMIT,
+        creditLimit: val,
         dueDate: "",
       });
+      setCreditLimitDisplay(formatNumber(val));
     }
     setGlobalError("");
     setDuplicateCustomer(null);
@@ -284,10 +292,14 @@ export const CustomerFormModal: React.FC<CustomerFormModalProps> = ({
                 {CUSTOMER_UI.MODAL.LABELS.CREDIT_LIMIT}
               </label>
               <input
-                type="number"
-                min="0"
-                step="100000"
-                {...register("creditLimit", { valueAsNumber: true })}
+                type="text"
+                value={creditLimitDisplay}
+                onChange={(e) => {
+                  const rawVal = e.target.value.replace(/\D/g, "");
+                  const numVal = rawVal ? Number(rawVal) : 0;
+                  setCreditLimitDisplay(rawVal ? formatNumber(numVal) : "0");
+                  setValue("creditLimit", numVal, { shouldValidate: true });
+                }}
                 placeholder={CUSTOMER_UI.MODAL.PLACEHOLDERS.CREDIT_LIMIT}
                 className={`h-9 px-3 rounded-lg border text-xs font-bold text-slate-800 focus:outline-none focus:border-kv-blue-primary ${
                   errors.creditLimit ? "border-rose-400 bg-rose-50/30" : "border-slate-300"

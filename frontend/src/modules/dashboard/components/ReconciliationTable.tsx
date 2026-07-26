@@ -33,8 +33,8 @@ export const ReconciliationTable = ({ date, currentRole }: ReconciliationTablePr
   const [selectedInvoice, setSelectedInvoice] = useState<IInvoice | null>(null);
 
   // Queries
-  const { data: reconciliationData, isLoading: isReconLoading, refetch: refetchRecon } = useGetReconciliationQuery({ date });
-  const { data: shiftsHistoryData, isLoading: isShiftsLoading } = useGetShiftsHistoryQuery();
+  const { data: reconciliationData, isLoading: isReconLoading, refetch: refetchRecon } = useGetReconciliationQuery({ date }, { refetchOnMountOrArgChange: true });
+  const { data: shiftsHistoryData, isLoading: isShiftsLoading } = useGetShiftsHistoryQuery(undefined, { refetchOnMountOrArgChange: true });
   const { data: allFailedInvoicesData } = useGetInvoicesQuery({ status: "SEND_ERROR", page: 0, size: 50 });
   const [lockReconciliation, { isLoading: isLocking }] = useLockReconciliationMutation();
   const [resendInvoice] = useResendInvoiceMutation();
@@ -76,6 +76,20 @@ export const ReconciliationTable = ({ date, currentRole }: ReconciliationTablePr
       return sum;
     }, 0);
     return shiftSum > 0 ? shiftSum : (reconData?.closingCashExpected || 0);
+  }, [shiftsList, reconData]);
+
+  // Compute total expected revenue from shifts list (or fallback to reconData) to ensure Card 1 matches the table rows sum
+  const totalExpectedRevenue = useMemo(() => {
+    if (shiftsList.length > 0) {
+      return shiftsList.reduce((sum: number, s: IShiftResponse) => {
+        const expectedInShift =
+          s.closingCashExpected !== null && s.closingCashExpected !== undefined
+            ? s.closingCashExpected - s.openingCash
+            : 0;
+        return sum + expectedInShift;
+      }, 0);
+    }
+    return (reconData?.totalCash || 0) + (reconData?.totalTransfer || 0) + (reconData?.totalDebt || 0);
   }, [shiftsList, reconData]);
 
   // Diff: sum shift difference amounts or closingCashActualSum - closingCashExpectedSum
@@ -225,7 +239,7 @@ export const ReconciliationTable = ({ date, currentRole }: ReconciliationTablePr
 
 
   return (
-    <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col h-full min-h-[420px] max-h-[440px]">
+    <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col h-full min-h-[420px] max-h-[420px]">
       {/* Tabs Header */}
       <div className="bg-slate-50 border-b border-slate-200 flex justify-between items-center px-4 shrink-0">
         <div className="flex gap-4">
@@ -258,17 +272,17 @@ export const ReconciliationTable = ({ date, currentRole }: ReconciliationTablePr
       </div>
 
       {/* Tab Content Body */}
-      <div className="flex-1 overflow-auto p-4 flex flex-col">
+      <div className="flex-1 overflow-hidden p-4 flex flex-col min-h-0">
         {isReconLoading ? (
           <div className="text-center text-slate-400 py-10 text-xs font-medium">Đang tải dữ liệu đối chiếu ngày...</div>
         ) : activeTab === "shifts" ? (
-          <div className="flex-1 flex flex-col gap-4">
+          <div className="flex-1 flex flex-col gap-4 min-h-0">
             {/* Reconciliation Summary cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3 shrink-0">
               <div className="bg-slate-50/70 p-3 rounded-lg border border-slate-200">
                 <span className="text-[9px] text-slate-400 font-extrabold uppercase tracking-wider block">Doanh thu dự kiến</span>
                 <span className="text-xs font-extrabold text-slate-700">
-                  {formatCurrency((reconData?.totalCash || 0) + (reconData?.totalTransfer || 0) + (reconData?.totalDebt || 0))}
+                  {formatCurrency(totalExpectedRevenue)}
                 </span>
                 <div className="text-[9px] text-slate-400 mt-1 font-medium">
                   TM: {formatCurrency(reconData?.totalCash || 0)} | CK: {formatCurrency(reconData?.totalTransfer || 0)} | Nợ: {formatCurrency(reconData?.totalDebt || 0)}
@@ -314,7 +328,7 @@ export const ReconciliationTable = ({ date, currentRole }: ReconciliationTablePr
             </div>
 
             {/* Shift List Table */}
-            <div className="flex-1 overflow-auto">
+            <div className="flex-1 overflow-y-auto min-h-0">
               {isShiftsLoading ? (
                 <div className="text-center text-slate-400 py-10 text-xs font-medium">Đang tải ca làm việc...</div>
               ) : shiftsList.length === 0 ? (

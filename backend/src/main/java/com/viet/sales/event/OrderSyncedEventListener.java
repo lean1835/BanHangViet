@@ -18,6 +18,8 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.math.BigDecimal;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 
@@ -82,12 +84,18 @@ public class OrderSyncedEventListener {
                         } while (eInvoiceRepository.existsByLookupCodeAndDeletedAtIsNull(lookupCode));
 
                         String pattern = "1";
-                        String symbol = "C26TNV";
+                        String symbol = "1C26TAA";
+                        String title = "HÓA ĐƠN GIÁ TRỊ GIA TĂNG";
+                        String footerNote = null;
                         if (order.getHousehold() != null) {
                             Optional<InvoiceTemplate> templateOpt = invoiceTemplateRepository.findByHouseholdId(order.getHousehold().getId());
                             if (templateOpt.isPresent()) {
                                 pattern = templateOpt.get().getInvoicePattern();
                                 symbol = templateOpt.get().getInvoiceSymbol();
+                                if (templateOpt.get().getTitle() != null) {
+                                    title = templateOpt.get().getTitle();
+                                }
+                                footerNote = templateOpt.get().getFooterNote();
                             }
                         }
 
@@ -97,12 +105,14 @@ public class OrderSyncedEventListener {
                                 .createdByUser(user)
                                 .invoicePattern(pattern)
                                 .invoiceSymbol(symbol)
+                                .title(title)
+                                .footerNote(footerNote)
                                 .buyerName(order.getCustomer() != null ? order.getCustomer().getName() : "Khách mua lẻ")
                                 .buyerPhone(order.getCustomer() != null ? order.getCustomer().getPhoneNumber() : null)
                                 .buyerEmail(order.getCustomer() != null ? order.getCustomer().getEmail() : null)
                                 .buyerAddress(order.getCustomer() != null ? order.getCustomer().getAddress() : null)
-                                .discountAmount(order.getDiscountAmount() != null ? order.getDiscountAmount() : java.math.BigDecimal.ZERO)
-                                .finalAmount(order.getFinalAmount() != null ? order.getFinalAmount() : java.math.BigDecimal.ZERO)
+                                .discountAmount(order.getDiscountAmount() != null ? order.getDiscountAmount() : BigDecimal.ZERO)
+                                .finalAmount(order.getFinalAmount() != null ? order.getFinalAmount() : BigDecimal.ZERO)
                                 .status("SEND_ERROR")
                                 .lookupCode(lookupCode)
                                 .taxAuthorityResponse("Lỗi tự động phát hành HĐĐT: " + errorMsg)

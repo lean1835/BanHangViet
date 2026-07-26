@@ -6,14 +6,18 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface CustomerDebtRepository extends JpaRepository<CustomerDebt, String> {
 
     List<CustomerDebt> findByCustomerIdAndHouseholdIdOrderByCreatedAtDesc(String customerId, String householdId);
+
+    Optional<CustomerDebt> findFirstByOrderIdAndType(String orderId, String type);
 
     @Query("SELECT d FROM CustomerDebt d JOIN FETCH d.customer JOIN FETCH d.createdByUser LEFT JOIN FETCH d.order " +
            "WHERE d.customer.id = :customerId AND d.household.id = :householdId ORDER BY d.createdAt DESC")
@@ -44,11 +48,11 @@ public interface CustomerDebtRepository extends JpaRepository<CustomerDebt, Stri
 
     @Query("SELECT COALESCE(SUM(d.remainingAmount), 0) FROM CustomerDebt d " +
            "WHERE d.household.id = :householdId AND d.type = 'DEBT_CREATED' AND d.status IN ('PENDING', 'OVERDUE')")
-    java.math.BigDecimal sumTotalActiveDebt(@Param("householdId") String householdId);
+    BigDecimal sumTotalActiveDebt(@Param("householdId") String householdId);
 
     @Query("SELECT COALESCE(SUM(d.remainingAmount), 0) FROM CustomerDebt d " +
            "WHERE d.household.id = :householdId AND d.type = 'DEBT_CREATED' AND d.status = 'OVERDUE'")
-    java.math.BigDecimal sumTotalOverdueDebt(@Param("householdId") String householdId);
+    BigDecimal sumTotalOverdueDebt(@Param("householdId") String householdId);
 
     @Query("SELECT COUNT(DISTINCT d.customer.id) FROM CustomerDebt d " +
            "WHERE d.household.id = :householdId AND d.type = 'DEBT_CREATED' AND d.status IN ('PENDING', 'OVERDUE')")

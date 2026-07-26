@@ -36,6 +36,7 @@ export const ShiftManagementPanel: React.FC<ShiftManagementPanelProps> = ({
     refetch: refetchActiveShift,
   } = useGetActiveShiftQuery(undefined, {
       skip: currentRole === USER_ROLES.ACCOUNTANT,
+      refetchOnMountOrArgChange: true,
     });
   const currentShift = activeShiftData?.result ?? null;
   const currentExpectedCash =

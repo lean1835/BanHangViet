@@ -17,9 +17,12 @@ public class PublicInvoiceResponse {
     private String invoiceNumber;
     private String invoicePattern;
     private String invoiceSymbol;
+    private String title;
+    private String footerNote;
     private String householdName;
     private String householdTaxCode;
     private String householdAddress;
+    private String householdPhone;
     private String buyerName;
     private String buyerTaxCode;
     private String buyerAddress;
