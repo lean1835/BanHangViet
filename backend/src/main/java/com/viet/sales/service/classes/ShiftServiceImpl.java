@@ -29,8 +29,8 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
-
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -106,9 +106,8 @@ public class ShiftServiceImpl implements ShiftService {
     private ShiftResponse mapToResponse(Shift shift) {
         BigDecimal expectedCash = shift.getClosingCashExpected();
         if (shift.getStatus() == ShiftStatus.OPEN) {
-            BigDecimal cashSales = orderRepository.sumFinalAmountByShiftIdAndStatusAndPaymentMethodAndDeletedAtIsNull(
-                    shift.getId(), "COMPLETED", "CASH");
-            expectedCash = shift.getOpeningCash().add(cashSales);
+            BigDecimal collectedSales = orderRepository.sumCollectedAmountByShiftId(shift.getId());
+            expectedCash = shift.getOpeningCash().add(collectedSales);
         }
         return ShiftResponse.builder()
                 .id(shift.getId())
@@ -215,9 +214,9 @@ public class ShiftServiceImpl implements ShiftService {
             throw new AppException(ErrorCode.SHIFT_HAS_PENDING_ORDER);
         }
 
-        // Calculate expected cash
-        BigDecimal cashSales = orderRepository.sumFinalAmountByShiftIdAndStatusAndPaymentMethodAndDeletedAtIsNull(shiftId, "COMPLETED", "CASH");
-        BigDecimal expectedCash = shift.getOpeningCash().add(cashSales);
+        // Calculate expected cash (unifying CASH, BANK_TRANSFER, and DEBT down payments)
+        BigDecimal collectedSales = orderRepository.sumCollectedAmountByShiftId(shiftId);
+        BigDecimal expectedCash = shift.getOpeningCash().add(collectedSales);
 
         BigDecimal actualCash = request.getClosingCashActual();
         BigDecimal difference = actualCash.subtract(expectedCash);
@@ -268,6 +267,6 @@ public class ShiftServiceImpl implements ShiftService {
 
         return shifts.stream()
                 .map(this::mapToResponse)
-                .collect(java.util.stream.Collectors.toList());
+                .collect(Collectors.toList());
     }
 }

@@ -1,5 +1,5 @@
 import React from "react";
-import { E_INVOICE_STATUS } from "@/constants/eInvoice";
+import { INVOICE_STATUS_OPTIONS, E_INVOICE_UI } from "@/constants/eInvoice";
 import type { TInvoiceStatus } from "../types/IInvoice";
 
 interface InvoiceSidebarProps {
@@ -12,16 +12,6 @@ interface InvoiceSidebarProps {
   searchQuery: string;
   setSearchQuery: (query: string) => void;
 }
-
-const INVOICE_STATUS_OPTIONS: Array<{ value: string; label: string }> = [
-  { value: "ALL", label: "Tất cả" },
-  { value: E_INVOICE_STATUS.DRAFT, label: "Nháp (DRAFT)" },
-  { value: E_INVOICE_STATUS.WAITING_TAX_CODE, label: "Chờ cấp mã (WAITING)" },
-  { value: E_INVOICE_STATUS.ISSUED, label: "Đã cấp mã (ISSUED)" },
-  { value: E_INVOICE_STATUS.SEND_ERROR, label: "Lỗi gửi thuế (SEND_ERROR)" },
-  { value: E_INVOICE_STATUS.ADJUSTED, label: "Điều chỉnh (ADJUSTED)" },
-  { value: E_INVOICE_STATUS.CANCELED, label: "Đã hủy (CANCELED)" },
-];
 
 export const InvoiceSidebar: React.FC<InvoiceSidebarProps> = ({
   statusFilter,
@@ -46,19 +36,19 @@ export const InvoiceSidebar: React.FC<InvoiceSidebarProps> = ({
   return (
     <>
       <div className="font-extrabold text-sm text-slate-800 border-b pb-2">
-        Bộ lọc Hóa đơn
+        {E_INVOICE_UI.SIDEBAR.TITLE}
       </div>
 
       {/* Tìm kiếm */}
       <div className="flex flex-col gap-2">
         <span className="font-bold text-slate-400 uppercase tracking-wide text-[10px]">
-          Tìm kiếm nhanh
+          {E_INVOICE_UI.SIDEBAR.QUICK_SEARCH_LABEL}
         </span>
         <input
           type="text"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Mã tra cứu, khách hàng..."
+          placeholder={E_INVOICE_UI.SIDEBAR.SEARCH_PLACEHOLDER}
           className="border border-slate-300 h-9 px-3 rounded-lg focus:outline-none focus:border-kv-blue-primary text-xs font-semibold"
         />
       </div>
@@ -91,25 +81,21 @@ export const InvoiceSidebar: React.FC<InvoiceSidebarProps> = ({
       </div>
 
       {/* Bộ lọc trạng thái */}
-      <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-2">
         <span className="font-bold text-slate-400 uppercase tracking-wide text-[10px]">
           Trạng thái hóa đơn
         </span>
-        <div className="flex flex-col gap-2 font-medium text-slate-700">
+        <select
+          value={selectedStatus}
+          onChange={(e) => handleStatusRadioChange(e.target.value)}
+          className="w-full border border-slate-300 h-9 px-3 rounded-lg focus:outline-none focus:border-kv-blue-primary text-xs font-semibold bg-white text-slate-700 cursor-pointer"
+        >
           {INVOICE_STATUS_OPTIONS.map((status) => (
-            <label key={status.value} className="flex min-h-11 cursor-pointer items-center gap-2 lg:min-h-0 text-xs">
-              <input
-                type="radio"
-                name="invoiceStatusFilter"
-                value={status.value}
-                checked={selectedStatus === status.value}
-                onChange={() => handleStatusRadioChange(status.value)}
-                className="border-slate-300 text-kv-blue-primary focus:ring-kv-blue-primary w-3.5 h-3.5"
-              />
-              <span>{status.label}</span>
-            </label>
+            <option key={status.value} value={status.value}>
+              {status.label}
+            </option>
           ))}
-        </div>
+        </select>
       </div>
     </>
   );

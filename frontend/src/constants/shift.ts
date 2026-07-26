@@ -63,7 +63,7 @@ const SHIFT_TABLE_COLUMNS = {
   OPENED_AT: "Thời gian mở",
   CLOSED_AT: "Thời gian đóng",
   OPENING_CASH: "Quỹ đầu ca",
-  EXPECTED_CASH: "Tiền mặt kì vọng",
+  EXPECTED_CASH: "Tiền kì vọng",
   ACTUAL_CASH: "Đếm thực tế",
   DIFFERENCE: "Chênh lệch",
   DIFFERENCE_REASON: "Lý do chênh lệch",
@@ -80,15 +80,15 @@ const SHIFT_OPEN_MODAL_UI = {
   EMPLOYEE_LABEL: "Nhân viên nhận ca:",
   SELF_OPTION_LABEL: "-- Chính mình --",
   EMPLOYEE_OPTION_LABEL: "-- Chọn nhân viên --",
-  OPENING_CASH_LABEL: "Tiền mặt đầu ca (đ):",
+  OPENING_CASH_LABEL: "Tiền đầu ca (đ):",
   CONFIRM_BUTTON: "XÁC NHẬN MỞ CA",
 } as const;
 
 const SHIFT_RECONCILIATION_UI = {
-  EXPECTED_CASH_LABEL: "Tiền mặt kì vọng:",
-  ACTUAL_CASH_LABEL: "Tiền mặt thực tế:",
+  EXPECTED_CASH_LABEL: "Tiền kì vọng:",
+  ACTUAL_CASH_LABEL: "Đếm thực tế:",
   DIFFERENCE_LABEL: "Chênh lệch:",
-  ACTUAL_CASH_INPUT_LABEL: "Tiền mặt thực tế đếm tại két (đ):",
+  ACTUAL_CASH_INPUT_LABEL: "Tiền thực tế đếm tại két (đ):",
   DIFFERENCE_REASON_LABEL: "⚠️ Nhập lý do chênh lệch bắt buộc:",
   DIFFERENCE_REASON_PLACEHOLDER: "Nhập lý do...",
 } as const;
@@ -120,7 +120,7 @@ export const SHIFT_UI = {
     CLOSE_SHIFT_BUTTON: "ĐÓNG CA BÁN HÀNG",
     OPENING_FUND_LABEL: "Tiền quỹ đầu ca",
     OPENED_AT_LABEL: "Mở ca lúc:",
-    EXPECTED_CASH_LABEL: "Tiền mặt kì vọng trong két",
+    EXPECTED_CASH_LABEL: "Tiền kì vọng trong két",
     EXPECTED_CASH_HINT: "Tự động cộng dồn doanh số tiền mặt",
     NO_ACTIVE_SHIFT_TITLE: "Bạn chưa mở ca làm việc!",
     NO_ACTIVE_SHIFT_DESCRIPTION:

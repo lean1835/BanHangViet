@@ -226,7 +226,7 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
         </div>
 
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 flex flex-col lg:flex-row lg:items-stretch gap-6">
-          <div className="flex-1 shrink-0 bg-white border border-slate-200 rounded-xl p-6 shadow-sm flex flex-col gap-6 text-[10px] text-slate-800 font-medium relative overflow-hidden">
+          <div className="flex-1 shrink-0 min-h-0 bg-white border border-slate-200 rounded-xl p-6 shadow-sm flex flex-col gap-6 text-[10px] text-slate-800 font-medium relative overflow-x-hidden overflow-y-auto">
             {/* Watermark */}
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none opacity-[0.03] text-slate-800 text-[3.5rem] font-extrabold rotate-[30deg] uppercase whitespace-nowrap">
               Hóa đơn điện tử
@@ -235,8 +235,8 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
             {/* Invoice Header */}
             <div className="flex justify-between border-b pb-4 flex-wrap gap-4">
               <div>
-                <h1 className="text-sm font-extrabold text-kv-blue-primary tracking-wide">
-                  HÓA ĐƠN GIÁ TRỊ GIA TĂNG
+                <h1 className="text-sm font-extrabold text-kv-blue-primary tracking-wide uppercase">
+                  {invoice.title || "HÓA ĐƠN GIÁ TRỊ GIA TĂNG"}
                 </h1>
                 <p className="text-[9px] text-slate-500 font-bold mt-0.5">
                   (Bản mô phỏng hóa đơn điện tử)
@@ -261,9 +261,9 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
               <p className="font-extrabold text-slate-800 text-xs uppercase mb-1">
                 Đơn vị bán hàng: {invoice.householdName || "HỘ KINH DOANH BÁN HÀNG VIỆT"}
               </p>
-              <p>Mã số thuế: <span className="font-bold text-slate-800">0102030405-999</span></p>
-              <p>Địa chỉ: Số 12 Ba Đình, Thành phố Hà Nội, Việt Nam</p>
-              <p>Điện thoại: 024.3999999</p>
+              <p>Mã số thuế: <span className="font-bold text-slate-800">{invoice.householdTaxCode || "-"}</span></p>
+              <p>Địa chỉ: {invoice.householdAddress || "-"}</p>
+              <p>Điện thoại: {invoice.householdPhone || "-"}</p>
             </div>
 
             {/* Buyer Info */}
@@ -398,6 +398,11 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
               <div className="border-t border-dashed border-slate-200 pt-2 text-[9px] font-semibold text-slate-500 italic leading-relaxed">
                 Số tiền viết bằng chữ: <span className="text-slate-800 font-bold not-italic">{convertNumberToWords(invoice.finalAmount)}</span>
               </div>
+              {invoice.footerNote && (
+                <div className="border-t border-dashed border-slate-200 pt-2 text-[9px] font-semibold text-slate-500 italic text-center">
+                  {invoice.footerNote}
+                </div>
+              )}
             </div>
 
             {/* Digital Signatures Area */}
@@ -421,8 +426,8 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
                     <span className="text-[9px] text-rose-600 flex items-center gap-1 font-black">
                       🛡️ ĐÃ KÝ SỐ ĐIỆN TỬ
                     </span>
-                    <span className="uppercase tracking-wide text-[7px] text-rose-600">HỘ KINH DOANH BÁN HÀNG VIỆT</span>
-                    <span>MST: 0102030405-999</span>
+                    <span className="uppercase tracking-wide text-[7px] text-rose-600">{invoice.householdName || "HỘ KINH DOANH BÁN HÀNG VIỆT"}</span>
+                    <span>MST: {invoice.householdTaxCode || "-"}</span>
                     <span>Ngày ký: {formatInvoiceDateTime(invoice.createdAt || invoice.time)}</span>
                   </div>
                 ) : (

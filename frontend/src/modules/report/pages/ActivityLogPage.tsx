@@ -86,6 +86,9 @@ export const ActivityLogPage = () => {
       case "shifts": return "Ca làm việc";
       case "invoices": return "Hóa đơn HĐĐT";
       case "goods_receipts": return "Phiếu nhập hàng";
+      case "customers": return "Khách hàng";
+      case "debts":
+      case "customer_debts": return "Công nợ khách hàng";
       case "users":
       case "employees": return "Nhân viên";
       case "reports": return "Báo cáo / Quỹ";
@@ -95,6 +98,13 @@ export const ActivityLogPage = () => {
 
   const getActionBadge = (action: string) => {
     const actUpper = (action || "").toUpperCase();
+    if (actUpper.includes("COLLECT_DEBT") || actUpper.includes("THU_NO") || actUpper.includes("PAY_DEBT")) {
+      return {
+        label: "THU NỢ KHÁCH HÀNG",
+        className: "bg-emerald-100 text-emerald-800 border-emerald-300",
+        icon: <CheckCircle2 className="w-3 h-3 mr-1 shrink-0" />,
+      };
+    }
     if (actUpper.includes("CHOT_DOI_CHIEU") || actUpper.includes("LOCK")) {
       return {
         label: "CHỐT ĐỐI CHIẾU NGÀY",
@@ -193,6 +203,9 @@ interface IParsedLogPayload {
   reconciliation?: IReconciliationDetail;
   notes?: string;
   note?: string;
+  amount?: number;
+  remainingAmount?: number;
+  type?: string;
   date?: string;
   totalCash?: number;
   totalTransfer?: number;
@@ -212,6 +225,7 @@ interface IParsedLogPayload {
   category?: string;
   code?: string;
   orderCode?: string;
+  orderNumber?: string;
   itemCount?: number;
   itemsCount?: number;
   totalAmount?: number;
@@ -232,6 +246,11 @@ interface IParsedLogPayload {
   fullName?: string;
   role?: string;
   phone?: string;
+  phoneNumber?: string;
+  currentDebt?: number;
+  creditLimit?: number;
+  address?: string;
+  email?: string;
   invoiceSymbol?: string;
   invoiceNumber?: string;
   status?: string;
@@ -349,9 +368,13 @@ interface IParsedLogPayload {
     }
 
     // 5. Đơn hàng (Orders)
-    if (tableLower === "orders" || parsed.orderCode || parsed.totalAmount !== undefined) {
-      const code = parsed.orderCode || parsed.code || log.targetId || "Đơn hàng";
-      const total = parsed.totalAmount ?? parsed.totalPrice;
+    if (tableLower === "orders" || parsed.orderNumber || parsed.orderCode || parsed.totalAmount !== undefined) {
+      let code = parsed.orderNumber || parsed.orderCode || parsed.code;
+      if (!code && log.targetId) {
+        code = log.targetId.length > 15 ? `#${log.targetId.slice(-6).toUpperCase()}` : log.targetId;
+      }
+      code = code || "Đơn hàng";
+      const total = parsed.totalAmount ?? parsed.totalPrice ?? parsed.finalAmount;
       const method = parsed.paymentMethod || parsed.payment_method;
       return (
         <div className="flex flex-col gap-0.5 text-[11px] leading-relaxed py-0.5">
@@ -359,7 +382,8 @@ interface IParsedLogPayload {
           {total !== undefined && <span>Tổng tiền: <strong className="text-emerald-700">{formatVnd(total)}</strong></span>}
           <div className="flex items-center gap-2 text-slate-500">
             {method && <span>Thanh toán: <strong className="text-slate-700">{method}</strong></span>}
-            {parsed.itemCount !== undefined && <span>· Số lượng: {parsed.itemCount} món</span>}
+            {parsed.customerName && <span>· Khách: <strong className="text-slate-700">{parsed.customerName}</strong></span>}
+            {parsed.itemCount !== undefined && <span>· {parsed.itemCount} món</span>}
           </div>
         </div>
       );
@@ -379,7 +403,7 @@ interface IParsedLogPayload {
     }
 
     // 7. Nhân viên (Employees / Users)
-    if (tableLower === "users" || tableLower === "employees" || parsed.username) {
+    if (tableLower === "users" || tableLower === "employees" || (parsed.username && !parsed.creditLimit)) {
       return (
         <div className="flex flex-col gap-0.5 text-[11px] leading-relaxed py-0.5">
           <span className="font-bold text-slate-800">{parsed.fullName || parsed.username} <span className="text-slate-400 font-mono">(@{parsed.username})</span></span>
@@ -388,7 +412,65 @@ interface IParsedLogPayload {
       );
     }
 
-    // 8. Hóa đơn điện tử (Invoices)
+    // 8. Khách hàng & Công nợ (Customers / Debts / Collect Debt)
+    if (
+      actionUpper.includes("COLLECT") ||
+      tableLower === "customer_debts" ||
+      tableLower === "customers" ||
+      tableLower === "debts" ||
+      parsed.creditLimit !== undefined ||
+      parsed.currentDebt !== undefined ||
+      parsed.remainingAmount !== undefined
+    ) {
+      const name = parsed.name || parsed.fullName || parsed.customerName || "Khách hàng";
+      const phone = parsed.phoneNumber || parsed.phone;
+      const amount = parsed.amount;
+      const remaining = parsed.remainingAmount;
+      const debt = parsed.currentDebt ?? parsed.totalDebt ?? parsed.totalCash;
+      const credit = parsed.creditLimit;
+      const note = parsed.notes || parsed.note;
+
+      if (actionUpper.includes("COLLECT") || parsed.type === "DEBT_PAID") {
+        return (
+          <div className="flex flex-col gap-0.5 text-[11px] leading-relaxed py-0.5">
+            <span className="font-bold text-slate-800">
+              Thu nợ khách hàng: {name}{" "}
+              {phone && <span className="text-slate-500 font-mono">({phone})</span>}
+            </span>
+            <div className="flex items-center gap-2 text-slate-600">
+              {amount !== undefined && (
+                <span>Số tiền thu: <strong className="text-emerald-700">{formatVnd(amount)}</strong></span>
+              )}
+              {remaining !== undefined && (
+                <span>· Dư nợ còn lại: <strong className="text-slate-700">{formatVnd(remaining)}</strong></span>
+              )}
+            </div>
+            {note && <span className="text-blue-600 italic">Ghi chú: "{note}"</span>}
+          </div>
+        );
+      }
+
+      return (
+        <div className="flex flex-col gap-0.5 text-[11px] leading-relaxed py-0.5">
+          <span className="font-bold text-slate-800">
+            Khách hàng: {name}{" "}
+            {phone && <span className="text-slate-500 font-mono">({phone})</span>}
+          </span>
+          <div className="flex items-center gap-2 text-slate-600">
+            {debt !== undefined && (
+              <span>Dư nợ: <strong className="text-rose-600">{formatVnd(debt)}</strong></span>
+            )}
+            {credit !== undefined && (
+              <span>· Hạn mức: <strong className="text-slate-700">{formatVnd(credit)}</strong></span>
+            )}
+          </div>
+          {parsed.email && <span className="text-slate-400">Email: {parsed.email}</span>}
+          {parsed.address && <span className="text-slate-400">Địa chỉ: {parsed.address}</span>}
+        </div>
+      );
+    }
+
+    // 9. Hóa đơn điện tử (Invoices)
     if (tableLower === "invoices" || parsed.invoiceSymbol || parsed.invoiceNumber) {
       const invStr = [parsed.invoiceSymbol, parsed.invoiceNumber].filter(Boolean).join("-") || "Hóa đơn";
       return (
@@ -401,7 +483,7 @@ interface IParsedLogPayload {
       );
     }
 
-    // 9. Generic JSON parser for any other JSON structure
+    // 10. Generic JSON parser for any other JSON structure
     const entries: { key: string; val: string }[] = [];
     const keyMap: Record<string, string> = {
       notes: "Ghi chú",
@@ -414,13 +496,31 @@ interface IParsedLogPayload {
       amount: "Số tiền",
       total: "Tổng tiền",
       ip: "Địa chỉ IP",
+      fullname: "Họ tên",
+      phonenumber: "Số điện thoại",
+      creditlimit: "Hạn mức nợ",
+      currentdebt: "Dư nợ",
+      email: "Email",
+      address: "Địa chỉ",
     };
 
+    const ignoredKeys = new Set(["id", "householdid", "createdbyuserid", "shiftid", "customerid"]);
+
     Object.entries(parsed as Record<string, unknown>).forEach(([k, v]) => {
+      const kLower = k.toLowerCase();
+      if (ignoredKeys.has(kLower)) return;
       if (v !== null && v !== undefined && typeof v !== "object") {
-        const label = keyMap[k.toLowerCase()] || k;
+        const label = keyMap[kLower] || k;
         let valStr = String(v);
-        if (typeof v === "number" && (k.toLowerCase().includes("amount") || k.toLowerCase().includes("price") || k.toLowerCase().includes("total") || k.toLowerCase().includes("cash"))) {
+        if (
+          typeof v === "number" &&
+          (kLower.includes("amount") ||
+            kLower.includes("price") ||
+            kLower.includes("total") ||
+            kLower.includes("cash") ||
+            kLower.includes("debt") ||
+            kLower.includes("limit"))
+        ) {
           valStr = formatVnd(v);
         }
         entries.push({ key: label, val: valStr });

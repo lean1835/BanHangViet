@@ -29,7 +29,7 @@ public class InvoiceTemplateServiceImpl implements InvoiceTemplateService {
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @Transactional(rollbackFor = Exception.class)
     public InvoiceTemplateResponse getTemplateByHousehold(String currentUsername) {
         User currentUser = getAuthenticatedUser(currentUsername);
         BusinessHousehold household = currentUser.getHousehold();
@@ -38,7 +38,13 @@ public class InvoiceTemplateServiceImpl implements InvoiceTemplateService {
         }
 
         InvoiceTemplate template = invoiceTemplateRepository.findByHouseholdId(household.getId())
-                .orElseThrow(() -> new AppException(ErrorCode.INVOICE_TEMPLATE_NOT_FOUND));
+                .orElseGet(() -> invoiceTemplateRepository.save(InvoiceTemplate.builder()
+                        .household(household)
+                        .invoicePattern("1")
+                        .invoiceSymbol("1C26TAA")
+                        .title("HÓA ĐƠN GIÁ TRỊ GIA TĂNG")
+                        .footerNote("Cảm ơn quý khách đã mua hàng! Hóa đơn điện tử khởi tạo từ máy tính tiền có mã của CQT.")
+                        .build()));
 
         return mapToResponse(template);
     }

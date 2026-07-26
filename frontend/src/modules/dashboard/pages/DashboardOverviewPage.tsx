@@ -50,7 +50,7 @@ export const DashboardOverviewPage = () => {
   const {
     data: logsData,
     isLoading: isLogsLoading,
-  } = useGetActivityLogsQuery({ fromDate, toDate, page: 0, size: 5 });
+  } = useGetActivityLogsQuery({ fromDate: toDate, toDate, page: 0, size: 1000 });
 
   const {
     data: failedInvoicesData,
@@ -71,12 +71,51 @@ export const DashboardOverviewPage = () => {
       const timeStr = log.createdAt
         ? new Date(log.createdAt).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })
         : "-";
+
+      let cleanTargetName = "";
+      const rawVal = log.newValue || log.oldValue;
+      if (rawVal) {
+        try {
+          const parsed = JSON.parse(rawVal);
+          cleanTargetName =
+            parsed.name ||
+            parsed.customerName ||
+            parsed.orderNumber ||
+            parsed.orderCode ||
+            parsed.receiptCode ||
+            parsed.groupName ||
+            parsed.fullName ||
+            "";
+        } catch {
+          // Ignore JSON parse error
+        }
+      }
+
+      const tableLower = (log.targetTable || "").toLowerCase();
+      let tableLabel = log.targetTable || "Hệ thống";
+      if (tableLower === "orders") tableLabel = "Đơn hàng";
+      else if (tableLower === "customers") tableLabel = "Khách hàng";
+      else if (tableLower === "products") tableLabel = "Sản phẩm";
+      else if (tableLower === "product_groups") tableLabel = "Nhóm hàng";
+      else if (tableLower === "shifts") tableLabel = "Ca làm việc";
+      else if (tableLower === "invoices") tableLabel = "Hóa đơn HĐĐT";
+      else if (tableLower === "goods_receipts") tableLabel = "Phiếu nhập hàng";
+      else if (tableLower === "users" || tableLower === "employees") tableLabel = "Nhân viên";
+
+      let targetStr = tableLabel;
+      if (cleanTargetName) {
+        targetStr = `${tableLabel}: ${cleanTargetName}`;
+      } else if (log.targetId) {
+        const idDisplay = log.targetId.length > 15 ? `#${log.targetId.slice(-6).toUpperCase()}` : log.targetId;
+        targetStr = `${tableLabel} (${idDisplay})`;
+      }
+
       return {
         id: log.id,
         time: timeStr,
         user: log.fullName || log.username || "Nhân viên",
         action: log.action || "Thao tác",
-        target: `${log.targetTable || ""}${log.targetId ? ` (ID: ${log.targetId})` : ""}`,
+        target: targetStr,
       };
     });
   }, [logsData]);

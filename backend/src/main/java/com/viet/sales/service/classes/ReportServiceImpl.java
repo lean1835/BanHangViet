@@ -26,6 +26,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import java.util.Optional;
+
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -36,6 +38,7 @@ public class ReportServiceImpl implements ReportService {
     private final EInvoiceRepository eInvoiceRepository;
     private final ActivityLogRepository activityLogRepository;
     private final ShiftRepository shiftRepository;
+    private final CustomerDebtRepository customerDebtRepository;
     private final ObjectMapper objectMapper;
 
     private BusinessHousehold getHouseholdAndValidate(String username) {
@@ -114,7 +117,18 @@ public class ReportServiceImpl implements ReportService {
             } else if ("BANK_TRANSFER".equals(o.getPaymentMethod())) {
                 transfer = transfer.add(o.getFinalAmount());
             } else if ("DEBT".equals(o.getPaymentMethod())) {
-                debt = debt.add(o.getFinalAmount());
+                Optional<CustomerDebt> debtOpt = customerDebtRepository.findFirstByOrderIdAndType(o.getId(), "DEBT_CREATED");
+                if (debtOpt.isPresent()) {
+                    BigDecimal debtBalance = debtOpt.get().getAmount() != null ? debtOpt.get().getAmount() : BigDecimal.ZERO;
+                    BigDecimal paidAdvance = o.getFinalAmount().subtract(debtBalance);
+                    if (paidAdvance.compareTo(BigDecimal.ZERO) < 0) {
+                        paidAdvance = BigDecimal.ZERO;
+                    }
+                    debt = debt.add(debtBalance);
+                    cash = cash.add(paidAdvance);
+                } else {
+                    debt = debt.add(o.getFinalAmount());
+                }
             }
         }
 

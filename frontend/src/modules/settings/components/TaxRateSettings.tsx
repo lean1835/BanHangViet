@@ -6,13 +6,12 @@ import {
   type TTaxRateFormData,
 } from "../schemas/settingsSchemas";
 import {
-  useGetAllTaxRatesQuery,
+  useGetTaxRatesQuery,
   useCreateTaxRateMutation,
   useUpdateTaxRateStatusMutation,
-} from "../services/settingsApi";
-import { SETTINGS_UI } from "@/constants/settings";
+} from "../services/taxRateApi";
+import { SETTINGS_UI, TAX_SECTOR_PRESETS } from "@/constants/settings";
 import { useNotification } from "@/hooks/useNotification";
-import { useDashboardDemo } from "@/providers/DashboardDemoProvider";
 import { getApiErrorMessage } from "@/utils/getApiErrorMessage";
 import {
   Plus,
@@ -25,65 +24,23 @@ import {
   Loader2,
 } from "lucide-react";
 
-interface TaxSectorPreset {
-  id: string;
-  label: string;
-  name: string;
-  vatRate: number;
-}
-
-// Khung thuế suất chuẩn đối với Hộ kinh doanh theo Thông tư 40/2021/TT-BTC
-const TAX_SECTOR_PRESETS: TaxSectorPreset[] = [
-  {
-    id: "DISTRIBUTION",
-    label: "Phân phối, cung cấp hàng hóa (GTGT 1.0% - TNCN 0.5%)",
-    name: "VAT-01 (Phân phối, cung cấp hàng hóa)",
-    vatRate: 1.0,
-  },
-  {
-    id: "SERVICES",
-    label: "Dịch vụ, ăn uống, thi công không bao thầu (GTGT 5.0% - TNCN 2.0%)",
-    name: "VAT-05 (Dịch vụ, ăn uống, thi công)",
-    vatRate: 5.0,
-  },
-  {
-    id: "PRODUCTION",
-    label: "Sản xuất, vận tải, dịch vụ gắn hàng hóa (GTGT 3.0% - TNCN 1.5%)",
-    name: "VAT-03 (Sản xuất, vận tải, dịch vụ hàng hóa)",
-    vatRate: 3.0,
-  },
-  {
-    id: "OTHER",
-    label: "Hoạt động kinh doanh khác (GTGT 2.0% - TNCN 1.0%)",
-    name: "VAT-02 (Hoạt động kinh doanh khác)",
-    vatRate: 2.0,
-  },
-  {
-    id: "EXEMPT",
-    label: "Không chịu thuế / Miễn thuế (GTGT 0.0% - TNCN 0.0%)",
-    name: "VAT-00 (Miễn thuế / Không chịu thuế)",
-    vatRate: 0.0,
-  },
-];
-
 export const TaxRateSettings: React.FC = () => {
   const { showSuccess, showError } = useNotification();
-  const { addLogEntry } = useDashboardDemo();
 
   // API Query & Mutations
   const {
-    data: response,
+    data: taxRates = [],
     isLoading: isFetching,
     isError: isFetchError,
-  } = useGetAllTaxRatesQuery();
+    refetch,
+  } = useGetTaxRatesQuery();
   const [createTaxRate, { isLoading: isCreating }] = useCreateTaxRateMutation();
   const [updateTaxRateStatus] = useUpdateTaxRateStatusMutation();
-
-  const taxRates = response?.result || [];
 
   // Modal State
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedPresetId, setSelectedPresetId] = useState<string>("");
+  const [pitRate, setPitRate] = useState<number>(0);
 
   const {
     register,
@@ -107,6 +64,7 @@ export const TaxRateSettings: React.FC = () => {
     if (preset) {
       setValue("name", preset.name, { shouldValidate: true });
       setValue("ratePercentage", preset.vatRate, { shouldValidate: true });
+      setPitRate(preset.pitRate);
     }
   };
 
@@ -119,7 +77,6 @@ export const TaxRateSettings: React.FC = () => {
       }).unwrap();
 
       showSuccess(`Thêm mới mức thuế suất "${data.name}" thành công!`);
-      addLogEntry("THÊM_THUẾ_SUẤT", `${data.name} (${data.ratePercentage}%)`);
 
       reset();
       setSelectedPresetId("");
@@ -142,7 +99,7 @@ export const TaxRateSettings: React.FC = () => {
       const nextStatus = !currentStatus;
       await updateTaxRateStatus({
         id,
-        body: { isActive: nextStatus },
+        isActive: nextStatus,
       }).unwrap();
 
       showSuccess(
@@ -150,7 +107,6 @@ export const TaxRateSettings: React.FC = () => {
           nextStatus ? "Đang áp dụng" : "Ngừng áp dụng"
         }`
       );
-      addLogEntry("CẬP_NHẬT_THUẾ_SUẤT", `${name} (${nextStatus ? "Áp dụng" : "Ngừng"})`);
     } catch (err: unknown) {
       const errMsg = getApiErrorMessage(
         err,
@@ -171,11 +127,20 @@ export const TaxRateSettings: React.FC = () => {
 
   if (isFetchError) {
     return (
-      <div className="bg-rose-50 p-6 rounded-xl border border-rose-200 text-rose-700 flex items-center gap-3">
-        <AlertCircle className="w-6 h-6 shrink-0" />
-        <span className="text-xs font-bold">
-          Không thể kết nối máy chủ để lấy danh mục thuế suất. Vui lòng thử lại sau.
-        </span>
+      <div className="bg-rose-50 p-6 rounded-xl border border-rose-200 text-rose-700 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <AlertCircle className="w-6 h-6 shrink-0" />
+          <span className="text-xs font-bold">
+            Không thể kết nối máy chủ để lấy danh mục thuế suất. Vui lòng thử lại sau.
+          </span>
+        </div>
+        <button
+          type="button"
+          onClick={() => void refetch()}
+          className="w-max px-3 py-1.5 bg-rose-600 text-white rounded font-bold hover:bg-rose-700 transition-all text-xs shrink-0"
+        >
+          Thử lại
+        </button>
       </div>
     );
   }
@@ -215,6 +180,7 @@ export const TaxRateSettings: React.FC = () => {
             <thead>
               <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase tracking-wider">
                 <th className="p-3">{SETTINGS_UI.TAX_RATE.COLUMNS.CODE}</th>
+                <th className="p-3">Tên thuế suất</th>
                 <th className="p-3 text-right">{SETTINGS_UI.TAX_RATE.COLUMNS.VAT_RATE}</th>
                 <th className="p-3 text-center">{SETTINGS_UI.TAX_RATE.COLUMNS.STATUS}</th>
                 <th className="p-3 text-center">Hành động</th>
@@ -223,13 +189,16 @@ export const TaxRateSettings: React.FC = () => {
             <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
               {taxRates.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="p-8 text-center text-slate-400 font-semibold">
+                  <td colSpan={5} className="p-8 text-center text-slate-400 font-semibold">
                     Chưa có mức thuế suất nào được cấu hình trong CSDL.
                   </td>
                 </tr>
               ) : (
                 taxRates.map((taxRate) => (
                   <tr key={taxRate.id} className="hover:bg-slate-50/50 transition-colors">
+                    <td className="p-3 font-mono font-bold text-slate-600">
+                      {taxRate.id ? taxRate.id.slice(-6).toUpperCase() : "--"}
+                    </td>
                     <td className="p-3 font-bold text-slate-800">{taxRate.name}</td>
                     <td className="p-3 text-right font-bold text-kv-blue-primary">
                       {taxRate.ratePercentage}%
@@ -338,26 +307,54 @@ export const TaxRateSettings: React.FC = () => {
                 )}
               </div>
 
-              {/* Tỷ lệ phần trăm GTGT */}
-              <div className="flex flex-col gap-1.5">
-                <label className="font-bold text-slate-700">
-                  Tỷ lệ thuế GTGT (%) <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  type="number"
-                  step="0.1"
-                  {...register("ratePercentage")}
-                  placeholder="VD: 1.0"
-                  className={`border ${
-                    errors.ratePercentage ? "border-rose-500" : "border-slate-300"
-                  } h-9 px-3 rounded-lg focus:outline-none focus:border-kv-blue-primary font-bold text-kv-blue-primary`}
-                />
-                {errors.ratePercentage && (
-                  <span className="text-[11px] font-bold text-rose-500 flex items-center gap-1 mt-0.5">
-                    <AlertCircle className="w-3 h-3 shrink-0" /> {errors.ratePercentage.message}
-                  </span>
-                )}
+              {/* Tỷ lệ phần trăm GTGT & TNCN tự động nhảy theo TT 40 */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="flex flex-col gap-1.5">
+                  <label className="font-bold text-slate-700">
+                    Tỷ lệ thuế GTGT (%) <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    {...register("ratePercentage", {
+                      onChange: (e: React.ChangeEvent<HTMLInputElement>) => {
+                        const val = parseFloat(e.target.value) || 0;
+                        if (val === 1.0) setPitRate(0.5);
+                        else if (val === 5.0) setPitRate(2.0);
+                        else if (val === 3.0) setPitRate(1.5);
+                        else if (val === 2.0) setPitRate(1.0);
+                        else if (val === 0.0) setPitRate(0.0);
+                      },
+                    })}
+                    placeholder="VD: 1.0"
+                    className={`border ${
+                      errors.ratePercentage ? "border-rose-500" : "border-slate-300"
+                    } h-9 px-3 rounded-lg focus:outline-none focus:border-kv-blue-primary font-bold text-kv-blue-primary`}
+                  />
+                  {errors.ratePercentage && (
+                    <span className="text-[11px] font-bold text-rose-500 flex items-center gap-1 mt-0.5">
+                      <AlertCircle className="w-3 h-3 shrink-0" /> {errors.ratePercentage.message}
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <label className="font-bold text-slate-700">
+                    Tỷ lệ thuế TNCN (%) <span className="text-slate-400 font-normal">(Gợi ý TT 40)</span>
+                  </label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={pitRate}
+                    onChange={(e) => setPitRate(parseFloat(e.target.value) || 0)}
+                    placeholder="VD: 0.5"
+                    className="border border-slate-300 h-9 px-3 rounded-lg focus:outline-none focus:border-indigo-500 font-bold text-indigo-600 bg-indigo-50/30"
+                  />
+                </div>
               </div>
+              <p className="text-[10px] text-slate-400 font-medium leading-tight">
+                * Tỷ lệ thuế TNCN được gợi ý tự động nhảy theo Thông tư 40/2021/TT-BTC khi chọn mẫu ngành nghề hoặc thay đổi GTGT.
+              </p>
 
               <div className="flex items-center gap-2 pt-1">
                 <input

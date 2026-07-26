@@ -38,6 +38,7 @@ export const API_TAG_TYPES = {
   INVOICE_TEMPLATE: "InvoiceTemplate",
   TAX_RATE: "TaxRate",
   SETTINGS: "Settings",
+  DEBT: "Debt",
 } as const;
 
 export const API_TAG_TYPE_VALUES = Object.values(API_TAG_TYPES);

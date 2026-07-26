@@ -1,5 +1,4 @@
 import { APP_ROUTES } from "./routes";
-import { MOCK_CLOCK } from "./mockData/clock";
 import { E_INVOICE_STATUS } from "./eInvoice";
 
 export const REPORT_NAVIGATION_ITEMS = [
@@ -67,7 +66,7 @@ export const REVENUE_COMPARISON_DEFAULT_PERIODS = {
 
 export const REVENUE_REPORT_FILTER = {
   INVOICE_STATUS: E_INVOICE_STATUS.ISSUED,
-  DATE_PREFIX: MOCK_CLOCK.CURRENT_DATE,
+  DATE_PREFIX: "2026-07-26",
 } as const;
 
 export const REVENUE_CHART_CONFIG = {

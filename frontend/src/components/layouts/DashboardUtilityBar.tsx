@@ -5,7 +5,7 @@ import {
   CONNECTION_STATUS,
 } from "@/constants/app";
 import { BrandLogo } from "@/components/common/BrandLogo";
-import type { TDemoRole } from "@/constants/roles";
+import { ROLE_LABELS, type TDemoRole } from "@/constants/roles";
 import { useAppDispatch, useAppSelector } from "@/hooks/useRedux";
 import { logout } from "@/stores/authSlice";
 import { baseApi } from "@/stores/baseApi";
@@ -28,7 +28,7 @@ export const DashboardUtilityBar = ({
   onSync,
 }: DashboardUtilityBarProps) => {
   const dispatch = useAppDispatch();
-  const household = useAppSelector((state) => state.auth.user?.household);
+  const user = useAppSelector((state) => state.auth.user);
 
   const handleLogout = () => {
     dispatch(baseApi.util.resetApiState());
@@ -74,8 +74,14 @@ export const DashboardUtilityBar = ({
 
         <div className="flex items-center gap-2 rounded-md bg-slate-100 px-2.5 py-1 font-bold text-slate-700">
           <span className="max-w-48 truncate">
-            {APP_MESSAGES.GREETING_PREFIX} {household?.name || APP_FALLBACKS.HOUSEHOLD_NAME}
+            {APP_MESSAGES.GREETING_PREFIX} {user?.fullName || APP_FALLBACKS.HOUSEHOLD_NAME}
           </span>
+          {user?.roleId && ROLE_LABELS[user.roleId as TDemoRole] && (
+            <>
+              <span className="text-slate-300">{APP_SYMBOLS.DIVIDER}</span>
+              <span className="text-slate-500 font-semibold">{ROLE_LABELS[user.roleId as TDemoRole]}</span>
+            </>
+          )}
           <span className="text-slate-300">{APP_SYMBOLS.DIVIDER}</span>
           <button
             onClick={handleLogout}

@@ -4,7 +4,7 @@ import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useGetInvoiceQuery, useAdjustInvoiceMutation } from "../services/eInvoiceApi";
-import { formatCurrency } from "@/utils/formatCurrency";
+import { formatCurrency, formatNumber } from "@/utils/formatCurrency";
 import { useNotification } from "@/hooks/useNotification";
 import { getApiErrorMessage } from "@/utils/getApiErrorMessage";
 import { E_INVOICE_STATUS } from "@/constants/eInvoice";
@@ -61,6 +61,7 @@ export const AdjustInvoicePage: React.FC = () => {
     control,
     handleSubmit,
     reset,
+    setValue,
     watch,
     formState: { errors },
   } = useForm<TAdjustInvoiceFormData>({
@@ -399,8 +400,12 @@ export const AdjustInvoicePage: React.FC = () => {
                       </td>
                       <td className="p-2">
                         <input
-                          type="number"
-                          {...register(`items.${idx}.unitPrice`, { valueAsNumber: true })}
+                          type="text"
+                          value={formatNumber(watch(`items.${idx}.unitPrice`) || 0)}
+                          onChange={(e) => {
+                            const rawVal = e.target.value.replace(/\D/g, "");
+                            setValue(`items.${idx}.unitPrice`, rawVal ? Number(rawVal) : 0, { shouldValidate: true });
+                          }}
                           className="w-full border border-slate-200 rounded px-1.5 py-1 text-xs font-bold text-right text-slate-800 focus:outline-none focus:border-kv-blue-primary"
                         />
                       </td>
@@ -418,8 +423,12 @@ export const AdjustInvoicePage: React.FC = () => {
                       </td>
                       <td className="p-2">
                         <input
-                          type="number"
-                          {...register(`items.${idx}.discountAmount`, { valueAsNumber: true })}
+                          type="text"
+                          value={formatNumber(watch(`items.${idx}.discountAmount`) || 0)}
+                          onChange={(e) => {
+                            const rawVal = e.target.value.replace(/\D/g, "");
+                            setValue(`items.${idx}.discountAmount`, rawVal ? Number(rawVal) : 0, { shouldValidate: true });
+                          }}
                           className="w-full border border-slate-200 rounded px-1.5 py-1 text-xs font-bold text-right text-slate-800 focus:outline-none focus:border-kv-blue-primary"
                         />
                       </td>

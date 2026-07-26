@@ -41,6 +41,15 @@ public interface OrderRepository extends JpaRepository<Order, String> {
             @Param("paymentMethod") String paymentMethod
     );
 
+    @Query("SELECT COALESCE(SUM(" +
+           "  CASE " +
+           "    WHEN o.paymentMethod = 'DEBT' THEN (o.finalAmount - COALESCE((SELECT cd.amount FROM CustomerDebt cd WHERE cd.order.id = o.id AND cd.type = 'DEBT_CREATED'), 0)) " +
+           "    ELSE o.finalAmount " +
+           "  END), 0) " +
+           "FROM Order o " +
+           "WHERE o.shift.id = :shiftId AND o.status = 'COMPLETED' AND o.deletedAt IS NULL")
+    BigDecimal sumCollectedAmountByShiftId(@Param("shiftId") String shiftId);
+
     int countByShiftIdAndStatusAndDeletedAtIsNull(String shiftId, String status);
 
     @EntityGraph(attributePaths = {"items", "items.product", "customer", "shift", "createdByUser", "household"})

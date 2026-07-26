@@ -33,7 +33,7 @@ export const CashierShiftDashboard: React.FC = () => {
     isFetching: isActiveFetching,
     isLoading: isActiveLoading,
     refetch: refetchActiveShift,
-  } = useGetActiveShiftQuery();
+  } = useGetActiveShiftQuery(undefined, { refetchOnMountOrArgChange: true });
   const currentShift = activeShiftData?.result ?? null;
   const currentExpectedCash =
     currentShift?.closingCashExpected ?? currentShift?.openingCash ?? 0;
@@ -44,7 +44,7 @@ export const CashierShiftDashboard: React.FC = () => {
     isError: isHistoryError,
     isLoading: isHistoryLoading,
     refetch: refetchShiftsHistory,
-  } = useGetShiftsHistoryQuery();
+  } = useGetShiftsHistoryQuery(undefined, { refetchOnMountOrArgChange: true });
   const shifts = shiftsHistoryData?.result || [];
 
   const [openShiftMutation, { isLoading: isOpeningShift }] = useOpenShiftMutation();

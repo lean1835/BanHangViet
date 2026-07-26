@@ -48,9 +48,12 @@ export interface IPublicInvoiceResponse {
   invoiceNumber?: string;
   invoicePattern?: string;
   invoiceSymbol?: string;
+  title?: string;
+  footerNote?: string;
   householdName?: string;
   householdTaxCode?: string;
   householdAddress?: string;
+  householdPhone?: string;
   buyerName?: string;
   buyerTaxCode?: string;
   buyerAddress?: string;

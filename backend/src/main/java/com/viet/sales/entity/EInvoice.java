@@ -56,10 +56,19 @@ public class EInvoice {
     private String invoiceNumber;
 
     @Column(name = "invoice_pattern", nullable = false, length = 10)
-    private String invoicePattern;
+    @Builder.Default
+    private String invoicePattern = "1";
 
     @Column(name = "invoice_symbol", nullable = false, length = 10)
-    private String invoiceSymbol;
+    @Builder.Default
+    private String invoiceSymbol = "1C26TAA";
+
+    @Column(nullable = false, length = 150)
+    @Builder.Default
+    private String title = "HÓA ĐƠN GIÁ TRỊ GIA TĂNG";
+
+    @Column(name = "footer_note", columnDefinition = "TEXT")
+    private String footerNote;
 
     @Column(name = "buyer_name", length = 100)
     private String buyerName;
@@ -133,4 +142,17 @@ public class EInvoice {
     @Builder.Default
     @ToString.Exclude
     private List<EInvoiceItem> items = new ArrayList<>();
+
+    @PrePersist
+    public void prePersist() {
+        if (this.title == null || this.title.trim().isEmpty()) {
+            this.title = "HÓA ĐƠN GIÁ TRỊ GIA TĂNG";
+        }
+        if (this.invoicePattern == null || this.invoicePattern.trim().isEmpty()) {
+            this.invoicePattern = "1";
+        }
+        if (this.invoiceSymbol == null || this.invoiceSymbol.trim().isEmpty()) {
+            this.invoiceSymbol = "1C26TAA";
+        }
+    }
 }

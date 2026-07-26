@@ -9,8 +9,11 @@ import { DashboardUtilityBar } from "./DashboardUtilityBar";
 import { useOfflineSync } from "@/modules/sync/hooks/useOfflineSync";
 import { OfflineSyncBanner } from "@/modules/sync/components/OfflineSyncBanner";
 import { ConflictResolutionModal } from "@/modules/sync/components/ConflictResolutionModal";
+import { useAuthExpiration } from "@/hooks/useAuthExpiration";
 
 export const AuthenticatedAppLayout = () => {
+  useAuthExpiration();
+
   const navigate = useNavigate();
   const location = useLocation();
   const {

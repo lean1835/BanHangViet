@@ -16,6 +16,7 @@ import {
   TAX_RATES,
 } from "@/constants/product";
 import { useGetProductGroupsQuery } from "@/modules/product/services/productApi";
+import { useGetTaxRatesQuery } from "@/modules/settings/services/taxRateApi";
 import type { IProduct } from "@/modules/product/types/IProduct";
 import { useAccessibleDialog } from "@/hooks/useAccessibleDialog";
 
@@ -95,6 +96,25 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
     PRODUCT_FORM_DEFAULTS.EMPTY_TEXT,
   );
   const { data: groups = [] } = useGetProductGroupsQuery();
+  const { data: dbTaxRates = [] } = useGetTaxRatesQuery(undefined, {
+    refetchOnMountOrArgChange: true,
+  });
+
+  const availableTaxRates = useMemo(() => {
+    if (dbTaxRates && dbTaxRates.length > 0) {
+      return dbTaxRates.map((rate) => ({
+        id: rate.id,
+        name: `${rate.name} (${rate.ratePercentage}%)`,
+        isActive: rate.isActive,
+      }));
+    }
+    return TAX_RATES.map((rate) => ({
+      id: rate.id,
+      name: rate.name,
+      isActive: true,
+    }));
+  }, [dbTaxRates]);
+
   const sortedGroups = useMemo(() => {
     return [...groups].sort((a, b) =>
       a.name.localeCompare(b.name, APP_LANGUAGE),
@@ -141,7 +161,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         price: product.price || PRODUCT_FORM_DEFAULTS.PRICE,
         stockQuantity:
           product.stockQuantity || PRODUCT_FORM_DEFAULTS.STOCK_QUANTITY,
-        taxRateId: product.taxRateId || PRODUCT_FORM_DEFAULTS.TAX_RATE_ID,
+        taxRateId: product.taxRateId || availableTaxRates[0]?.id || PRODUCT_FORM_DEFAULTS.TAX_RATE_ID,
         status: product.status || PRODUCT_FORM_DEFAULTS.STATUS,
       });
       setPriceInput(
@@ -158,13 +178,14 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         price: PRODUCT_FORM_DEFAULTS.PRICE,
         stockQuantity: PRODUCT_FORM_DEFAULTS.STOCK_QUANTITY,
         taxRateId:
+          availableTaxRates[0]?.id ||
           TAX_RATES[PRODUCT_FORM_DEFAULTS.DEFAULT_TAX_RATE_INDEX]?.id ||
           PRODUCT_FORM_DEFAULTS.TAX_RATE_ID,
         status: PRODUCT_FORM_DEFAULTS.STATUS,
       });
       setPriceInput(PRODUCT_FORM_DEFAULTS.EMPTY_TEXT);
     }
-  }, [product, isOpen, reset]);
+  }, [product, isOpen, reset, availableTaxRates]);
 
   const handlePriceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const rawVal = e.target.value.replace(/\D/g, "");
@@ -350,7 +371,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                 className={`border ${errors.taxRateId ? "border-rose-500" : "border-slate-300"} h-9 px-2 rounded-lg bg-white focus:outline-none focus:border-kv-blue-primary`}
               >
                 <option value="">{PRODUCT_FORM_COPY.TAX_RATE_PLACEHOLDER}</option>
-                {TAX_RATES.map((t) => (
+                {availableTaxRates.map((t) => (
                   <option key={t.id} value={t.id}>
                     {t.name}
                   </option>

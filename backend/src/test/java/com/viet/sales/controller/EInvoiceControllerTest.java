@@ -513,7 +513,7 @@ public class EInvoiceControllerTest {
 
     @Test
     @WithMockUser(username = "test_employee_inv", roles = {"VT-02"})
-    public void createInvoiceDraft_missingTemplate_fails() throws Exception {
+    public void createInvoiceDraft_missingTemplate_autoInitializesDefault() throws Exception {
         // Đảm bảo đơn đã hoàn thành
         testOrder.setStatus("COMPLETED");
         testOrder.setPaymentStatus("PAID");
@@ -526,8 +526,11 @@ public class EInvoiceControllerTest {
         mockMvc.perform(post("/api/v1/invoices/draft")
                         .param("orderId", testOrder.getId())
                         .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value(4001)); // INVOICE_TEMPLATE_NOT_FOUND
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(1000))
+                .andExpect(jsonPath("$.result.status").value("DRAFT"))
+                .andExpect(jsonPath("$.result.invoicePattern").value("1"))
+                .andExpect(jsonPath("$.result.invoiceSymbol").value("1C26TAA"));
     }
 
     @Test

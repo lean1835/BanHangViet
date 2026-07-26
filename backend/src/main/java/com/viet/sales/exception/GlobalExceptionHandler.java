@@ -60,6 +60,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(value = Exception.class)
     public ResponseEntity<ApiResponse<?>> handleGenericException(Exception exception) {
+        org.slf4j.LoggerFactory.getLogger(GlobalExceptionHandler.class).error("Unhandled exception in controller:", exception);
         ApiResponse<?> apiResponse = ApiResponse.builder()
                 .code(ErrorCode.UNCATEGORIZED_EXCEPTION.getCode())
                 .message(ErrorCode.UNCATEGORIZED_EXCEPTION.getMessage() + ": " + exception.getMessage())

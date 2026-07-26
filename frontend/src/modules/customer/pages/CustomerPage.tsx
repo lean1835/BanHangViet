@@ -1,10 +1,9 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo } from "react";
 import { DashboardWorkspaceLayout } from "@/components/layouts/DashboardWorkspaceLayout";
 import {
   CUSTOMER_DEBT_STATUS_FILTER,
   CUSTOMER_FILTER_OPTIONS,
   CUSTOMER_LOG,
-  CUSTOMER_IDENTIFIERS,
 } from "@/constants/customer";
 import { useDebounce } from "@/hooks/useDebounce";
 import { useNotification } from "@/hooks/useNotification";
@@ -20,41 +19,31 @@ import {
   useCreateCustomerMutation,
   useUpdateCustomerMutation,
   useDeleteCustomerMutation,
-  usePayCustomerDebtMutation,
+  useCollectDebtMutation,
+  useRemindCustomerDebtMutation,
 } from "../services/customerApi";
 import type { ICustomer } from "../types/ICustomer";
 
-/**
- * Helper to identify real HTTP error responses from Backend server (status codes 4xx, 5xx)
- * vs client-side offline / FETCH_ERROR.
- */
-const isHttpErrorResponse = (err: unknown): boolean => {
-  return (
-    typeof err === "object" &&
-    err !== null &&
-    "status" in err &&
-    typeof (err as { status: unknown }).status === "number"
-  );
-};
-
 export const CustomerPage: React.FC = () => {
-  const { customers, setCustomers, addLogEntry } = useDashboardDemo();
+  const { addLogEntry } = useDashboardDemo();
   const { showSuccess, showError } = useNotification();
-  const [createCustomer] = useCreateCustomerMutation();
-  const [updateCustomer] = useUpdateCustomerMutation();
-  const [deleteCustomer] = useDeleteCustomerMutation();
-  const [payCustomerDebt] = usePayCustomerDebtMutation();
 
-  const { data: apiCustomers } = useGetCustomersQuery(undefined, {
+  // RTK Query Mutations & Queries
+  const {
+    data: apiCustomers = [],
+    isLoading,
+    isError,
+    error: fetchError,
+    refetch,
+  } = useGetCustomersQuery(undefined, {
     refetchOnMountOrArgChange: true,
   });
 
-  // Sync API customer data into local demo state when fetched
-  useEffect(() => {
-    if (Array.isArray(apiCustomers)) {
-      setCustomers(apiCustomers);
-    }
-  }, [apiCustomers, setCustomers]);
+  const [createCustomer] = useCreateCustomerMutation();
+  const [updateCustomer] = useUpdateCustomerMutation();
+  const [deleteCustomer] = useDeleteCustomerMutation();
+  const [collectDebt] = useCollectDebtMutation();
+  const [remindDebt] = useRemindCustomerDebtMutation();
 
   // Search & Filter state
   const [searchQuery, setSearchQuery] = useState("");
@@ -68,19 +57,16 @@ export const CustomerPage: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<ICustomer | null>(null);
 
-  // Effective customer list (use API data if available, fallback to demo state)
-  const effectiveCustomers = useMemo(() => {
-    return Array.isArray(apiCustomers) ? apiCustomers : customers;
-  }, [apiCustomers, customers]);
-
-  // Filtered customer list
+  // Filtered customer list derived from API query data
   const filteredCustomers = useMemo(() => {
-    return effectiveCustomers.filter((customer) => {
+    return apiCustomers.filter((customer) => {
       // 1. Search Query Filter (Name, Phone, Email, Address)
       if (debouncedSearch.trim()) {
         const query = debouncedSearch.toLowerCase().trim();
         const matchesName = customer.name?.toLowerCase().includes(query);
-        const matchesPhone = customer.phone?.toLowerCase().includes(query);
+        const matchesPhone = (customer.phone || customer.phoneNumber)
+          ?.toLowerCase()
+          .includes(query);
         const matchesEmail = customer.email?.toLowerCase().includes(query);
         const matchesAddress = customer.address?.toLowerCase().includes(query);
         if (!matchesName && !matchesPhone && !matchesEmail && !matchesAddress) {
@@ -89,23 +75,24 @@ export const CustomerPage: React.FC = () => {
       }
 
       // 2. Debt Status Filter
+      const currentDebt = customer.debt ?? customer.currentDebt ?? 0;
       if (selectedDebtStatus === CUSTOMER_DEBT_STATUS_FILTER.HAS_DEBT) {
-        if (customer.debt <= 0) return false;
+        if (currentDebt <= 0) return false;
       } else if (selectedDebtStatus === CUSTOMER_DEBT_STATUS_FILTER.NO_DEBT) {
-        if (customer.debt > 0) return false;
+        if (currentDebt > 0) return false;
       } else if (selectedDebtStatus === CUSTOMER_DEBT_STATUS_FILTER.EXCEEDED) {
-        if (customer.debt <= customer.creditLimit) return false;
+        if (currentDebt <= customer.creditLimit) return false;
       } else if (selectedDebtStatus === CUSTOMER_DEBT_STATUS_FILTER.OVERDUE) {
         const todayStr = new Date().toISOString().split("T")[0];
         const isOverdue = Boolean(
-          customer.debt > 0 && customer.dueDate && customer.dueDate < todayStr
+          currentDebt > 0 && customer.dueDate && customer.dueDate < todayStr,
         );
         if (!isOverdue) return false;
       }
 
       return true;
     });
-  }, [effectiveCustomers, debouncedSearch, selectedDebtStatus]);
+  }, [apiCustomers, debouncedSearch, selectedDebtStatus]);
 
   // Handlers
   const handleOpenCreateModal = () => {
@@ -122,14 +109,6 @@ export const CustomerPage: React.FC = () => {
     data: Omit<ICustomer, "id" | "debt"> & { id?: string; debt?: number },
   ) => {
     const cleanPhone = data.phone?.trim().replace(/\s+/g, "") || "";
-    const isDuplicate = effectiveCustomers.some(
-      (c) => c.phone?.trim().replace(/\s+/g, "") === cleanPhone && c.id !== data.id,
-    );
-    if (isDuplicate) {
-      const errMsg = `Số điện thoại "${cleanPhone}" đã tồn tại trong hệ thống.`;
-      showError(errMsg);
-      throw new Error(errMsg);
-    }
 
     if (data.id) {
       // Execute RTK Query update mutation
@@ -138,177 +117,134 @@ export const CustomerPage: React.FC = () => {
           id: data.id,
           name: data.name,
           phone: cleanPhone,
+          phoneNumber: cleanPhone,
           email: data.email,
           address: data.address,
           creditLimit: data.creditLimit,
         }).unwrap();
+
+        addLogEntry(
+          CUSTOMER_LOG.UPDATE_ACTION,
+          CUSTOMER_LOG.updated(data.name),
+        );
+        showSuccess(`Cập nhật thông tin khách hàng "${data.name}" thành công!`);
       } catch (err: unknown) {
-        if (isHttpErrorResponse(err)) {
-          const apiErr = getApiErrorMessage(
-            err,
-            `Không thể cập nhật thông tin khách hàng "${data.name}" trên hệ thống.`,
-          );
-          showError(apiErr);
-          throw new Error(apiErr);
-        }
-        // Fallback for offline / demo mode
+        const apiErr = getApiErrorMessage(
+          err,
+          `Không thể cập nhật thông tin khách hàng "${data.name}" trên hệ thống.`,
+        );
+        showError(apiErr);
+        throw new Error(apiErr);
       }
-
-      // Update existing customer state
-      setCustomers((prev) =>
-        prev.map((c) =>
-          c.id === data.id
-            ? {
-                ...c,
-                ...data,
-                phone: cleanPhone,
-                id: data.id,
-                debt: data.debt ?? c.debt,
-              }
-            : c,
-        ),
-      );
-      addLogEntry(
-        CUSTOMER_LOG.UPDATE_ACTION,
-        CUSTOMER_LOG.updated(data.name),
-      );
-      showSuccess(`Cập nhật thông tin khách hàng "${data.name}" thành công!`);
     } else {
-      // Robust ID generation to prevent collisions after deletion
-      const existingNumIds = effectiveCustomers
-        .map((c) => parseInt(c.id.replace(/\D/g, ""), 10))
-        .filter((n) => !isNaN(n));
-      const maxId = existingNumIds.length > 0 ? Math.max(...existingNumIds) : effectiveCustomers.length;
-      const nextId = `${CUSTOMER_IDENTIFIERS.PREFIX}${maxId + 1}`;
-
-      // Create new customer
-      const newCustomer: ICustomer = {
-        id: nextId,
-        name: data.name,
-        phone: cleanPhone,
-        email: data.email || "",
-        address: data.address || "",
-        creditLimit: data.creditLimit,
-        debt: 0,
-        createdAt: new Date().toISOString(),
-      };
-
+      // Create new customer via API
       try {
         await createCustomer({
           name: data.name,
           phone: cleanPhone,
+          phoneNumber: cleanPhone,
           email: data.email,
           address: data.address,
           creditLimit: data.creditLimit,
         }).unwrap();
-      } catch (err: unknown) {
-        if (isHttpErrorResponse(err)) {
-          const apiErr = getApiErrorMessage(
-            err,
-            `Không thể tạo mới khách hàng "${data.name}" trên hệ thống.`,
-          );
-          showError(apiErr);
-          throw new Error(apiErr);
-        }
-        // Fallback for offline / demo mode
-      }
 
-      setCustomers((prev) => [newCustomer, ...prev]);
-      addLogEntry(
-        CUSTOMER_LOG.ACTION,
-        CUSTOMER_LOG.added(newCustomer.name, newCustomer.phone),
-      );
-      showSuccess(`Thêm mới khách hàng "${newCustomer.name}" thành công!`);
+        addLogEntry(
+          CUSTOMER_LOG.ACTION,
+          CUSTOMER_LOG.added(data.name, cleanPhone),
+        );
+        showSuccess(`Thêm mới khách hàng "${data.name}" thành công!`);
+      } catch (err: unknown) {
+        const apiErr = getApiErrorMessage(
+          err,
+          `Không thể tạo mới khách hàng "${data.name}" trên hệ thống.`,
+        );
+        showError(apiErr);
+        throw new Error(apiErr);
+      }
     }
   };
 
   const handleDeleteCustomer = async (id: string) => {
-    const target = effectiveCustomers.find((c) => c.id === id);
-    if (!target) return;
+    const target = apiCustomers.find((c) => c.id === id);
+    const targetName = target?.name || id;
 
     try {
       await deleteCustomer(id).unwrap();
-    } catch (err: unknown) {
-      if (isHttpErrorResponse(err)) {
-        const apiErr = getApiErrorMessage(
-          err,
-          `Không thể xóa khách hàng "${target.name}" trên hệ thống.`,
-        );
-        showError(apiErr);
-        return;
-      }
-      // Fallback for offline / demo mode
-    }
 
-    setCustomers((prev) => prev.filter((c) => c.id !== id));
-    addLogEntry(
-      CUSTOMER_LOG.DELETE_ACTION,
-      CUSTOMER_LOG.deleted(target.name),
-    );
-    showSuccess(`Đã xóa khách hàng "${target.name}".`);
+      addLogEntry(
+        CUSTOMER_LOG.DELETE_ACTION,
+        CUSTOMER_LOG.deleted(targetName),
+      );
+      showSuccess(`Đã xóa khách hàng "${targetName}".`);
+    } catch (err: unknown) {
+      const apiErr = getApiErrorMessage(
+        err,
+        `Không thể xóa khách hàng "${targetName}" trên hệ thống.`,
+      );
+      showError(apiErr);
+    }
   };
 
-  const handleConfirmReminder = (customer: ICustomer) => {
-    addLogEntry(
-      CUSTOMER_LOG.REMINDER_ACTION,
-      CUSTOMER_LOG.reminded(customer.name, formatCurrency(customer.debt)),
-    );
-    showSuccess(`Đã ghi nhận gửi nhắc công nợ cho khách hàng "${customer.name}".`);
+  const handleConfirmReminder = async (customer: ICustomer) => {
+    try {
+      await remindDebt({
+        customerId: customer.id,
+        messageContent: `Nhắc công nợ cho khách hàng ${customer.name}`,
+      }).unwrap();
+
+      const debtAmount = customer.debt ?? customer.currentDebt ?? 0;
+      addLogEntry(
+        CUSTOMER_LOG.REMINDER_ACTION,
+        CUSTOMER_LOG.reminded(customer.name, formatCurrency(debtAmount)),
+      );
+      showSuccess(`Đã ghi nhận gửi nhắc công nợ cho khách hàng "${customer.name}".`);
+    } catch (err: unknown) {
+      const apiErr = getApiErrorMessage(
+        err,
+        `Ghi nhận nhắc nợ cho khách hàng "${customer.name}" không thành công.`,
+      );
+      showError(apiErr);
+    }
   };
 
   const handleConfirmPayDebt = async ({
     customerId,
     amount,
-    paymentMethod,
     notes,
   }: DebtPaymentData) => {
-    const target = effectiveCustomers.find((c) => c.id === customerId);
-    if (!target) return;
+    const target = apiCustomers.find((c) => c.id === customerId);
+    const targetName = target?.name || customerId;
 
     try {
-      await payCustomerDebt({
+      await collectDebt({
         customerId,
         amount,
-        paymentMethod,
         notes,
       }).unwrap();
+
+      const currentDebt = target?.debt ?? target?.currentDebt ?? 0;
+      const remainingDebt = Math.max(0, currentDebt - amount);
+
+      addLogEntry(
+        CUSTOMER_LOG.PAY_DEBT_ACTION,
+        CUSTOMER_LOG.debtPaid(
+          targetName,
+          formatCurrency(amount),
+          formatCurrency(remainingDebt),
+        ),
+      );
+
+      showSuccess(
+        `Đã ghi nhận thu ${formatCurrency(amount)} đ từ khách hàng "${targetName}". Dư nợ còn lại: ${formatCurrency(remainingDebt)} đ.`,
+      );
     } catch (err: unknown) {
-      if (isHttpErrorResponse(err)) {
-        const apiErr = getApiErrorMessage(
-          err,
-          `Không thể ghi nhận thu nợ cho khách hàng "${target.name}" trên hệ thống.`,
-        );
-        showError(apiErr);
-        throw new Error(apiErr);
-      }
-      // Fallback for offline / demo mode
+      const apiErr = getApiErrorMessage(
+        err,
+        `Không thể ghi nhận thu nợ cho khách hàng "${targetName}" trên hệ thống.`,
+      );
+      showError(apiErr);
+      throw new Error(apiErr);
     }
-
-    const remainingDebt = Math.max(0, target.debt - amount);
-
-    setCustomers((prev) =>
-      prev.map((c) =>
-        c.id === customerId
-          ? {
-              ...c,
-              debt: remainingDebt,
-            }
-          : c,
-      ),
-    );
-
-    addLogEntry(
-      CUSTOMER_LOG.PAY_DEBT_ACTION,
-      CUSTOMER_LOG.debtPaid(
-        target.name,
-        formatCurrency(amount),
-        formatCurrency(remainingDebt),
-      ),
-    );
-
-    showSuccess(
-      `Đã ghi nhận thu ${formatCurrency(amount)} đ từ khách hàng "${target.name}". Dư nợ còn lại: ${formatCurrency(remainingDebt)} đ.`,
-    );
   };
 
   return (
@@ -320,16 +256,37 @@ export const CustomerPage: React.FC = () => {
         />
       }
     >
-      <CustomerManagement
-        customers={filteredCustomers}
-        searchQuery={searchQuery}
-        onSearchChange={setSearchQuery}
-        onOpenCreateModal={handleOpenCreateModal}
-        onOpenEditModal={handleOpenEditModal}
-        onDeleteCustomer={handleDeleteCustomer}
-        onConfirmReminder={handleConfirmReminder}
-        onConfirmPayDebt={handleConfirmPayDebt}
-      />
+      {isLoading ? (
+        <div className="flex flex-col items-center justify-center min-h-[400px] gap-3 text-slate-500">
+          <div className="w-8 h-8 border-4 border-kv-blue-primary border-t-transparent rounded-full animate-spin" />
+          <p className="text-xs font-semibold">Đang tải danh sách khách hàng từ máy chủ...</p>
+        </div>
+      ) : isError ? (
+        <div className="p-6 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-xs font-semibold flex flex-col gap-3">
+          <p>⚠️ Không thể kết nối với dữ liệu khách hàng từ máy chủ API.</p>
+          <p className="text-[11px] text-rose-500">
+            {getApiErrorMessage(fetchError, "Không thể lấy danh sách khách hàng từ máy chủ.")}
+          </p>
+          <button
+            type="button"
+            onClick={() => refetch()}
+            className="w-max px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-lg transition-all"
+          >
+            Thử lại
+          </button>
+        </div>
+      ) : (
+        <CustomerManagement
+          customers={filteredCustomers}
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          onOpenCreateModal={handleOpenCreateModal}
+          onOpenEditModal={handleOpenEditModal}
+          onDeleteCustomer={handleDeleteCustomer}
+          onConfirmReminder={handleConfirmReminder}
+          onConfirmPayDebt={handleConfirmPayDebt}
+        />
+      )}
 
       {/* Create / Edit Form Modal */}
       <CustomerFormModal
@@ -337,7 +294,7 @@ export const CustomerPage: React.FC = () => {
         onClose={() => setIsModalOpen(false)}
         onSave={handleSaveCustomer}
         customer={editingCustomer}
-        existingCustomers={effectiveCustomers}
+        existingCustomers={apiCustomers}
         onOpenEditModal={handleOpenEditModal}
       />
     </DashboardWorkspaceLayout>

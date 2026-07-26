@@ -99,3 +99,49 @@ export const TAX_RATE_STATUS = {
   DEFAULT: "DEFAULT",
   ACTIVE: "ACTIVE",
 } as const;
+
+export interface TaxSectorPreset {
+  id: string;
+  label: string;
+  name: string;
+  vatRate: number;
+  pitRate: number;
+}
+
+export const TAX_SECTOR_PRESETS: TaxSectorPreset[] = [
+  {
+    id: "DISTRIBUTION",
+    label: "Phân phối, cung cấp hàng hóa (GTGT 1.0% - TNCN 0.5%)",
+    name: "VAT-01 (Phân phối, cung cấp hàng hóa)",
+    vatRate: 1.0,
+    pitRate: 0.5,
+  },
+  {
+    id: "SERVICES",
+    label: "Dịch vụ, ăn uống, thi công không bao thầu (GTGT 5.0% - TNCN 2.0%)",
+    name: "VAT-05 (Dịch vụ, ăn uống, thi công)",
+    vatRate: 5.0,
+    pitRate: 2.0,
+  },
+  {
+    id: "PRODUCTION",
+    label: "Sản xuất, vận tải, dịch vụ gắn hàng hóa (GTGT 3.0% - TNCN 1.5%)",
+    name: "VAT-03 (Sản xuất, vận tải, dịch vụ hàng hóa)",
+    vatRate: 3.0,
+    pitRate: 1.5,
+  },
+  {
+    id: "OTHER",
+    label: "Hoạt động kinh doanh khác (GTGT 2.0% - TNCN 1.0%)",
+    name: "VAT-02 (Hoạt động kinh doanh khác)",
+    vatRate: 2.0,
+    pitRate: 1.0,
+  },
+  {
+    id: "EXEMPT",
+    label: "Không chịu thuế / Miễn thuế (GTGT 0.0% - TNCN 0.0%)",
+    name: "VAT-00 (Miễn thuế / Không chịu thuế)",
+    vatRate: 0.0,
+    pitRate: 0.0,
+  },
+];

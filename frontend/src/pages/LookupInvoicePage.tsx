@@ -20,10 +20,14 @@ import { formatCurrency } from "@/utils/formatCurrency";
 interface ILookupDisplayInvoice {
   lookupCode: string;
   symbol: string;
+  invoicePattern?: string;
+  title?: string;
+  footerNote?: string;
   invoiceNumber: string;
   householdName: string;
   householdTaxCode: string;
   householdAddress: string;
+  householdPhone?: string;
   customer: string;
   buyerTaxCode?: string;
   buyerAddress?: string;
@@ -97,10 +101,14 @@ export const LookupInvoicePage: React.FC = () => {
           setSearchedInvoice({
             lookupCode: cleanCode,
             symbol: data.invoiceSymbol || data.invoicePattern || "-",
+            invoicePattern: data.invoicePattern || "1",
+            title: data.title || "HÓA ĐƠN GIÁ TRỊ GIA TĂNG",
+            footerNote: data.footerNote,
             invoiceNumber: data.invoiceNumber || "Chưa cấp",
             householdName: data.householdName || "-",
             householdTaxCode: data.householdTaxCode || "-",
             householdAddress: data.householdAddress || "-",
+            householdPhone: data.householdPhone || "-",
             customer: data.buyerName || "Khách mua lẻ",
             buyerTaxCode: data.buyerTaxCode || "-",
             buyerAddress: data.buyerAddress || "-",
@@ -402,8 +410,8 @@ export const LookupInvoicePage: React.FC = () => {
               {/* Invoice Header */}
               <div className="flex justify-between border-b pb-4 flex-wrap gap-4">
                 <div>
-                  <h1 className="text-sm font-extrabold text-kv-blue-primary tracking-wide">
-                    HÓA ĐƠN GIÁ TRỊ GIA TĂNG
+                  <h1 className="text-sm font-extrabold text-kv-blue-primary tracking-wide uppercase">
+                    {searchedInvoice.title || "HÓA ĐƠN GIÁ TRỊ GIA TĂNG"}
                   </h1>
                   <p className="text-[9px] text-slate-500 font-bold mt-0.5">
                     (Bản thể hiện hóa đơn điện tử)
@@ -416,7 +424,7 @@ export const LookupInvoicePage: React.FC = () => {
                   </p>
                 </div>
                 <div className="text-right flex flex-col gap-0.5 font-bold text-slate-600 text-[10px]">
-                  <p>Mẫu số: <span className="text-slate-800 font-extrabold">1</span></p>
+                  <p>Mẫu số: <span className="text-slate-800 font-extrabold">{searchedInvoice.invoicePattern || "1"}</span></p>
                   <p>Ký hiệu: <span className="text-slate-800 font-extrabold">{searchedInvoice.symbol}</span></p>
                   <p>Số HĐ: <span className="text-kv-blue-primary font-mono font-extrabold">{searchedInvoice.invoiceNumber}</span></p>
                   <p>Mã tra cứu: <span className="text-slate-800 font-mono font-extrabold">{searchedInvoice.lookupCode}</span></p>
@@ -430,7 +438,9 @@ export const LookupInvoicePage: React.FC = () => {
                 </p>
                 <p>Mã số thuế: <span className="font-bold text-slate-800">{searchedInvoice.householdTaxCode}</span></p>
                 <p>Địa chỉ: {searchedInvoice.householdAddress}</p>
-                <p>Email hỗ trợ: support@banhangviet.vn</p>
+                {searchedInvoice.householdPhone && searchedInvoice.householdPhone !== "-" && (
+                  <p>Điện thoại: {searchedInvoice.householdPhone}</p>
+                )}
               </div>
 
               {/* Buyer Info */}
@@ -510,6 +520,11 @@ export const LookupInvoicePage: React.FC = () => {
                 <div className="border-t border-dashed border-slate-200 pt-2 text-[9px] font-semibold text-slate-500 italic leading-relaxed">
                   Số tiền viết bằng chữ: <span className="text-slate-800 font-bold not-italic">{convertNumberToWords(searchedInvoice.finalAmount)}</span>
                 </div>
+                {searchedInvoice.footerNote && (
+                  <div className="border-t border-dashed border-slate-200 pt-2 text-[9px] font-semibold text-slate-500 italic text-center">
+                    {searchedInvoice.footerNote}
+                  </div>
+                )}
               </div>
 
               {/* Digital Signatures Area */}

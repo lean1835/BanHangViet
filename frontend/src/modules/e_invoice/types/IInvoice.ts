@@ -1,4 +1,5 @@
 import type { TEInvoiceStatus } from "@/constants/eInvoice";
+import type { IDeliveryLog } from "./IInvoiceDelivery";
 
 export type TInvoiceStatus = TEInvoiceStatus;
 
@@ -19,6 +20,9 @@ export interface IInvoice {
   id: string;
   householdId?: string;
   householdName?: string;
+  householdTaxCode?: string;
+  householdAddress?: string;
+  householdPhone?: string;
   orderId?: string;
   orderNumber?: string;
   originalInvoiceId?: string;
@@ -29,6 +33,8 @@ export interface IInvoice {
   invoiceNumber?: string;
   invoicePattern?: string;
   invoiceSymbol?: string;
+  title?: string;
+  footerNote?: string;
   buyerName?: string;
   buyerTaxCode?: string;
   buyerAddress?: string;
@@ -53,7 +59,7 @@ export interface IInvoice {
   createdAt?: string;
   updatedAt?: string;
   items?: IInvoiceItem[];
-  deliveryLogs?: import("./IInvoiceDelivery").IDeliveryLog[];
+  deliveryLogs?: IDeliveryLog[];
 }
 
 export interface IGetInvoicesParams {
