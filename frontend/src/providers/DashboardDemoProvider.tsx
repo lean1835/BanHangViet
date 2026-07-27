@@ -14,6 +14,7 @@ import {
   APP_ERRORS,
   APP_FALLBACKS,
   DEMO_WORKSPACE_DEFAULTS,
+  STORAGE_KEYS,
   getNextActivityLogId,
 } from "@/constants/app";
 import { useGetOrdersHistoryQuery } from "@/modules/order/services/orderApi";
@@ -65,7 +66,21 @@ export const DashboardDemoProvider = ({ children }: DashboardDemoProviderProps) 
   const [simConflict, setSimConflict] = useState<boolean>(
     DEMO_WORKSPACE_DEFAULTS.SIMULATE_CONFLICT,
   );
-  const [invoices, setInvoices] = useState<IInvoice[]>([]);
+  const [invoices, setInvoices] = useState<IInvoice[]>(() => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEYS.POS_OFFLINE_INVOICES);
+      if (raw) return JSON.parse(raw);
+    } catch {}
+    return [];
+  });
+
+  useEffect(() => {
+    try {
+      if (invoices.length > 0) {
+        localStorage.setItem(STORAGE_KEYS.POS_OFFLINE_INVOICES, JSON.stringify(invoices));
+      }
+    } catch {}
+  }, [invoices]);
   const [customers, setCustomers] = useState<ICustomer[]>([]);
   const [logs, setLogs] = useState<IActivityLog[]>([]);
   const [stockEntries, setStockEntries] = useState<IStockEntry[]>([]);

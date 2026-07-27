@@ -28,6 +28,10 @@ export const AuthenticatedAppLayout = () => {
 
   const [isConflictModalOpen, setIsConflictModalOpen] = useState<boolean>(false);
 
+  const isPosScreen =
+    location.pathname === APP_ROUTES.POS ||
+    location.pathname.startsWith(APP_ROUTES.POS);
+
   const {
     pendingCount,
     conflictingOrders,
@@ -68,6 +72,7 @@ export const AuthenticatedAppLayout = () => {
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-100 text-slate-800 text-xs font-sans select-none">
+      {/* Top-most Utility Bar is kept across all pages */}
       <DashboardUtilityBar
         currentRole={currentRole}
         isOnline={isOnline}
@@ -78,9 +83,12 @@ export const AuthenticatedAppLayout = () => {
         onConflictChange={setSimConflict}
         onSync={triggerSync}
       />
-      {currentRole !== USER_ROLES.PLATFORM_ADMIN && currentRole !== USER_ROLES.TAX_AUTHORITY && (
-        <DashboardNavigation currentRole={currentRole} />
-      )}
+      {/* Blue Navigation Menu is hidden when on POS screen */}
+      {!isPosScreen &&
+        currentRole !== USER_ROLES.PLATFORM_ADMIN &&
+        currentRole !== USER_ROLES.TAX_AUTHORITY && (
+          <DashboardNavigation currentRole={currentRole} />
+        )}
       <OfflineSyncBanner
         isOnline={isOnline}
         pendingCount={pendingCount}

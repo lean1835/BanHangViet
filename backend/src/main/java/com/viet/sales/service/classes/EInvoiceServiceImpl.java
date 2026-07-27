@@ -12,7 +12,6 @@ import com.viet.sales.exception.ErrorCode;
 import com.viet.sales.repository.*;
 import com.viet.sales.service.interfaces.EInvoiceService;
 import com.viet.sales.service.interfaces.EmailService;
-import com.viet.sales.specification.EInvoiceSpecification;
 import jakarta.persistence.criteria.JoinType;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.servlet.http.HttpServletRequest;

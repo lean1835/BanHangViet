@@ -65,6 +65,18 @@ export const PrintInvoiceModal: React.FC<PrintInvoiceModalProps> = ({
       {/* Printable Area Wrapper with print styles */}
       <style>{`
         @media print {
+          @page {
+            size: auto;
+            margin: 0mm !important;
+          }
+          html, body {
+            margin: 0 !important;
+            padding: 0 !important;
+            background: white !important;
+            width: 100% !important;
+            height: 100% !important;
+            overflow: hidden !important;
+          }
           body * {
             visibility: hidden !important;
           }
@@ -72,14 +84,29 @@ export const PrintInvoiceModal: React.FC<PrintInvoiceModalProps> = ({
             visibility: visible !important;
           }
           #printable-invoice-container {
-            position: absolute !important;
+            position: relative !important;
+            margin: 0 auto !important;
             left: 0 !important;
+            right: 0 !important;
             top: 0 !important;
-            width: 100% !important;
-            margin: 0 !important;
-            padding: 8px !important;
+            width: ${(config.paperSize as string) === "K57" ? "54mm" : "78mm"} !important;
+            max-width: 100% !important;
+            padding: 2mm 2mm !important;
             background: white !important;
             color: black !important;
+            box-shadow: none !important;
+            border: none !important;
+            font-size: ${(config.paperSize as string) === "K57" ? "9.5px" : "11px"} !important;
+            line-height: 1.2 !important;
+            page-break-before: avoid !important;
+            page-break-after: avoid !important;
+            page-break-inside: avoid !important;
+            break-before: avoid !important;
+            break-after: avoid !important;
+            break-inside: avoid !important;
+            overflow: hidden !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
           }
           .no-print {
             display: none !important;

@@ -1023,7 +1023,6 @@ export const OrderHistoryTable: React.FC<OrderHistoryTableProps> = ({
       pendingOrderDraft.shiftId === activeShift?.id;
 
     if (belongsToCurrentContext) {
-      setShowCreateModal(true);
       return;
     }
 
@@ -1735,9 +1734,6 @@ export const OrderHistoryTable: React.FC<OrderHistoryTableProps> = ({
   const handleCloseCreateModal = () => {
     if (isSubmittingOrder) return;
     if (pendingOrderDraft) {
-      showWarning(
-        "Đơn hàng đang tạo dở đã được lưu trong phiên này. Bạn có thể mở lại để tiếp tục hoàn tất.",
-      );
       setShowCreateModal(false);
       return;
     }
@@ -1905,29 +1901,6 @@ export const OrderHistoryTable: React.FC<OrderHistoryTableProps> = ({
         <span className="font-extrabold text-sm text-slate-800">
           {ORDER_UI.HISTORY.TITLE}
         </span>
-
-        {canMutateOrders && (
-          <button
-            type="button"
-            disabled={isActiveShiftFetching || isProductsLoading}
-            onClick={() => {
-              if (
-                ensureOrderMutationAllowed(
-                  "Bạn cần mở ca bán hàng trước khi tạo đơn hàng!"
-                )
-              ) {
-                setShowCreateModal(true);
-              }
-            }}
-            className={`${
-              activeShift && !isActiveShiftError
-                ? "bg-kv-green hover:bg-emerald-600 text-white"
-                : "bg-slate-300 text-slate-500 cursor-not-allowed"
-            } flex min-h-11 items-center gap-1.5 rounded-lg px-4 text-xs font-bold shadow-sm transition-colors disabled:cursor-wait lg:min-h-8`}
-          >
-            <span>+ Tạo đơn hàng</span>
-          </button>
-        )}
       </div>
 
       {canMutateOrders && isActiveShiftError && (

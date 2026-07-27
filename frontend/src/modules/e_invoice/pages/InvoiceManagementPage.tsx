@@ -3,6 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { DashboardWorkspaceLayout } from "@/components/layouts/DashboardWorkspaceLayout";
 import { useDashboardDemo } from "@/providers/DashboardDemoProvider";
 import { E_INVOICE_STATUS } from "@/constants/eInvoice";
+import { STORAGE_KEYS } from "@/constants/app";
 import { useNotification } from "@/hooks/useNotification";
 import { getApiErrorMessage } from "@/utils/getApiErrorMessage";
 import { normalizeDateToYYYYMMDD } from "@/utils/dateFormatter";
@@ -63,37 +64,79 @@ export const InvoiceManagementPage = () => {
   const [cancelInvoiceApi] = useCancelInvoiceMutation();
   const [updateInvoiceApi] = useUpdateInvoiceMutation();
 
+  // Synchronize API fetched invoices to local state and localStorage cache
+  useEffect(() => {
+    if (isOnline && apiInvoicesData?.result?.content) {
+      const fetchedList = apiInvoicesData.result.content;
+      setMockInvoices((prev) => {
+        const map = new Map<string, IInvoice>();
+        prev.forEach((inv) => map.set(inv.lookupCode || inv.id, inv));
+        fetchedList.forEach((inv) => map.set(inv.lookupCode || inv.id, inv));
+        const merged = Array.from(map.values()).sort((a, b) => {
+          const timeA = new Date(a.createdAt || a.time || 0).getTime();
+          const timeB = new Date(b.createdAt || b.time || 0).getTime();
+          return timeB - timeA;
+        });
+        try {
+          localStorage.setItem(STORAGE_KEYS.POS_OFFLINE_INVOICES, JSON.stringify(merged));
+        } catch {}
+        return merged;
+      });
+    }
+  }, [isOnline, apiInvoicesData, setMockInvoices]);
+
   // Combine online/offline data với bộ lọc đa điều kiện chuẩn khớp Backend
   const displayedInvoices = useMemo(() => {
-    if (isOnline) {
-      return apiInvoicesData?.result?.content || [];
+    let sourceList: IInvoice[] = [];
+    if (isOnline && apiInvoicesData?.result?.content) {
+      const map = new Map<string, IInvoice>();
+      if (mockInvoices) {
+        mockInvoices.forEach((inv) => map.set(inv.lookupCode || inv.id, inv));
+      }
+      apiInvoicesData.result.content.forEach((inv) => map.set(inv.lookupCode || inv.id, inv));
+      sourceList = Array.from(map.values());
+    } else {
+      if (mockInvoices && mockInvoices.length > 0) {
+        sourceList = mockInvoices;
+      } else {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEYS.POS_OFFLINE_INVOICES);
+          if (raw) sourceList = JSON.parse(raw);
+        } catch {}
+      }
     }
 
-    return mockInvoices.filter((inv) => {
-      // 1. Lọc theo danh sách trạng thái
-      if (statusFilter.length > 0 && !statusFilter.includes(inv.status)) {
-        return false;
-      }
-      // 2. Lọc theo Từ ngày
-      const invDate = normalizeDateToYYYYMMDD(inv.createdAt || inv.time);
-      if (fromDate) {
-        if (!invDate || invDate < fromDate) return false;
-      }
-      // 3. Lọc theo Đến ngày
-      if (toDate) {
-        if (!invDate || invDate > toDate) return false;
-      }
-      // 4. Tìm kiếm từ khóa (mã tra cứu, số hóa đơn, người mua/khách hàng, mã CQT)
-      if (searchQuery.trim()) {
-        const query = searchQuery.toLowerCase().trim();
-        const matchLookup = (inv.lookupCode || "").toLowerCase().includes(query);
-        const matchCustomer = (inv.buyerName || inv.customer || "").toLowerCase().includes(query);
-        const matchNumber = (inv.invoiceNumber || "").toLowerCase().includes(query);
-        const matchTaxAuth = (inv.taxAuthorityCode || "").toLowerCase().includes(query);
-        if (!matchLookup && !matchCustomer && !matchNumber && !matchTaxAuth) return false;
-      }
-      return true;
-    });
+    return sourceList
+      .filter((inv) => {
+        // 1. Lọc theo danh sách trạng thái
+        if (statusFilter.length > 0 && !statusFilter.includes(inv.status)) {
+          return false;
+        }
+        // 2. Lọc theo Từ ngày
+        const invDate = normalizeDateToYYYYMMDD(inv.createdAt || inv.time);
+        if (fromDate) {
+          if (!invDate || invDate < fromDate) return false;
+        }
+        // 3. Lọc theo Đến ngày
+        if (toDate) {
+          if (!invDate || invDate > toDate) return false;
+        }
+        // 4. Tìm kiếm từ khóa (mã tra cứu, số hóa đơn, người mua/khách hàng, mã CQT)
+        if (searchQuery.trim()) {
+          const query = searchQuery.toLowerCase().trim();
+          const matchLookup = (inv.lookupCode || "").toLowerCase().includes(query);
+          const matchCustomer = (inv.buyerName || inv.customer || "").toLowerCase().includes(query);
+          const matchNumber = (inv.invoiceNumber || "").toLowerCase().includes(query);
+          const matchTaxAuth = (inv.taxAuthorityCode || "").toLowerCase().includes(query);
+          if (!matchLookup && !matchCustomer && !matchNumber && !matchTaxAuth) return false;
+        }
+        return true;
+      })
+      .sort((a, b) => {
+        const timeA = new Date(a.createdAt || a.time || 0).getTime();
+        const timeB = new Date(b.createdAt || b.time || 0).getTime();
+        return timeB - timeA;
+      });
   }, [isOnline, apiInvoicesData, mockInvoices, statusFilter, fromDate, toDate, searchQuery]);
 
   // Handle URL ID query param for highlighted invoice
