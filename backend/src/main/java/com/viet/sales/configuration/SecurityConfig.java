@@ -38,8 +38,20 @@ public class SecurityConfig {
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(authorize -> authorize
-                .requestMatchers("/api/v1/auth/**").permitAll()
+                .requestMatchers("/api/v1/auth/**", "/api/v1/public/**").permitAll()
                 .anyRequest().authenticated()
+            )
+            .exceptionHandling(exception -> exception
+                .authenticationEntryPoint((request, response, authException) -> {
+                    response.setStatus(jakarta.servlet.http.HttpServletResponse.SC_UNAUTHORIZED);
+                    response.setContentType("application/json;charset=UTF-8");
+                    response.getWriter().write("{\"code\":2002,\"message\":\"Phiên đăng nhập đã hết hạn hoặc không có quyền truy cập\"}");
+                })
+                .accessDeniedHandler((request, response, accessDeniedException) -> {
+                    response.setStatus(jakarta.servlet.http.HttpServletResponse.SC_FORBIDDEN);
+                    response.setContentType("application/json;charset=UTF-8");
+                    response.getWriter().write("{\"code\":2003,\"message\":\"Bạn không có quyền thực hiện thao tác này\"}");
+                })
             )
             .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
 
@@ -59,6 +71,9 @@ public class SecurityConfig {
 
         // Các header được phép gửi lên
         config.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept"));
+
+        // Cho phép browser đọc header Content-Disposition khi tải tệp
+        config.setExposedHeaders(List.of("Content-Disposition"));
 
         // Cho phép gửi cookie/credentials
         config.setAllowCredentials(true);

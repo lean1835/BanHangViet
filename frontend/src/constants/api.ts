@@ -8,6 +8,8 @@ export const HTTP_METHODS = {
 
 export const HTTP_STATUS = {
   UNAUTHORIZED: 401,
+  FORBIDDEN: 403,
+  NOT_FOUND: 404,
 } as const;
 
 export const API_HEADERS = {
@@ -28,6 +30,15 @@ export const API_TAG_TYPES = {
   SHIFT: "Shift",
   ACTIVE_SHIFT: "ActiveShift",
   ORDER: "Order",
+  INVOICE: "Invoice",
+  REPORT: "Report",
+  SYNC: "Sync",
+  CUSTOMER: "Customer",
+  HOUSEHOLD: "Household",
+  INVOICE_TEMPLATE: "InvoiceTemplate",
+  TAX_RATE: "TaxRate",
+  SETTINGS: "Settings",
+  DEBT: "Debt",
 } as const;
 
 export const API_TAG_TYPE_VALUES = Object.values(API_TAG_TYPES);

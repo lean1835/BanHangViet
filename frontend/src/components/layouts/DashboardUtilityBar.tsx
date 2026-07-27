@@ -1,15 +1,12 @@
-import type { ChangeEvent } from "react";
 import {
-  APP_BRAND,
-  APP_ELEMENT_IDS,
   APP_FALLBACKS,
   APP_MESSAGES,
   APP_SYMBOLS,
   CONNECTION_STATUS,
 } from "@/constants/app";
-import { ROLE_OPTIONS } from "@/constants/roles";
+import { BrandLogo } from "@/components/common/BrandLogo";
+import { ROLE_LABELS, type TDemoRole } from "@/constants/roles";
 import { useAppDispatch, useAppSelector } from "@/hooks/useRedux";
-import type { TDemoRole } from "@/constants/roles";
 import { logout } from "@/stores/authSlice";
 import { baseApi } from "@/stores/baseApi";
 
@@ -17,78 +14,38 @@ interface DashboardUtilityBarProps {
   currentRole: TDemoRole;
   isOnline: boolean;
   simConflict: boolean;
+  pendingCount?: number;
   onRoleChange: (role: TDemoRole) => void;
   onToggleOnline: () => void;
   onConflictChange: (isEnabled: boolean) => void;
+  onSync?: () => void;
 }
 
 export const DashboardUtilityBar = ({
-  currentRole,
   isOnline,
-  simConflict,
-  onRoleChange,
+  pendingCount = 0,
   onToggleOnline,
-  onConflictChange,
+  onSync,
 }: DashboardUtilityBarProps) => {
   const dispatch = useAppDispatch();
-  const household = useAppSelector((state) => state.auth.user?.household);
+  const user = useAppSelector((state) => state.auth.user);
 
   const handleLogout = () => {
     dispatch(baseApi.util.resetApiState());
     dispatch(logout());
   };
 
-  const handleRoleChange = (event: ChangeEvent<HTMLSelectElement>) => {
-    onRoleChange(event.target.value as TDemoRole);
-  };
-
   return (
-    <div className="h-11 bg-white border-b border-slate-200 px-4 flex items-center justify-between text-[11px] shrink-0 font-medium">
-      <div className="flex items-center gap-2">
-        <div className="flex items-center text-kv-blue-primary font-extrabold text-sm tracking-wide gap-1">
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="3"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="w-5 h-5"
-          >
-            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-            <polyline points="14 2 14 8 20 8" />
-            <line x1="16" y1="13" x2="8" y2="13" />
-            <line x1="16" y1="17" x2="8" y2="17" />
-            <polyline points="10 9 9 9 8 9" />
-          </svg>
-          <span>
-            {APP_BRAND.PREFIX}
-            <strong className="text-slate-800 font-extrabold">{APP_BRAND.SUFFIX}</strong>
-          </span>
-        </div>
-        <span className="text-slate-300 font-normal">{APP_SYMBOLS.DIVIDER}</span>
-        <span className="text-slate-500 font-bold">{APP_BRAND.DEMO_LABEL}</span>
+    <div className="flex min-h-11 shrink-0 flex-wrap items-center justify-between gap-2 border-b border-slate-200 bg-white px-2 py-1.5 text-[11px] font-medium sm:px-4">
+      <div className="flex min-w-0 items-center gap-2">
+        <BrandLogo size="md" />
       </div>
 
-      <div className="flex items-center gap-4">
-        <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 px-2.5 py-1 rounded-md">
-          <span className="text-slate-500">{APP_MESSAGES.ROLE_LABEL}</span>
-          <select
-            value={currentRole}
-            onChange={handleRoleChange}
-            className="font-bold text-slate-700 bg-transparent border-none focus:outline-none cursor-pointer text-[11px]"
-          >
-            {ROLE_OPTIONS.map((role) => (
-              <option key={role.value} value={role.value}>
-                {role.label}
-              </option>
-            ))}
-          </select>
-        </div>
-
+      <div className="flex min-w-0 basis-full flex-wrap items-center justify-end gap-1.5 sm:basis-auto sm:flex-1 sm:flex-nowrap sm:gap-2 lg:gap-4">
         <button
           onClick={onToggleOnline}
-          className={`flex items-center gap-1.5 font-bold px-2.5 py-1 rounded-md border transition-all ${
+          aria-pressed={isOnline}
+          className={`flex min-h-11 min-w-11 items-center justify-center gap-1.5 rounded-md border px-2.5 font-bold transition-all lg:min-h-0 lg:min-w-0 lg:py-1 ${
             isOnline
               ? "bg-emerald-50 text-emerald-600 border-emerald-200"
               : "bg-rose-50 text-rose-600 border-rose-200"
@@ -96,30 +53,35 @@ export const DashboardUtilityBar = ({
           title={APP_MESSAGES.NETWORK_TOGGLE_TITLE}
         >
           <span
-            className={`w-1.5 h-1.5 rounded-full inline-block ${
+            aria-hidden="true"
+            className={`inline-block h-1.5 w-1.5 rounded-full ${
               isOnline ? "bg-emerald-500 animate-pulse" : "bg-rose-500"
             }`}
           />
           <span>{isOnline ? CONNECTION_STATUS.ONLINE : CONNECTION_STATUS.OFFLINE}</span>
         </button>
 
-        <div className="flex items-center gap-1.5 bg-rose-50/50 border border-rose-200/60 px-2.5 py-1 rounded-md font-semibold text-rose-700">
-          <input
-            type="checkbox"
-            id={APP_ELEMENT_IDS.CONFLICT_TOGGLE}
-            checked={simConflict}
-            onChange={(event) => onConflictChange(event.target.checked)}
-            className="cursor-pointer rounded border-rose-300 text-rose-600 focus:ring-rose-500 w-3 h-3"
-          />
-          <label htmlFor={APP_ELEMENT_IDS.CONFLICT_TOGGLE} className="cursor-pointer">
-            {APP_MESSAGES.OFFLINE_CONFLICT_LABEL}
-          </label>
-        </div>
+        {pendingCount > 0 && (
+          <button
+            onClick={onSync}
+            className="flex min-h-11 items-center gap-1 rounded-md border border-amber-300 bg-amber-50 px-2 py-1 font-extrabold text-amber-800 hover:bg-amber-100 transition-colors lg:min-h-0 text-[11px]"
+            title="Số lượng đơn hàng ngoại tuyến đang chờ đồng bộ"
+          >
+            <span className="flex h-2 w-2 rounded-full bg-amber-500 animate-ping" />
+            <span>{pendingCount} đơn chờ đồng bộ</span>
+          </button>
+        )}
 
-        <div className="flex items-center gap-2 bg-slate-100 px-2.5 py-1 rounded-md font-bold text-slate-700">
-          <span>
-            {APP_MESSAGES.GREETING_PREFIX} {household?.name || APP_FALLBACKS.HOUSEHOLD_NAME}
+        <div className="flex items-center gap-2 rounded-md bg-slate-100 px-2.5 py-1 font-bold text-slate-700">
+          <span className="max-w-48 truncate">
+            {APP_MESSAGES.GREETING_PREFIX} {user?.fullName || APP_FALLBACKS.HOUSEHOLD_NAME}
           </span>
+          {user?.roleId && ROLE_LABELS[user.roleId as TDemoRole] && (
+            <>
+              <span className="text-slate-300">{APP_SYMBOLS.DIVIDER}</span>
+              <span className="text-slate-500 font-semibold">{ROLE_LABELS[user.roleId as TDemoRole]}</span>
+            </>
+          )}
           <span className="text-slate-300">{APP_SYMBOLS.DIVIDER}</span>
           <button
             onClick={handleLogout}
@@ -128,13 +90,6 @@ export const DashboardUtilityBar = ({
             {APP_MESSAGES.LOGOUT}
           </button>
         </div>
-
-        <button
-          onClick={handleLogout}
-          className="bg-slate-800 text-white font-extrabold px-3 py-1.5 rounded-md hover:bg-slate-900 transition-all shadow-sm"
-        >
-          {APP_MESSAGES.EXIT_DEMO}
-        </button>
       </div>
     </div>
   );

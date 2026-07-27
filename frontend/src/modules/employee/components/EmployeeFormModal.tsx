@@ -11,6 +11,7 @@ import {
   EMPLOYEE_VALIDATION_MESSAGES,
 } from "@/constants/employee";
 import type { IEmployee, IRole } from "../types/IEmployee";
+import { useAccessibleDialog } from "@/hooks/useAccessibleDialog";
 
 interface EmployeeFormModalProps {
   isOpen: boolean;
@@ -36,6 +37,11 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({
 
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [isSaving, setIsSaving] = useState(false);
+  const dialogRef = useAccessibleDialog({
+    isOpen,
+    onClose,
+    canClose: !isSaving,
+  });
 
   useEffect(() => {
     if (employee) {
@@ -126,7 +132,7 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({
     try {
       await onSave(data);
       onClose();
-    } catch (err) {
+    } catch {
       // Error handled by onSave handler
     } finally {
       setIsSaving(false);
@@ -134,10 +140,23 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({
   };
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 overflow-y-auto animate-auth-fade-in">
-      <div className="bg-white rounded-xl shadow-2xl border border-slate-100 max-w-xl w-full overflow-hidden flex flex-col my-4">
+    <div
+      onClick={() => {
+        if (!isSaving) onClose();
+      }}
+      className="app-modal-backdrop fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-900/60 p-2 animate-auth-fade-in sm:items-center sm:p-4"
+    >
+      <div
+        ref={dialogRef}
+        tabIndex={-1}
+        onClick={(event) => event.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-label={employee ? EMPLOYEE_UI.FORM.UPDATE_TITLE : EMPLOYEE_UI.FORM.CREATE_TITLE}
+        className="app-modal-panel flex w-full max-w-xl flex-col overflow-hidden rounded-xl border border-slate-100 bg-white shadow-2xl"
+      >
         {/* Header */}
-        <div className="bg-kv-blue-primary text-white px-5 py-3 flex items-center justify-between">
+        <div className="app-modal-header flex items-center justify-between bg-kv-blue-primary px-5 py-3 text-white">
           <h2 className="text-xs font-bold uppercase tracking-wider">
             {employee
               ? EMPLOYEE_UI.FORM.UPDATE_TITLE
@@ -146,15 +165,21 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({
           <button
             onClick={onClose}
             type="button"
-            className="text-white/80 hover:text-white transition-colors text-lg"
+            disabled={isSaving}
+            aria-label={EMPLOYEE_UI.FORM.CANCEL_LABEL}
+            className="flex min-h-11 min-w-11 items-center justify-center text-lg text-white/80 transition-colors hover:text-white"
           >
             {EMPLOYEE_UI.FORM.CLOSE_LABEL}
           </button>
         </div>
 
         {/* Form Body */}
-        <form onSubmit={handleSubmit} className="p-4 flex flex-col gap-3 font-semibold text-slate-700 text-[11px]">
-          <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+        <form
+          onSubmit={handleSubmit}
+          className="flex min-h-0 flex-1 flex-col text-[11px] font-semibold text-slate-700"
+        >
+          <div className="app-modal-body p-4">
+          <div className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">
             {/* Tên đăng nhập */}
             <div className="flex flex-col gap-1">
               <label className="text-slate-600">
@@ -277,8 +302,8 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({
               <label className="text-slate-600">
                 {EMPLOYEE_UI.FORM.STATUS_LABEL}
               </label>
-              <div className="flex items-center gap-4 h-9">
-                <label className="flex items-center gap-1.5 cursor-pointer text-slate-700">
+              <div className="flex min-h-11 items-center gap-4">
+                <label className="flex min-h-11 cursor-pointer items-center gap-1.5 text-slate-700">
                   <input
                     type="radio"
                     name={EMPLOYEE_INPUT_NAMES.MODAL_ACTIVE_STATUS}
@@ -288,7 +313,7 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({
                   />
                   <span>{EMPLOYEE_STATUS_LABELS.ACTIVE}</span>
                 </label>
-                <label className="flex items-center gap-1.5 cursor-pointer text-slate-700">
+                <label className="flex min-h-11 cursor-pointer items-center gap-1.5 text-slate-700">
                   <input
                     type="radio"
                     name={EMPLOYEE_INPUT_NAMES.MODAL_ACTIVE_STATUS}
@@ -301,21 +326,22 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({
               </div>
             </div>
           </div>
+          </div>
 
           {/* Buttons */}
-          <div className="flex justify-end gap-3 mt-2 border-t pt-3">
+          <div className="app-modal-footer flex shrink-0 justify-end gap-3 border-t bg-white p-4">
             <button
               onClick={onClose}
               type="button"
               disabled={isSaving}
-              className="border border-slate-300 hover:bg-slate-50 text-slate-600 font-bold px-4 h-8 rounded-lg transition-colors text-xs disabled:opacity-50"
+              className="min-h-11 rounded-lg border border-slate-300 px-4 text-xs font-bold text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-wait disabled:opacity-50 sm:min-h-8"
             >
               {EMPLOYEE_UI.FORM.CANCEL_LABEL}
             </button>
             <button
               type="submit"
               disabled={isSaving}
-              className="bg-kv-blue-primary hover:bg-kv-blue-dark text-white font-bold px-5 h-8 rounded-lg transition-colors shadow-sm text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+              className="min-h-11 rounded-lg bg-kv-blue-primary px-5 text-xs font-bold text-white shadow-sm transition-colors hover:bg-kv-blue-dark disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-8"
             >
               {isSaving
                 ? EMPLOYEE_UI.FORM.SAVING_LABEL

@@ -14,6 +14,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
@@ -26,6 +27,8 @@ public interface ProductRepository extends JpaRepository<Product, String>, JpaSp
 
     boolean existsBySkuAndHouseholdIdAndIdNotAndDeletedAtIsNull(String sku, String householdId, String id);
 
+    boolean existsByHouseholdIdAndTaxRateIdAndDeletedAtIsNull(String householdId, String taxRateId);
+
     @EntityGraph(attributePaths = {"group", "taxRate", "household"})
     Optional<Product> findByIdAndHouseholdIdAndDeletedAtIsNull(String id, String householdId);
 
@@ -34,6 +37,13 @@ public interface ProductRepository extends JpaRepository<Product, String>, JpaSp
 
     @EntityGraph(attributePaths = {"group", "taxRate", "household"})
     List<Product> findAllByIdInAndHouseholdIdAndDeletedAtIsNull(Collection<String> ids, String householdId);
+
+    @Query("SELECT p.sku FROM Product p WHERE p.household.id = :householdId AND p.deletedAt IS NULL")
+    List<String> findSkusByHouseholdId(@Param("householdId") String householdId);
+
+    @Override
+    @EntityGraph(attributePaths = {"group", "taxRate", "household"})
+    List<Product> findAll(Specification<Product> spec);
 
     @Override
     @EntityGraph(attributePaths = {"group", "taxRate", "household"})
@@ -53,4 +63,13 @@ public interface ProductRepository extends JpaRepository<Product, String>, JpaSp
     @Modifying(clearAutomatically = true)
     @Query("UPDATE Product p SET p.group = :group, p.updatedAt = :updatedAt WHERE p.id IN :ids AND p.household.id = :householdId AND p.deletedAt IS NULL")
     int updateGroupIdForProducts(@Param("group") ProductGroup group, @Param("ids") Collection<String> ids, @Param("householdId") String householdId, @Param("updatedAt") LocalDateTime updatedAt);
+
+    @Modifying
+    @Query("UPDATE Product p SET p.stockQuantity = p.stockQuantity - :quantity WHERE p.id = :id AND p.household.id = :householdId AND p.deletedAt IS NULL")
+    int deductStock(@Param("id") String id, @Param("householdId") String householdId, @Param("quantity") BigDecimal quantity);
+
+    @Modifying
+    @Query("UPDATE Product p SET p.stockQuantity = p.stockQuantity + :quantity WHERE p.id = :id AND p.household.id = :householdId AND p.deletedAt IS NULL")
+    int addStock(@Param("id") String id, @Param("householdId") String householdId, @Param("quantity") BigDecimal quantity);
 }
+

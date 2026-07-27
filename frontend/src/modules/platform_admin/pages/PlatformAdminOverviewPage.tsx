@@ -4,7 +4,7 @@ import { PLATFORM_ADMIN_OVERVIEW } from "@/constants/platformAdmin";
 export const PlatformAdminOverviewPage: React.FC = () => {
   return (
     <>
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
           <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
             {PLATFORM_ADMIN_OVERVIEW.HOUSEHOLDS.label}

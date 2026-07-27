@@ -22,6 +22,12 @@ const ProductListPage = React.lazy(() => import("@/modules/product/pages/Product
 const StockEntryPage = React.lazy(() => import("@/modules/product/pages/StockEntryPage"));
 const ShiftHistoryPage = React.lazy(() => import("@/modules/shift/pages/ShiftHistoryPage"));
 const OrderHistoryPage = React.lazy(() => import("@/modules/order/pages/OrderHistoryPage"));
+const InvoiceManagementPage = React.lazy(
+  () => import("@/modules/e_invoice/pages/InvoiceManagementPage")
+);
+const AdjustInvoicePage = React.lazy(
+  () => import("@/modules/e_invoice/pages/AdjustInvoicePage")
+);
 const CustomerPage = React.lazy(() => import("@/modules/customer/pages/CustomerPage"));
 const EmployeePage = React.lazy(() => import("@/modules/employee/pages/EmployeePage"));
 const ReportsLayout = React.lazy(() => import("@/modules/report/pages/ReportsLayout"));
@@ -39,8 +45,11 @@ const BusinessInfoPage = React.lazy(
 const TaxRateSettingsPage = React.lazy(
   () => import("@/modules/settings/pages/TaxRateSettingsPage")
 );
-const PrinterSettingsPage = React.lazy(
-  () => import("@/modules/settings/pages/PrinterSettingsPage")
+const InvoiceTemplatePage = React.lazy(
+  () => import("@/modules/settings/pages/InvoiceTemplatePage")
+);
+const BackupExportPage = React.lazy(
+  () => import("@/modules/settings/pages/BackupExportPage")
 );
 const PlatformAdminWorkspaceLayout = React.lazy(
   () => import("@/modules/platform_admin/pages/PlatformAdminWorkspaceLayout")
@@ -60,10 +69,8 @@ const TaxAuthorityWorkspaceLayout = React.lazy(
 const TaxInvoiceApprovalRoutePage = React.lazy(
   () => import("@/modules/tax_authority/pages/TaxInvoiceApprovalRoutePage")
 );
-const TaxReceivingConfigPage = React.lazy(
-  () => import("@/modules/tax_authority/pages/TaxReceivingConfigPage")
-);
 const PosPage = React.lazy(() => import("@/modules/pos/pages/PosPage"));
+const LookupInvoicePage = React.lazy(() => import("@/pages/LookupInvoicePage"));
 
 const loadingFallback = (
   <div className="flex justify-center items-center h-screen">{APP_MESSAGES.LOADING}</div>
@@ -73,6 +80,10 @@ export const AppRouter = () => (
   <BrowserRouter>
     <Suspense fallback={loadingFallback}>
       <Routes>
+        <Route
+          path={APP_ROUTES.LOOKUP_INVOICE}
+          element={<LookupInvoicePage />}
+        />
         <Route
           path={APP_ROUTES.AUTH}
           element={
@@ -135,6 +146,22 @@ export const AppRouter = () => (
             }
           />
           <Route
+            path={ROUTE_SEGMENTS.E_INVOICES}
+            element={
+              <RoleRoute allowedRoles={ROLE_GROUPS.NORMAL_MANAGEMENT}>
+                <InvoiceManagementPage />
+              </RoleRoute>
+            }
+          />
+          <Route
+            path={`${ROUTE_SEGMENTS.E_INVOICES}/:id/adjust`}
+            element={
+              <RoleRoute allowedRoles={ROLE_GROUPS.PRODUCT_MANAGEMENT}>
+                <AdjustInvoicePage />
+              </RoleRoute>
+            }
+          />
+          <Route
             path={ROUTE_SEGMENTS.CUSTOMERS}
             element={
               <RoleRoute allowedRoles={ROLE_GROUPS.NORMAL_MANAGEMENT}>
@@ -175,8 +202,10 @@ export const AppRouter = () => (
           >
             <Route index element={<Navigate to={ROUTE_SEGMENTS.BUSINESS_INFO} replace />} />
             <Route path={ROUTE_SEGMENTS.BUSINESS_INFO} element={<BusinessInfoPage />} />
+            <Route path={ROUTE_SEGMENTS.INVOICE_TEMPLATE} element={<InvoiceTemplatePage />} />
             <Route path={ROUTE_SEGMENTS.TAX_RATES} element={<TaxRateSettingsPage />} />
-            <Route path={ROUTE_SEGMENTS.PRINTER} element={<PrinterSettingsPage />} />
+            <Route path={ROUTE_SEGMENTS.BACKUP_EXPORT} element={<BackupExportPage />} />
+            <Route path={ROUTE_SEGMENTS.PRINTER} element={<Navigate to={ROUTE_SEGMENTS.BUSINESS_INFO} replace />} />
           </Route>
 
           <Route
@@ -212,7 +241,6 @@ export const AppRouter = () => (
           >
             <Route index element={<Navigate to={ROUTE_SEGMENTS.INVOICES} replace />} />
             <Route path={ROUTE_SEGMENTS.INVOICES} element={<TaxInvoiceApprovalRoutePage />} />
-            <Route path={ROUTE_SEGMENTS.CONFIG} element={<TaxReceivingConfigPage />} />
           </Route>
 
           <Route

@@ -18,4 +18,6 @@ public interface ProductGroupRepository extends JpaRepository<ProductGroup, Stri
     boolean existsByHouseholdIdAndNameAndDeletedAtIsNull(String householdId, String name);
 
     boolean existsByHouseholdIdAndNameAndIdNotAndDeletedAtIsNull(String householdId, String name, String id);
+
+    Optional<ProductGroup> findByHouseholdIdAndNameAndDeletedAtIsNull(String householdId, String name);
 }

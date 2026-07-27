@@ -1,16 +1,122 @@
 import type { TEInvoiceStatus } from "@/constants/eInvoice";
+import type { IDeliveryLog } from "./IInvoiceDelivery";
 
 export type TInvoiceStatus = TEInvoiceStatus;
 
+export interface IInvoiceItem {
+  id: string;
+  productId: string;
+  productName: string;
+  unit: string;
+  quantity: number;
+  unitPrice: number;
+  taxRatePercentage: number;
+  taxAmount: number;
+  discountAmount: number;
+  subtotal: number;
+}
+
 export interface IInvoice {
   id: string;
+  householdId?: string;
+  householdName?: string;
+  householdTaxCode?: string;
+  householdAddress?: string;
+  householdPhone?: string;
+  orderId?: string;
+  orderNumber?: string;
+  originalInvoiceId?: string;
+  createdByUserId?: string;
+  createdByUsername?: string;
+  canceledByUserId?: string;
+  canceledByUsername?: string;
+  invoiceNumber?: string;
+  invoicePattern?: string;
+  invoiceSymbol?: string;
+  title?: string;
+  footerNote?: string;
+  buyerName?: string;
+  buyerTaxCode?: string;
+  buyerAddress?: string;
+  buyerPhone?: string;
+  buyerEmail?: string;
+  totalAmountBeforeTax?: number;
+  taxAmount: number;
+  discountAmount?: number;
+  finalAmount: number;
+  status: TInvoiceStatus;
+  taxAuthorityCode: string;
+  taxAuthorityResponse?: string;
+  cancelReason?: string;
   lookupCode: string;
   symbol: string;
   customer: string;
   amount: number;
-  taxAmount: number;
-  finalAmount: number;
-  status: TInvoiceStatus;
-  taxAuthorityCode: string;
   time: string;
+  sentToTaxAt?: string;
+  taxResponseAt?: string;
+  canceledAt?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  items?: IInvoiceItem[];
+  deliveryLogs?: IDeliveryLog[];
+}
+
+export interface IGetInvoicesParams {
+  status?: string;
+  fromDate?: string;
+  toDate?: string;
+  search?: string;
+  page?: number;
+  size?: number;
+}
+
+export interface ICancelInvoiceRequest {
+  invoiceId: string;
+  cancelReason: string;
+}
+
+export interface IUpdateInvoiceRequest {
+  invoiceId: string;
+  buyerName?: string;
+  buyerTaxCode?: string;
+  buyerAddress?: string;
+  buyerPhone?: string;
+  buyerEmail?: string;
+}
+
+export interface ICreateAdjustmentInvoiceItemRequest {
+  productId?: string;
+  productName: string;
+  unit: string;
+  quantity: number;
+  unitPrice: number;
+  taxRatePercentage: number;
+  discountAmount: number;
+}
+
+export interface ICreateAdjustmentInvoiceRequest {
+  adjustmentReason: string;
+  buyerName?: string;
+  buyerTaxCode?: string;
+  buyerAddress?: string;
+  buyerPhone?: string;
+  buyerEmail?: string;
+  items: ICreateAdjustmentInvoiceItemRequest[];
+}
+
+export interface IAdjustInvoiceParams {
+  invoiceId: string;
+  body: ICreateAdjustmentInvoiceRequest;
+}
+
+export interface IInvoiceStatusLog {
+  id: string;
+  invoiceId: string;
+  fromStatus: string;
+  toStatus: string;
+  changedByUserId?: string;
+  changedByFullName?: string;
+  notes?: string;
+  createdAt: string;
 }

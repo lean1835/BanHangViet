@@ -65,8 +65,8 @@ export const DEFAULT_ORDER_SIDEBAR_STATUSES: readonly string[] = [
 
 export const ORDER_UI = {
   SIDEBAR: {
-    TITLE: "Hóa đơn",
-    STATUS_FILTER_LABEL: "Trạng thái hóa đơn",
+    TITLE: "Bộ lọc đơn hàng",
+    STATUS_FILTER_LABEL: "Trạng thái đơn hàng",
     DELIVERY_TIME_FILTER_LABEL: "Thời gian giao hàng",
     TIME_FILTER_NAME: "invTime",
     ALL_TIME_LABEL: "Toàn thời gian",
@@ -74,8 +74,7 @@ export const ORDER_UI = {
   },
   HISTORY: {
     LOADING_MESSAGE: "Đang tải lịch sử đơn hàng...",
-    TITLE: (orderCount: number) =>
-      `Lịch sử Đơn hàng bán lẻ (${orderCount} đơn hàng)`,
+    TITLE: "Lịch sử Đơn hàng",
     STATUS_FILTER_LABEL: "Lọc theo trạng thái:",
     EMPTY_MESSAGE: "Không có đơn hàng nào khớp với bộ lọc.",
     WALK_IN_CUSTOMER_LABEL: "Khách vãng lai",

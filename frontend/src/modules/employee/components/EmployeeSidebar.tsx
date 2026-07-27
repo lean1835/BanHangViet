@@ -35,7 +35,7 @@ export const EmployeeSidebar: React.FC<EmployeeSidebarProps> = ({
           {EMPLOYEE_STATUS_FILTER_OPTIONS.map((option) => (
             <label
               key={option.value}
-              className="flex items-center gap-2.5 cursor-pointer hover:text-kv-blue-primary transition-colors"
+              className="flex min-h-11 cursor-pointer items-center gap-2.5 transition-colors hover:text-kv-blue-primary lg:min-h-0"
             >
               <input
                 type="radio"

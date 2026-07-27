@@ -13,7 +13,7 @@ export const ShiftSidebar = () => (
         {SHIFT_SIDEBAR_STATUS_OPTIONS.map((status) => (
           <span
             key={status}
-            className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-2 py-1 rounded cursor-pointer transition-colors"
+            className="rounded bg-slate-100 px-2 py-1 font-bold text-slate-700"
           >
             {status}
           </span>
@@ -25,7 +25,7 @@ export const ShiftSidebar = () => (
         {SHIFT_UI.SIDEBAR.TIME_FILTER_LABEL}
       </span>
       <div className="flex flex-col gap-2 font-medium">
-        <label className="flex items-center gap-2 cursor-pointer text-slate-700">
+        <label className="flex min-h-11 cursor-pointer items-center gap-2 text-slate-700 lg:min-h-0">
           <input
             type="radio"
             name={SHIFT_UI.SIDEBAR.TIME_FILTER_NAME}
@@ -34,7 +34,7 @@ export const ShiftSidebar = () => (
           />
           <span>{SHIFT_UI.SIDEBAR.CURRENT_MONTH_LABEL}</span>
         </label>
-        <label className="flex items-center gap-2 cursor-pointer text-slate-600">
+        <label className="flex min-h-11 cursor-pointer items-center gap-2 text-slate-600 lg:min-h-0">
           <input
             type="radio"
             name={SHIFT_UI.SIDEBAR.TIME_FILTER_NAME}

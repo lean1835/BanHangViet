@@ -5,4 +5,3 @@ export {
   TaxInvoiceApprovalPage,
   type TaxInvoiceApprovalPageProps,
 } from "./pages/TaxInvoiceApprovalPage";
-export { TaxReceivingConfigPage } from "./pages/TaxReceivingConfigPage";

@@ -14,6 +14,7 @@ export const NAVIGATION_ITEM_IDS = {
   PRODUCTS: "products",
   SHIFTS: "shifts",
   ORDERS: "orders",
+  E_INVOICES: "e-invoices",
   CUSTOMERS: "customers",
   EMPLOYEES: "employees",
   REPORTS: "reports",
@@ -59,6 +60,12 @@ export const PRIMARY_NAVIGATION_ITEMS: IPrimaryNavigationItem[] = [
     id: NAVIGATION_ITEM_IDS.ORDERS,
     label: "Đơn hàng",
     path: APP_ROUTES.ORDERS,
+    allowedRoles: ROLE_GROUPS.NORMAL_MANAGEMENT,
+  },
+  {
+    id: NAVIGATION_ITEM_IDS.E_INVOICES,
+    label: "Hóa đơn",
+    path: APP_ROUTES.E_INVOICES,
     allowedRoles: ROLE_GROUPS.NORMAL_MANAGEMENT,
   },
   {

@@ -28,3 +28,6 @@ Thumbs.db
 
 # User Ignored Files
 backend/run.log
+*.log
+backend/*.log
+

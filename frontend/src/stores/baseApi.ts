@@ -13,7 +13,9 @@ import {
   HTTP_STATUS,
 } from "@/constants/api";
 import { STORAGE_KEYS } from "@/constants/app";
+import { AUTH_EXPIRATION_CONFIG } from "@/constants/auth";
 import { logout } from "./authSlice";
+import { isTokenExpired } from "@/utils/jwt";
 
 const rawBaseQuery = fetchBaseQuery({
   baseUrl: import.meta.env.VITE_API_URL,
@@ -32,6 +34,18 @@ const baseQueryWithUnauthorizedCleanup: BaseQueryFn<
   unknown,
   FetchBaseQueryError
 > = async (args, api, extraOptions) => {
+  const token = localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
+  if (token && isTokenExpired(token)) {
+    api.dispatch(baseApi.util.resetApiState());
+    api.dispatch(logout());
+    return {
+      error: {
+        status: HTTP_STATUS.UNAUTHORIZED,
+        data: { message: AUTH_EXPIRATION_CONFIG.EXPIRED_MESSAGE },
+      },
+    };
+  }
+
   const result = await rawBaseQuery(args, api, extraOptions);
 
   if (result.error?.status === HTTP_STATUS.UNAUTHORIZED) {

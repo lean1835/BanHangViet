@@ -24,7 +24,7 @@ export const DashboardOverviewSidebar = ({
       </span>
       <div className="flex flex-col gap-2 font-medium">
         {DASHBOARD_TIME_FILTERS.map((time) => (
-          <label key={time} className="flex items-center gap-2 cursor-pointer text-slate-700">
+          <label key={time} className="flex min-h-11 cursor-pointer items-center gap-2 text-slate-700 lg:min-h-0">
             <input
               type="radio"
               name={DASHBOARD_FORM_FIELDS.TIME_FILTER}

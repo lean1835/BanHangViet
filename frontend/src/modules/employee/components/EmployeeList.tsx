@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { createPortal } from "react-dom";
 import { Search, Plus, Edit, Trash2, Users, ClipboardCheck, LayoutGrid, List } from "lucide-react";
 import {
   EMPLOYEE_MESSAGES,
@@ -17,6 +18,8 @@ import {
   useDeleteEmployeeMutation,
 } from "../services/employeeApi";
 import { getApiErrorMessage } from "@/utils/getApiErrorMessage";
+import { useNotification } from "@/hooks/useNotification";
+import { useAccessibleDialog } from "@/hooks/useAccessibleDialog";
 
 interface EmployeeListProps {
   employees: IEmployee[];
@@ -38,14 +41,22 @@ export const EmployeeList: React.FC<EmployeeListProps> = ({
   userRole,
 }) => {
   const isOwner = userRole === USER_ROLES.OWNER;
+  const { showSuccess, showError, showInfo } = useNotification();
 
   const [createEmployee] = useCreateEmployeeMutation();
   const [updateEmployee] = useUpdateEmployeeMutation();
-  const [deleteEmployee] = useDeleteEmployeeMutation();
+  const [deleteEmployee, { isLoading: isDeletingEmployee }] =
+    useDeleteEmployeeMutation();
 
   // Modal control
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState<IEmployee | null>(null);
+  const [employeeToDelete, setEmployeeToDelete] = useState<IEmployee | null>(null);
+  const deleteDialogRef = useAccessibleDialog({
+    isOpen: Boolean(employeeToDelete),
+    onClose: () => setEmployeeToDelete(null),
+    canClose: !isDeletingEmployee,
+  });
 
   // Add / Edit actions
   const handleSaveEmployee = async (emp: IEmployee & { password?: string }) => {
@@ -53,14 +64,14 @@ export const EmployeeList: React.FC<EmployeeListProps> = ({
       if (editingEmployee) {
         // Edit mode
         await updateEmployee({ id: editingEmployee.id, data: emp }).unwrap();
-        alert(EMPLOYEE_MESSAGES.UPDATED);
+        showSuccess(EMPLOYEE_MESSAGES.UPDATED);
       } else {
         // Create mode
         await createEmployee(emp).unwrap();
-        alert(EMPLOYEE_MESSAGES.CREATED);
+        showSuccess(EMPLOYEE_MESSAGES.CREATED);
       }
     } catch (error: unknown) {
-      alert(
+      showError(
         EMPLOYEE_MESSAGES.ERROR_PREFIX +
           getApiErrorMessage(
             error,
@@ -76,17 +87,18 @@ export const EmployeeList: React.FC<EmployeeListProps> = ({
     setIsModalOpen(true);
   };
 
-  const handleDeleteEmployee = async (id: string) => {
-    if (confirm(EMPLOYEE_MESSAGES.DELETE_CONFIRM)) {
-      try {
-        await deleteEmployee(id).unwrap();
-        alert(EMPLOYEE_MESSAGES.DELETED);
-      } catch (error: unknown) {
-        alert(
-          EMPLOYEE_MESSAGES.ERROR_PREFIX +
-            getApiErrorMessage(error, EMPLOYEE_MESSAGES.DELETE_FAILED),
-        );
-      }
+  const handleConfirmDeleteEmployee = async () => {
+    if (!employeeToDelete || isDeletingEmployee) return;
+
+    try {
+      await deleteEmployee(employeeToDelete.id).unwrap();
+      showSuccess(EMPLOYEE_MESSAGES.DELETED);
+      setEmployeeToDelete(null);
+    } catch (error: unknown) {
+      showError(
+        EMPLOYEE_MESSAGES.ERROR_PREFIX +
+          getApiErrorMessage(error, EMPLOYEE_MESSAGES.DELETE_FAILED),
+      );
     }
   };
 
@@ -138,7 +150,7 @@ export const EmployeeList: React.FC<EmployeeListProps> = ({
                 setEditingEmployee(null);
                 setIsModalOpen(true);
               }}
-              className="bg-kv-blue-primary hover:bg-kv-blue-dark transition-all text-white font-bold px-4 h-9 rounded-lg flex items-center gap-1.5 shadow-sm text-xs"
+              className="flex h-11 items-center gap-1.5 rounded-lg bg-kv-blue-primary px-4 text-xs font-bold text-white shadow-sm transition-all hover:bg-kv-blue-dark lg:h-9"
             >
               <Plus size={14} />
               {EMPLOYEE_UI.LIST.ADD_LABEL}
@@ -146,18 +158,26 @@ export const EmployeeList: React.FC<EmployeeListProps> = ({
           )}
           {isOwner && (
             <button
-              onClick={() => alert(EMPLOYEE_MESSAGES.ATTENDANCE_SYNC)}
-              className="bg-slate-50 border border-slate-200 hover:bg-slate-100 transition-all font-bold px-3.5 h-9 rounded-lg flex items-center gap-1.5 text-xs text-slate-700"
+              onClick={() => showInfo(EMPLOYEE_MESSAGES.ATTENDANCE_UNAVAILABLE)}
+              className="flex h-11 items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-3.5 text-xs font-bold text-slate-700 transition-all hover:bg-slate-100 lg:h-9"
             >
               <ClipboardCheck size={14} />
               {EMPLOYEE_UI.LIST.REVIEW_LABEL}
             </button>
           )}
           <div className="flex items-center border rounded-lg p-0.5 bg-slate-50">
-            <button className="p-1.5 rounded text-slate-400 hover:text-slate-600 bg-white shadow-sm">
+            <button
+              type="button"
+              aria-label="Hiển thị dạng danh sách"
+              className="flex min-h-11 min-w-11 items-center justify-center rounded bg-white p-1.5 text-slate-400 shadow-sm hover:text-slate-600 lg:min-h-0 lg:min-w-0"
+            >
               <List size={14} />
             </button>
-            <button className="p-1.5 rounded text-slate-400 hover:text-slate-600">
+            <button
+              type="button"
+              aria-label="Hiển thị dạng lưới"
+              className="flex min-h-11 min-w-11 items-center justify-center rounded p-1.5 text-slate-400 hover:text-slate-600 lg:min-h-0 lg:min-w-0"
+            >
               <LayoutGrid size={14} />
             </button>
           </div>
@@ -174,19 +194,16 @@ export const EmployeeList: React.FC<EmployeeListProps> = ({
           placeholder={EMPLOYEE_UI.LIST.SEARCH_PLACEHOLDER}
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full pl-9 pr-4 h-9 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:bg-white focus:border-kv-blue-primary text-xs font-semibold text-slate-700 transition-all"
+          className="h-11 w-full rounded-lg border border-slate-200 bg-slate-50 pl-9 pr-4 text-xs font-semibold text-slate-700 transition-all focus:border-kv-blue-primary focus:bg-white focus:outline-none lg:h-9"
         />
       </div>
 
       {/* Table Content */}
       {filteredEmployees.length > 0 ? (
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
+          <table className="responsive-data-table responsive-data-table--page w-full text-left border-collapse">
             <thead>
               <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold text-xs">
-                <th className="p-3 w-8">
-                  <input type="checkbox" className="rounded border-slate-300 text-kv-blue-primary" />
-                </th>
                 <th className="p-3">{EMPLOYEE_UI.LIST.COLUMNS.USERNAME}</th>
                 <th className="p-3">{EMPLOYEE_UI.LIST.COLUMNS.FULL_NAME}</th>
                 <th className="p-3">
@@ -209,9 +226,6 @@ export const EmployeeList: React.FC<EmployeeListProps> = ({
 
                 return (
                   <tr key={emp.id} className="hover:bg-slate-50/50 group transition-all">
-                    <td className="p-3">
-                      <input type="checkbox" className="rounded border-slate-300 text-kv-blue-primary" />
-                    </td>
                     <td className="p-3 font-mono font-bold text-slate-800">{emp.username}</td>
                     <td className="p-3 font-bold text-slate-800">{emp.fullName}</td>
                     <td className="p-3 font-mono font-semibold">
@@ -238,17 +252,19 @@ export const EmployeeList: React.FC<EmployeeListProps> = ({
                     </td>
                     {isOwner && (
                       <td className="p-3">
-                        <div className="flex items-center justify-center gap-1.5 opacity-80 group-hover:opacity-100 transition-opacity">
+                        <div className="flex items-center justify-center gap-1.5 opacity-100 transition-opacity lg:opacity-80 lg:group-hover:opacity-100 lg:group-focus-within:opacity-100">
                           <button
                             onClick={() => handleEditEmployee(emp)}
-                            className="p-1 hover:bg-blue-50 text-blue-600 rounded transition-colors"
+                            aria-label={EMPLOYEE_UI.LIST.EDIT_TITLE}
+                            className="flex min-h-11 min-w-11 items-center justify-center rounded p-1 text-blue-600 transition-colors hover:bg-blue-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500 lg:min-h-0 lg:min-w-0"
                             title={EMPLOYEE_UI.LIST.EDIT_TITLE}
                           >
                             <Edit size={14} />
                           </button>
                           <button
-                            onClick={() => handleDeleteEmployee(emp.id)}
-                            className="p-1 hover:bg-rose-50 text-rose-600 rounded transition-colors"
+                            onClick={() => setEmployeeToDelete(emp)}
+                            aria-label={EMPLOYEE_UI.LIST.DELETE_TITLE}
+                            className="flex min-h-11 min-w-11 items-center justify-center rounded p-1 text-rose-600 transition-colors hover:bg-rose-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-rose-500 lg:min-h-0 lg:min-w-0"
                             title={EMPLOYEE_UI.LIST.DELETE_TITLE}
                           >
                             <Trash2 size={14} />
@@ -299,6 +315,71 @@ export const EmployeeList: React.FC<EmployeeListProps> = ({
         employee={editingEmployee}
         roles={roles}
       />
+
+      {employeeToDelete &&
+        createPortal(
+          <div
+            onClick={() => {
+              if (!isDeletingEmployee) setEmployeeToDelete(null);
+            }}
+            className="app-modal-backdrop fixed inset-0 z-[100] flex items-start justify-center overflow-y-auto bg-slate-900/50 p-2 backdrop-blur-sm animate-backdrop-fade-in sm:items-center sm:p-4"
+          >
+            <div
+              ref={deleteDialogRef}
+              tabIndex={-1}
+              onClick={(event) => event.stopPropagation()}
+              role="alertdialog"
+              aria-modal="true"
+              aria-labelledby="employee-delete-title"
+              aria-describedby="employee-delete-description"
+              className="app-modal-panel flex w-full max-w-sm flex-col overflow-hidden rounded-xl border border-slate-100 bg-white text-center shadow-2xl animate-modal-bounce-in"
+            >
+              <div className="app-modal-body p-5 sm:p-6">
+                <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full border border-rose-100 bg-rose-50 text-rose-600">
+                  <Trash2 aria-hidden="true" size={24} />
+                </div>
+                <h2
+                  id="employee-delete-title"
+                  className="text-sm font-extrabold text-slate-800"
+                >
+                  {EMPLOYEE_UI.LIST.DELETE_TITLE}
+                </h2>
+                <p
+                  id="employee-delete-description"
+                  className="mt-2 text-xs font-semibold leading-5 text-slate-500"
+                >
+                  {EMPLOYEE_MESSAGES.DELETE_CONFIRM} ({employeeToDelete.fullName})
+                </p>
+              </div>
+              <div className="app-modal-footer flex gap-3 border-t bg-white p-4">
+                <button
+                  type="button"
+                  disabled={isDeletingEmployee}
+                  onClick={() => setEmployeeToDelete(null)}
+                  className="min-h-11 flex-1 rounded-lg bg-slate-100 px-3 text-xs font-bold text-slate-700 transition-colors hover:bg-slate-200 disabled:cursor-wait disabled:opacity-60"
+                >
+                  {EMPLOYEE_UI.LIST.DELETE_CANCEL_ACTION}
+                </button>
+                <button
+                  type="button"
+                  disabled={isDeletingEmployee}
+                  aria-busy={isDeletingEmployee}
+                  onClick={() => void handleConfirmDeleteEmployee()}
+                  className="flex min-h-11 flex-1 items-center justify-center rounded-lg bg-rose-600 px-3 text-xs font-bold text-white transition-colors hover:bg-rose-700 disabled:cursor-wait disabled:opacity-60"
+                >
+                  {isDeletingEmployee && (
+                    <span
+                      aria-hidden="true"
+                      className="mr-2 h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/40 border-t-white"
+                    />
+                  )}
+                  {EMPLOYEE_UI.LIST.DELETE_CONFIRM_ACTION}
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
     </div>
   );
 };

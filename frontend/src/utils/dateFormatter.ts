@@ -61,3 +61,55 @@ export const formatDateShort = (isoString: string | null | undefined): string =>
     return isoString ?? DATE_FORMAT.EMPTY_SHORT;
   }
 };
+
+/**
+ * Normalizes any date string (ISO, "DD/MM/YYYY", "DD/MM/YYYY HH:mm:ss") to "YYYY-MM-DD"
+ * for safe string comparison with date picker values.
+ */
+export const normalizeDateToYYYYMMDD = (dateStr?: string | null): string => {
+  if (!dateStr || !dateStr.trim()) return "";
+  const trimmed = dateStr.trim();
+  // Check if DD/MM/YYYY or DD/MM/YYYY HH:mm:ss
+  if (trimmed.includes("/")) {
+    const datePart = trimmed.split(" ")[0];
+    const parts = datePart.split("/");
+    if (parts.length === 3) {
+      const [d, m, y] = parts;
+      return `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
+    }
+  }
+  // Otherwise if ISO string YYYY-MM-DD...
+  if (trimmed.length >= 10 && trimmed.charAt(4) === "-") {
+    return trimmed.substring(0, 10);
+  }
+  // Try Date parsing fallback
+  const parsed = new Date(trimmed);
+  if (!isNaN(parsed.getTime())) {
+    const y = parsed.getFullYear();
+    const m = String(parsed.getMonth() + 1).padStart(2, "0");
+    const d = String(parsed.getDate()).padStart(2, "0");
+    return `${y}-${m}-${d}`;
+  }
+  return "";
+};
+
+/**
+ * Formats a Date object to local "YYYY-MM-DD" string in local timezone (GMT+7 in VN).
+ * Prevents Timezone Shift bugs caused by Date.prototype.toISOString() (which uses UTC).
+ */
+export const getLocalDateString = (d: Date = new Date()): string => {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+};
+
+/**
+ * Formats a Date object to local "YYYY-MM-DDTHH:mm:ss" ISO string in local timezone (GMT+7 in VN).
+ * Prevents Timezone Shift bugs caused by Date.prototype.toISOString() (which converts to UTC).
+ */
+export const getLocalDateTimeISOString = (d: Date = new Date()): string => {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+};
+

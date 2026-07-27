@@ -4,25 +4,18 @@ type TOrderStatus = (typeof ORDER_STATUS)[keyof typeof ORDER_STATUS];
 type TOrderPaymentMethod =
   (typeof ORDER_PAYMENT_METHOD)[keyof typeof ORDER_PAYMENT_METHOD];
 
-export interface IApiResponse<T> {
-  code: number;
-  message: string;
-  result: T;
-}
+export type { IApiResponse } from "@/types/api";
 
 export interface IOrderItemResponse {
   id: string;
-  orderId: string;
   productId: string;
   productName: string;
-  productSku: string;
   quantity: number;
   unitPrice: number;
-  totalPrice: number;
   discountAmount: number;
-  finalPrice: number;
-  createdAt: string;
-  updatedAt: string;
+  taxRatePercentage: number;
+  taxAmount: number;
+  subtotal: number;
 }
 
 export interface IOrderResponse {
@@ -49,4 +42,6 @@ export interface IOrderResponse {
   warningMessages: string[];
   qrCodeUrl: string | null;
   changeAmount: number | null;
+  paidAmount?: number;
+  debtAmount?: number;
 }

@@ -2,11 +2,7 @@ import { SHIFT_STATUS } from "@/constants/shift";
 
 type TShiftStatus = (typeof SHIFT_STATUS)[keyof typeof SHIFT_STATUS];
 
-export interface IApiResponse<T> {
-  code: number;
-  message: string;
-  result: T;
-}
+export type { IApiResponse } from "@/types/api";
 
 export interface IShiftResponse {
   id: string;

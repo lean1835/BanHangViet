@@ -1,18 +1,14 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { Trash2, Plus, AlertTriangle, Check, X } from "lucide-react";
 import { APP_LANGUAGE } from "@/constants/format";
 import {
   PRODUCT_GROUP_COPY,
   PRODUCT_KEYBOARD_KEY,
-  PRODUCT_LABELS,
   PRODUCT_MESSAGE_BUILDERS,
   PRODUCT_MESSAGES,
-  PRODUCT_NOTIFICATION_TYPE,
   PRODUCT_QUERY_CONFIG,
   PRODUCT_SYMBOLS,
-  PRODUCT_UI_CONFIG,
-  type TProductNotificationType,
 } from "@/constants/product";
 import { USER_ROLES } from "@/constants/roles";
 import {
@@ -23,6 +19,8 @@ import {
 } from "@/modules/product/services/productApi";
 import type { IProductGroup } from "@/modules/product/types/IProductGroup";
 import { getApiErrorMessage } from "@/utils/getApiErrorMessage";
+import { useAccessibleDialog } from "@/hooks/useAccessibleDialog";
+import { useNotification } from "@/hooks/useNotification";
 
 interface ProductGroupManagerModalProps {
   isOpen: boolean;
@@ -36,6 +34,7 @@ export const ProductGroupManagerModal: React.FC<ProductGroupManagerModalProps> =
   userRole,
 }) => {
   const isOwner = userRole === USER_ROLES.OWNER;
+  const { showSuccess, showError } = useNotification();
 
   // Queries/Mutations
   const { data: groups = [], refetch } = useGetProductGroupsQuery();
@@ -54,46 +53,35 @@ export const ProductGroupManagerModal: React.FC<ProductGroupManagerModalProps> =
   const [errorMsg, setErrorMsg] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Custom notification & confirm delete states
-  const [notification, setNotification] = useState<{
-    message: string;
-    type: TProductNotificationType;
-  } | null>(null);
-
-  const showNotification = (
-    message: string,
-    type: TProductNotificationType,
-  ) => {
-    setNotification({ message, type });
-  };
-
-  useEffect(() => {
-    if (notification) {
-      const timer = setTimeout(() => {
-        setNotification(null);
-      }, PRODUCT_UI_CONFIG.NOTIFICATION_DURATION_MS);
-      return () => clearTimeout(timer);
-    }
-  }, [notification]);
-
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [groupToDelete, setGroupToDelete] = useState<IProductGroup | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const mainDialogRef = useAccessibleDialog({
+    isOpen,
+    onClose,
+    canClose: !isSubmitting,
+  });
+  const deleteDialogRef = useAccessibleDialog({
+    isOpen: isOpen && isDeleteModalOpen && Boolean(groupToDelete),
+    onClose: () => setIsDeleteModalOpen(false),
+    canClose: !isDeleting,
+  });
 
   const confirmDeleteGroup = async () => {
-    if (!groupToDelete) return;
+    if (!groupToDelete || isDeleting) return;
+    setIsDeleting(true);
     try {
       await deleteGroup(groupToDelete.id).unwrap();
       refetch();
-      showNotification(
+      showSuccess(
         PRODUCT_MESSAGE_BUILDERS.GROUP_DELETE_SUCCESS(groupToDelete.name),
-        PRODUCT_NOTIFICATION_TYPE.SUCCESS,
       );
     } catch (error: unknown) {
-      showNotification(
+      showError(
         getApiErrorMessage(error, PRODUCT_MESSAGES.GROUP_DELETE_FAILED),
-        PRODUCT_NOTIFICATION_TYPE.ERROR,
       );
     } finally {
+      setIsDeleting(false);
       setIsDeleteModalOpen(false);
       setGroupToDelete(null);
     }
@@ -117,10 +105,7 @@ export const ProductGroupManagerModal: React.FC<ProductGroupManagerModalProps> =
     if (!isOwner) return; // Phòng vệ chiều sâu
     const nameTrimmed = editingRowGroupName.trim();
     if (!nameTrimmed) {
-      showNotification(
-        PRODUCT_MESSAGES.GROUP_NAME_REQUIRED,
-        PRODUCT_NOTIFICATION_TYPE.ERROR,
-      );
+      showError(PRODUCT_MESSAGES.GROUP_NAME_REQUIRED);
       handleCancelInline();
       return;
     }
@@ -132,14 +117,10 @@ export const ProductGroupManagerModal: React.FC<ProductGroupManagerModalProps> =
     try {
       await updateGroup({ id, name: nameTrimmed }).unwrap();
       refetch();
-      showNotification(
-        PRODUCT_MESSAGES.GROUP_UPDATE_SUCCESS,
-        PRODUCT_NOTIFICATION_TYPE.SUCCESS,
-      );
+      showSuccess(PRODUCT_MESSAGES.GROUP_UPDATE_SUCCESS);
     } catch (error: unknown) {
-      showNotification(
+      showError(
         getApiErrorMessage(error, PRODUCT_MESSAGES.GROUP_UPDATE_FAILED),
-        PRODUCT_NOTIFICATION_TYPE.ERROR,
       );
     } finally {
       handleCancelInline();
@@ -164,10 +145,7 @@ export const ProductGroupManagerModal: React.FC<ProductGroupManagerModalProps> =
       await createGroup({ name: nameTrimmed }).unwrap();
       setGroupNameInput("");
       refetch();
-      showNotification(
-        PRODUCT_MESSAGE_BUILDERS.GROUP_CREATE_SUCCESS(nameTrimmed),
-        PRODUCT_NOTIFICATION_TYPE.SUCCESS,
-      );
+      showSuccess(PRODUCT_MESSAGE_BUILDERS.GROUP_CREATE_SUCCESS(nameTrimmed));
     } catch (error: unknown) {
       setErrorMsg(
         getApiErrorMessage(error, PRODUCT_MESSAGES.GROUP_MUTATION_FAILED),
@@ -183,30 +161,41 @@ export const ProductGroupManagerModal: React.FC<ProductGroupManagerModalProps> =
   };
 
   return createPortal(
-    <div 
-      onClick={onClose}
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 overflow-y-auto animate-backdrop-fade-in"
+    <div
+      aria-hidden={isDeleteModalOpen || undefined}
+      inert={isDeleteModalOpen || undefined}
+      onClick={() => {
+        if (!isSubmitting) onClose();
+      }}
+      className="app-modal-backdrop fixed inset-0 z-[100] flex items-start justify-center overflow-y-auto bg-slate-900/40 p-2 backdrop-blur-sm animate-backdrop-fade-in sm:items-center sm:p-4"
     >
-      <div 
+      <div
+        ref={mainDialogRef}
+        tabIndex={-1}
         onClick={(e) => e.stopPropagation()}
-        className="bg-white rounded-xl shadow-2xl border border-slate-100 max-w-md w-full overflow-hidden flex flex-col my-4 animate-modal-bounce-in"
+        role="dialog"
+        aria-modal="true"
+        aria-label={PRODUCT_GROUP_COPY.TITLE}
+        className="app-modal-panel flex w-full max-w-md flex-col overflow-hidden rounded-xl border border-slate-100 bg-white shadow-2xl animate-modal-bounce-in"
       >
         {/* Header */}
-        <div className="bg-kv-blue-primary text-white px-5 py-3.5 flex items-center justify-between">
+        <div className="app-modal-header flex items-center justify-between bg-kv-blue-primary px-5 py-3.5 text-white">
           <h2 className="text-xs font-bold uppercase tracking-wider">
             {PRODUCT_GROUP_COPY.TITLE}
           </h2>
           <button
             onClick={onClose}
             type="button"
-            className="text-white/80 hover:text-white transition-colors text-lg"
+            disabled={isSubmitting}
+            aria-label={PRODUCT_GROUP_COPY.CLOSE_ACTION}
+            className="flex min-h-11 min-w-11 items-center justify-center text-lg text-white/80 transition-colors hover:text-white"
           >
             {PRODUCT_SYMBOLS.CLOSE}
           </button>
         </div>
 
         {/* Modal Content */}
-        <div className="p-5 flex flex-col gap-4 font-semibold text-slate-700 text-xs">
+        <div className="app-modal-body flex flex-col gap-4 p-4 text-xs font-semibold text-slate-700 sm:p-5">
           
           {/* Authorization Check */}
           {!isOwner && (
@@ -232,13 +221,13 @@ export const ProductGroupManagerModal: React.FC<ProductGroupManagerModalProps> =
                   placeholder={PRODUCT_GROUP_COPY.NAME_PLACEHOLDER}
                   value={groupNameInput}
                   onChange={(e) => setGroupNameInput(e.target.value)}
-                  className="flex-1 border border-slate-300 h-9 px-3 rounded-lg focus:outline-none focus:border-kv-blue-primary bg-white text-xs font-semibold text-slate-700"
+                  className="h-11 flex-1 rounded-lg border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-700 focus:border-kv-blue-primary focus:outline-none lg:h-9"
                 />
                 
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="bg-kv-blue-primary hover:bg-kv-blue-dark text-white w-9 h-9 rounded-lg font-bold transition-all shadow-sm flex items-center justify-center shrink-0"
+                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-kv-blue-primary font-bold text-white shadow-sm transition-all hover:bg-kv-blue-dark lg:h-9 lg:w-9"
                   title={PRODUCT_GROUP_COPY.CREATE_TOOLTIP}
                 >
                   <Plus size={16} />
@@ -259,8 +248,8 @@ export const ProductGroupManagerModal: React.FC<ProductGroupManagerModalProps> =
               {PRODUCT_GROUP_COPY.LIST_TITLE} ({sortedGroups.length})
             </h3>
             
-            <div className="border border-slate-200 rounded-lg overflow-hidden max-h-60 overflow-y-auto">
-              <table className="w-full text-left border-collapse">
+            <div className="max-h-60 overflow-auto rounded-lg border border-slate-200">
+              <table className="responsive-data-table responsive-data-table--compact w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold text-[10px] uppercase tracking-wider">
                     <th className="p-2.5 w-16 text-center">
@@ -303,23 +292,27 @@ export const ProductGroupManagerModal: React.FC<ProductGroupManagerModalProps> =
                                     handleCancelInline();
                                   }
                                 }}
-                                className="border border-slate-300 h-7 px-2 rounded-md focus:outline-none focus:border-kv-blue-primary text-xs w-full font-semibold text-slate-700 bg-white"
+                                className="h-11 w-full rounded-md border border-slate-300 bg-white px-2 text-xs font-semibold text-slate-700 focus:border-kv-blue-primary focus:outline-none lg:h-7"
                                 autoFocus
                               />
                             </td>
                           ) : (
-                            <td 
-                              onClick={() => isOwner && handleStartInlineEdit(group)}
-                              className={`p-2.5 text-slate-800 truncate max-w-[200px] ${
-                                isOwner ? "cursor-pointer hover:text-kv-blue-primary hover:underline" : ""
-                              }`}
-                              title={
-                                isOwner
-                                  ? PRODUCT_GROUP_COPY.INLINE_EDIT_TOOLTIP
-                                  : group.name
-                              }
-                            >
-                              {group.name}
+                            <td className="max-w-[200px] p-2.5 text-slate-800">
+                              {isOwner ? (
+                                <button
+                                  type="button"
+                                  onClick={() => handleStartInlineEdit(group)}
+                                  aria-label={`${PRODUCT_GROUP_COPY.INLINE_EDIT_TOOLTIP}: ${group.name}`}
+                                  title={PRODUCT_GROUP_COPY.INLINE_EDIT_TOOLTIP}
+                                  className="block min-h-11 w-full truncate rounded text-left font-semibold transition-colors hover:text-kv-blue-primary hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-kv-blue-primary lg:min-h-0"
+                                >
+                                  {group.name}
+                                </button>
+                              ) : (
+                                <span className="block truncate" title={group.name}>
+                                  {group.name}
+                                </span>
+                              )}
                             </td>
                           )}
                           {isOwner && (
@@ -331,7 +324,8 @@ export const ProductGroupManagerModal: React.FC<ProductGroupManagerModalProps> =
                                       type="button"
                                       onClick={() => handleSaveInline(group.id)}
                                       title={PRODUCT_GROUP_COPY.INLINE_SAVE_TOOLTIP}
-                                      className="p-1 hover:bg-emerald-50 rounded text-emerald-600 hover:text-emerald-700 transition-colors"
+                                      aria-label={PRODUCT_GROUP_COPY.INLINE_SAVE_TOOLTIP}
+                                      className="flex min-h-11 min-w-11 items-center justify-center rounded p-1 text-emerald-600 transition-colors hover:bg-emerald-50 hover:text-emerald-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-500 lg:min-h-0 lg:min-w-0"
                                     >
                                       <Check size={13} />
                                     </button>
@@ -339,7 +333,8 @@ export const ProductGroupManagerModal: React.FC<ProductGroupManagerModalProps> =
                                       type="button"
                                       onClick={handleCancelInline}
                                       title={PRODUCT_GROUP_COPY.CANCEL_TOOLTIP}
-                                      className="p-1 hover:bg-rose-50 rounded text-rose-500 hover:text-rose-600 transition-colors"
+                                      aria-label={PRODUCT_GROUP_COPY.CANCEL_TOOLTIP}
+                                      className="flex min-h-11 min-w-11 items-center justify-center rounded p-1 text-rose-500 transition-colors hover:bg-rose-50 hover:text-rose-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-rose-500 lg:min-h-0 lg:min-w-0"
                                     >
                                       <X size={13} />
                                     </button>
@@ -350,7 +345,8 @@ export const ProductGroupManagerModal: React.FC<ProductGroupManagerModalProps> =
                                       type="button"
                                       onClick={() => handleDeleteClick(group)}
                                       title={PRODUCT_GROUP_COPY.DELETE_TOOLTIP}
-                                      className="p-1 hover:bg-slate-100 rounded text-slate-500 hover:text-rose-600 transition-colors"
+                                      aria-label={PRODUCT_GROUP_COPY.DELETE_TOOLTIP}
+                                      className="flex min-h-11 min-w-11 items-center justify-center rounded p-1 text-slate-500 transition-colors hover:bg-slate-100 hover:text-rose-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-rose-500 lg:min-h-0 lg:min-w-0"
                                     >
                                       <Trash2 size={13} />
                                     </button>
@@ -370,11 +366,14 @@ export const ProductGroupManagerModal: React.FC<ProductGroupManagerModalProps> =
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end p-4 border-t gap-2">
+        <div className="app-modal-footer flex items-center justify-end gap-2 border-t p-4">
           <button
-            onClick={onClose}
+            onClick={() => {
+              if (!isSubmitting) onClose();
+            }}
             type="button"
-            className="bg-slate-100 hover:bg-slate-200 transition-colors px-4 h-9 rounded-lg text-slate-700 font-bold font-semibold"
+            disabled={isSubmitting}
+            className="h-11 rounded-lg bg-slate-100 px-4 font-bold text-slate-700 transition-colors hover:bg-slate-200 disabled:cursor-wait disabled:opacity-60 lg:h-9"
           >
             {PRODUCT_GROUP_COPY.CLOSE_ACTION}
           </button>
@@ -384,12 +383,20 @@ export const ProductGroupManagerModal: React.FC<ProductGroupManagerModalProps> =
       {/* Custom Delete Confirmation Modal */}
       {isDeleteModalOpen && groupToDelete && createPortal(
         <div 
-          onClick={() => setIsDeleteModalOpen(false)}
-          className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 overflow-y-auto animate-backdrop-fade-in"
+          onClick={() => {
+            if (!isDeleting) setIsDeleteModalOpen(false);
+          }}
+          className="app-modal-backdrop fixed inset-0 z-[200] flex items-start justify-center overflow-y-auto bg-slate-900/40 p-2 backdrop-blur-sm animate-backdrop-fade-in sm:items-center sm:p-4"
         >
-          <div 
+          <div
+            ref={deleteDialogRef}
+            tabIndex={-1}
             onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-xl shadow-2xl border border-slate-100 max-w-sm w-full overflow-hidden flex flex-col p-6 animate-modal-bounce-in text-center font-semibold text-xs"
+            role="alertdialog"
+            aria-modal="true"
+            aria-label={PRODUCT_GROUP_COPY.DELETE_TITLE}
+            aria-describedby="product-group-delete-description"
+            className="app-modal-panel flex w-full max-w-sm flex-col overflow-y-auto rounded-xl border border-slate-100 bg-white p-5 text-center text-xs font-semibold shadow-2xl animate-modal-bounce-in sm:p-6"
           >
             <div className="w-12 h-12 bg-rose-50 rounded-full flex items-center justify-center text-rose-500 mx-auto mb-4 border border-rose-100">
               <Trash2 size={24} />
@@ -397,7 +404,10 @@ export const ProductGroupManagerModal: React.FC<ProductGroupManagerModalProps> =
             <h3 className="font-extrabold text-slate-800 text-sm mb-2">
               {PRODUCT_GROUP_COPY.DELETE_TITLE}
             </h3>
-            <p className="text-slate-500 leading-relaxed mb-6 font-semibold">
+            <p
+              id="product-group-delete-description"
+              className="text-slate-500 leading-relaxed mb-6 font-semibold"
+            >
               {PRODUCT_GROUP_COPY.DELETE_DESCRIPTION_PREFIX}{" "}
               <strong className="text-slate-700">"{groupToDelete.name}"</strong>
               {PRODUCT_GROUP_COPY.DELETE_DESCRIPTION_SUFFIX}
@@ -406,51 +416,21 @@ export const ProductGroupManagerModal: React.FC<ProductGroupManagerModalProps> =
               <button
                 onClick={() => setIsDeleteModalOpen(false)}
                 type="button"
-                className="flex-1 bg-slate-100 hover:bg-slate-200 transition-colors h-9 rounded-lg text-slate-700 font-bold"
+                disabled={isDeleting}
+                className="h-11 flex-1 rounded-lg bg-slate-100 font-bold text-slate-700 transition-colors hover:bg-slate-200 lg:h-9"
               >
                 {PRODUCT_GROUP_COPY.CANCEL_TOOLTIP}
               </button>
               <button
                 onClick={confirmDeleteGroup}
                 type="button"
-                className="flex-1 bg-rose-600 hover:bg-rose-700 text-white transition-colors h-9 rounded-lg font-bold shadow-sm"
+                disabled={isDeleting}
+                className="h-11 flex-1 rounded-lg bg-rose-600 font-bold text-white shadow-sm transition-colors hover:bg-rose-700 disabled:cursor-wait disabled:opacity-60 lg:h-9"
               >
                 {PRODUCT_GROUP_COPY.DELETE_CONFIRM_ACTION}
               </button>
             </div>
           </div>
-        </div>,
-        document.body
-      )}
-
-      {/* Custom Notification Toast */}
-      {notification && createPortal(
-        <div className="fixed top-5 right-5 z-[210] flex items-center gap-3 bg-white border border-slate-100 shadow-2xl px-4 py-3 rounded-xl max-w-sm animate-modal-bounce-in font-semibold text-xs">
-          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white shrink-0 ${
-            notification.type === PRODUCT_NOTIFICATION_TYPE.SUCCESS
-              ? "bg-emerald-500"
-              : "bg-rose-500"
-          }`}>
-            {notification.type === PRODUCT_NOTIFICATION_TYPE.SUCCESS
-              ? PRODUCT_SYMBOLS.SUCCESS
-              : PRODUCT_SYMBOLS.CLOSE}
-          </div>
-          <div className="flex flex-col gap-0.5 max-w-[200px] text-left">
-            <span className="font-extrabold text-slate-800 text-[10px] uppercase tracking-wider">
-              {notification.type === PRODUCT_NOTIFICATION_TYPE.SUCCESS
-                ? PRODUCT_LABELS.NOTIFICATION_SUCCESS
-                : PRODUCT_LABELS.NOTIFICATION_NOTICE}
-            </span>
-            <span className="text-slate-500 text-[11px] leading-snug break-words">
-              {notification.message}
-            </span>
-          </div>
-          <button 
-            onClick={() => setNotification(null)}
-            className="text-slate-400 hover:text-slate-600 ml-auto font-semibold"
-          >
-            {PRODUCT_SYMBOLS.CLOSE}
-          </button>
         </div>,
         document.body
       )}

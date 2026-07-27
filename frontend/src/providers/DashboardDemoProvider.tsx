@@ -14,20 +14,13 @@ import {
   APP_ERRORS,
   APP_FALLBACKS,
   DEMO_WORKSPACE_DEFAULTS,
+  STORAGE_KEYS,
   getNextActivityLogId,
 } from "@/constants/app";
-import {
-  MOCK_ACTIVITY_LOGS,
-  MOCK_CUSTOMERS,
-  MOCK_INVOICES,
-} from "@/constants/mockData";
-import { MOCK_ORDERS } from "@/constants/mockData/orders";
 import { useGetOrdersHistoryQuery } from "@/modules/order/services/orderApi";
-import { isDemoRole, USER_ROLES } from "@/constants/roles";
+import { isDemoRole, USER_ROLES, type TDemoRole } from "@/constants/roles";
 import type { ICustomer } from "@/modules/customer/types/ICustomer";
-import type { TDemoRole } from "@/constants/roles";
 import type { IInvoice } from "@/modules/e_invoice/types/IInvoice";
-import { MOCK_STOCK_ENTRIES } from "@/constants/mockData/product";
 import type { IStockEntry } from "@/modules/product/types/IStockEntry";
 import type { IOrderResponse } from "@/modules/order/types/IOrder";
 import type { IActivityLog } from "@/modules/report/types/IActivityLog";
@@ -50,6 +43,10 @@ interface IDashboardDemoContext {
   setStockEntries: Dispatch<SetStateAction<IStockEntry[]>>;
   orders: IOrderResponse[];
   setOrders: Dispatch<SetStateAction<IOrderResponse[]>>;
+  isOrdersLoading: boolean;
+  isOrdersError: boolean;
+  ordersError: unknown;
+  refetchOrders: (syncedOrderNumbers?: string[]) => void;
 }
 
 const DashboardDemoContext = createContext<IDashboardDemoContext | null>(null);
@@ -69,29 +66,84 @@ export const DashboardDemoProvider = ({ children }: DashboardDemoProviderProps) 
   const [simConflict, setSimConflict] = useState<boolean>(
     DEMO_WORKSPACE_DEFAULTS.SIMULATE_CONFLICT,
   );
-  const [invoices, setInvoices] = useState<IInvoice[]>(() => [...MOCK_INVOICES]);
-  const [customers, setCustomers] = useState<ICustomer[]>(() => [...MOCK_CUSTOMERS]);
-  const [logs, setLogs] = useState<IActivityLog[]>(() => [...MOCK_ACTIVITY_LOGS]);
-  const [stockEntries, setStockEntries] = useState<IStockEntry[]>(() => [
-    ...MOCK_STOCK_ENTRIES,
-  ]);
-  const [orders, setOrders] = useState<IOrderResponse[]>(() => [...MOCK_ORDERS]);
+  const [invoices, setInvoices] = useState<IInvoice[]>(() => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEYS.POS_OFFLINE_INVOICES);
+      if (raw) return JSON.parse(raw);
+    } catch {}
+    return [];
+  });
 
-  // Fetch orders from the backend database when online
-  const { data: apiOrdersData } = useGetOrdersHistoryQuery();
-
-  // Dynamically sync orders with database when fetched
   useEffect(() => {
-    if (apiOrdersData?.result && apiOrdersData.result.length > 0) {
-      setOrders((prev) => {
-        const backendOrders = apiOrdersData.result;
-        const localOnly = prev.filter(
-          (local) => !backendOrders.some((be) => be.orderNumber === local.orderNumber)
-        );
-        return [...localOnly, ...backendOrders];
-      });
+    try {
+      if (invoices.length > 0) {
+        localStorage.setItem(STORAGE_KEYS.POS_OFFLINE_INVOICES, JSON.stringify(invoices));
+      }
+    } catch {}
+  }, [invoices]);
+  const [customers, setCustomers] = useState<ICustomer[]>([]);
+  const [logs, setLogs] = useState<IActivityLog[]>([]);
+  const [stockEntries, setStockEntries] = useState<IStockEntry[]>([]);
+  const [orders, setOrders] = useState<IOrderResponse[]>([]);
+
+  const canFetchOrders = Boolean(
+    user?.roleId &&
+      (user.roleId === USER_ROLES.OWNER ||
+        user.roleId === USER_ROLES.CASHIER ||
+        user.roleId === USER_ROLES.ACCOUNTANT) &&
+      user?.household != null
+  );
+
+  const {
+    data: apiOrdersData,
+    error: ordersError,
+    isError: isOrdersError,
+    isLoading: isOrdersLoading,
+    refetch: refetchOrdersQuery,
+  } = useGetOrdersHistoryQuery(undefined, { skip: !isOnline || !canFetchOrders });
+
+  useEffect(() => {
+    if (isOnline && apiOrdersData?.result) {
+      setOrders(apiOrdersData.result);
     }
-  }, [apiOrdersData]);
+  }, [apiOrdersData, isOnline]);
+
+  const refetchOrders = useCallback(
+    async (syncedOrderNumbers?: string[]) => {
+      setOrders((prevOrders) =>
+        prevOrders.map((ord) => {
+          if (
+            (syncedOrderNumbers && syncedOrderNumbers.length > 0 && syncedOrderNumbers.includes(ord.orderNumber)) ||
+            (!syncedOrderNumbers && (ord.isOffline || ord.syncStatus === "PENDING"))
+          ) {
+            return { ...ord, isOffline: false, syncStatus: "SYNCED" };
+          }
+          return ord;
+        })
+      );
+
+      if (isOnline) {
+        const res = await refetchOrdersQuery();
+        const serverResult = res.data?.result;
+        if (serverResult && serverResult.length > 0) {
+          setOrders((prevOrders) => {
+            const serverOrdersMap = new Map(serverResult.map((o) => [o.orderNumber, o]));
+            const updated = prevOrders.map((o) => {
+              const serverMatch = serverOrdersMap.get(o.orderNumber);
+              if (serverMatch) {
+                return { ...serverMatch, isOffline: false, syncStatus: "SYNCED" };
+              }
+              return o;
+            });
+            const prevNumbers = new Set(prevOrders.map((o) => o.orderNumber));
+            const newServerOrders = serverResult.filter((o) => !prevNumbers.has(o.orderNumber));
+            return [...newServerOrders, ...updated];
+          });
+        }
+      }
+    },
+    [isOnline, refetchOrdersQuery]
+  );
 
   const addLogEntry = useCallback(
     (action: string, target: string) => {
@@ -127,6 +179,10 @@ export const DashboardDemoProvider = ({ children }: DashboardDemoProviderProps) 
       setStockEntries,
       orders,
       setOrders,
+      isOrdersLoading,
+      isOrdersError,
+      ordersError,
+      refetchOrders,
     }),
     [
       currentRole,
@@ -138,6 +194,10 @@ export const DashboardDemoProvider = ({ children }: DashboardDemoProviderProps) 
       addLogEntry,
       stockEntries,
       orders,
+      isOrdersLoading,
+      isOrdersError,
+      ordersError,
+      refetchOrders,
     ]
   );
 

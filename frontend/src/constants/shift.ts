@@ -12,6 +12,8 @@ export const SHIFT_API_TAG_IDS = {
   ACTIVE: "ACTIVE",
 } as const;
 
+export const SHIFT_DIFFERENCE_REASON_MAX_LENGTH = 500;
+
 export const SHIFT_STATUS = {
   OPEN: "OPEN",
   CLOSED: "CLOSED",
@@ -42,6 +44,12 @@ export const SHIFT_MESSAGES = {
   OPEN_ERROR_PREFIX: "Lỗi mở ca: ",
   CLOSE_ERROR_PREFIX: "Lỗi đóng ca: ",
   DIFFERENCE_REASON_REQUIRED: "Lỗi: Phải nhập lý do chênh lệch tiền đếm thực tế!",
+  ACTIVE_SHIFT_LOAD_ERROR:
+    "Không thể kiểm tra trạng thái ca bán hàng. Vui lòng thử lại.",
+  ACTIVE_SHIFT_REFRESH_ERROR:
+    "Không thể cập nhật dữ liệu ca mới nhất. Vui lòng thử lại.",
+  SHIFT_NO_LONGER_OPEN: "Ca bán hàng này không còn ở trạng thái mở.",
+  EMPLOYEE_REQUIRED: "Vui lòng chọn nhân viên cần mở ca.",
   DELETE_CONFIRM: (shiftCode: string) =>
     `Bạn có chắc chắn muốn xóa ca bán hàng mã số ${shiftCode} khỏi hệ thống?`,
   DELETE_SUCCESS: (shiftCode: string) =>
@@ -55,7 +63,7 @@ const SHIFT_TABLE_COLUMNS = {
   OPENED_AT: "Thời gian mở",
   CLOSED_AT: "Thời gian đóng",
   OPENING_CASH: "Quỹ đầu ca",
-  EXPECTED_CASH: "Tiền mặt kì vọng",
+  EXPECTED_CASH: "Tiền kì vọng",
   ACTUAL_CASH: "Đếm thực tế",
   DIFFERENCE: "Chênh lệch",
   DIFFERENCE_REASON: "Lý do chênh lệch",
@@ -71,15 +79,16 @@ const SHIFT_OPEN_MODAL_UI = {
     "Khai báo tiền quỹ đầu ca để kích hoạt phiên làm việc POS của bạn.",
   EMPLOYEE_LABEL: "Nhân viên nhận ca:",
   SELF_OPTION_LABEL: "-- Chính mình --",
-  OPENING_CASH_LABEL: "Tiền mặt đầu ca (đ):",
+  EMPLOYEE_OPTION_LABEL: "-- Chọn nhân viên --",
+  OPENING_CASH_LABEL: "Tiền đầu ca (đ):",
   CONFIRM_BUTTON: "XÁC NHẬN MỞ CA",
 } as const;
 
 const SHIFT_RECONCILIATION_UI = {
-  EXPECTED_CASH_LABEL: "Tiền mặt kì vọng:",
-  ACTUAL_CASH_LABEL: "Tiền mặt thực tế:",
+  EXPECTED_CASH_LABEL: "Tiền kì vọng:",
+  ACTUAL_CASH_LABEL: "Đếm thực tế:",
   DIFFERENCE_LABEL: "Chênh lệch:",
-  ACTUAL_CASH_INPUT_LABEL: "Tiền mặt thực tế đếm tại két (đ):",
+  ACTUAL_CASH_INPUT_LABEL: "Tiền thực tế đếm tại két (đ):",
   DIFFERENCE_REASON_LABEL: "⚠️ Nhập lý do chênh lệch bắt buộc:",
   DIFFERENCE_REASON_PLACEHOLDER: "Nhập lý do...",
 } as const;
@@ -91,7 +100,7 @@ export const SHIFT_UI = {
     POSITIVE_AMOUNT_PREFIX: "+",
     CLOSE_ICON: "✕",
     CANCEL_BUTTON: "HỦY BỎ",
-    OPEN_SHIFT_BUTTON: "+ MỞ CA LÀM VIỆC MỚI",
+    OPEN_SHIFT_BUTTON: "MỞ CA LÀM VIỆC MỚI",
     EMPTY_HISTORY_MESSAGE: "Không tìm thấy ca bán hàng nào phù hợp.",
     TABLE_COLUMNS: SHIFT_TABLE_COLUMNS,
     OPEN_MODAL: SHIFT_OPEN_MODAL_UI,
@@ -111,7 +120,7 @@ export const SHIFT_UI = {
     CLOSE_SHIFT_BUTTON: "ĐÓNG CA BÁN HÀNG",
     OPENING_FUND_LABEL: "Tiền quỹ đầu ca",
     OPENED_AT_LABEL: "Mở ca lúc:",
-    EXPECTED_CASH_LABEL: "Tiền mặt kì vọng trong két",
+    EXPECTED_CASH_LABEL: "Tiền kì vọng trong két",
     EXPECTED_CASH_HINT: "Tự động cộng dồn doanh số tiền mặt",
     NO_ACTIVE_SHIFT_TITLE: "Bạn chưa mở ca làm việc!",
     NO_ACTIVE_SHIFT_DESCRIPTION:
@@ -129,6 +138,7 @@ export const SHIFT_UI = {
     LOADING_MESSAGE: "Đang tải dữ liệu ca làm việc...",
     SEARCH_PLACEHOLDER: "Tìm theo nhân viên, mã ca...",
     CLOSE_CURRENT_SHIFT_BUTTON: "ĐÓNG CA HIỆN TẠI",
+    OPEN_FOR_EMPLOYEE_BUTTON: "MỞ CA CHO NHÂN VIÊN",
     TITLE: "Lịch sử các ca bán hàng",
     CLOSE_FOR_EMPLOYEE_BUTTON: "Đóng ca hộ",
     EDIT_TOOLTIP: "Sửa ca",

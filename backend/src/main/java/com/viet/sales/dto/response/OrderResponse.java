@@ -34,4 +34,6 @@ public class OrderResponse {
     private List<String> warningMessages;
     private String qrCodeUrl;
     private BigDecimal changeAmount;
+    private BigDecimal paidAmount;
+    private BigDecimal debtAmount;
 }

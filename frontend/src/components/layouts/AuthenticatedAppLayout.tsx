@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { APP_ROUTES } from "@/constants/routes";
 import { USER_ROLES } from "@/constants/roles";
@@ -5,8 +6,14 @@ import type { TDemoRole } from "@/constants/roles";
 import { useDashboardDemo } from "@/providers/DashboardDemoProvider";
 import { DashboardNavigation } from "./DashboardNavigation";
 import { DashboardUtilityBar } from "./DashboardUtilityBar";
+import { useOfflineSync } from "@/modules/sync/hooks/useOfflineSync";
+import { OfflineSyncBanner } from "@/modules/sync/components/OfflineSyncBanner";
+import { ConflictResolutionModal } from "@/modules/sync/components/ConflictResolutionModal";
+import { useAuthExpiration } from "@/hooks/useAuthExpiration";
 
 export const AuthenticatedAppLayout = () => {
+  useAuthExpiration();
+
   const navigate = useNavigate();
   const location = useLocation();
   const {
@@ -16,7 +23,28 @@ export const AuthenticatedAppLayout = () => {
     setIsOnline,
     simConflict,
     setSimConflict,
+    refetchOrders,
   } = useDashboardDemo();
+
+  const [isConflictModalOpen, setIsConflictModalOpen] = useState<boolean>(false);
+
+  const isPosScreen =
+    location.pathname === APP_ROUTES.POS ||
+    location.pathname.startsWith(APP_ROUTES.POS);
+
+  const {
+    pendingCount,
+    conflictingOrders,
+    warnings,
+    isSyncing,
+    triggerSync,
+    resolveOrderConflict,
+  } = useOfflineSync({
+    isOnline,
+    simConflict,
+    userRole: currentRole,
+    onSyncSuccess: refetchOrders,
+  });
 
   const handleRoleChange = (newRole: TDemoRole) => {
     setCurrentRole(newRole);
@@ -44,16 +72,41 @@ export const AuthenticatedAppLayout = () => {
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-100 text-slate-800 text-xs font-sans select-none">
+      {/* Top-most Utility Bar is kept across all pages */}
       <DashboardUtilityBar
         currentRole={currentRole}
         isOnline={isOnline}
         simConflict={simConflict}
+        pendingCount={pendingCount}
         onRoleChange={handleRoleChange}
         onToggleOnline={() => setIsOnline((currentValue) => !currentValue)}
         onConflictChange={setSimConflict}
+        onSync={triggerSync}
       />
-      <DashboardNavigation currentRole={currentRole} />
+      {/* Blue Navigation Menu is hidden when on POS screen */}
+      {!isPosScreen &&
+        currentRole !== USER_ROLES.PLATFORM_ADMIN &&
+        currentRole !== USER_ROLES.TAX_AUTHORITY && (
+          <DashboardNavigation currentRole={currentRole} />
+        )}
+      <OfflineSyncBanner
+        isOnline={isOnline}
+        pendingCount={pendingCount}
+        conflictingOrdersCount={conflictingOrders.length}
+        warnings={warnings}
+        isSyncing={isSyncing}
+        onSync={triggerSync}
+        onOpenConflictModal={() => setIsConflictModalOpen(true)}
+      />
       <Outlet />
+      <ConflictResolutionModal
+        isOpen={isConflictModalOpen || conflictingOrders.length > 0}
+        conflictingOrders={conflictingOrders}
+        currentRole={currentRole}
+        isSyncing={isSyncing}
+        onResolve={resolveOrderConflict}
+        onClose={() => setIsConflictModalOpen(false)}
+      />
     </div>
   );
 };

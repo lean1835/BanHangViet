@@ -1,6 +1,7 @@
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import { STORAGE_KEYS } from "@/constants/app";
 import type { IUser } from "@/modules/auth/types/IAuth";
+import { isTokenExpired } from "@/utils/jwt";
 
 interface IAuthState {
   user: IUser | null;
@@ -12,7 +13,11 @@ const getInitialState = (): IAuthState => {
   let token = localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
   let user: IUser | null = null;
   
-  if (token) {
+  if (token && isTokenExpired(token)) {
+    token = null;
+    localStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
+    localStorage.removeItem(STORAGE_KEYS.AUTH_USER);
+  } else if (token) {
     try {
       const savedUser = localStorage.getItem(STORAGE_KEYS.AUTH_USER);
       if (savedUser) {

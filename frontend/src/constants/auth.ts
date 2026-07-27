@@ -122,3 +122,8 @@ export const AUTH_UI = {
     SELECT_HINT: "Click vào tài khoản để tự động điền vào form",
   },
 } as const;
+
+export const AUTH_EXPIRATION_CONFIG = {
+  CHECK_INTERVAL_MS: 15_000,
+  EXPIRED_MESSAGE: "Phiên đăng nhập đã hết hạn",
+} as const;

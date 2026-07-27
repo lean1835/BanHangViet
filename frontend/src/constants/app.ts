@@ -1,5 +1,5 @@
 export const APP_BRAND = {
-  PREFIX: "Bán Hàng",
+  PREFIX: "Bán Hàng ",
   SUFFIX: "Việt",
   FULL_NAME: "Bán Hàng Việt",
   DEMO_LABEL: "Demo Trải nghiệm Nghiệp vụ",
@@ -9,12 +9,15 @@ export const APP_BRAND = {
 export const STORAGE_KEYS = {
   AUTH_TOKEN: "token",
   AUTH_USER: "user",
+  POS_OFFLINE_INVOICES: "pos_offline_invoices_v1",
 } as const;
 
 export const APP_FALLBACKS = {
   HOUSEHOLD_NAME: "Chủ hộ Tạp Hóa Việt",
   USERNAME: "chuho_viet",
+  CASHIER_NAME: "Thu ngân",
   BRANCH_NAME: "Chi nhánh chính",
+  CENTER_BRANCH_NAME: "Chi nhánh trung tâm",
 } as const;
 
 export const CONNECTION_STATUS = {

@@ -13,6 +13,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
@@ -26,6 +27,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureMockMvc
 @Transactional
 public class OrderControllerTest {
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
+
+    @Autowired
+    private jakarta.persistence.EntityManager entityManager;
 
     @Autowired
     private MockMvc mockMvc;
@@ -70,7 +77,6 @@ public class OrderControllerTest {
 
     @BeforeEach
     public void setUp() {
-
         // 1. Hộ kinh doanh
         testHousehold = businessHouseholdRepository.findByTaxCode("8888888888").orElseGet(() -> {
             BusinessHousehold household = BusinessHousehold.builder()
@@ -147,6 +153,8 @@ public class OrderControllerTest {
                             .build();
                     return productRepository.save(p);
                 });
+        testProduct.setStockQuantity(new BigDecimal("50.000"));
+        testProduct = productRepository.saveAndFlush(testProduct);
 
         // 6. Khách hàng
         testCustomer = customerRepository.findAll().stream()
@@ -555,6 +563,9 @@ public class OrderControllerTest {
     @WithMockUser(username = "test_owner_order", roles = {"VT-01"})
     public void completeOrder_stockDeducted_success() throws Exception {
         openShiftForUser(testOwner);
+        testProduct.setStockQuantity(new BigDecimal("50.000"));
+        testProduct = productRepository.saveAndFlush(testProduct);
+        entityManager.clear();
 
         // 1. Tạo đơn hàng
         CreateOrderRequest orderReq = CreateOrderRequest.builder().build();
@@ -590,8 +601,11 @@ public class OrderControllerTest {
                         .content(objectMapper.writeValueAsString(completeReq)))
                 .andExpect(status().isOk());
 
+        entityManager.flush();
+
         // 5. Kiểm tra stock của product giảm còn 45.000
         Product updatedProduct = productRepository.findById(testProduct.getId()).orElseThrow();
+        entityManager.refresh(updatedProduct);
         org.junit.jupiter.api.Assertions.assertEquals(0, new BigDecimal("45.000").compareTo(updatedProduct.getStockQuantity()));
     }
 
@@ -687,6 +701,9 @@ public class OrderControllerTest {
     @WithMockUser(username = "test_owner_order", roles = {"VT-01"})
     public void completeOrder_overStock_success_withWarning() throws Exception {
         openShiftForUser(testOwner);
+        testProduct.setStockQuantity(new BigDecimal("50.000"));
+        testProduct = productRepository.saveAndFlush(testProduct);
+        entityManager.clear();
 
         // 1. Tạo đơn hàng
         CreateOrderRequest orderReq = CreateOrderRequest.builder().build();
@@ -724,8 +741,11 @@ public class OrderControllerTest {
                 .andExpect(jsonPath("$.result.warningMessages").isArray())
                 .andExpect(jsonPath("$.result.warningMessages[0]").value(org.hamcrest.Matchers.containsString("vượt quá số lượng tồn kho khả dụng")));
 
+        entityManager.flush();
+
         // 5. Kiểm tra stock của product giảm còn -10.000
         Product updatedProduct = productRepository.findById(testProduct.getId()).orElseThrow();
+        entityManager.refresh(updatedProduct);
         org.junit.jupiter.api.Assertions.assertEquals(0, new BigDecimal("-10.000").compareTo(updatedProduct.getStockQuantity()));
     }
 
