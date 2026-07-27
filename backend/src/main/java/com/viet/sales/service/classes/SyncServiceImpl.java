@@ -1,5 +1,4 @@
 package com.viet.sales.service.classes;
-
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.viet.sales.constant.ShiftStatus;
 import com.viet.sales.dto.request.SyncCheckRequest;
@@ -25,16 +24,13 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
-
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
