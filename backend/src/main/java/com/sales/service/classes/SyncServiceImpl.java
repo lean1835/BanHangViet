@@ -310,8 +310,10 @@ public class SyncServiceImpl implements SyncService {
 
                     // Check stock warning before atomic deduction
                     if (product.getStockQuantity() != null && product.getStockQuantity().compareTo(itemReq.getQuantity()) < 0) {
+                        String reqQtyStr = itemReq.getQuantity() != null ? itemReq.getQuantity().stripTrailingZeros().toPlainString() : "0";
+                        String stockQtyStr = product.getStockQuantity() != null ? product.getStockQuantity().stripTrailingZeros().toPlainString() : "0";
                         warnings.add("Sản phẩm '" + product.getName() + "' vượt quá số lượng tồn kho khả dụng khi đồng bộ (Yêu cầu: "
-                                + itemReq.getQuantity() + ", Tồn kho: " + product.getStockQuantity() + ").");
+                                + reqQtyStr + ", Tồn kho: " + stockQtyStr + ").");
                     }
 
                     // Subtract stock atomically via SQL (do not mutate in-memory entity to prevent Hibernate dirty checking conflicts)

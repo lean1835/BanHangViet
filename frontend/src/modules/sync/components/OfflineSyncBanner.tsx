@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 
 interface OfflineSyncBannerProps {
   isOnline: boolean;
@@ -19,6 +19,20 @@ export const OfflineSyncBanner: React.FC<OfflineSyncBannerProps> = ({
   onSync,
   onOpenConflictModal,
 }) => {
+  const [visibleWarnings, setVisibleWarnings] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (warnings && warnings.length > 0) {
+      setVisibleWarnings(warnings);
+      const timer = setTimeout(() => {
+        setVisibleWarnings([]);
+      }, 3000);
+      return () => clearTimeout(timer);
+    } else {
+      setVisibleWarnings([]);
+    }
+  }, [warnings]);
+
   // 1. Chế độ Mất mạng
   if (!isOnline) {
     return (
@@ -85,8 +99,8 @@ export const OfflineSyncBanner: React.FC<OfflineSyncBannerProps> = ({
     );
   }
 
-  // 4. Cảnh báo nghiệp vụ từ máy chủ (Quá 24h, tồn kho, lỗi API...)
-  if (warnings.length > 0) {
+  // 4. Cảnh báo nghiệp vụ từ máy chủ (Quá 24h, tồn kho, lỗi API...) - Hiển thị 3 giây
+  if (visibleWarnings.length > 0) {
     return (
       <div className="bg-amber-50 border-b border-amber-200 text-amber-800 px-4 py-2 text-xs font-medium flex items-start justify-between gap-3 animate-fade-in">
         <div className="flex items-start gap-2">
@@ -94,12 +108,19 @@ export const OfflineSyncBanner: React.FC<OfflineSyncBannerProps> = ({
           <div>
             <strong className="font-bold">Thông báo đồng bộ Ngoại tuyến:</strong>
             <ul className="list-disc list-inside mt-0.5 space-y-0.5">
-              {warnings.map((w, idx) => (
+              {visibleWarnings.map((w, idx) => (
                 <li key={idx}>{w}</li>
               ))}
             </ul>
           </div>
         </div>
+        <button
+          onClick={() => setVisibleWarnings([])}
+          className="text-amber-600 hover:text-amber-800 p-1 rounded hover:bg-amber-100 transition-colors text-xs font-bold shrink-0"
+          title="Đóng thông báo"
+        >
+          ✕
+        </button>
       </div>
     );
   }
