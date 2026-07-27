@@ -43,7 +43,8 @@ public class InvoiceTemplateServiceImpl implements InvoiceTemplateService {
                         .invoicePattern("1")
                         .invoiceSymbol("1C26TAA")
                         .title("HÓA ĐƠN GIÁ TRỊ GIA TĂNG")
-                        .footerNote("Cảm ơn quý khách đã mua hàng! Hóa đơn điện tử khởi tạo từ máy tính tiền có mã của CQT.")
+                        .footerNote(
+                                "Cảm ơn quý khách đã mua hàng! Hóa đơn điện tử khởi tạo từ máy tính tiền có mã của CQT.")
                         .build()));
 
         return mapToResponse(template);
@@ -53,8 +54,9 @@ public class InvoiceTemplateServiceImpl implements InvoiceTemplateService {
     @Transactional(rollbackFor = Exception.class)
     public InvoiceTemplateResponse updateTemplate(String currentUsername, InvoiceTemplateRequest request) {
         User currentUser = getAuthenticatedUser(currentUsername);
-        
-        // Chỉ vai trò VT-01 (Chủ hộ) hoặc VT-03 (Kế toán) được phép cập nhật cấu hình mẫu
+
+        // Chỉ vai trò VT-01 (Chủ hộ) hoặc VT-03 (Kế toán) được phép cập nhật cấu hình
+        // mẫu
         String roleCode = currentUser.getRole().getCode();
         if (!"VT-01".equals(roleCode) && !"VT-03".equals(roleCode)) {
             throw new AppException(ErrorCode.FORBIDDEN);
@@ -76,7 +78,7 @@ public class InvoiceTemplateServiceImpl implements InvoiceTemplateService {
         template.setFooterNote(request.getFooterNote());
 
         InvoiceTemplate saved = invoiceTemplateRepository.save(template);
-        log.info("Cấu hình mẫu hóa đơn được cập nhật bởi user {}: Pattern={}, Symbol={}", 
+        log.info("Cấu hình mẫu hóa đơn được cập nhật bởi user {}: Pattern={}, Symbol={}",
                 currentUsername, saved.getInvoicePattern(), saved.getInvoiceSymbol());
 
         return mapToResponse(saved);

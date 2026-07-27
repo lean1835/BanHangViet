@@ -43,7 +43,7 @@ public class HouseholdServiceImpl implements HouseholdService {
     @Transactional(readOnly = true)
     public HouseholdResponse getMyHousehold(String currentUsername) {
         User currentUser = getAuthenticatedUser(currentUsername);
-        
+
         // Kiểm tra vai trò chủ hộ kinh doanh (VT-01)
         if (!"VT-01".equals(currentUser.getRole().getCode())) {
             throw new AppException(ErrorCode.FORBIDDEN);
@@ -103,9 +103,11 @@ public class HouseholdServiceImpl implements HouseholdService {
         return mapToResponse(saved);
     }
 
-    private void logActivity(BusinessHousehold household, User actor, String action, String targetId, Object oldValue, Object newValue) {
+    private void logActivity(BusinessHousehold household, User actor, String action, String targetId, Object oldValue,
+            Object newValue) {
         try {
-            ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+            ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder
+                    .getRequestAttributes();
             HttpServletRequest request = attributes != null ? attributes.getRequest() : null;
 
             String clientIp = request != null ? request.getRemoteAddr() : null;

@@ -1063,7 +1063,7 @@ public class EInvoiceServiceImpl implements EInvoiceService {
         checkInvoiceOwnership(invoice, currentUser);
 
         if (!"ISSUED".equals(invoice.getStatus())) {
-            throw new AppException(ErrorCode.INVOICE_NOT_SEND_ERROR);
+            throw new AppException(ErrorCode.INVOICE_DELIVERY_NOT_ALLOWED);
         }
 
         InvoiceDeliveryLog deliveryLog = InvoiceDeliveryLog.builder()
