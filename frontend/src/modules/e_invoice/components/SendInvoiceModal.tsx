@@ -11,8 +11,10 @@ import {
   X,
   ExternalLink,
   ShieldCheck,
+  AlertTriangle,
 } from "lucide-react";
 import { useAccessibleDialog } from "@/hooks/useAccessibleDialog";
+import { useNotification } from "@/hooks/useNotification";
 import { useSendInvoiceViaEmailMutation } from "../services/invoiceDeliveryApi";
 import type { IInvoice } from "../types/IInvoice";
 import type { TDeliveryMethod, IDeliveryLog } from "../types/IInvoiceDelivery";
@@ -30,6 +32,7 @@ export const SendInvoiceModal: React.FC<SendInvoiceModalProps> = ({
   invoice,
   onDeliverySuccess,
 }) => {
+  const { showSuccess, showError, showWarning } = useNotification();
   const [activeTab, setActiveTab] = useState<TDeliveryMethod>("QR");
   const [email, setEmail] = useState(invoice.buyerEmail || "");
   const emailSubject = `[Bán Hàng Việt] Hóa đơn điện tử ${invoice.invoiceNumber || invoice.lookupCode}`;
@@ -75,9 +78,15 @@ export const SendInvoiceModal: React.FC<SendInvoiceModalProps> = ({
   const handleSendEmail = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email.trim()) {
-      message.warning("Vui lòng nhập địa chỉ email của khách hàng!");
+      showWarning("Vui lòng nhập địa chỉ email của khách hàng!");
       return;
     }
+
+    if (invoice.status !== "ISSUED") {
+      showError("Chỉ có thể gửi thư điện tử cho hóa đơn đã phát hành (trạng thái ISSUED)!");
+      return;
+    }
+
     try {
       await sendInvoiceViaEmail({
         invoiceId: invoice.id,
@@ -95,12 +104,12 @@ export const SendInvoiceModal: React.FC<SendInvoiceModalProps> = ({
       };
 
       onDeliverySuccess?.(newLog);
-      message.success(`Đã gửi hóa đơn điện tử tới email ${email.trim()}`);
+      showSuccess(`Đã gửi hóa đơn điện tử thành công tới email ${email.trim()}`);
       onClose();
     } catch (err: unknown) {
       const errorObj = err as { data?: { message?: string }; message?: string };
       const apiErrorMsg = errorObj?.data?.message || errorObj?.message;
-      message.error(apiErrorMsg || "Gửi thư điện tử thất bại!");
+      showError(apiErrorMsg || "Gửi thư điện tử thất bại! Vui lòng kiểm tra lại địa chỉ email hoặc kết nối hệ thống.");
     }
   };
 
@@ -233,6 +242,17 @@ export const SendInvoiceModal: React.FC<SendInvoiceModalProps> = ({
           {/* TAB 2: EMAIL */}
           {activeTab === "EMAIL" && (
             <form onSubmit={handleSendEmail} className="flex flex-col gap-3.5">
+              {invoice.status !== "ISSUED" && (
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-xs font-semibold flex items-start gap-2.5">
+                  <AlertTriangle className="w-4.5 h-4.5 text-amber-600 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-bold">Lưu ý: Hóa đơn chưa phát hành</p>
+                    <p className="text-[11px] text-amber-700 font-normal mt-0.5 leading-relaxed">
+                      Hóa đơn đang ở trạng thái <strong className="font-extrabold text-amber-900">{invoice.status}</strong>. Chỉ hóa đơn đã được phát hành (ISSUED) mới có thể gửi qua Email cho khách hàng.
+                    </p>
+                  </div>
+                </div>
+              )}
               <div>
                 <label className="block text-xs font-extrabold text-slate-700 mb-1">
                   Địa chỉ Thư điện tử (Email):

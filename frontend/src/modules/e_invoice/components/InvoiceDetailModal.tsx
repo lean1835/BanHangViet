@@ -501,17 +501,19 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
                 </h3>
 
               <div className="flex flex-col gap-2 font-bold">
-                {/* Send invoice to customer (QR, Zalo, Email) */}
-                <button
-                  type="button"
-                  onClick={() => setShowSendModal(true)}
-                  className="w-full flex min-h-9 py-1.5 items-center justify-center rounded-lg bg-emerald-600 text-white text-[11px] font-bold hover:bg-emerald-700 transition-colors shadow-sm"
-                >
-                  <svg className="w-3.5 h-3.5 mr-1.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
-                  </svg>
-                  GỬI HÓA ĐƠN CHO KHÁCH
-                </button>
+                {/* Send invoice to customer (QR, Zalo, Email) - Only visible when invoice is ISSUED */}
+                {invoice.status === E_INVOICE_STATUS.ISSUED && (
+                  <button
+                    type="button"
+                    onClick={() => setShowSendModal(true)}
+                    className="w-full flex min-h-9 py-1.5 items-center justify-center rounded-lg bg-emerald-600 text-white text-[11px] font-bold hover:bg-emerald-700 transition-colors shadow-sm"
+                  >
+                    <svg className="w-3.5 h-3.5 mr-1.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
+                    </svg>
+                    GỬI HÓA ĐƠN CHO KHÁCH
+                  </button>
+                )}
 
 
 

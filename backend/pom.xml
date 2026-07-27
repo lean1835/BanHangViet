@@ -9,7 +9,7 @@
         <version>3.3.1</version>
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
-    <groupId>com.viet</groupId>
+    <groupId>com.sales</groupId>
     <artifactId>sales</artifactId>
     <version>0.0.1-SNAPSHOT</version>
     <name>sales</name>
