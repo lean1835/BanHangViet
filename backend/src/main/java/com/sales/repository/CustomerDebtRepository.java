@@ -54,10 +54,16 @@ public interface CustomerDebtRepository extends JpaRepository<CustomerDebt, Stri
     @Query("SELECT d FROM CustomerDebt d JOIN FETCH d.customer JOIN FETCH d.household " +
            "WHERE d.status = 'OVERDUE' AND d.type = 'DEBT_CREATED' AND d.overdueReminderSent = false " +
            "AND d.customer.email IS NOT NULL AND TRIM(d.customer.email) != '' " +
+           "AND d.dueDate <= :maxOverdueDueDate " +
            "AND d.id > :lastId ORDER BY d.id ASC")
     List<CustomerDebt> findPendingOverdueRemindersKeyset(
             @Param("lastId") String lastId,
+            @Param("maxOverdueDueDate") LocalDateTime maxOverdueDueDate,
             Pageable pageable);
+
+    @Query("SELECT COALESCE(MIN(d.customer.reminderDaysAfter), 3) FROM CustomerDebt d " +
+           "WHERE d.status = 'OVERDUE' AND d.type = 'DEBT_CREATED' AND d.overdueReminderSent = false")
+    Integer findMinPendingOverdueReminderDaysAfter();
 
     @Query("SELECT COALESCE(MAX(d.customer.reminderDaysBefore), 3) FROM CustomerDebt d " +
            "WHERE d.status = 'PENDING' AND d.type = 'DEBT_CREATED' AND d.reminderSent = false")

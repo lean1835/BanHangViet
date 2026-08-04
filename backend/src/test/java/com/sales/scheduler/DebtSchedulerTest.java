@@ -96,10 +96,11 @@ class DebtSchedulerTest {
                 .build();
 
         when(customerDebtRepository.findMaxPendingReminderDaysBefore()).thenReturn(3);
+        when(customerDebtRepository.findMinPendingOverdueReminderDaysAfter()).thenReturn(3);
         when(customerDebtRepository.findPendingPreDueRemindersKeyset(any(), any(), any()))
                 .thenReturn(List.of(debt))
                 .thenReturn(List.of());
-        when(customerDebtRepository.findPendingOverdueRemindersKeyset(any(), any()))
+        when(customerDebtRepository.findPendingOverdueRemindersKeyset(any(), any(), any()))
                 .thenReturn(List.of());
  
          debtScheduler.autoSendDebtReminders();
@@ -133,9 +134,10 @@ class DebtSchedulerTest {
                 .build();
 
         when(customerDebtRepository.findMaxPendingReminderDaysBefore()).thenReturn(3);
+        when(customerDebtRepository.findMinPendingOverdueReminderDaysAfter()).thenReturn(3);
         when(customerDebtRepository.findPendingPreDueRemindersKeyset(any(), any(), any()))
                 .thenReturn(List.of());
-        when(customerDebtRepository.findPendingOverdueRemindersKeyset(any(), any()))
+        when(customerDebtRepository.findPendingOverdueRemindersKeyset(any(), any(), any()))
                 .thenReturn(List.of(debt))
                 .thenReturn(List.of());
  

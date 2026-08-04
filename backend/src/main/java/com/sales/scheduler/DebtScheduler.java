@@ -49,7 +49,8 @@ public class DebtScheduler {
         String lastId = "";
         int pageSize = 100;
         int processedCount = 0;
-        int maxDaysBefore = customerDebtRepository.findMaxPendingReminderDaysBefore();
+        Integer maxDays = customerDebtRepository.findMaxPendingReminderDaysBefore();
+        int maxDaysBefore = (maxDays != null) ? maxDays : 3;
         LocalDateTime maxDueDate = LocalDateTime.now().plusDays(maxDaysBefore);
         
         while (true) {
@@ -71,17 +72,10 @@ public class DebtScheduler {
                     int daysBefore = customer.getReminderDaysBefore() != null ? customer.getReminderDaysBefore() : 3;
                     LocalDateTime reminderThreshold = LocalDateTime.now().plusDays(daysBefore);
 
-                    if (reminderThreshold.isAfter(debt.getDueDate()) || reminderThreshold.isEqual(debt.getDueDate())) {
+                    if (debt.getDueDate().isAfter(LocalDateTime.now()) &&
+                            (reminderThreshold.isAfter(debt.getDueDate()) || reminderThreshold.isEqual(debt.getDueDate()))) {
                         String email = customer.getEmail();
                         if (email != null && !email.trim().isEmpty()) {
-                            String householdName = debt.getHousehold() != null ? debt.getHousehold().getName() : "BanHangViet";
-                            emailService.sendDebtReminderEmailAsync(
-                                    email.trim(),
-                                    customer.getName(),
-                                    householdName,
-                                    debt.getRemainingAmount(),
-                                    debt.getDueDate()
-                            );
                             debt.setReminderSent(true);
                             updatedBatch.add(debt);
                             processedCount++;
@@ -94,6 +88,22 @@ public class DebtScheduler {
             
             if (!updatedBatch.isEmpty()) {
                 customerDebtRepository.saveAll(updatedBatch);
+                for (CustomerDebt debt : updatedBatch) {
+                    try {
+                        Customer customer = debt.getCustomer();
+                        String email = customer.getEmail();
+                        String householdName = debt.getHousehold() != null ? debt.getHousehold().getName() : "BanHangViet";
+                        emailService.sendDebtReminderEmailAsync(
+                                email.trim(),
+                                customer.getName(),
+                                householdName,
+                                debt.getRemainingAmount(),
+                                debt.getDueDate()
+                        );
+                    } catch (Exception e) {
+                        log.error("Lỗi khi gửi email nhắc nợ trước hạn cho debt ID: {}", debt.getId(), e);
+                    }
+                }
             }
             
             if (pendingPreDue.size() < pageSize) {
@@ -110,10 +120,13 @@ public class DebtScheduler {
         String lastId = "";
         int pageSize = 100;
         int processedCount = 0;
+        Integer minDays = customerDebtRepository.findMinPendingOverdueReminderDaysAfter();
+        int minDaysAfter = (minDays != null) ? minDays : 3;
+        LocalDateTime maxOverdueDueDate = LocalDateTime.now().minusDays(minDaysAfter);
         
         while (true) {
             List<CustomerDebt> pendingOverdue = customerDebtRepository.findPendingOverdueRemindersKeyset(
-                    lastId, PageRequest.of(0, pageSize));
+                    lastId, maxOverdueDueDate, PageRequest.of(0, pageSize));
             if (pendingOverdue == null || pendingOverdue.isEmpty()) {
                 break;
             }
@@ -133,14 +146,6 @@ public class DebtScheduler {
                     if (LocalDateTime.now().isAfter(overdueThreshold) || LocalDateTime.now().isEqual(overdueThreshold)) {
                         String email = customer.getEmail();
                         if (email != null && !email.trim().isEmpty()) {
-                            String householdName = debt.getHousehold() != null ? debt.getHousehold().getName() : "BanHangViet";
-                            emailService.sendOverdueDebtReminderEmailAsync(
-                                    email.trim(),
-                                    customer.getName(),
-                                    householdName,
-                                    debt.getRemainingAmount(),
-                                    debt.getDueDate()
-                            );
                             debt.setOverdueReminderSent(true);
                             updatedBatch.add(debt);
                             processedCount++;
@@ -153,6 +158,22 @@ public class DebtScheduler {
             
             if (!updatedBatch.isEmpty()) {
                 customerDebtRepository.saveAll(updatedBatch);
+                for (CustomerDebt debt : updatedBatch) {
+                    try {
+                        Customer customer = debt.getCustomer();
+                        String email = customer.getEmail();
+                        String householdName = debt.getHousehold() != null ? debt.getHousehold().getName() : "BanHangViet";
+                        emailService.sendOverdueDebtReminderEmailAsync(
+                                email.trim(),
+                                customer.getName(),
+                                householdName,
+                                debt.getRemainingAmount(),
+                                debt.getDueDate()
+                        );
+                    } catch (Exception e) {
+                        log.error("Lỗi khi gửi email nhắc nợ quá hạn cho debt ID: {}", debt.getId(), e);
+                    }
+                }
             }
             
             if (pendingOverdue.size() < pageSize) {
