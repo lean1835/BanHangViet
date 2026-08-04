@@ -20,7 +20,6 @@ export const AuthenticatedAppLayout = () => {
     currentRole,
     setCurrentRole,
     isOnline,
-    setIsOnline,
     simConflict,
     setSimConflict,
     refetchOrders,
@@ -79,7 +78,6 @@ export const AuthenticatedAppLayout = () => {
         simConflict={simConflict}
         pendingCount={pendingCount}
         onRoleChange={handleRoleChange}
-        onToggleOnline={() => setIsOnline((currentValue) => !currentValue)}
         onConflictChange={setSimConflict}
         onSync={triggerSync}
       />

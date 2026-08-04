@@ -26,6 +26,16 @@ public class SyncController {
 
     private final SyncService syncService;
 
+    @GetMapping("/health")
+    public ResponseEntity<ApiResponse<String>> checkHealth() {
+        ApiResponse<String> response = ApiResponse.<String>builder()
+                .code(1000)
+                .message("Hệ thống hoạt động bình thường")
+                .result("UP")
+                .build();
+        return ResponseEntity.ok(response);
+    }
+
     @PostMapping("/check")
     @PreAuthorize("hasAnyRole('VT-01', 'VT-02')")
     public ResponseEntity<ApiResponse<SyncCheckResponse>> checkConflicts(

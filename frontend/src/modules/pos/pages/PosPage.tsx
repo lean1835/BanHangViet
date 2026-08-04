@@ -16,6 +16,13 @@ import {
 } from "@/modules/order/services/orderApi";
 import { useGetActiveShiftQuery } from "@/modules/shift/services/shiftApi";
 
+import { useDashboardDemo } from "@/providers/DashboardDemoProvider";
+import { saveOfflineOrder } from "@/modules/sync/utils/offlineSyncStorage";
+import type { IOfflineOrderRequest } from "@/modules/sync/types/ISync";
+import type { IOrderResponse } from "@/modules/order/types/IOrder";
+import { getLocalDateTimeISOString } from "@/utils/dateFormatter";
+import { useAppSelector } from "@/hooks/useRedux";
+
 import type { IProduct } from "@/modules/product/types/IProduct";
 import type { ICustomer } from "@/modules/customer/types/ICustomer";
 import type { IPosCartItem, IPosTab } from "../types/IPos";
@@ -49,6 +56,8 @@ const createInitialTab = (index: number): IPosTab => ({
 
 export const PosPage = () => {
   const navigate = useNavigate();
+  const authenticatedUser = useAppSelector((state) => state.auth.user);
+  const { isOnline, setOrders, addLogEntry, setCustomers } = useDashboardDemo();
 
   // 1. Fetch products, customers & active shift
   const { data: productsData } = useGetProductsQuery({ page: 0, size: 200 });
@@ -335,10 +344,170 @@ export const PosPage = () => {
     }
   };
 
+  // Helper to handle offline order completion
+  const completeOrderOffline = (
+    itemsSum: number,
+    discountCash: number,
+    finalTotal: number,
+    effectiveAmountGiven: number,
+    changeAmount: number
+  ) => {
+    const offlineOrderNumber = `HD-OFF-${Date.now()}`;
+    const offlineOrderPayload: IOfflineOrderRequest = {
+      orderNumber: offlineOrderNumber,
+      shiftId: activeShift?.id || null,
+      customerId: activeTab.customerId || null,
+      totalAmount: itemsSum,
+      discountAmount: discountCash,
+      finalAmount: finalTotal,
+      paymentMethod: activeTab.paymentMethod,
+      paymentStatus: activeTab.paymentMethod === "DEBT" ? "UNPAID" : "PAID",
+      createdAt: getLocalDateTimeISOString(),
+      discountType: activeTab.discountType,
+      discountRateOrValue: activeTab.discountValue || 0,
+      items: activeTab.items.map((item) => {
+        const itemSubtotal = item.price * item.quantity;
+        const taxRate = item.product?.taxRatePercentage || 0;
+        const itemTax = Math.round((itemSubtotal * taxRate) / 100);
+        return {
+          productId: item.product.id,
+          quantity: item.quantity,
+          unitPrice: item.price,
+          discountAmount: item.lineDiscount || 0,
+          taxRatePercentage: taxRate,
+          taxAmount: itemTax,
+          subtotal: itemSubtotal + itemTax,
+        };
+      }),
+    };
+
+    saveOfflineOrder(offlineOrderPayload);
+
+    const mockResponseOrder: IOrderResponse = {
+      id: `local_${offlineOrderNumber}`,
+      orderNumber: offlineOrderNumber,
+      householdId: authenticatedUser?.household?.id || "",
+      shiftId: activeShift?.id || "",
+      createdByUserId: authenticatedUser?.id || "",
+      createdByUsername: authenticatedUser?.username || "",
+      customerId: activeTab.customerId || null,
+      customerName: activeTab.customer?.name || "Khách vãng lai",
+      totalAmount: itemsSum,
+      discountAmount: discountCash,
+      finalAmount: finalTotal,
+      paymentMethod: activeTab.paymentMethod,
+      paymentStatus: activeTab.paymentMethod === "DEBT" ? "UNPAID" : "PAID",
+      status: "COMPLETED",
+      syncStatus: "PENDING",
+      isOffline: true,
+      createdAt: getLocalDateTimeISOString(),
+      updatedAt: getLocalDateTimeISOString(),
+      items: activeTab.items.map((item, idx) => ({
+        id: `item_off_${idx}`,
+        productId: item.product.id,
+        productName: item.product.name,
+        quantity: item.quantity,
+        unitPrice: item.price,
+        discountAmount: item.lineDiscount || 0,
+        taxRatePercentage: item.product?.taxRatePercentage || 0,
+        taxAmount: Math.round(((item.price * item.quantity) * (item.product?.taxRatePercentage || 0)) / 100),
+        subtotal: item.price * item.quantity,
+      })),
+      syncedAt: null,
+      qrCodeUrl: null,
+      changeAmount: changeAmount,
+      warningMessages: [],
+    };
+
+    if (typeof setOrders === "function") {
+      setOrders((prev) => [mockResponseOrder, ...prev.filter((o) => o.id !== mockResponseOrder.id)]);
+    }
+
+    const itemDetails = activeTab.items.map((i) => `${i.product.name} (x${i.quantity})`).join(", ");
+    if (typeof addLogEntry === "function") {
+      addLogEntry(
+        "TẠO_ĐƠN_HÀNG",
+        `Mã đơn hàng: ${offlineOrderNumber} (Ngoại tuyến) - Khách: ${activeTab.customer?.name || "Khách vãng lai"} - SP: [${itemDetails}] - Tổng tiền: ${finalTotal.toLocaleString("vi-VN")} đ`
+      );
+    }
+
+    // Update customer debt if paymentMethod is DEBT
+    if (activeTab.customerId && activeTab.paymentMethod === "DEBT") {
+      const unpaidBalance = Math.max(0, finalTotal - (effectiveAmountGiven || 0));
+      if (unpaidBalance > 0 && typeof setCustomers === "function") {
+        setCustomers((prevCustomers) =>
+          prevCustomers.map((cust) =>
+            cust.id === activeTab.customerId
+              ? { ...cust, debt: (cust.debt || 0) + unpaidBalance }
+              : cust
+          )
+        );
+      }
+    }
+
+    setCompletedOrderData({
+      tab: {
+        ...activeTab,
+        backendOrderId: `local_${offlineOrderNumber}`,
+        orderNumber: offlineOrderNumber,
+        amountGiven: effectiveAmountGiven,
+      },
+      changeAmount,
+      finalTotal,
+    });
+
+    updateActiveTab({ backendOrderId: `local_${offlineOrderNumber}`, status: "COMPLETED", isSaved: true });
+    showToast("Đã lưu đơn hàng ở chế độ Ngoại tuyến. Đơn hàng sẽ tự động đồng bộ khi có kết nối mạng.");
+  };
+
   // Complete Order (Thanh toán hoàn tất)
   const handleCompleteOrder = async () => {
     if (activeTab.items.length === 0) return;
     setIsCompletingOrder(true);
+
+    // Calculate totals first
+    const totalCart = activeTab.items.reduce(
+      (sum, i) => sum + i.lineTotal,
+      0
+    );
+    const discountCash =
+      activeTab.discountType === "PERCENTAGE"
+        ? (totalCart * (activeTab.discountValue || 0)) / 100
+        : activeTab.discountValue || 0;
+    const afterDiscount = Math.max(0, totalCart - discountCash);
+
+    const itemTaxTotal = activeTab.items.reduce((sum, item) => {
+      const itemTax = (item.product.taxRatePercentage || 0) / 100;
+      return sum + item.lineTotal * itemTax;
+    }, 0);
+
+    const totalTaxAmount =
+      activeTab.vatRate !== undefined
+        ? afterDiscount * (activeTab.vatRate / 100)
+        : itemTaxTotal;
+    const finalTotal = Math.max(0, afterDiscount + totalTaxAmount);
+
+    const effectiveAmountGiven =
+      activeTab.saleMode === "FAST"
+        ? finalTotal
+        : activeTab.amountGiven && activeTab.amountGiven > 0
+        ? activeTab.amountGiven
+        : finalTotal;
+
+    const changeAmount = effectiveAmountGiven - finalTotal;
+
+    // Check if system is offline
+    if (isOnline === false) {
+      completeOrderOffline(
+        totalCart,
+        discountCash,
+        finalTotal,
+        effectiveAmountGiven,
+        changeAmount
+      );
+      setIsCompletingOrder(false);
+      return;
+    }
 
     try {
       let orderId = activeTab.backendOrderId;
@@ -369,35 +538,6 @@ export const PosPage = () => {
         }
       }
 
-      // Calculate totals
-      const totalCart = activeTab.items.reduce(
-        (sum, i) => sum + i.lineTotal,
-        0
-      );
-      const discountCash =
-        activeTab.discountType === "PERCENTAGE"
-          ? (totalCart * (activeTab.discountValue || 0)) / 100
-          : activeTab.discountValue || 0;
-      const afterDiscount = Math.max(0, totalCart - discountCash);
-
-      const itemTaxTotal = activeTab.items.reduce((sum, item) => {
-        const itemTax = (item.product.taxRatePercentage || 0) / 100;
-        return sum + item.lineTotal * itemTax;
-      }, 0);
-
-      const totalTaxAmount =
-        activeTab.vatRate !== undefined
-          ? afterDiscount * (activeTab.vatRate / 100)
-          : itemTaxTotal;
-      const finalTotal = Math.max(0, afterDiscount + totalTaxAmount);
-
-      const effectiveAmountGiven =
-        activeTab.saleMode === "FAST"
-          ? finalTotal
-          : activeTab.amountGiven && activeTab.amountGiven > 0
-          ? activeTab.amountGiven
-          : finalTotal;
-
       // 4. Set Payment Method
       await setPaymentMethod({
         orderId: orderId!,
@@ -411,8 +551,6 @@ export const PosPage = () => {
         amountGiven: effectiveAmountGiven,
       }).unwrap();
 
-      const changeAmount = effectiveAmountGiven - finalTotal;
-
       setCompletedOrderData({
         tab: { ...activeTab, backendOrderId: orderId!, amountGiven: effectiveAmountGiven },
         changeAmount,
@@ -421,9 +559,19 @@ export const PosPage = () => {
 
       updateActiveTab({ backendOrderId: orderId!, status: "COMPLETED", isSaved: true });
     } catch (err: any) {
-      showToast(
-        err?.data?.message || "Thanh toán thất bại. Vui lòng thử lại!"
-      );
+      if (!window.navigator.onLine || err?.status === "FETCH_ERROR" || err?.status === 0) {
+        completeOrderOffline(
+          totalCart,
+          discountCash,
+          finalTotal,
+          effectiveAmountGiven,
+          changeAmount
+        );
+      } else {
+        showToast(
+          err?.data?.message || "Thanh toán thất bại. Vui lòng thử lại!"
+        );
+      }
     } finally {
       setIsCompletingOrder(false);
     }
@@ -483,6 +631,8 @@ export const PosPage = () => {
         onAddTab={handleAddTab}
         onCloseTab={handleCloseTab}
         onSelectProduct={handleSelectProduct}
+        isOnline={isOnline}
+        userName={authenticatedUser?.fullName || authenticatedUser?.username}
       />
 
       {/* POS Main Workspace Body */}

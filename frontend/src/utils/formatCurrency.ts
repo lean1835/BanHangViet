@@ -7,7 +7,8 @@ import { APP_LOCALE, NUMBER_FORMAT } from "@/constants/format";
  */
 export const formatCurrency = (val: number | null | undefined): string => {
   if (val === null || val === undefined) return NUMBER_FORMAT.ZERO_CURRENCY;
-  return val.toLocaleString(APP_LOCALE) + NUMBER_FORMAT.CURRENCY_SUFFIX;
+  const rounded = Math.round(val);
+  return rounded.toLocaleString(APP_LOCALE, { maximumFractionDigits: 0 }) + NUMBER_FORMAT.CURRENCY_SUFFIX;
 };
 
 /**
@@ -16,6 +17,8 @@ export const formatCurrency = (val: number | null | undefined): string => {
  * @param value Number to format.
  * @returns Formatted number string e.g. "1.500".
  */
-export const formatNumber = (value: number): string => {
-  return new Intl.NumberFormat(APP_LOCALE).format(value);
+export const formatNumber = (value: number | null | undefined): string => {
+  if (value === null || value === undefined) return "0";
+  const rounded = Math.round(value);
+  return new Intl.NumberFormat(APP_LOCALE, { maximumFractionDigits: 0 }).format(rounded);
 };
