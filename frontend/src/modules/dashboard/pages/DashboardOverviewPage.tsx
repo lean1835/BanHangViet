@@ -33,6 +33,10 @@ export const DashboardOverviewPage = () => {
     return getLocalDateString(); // YYYY-MM-DD
   });
 
+  // Role Permission check for reports & overview metrics
+  const canFetchDashboardReports =
+    currentRole === USER_ROLES.OWNER || currentRole === USER_ROLES.ACCOUNTANT;
+
   // API Queries
   const {
     data: overviewData,
@@ -40,22 +44,22 @@ export const DashboardOverviewPage = () => {
     isError: isOverviewError,
     error: overviewError,
     refetch: refetchOverview,
-  } = useGetDashboardOverviewQuery({ fromDate, toDate });
+  } = useGetDashboardOverviewQuery({ fromDate, toDate }, { skip: !canFetchDashboardReports });
 
   const {
     data: topSellingData,
     isLoading: isTopSellingLoading,
-  } = useGetTopSellingProductsQuery({ fromDate, toDate, limit: 5 });
+  } = useGetTopSellingProductsQuery({ fromDate, toDate, limit: 5 }, { skip: !canFetchDashboardReports });
 
   const {
     data: logsData,
     isLoading: isLogsLoading,
-  } = useGetActivityLogsQuery({ fromDate: toDate, toDate, page: 0, size: 1000 });
+  } = useGetActivityLogsQuery({ fromDate: toDate, toDate, page: 0, size: 1000 }, { skip: !canFetchDashboardReports });
 
   const {
     data: failedInvoicesData,
     isLoading: isFailedInvoicesLoading,
-  } = useGetInvoicesQuery({ status: "SEND_ERROR", page: 0, size: 50 });
+  } = useGetInvoicesQuery({ status: "SEND_ERROR", page: 0, size: 50 }, { skip: !canFetchDashboardReports });
 
   // Map Stats
   const totalRevenue = overviewData?.result?.totalRevenue || 0;
@@ -120,7 +124,9 @@ export const DashboardOverviewPage = () => {
     });
   }, [logsData]);
 
-  const isLoading = isOverviewLoading || isTopSellingLoading || isLogsLoading || isFailedInvoicesLoading;
+  const isLoading =
+    canFetchDashboardReports &&
+    (isOverviewLoading || isTopSellingLoading || isLogsLoading || isFailedInvoicesLoading);
 
   return (
     <DashboardWorkspaceLayout>

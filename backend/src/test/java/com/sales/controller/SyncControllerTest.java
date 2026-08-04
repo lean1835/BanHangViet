@@ -24,6 +24,7 @@ import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
 
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -333,5 +334,13 @@ public class SyncControllerTest {
                 .andExpect(jsonPath("$.code").value(1000))
                 .andExpect(jsonPath("$.result.customerId").value(newCustomer.getId()))
                 .andExpect(jsonPath("$.result.shiftId").value(newShift.getId()));
+    }
+
+    @Test
+    public void testCheckHealth_Success() throws Exception {
+        mockMvc.perform(get("/api/v1/sync/health"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(1000))
+                .andExpect(jsonPath("$.result").value("UP"));
     }
 }

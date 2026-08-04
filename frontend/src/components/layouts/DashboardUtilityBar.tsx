@@ -16,7 +16,7 @@ interface DashboardUtilityBarProps {
   simConflict: boolean;
   pendingCount?: number;
   onRoleChange: (role: TDemoRole) => void;
-  onToggleOnline: () => void;
+  onToggleOnline?: () => void;
   onConflictChange: (isEnabled: boolean) => void;
   onSync?: () => void;
 }
@@ -24,7 +24,6 @@ interface DashboardUtilityBarProps {
 export const DashboardUtilityBar = ({
   isOnline,
   pendingCount = 0,
-  onToggleOnline,
   onSync,
 }: DashboardUtilityBarProps) => {
   const dispatch = useAppDispatch();
@@ -42,24 +41,22 @@ export const DashboardUtilityBar = ({
       </div>
 
       <div className="flex min-w-0 basis-full flex-wrap items-center justify-end gap-1.5 sm:basis-auto sm:flex-1 sm:flex-nowrap sm:gap-2 lg:gap-4">
-        <button
-          onClick={onToggleOnline}
-          aria-pressed={isOnline}
-          className={`flex min-h-11 min-w-11 items-center justify-center gap-1.5 rounded-md border px-2.5 font-bold transition-all lg:min-h-0 lg:min-w-0 lg:py-1 ${
+        <div
+          className={`flex min-h-8 items-center justify-center gap-1.5 rounded-md border px-2.5 py-1 font-bold transition-all ${
             isOnline
               ? "bg-emerald-50 text-emerald-600 border-emerald-200"
               : "bg-rose-50 text-rose-600 border-rose-200"
           }`}
-          title={APP_MESSAGES.NETWORK_TOGGLE_TITLE}
+          title={isOnline ? "Trạng thái mạng: Trực tuyến (Online)" : "Trạng thái mạng: Ngoại tuyến (Offline - Test trong F12)"}
         >
           <span
             aria-hidden="true"
-            className={`inline-block h-1.5 w-1.5 rounded-full ${
+            className={`inline-block h-2 w-2 rounded-full ${
               isOnline ? "bg-emerald-500 animate-pulse" : "bg-rose-500"
             }`}
           />
           <span>{isOnline ? CONNECTION_STATUS.ONLINE : CONNECTION_STATUS.OFFLINE}</span>
-        </button>
+        </div>
 
         {pendingCount > 0 && (
           <button
