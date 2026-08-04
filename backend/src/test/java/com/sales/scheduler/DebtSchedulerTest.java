@@ -6,6 +6,7 @@ import com.sales.entity.CustomerDebt;
 import com.sales.repository.CustomerDebtRepository;
 import com.sales.service.interfaces.EmailService;
 import org.junit.jupiter.api.DisplayName;
+import org.springframework.data.domain.Pageable;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -94,15 +95,18 @@ class DebtSchedulerTest {
                 .reminderSent(false)
                 .build();
 
-        when(customerDebtRepository.findPendingPreDueReminders()).thenReturn(List.of(debt));
-        when(customerDebtRepository.findPendingOverdueReminders()).thenReturn(List.of());
-
-        debtScheduler.autoSendDebtReminders();
-
-        assertTrue(debt.getReminderSent());
-        verify(emailService, times(1)).sendDebtReminderEmailAsync(
-                eq("customerA@gmail.com"), eq("Khách hàng A"), eq("Hộ KD A"), eq(new BigDecimal("200000")), any(LocalDateTime.class));
-        verify(customerDebtRepository, times(1)).saveAll(anyList());
+        when(customerDebtRepository.findPendingPreDueReminders(any(Pageable.class)))
+                .thenReturn(List.of(debt))
+                .thenReturn(List.of());
+        when(customerDebtRepository.findPendingOverdueReminders(any(Pageable.class)))
+                .thenReturn(List.of());
+ 
+         debtScheduler.autoSendDebtReminders();
+ 
+         assertTrue(debt.getReminderSent());
+         verify(emailService, times(1)).sendDebtReminderEmailAsync(
+                 eq("customerA@gmail.com"), eq("Khách hàng A"), eq("Hộ KD A"), eq(new BigDecimal("200000")), any(LocalDateTime.class));
+         verify(customerDebtRepository, times(1)).save(debt);
     }
 
     @Test
@@ -127,14 +131,17 @@ class DebtSchedulerTest {
                 .overdueReminderSent(false)
                 .build();
 
-        when(customerDebtRepository.findPendingPreDueReminders()).thenReturn(List.of());
-        when(customerDebtRepository.findPendingOverdueReminders()).thenReturn(List.of(debt));
-
-        debtScheduler.autoSendDebtReminders();
-
-        assertTrue(debt.getOverdueReminderSent());
-        verify(emailService, times(1)).sendOverdueDebtReminderEmailAsync(
-                eq("customerB@gmail.com"), eq("Khách hàng B"), eq("Hộ KD A"), eq(new BigDecimal("500000")), any(LocalDateTime.class));
-        verify(customerDebtRepository, times(1)).saveAll(anyList());
+        when(customerDebtRepository.findPendingPreDueReminders(any(Pageable.class)))
+                .thenReturn(List.of());
+        when(customerDebtRepository.findPendingOverdueReminders(any(Pageable.class)))
+                .thenReturn(List.of(debt))
+                .thenReturn(List.of());
+ 
+         debtScheduler.autoSendDebtReminders();
+ 
+         assertTrue(debt.getOverdueReminderSent());
+         verify(emailService, times(1)).sendOverdueDebtReminderEmailAsync(
+                 eq("customerB@gmail.com"), eq("Khách hàng B"), eq("Hộ KD A"), eq(new BigDecimal("500000")), any(LocalDateTime.class));
+         verify(customerDebtRepository, times(1)).save(debt);
     }
 }

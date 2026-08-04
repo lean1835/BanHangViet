@@ -50,11 +50,11 @@ public class CustomerDebt {
     @Column(name = "due_date", nullable = false)
     private LocalDateTime dueDate;
 
-    @Column(name = "reminder_sent", nullable = false)
+    @Column(name = "reminder_sent", nullable = false, columnDefinition = "boolean default false")
     @Builder.Default
     private Boolean reminderSent = false;
 
-    @Column(name = "overdue_reminder_sent", nullable = false)
+    @Column(name = "overdue_reminder_sent", nullable = false, columnDefinition = "boolean default false")
     @Builder.Default
     private Boolean overdueReminderSent = false;
 

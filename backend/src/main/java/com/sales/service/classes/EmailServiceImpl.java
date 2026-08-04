@@ -33,13 +33,7 @@ public class EmailServiceImpl implements EmailService {
             
             String formattedAmount = finalAmount != null ? String.format("%,.0f", finalAmount.doubleValue()) : "0";
             
-            String htmlContent = "<div style=\"font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.05);\">"
-                    + "  <div style=\"background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); padding: 24px; text-align: center; color: white;\">"
-                    + "    <h2 style=\"margin: 0; font-size: 22px; font-weight: 600; letter-spacing: 0.5px;\">HÓA ĐƠN ĐIỆN TỬ</h2>"
-                    + "    <p style=\"margin: 4px 0 0 0; opacity: 0.85; font-size: 14px;\">Cung cấp bởi BanHangViet</p>"
-                    + "  </div>"
-                    + "  <div style=\"padding: 24px; background-color: #ffffff; color: #333333; line-height: 1.6;\">"
-                    + "    <p style=\"margin-top: 0; font-size: 16px;\">Kính gửi <strong>Quý khách hàng</strong>,</p>"
+            String bodyContent = "    <p style=\"margin-top: 0; font-size: 16px;\">Kính gửi <strong>Quý khách hàng</strong>,</p>"
                     + "    <p>Chúng tôi xin gửi thông tin hóa đơn điện tử cho giao dịch mua sắm của Quý khách tại đơn vị <strong>" + householdName + "</strong>:</p>"
                     + "    <div style=\"background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 16px; margin: 20px 0;\">"
                     + "      <table style=\"width: 100%; border-collapse: collapse; font-size: 14px;\">"
@@ -63,13 +57,8 @@ public class EmailServiceImpl implements EmailService {
                     + "    </div>"
                     + "    <hr style=\"border: 0; border-top: 1px solid #f1f5f9; margin: 24px 0;\" />"
                     + "    <p style=\"font-size: 13px; color: #64748b; margin: 0;\">Nếu nút trên không hoạt động, Quý khách có thể sao chép liên kết sau và dán vào trình duyệt:</p>"
-                    + "    <p style=\"font-size: 13px; color: #2563eb; word-break: break-all; margin: 5px 0 0 0;\"><a href=\"" + lookupUrl + "\" style=\"color: #2563eb; text-decoration: none;\">" + lookupUrl + "</a></p>"
-                    + "  </div>"
-                    + "  <div style=\"background-color: #f1f5f9; padding: 16px; text-align: center; font-size: 12px; color: #64748b; border-top: 1px solid #e2e8f0;\">"
-                    + "    <p style=\"margin: 0 0 4px 0;\">Đây là thư điện tử được gửi tự động từ hệ thống quản lý bán hàng <strong>BanHangViet</strong>.</p>"
-                    + "    <p style=\"margin: 0;\">Vui lòng không phản hồi thư này. Xin cảm ơn!</p>"
-                    + "  </div>"
-                    + "</div>";
+                    + "    <p style=\"font-size: 13px; color: #2563eb; word-break: break-all; margin: 5px 0 0 0;\"><a href=\"" + lookupUrl + "\" style=\"color: #2563eb; text-decoration: none;\">" + lookupUrl + "</a></p>";
+            String htmlContent = buildHtmlEmail("HÓA ĐƠN ĐIỆN TỬ", "Cung cấp bởi BanHangViet", "linear-gradient(135deg, #1e3c72 0%, #2a5298 100%)", bodyContent);
             
             helper.setText(htmlContent, true);
 
@@ -107,13 +96,7 @@ public class EmailServiceImpl implements EmailService {
             String formattedAmount = debtAmount != null ? String.format("%,.0f", debtAmount.doubleValue()) : "0";
             String formattedDueDate = dueDate != null ? dueDate.toLocalDate().toString() : "";
 
-            String htmlContent = "<div style=\"font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.05);\">"
-                    + "  <div style=\"background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); padding: 24px; text-align: center; color: white;\">"
-                    + "    <h2 style=\"margin: 0; font-size: 22px; font-weight: 600; letter-spacing: 0.5px;\">NHẮC NHỞ CÔNG NỢ ĐẾN HẠN</h2>"
-                    + "    <p style=\"margin: 4px 0 0 0; opacity: 0.85; font-size: 14px;\">Cung cấp bởi BanHangViet</p>"
-                    + "  </div>"
-                    + "  <div style=\"padding: 24px; background-color: #ffffff; color: #333333; line-height: 1.6;\">"
-                    + "    <p style=\"margin-top: 0; font-size: 16px;\">Kính gửi Ông/Bà <strong>" + customerName + "</strong>,</p>"
+            String bodyContent = "    <p style=\"margin-top: 0; font-size: 16px;\">Kính gửi Ông/Bà <strong>" + customerName + "</strong>,</p>"
                     + "    <p>Chúng tôi xin thông báo về khoản công nợ sắp đến hạn thanh toán của Quý khách tại <strong>" + householdName + "</strong>:</p>"
                     + "    <div style=\"background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 16px; margin: 20px 0;\">"
                     + "      <table style=\"width: 100%; border-collapse: collapse; font-size: 14px;\">"
@@ -135,13 +118,8 @@ public class EmailServiceImpl implements EmailService {
                     + "        </tr>"
                     + "      </table>"
                     + "    </div>"
-                    + "    <p style=\"margin-bottom: 25px;\">Rất mong Quý khách sắp xếp thanh toán đúng hạn. Trân trọng cảm ơn!</p>"
-                    + "  </div>"
-                    + "  <div style=\"background-color: #f1f5f9; padding: 16px; text-align: center; font-size: 12px; color: #64748b; border-top: 1px solid #e2e8f0;\">"
-                    + "    <p style=\"margin: 0 0 4px 0;\">Đây là thư điện tử được gửi tự động từ hệ thống <strong>BanHangViet</strong>.</p>"
-                    + "    <p style=\"margin: 0;\">Vui lòng không phản hồi thư này. Xin cảm ơn!</p>"
-                    + "  </div>"
-                    + "</div>";
+                    + "    <p style=\"margin-bottom: 25px;\">Rất mong Quý khách sắp xếp thanh toán đúng hạn. Trân trọng cảm ơn!</p>";
+            String htmlContent = buildHtmlEmail("NHẮC NHỞ CÔNG NỢ ĐẾN HẠN", "Cung cấp bởi BanHangViet", "linear-gradient(135deg, #1e3c72 0%, #2a5298 100%)", bodyContent);
 
             helper.setText(htmlContent, true);
 
@@ -165,13 +143,7 @@ public class EmailServiceImpl implements EmailService {
             String formattedAmount = debtAmount != null ? String.format("%,.0f", debtAmount.doubleValue()) : "0";
             String formattedDueDate = dueDate != null ? dueDate.toLocalDate().toString() : "";
 
-            String htmlContent = "<div style=\"font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.05);\">"
-                    + "  <div style=\"background: linear-gradient(135deg, #e11d48 0%, #be123c 100%); padding: 24px; text-align: center; color: white;\">"
-                    + "    <h2 style=\"margin: 0; font-size: 22px; font-weight: 600; letter-spacing: 0.5px;\">CẢNH BÁO NỢ QUÁ HẠN</h2>"
-                    + "    <p style=\"margin: 4px 0 0 0; opacity: 0.85; font-size: 14px;\">Cung cấp bởi BanHangViet</p>"
-                    + "  </div>"
-                    + "  <div style=\"padding: 24px; background-color: #ffffff; color: #333333; line-height: 1.6;\">"
-                    + "    <p style=\"margin-top: 0; font-size: 16px;\">Kính gửi Ông/Bà <strong>" + customerName + "</strong>,</p>"
+            String bodyContent = "    <p style=\"margin-top: 0; font-size: 16px;\">Kính gửi Ông/Bà <strong>" + customerName + "</strong>,</p>"
                     + "    <p>Chúng tôi xin thông báo khoản công nợ của Quý khách tại <strong>" + householdName + "</strong> đã vượt quá thời hạn thanh toán quy định:</p>"
                     + "    <div style=\"background-color: #fff1f2; border: 1px solid #fecdd3; border-radius: 6px; padding: 16px; margin: 20px 0;\">"
                     + "      <table style=\"width: 100%; border-collapse: collapse; font-size: 14px;\">"
@@ -193,13 +165,8 @@ public class EmailServiceImpl implements EmailService {
                     + "        </tr>"
                     + "      </table>"
                     + "    </div>"
-                    + "    <p style=\"margin-bottom: 25px; color: #be123c;\">Kính mong Quý khách nhanh chóng sắp xếp thanh toán dứt điểm khoản nợ này. Trân trọng cảm ơn!</p>"
-                    + "  </div>"
-                    + "  <div style=\"background-color: #f1f5f9; padding: 16px; text-align: center; font-size: 12px; color: #64748b; border-top: 1px solid #e2e8f0;\">"
-                    + "    <p style=\"margin: 0 0 4px 0;\">Đây là thư điện tử được gửi tự động từ hệ thống <strong>BanHangViet</strong>.</p>"
-                    + "    <p style=\"margin: 0;\">Vui lòng không phản hồi thư này. Xin cảm ơn!</p>"
-                    + "  </div>"
-                    + "</div>";
+                    + "    <p style=\"margin-bottom: 25px; color: #be123c;\">Kính mong Quý khách nhanh chóng sắp xếp thanh toán dứt điểm khoản nợ này. Trân trọng cảm ơn!</p>";
+            String htmlContent = buildHtmlEmail("CẢNH BÁO NỢ QUÁ HẠN", "Cung cấp bởi BanHangViet", "linear-gradient(135deg, #e11d48 0%, #be123c 100%)", bodyContent);
 
             helper.setText(htmlContent, true);
 
@@ -208,6 +175,22 @@ public class EmailServiceImpl implements EmailService {
         } catch (Exception e) {
             log.error("Lỗi khi gửi email nhắc nợ quá hạn tới {}", toEmail, e);
         }
+    }
+
+    private String buildHtmlEmail(String title, String subtitle, String headerGradient, String bodyContent) {
+        return "<div style=\"font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.05);\">"
+                + "  <div style=\"background: " + headerGradient + "; padding: 24px; text-align: center; color: white;\">"
+                + "    <h2 style=\"margin: 0; font-size: 22px; font-weight: 600; letter-spacing: 0.5px;\">" + title + "</h2>"
+                + "    <p style=\"margin: 4px 0 0 0; opacity: 0.85; font-size: 14px;\">" + subtitle + "</p>"
+                + "  </div>"
+                + "  <div style=\"padding: 24px; background-color: #ffffff; color: #333333; line-height: 1.6;\">"
+                + bodyContent
+                + "  </div>"
+                + "  <div style=\"background-color: #f1f5f9; padding: 16px; text-align: center; font-size: 12px; color: #64748b; border-top: 1px solid #e2e8f0;\">"
+                + "    <p style=\"margin: 0 0 4px 0;\">Đây là thư điện tử được gửi tự động từ hệ thống <strong>BanHangViet</strong>.</p>"
+                + "    <p style=\"margin: 0;\">Vui lòng không phản hồi thư này. Xin cảm ơn!</p>"
+                + "  </div>"
+                + "</div>";
     }
 
 }

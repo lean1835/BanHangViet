@@ -45,11 +45,11 @@ public class Customer {
     @Builder.Default
     private BigDecimal currentDebt = BigDecimal.ZERO;
 
-    @Column(name = "reminder_days_before", nullable = false)
+    @Column(name = "reminder_days_before", nullable = false, columnDefinition = "int default 3")
     @Builder.Default
     private Integer reminderDaysBefore = 3;
 
-    @Column(name = "reminder_days_after", nullable = false)
+    @Column(name = "reminder_days_after", nullable = false, columnDefinition = "int default 3")
     @Builder.Default
     private Integer reminderDaysAfter = 3;
 
