@@ -8,7 +8,9 @@ import com.sales.entity.Role;
 import com.sales.entity.User;
 import com.sales.exception.AppException;
 import com.sales.exception.ErrorCode;
+import com.sales.entity.Order;
 import com.sales.repository.EInvoiceRepository;
+import com.sales.repository.OrderRepository;
 import com.sales.repository.ProductRepository;
 import com.sales.repository.UserRepository;
 import com.sales.service.classes.BackupServiceImpl;
@@ -45,6 +47,9 @@ class BackupServiceImplTest {
 
     @Mock
     private EInvoiceRepository eInvoiceRepository;
+
+    @Mock
+    private OrderRepository orderRepository;
 
     @InjectMocks
     private BackupServiceImpl backupService;
@@ -234,14 +239,42 @@ class BackupServiceImplTest {
     }
 
     @Test
-    @DisplayName("NCL-09-CN-006-TC-01: Chủ hộ chọn sao lưu FULL -> Tạo tệp `.zip` nén đầy đủ sản phẩm và hóa đơn")
+    @DisplayName("NCL-09-CN-006-TC-01: Chủ hộ chọn xuất đơn hàng -> Tạo tệp `.xlsx` sao lưu đơn hàng thành công với 2 sheet")
+    void exportBackupData_Orders_Success() throws Exception {
+        when(userRepository.findByUsername("owner")).thenReturn(Optional.of(ownerUser));
+
+        Order ord1 = Order.builder()
+                .id("ord-001")
+                .orderNumber("DH00001")
+                .totalAmount(new BigDecimal("100000"))
+                .finalAmount(new BigDecimal("100000"))
+                .status("COMPLETED")
+                .paymentMethod("CASH")
+                .paymentStatus("PAID")
+                .build();
+
+        when(orderRepository.findByHouseholdIdAndDeletedAtIsNullAndCreatedAtBetweenOrderByCreatedAtDesc(anyString(), any(), any()))
+                .thenReturn(List.of(ord1));
+
+        ResponseEntity<Resource> response = backupService.exportBackupData("owner", BackupType.ORDERS, LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 31));
+
+        assertNotNull(response);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertNotNull(response.getBody());
+        assertTrue(response.getHeaders().get(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION).get(0).contains("backup_orders_20260101_20260131.xlsx"));
+    }
+
+    @Test
+    @DisplayName("NCL-09-CN-006-TC-01: Chủ hộ chọn sao lưu FULL -> Tạo tệp `.zip` nén đầy đủ sản phẩm, đơn hàng và hóa đơn")
     void exportBackupData_Full_Success() throws Exception {
         when(userRepository.findByUsername("owner")).thenReturn(Optional.of(ownerUser));
 
         Product p1 = Product.builder().id("p-001").sku("SP001").name("Cà phê").price(new BigDecimal("30000")).build();
+        Order ord1 = Order.builder().id("ord-001").orderNumber("DH00001").finalAmount(new BigDecimal("30000")).build();
         EInvoice inv1 = EInvoice.builder().id("inv-001").lookupCode("LOOKUP001").finalAmount(new BigDecimal("30000")).build();
 
         when(productRepository.findAll(any(Specification.class))).thenReturn(List.of(p1));
+        when(orderRepository.findByHouseholdIdAndDeletedAtIsNullAndCreatedAtBetweenOrderByCreatedAtDesc(anyString(), any(), any())).thenReturn(List.of(ord1));
         when(eInvoiceRepository.findAll(any(Specification.class))).thenReturn(List.of(inv1));
 
         ResponseEntity<Resource> response = backupService.exportBackupData("owner", BackupType.FULL, LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 31));
