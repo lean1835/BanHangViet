@@ -41,20 +41,20 @@ public interface CustomerDebtRepository extends JpaRepository<CustomerDebt, Stri
     List<CustomerDebt> findByHouseholdIdAndStatusInAndTypeAndDueDateBefore(
             String householdId, Collection<String> statuses, String type, LocalDateTime dateTime);
 
-    @Query("SELECT d FROM CustomerDebt d JOIN FETCH d.customer JOIN FETCH d.household " +
+    @Query("SELECT d FROM CustomerDebt d JOIN FETCH d.customer LEFT JOIN FETCH d.household " +
            "WHERE d.status = 'PENDING' AND d.type = 'DEBT_CREATED' AND d.reminderSent = false " +
            "AND d.customer.email IS NOT NULL AND TRIM(d.customer.email) != '' " +
-           "AND d.dueDate <= :maxDueDate " +
+           "AND d.dueDate < :maxDueDate " +
            "AND d.id > :lastId ORDER BY d.id ASC")
     List<CustomerDebt> findPendingPreDueRemindersKeyset(
             @Param("lastId") String lastId,
             @Param("maxDueDate") LocalDateTime maxDueDate,
             Pageable pageable);
 
-    @Query("SELECT d FROM CustomerDebt d JOIN FETCH d.customer JOIN FETCH d.household " +
+    @Query("SELECT d FROM CustomerDebt d JOIN FETCH d.customer LEFT JOIN FETCH d.household " +
            "WHERE d.status = 'OVERDUE' AND d.type = 'DEBT_CREATED' AND d.overdueReminderSent = false " +
            "AND d.customer.email IS NOT NULL AND TRIM(d.customer.email) != '' " +
-           "AND d.dueDate <= :maxOverdueDueDate " +
+           "AND d.dueDate < :maxOverdueDueDate " +
            "AND d.id > :lastId ORDER BY d.id ASC")
     List<CustomerDebt> findPendingOverdueRemindersKeyset(
             @Param("lastId") String lastId,

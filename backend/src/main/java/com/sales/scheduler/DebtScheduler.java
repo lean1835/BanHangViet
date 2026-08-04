@@ -13,13 +13,16 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.List;
 
 @Component
 @RequiredArgsConstructor
 @Slf4j
 public class DebtScheduler {
+
+    private static final String DEFAULT_HOUSEHOLD_NAME = "BanHangViet";
+    private static final int DEFAULT_PAGE_SIZE = 100;
+    private static final int DEFAULT_REMINDER_DAYS = 3;
 
     private final CustomerDebtRepository customerDebtRepository;
     private final EmailService emailService;
@@ -40,23 +43,24 @@ public class DebtScheduler {
     }
 
     @Scheduled(cron = "${app.scheduler.debt-reminder.cron:0 0 1 * * *}")
+    @Transactional(rollbackFor = Exception.class)
     public void autoSendDebtReminders() {
         log.info("Starting background job to scan and send auto debt reminders");
-        processPreDueReminders();
-        processOverdueReminders();
+        LocalDate today = LocalDate.now();
+        processPreDueReminders(today);
+        processOverdueReminders(today);
     }
 
-    private void processPreDueReminders() {
+    private void processPreDueReminders(LocalDate today) {
         String lastId = "";
-        int pageSize = 100;
         int processedCount = 0;
         Integer maxDays = customerDebtRepository.findMaxPendingReminderDaysBefore();
-        int maxDaysBefore = (maxDays != null) ? maxDays : 3;
-        LocalDateTime maxDueDate = LocalDateTime.now().plusDays(maxDaysBefore).toLocalDate().atTime(23, 59, 59);
+        int maxDaysBefore = (maxDays != null) ? maxDays : DEFAULT_REMINDER_DAYS;
+        LocalDateTime maxDueDate = today.plusDays(maxDaysBefore + 1).atStartOfDay();
         
         while (true) {
             List<CustomerDebt> pendingPreDue = customerDebtRepository.findPendingPreDueRemindersKeyset(
-                    lastId, maxDueDate, PageRequest.of(0, pageSize));
+                    lastId, maxDueDate, PageRequest.of(0, DEFAULT_PAGE_SIZE));
             if (pendingPreDue == null || pendingPreDue.isEmpty()) {
                 break;
             }
@@ -69,8 +73,7 @@ public class DebtScheduler {
                         continue;
                     }
 
-                    int daysBefore = customer.getReminderDaysBefore() != null ? customer.getReminderDaysBefore() : 3;
-                    LocalDate today = LocalDate.now();
+                    int daysBefore = customer.getReminderDaysBefore() != null ? customer.getReminderDaysBefore() : DEFAULT_REMINDER_DAYS;
                     LocalDate due = debt.getDueDate().toLocalDate();
                     LocalDate reminderStartDate = due.minusDays(daysBefore);
 
@@ -78,7 +81,10 @@ public class DebtScheduler {
                             (today.isBefore(due) || today.isEqual(due))) {
                         String email = customer.getEmail();
                         if (email != null && !email.trim().isEmpty()) {
-                            String householdName = debt.getHousehold() != null ? debt.getHousehold().getName() : "BanHangViet";
+                            debt.setReminderSent(true);
+                            customerDebtRepository.save(debt);
+
+                            String householdName = debt.getHousehold() != null ? debt.getHousehold().getName() : DEFAULT_HOUSEHOLD_NAME;
                             emailService.sendDebtReminderEmailAsync(
                                     debt.getId(),
                                     email.trim(),
@@ -95,7 +101,7 @@ public class DebtScheduler {
                 }
             }
             
-            if (pendingPreDue.size() < pageSize) {
+            if (pendingPreDue.size() < DEFAULT_PAGE_SIZE) {
                 break;
             }
         }
@@ -105,17 +111,16 @@ public class DebtScheduler {
         }
     }
 
-    private void processOverdueReminders() {
+    private void processOverdueReminders(LocalDate today) {
         String lastId = "";
-        int pageSize = 100;
         int processedCount = 0;
         Integer minDays = customerDebtRepository.findMinPendingOverdueReminderDaysAfter();
-        int minDaysAfter = (minDays != null) ? minDays : 3;
-        LocalDateTime maxOverdueDueDate = LocalDateTime.now().minusDays(minDaysAfter).toLocalDate().atTime(23, 59, 59);
+        int minDaysAfter = (minDays != null) ? minDays : DEFAULT_REMINDER_DAYS;
+        LocalDateTime maxOverdueDueDate = today.minusDays(minDaysAfter - 1).atStartOfDay();
         
         while (true) {
             List<CustomerDebt> pendingOverdue = customerDebtRepository.findPendingOverdueRemindersKeyset(
-                    lastId, maxOverdueDueDate, PageRequest.of(0, pageSize));
+                    lastId, maxOverdueDueDate, PageRequest.of(0, DEFAULT_PAGE_SIZE));
             if (pendingOverdue == null || pendingOverdue.isEmpty()) {
                 break;
             }
@@ -128,14 +133,16 @@ public class DebtScheduler {
                         continue;
                     }
 
-                    int daysAfter = customer.getReminderDaysAfter() != null ? customer.getReminderDaysAfter() : 3;
-                    LocalDate today = LocalDate.now();
+                    int daysAfter = customer.getReminderDaysAfter() != null ? customer.getReminderDaysAfter() : DEFAULT_REMINDER_DAYS;
                     LocalDate overdueReminderDate = debt.getDueDate().toLocalDate().plusDays(daysAfter);
 
                     if (today.isAfter(overdueReminderDate) || today.isEqual(overdueReminderDate)) {
                         String email = customer.getEmail();
                         if (email != null && !email.trim().isEmpty()) {
-                            String householdName = debt.getHousehold() != null ? debt.getHousehold().getName() : "BanHangViet";
+                            debt.setOverdueReminderSent(true);
+                            customerDebtRepository.save(debt);
+
+                            String householdName = debt.getHousehold() != null ? debt.getHousehold().getName() : DEFAULT_HOUSEHOLD_NAME;
                             emailService.sendOverdueDebtReminderEmailAsync(
                                     debt.getId(),
                                     email.trim(),
@@ -152,7 +159,7 @@ public class DebtScheduler {
                 }
             }
             
-            if (pendingOverdue.size() < pageSize) {
+            if (pendingOverdue.size() < DEFAULT_PAGE_SIZE) {
                 break;
             }
         }

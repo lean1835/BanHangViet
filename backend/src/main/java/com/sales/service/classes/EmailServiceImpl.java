@@ -1,6 +1,5 @@
 package com.sales.service.classes;
 
-import com.sales.repository.CustomerDebtRepository;
 import com.sales.repository.InvoiceDeliveryLogRepository;
 import com.sales.service.interfaces.EmailService;
 import jakarta.mail.internet.MimeMessage;
@@ -21,7 +20,6 @@ public class EmailServiceImpl implements EmailService {
 
     private final JavaMailSender mailSender;
     private final InvoiceDeliveryLogRepository invoiceDeliveryLogRepository;
-    private final CustomerDebtRepository customerDebtRepository;
 
     @Override
     @Async("taskExecutor")
@@ -127,11 +125,6 @@ public class EmailServiceImpl implements EmailService {
 
             mailSender.send(message);
 
-            customerDebtRepository.findById(debtId).ifPresent(debt -> {
-                debt.setReminderSent(true);
-                customerDebtRepository.save(debt);
-            });
-
             log.info("Email nhắc nợ trước hạn gửi thành công tới {}", toEmail);
         } catch (Exception e) {
             log.error("Lỗi khi gửi email nhắc nợ trước hạn tới {}", toEmail, e);
@@ -179,11 +172,6 @@ public class EmailServiceImpl implements EmailService {
             helper.setText(htmlContent, true);
 
             mailSender.send(message);
-
-            customerDebtRepository.findById(debtId).ifPresent(debt -> {
-                debt.setOverdueReminderSent(true);
-                customerDebtRepository.save(debt);
-            });
 
             log.info("Email nhắc nợ quá hạn gửi thành công tới {}", toEmail);
         } catch (Exception e) {
