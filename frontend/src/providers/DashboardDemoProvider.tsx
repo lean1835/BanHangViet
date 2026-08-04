@@ -26,6 +26,8 @@ import type { IOrderResponse } from "@/modules/order/types/IOrder";
 import type { IActivityLog } from "@/modules/report/types/IActivityLog";
 import { formatActivityTimestamp } from "@/utils/dateFormatter";
 
+import { useNetworkStatus } from "@/hooks/useNetworkStatus";
+
 interface IDashboardDemoContext {
   currentRole: TDemoRole;
   setCurrentRole: Dispatch<SetStateAction<TDemoRole>>;
@@ -60,9 +62,8 @@ export const DashboardDemoProvider = ({ children }: DashboardDemoProviderProps) 
   const [currentRole, setCurrentRole] = useState<TDemoRole>(
     isDemoRole(user?.roleId) ? user.roleId : USER_ROLES.OWNER
   );
-  const [isOnline, setIsOnline] = useState<boolean>(
-    DEMO_WORKSPACE_DEFAULTS.IS_ONLINE,
-  );
+  const { isOnline } = useNetworkStatus();
+  const setIsOnline = useCallback(() => {}, []);
   const [simConflict, setSimConflict] = useState<boolean>(
     DEMO_WORKSPACE_DEFAULTS.SIMULATE_CONFLICT,
   );
