@@ -43,13 +43,25 @@ public interface CustomerDebtRepository extends JpaRepository<CustomerDebt, Stri
 
     @Query("SELECT d FROM CustomerDebt d JOIN FETCH d.customer JOIN FETCH d.household " +
            "WHERE d.status = 'PENDING' AND d.type = 'DEBT_CREATED' AND d.reminderSent = false " +
-           "AND d.customer.email IS NOT NULL AND TRIM(d.customer.email) != ''")
-    List<CustomerDebt> findPendingPreDueReminders(Pageable pageable);
+           "AND d.customer.email IS NOT NULL AND TRIM(d.customer.email) != '' " +
+           "AND d.dueDate <= :maxDueDate " +
+           "AND d.id > :lastId ORDER BY d.id ASC")
+    List<CustomerDebt> findPendingPreDueRemindersKeyset(
+            @Param("lastId") String lastId,
+            @Param("maxDueDate") LocalDateTime maxDueDate,
+            Pageable pageable);
 
     @Query("SELECT d FROM CustomerDebt d JOIN FETCH d.customer JOIN FETCH d.household " +
            "WHERE d.status = 'OVERDUE' AND d.type = 'DEBT_CREATED' AND d.overdueReminderSent = false " +
-           "AND d.customer.email IS NOT NULL AND TRIM(d.customer.email) != ''")
-    List<CustomerDebt> findPendingOverdueReminders(Pageable pageable);
+           "AND d.customer.email IS NOT NULL AND TRIM(d.customer.email) != '' " +
+           "AND d.id > :lastId ORDER BY d.id ASC")
+    List<CustomerDebt> findPendingOverdueRemindersKeyset(
+            @Param("lastId") String lastId,
+            Pageable pageable);
+
+    @Query("SELECT COALESCE(MAX(d.customer.reminderDaysBefore), 3) FROM CustomerDebt d " +
+           "WHERE d.status = 'PENDING' AND d.type = 'DEBT_CREATED' AND d.reminderSent = false")
+    Integer findMaxPendingReminderDaysBefore();
 
     List<CustomerDebt> findByStatusInAndTypeAndDueDateBefore(
             Collection<String> statuses, String type, LocalDateTime dateTime);

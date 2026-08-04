@@ -12,6 +12,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 @Component
@@ -45,17 +46,22 @@ public class DebtScheduler {
     }
 
     private void processPreDueReminders() {
-        int page = 0;
+        String lastId = "";
         int pageSize = 100;
         int processedCount = 0;
+        int maxDaysBefore = customerDebtRepository.findMaxPendingReminderDaysBefore();
+        LocalDateTime maxDueDate = LocalDateTime.now().plusDays(maxDaysBefore);
         
         while (true) {
-            List<CustomerDebt> pendingPreDue = customerDebtRepository.findPendingPreDueReminders(PageRequest.of(page, pageSize));
+            List<CustomerDebt> pendingPreDue = customerDebtRepository.findPendingPreDueRemindersKeyset(
+                    lastId, maxDueDate, PageRequest.of(0, pageSize));
             if (pendingPreDue == null || pendingPreDue.isEmpty()) {
                 break;
             }
-            boolean progressMade = false;
+            
+            List<CustomerDebt> updatedBatch = new ArrayList<>();
             for (CustomerDebt debt : pendingPreDue) {
+                lastId = debt.getId(); // Update lastId for Keysets
                 try {
                     Customer customer = debt.getCustomer();
                     if (customer == null || debt.getDueDate() == null) {
@@ -77,17 +83,21 @@ public class DebtScheduler {
                                     debt.getDueDate()
                             );
                             debt.setReminderSent(true);
-                            customerDebtRepository.save(debt);
+                            updatedBatch.add(debt);
                             processedCount++;
-                            progressMade = true;
                         }
                     }
                 } catch (Exception e) {
                     log.error("Lỗi khi xử lý nhắc nợ trước hạn cho debt ID: {}", debt.getId(), e);
                 }
             }
-            if (!progressMade) {
-                page++;
+            
+            if (!updatedBatch.isEmpty()) {
+                customerDebtRepository.saveAll(updatedBatch);
+            }
+            
+            if (pendingPreDue.size() < pageSize) {
+                break;
             }
         }
         
@@ -97,17 +107,20 @@ public class DebtScheduler {
     }
 
     private void processOverdueReminders() {
-        int page = 0;
+        String lastId = "";
         int pageSize = 100;
         int processedCount = 0;
         
         while (true) {
-            List<CustomerDebt> pendingOverdue = customerDebtRepository.findPendingOverdueReminders(PageRequest.of(page, pageSize));
+            List<CustomerDebt> pendingOverdue = customerDebtRepository.findPendingOverdueRemindersKeyset(
+                    lastId, PageRequest.of(0, pageSize));
             if (pendingOverdue == null || pendingOverdue.isEmpty()) {
                 break;
             }
-            boolean progressMade = false;
+            
+            List<CustomerDebt> updatedBatch = new ArrayList<>();
             for (CustomerDebt debt : pendingOverdue) {
+                lastId = debt.getId(); // Update lastId for Keysets
                 try {
                     Customer customer = debt.getCustomer();
                     if (customer == null || debt.getDueDate() == null) {
@@ -129,17 +142,21 @@ public class DebtScheduler {
                                     debt.getDueDate()
                             );
                             debt.setOverdueReminderSent(true);
-                            customerDebtRepository.save(debt);
+                            updatedBatch.add(debt);
                             processedCount++;
-                            progressMade = true;
                         }
                     }
                 } catch (Exception e) {
                     log.error("Lỗi khi xử lý nhắc nợ quá hạn cho debt ID: {}", debt.getId(), e);
                 }
             }
-            if (!progressMade) {
-                page++;
+            
+            if (!updatedBatch.isEmpty()) {
+                customerDebtRepository.saveAll(updatedBatch);
+            }
+            
+            if (pendingOverdue.size() < pageSize) {
+                break;
             }
         }
         
