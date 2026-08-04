@@ -111,7 +111,9 @@ export const PosPage = () => {
           return parsed.activeTabId;
         }
       }
-    } catch (e) {}
+    } catch {
+      /* ignore storage parse error */
+    }
     return tabs[0]?.id || "";
   });
 
@@ -124,7 +126,9 @@ export const PosPage = () => {
           return parsed.tabCounter;
         }
       }
-    } catch (e) {}
+    } catch {
+      /* ignore storage parse error */
+    }
     return 1;
   });
 

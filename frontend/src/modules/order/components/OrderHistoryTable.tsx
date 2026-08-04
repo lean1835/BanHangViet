@@ -45,6 +45,8 @@ import {
   useGetCustomersQuery,
   useUpdateCustomerMutation,
 } from "@/modules/customer/services/customerApi";
+import { ImportOrdersModal } from "@/modules/order/components/ImportOrdersModal";
+import { FileSpreadsheet } from "lucide-react";
 
 interface OrderHistoryTableProps {
   currentRole: string;
@@ -608,6 +610,7 @@ export const OrderHistoryTable: React.FC<OrderHistoryTableProps> = ({
   // Modal States
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
   const [showAbandonDraftConfirm, setShowAbandonDraftConfirm] = useState(false);
   const [hasAcknowledgedAbandonRisk, setHasAcknowledgedAbandonRisk] =
     useState(false);
@@ -1901,6 +1904,15 @@ export const OrderHistoryTable: React.FC<OrderHistoryTableProps> = ({
         <span className="font-extrabold text-sm text-slate-800">
           {ORDER_UI.HISTORY.TITLE}
         </span>
+        {canMutateOrders && (
+          <button
+            type="button"
+            onClick={() => setShowImportModal(true)}
+            className="px-3.5 h-8 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold transition-colors flex items-center gap-1.5 text-xs shadow-sm"
+          >
+            <FileSpreadsheet className="w-4 h-4" /> Import từ Excel
+          </button>
+        )}
       </div>
 
       {canMutateOrders && isActiveShiftError && (
@@ -2859,6 +2871,12 @@ export const OrderHistoryTable: React.FC<OrderHistoryTableProps> = ({
         </div>,
         document.body
       )}
+
+      {/* Modal Import Đơn hàng từ Excel */}
+      <ImportOrdersModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+      />
     </div>
   );
 };
