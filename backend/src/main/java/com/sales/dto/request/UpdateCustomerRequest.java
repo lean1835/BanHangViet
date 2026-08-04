@@ -29,4 +29,10 @@ public class UpdateCustomerRequest {
 
     @DecimalMin(value = "0.0", message = "Hạn mức công nợ không được nhỏ hơn 0")
     private BigDecimal creditLimit;
+
+    @Min(value = 0, message = "Số ngày nhắc nợ trước hạn không được nhỏ hơn 0")
+    private Integer reminderDaysBefore;
+
+    @Min(value = 0, message = "Số ngày nhắc nợ sau quá hạn không được nhỏ hơn 0")
+    private Integer reminderDaysAfter;
 }

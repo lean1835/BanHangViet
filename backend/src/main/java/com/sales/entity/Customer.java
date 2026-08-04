@@ -45,6 +45,14 @@ public class Customer {
     @Builder.Default
     private BigDecimal currentDebt = BigDecimal.ZERO;
 
+    @Column(name = "reminder_days_before", nullable = false)
+    @Builder.Default
+    private Integer reminderDaysBefore = 3;
+
+    @Column(name = "reminder_days_after", nullable = false)
+    @Builder.Default
+    private Integer reminderDaysAfter = 3;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

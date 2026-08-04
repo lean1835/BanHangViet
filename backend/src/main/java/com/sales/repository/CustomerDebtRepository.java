@@ -40,6 +40,14 @@ public interface CustomerDebtRepository extends JpaRepository<CustomerDebt, Stri
     List<CustomerDebt> findByHouseholdIdAndStatusInAndTypeAndDueDateBefore(
             String householdId, Collection<String> statuses, String type, LocalDateTime dateTime);
 
+    @Query("SELECT d FROM CustomerDebt d JOIN FETCH d.customer JOIN FETCH d.household " +
+           "WHERE d.status = 'PENDING' AND d.type = 'DEBT_CREATED' AND d.reminderSent = false")
+    List<CustomerDebt> findPendingPreDueReminders();
+
+    @Query("SELECT d FROM CustomerDebt d JOIN FETCH d.customer JOIN FETCH d.household " +
+           "WHERE d.status = 'OVERDUE' AND d.type = 'DEBT_CREATED' AND d.overdueReminderSent = false")
+    List<CustomerDebt> findPendingOverdueReminders();
+
     List<CustomerDebt> findByStatusInAndTypeAndDueDateBefore(
             Collection<String> statuses, String type, LocalDateTime dateTime);
 
