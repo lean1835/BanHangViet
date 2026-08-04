@@ -13,47 +13,48 @@ public class ExcelParserUtils {
     }
 
     public static byte[] generateProductImportTemplate() throws Exception {
-        SXSSFWorkbook workbook = new SXSSFWorkbook(100);
-        try (ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+        try (SXSSFWorkbook workbook = new SXSSFWorkbook(100)) {
+            try (ByteArrayOutputStream out = new ByteArrayOutputStream()) {
 
-            Sheet sheet = workbook.createSheet("Danh_Muc_Hang_Hoa");
+                Sheet sheet = workbook.createSheet("Danh_Muc_Hang_Hoa");
 
-            // Header Style
-            CellStyle headerStyle = workbook.createCellStyle();
-            Font headerFont = workbook.createFont();
-            headerFont.setBold(true);
-            headerFont.setColor(IndexedColors.WHITE.getIndex());
-            headerStyle.setFont(headerFont);
-            headerStyle.setFillForegroundColor(IndexedColors.ROYAL_BLUE.getIndex());
-            headerStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+                // Header Style
+                CellStyle headerStyle = workbook.createCellStyle();
+                Font headerFont = workbook.createFont();
+                headerFont.setBold(true);
+                headerFont.setColor(IndexedColors.WHITE.getIndex());
+                headerStyle.setFont(headerFont);
+                headerStyle.setFillForegroundColor(IndexedColors.ROYAL_BLUE.getIndex());
+                headerStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
 
-            Row headerRow = sheet.createRow(0);
-            String[] headers = {
-                    "Mã SKU", "Tên hàng hóa", "Đơn vị tính", "Giá nhập", "Giá bán", "% Thuế suất", "Tên nhóm hàng", "Tồn ban đầu"
-            };
+                Row headerRow = sheet.createRow(0);
+                String[] headers = {
+                        "Mã SKU", "Tên hàng hóa", "Đơn vị tính", "Giá nhập", "Giá bán", "% Thuế suất", "Tên nhóm hàng", "Tồn ban đầu"
+                };
 
-            for (int i = 0; i < headers.length; i++) {
-                Cell cell = headerRow.createCell(i);
-                cell.setCellValue(headers[i]);
-                cell.setCellStyle(headerStyle);
-                sheet.setColumnWidth(i, 20 * 256);
+                for (int i = 0; i < headers.length; i++) {
+                    Cell cell = headerRow.createCell(i);
+                    cell.setCellValue(headers[i]);
+                    cell.setCellStyle(headerStyle);
+                    sheet.setColumnWidth(i, 20 * 256);
+                }
+
+                // Sample Row
+                Row sampleRow = sheet.createRow(1);
+                sampleRow.createCell(0).setCellValue("SP001");
+                sampleRow.createCell(1).setCellValue("Cà phê đen túi 500g");
+                sampleRow.createCell(2).setCellValue("Gói");
+                sampleRow.createCell(3).setCellValue(50000);
+                sampleRow.createCell(4).setCellValue(85000);
+                sampleRow.createCell(5).setCellValue(8);
+                sampleRow.createCell(6).setCellValue("Đồ uống");
+                sampleRow.createCell(7).setCellValue(100);
+
+                workbook.write(out);
+                return out.toByteArray();
+            } finally {
+                workbook.dispose();
             }
-
-            // Sample Row
-            Row sampleRow = sheet.createRow(1);
-            sampleRow.createCell(0).setCellValue("SP001");
-            sampleRow.createCell(1).setCellValue("Cà phê đen túi 500g");
-            sampleRow.createCell(2).setCellValue("Gói");
-            sampleRow.createCell(3).setCellValue(50000);
-            sampleRow.createCell(4).setCellValue(85000);
-            sampleRow.createCell(5).setCellValue(8);
-            sampleRow.createCell(6).setCellValue("Đồ uống");
-            sampleRow.createCell(7).setCellValue(100);
-
-            workbook.write(out);
-            return out.toByteArray();
-        } finally {
-            workbook.dispose();
         }
     }
 
