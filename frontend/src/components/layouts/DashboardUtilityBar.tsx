@@ -2,7 +2,6 @@ import {
   APP_FALLBACKS,
   APP_MESSAGES,
   APP_SYMBOLS,
-  CONNECTION_STATUS,
 } from "@/constants/app";
 import { BrandLogo } from "@/components/common/BrandLogo";
 import { ROLE_LABELS, type TDemoRole } from "@/constants/roles";
@@ -12,7 +11,7 @@ import { baseApi } from "@/stores/baseApi";
 
 interface DashboardUtilityBarProps {
   currentRole: TDemoRole;
-  isOnline: boolean;
+  isOnline?: boolean;
   simConflict: boolean;
   pendingCount?: number;
   onRoleChange: (role: TDemoRole) => void;
@@ -22,7 +21,6 @@ interface DashboardUtilityBarProps {
 }
 
 export const DashboardUtilityBar = ({
-  isOnline,
   pendingCount = 0,
   onSync,
 }: DashboardUtilityBarProps) => {
@@ -41,22 +39,6 @@ export const DashboardUtilityBar = ({
       </div>
 
       <div className="flex min-w-0 basis-full flex-wrap items-center justify-end gap-1.5 sm:basis-auto sm:flex-1 sm:flex-nowrap sm:gap-2 lg:gap-4">
-        <div
-          className={`flex min-h-8 items-center justify-center gap-1.5 rounded-md border px-2.5 py-1 font-bold transition-all ${
-            isOnline
-              ? "bg-emerald-50 text-emerald-600 border-emerald-200"
-              : "bg-rose-50 text-rose-600 border-rose-200"
-          }`}
-          title={isOnline ? "Trạng thái mạng: Trực tuyến (Online)" : "Trạng thái mạng: Ngoại tuyến (Offline - Test trong F12)"}
-        >
-          <span
-            aria-hidden="true"
-            className={`inline-block h-2 w-2 rounded-full ${
-              isOnline ? "bg-emerald-500 animate-pulse" : "bg-rose-500"
-            }`}
-          />
-          <span>{isOnline ? CONNECTION_STATUS.ONLINE : CONNECTION_STATUS.OFFLINE}</span>
-        </div>
 
         {pendingCount > 0 && (
           <button
