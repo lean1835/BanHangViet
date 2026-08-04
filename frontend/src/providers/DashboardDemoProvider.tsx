@@ -71,7 +71,9 @@ export const DashboardDemoProvider = ({ children }: DashboardDemoProviderProps) 
     try {
       const raw = localStorage.getItem(STORAGE_KEYS.POS_OFFLINE_INVOICES);
       if (raw) return JSON.parse(raw);
-    } catch {}
+    } catch {
+      /* ignore storage parse error */
+    }
     return [];
   });
 
@@ -80,7 +82,9 @@ export const DashboardDemoProvider = ({ children }: DashboardDemoProviderProps) 
       if (invoices.length > 0) {
         localStorage.setItem(STORAGE_KEYS.POS_OFFLINE_INVOICES, JSON.stringify(invoices));
       }
-    } catch {}
+    } catch {
+      /* ignore storage write error */
+    }
   }, [invoices]);
   const [customers, setCustomers] = useState<ICustomer[]>([]);
   const [logs, setLogs] = useState<IActivityLog[]>([]);
@@ -188,6 +192,7 @@ export const DashboardDemoProvider = ({ children }: DashboardDemoProviderProps) 
     [
       currentRole,
       isOnline,
+      setIsOnline,
       simConflict,
       invoices,
       customers,

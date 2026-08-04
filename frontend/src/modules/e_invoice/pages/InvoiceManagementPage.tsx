@@ -79,7 +79,9 @@ export const InvoiceManagementPage = () => {
         });
         try {
           localStorage.setItem(STORAGE_KEYS.POS_OFFLINE_INVOICES, JSON.stringify(merged));
-        } catch {}
+        } catch {
+          /* ignore storage error */
+        }
         return merged;
       });
     }
@@ -102,7 +104,9 @@ export const InvoiceManagementPage = () => {
         try {
           const raw = localStorage.getItem(STORAGE_KEYS.POS_OFFLINE_INVOICES);
           if (raw) sourceList = JSON.parse(raw);
-        } catch {}
+        } catch {
+          /* ignore storage parse error */
+        }
       }
     }
 
