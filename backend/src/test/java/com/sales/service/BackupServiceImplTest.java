@@ -212,7 +212,7 @@ class BackupServiceImplTest {
     }
 
     @Test
-    @DisplayName("NCL-09-CN-006-TC-01: Chủ hộ chọn xuất hóa đơn -> Tạo tệp `.xlsx` sao lưu hóa đơn thành công")
+    @DisplayName("NCL-09-CN-006-TC-04: Chủ hộ chọn xuất hóa đơn -> Tạo tệp `.xlsx` sao lưu hóa đơn thành công")
     void exportBackupData_Invoices_Success() throws Exception {
         when(userRepository.findByUsername("owner")).thenReturn(Optional.of(ownerUser));
 
@@ -239,7 +239,7 @@ class BackupServiceImplTest {
     }
 
     @Test
-    @DisplayName("NCL-09-CN-006-TC-01: Chủ hộ chọn xuất đơn hàng -> Tạo tệp `.xlsx` sao lưu đơn hàng thành công với 2 sheet")
+    @DisplayName("NCL-09-CN-006-TC-05: Chủ hộ chọn xuất đơn hàng -> Tạo tệp `.xlsx` sao lưu đơn hàng thành công với 2 sheet")
     void exportBackupData_Orders_Success() throws Exception {
         when(userRepository.findByUsername("owner")).thenReturn(Optional.of(ownerUser));
 
@@ -253,7 +253,7 @@ class BackupServiceImplTest {
                 .paymentStatus("PAID")
                 .build();
 
-        when(orderRepository.findByHouseholdIdAndDeletedAtIsNullAndCreatedAtBetweenOrderByCreatedAtDesc(anyString(), any(), any()))
+        when(orderRepository.findOrdersForBackup(anyString(), any(), any()))
                 .thenReturn(List.of(ord1));
 
         ResponseEntity<Resource> response = backupService.exportBackupData("owner", BackupType.ORDERS, LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 31));
@@ -265,7 +265,7 @@ class BackupServiceImplTest {
     }
 
     @Test
-    @DisplayName("NCL-09-CN-006-TC-01: Chủ hộ chọn sao lưu FULL -> Tạo tệp `.zip` nén đầy đủ sản phẩm, đơn hàng và hóa đơn")
+    @DisplayName("NCL-09-CN-006-TC-06: Chủ hộ chọn sao lưu FULL -> Tạo tệp `.zip` nén đầy đủ sản phẩm, đơn hàng và hóa đơn")
     void exportBackupData_Full_Success() throws Exception {
         when(userRepository.findByUsername("owner")).thenReturn(Optional.of(ownerUser));
 
@@ -274,7 +274,7 @@ class BackupServiceImplTest {
         EInvoice inv1 = EInvoice.builder().id("inv-001").lookupCode("LOOKUP001").finalAmount(new BigDecimal("30000")).build();
 
         when(productRepository.findAll(any(Specification.class))).thenReturn(List.of(p1));
-        when(orderRepository.findByHouseholdIdAndDeletedAtIsNullAndCreatedAtBetweenOrderByCreatedAtDesc(anyString(), any(), any())).thenReturn(List.of(ord1));
+        when(orderRepository.findOrdersForBackup(anyString(), any(), any())).thenReturn(List.of(ord1));
         when(eInvoiceRepository.findAll(any(Specification.class))).thenReturn(List.of(inv1));
 
         ResponseEntity<Resource> response = backupService.exportBackupData("owner", BackupType.FULL, LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 31));
