@@ -95,6 +95,11 @@ class DebtSchedulerTest {
                 .reminderSent(false)
                 .build();
 
+        doAnswer(invocation -> {
+            debt.setReminderSent(true);
+            return null;
+        }).when(emailService).sendDebtReminderEmailAsync(any(), any(), any(), any(), any(), any());
+
         when(customerDebtRepository.findMaxPendingReminderDaysBefore()).thenReturn(3);
         when(customerDebtRepository.findMinPendingOverdueReminderDaysAfter()).thenReturn(3);
         when(customerDebtRepository.findPendingPreDueRemindersKeyset(any(), any(), any()))
@@ -107,8 +112,7 @@ class DebtSchedulerTest {
  
          assertTrue(debt.getReminderSent());
          verify(emailService, times(1)).sendDebtReminderEmailAsync(
-                 eq("customerA@gmail.com"), eq("Khách hàng A"), eq("Hộ KD A"), eq(new BigDecimal("200000")), any(LocalDateTime.class));
-         verify(customerDebtRepository, times(1)).saveAll(List.of(debt));
+                 eq("debt-1"), eq("customerA@gmail.com"), eq("Khách hàng A"), eq("Hộ KD A"), eq(new BigDecimal("200000")), any(LocalDateTime.class));
     }
 
     @Test
@@ -133,6 +137,11 @@ class DebtSchedulerTest {
                 .overdueReminderSent(false)
                 .build();
 
+        doAnswer(invocation -> {
+            debt.setOverdueReminderSent(true);
+            return null;
+        }).when(emailService).sendOverdueDebtReminderEmailAsync(any(), any(), any(), any(), any(), any());
+
         when(customerDebtRepository.findMaxPendingReminderDaysBefore()).thenReturn(3);
         when(customerDebtRepository.findMinPendingOverdueReminderDaysAfter()).thenReturn(3);
         when(customerDebtRepository.findPendingPreDueRemindersKeyset(any(), any(), any()))
@@ -145,7 +154,6 @@ class DebtSchedulerTest {
  
          assertTrue(debt.getOverdueReminderSent());
          verify(emailService, times(1)).sendOverdueDebtReminderEmailAsync(
-                 eq("customerB@gmail.com"), eq("Khách hàng B"), eq("Hộ KD A"), eq(new BigDecimal("500000")), any(LocalDateTime.class));
-         verify(customerDebtRepository, times(1)).saveAll(List.of(debt));
+                 eq("debt-2"), eq("customerB@gmail.com"), eq("Khách hàng B"), eq("Hộ KD A"), eq(new BigDecimal("500000")), any(LocalDateTime.class));
     }
 }
