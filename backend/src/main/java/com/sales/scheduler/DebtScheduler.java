@@ -77,13 +77,14 @@ public class DebtScheduler {
                 },
                 (debt, email) -> {
                     String householdName = debt.getHousehold() != null ? debt.getHousehold().getName() : defaultHouseholdName;
-                    emailService.sendDebtReminderEmail(
-                            debt.getId(),
+                    String orderText = debt.getOrder() != null ? "Đơn hàng " + debt.getOrder().getOrderNumber() : "Khoản nợ";
+                    String msg = "Kính gửi " + debt.getCustomer().getName() + ",\nCửa hàng " + householdName + " xin thông báo " + orderText + " của Quý khách có dư nợ: " + debt.getRemainingAmount() + " VND, hạn trả: " + (debt.getDueDate() != null ? debt.getDueDate().toLocalDate() : "") + ". Rất mong Quý khách sắp xếp thanh toán. Trân trọng!";
+                    emailService.sendCustomDebtReminderEmail(
                             email,
                             debt.getCustomer().getName(),
                             householdName,
                             debt.getRemainingAmount(),
-                            debt.getDueDate()
+                            msg
                     );
                     debt.setReminderSent(true);
                 },
@@ -110,13 +111,14 @@ public class DebtScheduler {
                 },
                 (debt, email) -> {
                     String householdName = debt.getHousehold() != null ? debt.getHousehold().getName() : defaultHouseholdName;
-                    emailService.sendOverdueDebtReminderEmail(
-                            debt.getId(),
+                    String orderText = debt.getOrder() != null ? "Đơn hàng " + debt.getOrder().getOrderNumber() : "Khoản nợ";
+                    String msg = "Kính gửi " + debt.getCustomer().getName() + ",\nCửa hàng " + householdName + " xin thông báo " + orderText + " của Quý khách hiện đã QUÁ HẠN với dư nợ: " + debt.getRemainingAmount() + " VND, hạn trả: " + (debt.getDueDate() != null ? debt.getDueDate().toLocalDate() : "") + ". Kính mong Quý khách nhanh chóng sắp xếp thanh toán dứt điểm!";
+                    emailService.sendCustomDebtReminderEmail(
                             email,
                             debt.getCustomer().getName(),
                             householdName,
                             debt.getRemainingAmount(),
-                            debt.getDueDate()
+                            msg
                     );
                     debt.setOverdueReminderSent(true);
                 },

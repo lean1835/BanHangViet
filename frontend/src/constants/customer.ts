@@ -83,6 +83,7 @@ export const CUSTOMER_UI = {
       ADDRESS: "Địa chỉ",
       CREDIT_LIMIT: "Hạn mức nợ",
       CURRENT_DEBT: "Dư nợ hiện tại",
+      DUE_DATE: "Hạn thanh toán",
       AVAILABLE_DEBT: "Hạn mức còn lại",
       DEBT_STATUS: "Trạng thái nợ",
       REMIND_COLUMN: "Công nợ",

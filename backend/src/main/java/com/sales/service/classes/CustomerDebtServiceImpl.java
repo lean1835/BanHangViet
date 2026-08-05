@@ -4,8 +4,10 @@ import com.sales.constant.DebtStatus;
 import com.sales.constant.DebtType;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sales.dto.request.CollectDebtRequest;
+import com.sales.dto.request.RemindDebtRequest;
 import com.sales.dto.response.CustomerDebtResponse;
 import com.sales.dto.response.DebtSummaryResponse;
+import com.sales.dto.response.OrderItemResponse;
 import com.sales.entity.ActivityLog;
 import com.sales.entity.BusinessHousehold;
 import com.sales.entity.Customer;
@@ -18,18 +20,24 @@ import com.sales.repository.CustomerDebtRepository;
 import com.sales.repository.CustomerRepository;
 import com.sales.repository.UserRepository;
 import com.sales.service.interfaces.CustomerDebtService;
+import com.sales.service.interfaces.EmailService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -43,6 +51,7 @@ public class CustomerDebtServiceImpl implements CustomerDebtService {
     private final CustomerRepository customerRepository;
     private final CustomerDebtRepository customerDebtRepository;
     private final ActivityLogRepository activityLogRepository;
+    private final EmailService emailService;
     private final ObjectMapper objectMapper;
 
     private User getAuthenticatedUser(String username) {
@@ -93,6 +102,22 @@ public class CustomerDebtServiceImpl implements CustomerDebtService {
     }
 
     private CustomerDebtResponse mapToResponse(CustomerDebt debt) {
+        List<OrderItemResponse> itemResponses = debt.getOrder() != null && debt.getOrder().getItems() != null
+                ? debt.getOrder().getItems().stream()
+                .map(item -> OrderItemResponse.builder()
+                        .id(item.getId())
+                        .productId(item.getProduct() != null ? item.getProduct().getId() : null)
+                        .productName(item.getProductName())
+                        .quantity(item.getQuantity())
+                        .unitPrice(item.getUnitPrice())
+                        .discountAmount(item.getDiscountAmount())
+                        .taxRatePercentage(item.getTaxRatePercentage())
+                        .taxAmount(item.getTaxAmount())
+                        .subtotal(item.getSubtotal())
+                        .build())
+                .collect(Collectors.toList())
+                : Collections.emptyList();
+
         return CustomerDebtResponse.builder()
                 .id(debt.getId())
                 .householdId(debt.getHousehold().getId())
@@ -101,6 +126,7 @@ public class CustomerDebtServiceImpl implements CustomerDebtService {
                 .customerPhone(debt.getCustomer().getPhoneNumber())
                 .orderId(debt.getOrder() != null ? debt.getOrder().getId() : null)
                 .orderNumber(debt.getOrder() != null ? debt.getOrder().getOrderNumber() : null)
+                .items(itemResponses)
                 .amount(debt.getAmount())
                 .remainingAmount(debt.getRemainingAmount())
                 .type(debt.getType())
@@ -255,4 +281,48 @@ public class CustomerDebtServiceImpl implements CustomerDebtService {
                 .totalDebtors(totalDebtors)
                 .build();
     }
+
+    @Override
+    @Transactional
+    public void remindCustomerDebt(String currentUsername, RemindDebtRequest request) {
+        User currentUser = getAuthenticatedUser(currentUsername);
+        BusinessHousehold household = currentUser.getHousehold();
+        if (household == null) {
+            throw new AppException(ErrorCode.FORBIDDEN);
+        }
+
+        Customer customer = customerRepository.findByIdAndHouseholdIdAndDeletedAtIsNull(request.getCustomerId(), household.getId())
+                .orElseThrow(() -> new AppException(ErrorCode.CUSTOMER_NOT_FOUND));
+
+        String email = customer.getEmail();
+        if (!StringUtils.hasText(email)) {
+            throw new AppException(ErrorCode.INVALID_INPUT);
+        }
+
+        List<CustomerDebt> activeDebts = customerDebtRepository.findByCustomerIdAndHouseholdIdAndStatusInAndTypeOrderByCreatedAtAsc(
+                customer.getId(), household.getId(), List.of(DebtStatus.PENDING, DebtStatus.OVERDUE), DebtType.DEBT_CREATED);
+
+        if (activeDebts.isEmpty()) {
+            throw new AppException(ErrorCode.DEBT_NOT_FOUND);
+        }
+
+        for (CustomerDebt debt : activeDebts) {
+            if (DebtStatus.OVERDUE.equals(debt.getStatus())) {
+                debt.setOverdueReminderSent(true);
+            } else {
+                debt.setReminderSent(true);
+            }
+        }
+        customerDebtRepository.saveAll(activeDebts);
+
+        // Send EXACTLY 1 COMBINED EMAIL to the customer
+        emailService.sendCustomDebtReminderEmail(
+                email.trim(),
+                customer.getName(),
+                household.getName(),
+                customer.getCurrentDebt(),
+                request.getMessageContent()
+        );
+    }
 }
+

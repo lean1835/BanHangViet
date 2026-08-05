@@ -10,6 +10,7 @@ export interface ICustomer {
   debt: number;
   currentDebt?: number;
   dueDate?: string;
+  debtCreatedAt?: string;
   createdAt?: string;
   updatedAt?: string;
 }

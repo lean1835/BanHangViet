@@ -1,6 +1,7 @@
 package com.sales.service.interfaces;
 
 import com.sales.dto.request.CollectDebtRequest;
+import com.sales.dto.request.RemindDebtRequest;
 import com.sales.dto.response.CustomerDebtResponse;
 import com.sales.dto.response.DebtSummaryResponse;
 
@@ -11,4 +12,6 @@ public interface CustomerDebtService {
     List<CustomerDebtResponse> getDebtHistory(String currentUsername, String customerId);
     List<CustomerDebtResponse> getDebtReminders(String currentUsername, String statusFilter);
     DebtSummaryResponse getDebtSummary(String currentUsername);
+    void remindCustomerDebt(String currentUsername, RemindDebtRequest request);
 }
+

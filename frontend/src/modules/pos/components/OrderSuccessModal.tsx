@@ -534,9 +534,18 @@ export const OrderSuccessModal: React.FC<IOrderSuccessModalProps> = ({
               <div className="flex justify-between text-slate-600">
                 <span>Tiền khách đưa:</span>
                 <span className="font-bold text-slate-800">
-                  {formatCurrency(tab.amountGiven || finalTotal)}
+                  {formatCurrency(typeof tab.amountGiven === "number" ? tab.amountGiven : (tab.paymentMethod === "DEBT" ? 0 : finalTotal))}
                 </span>
               </div>
+
+              {tab.paymentMethod === "DEBT" && (
+                <div className="flex justify-between text-rose-600 font-extrabold pt-0.5">
+                  <span>Còn nợ lại:</span>
+                  <span className="font-black">
+                    {formatCurrency(Math.max(0, finalTotal - (tab.amountGiven || 0)))}
+                  </span>
+                </div>
+              )}
 
               {changeAmount > 0 && (
                 <div className="flex justify-between text-emerald-700 font-extrabold pt-0.5">
@@ -841,8 +850,19 @@ export const OrderSuccessModal: React.FC<IOrderSuccessModalProps> = ({
 
                 <div className="flex justify-between font-semibold text-slate-700 pt-1">
                   <span>Tiền khách đưa:</span>
-                  <span className="font-bold text-slate-900">{formatCurrency(tab.amountGiven || finalTotal)}</span>
+                  <span className="font-bold text-slate-900">
+                    {formatCurrency(typeof tab.amountGiven === "number" ? tab.amountGiven : (tab.paymentMethod === "DEBT" ? 0 : finalTotal))}
+                  </span>
                 </div>
+
+                {tab.paymentMethod === "DEBT" && (
+                  <div className="flex justify-between font-extrabold text-rose-600">
+                    <span>Còn nợ lại:</span>
+                    <span className="font-bold">
+                      {formatCurrency(Math.max(0, finalTotal - (tab.amountGiven || 0)))}
+                    </span>
+                  </div>
+                )}
 
                 {changeAmount > 0 && (
                   <div className="flex justify-between font-extrabold text-emerald-700">

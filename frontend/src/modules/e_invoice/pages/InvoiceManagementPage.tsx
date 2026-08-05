@@ -15,7 +15,8 @@ import {
   useCancelInvoiceMutation,
   useUpdateInvoiceMutation,
 } from "../services/eInvoiceApi";
-import { InvoiceSidebar } from "../components/InvoiceSidebar";
+import { useGetInvoiceTemplateQuery } from "@/modules/settings/services/settingsApi";
+import { InvoiceSidebar, type TInvoiceVersionFilter } from "../components/InvoiceSidebar";
 import { InvoiceList } from "../components/InvoiceList";
 import { InvoiceDetailModal } from "../components/InvoiceDetailModal";
 
@@ -34,6 +35,7 @@ export const InvoiceManagementPage = () => {
 
   // Filters State
   const [statusFilter, setStatusFilter] = useState<TInvoiceStatus[]>([]);
+  const [versionFilter, setVersionFilter] = useState<TInvoiceVersionFilter>("ALL");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
@@ -41,6 +43,10 @@ export const InvoiceManagementPage = () => {
   // Selected Invoice Modal State
   const [selectedInvoice, setSelectedInvoice] = useState<IInvoice | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
+
+  // Invoice Template Query to get template updatedAt
+  const { data: templateResponse } = useGetInvoiceTemplateQuery(undefined, { skip: !isOnline });
+  const templateUpdatedAt = templateResponse?.result?.updatedAt;
 
   // Online RTK Query & Mutations
   const {
@@ -134,6 +140,17 @@ export const InvoiceManagementPage = () => {
           const matchTaxAuth = (inv.taxAuthorityCode || "").toLowerCase().includes(query);
           if (!matchLookup && !matchCustomer && !matchNumber && !matchTaxAuth) return false;
         }
+        // 5. Lọc theo Phân loại Mẫu Hóa đơn (Cũ < updatedAt mẫu hóa đơn, Hiện tại >= updatedAt mẫu hóa đơn)
+        if (versionFilter !== "ALL") {
+          const invTime = new Date(inv.createdAt || inv.time || 0).getTime();
+          const templateTime = templateUpdatedAt ? new Date(templateUpdatedAt).getTime() : 0;
+
+          if (versionFilter === "CURRENT") {
+            if (templateTime > 0 && invTime < templateTime) return false;
+          } else if (versionFilter === "OLD") {
+            if (templateTime === 0 || invTime >= templateTime) return false;
+          }
+        }
         return true;
       })
       .sort((a, b) => {
@@ -141,7 +158,7 @@ export const InvoiceManagementPage = () => {
         const timeB = new Date(b.createdAt || b.time || 0).getTime();
         return timeB - timeA;
       });
-  }, [isOnline, apiInvoicesData, mockInvoices, statusFilter, fromDate, toDate, searchQuery]);
+  }, [isOnline, apiInvoicesData, mockInvoices, statusFilter, versionFilter, templateUpdatedAt, fromDate, toDate, searchQuery]);
 
   // Handle URL ID query param for highlighted invoice
   useEffect(() => {
@@ -336,6 +353,8 @@ export const InvoiceManagementPage = () => {
         <InvoiceSidebar
           statusFilter={statusFilter}
           setStatusFilter={setStatusFilter}
+          versionFilter={versionFilter}
+          setVersionFilter={setVersionFilter}
           fromDate={fromDate}
           setFromDate={setFromDate}
           toDate={toDate}

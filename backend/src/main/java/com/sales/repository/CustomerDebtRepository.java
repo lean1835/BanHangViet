@@ -2,6 +2,7 @@ package com.sales.repository;
 
 import com.sales.entity.CustomerDebt;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -20,18 +21,19 @@ public interface CustomerDebtRepository extends JpaRepository<CustomerDebt, Stri
 
     Optional<CustomerDebt> findFirstByOrderIdAndType(String orderId, String type);
 
-    @Query("SELECT d FROM CustomerDebt d JOIN FETCH d.customer JOIN FETCH d.createdByUser LEFT JOIN FETCH d.order " +
+    @Query("SELECT DISTINCT d FROM CustomerDebt d JOIN FETCH d.customer JOIN FETCH d.createdByUser LEFT JOIN FETCH d.order o LEFT JOIN FETCH o.items " +
            "WHERE d.customer.id = :customerId AND d.household.id = :householdId ORDER BY d.createdAt DESC")
     List<CustomerDebt> findByCustomerIdAndHouseholdIdOrderByCreatedAtDescWithRelations(
             @Param("customerId") String customerId, @Param("householdId") String householdId);
 
+    @EntityGraph(attributePaths = {"customer", "createdByUser", "order", "order.items"})
     List<CustomerDebt> findByCustomerIdAndHouseholdIdAndStatusInAndTypeOrderByCreatedAtAsc(
             String customerId, String householdId, Collection<String> statuses, String type);
 
     List<CustomerDebt> findByHouseholdIdAndStatusInAndTypeOrderByDueDateAsc(
             String householdId, Collection<String> statuses, String type);
 
-    @Query("SELECT d FROM CustomerDebt d JOIN FETCH d.customer JOIN FETCH d.createdByUser LEFT JOIN FETCH d.order " +
+    @Query("SELECT DISTINCT d FROM CustomerDebt d JOIN FETCH d.customer JOIN FETCH d.createdByUser LEFT JOIN FETCH d.order o LEFT JOIN FETCH o.items " +
            "WHERE d.household.id = :householdId AND d.status IN :statuses AND d.type = :type ORDER BY d.dueDate Asc")
     List<CustomerDebt> findByHouseholdIdAndStatusInAndTypeOrderByDueDateAscWithRelations(
             @Param("householdId") String householdId,

@@ -2,6 +2,7 @@ package com.sales.controller;
 
 import com.sales.dto.ApiResponse;
 import com.sales.dto.request.CollectDebtRequest;
+import com.sales.dto.request.RemindDebtRequest;
 import com.sales.dto.response.CustomerDebtResponse;
 import com.sales.dto.response.DebtSummaryResponse;
 import com.sales.service.interfaces.CustomerDebtService;
@@ -20,6 +21,19 @@ import java.util.List;
 public class CustomerDebtController {
 
     private final CustomerDebtService customerDebtService;
+
+    @PostMapping("/remind")
+    @PreAuthorize("hasAnyRole('VT-01', 'VT-02')")
+    public ResponseEntity<ApiResponse<Void>> remindCustomerDebt(
+            Principal principal,
+            @Valid @RequestBody RemindDebtRequest request) {
+        customerDebtService.remindCustomerDebt(principal.getName(), request);
+        ApiResponse<Void> response = ApiResponse.<Void>builder()
+                .code(1000)
+                .message("Gửi email nhắc nợ thành công")
+                .build();
+        return ResponseEntity.ok(response);
+    }
 
     @PostMapping("/collect")
     @PreAuthorize("hasAnyRole('VT-01', 'VT-02')")

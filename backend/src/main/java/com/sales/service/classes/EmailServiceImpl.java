@@ -202,6 +202,41 @@ public class EmailServiceImpl implements EmailService {
         }
     }
 
+    @Override
+    @Async("taskExecutor")
+    public void sendCustomDebtReminderEmail(String toEmail, String customerName, String householdName, BigDecimal totalDebt, String messageContent) {
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+
+            String rawHouseholdName = householdName != null ? householdName : "";
+            String safeCustomerName = HtmlUtils.htmlEscape(customerName != null ? customerName : "");
+            String safeHouseholdName = HtmlUtils.htmlEscape(rawHouseholdName);
+
+            helper.setTo(toEmail);
+            helper.setSubject("Thông báo công nợ từ " + rawHouseholdName);
+
+            String htmlBodyMessage = messageContent != null
+                    ? HtmlUtils.htmlEscape(messageContent).replace("\n", "<br/>")
+                    : "Kính gửi " + safeCustomerName + ", bạn có khoản công nợ cần thanh toán tại " + safeHouseholdName;
+
+            String bodyContent = "    <div style=\"background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; margin-bottom: 20px;\">"
+                    + "      <div style=\"font-size: 14px; color: #334155; line-height: 1.8;\">"
+                    + htmlBodyMessage
+                    + "      </div>"
+                    + "    </div>";
+
+            String htmlContent = buildHtmlEmail("THÔNG BÁO NHẮC NỢ", "Cung cấp bởi BanHangViet", "linear-gradient(135deg, #1e3c72 0%, #2a5298 100%)", bodyContent);
+
+            helper.setText(htmlContent, true);
+            mailSender.send(message);
+
+            log.info("Email nhắc nợ tổng hợp gửi thành công cho khách hàng {} ({}) tới {}", customerName, totalDebt, toEmail);
+        } catch (Exception e) {
+            log.error("Lỗi khi gửi email nhắc nợ tổng hợp tới {}", toEmail, e);
+        }
+    }
+
     private String buildDebtReminderBody(DebtReminderEmailContext context) {
         return "    <p style=\"margin-top: 0; font-size: 16px;\">Kính gửi Ông/Bà <strong>" + context.getSafeCustomerName() + "</strong>,</p>"
                 + "    <p>" + context.getIntroText() + " <strong>" + context.getSafeHouseholdName() + "</strong>:</p>"
