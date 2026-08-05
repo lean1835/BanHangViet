@@ -414,6 +414,13 @@ export const productApi = baseApi.injectEndpoints({
       },
       invalidatesTags: [{ type: API_TAG_TYPES.PRODUCT, id: PRODUCT_API_TAG_IDS.LIST }],
     }),
+    downloadProductImportTemplate: builder.query<Blob, void>({
+      query: () => ({
+        url: "/products/import-template",
+        method: HTTP_METHODS.GET,
+        responseHandler: (response) => response.blob(),
+      }),
+    }),
   }),
   overrideExisting: API_CONFIG.OVERRIDE_EXISTING_ENDPOINTS,
 });
@@ -431,4 +438,5 @@ export const {
   useCreateGoodsReceiptMutation,
   useGetGoodsReceiptByIdQuery,
   useImportProductsMutation,
+  useLazyDownloadProductImportTemplateQuery,
 } = productApi;

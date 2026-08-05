@@ -160,7 +160,7 @@ export const OrderSuccessModal: React.FC<IOrderSuccessModalProps> = ({
       setModalView("ISSUE_INVOICE_VIEW");
       setIssueSuccessAlertMsg("Phát hành hóa đơn nháp thành công!");
       setShowIssueSuccessAlert(true);
-    } catch (err: any) {
+    } catch {
       const fallbackInv: IInvoice = {
         id: `inv_${Date.now()}`,
         lookupCode: `HD${Date.now().toString(36).toUpperCase()}`,
@@ -220,7 +220,9 @@ export const OrderSuccessModal: React.FC<IOrderSuccessModalProps> = ({
         return timeB - timeA;
       });
       localStorage.setItem(STORAGE_KEYS.POS_OFFLINE_INVOICES, JSON.stringify(updated));
-    } catch {}
+    } catch {
+      /* ignore offline storage write error */
+    }
   };
 
   // Handlers for inherited InvoiceDetailModal
@@ -242,7 +244,7 @@ export const OrderSuccessModal: React.FC<IOrderSuccessModalProps> = ({
       }
       setIssueSuccessAlertMsg("Đã gửi hóa đơn điện tử chờ cơ quan thuế cấp mã.");
       setShowIssueSuccessAlert(true);
-    } catch (err: any) {
+    } catch {
       setRealInvoice((prev) =>
         prev
           ? {
@@ -265,7 +267,9 @@ export const OrderSuccessModal: React.FC<IOrderSuccessModalProps> = ({
       }
       setIssueSuccessAlertMsg("Đã gửi lại hóa đơn chờ cơ quan thuế cấp mã.");
       setShowIssueSuccessAlert(true);
-    } catch (err: any) {}
+    } catch {
+      /* ignore resend error */
+    }
   };
 
   const handleCancelInvoice = async (id: string, reason: string) => {
@@ -284,7 +288,9 @@ export const OrderSuccessModal: React.FC<IOrderSuccessModalProps> = ({
             : null
         );
       }
-    } catch (err: any) {}
+    } catch {
+      /* ignore cancel error */
+    }
   };
 
   const handleUpdateInvoice = async (
@@ -311,7 +317,9 @@ export const OrderSuccessModal: React.FC<IOrderSuccessModalProps> = ({
             : null
         );
       }
-    } catch (err: any) {}
+    } catch {
+      /* ignore update error */
+    }
   };
 
   // Lookup code / Bill reference
