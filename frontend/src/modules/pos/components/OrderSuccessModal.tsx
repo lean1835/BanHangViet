@@ -109,6 +109,11 @@ export const OrderSuccessModal: React.FC<IOrderSuccessModalProps> = ({
 
   // Handle Real Invoice Issuance (POST /invoices/draft)
   const handleIssueInvoice = async () => {
+    if (realInvoice) {
+      setModalView("ISSUE_INVOICE_VIEW");
+      return;
+    }
+
     try {
       let createdInv: IInvoice | null = null;
       if (tab.backendOrderId) {
@@ -160,7 +165,15 @@ export const OrderSuccessModal: React.FC<IOrderSuccessModalProps> = ({
       setModalView("ISSUE_INVOICE_VIEW");
       setIssueSuccessAlertMsg("Phát hành hóa đơn nháp thành công!");
       setShowIssueSuccessAlert(true);
-    } catch {
+    } catch (err: any) {
+      const errMsg = err?.data?.message || err?.message || "";
+      const isAlreadyIssued = err?.data?.code === 1045 || errMsg.includes("đã được khởi tạo") || errMsg.includes("khởi tạo");
+
+      if (isAlreadyIssued) {
+        setIssueSuccessAlertMsg("Hóa đơn điện tử cho đơn hàng này đã được phát hành trước đó!");
+        setShowIssueSuccessAlert(true);
+        return;
+      }
       const fallbackInv: IInvoice = {
         id: `inv_${Date.now()}`,
         lookupCode: `HD${Date.now().toString(36).toUpperCase()}`,
@@ -538,15 +551,26 @@ export const OrderSuccessModal: React.FC<IOrderSuccessModalProps> = ({
 
           {/* 2 Main Action Buttons */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-            <button
-              type="button"
-              onClick={handleIssueInvoice}
-              disabled={isIssuingInvoice}
-              className="py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white font-extrabold text-xs flex items-center justify-center gap-1.5 transition-all shadow-md shadow-emerald-600/20 disabled:opacity-50"
-            >
-              <FileText className="w-4 h-4 shrink-0" />
-              <span>{isIssuingInvoice ? "Đang phát hành..." : "Phát hành hóa đơn"}</span>
-            </button>
+            {realInvoice ? (
+              <button
+                type="button"
+                onClick={() => setModalView("ISSUE_INVOICE_VIEW")}
+                className="py-2.5 px-3 rounded-xl bg-emerald-700 hover:bg-emerald-800 active:scale-[0.98] text-white font-extrabold text-xs flex items-center justify-center gap-1.5 transition-all shadow-md shadow-emerald-700/20"
+              >
+                <ShieldCheck className="w-4 h-4 shrink-0" />
+                <span>Xem hóa đơn đã lập</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={handleIssueInvoice}
+                disabled={isIssuingInvoice}
+                className="py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white font-extrabold text-xs flex items-center justify-center gap-1.5 transition-all shadow-md shadow-emerald-600/20 disabled:opacity-50"
+              >
+                <FileText className="w-4 h-4 shrink-0" />
+                <span>{isIssuingInvoice ? "Đang phát hành..." : "Phát hành hóa đơn"}</span>
+              </button>
+            )}
 
             <button
               type="button"
