@@ -1,6 +1,9 @@
 package com.sales.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.sales.dto.request.CreateCustomerRequest;
+import com.sales.dto.request.UpdateCustomerRequest;
+import com.sales.dto.response.CustomerResponse;
 import com.sales.entity.BusinessHousehold;
 import com.sales.entity.Customer;
 import com.sales.entity.Role;
@@ -74,6 +77,8 @@ class CustomerServiceImplTest {
                 .name("Nguyễn Văn A")
                 .phoneNumber("0912345678")
                 .currentDebt(new BigDecimal("100000.00"))
+                .reminderDaysBefore(3)
+                .reminderDaysAfter(3)
                 .build();
 
         customerNoDebt = Customer.builder()
@@ -82,6 +87,8 @@ class CustomerServiceImplTest {
                 .name("Trần Thị B")
                 .phoneNumber("0987654321")
                 .currentDebt(BigDecimal.ZERO)
+                .reminderDaysBefore(3)
+                .reminderDaysAfter(3)
                 .build();
     }
 
@@ -157,5 +164,88 @@ class CustomerServiceImplTest {
         assertEquals(ErrorCode.CUSTOMER_HAS_OUTSTANDING_DEBT, exception.getErrorCode());
         assertNull(customerNoDebt.getDeletedAt());
         verify(customerRepository, never()).save(customerNoDebt);
+    }
+
+    @Test
+    @DisplayName("Tạo khách hàng mới thành công với các giá trị mặc định của reminderDays")
+    void createCustomer_DefaultReminderDays_Success() {
+        CreateCustomerRequest request = CreateCustomerRequest.builder()
+                .name("Nguyễn Văn C")
+                .phoneNumber("0934567890")
+                .email("vanc@gmail.com")
+                .address("Hà Nội")
+                .creditLimit(new BigDecimal("5000000.00"))
+                .build();
+
+        when(userRepository.findByUsername("chuho")).thenReturn(Optional.of(currentUser));
+        when(customerRepository.findByPhoneNumberAndHouseholdIdAndDeletedAtIsNull("0934567890", "house-001"))
+                .thenReturn(Optional.empty());
+        when(customerRepository.save(any(Customer.class))).thenAnswer(invocation -> {
+            Customer c = invocation.getArgument(0);
+            c.setId("cust-003");
+            return c;
+        });
+
+        CustomerResponse response = customerService.createCustomer("chuho", request);
+
+        assertEquals("Nguyễn Văn C", response.getName());
+        assertEquals("0934567890", response.getPhoneNumber());
+        assertEquals(3, response.getReminderDaysBefore());
+        assertEquals(3, response.getReminderDaysAfter());
+        verify(customerRepository, times(1)).save(any(Customer.class));
+    }
+
+    @Test
+    @DisplayName("Tạo khách hàng mới thành công với các giá trị reminderDays tự chọn")
+    void createCustomer_CustomReminderDays_Success() {
+        CreateCustomerRequest request = CreateCustomerRequest.builder()
+                .name("Nguyễn Văn D")
+                .phoneNumber("0945678901")
+                .email("vand@gmail.com")
+                .address("Đà Nẵng")
+                .creditLimit(new BigDecimal("10000000.00"))
+                .reminderDaysBefore(7)
+                .reminderDaysAfter(15)
+                .build();
+
+        when(userRepository.findByUsername("chuho")).thenReturn(Optional.of(currentUser));
+        when(customerRepository.findByPhoneNumberAndHouseholdIdAndDeletedAtIsNull("0945678901", "house-001"))
+                .thenReturn(Optional.empty());
+        when(customerRepository.save(any(Customer.class))).thenAnswer(invocation -> {
+            Customer c = invocation.getArgument(0);
+            c.setId("cust-004");
+            return c;
+        });
+
+        CustomerResponse response = customerService.createCustomer("chuho", request);
+
+        assertEquals("Nguyễn Văn D", response.getName());
+        assertEquals(7, response.getReminderDaysBefore());
+        assertEquals(15, response.getReminderDaysAfter());
+    }
+
+    @Test
+    @DisplayName("Cập nhật thông tin khách hàng thành công bao gồm các trường nhắc nợ")
+    void updateCustomer_Success() {
+        UpdateCustomerRequest request = UpdateCustomerRequest.builder()
+                .name("Nguyễn Văn A Mod")
+                .phoneNumber("0912345678")
+                .email("vamod@gmail.com")
+                .address("TP HCM")
+                .creditLimit(new BigDecimal("6000000.00"))
+                .reminderDaysBefore(1)
+                .reminderDaysAfter(5)
+                .build();
+
+        when(userRepository.findByUsername("chuho")).thenReturn(Optional.of(currentUser));
+        when(customerRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("cust-001", "house-001"))
+                .thenReturn(Optional.of(customerWithDebt));
+        when(customerRepository.save(any(Customer.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        CustomerResponse response = customerService.updateCustomer("chuho", "cust-001", request);
+
+        assertEquals("Nguyễn Văn A Mod", response.getName());
+        assertEquals(1, response.getReminderDaysBefore());
+        assertEquals(5, response.getReminderDaysAfter());
     }
 }

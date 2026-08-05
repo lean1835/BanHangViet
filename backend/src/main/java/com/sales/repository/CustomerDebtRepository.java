@@ -1,6 +1,7 @@
 package com.sales.repository;
 
 import com.sales.entity.CustomerDebt;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -39,6 +40,34 @@ public interface CustomerDebtRepository extends JpaRepository<CustomerDebt, Stri
 
     List<CustomerDebt> findByHouseholdIdAndStatusInAndTypeAndDueDateBefore(
             String householdId, Collection<String> statuses, String type, LocalDateTime dateTime);
+
+    @Query("SELECT d FROM CustomerDebt d JOIN FETCH d.customer LEFT JOIN FETCH d.household " +
+           "WHERE d.status = 'PENDING' AND d.type = 'DEBT_CREATED' AND d.reminderSent = false " +
+           "AND d.customer.email IS NOT NULL AND TRIM(d.customer.email) != '' " +
+           "AND d.dueDate < :maxDueDate " +
+           "AND d.id > :lastId ORDER BY d.id ASC")
+    List<CustomerDebt> findPendingPreDueRemindersKeyset(
+            @Param("lastId") String lastId,
+            @Param("maxDueDate") LocalDateTime maxDueDate,
+            Pageable pageable);
+
+    @Query("SELECT d FROM CustomerDebt d JOIN FETCH d.customer LEFT JOIN FETCH d.household " +
+           "WHERE d.status = 'OVERDUE' AND d.type = 'DEBT_CREATED' AND d.overdueReminderSent = false " +
+           "AND d.customer.email IS NOT NULL AND TRIM(d.customer.email) != '' " +
+           "AND d.dueDate < :maxOverdueDueDate " +
+           "AND d.id > :lastId ORDER BY d.id ASC")
+    List<CustomerDebt> findPendingOverdueRemindersKeyset(
+            @Param("lastId") String lastId,
+            @Param("maxOverdueDueDate") LocalDateTime maxOverdueDueDate,
+            Pageable pageable);
+
+    @Query("SELECT COALESCE(MIN(d.customer.reminderDaysAfter), 3) FROM CustomerDebt d " +
+           "WHERE d.status = 'OVERDUE' AND d.type = 'DEBT_CREATED' AND d.overdueReminderSent = false")
+    Integer findMinPendingOverdueReminderDaysAfter();
+
+    @Query("SELECT COALESCE(MAX(d.customer.reminderDaysBefore), 3) FROM CustomerDebt d " +
+           "WHERE d.status = 'PENDING' AND d.type = 'DEBT_CREATED' AND d.reminderSent = false")
+    Integer findMaxPendingReminderDaysBefore();
 
     List<CustomerDebt> findByStatusInAndTypeAndDueDateBefore(
             Collection<String> statuses, String type, LocalDateTime dateTime);

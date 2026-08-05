@@ -18,6 +18,8 @@ public class CustomerResponse {
     private String address;
     private BigDecimal creditLimit;
     private BigDecimal currentDebt;
+    private Integer reminderDaysBefore;
+    private Integer reminderDaysAfter;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

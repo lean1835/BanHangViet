@@ -1,5 +1,7 @@
 package com.sales.service.classes;
 
+import com.sales.constant.DebtStatus;
+import com.sales.constant.DebtType;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sales.dto.request.CollectDebtRequest;
 import com.sales.dto.response.CustomerDebtResponse;
@@ -135,7 +137,7 @@ public class CustomerDebtServiceImpl implements CustomerDebtService {
 
         // Lấy các khoản nợ đang nợ (PENDING/OVERDUE) cũ nhất để trả theo nguyên tắc FIFO
         List<CustomerDebt> activeDebts = customerDebtRepository.findByCustomerIdAndHouseholdIdAndStatusInAndTypeOrderByCreatedAtAsc(
-                customer.getId(), household.getId(), List.of("PENDING", "OVERDUE"), "DEBT_CREATED");
+                customer.getId(), household.getId(), List.of(DebtStatus.PENDING, DebtStatus.OVERDUE), DebtType.DEBT_CREATED);
 
         BigDecimal totalActiveDebt = activeDebts.stream()
                 .map(CustomerDebt::getRemainingAmount)
@@ -157,7 +159,7 @@ public class CustomerDebtServiceImpl implements CustomerDebtService {
             if (remainingPayment.compareTo(debtUnpaid) >= 0) {
                 remainingPayment = remainingPayment.subtract(debtUnpaid);
                 debt.setRemainingAmount(BigDecimal.ZERO);
-                debt.setStatus("PAID");
+                debt.setStatus(DebtStatus.PAID);
             } else {
                 debt.setRemainingAmount(debtUnpaid.subtract(remainingPayment));
                 remainingPayment = BigDecimal.ZERO;
@@ -179,8 +181,8 @@ public class CustomerDebtServiceImpl implements CustomerDebtService {
                 .customer(customer)
                 .amount(paymentAmount)
                 .remainingAmount(BigDecimal.ZERO)
-                .type("DEBT_PAID")
-                .status("PAID")
+                .type(DebtType.DEBT_PAID)
+                .status(DebtStatus.PAID)
                 .dueDate(LocalDateTime.now())
                 .notes(request.getNotes() != null && !request.getNotes().trim().isEmpty() 
                         ? request.getNotes() : "Khách hàng trả nợ")
@@ -225,10 +227,10 @@ public class CustomerDebtServiceImpl implements CustomerDebtService {
         List<CustomerDebt> reminders;
         if (statusFilter != null && !statusFilter.trim().isEmpty()) {
             reminders = customerDebtRepository.findByHouseholdIdAndStatusInAndTypeOrderByDueDateAscWithRelations(
-                    household.getId(), List.of(statusFilter.toUpperCase()), "DEBT_CREATED");
+                    household.getId(), List.of(statusFilter.toUpperCase()), DebtType.DEBT_CREATED);
         } else {
             reminders = customerDebtRepository.findByHouseholdIdAndStatusInAndTypeOrderByDueDateAscWithRelations(
-                    household.getId(), List.of("PENDING", "OVERDUE"), "DEBT_CREATED");
+                    household.getId(), List.of(DebtStatus.PENDING, DebtStatus.OVERDUE), DebtType.DEBT_CREATED);
         }
 
         return reminders.stream().map(this::mapToResponse).collect(Collectors.toList());
