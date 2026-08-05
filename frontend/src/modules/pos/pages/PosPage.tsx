@@ -494,8 +494,10 @@ export const PosPage = () => {
     const effectiveAmountGiven =
       activeTab.saleMode === "FAST"
         ? finalTotal
-        : activeTab.amountGiven && activeTab.amountGiven > 0
+        : typeof activeTab.amountGiven === "number"
         ? activeTab.amountGiven
+        : activeTab.paymentMethod === "DEBT"
+        ? 0
         : finalTotal;
 
     const changeAmount = effectiveAmountGiven - finalTotal;

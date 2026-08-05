@@ -1,8 +1,9 @@
 import React, { useState } from "react";
 import { createPortal } from "react-dom";
-import { Search, Plus, Edit, Trash2, AlertTriangle, Bell, Wallet } from "lucide-react";
+import { Search, Plus, Edit, Trash2, AlertTriangle, Bell, Wallet, Calendar } from "lucide-react";
 import { CUSTOMER_UI } from "@/constants/customer";
 import { formatCurrency } from "@/utils/formatCurrency";
+import { formatDateOnly } from "@/utils/dateFormatter";
 import { useAccessibleDialog } from "@/hooks/useAccessibleDialog";
 import { DebtReminderModal } from "./DebtReminderModal";
 import { DebtPaymentModal, type DebtPaymentData } from "./DebtPaymentModal";
@@ -15,7 +16,7 @@ interface CustomerListProps {
   onOpenCreateModal: () => void;
   onOpenEditModal: (customer: ICustomer) => void;
   onDeleteCustomer: (id: string) => void;
-  onConfirmReminder: (customer: ICustomer) => void;
+  onConfirmReminder: (customer: ICustomer, message?: string) => void;
   onConfirmPayDebt: (data: DebtPaymentData) => void | Promise<void>;
 }
 
@@ -98,6 +99,7 @@ export const CustomerList: React.FC<CustomerListProps> = ({
                   <th className="p-3">{CUSTOMER_UI.LIST.COLUMNS.ADDRESS}</th>
                   <th className="p-3 text-right">{CUSTOMER_UI.LIST.COLUMNS.CREDIT_LIMIT}</th>
                   <th className="p-3 text-right">{CUSTOMER_UI.LIST.COLUMNS.CURRENT_DEBT}</th>
+                  <th className="p-3 text-center">{CUSTOMER_UI.LIST.COLUMNS.DUE_DATE}</th>
                   <th className="p-3 text-center">{CUSTOMER_UI.LIST.COLUMNS.DEBT_STATUS}</th>
                   <th className="p-3 text-center">{CUSTOMER_UI.LIST.COLUMNS.REMIND_COLUMN}</th>
                   <th className="p-3 text-center">{CUSTOMER_UI.LIST.COLUMNS.ACTIONS}</th>
@@ -128,6 +130,34 @@ export const CustomerList: React.FC<CustomerListProps> = ({
                       </td>
                       <td className="p-3 text-right font-bold text-rose-600">
                         {formatCurrency(customer.debt)}
+                      </td>
+                      <td className="p-3 text-center font-mono">
+                        {hasDebt ? (
+                          <div className="flex flex-col items-center gap-0.5">
+                            {customer.dueDate ? (
+                              <span
+                                className={
+                                  isOverdue
+                                    ? "inline-flex items-center gap-1 font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded border border-rose-200"
+                                    : "inline-flex items-center gap-1 font-semibold text-slate-700"
+                                }
+                                title={isOverdue ? "Đã quá hạn thanh toán nợ!" : "Ngày đến hạn thanh toán nợ"}
+                              >
+                                <Calendar size={12} className={isOverdue ? "text-rose-600" : "text-slate-400"} />
+                                {formatDateOnly(customer.dueDate)}
+                              </span>
+                            ) : (
+                              <span className="text-slate-400 font-medium text-[11px]">Chưa hạn</span>
+                            )}
+                            {(customer.debtCreatedAt || customer.createdAt) && (
+                              <span className="text-[10px] text-slate-400 font-normal">
+                                Nợ từ: {formatDateOnly(customer.debtCreatedAt || customer.createdAt)}
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-slate-300 font-medium">--</span>
+                        )}
                       </td>
                       <td className="p-3 text-center">
                         <span

@@ -10,7 +10,7 @@ interface CustomerManagementProps {
   onOpenCreateModal: () => void;
   onOpenEditModal: (customer: ICustomer) => void;
   onDeleteCustomer: (id: string) => void;
-  onConfirmReminder: (customer: ICustomer) => void;
+  onConfirmReminder: (customer: ICustomer, message?: string) => void;
   onConfirmPayDebt: (data: DebtPaymentData) => void | Promise<void>;
 }
 

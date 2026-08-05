@@ -1,3 +1,15 @@
+export interface IDebtOrderItemResponse {
+  id?: string;
+  productId?: string;
+  productName: string;
+  quantity: number;
+  unitPrice: number;
+  discountAmount?: number;
+  taxRatePercentage?: number;
+  taxAmount?: number;
+  subtotal: number;
+}
+
 export interface ICustomerDebtResponse {
   id: string;
   householdId: string;
@@ -6,6 +18,7 @@ export interface ICustomerDebtResponse {
   customerPhone: string;
   orderId?: string;
   orderNumber?: string;
+  items?: IDebtOrderItemResponse[];
   amount: number;
   remainingAmount: number;
   type: "DEBT_CREATED" | "DEBT_PAID" | string;

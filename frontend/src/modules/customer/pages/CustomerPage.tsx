@@ -16,6 +16,7 @@ import { CustomerFormModal } from "../components/CustomerFormModal";
 import type { DebtPaymentData } from "../components/DebtPaymentModal";
 import {
   useGetCustomersQuery,
+  useGetDebtRemindersQuery,
   useCreateCustomerMutation,
   useUpdateCustomerMutation,
   useDeleteCustomerMutation,
@@ -39,6 +40,10 @@ export const CustomerPage: React.FC = () => {
     refetchOnMountOrArgChange: true,
   });
 
+  const { data: debtReminders = [] } = useGetDebtRemindersQuery(undefined, {
+    refetchOnMountOrArgChange: true,
+  });
+
   const [createCustomer] = useCreateCustomerMutation();
   const [updateCustomer] = useUpdateCustomerMutation();
   const [deleteCustomer] = useDeleteCustomerMutation();
@@ -57,9 +62,56 @@ export const CustomerPage: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<ICustomer | null>(null);
 
-  // Filtered customer list derived from API query data
+  // Merge debt reminders data (dueDate, debtCreatedAt) into customer objects
+  const customersWithDebtInfo = useMemo(() => {
+    const debtMap = new Map<string, { dueDate?: string; debtCreatedAt?: string }>();
+
+    debtReminders.forEach((reminder) => {
+      if (!reminder.customerId) return;
+      const existing = debtMap.get(reminder.customerId);
+      const reminderDueDate = reminder.dueDate;
+      const reminderCreatedAt = reminder.createdAt;
+
+      if (!existing) {
+        debtMap.set(reminder.customerId, {
+          dueDate: reminderDueDate,
+          debtCreatedAt: reminderCreatedAt,
+        });
+      } else {
+        const minDueDate =
+          reminderDueDate && existing.dueDate
+            ? reminderDueDate < existing.dueDate
+              ? reminderDueDate
+              : existing.dueDate
+            : reminderDueDate || existing.dueDate;
+
+        const minCreatedAt =
+          reminderCreatedAt && existing.debtCreatedAt
+            ? reminderCreatedAt < existing.debtCreatedAt
+              ? reminderCreatedAt
+              : existing.debtCreatedAt
+            : reminderCreatedAt || existing.debtCreatedAt;
+
+        debtMap.set(reminder.customerId, {
+          dueDate: minDueDate,
+          debtCreatedAt: minCreatedAt,
+        });
+      }
+    });
+
+    return apiCustomers.map((customer) => {
+      const debtInfo = debtMap.get(customer.id);
+      return {
+        ...customer,
+        dueDate: customer.dueDate || debtInfo?.dueDate,
+        debtCreatedAt: debtInfo?.debtCreatedAt,
+      };
+    });
+  }, [apiCustomers, debtReminders]);
+
+  // Filtered customer list derived from merged customer data
   const filteredCustomers = useMemo(() => {
-    return apiCustomers.filter((customer) => {
+    return customersWithDebtInfo.filter((customer) => {
       // 1. Search Query Filter (Name, Phone, Email, Address)
       if (debouncedSearch.trim()) {
         const query = debouncedSearch.toLowerCase().trim();
@@ -92,7 +144,7 @@ export const CustomerPage: React.FC = () => {
 
       return true;
     });
-  }, [apiCustomers, debouncedSearch, selectedDebtStatus]);
+  }, [customersWithDebtInfo, debouncedSearch, selectedDebtStatus]);
 
   // Handlers
   const handleOpenCreateModal = () => {
@@ -185,26 +237,25 @@ export const CustomerPage: React.FC = () => {
     }
   };
 
-  const handleConfirmReminder = async (customer: ICustomer) => {
-    try {
-      await remindDebt({
-        customerId: customer.id,
-        messageContent: `Nhắc công nợ cho khách hàng ${customer.name}`,
-      }).unwrap();
-
-      const debtAmount = customer.debt ?? customer.currentDebt ?? 0;
-      addLogEntry(
-        CUSTOMER_LOG.REMINDER_ACTION,
-        CUSTOMER_LOG.reminded(customer.name, formatCurrency(debtAmount)),
-      );
-      showSuccess(`Đã ghi nhận gửi nhắc công nợ cho khách hàng "${customer.name}".`);
-    } catch (err: unknown) {
-      const apiErr = getApiErrorMessage(
-        err,
-        `Ghi nhận nhắc nợ cho khách hàng "${customer.name}" không thành công.`,
-      );
-      showError(apiErr);
-    }
+  const handleConfirmReminder = (
+    customer: ICustomer,
+    messageContent?: string,
+  ) => {
+    remindDebt({
+      customerId: customer.id,
+      messageContent: messageContent || `Nhắc công nợ cho khách hàng ${customer.name}`,
+    })
+      .unwrap()
+      .then(() => {
+        const debtAmount = customer.debt ?? customer.currentDebt ?? 0;
+        addLogEntry(
+          CUSTOMER_LOG.REMINDER_ACTION,
+          CUSTOMER_LOG.reminded(customer.name, formatCurrency(debtAmount)),
+        );
+      })
+      .catch((err: unknown) => {
+        console.error("Lỗi gửi email nhắc nợ ngầm:", err);
+      });
   };
 
   const handleConfirmPayDebt = async ({
