@@ -6,6 +6,7 @@ import {
   useGetProductsQuery,
   useLazyDownloadProductImportTemplateQuery,
 } from "@/modules/product/services/productApi";
+import { useGetTaxRatesQuery } from "@/modules/settings/services/taxRateApi";
 import { useNotification } from "@/hooks/useNotification";
 import { useDashboardDemo } from "@/providers/DashboardDemoProvider";
 import { getApiErrorMessage } from "@/utils/getApiErrorMessage";
@@ -36,7 +37,6 @@ export interface IProductPreviewRow {
   sku: string;
   name: string;
   unit: string;
-  importPrice: number | string;
   sellingPrice: number | string;
   taxRatePercentage: number | string;
   groupName: string;
@@ -73,6 +73,13 @@ export const ImportProductsModal: React.FC<ImportProductsModalProps> = ({
     return set;
   }, [existingProducts]);
 
+  // Query active tax rates for household
+  const { data: taxRatesData = [] } = useGetTaxRatesQuery(undefined, { skip: !isOpen });
+  const activeTaxRates = useMemo(
+    () => taxRatesData.filter((tr) => tr.isActive),
+    [taxRatesData]
+  );
+
   const [step, setStep] = useState<"UPLOAD" | "PREVIEW">("UPLOAD");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isParsing, setIsParsing] = useState(false);
@@ -80,24 +87,24 @@ export const ImportProductsModal: React.FC<ImportProductsModalProps> = ({
 
   const hasPreviewRows = previewRows.length > 0;
 
-  // Re-validate preview rows when existingSkuSet updates
+  // Re-validate preview rows when existingSkuSet or activeTaxRates updates
   useEffect(() => {
     if (hasPreviewRows) {
       setPreviewRows((prev) =>
-        prev.map((row, _, arr) => validateRow(row, arr, existingSkuSet))
+        prev.map((row, _, arr) => validateRow(row, arr, existingSkuSet, activeTaxRates))
       );
     }
-  }, [existingSkuSet, hasPreviewRows]);
+  }, [existingSkuSet, activeTaxRates, hasPreviewRows]);
 
   const validateRow = (
     row: IProductPreviewRow,
     allRows: IProductPreviewRow[],
-    skuSet: Set<string>
+    skuSet: Set<string>,
+    activeTaxList: { ratePercentage: number }[]
   ): IProductPreviewRow => {
     const sku = (row.sku || "").trim();
     const name = (row.name || "").trim();
     const unit = (row.unit || "").trim();
-    const importPriceNum = Number(row.importPrice);
     const sellingPriceNum = Number(row.sellingPrice);
 
     let isError = false;
@@ -141,10 +148,31 @@ export const ImportProductsModal: React.FC<ImportProductsModalProps> = ({
       errorMessage = "Giá bán phải là số lớn hơn 0";
     }
 
-    if (!isError && row.importPrice !== "" && row.importPrice !== null && row.importPrice !== undefined) {
-      if (isNaN(importPriceNum) || importPriceNum < 0) {
-        isError = true;
-        errorMessage = "Giá nhập không hợp lệ (phải >= 0)";
+    // Tax Rate validation against DB
+    if (!isError) {
+      const rawTax = String(row.taxRatePercentage || "").trim();
+      if (!rawTax) {
+        if (activeTaxList.length === 0) {
+          isError = true;
+          errorMessage = "Chưa cấu hình danh mục thuế suất cho hộ kinh doanh";
+        }
+      } else {
+        const cleanStr = rawTax.replace("%", "").replace(",", ".").trim();
+        const numVal = parseFloat(cleanStr);
+        if (isNaN(numVal)) {
+          isError = true;
+          errorMessage = "Mức thuế suất không đúng định dạng số";
+        } else if (activeTaxList.length > 0) {
+          const found = activeTaxList.some(
+            (tr) =>
+              Math.abs(tr.ratePercentage - numVal) < 0.001 ||
+              Math.abs(tr.ratePercentage - numVal * 100) < 0.001
+          );
+          if (!found) {
+            isError = true;
+            errorMessage = `Không tìm thấy thuế suất (${rawTax}) trong danh mục thuế suất của hộ kinh doanh`;
+          }
+        }
       }
     }
 
@@ -155,18 +183,45 @@ export const ImportProductsModal: React.FC<ImportProductsModalProps> = ({
     };
   };
 
-  const parseExcelPreview = (file: File): Promise<IProductPreviewRow[]> => {
+  interface ParseExcelResult {
+    rows: IProductPreviewRow[];
+    missingColumns: string[];
+  }
+
+  const parseExcelPreview = (file: File): Promise<ParseExcelResult> => {
     return new Promise((resolve) => {
       const reader = new FileReader();
       reader.onload = (e) => {
         try {
           const buffer = e.target?.result;
-          if (!buffer) return resolve([]);
+          if (!buffer) return resolve({ rows: [], missingColumns: [] });
           const workbook = XLSX.read(buffer, { type: "array" });
           const sheetName = workbook.SheetNames[0];
-          if (!sheetName) return resolve([]);
+          if (!sheetName) return resolve({ rows: [], missingColumns: [] });
           const worksheet = workbook.Sheets[sheetName];
           const rawRows = (XLSX.utils.sheet_to_json(worksheet, { defval: "" }) || []) as Record<string, unknown>[];
+
+          if (rawRows.length === 0) {
+            return resolve({ rows: [], missingColumns: [] });
+          }
+
+          // Validate required column headers
+          const availableHeaders = Object.keys(rawRows[0]);
+          const requiredSpecs = [
+            { name: "Mã SKU", keys: ["sku", "mã"] },
+            { name: "Tên hàng hóa", keys: ["tên hàng", "tên sp", "sản phẩm", "tên"] },
+            { name: "Đơn vị tính", keys: ["đơn vị", "dvt"] },
+            { name: "Giá bán", keys: ["giá bán", "bán"] },
+          ];
+
+          const missingColumns = requiredSpecs
+            .filter((spec) => {
+              return !availableHeaders.some((header) => {
+                const cleanHeader = header.trim().toLowerCase();
+                return spec.keys.some((k) => cleanHeader === k.toLowerCase() || cleanHeader.includes(k.toLowerCase()));
+              });
+            })
+            .map((spec) => spec.name);
 
           const rows: IProductPreviewRow[] = rawRows.map((rawRow, index) => {
             const findVal = (...keys: string[]): string => {
@@ -193,7 +248,6 @@ export const ImportProductsModal: React.FC<ImportProductsModalProps> = ({
               sku: findVal("sku", "mã"),
               name: findVal("tên hàng", "tên sp", "sản phẩm"),
               unit: findVal("đơn vị", "dvt"),
-              importPrice: findVal("giá nhập", "nhập"),
               sellingPrice: findVal("giá bán", "bán"),
               taxRatePercentage: findVal("thuế"),
               groupName: findVal("nhóm"),
@@ -202,12 +256,12 @@ export const ImportProductsModal: React.FC<ImportProductsModalProps> = ({
               isSelected: false,
             };
           });
-          resolve(rows);
+          resolve({ rows, missingColumns });
         } catch {
-          resolve([]);
+          resolve({ rows: [], missingColumns: [] });
         }
       };
-      reader.onerror = () => resolve([]);
+      reader.onerror = () => resolve({ rows: [], missingColumns: [] });
       reader.readAsArrayBuffer(file);
     });
   };
@@ -223,14 +277,35 @@ export const ImportProductsModal: React.FC<ImportProductsModalProps> = ({
   const processPreview = async (file: File) => {
     setIsParsing(true);
     try {
-      const parsedRows = await parseExcelPreview(file);
-      const validated = parsedRows.map((row, _, arr) => validateRow(row, arr, existingSkuSet));
+      const { rows: parsedRows, missingColumns } = await parseExcelPreview(file);
+
+      if (missingColumns.length > 0) {
+        showError(
+          `Tệp Excel thiếu các cột bắt buộc: ${missingColumns.join(", ")}. Vui lòng kiểm tra lại cấu trúc file hoặc tải tệp mẫu!`
+        );
+        setSelectedFile(null);
+        setStep("UPLOAD");
+        return;
+      }
+
+      const validated = parsedRows.map((row, _, arr) =>
+        validateRow(row, arr, existingSkuSet, activeTaxRates)
+      );
       setPreviewRows(validated);
       setStep("PREVIEW");
       if (validated.length === 0) {
         showError("File Excel không chứa dòng dữ liệu nào!");
       } else {
-        showSuccess(`Đã đọc ${validated.length} dòng từ tệp Excel! Vui lòng kiểm tra kỹ trước khi bấm Hoàn tất.`);
+        const errorRowsCount = validated.filter((r) => r.status === "ERROR").length;
+        if (errorRowsCount > 0) {
+          showError(
+            `Đã tải tệp thành công (${validated.length} dòng), phát hiện ${errorRowsCount} dòng có lỗi (được tô đỏ). Vui lòng kiểm tra và sửa trực tiếp trên bảng!`
+          );
+        } else {
+          showSuccess(
+            `Đã đọc ${validated.length} dòng dữ liệu hợp lệ từ tệp Excel! Vui lòng kiểm tra kỹ trước khi bấm Hoàn tất.`
+          );
+        }
       }
     } catch (err: unknown) {
       const errMsg = getApiErrorMessage(err, "Đọc dữ liệu file Excel thất bại. Vui lòng kiểm tra lại định dạng file!");
@@ -240,7 +315,7 @@ export const ImportProductsModal: React.FC<ImportProductsModalProps> = ({
     }
   };
 
-  // Optimized inline cell edit: If field is 'sku', revalidate all; otherwise revalidate targeted row only
+  // Optimized inline cell edit: If field is 'sku' or 'taxRatePercentage', revalidate all; otherwise revalidate targeted row only
   const handleCellChange = (
     rowId: string,
     field: keyof IProductPreviewRow,
@@ -248,11 +323,11 @@ export const ImportProductsModal: React.FC<ImportProductsModalProps> = ({
   ) => {
     setPreviewRows((prev) => {
       const updatedList = prev.map((r) => (r.id === rowId ? { ...r, [field]: val } : r));
-      if (field === "sku") {
-        return updatedList.map((r) => validateRow(r, updatedList, existingSkuSet));
+      if (field === "sku" || field === "taxRatePercentage") {
+        return updatedList.map((r) => validateRow(r, updatedList, existingSkuSet, activeTaxRates));
       } else {
         return updatedList.map((r) =>
-          r.id === rowId ? validateRow(r, updatedList, existingSkuSet) : r
+          r.id === rowId ? validateRow(r, updatedList, existingSkuSet, activeTaxRates) : r
         );
       }
     });
@@ -272,7 +347,7 @@ export const ImportProductsModal: React.FC<ImportProductsModalProps> = ({
   const handleDeleteRow = (rowId: string) => {
     setPreviewRows((prev) => {
       const updatedList = prev.filter((r) => r.id !== rowId);
-      return updatedList.map((r) => validateRow(r, updatedList, existingSkuSet));
+      return updatedList.map((r) => validateRow(r, updatedList, existingSkuSet, activeTaxRates));
     });
   };
 
@@ -281,7 +356,7 @@ export const ImportProductsModal: React.FC<ImportProductsModalProps> = ({
     if (count === 0) return;
     setPreviewRows((prev) => {
       const updatedList = prev.filter((r) => !r.isSelected);
-      return updatedList.map((r) => validateRow(r, updatedList, existingSkuSet));
+      return updatedList.map((r) => validateRow(r, updatedList, existingSkuSet, activeTaxRates));
     });
     showSuccess(`Đã xóa ${count} dòng khỏi danh sách xem trước.`);
   };
@@ -291,7 +366,7 @@ export const ImportProductsModal: React.FC<ImportProductsModalProps> = ({
     if (errorCount === 0) return;
     setPreviewRows((prev) => {
       const updatedList = prev.filter((r) => r.status !== "ERROR");
-      return updatedList.map((r) => validateRow(r, updatedList, existingSkuSet));
+      return updatedList.map((r) => validateRow(r, updatedList, existingSkuSet, activeTaxRates));
     });
     showSuccess(`Đã xóa ${errorCount} dòng bị lỗi khỏi danh sách xem trước.`);
   };
@@ -304,7 +379,6 @@ export const ImportProductsModal: React.FC<ImportProductsModalProps> = ({
       "Mã SKU",
       "Tên hàng hóa",
       "Đơn vị tính",
-      "Giá nhập",
       "Giá bán",
       "% Thuế suất",
       "Tên nhóm hàng",
@@ -315,7 +389,6 @@ export const ImportProductsModal: React.FC<ImportProductsModalProps> = ({
       r.sku,
       r.name,
       r.unit || "Cái",
-      r.importPrice !== "" ? Number(r.importPrice) : 0,
       r.sellingPrice !== "" ? Number(r.sellingPrice) : 0,
       r.taxRatePercentage !== "" ? Number(r.taxRatePercentage) : 0,
       r.groupName || "",
@@ -366,9 +439,33 @@ export const ImportProductsModal: React.FC<ImportProductsModalProps> = ({
         onClose();
         resetState();
       } else {
+        const errorDetails =
+          res.errors && res.errors.length > 0
+            ? res.errors.map((e) => `Dòng ${e.rowNumber}: ${e.errorMessage}`).join("; ")
+            : "";
         showError(
-          `Không thể lưu sản phẩm vào CSDL (${res.errorCount} lỗi từ máy chủ).`
+          `Không thể lưu sản phẩm vào CSDL (${res.errorCount} lỗi từ máy chủ)${
+            errorDetails ? `: ${errorDetails}` : "."
+          }`
         );
+
+        if (res.errors && res.errors.length > 0) {
+          const serverErrorMap = new Map(res.errors.map((e) => [e.rowNumber, e.errorMessage]));
+          setPreviewRows((prev) =>
+            prev.map((row, index) => {
+              const backendRowNumber = index + 2;
+              const serverErr = serverErrorMap.get(backendRowNumber);
+              if (serverErr) {
+                return {
+                  ...row,
+                  status: "ERROR",
+                  errorMessage: `[Máy chủ] ${serverErr}`,
+                };
+              }
+              return row;
+            })
+          );
+        }
       }
     } catch (err: unknown) {
       const errMsg = getApiErrorMessage(err, "Lưu danh mục sản phẩm thất bại.");
@@ -580,9 +677,9 @@ export const ImportProductsModal: React.FC<ImportProductsModalProps> = ({
                       <th className="p-2.5 w-28">Mã SKU *</th>
                       <th className="p-2.5 min-w-[160px]">Tên hàng hóa *</th>
                       <th className="p-2.5 w-24">Đơn vị</th>
-                      <th className="p-2.5 w-28 text-right">Giá nhập</th>
                       <th className="p-2.5 w-28 text-right">Giá bán</th>
                       <th className="p-2.5 w-20 text-right">% Thuế</th>
+                      <th className="p-2.5 w-28">Nhóm hàng</th>
                       <th className="p-2.5 w-24 text-right">Tồn đầu</th>
                       <th className="p-2.5 min-w-[200px]">Chi tiết lỗi / Ghi chú</th>
                       <th className="p-2.5 w-12 text-center">Xóa</th>
@@ -679,21 +776,6 @@ export const ImportProductsModal: React.FC<ImportProductsModalProps> = ({
                               />
                             </td>
 
-                            {/* Import Price */}
-                            <td className="p-1.5">
-                              <input
-                                type="number"
-                                min={0}
-                                value={row.importPrice}
-                                onChange={(e) => handleCellChange(row.id, "importPrice", e.target.value)}
-                                className={`w-full h-8 px-2 border rounded text-xs text-right font-mono focus:outline-none ${
-                                  isError && row.importPrice !== "" && Number(row.importPrice) < 0
-                                    ? "border-rose-400 bg-rose-100/80 text-rose-900 focus:border-rose-500"
-                                    : "border-slate-200 text-slate-800 focus:border-kv-blue-primary"
-                                }`}
-                              />
-                            </td>
-
                             {/* Selling Price */}
                             <td className="p-1.5">
                               <input
@@ -717,6 +799,17 @@ export const ImportProductsModal: React.FC<ImportProductsModalProps> = ({
                                 value={row.taxRatePercentage}
                                 onChange={(e) => handleCellChange(row.id, "taxRatePercentage", e.target.value)}
                                 className="w-full h-8 px-2 border border-slate-200 rounded text-xs text-right font-mono text-slate-800 focus:border-kv-blue-primary focus:outline-none"
+                              />
+                            </td>
+
+                            {/* Group Name */}
+                            <td className="p-1.5">
+                              <input
+                                type="text"
+                                value={row.groupName || ""}
+                                onChange={(e) => handleCellChange(row.id, "groupName", e.target.value)}
+                                placeholder="Nhóm hàng"
+                                className="w-full h-8 px-2 border border-slate-200 rounded text-xs text-slate-800 focus:border-kv-blue-primary focus:outline-none"
                               />
                             </td>
 

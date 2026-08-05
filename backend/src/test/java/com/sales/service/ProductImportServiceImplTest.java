@@ -105,15 +105,15 @@ class ProductImportServiceImplTest {
             header.createCell(0).setCellValue("Mã SKU");
             header.createCell(1).setCellValue("Tên hàng hóa");
             header.createCell(2).setCellValue("Đơn vị tính");
-            header.createCell(4).setCellValue("Giá bán");
-            header.createCell(5).setCellValue("% Thuế suất");
+            header.createCell(3).setCellValue("Giá bán");
+            header.createCell(4).setCellValue("% Thuế suất");
 
             Row dataRow = sheet.createRow(1);
             dataRow.createCell(0).setCellValue("SP001");
             dataRow.createCell(1).setCellValue("Cà phê Rang Xay");
             dataRow.createCell(2).setCellValue("Gói");
-            dataRow.createCell(4).setCellValue(120000);
-            dataRow.createCell(5).setCellValue(1);
+            dataRow.createCell(3).setCellValue(120000);
+            dataRow.createCell(4).setCellValue(1);
 
             workbook.write(out);
             excelBytes = out.toByteArray();
@@ -152,28 +152,28 @@ class ProductImportServiceImplTest {
             header.createCell(0).setCellValue("Mã SKU");
             header.createCell(1).setCellValue("Tên hàng hóa");
             header.createCell(2).setCellValue("Đơn vị tính");
-            header.createCell(4).setCellValue("Giá bán");
+            header.createCell(3).setCellValue("Giá bán");
 
             // Row 1: Valid
             Row r1 = sheet.createRow(1);
             r1.createCell(0).setCellValue("SP001");
             r1.createCell(1).setCellValue("Trà Chanh");
             r1.createCell(2).setCellValue("Ly");
-            r1.createCell(4).setCellValue(20000);
+            r1.createCell(3).setCellValue(20000);
 
             // Row 2: Duplicate SKU in DB
             Row r2 = sheet.createRow(2);
             r2.createCell(0).setCellValue("SP_EXISTING");
             r2.createCell(1).setCellValue("Cà phê Đen");
             r2.createCell(2).setCellValue("Ly");
-            r2.createCell(4).setCellValue(25000);
+            r2.createCell(3).setCellValue(25000);
 
             // Row 3: Missing Name
             Row r3 = sheet.createRow(3);
             r3.createCell(0).setCellValue("SP003");
             r3.createCell(1).setCellValue(""); // Missing name
             r3.createCell(2).setCellValue("Cái");
-            r3.createCell(4).setCellValue(50000);
+            r3.createCell(3).setCellValue(50000);
 
             workbook.write(out);
             excelBytes = out.toByteArray();
@@ -191,8 +191,8 @@ class ProductImportServiceImplTest {
     }
 
     @Test
-    @DisplayName("NCL-09-CN-005-TC-05: Giá nhập âm -> Báo lỗi dòng chi tiết")
-    void importProducts_NegativeCostPrice_RecordsError() throws Exception {
+    @DisplayName("NCL-09-CN-005-TC-05: Giá bán âm -> Báo lỗi dòng chi tiết")
+    void importProducts_NegativePrice_RecordsError() throws Exception {
         com.sales.entity.TaxRate sampleTax = com.sales.entity.TaxRate.builder()
                 .id("tax-001")
                 .name("Thuế 1%")
@@ -212,15 +212,13 @@ class ProductImportServiceImplTest {
             header.createCell(0).setCellValue("Mã SKU");
             header.createCell(1).setCellValue("Tên hàng hóa");
             header.createCell(2).setCellValue("Đơn vị tính");
-            header.createCell(3).setCellValue("Giá nhập");
-            header.createCell(4).setCellValue("Giá bán");
+            header.createCell(3).setCellValue("Giá bán");
 
             Row r1 = sheet.createRow(1);
             r1.createCell(0).setCellValue("SP001");
             r1.createCell(1).setCellValue("Trà Chanh");
             r1.createCell(2).setCellValue("Ly");
-            r1.createCell(3).setCellValue(-5000); // Negative cost price
-            r1.createCell(4).setCellValue(20000);
+            r1.createCell(3).setCellValue(-5000); // Negative price
 
             workbook.write(out);
             excelBytes = out.toByteArray();
@@ -234,7 +232,7 @@ class ProductImportServiceImplTest {
         assertEquals(1, response.getTotalRows());
         assertEquals(0, response.getSuccessCount());
         assertEquals(1, response.getErrorCount());
-        assertTrue(response.getErrors().get(0).getErrorMessage().contains("Giá nhập không được là số âm"));
+        assertTrue(response.getErrors().get(0).getErrorMessage().contains("Giá bán phải lớn hơn 0"));
     }
 
     @Test
@@ -259,15 +257,15 @@ class ProductImportServiceImplTest {
             header.createCell(0).setCellValue("Mã SKU");
             header.createCell(1).setCellValue("Tên hàng hóa");
             header.createCell(2).setCellValue("Đơn vị tính");
-            header.createCell(4).setCellValue("Giá bán");
-            header.createCell(5).setCellValue("% Thuế suất");
+            header.createCell(3).setCellValue("Giá bán");
+            header.createCell(4).setCellValue("% Thuế suất");
 
             Row dataRow = sheet.createRow(1);
             dataRow.createCell(0).setCellValue("SP008");
             dataRow.createCell(1).setCellValue("Bánh ngọt 8%");
             dataRow.createCell(2).setCellValue("Cái");
-            dataRow.createCell(4).setCellValue(50000);
-            dataRow.createCell(5).setCellValue("0.08"); // POI percentage read value
+            dataRow.createCell(3).setCellValue(50000);
+            dataRow.createCell(4).setCellValue("0.08"); // POI percentage read value
 
             workbook.write(out);
             excelBytes = out.toByteArray();
@@ -305,15 +303,15 @@ class ProductImportServiceImplTest {
             header.createCell(0).setCellValue("Mã SKU");
             header.createCell(1).setCellValue("Tên hàng hóa");
             header.createCell(2).setCellValue("Đơn vị tính");
-            header.createCell(4).setCellValue("Giá bán");
-            header.createCell(5).setCellValue("% Thuế suất");
+            header.createCell(3).setCellValue("Giá bán");
+            header.createCell(4).setCellValue("% Thuế suất");
 
             Row dataRow = sheet.createRow(1);
             dataRow.createCell(0).setCellValue("SP005");
             dataRow.createCell(1).setCellValue("Sản phẩm 0.5%");
             dataRow.createCell(2).setCellValue("Cái");
-            dataRow.createCell(4).setCellValue(50000);
-            dataRow.createCell(5).setCellValue("0.5%"); // Explicit string with % symbol
+            dataRow.createCell(3).setCellValue(50000);
+            dataRow.createCell(4).setCellValue("0.5%"); // Explicit string with % symbol
 
             workbook.write(out);
             excelBytes = out.toByteArray();
@@ -351,13 +349,13 @@ class ProductImportServiceImplTest {
             header.createCell(0).setCellValue("Mã SKU");
             header.createCell(1).setCellValue("Tên hàng hóa");
             header.createCell(2).setCellValue("Đơn vị tính");
-            header.createCell(4).setCellValue("Giá bán");
+            header.createCell(3).setCellValue("Giá bán");
 
             Row validRow = sheet.createRow(1);
             validRow.createCell(0).setCellValue("SP001");
             validRow.createCell(1).setCellValue("Sản phẩm 1");
             validRow.createCell(2).setCellValue("Hộp");
-            validRow.createCell(4).setCellValue(10000);
+            validRow.createCell(3).setCellValue(10000);
 
             // Empty row (no cells created at all)
             sheet.createRow(2);
@@ -420,15 +418,15 @@ class ProductImportServiceImplTest {
             header.createCell(0).setCellValue("Mã SKU");
             header.createCell(1).setCellValue("Tên hàng hóa");
             header.createCell(2).setCellValue("Đơn vị tính");
-            header.createCell(4).setCellValue("Giá bán");
-            header.createCell(5).setCellValue("% Thuế suất");
+            header.createCell(3).setCellValue("Giá bán");
+            header.createCell(4).setCellValue("% Thuế suất");
 
             Row dataRow = sheet.createRow(1);
             dataRow.createCell(0).setCellValue("SP005B");
             dataRow.createCell(1).setCellValue("Sản phẩm 0.5 không %");
             dataRow.createCell(2).setCellValue("Cái");
-            dataRow.createCell(4).setCellValue(50000);
-            dataRow.createCell(5).setCellValue("0.5"); // String "0.5" without % symbol
+            dataRow.createCell(3).setCellValue(50000);
+            dataRow.createCell(4).setCellValue("0.5"); // String "0.5" without % symbol
 
             workbook.write(out);
             excelBytes = out.toByteArray();
@@ -466,15 +464,15 @@ class ProductImportServiceImplTest {
             header.createCell(0).setCellValue("Mã SKU");
             header.createCell(1).setCellValue("Tên hàng hóa");
             header.createCell(2).setCellValue("Đơn vị tính");
-            header.createCell(4).setCellValue("Giá bán");
-            header.createCell(5).setCellValue("% Thuế suất");
+            header.createCell(3).setCellValue("Giá bán");
+            header.createCell(4).setCellValue("% Thuế suất");
 
             Row dataRow = sheet.createRow(1);
             dataRow.createCell(0).setCellValue("SP085");
             dataRow.createCell(1).setCellValue("Sản phẩm 8.5%");
             dataRow.createCell(2).setCellValue("Cái");
-            dataRow.createCell(4).setCellValue(50000);
-            dataRow.createCell(5).setCellValue("8,5%"); // Vietnamese comma "8,5%"
+            dataRow.createCell(3).setCellValue(50000);
+            dataRow.createCell(4).setCellValue("8,5%"); // Vietnamese comma "8,5%"
 
             workbook.write(out);
             excelBytes = out.toByteArray();
@@ -512,13 +510,13 @@ class ProductImportServiceImplTest {
             header.createCell(0).setCellValue("Mã SKU");
             header.createCell(1).setCellValue("Tên hàng hóa");
             header.createCell(2).setCellValue("Đơn vị tính");
-            header.createCell(4).setCellValue("Giá bán");
+            header.createCell(3).setCellValue("Giá bán");
 
             Row dataRow = sheet.createRow(1);
             dataRow.createCell(0).setCellValue("SP999");
             dataRow.createCell(1).setCellValue("Sản phẩm giá rác");
             dataRow.createCell(2).setCellValue("Cái");
-            dataRow.createCell(4).setCellValue("chuỗi rác"); // Garbage string in price cell
+            dataRow.createCell(3).setCellValue("chuỗi rác"); // Garbage string in price cell
 
             workbook.write(out);
             excelBytes = out.toByteArray();

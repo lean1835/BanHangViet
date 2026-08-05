@@ -58,7 +58,7 @@ export interface ITaxRateStatusRequest {
   isActive: boolean;
 }
 
-export type TBackupType = "PRODUCTS" | "INVOICES" | "FULL";
+export type TBackupType = "PRODUCTS" | "ORDERS" | "INVOICES" | "FULL";
 
 export interface IBackupExportParams {
   type: TBackupType;
