@@ -84,8 +84,7 @@ public class EmailServiceImpl implements EmailService {
     }
 
     @Override
-    @Async("taskExecutor")
-    public void sendDebtReminderEmailAsync(String debtId, String toEmail, String customerName, String householdName, BigDecimal debtAmount, LocalDateTime dueDate) {
+    public void sendDebtReminderEmail(String debtId, String toEmail, String customerName, String householdName, BigDecimal debtAmount, LocalDateTime dueDate) {
         try {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
@@ -128,12 +127,22 @@ public class EmailServiceImpl implements EmailService {
             log.info("Email nhắc nợ trước hạn gửi thành công tới {}", toEmail);
         } catch (Exception e) {
             log.error("Lỗi khi gửi email nhắc nợ trước hạn tới {}", toEmail, e);
+            throw new RuntimeException("Lỗi gửi email nhắc nợ trước hạn cho email: " + toEmail, e);
         }
     }
 
     @Override
     @Async("taskExecutor")
-    public void sendOverdueDebtReminderEmailAsync(String debtId, String toEmail, String customerName, String householdName, BigDecimal debtAmount, LocalDateTime dueDate) {
+    public void sendDebtReminderEmailAsync(String debtId, String toEmail, String customerName, String householdName, BigDecimal debtAmount, LocalDateTime dueDate) {
+        try {
+            sendDebtReminderEmail(debtId, toEmail, customerName, householdName, debtAmount, dueDate);
+        } catch (Exception e) {
+            // Async wrapper logs error without propagating
+        }
+    }
+
+    @Override
+    public void sendOverdueDebtReminderEmail(String debtId, String toEmail, String customerName, String householdName, BigDecimal debtAmount, LocalDateTime dueDate) {
         try {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
@@ -176,6 +185,17 @@ public class EmailServiceImpl implements EmailService {
             log.info("Email nhắc nợ quá hạn gửi thành công tới {}", toEmail);
         } catch (Exception e) {
             log.error("Lỗi khi gửi email nhắc nợ quá hạn tới {}", toEmail, e);
+            throw new RuntimeException("Lỗi gửi email nhắc nợ quá hạn cho email: " + toEmail, e);
+        }
+    }
+
+    @Override
+    @Async("taskExecutor")
+    public void sendOverdueDebtReminderEmailAsync(String debtId, String toEmail, String customerName, String householdName, BigDecimal debtAmount, LocalDateTime dueDate) {
+        try {
+            sendOverdueDebtReminderEmail(debtId, toEmail, customerName, householdName, debtAmount, dueDate);
+        } catch (Exception e) {
+            // Async wrapper logs error without propagating
         }
     }
 

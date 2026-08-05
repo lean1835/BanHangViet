@@ -43,7 +43,6 @@ public class DebtScheduler {
     }
 
     @Scheduled(cron = "${app.scheduler.debt-reminder.cron:0 0 1 * * *}")
-    @Transactional(rollbackFor = Exception.class)
     public void autoSendDebtReminders() {
         log.info("Starting background job to scan and send auto debt reminders");
         LocalDate today = LocalDate.now();
@@ -81,11 +80,8 @@ public class DebtScheduler {
                             (today.isBefore(due) || today.isEqual(due))) {
                         String email = customer.getEmail();
                         if (email != null && !email.trim().isEmpty()) {
-                            debt.setReminderSent(true);
-                            customerDebtRepository.save(debt);
-
                             String householdName = debt.getHousehold() != null ? debt.getHousehold().getName() : DEFAULT_HOUSEHOLD_NAME;
-                            emailService.sendDebtReminderEmailAsync(
+                            emailService.sendDebtReminderEmail(
                                     debt.getId(),
                                     email.trim(),
                                     customer.getName(),
@@ -93,6 +89,9 @@ public class DebtScheduler {
                                     debt.getRemainingAmount(),
                                     debt.getDueDate()
                             );
+
+                            debt.setReminderSent(true);
+                            customerDebtRepository.save(debt);
                             processedCount++;
                         }
                     }
@@ -139,11 +138,8 @@ public class DebtScheduler {
                     if (today.isAfter(overdueReminderDate) || today.isEqual(overdueReminderDate)) {
                         String email = customer.getEmail();
                         if (email != null && !email.trim().isEmpty()) {
-                            debt.setOverdueReminderSent(true);
-                            customerDebtRepository.save(debt);
-
                             String householdName = debt.getHousehold() != null ? debt.getHousehold().getName() : DEFAULT_HOUSEHOLD_NAME;
-                            emailService.sendOverdueDebtReminderEmailAsync(
+                            emailService.sendOverdueDebtReminderEmail(
                                     debt.getId(),
                                     email.trim(),
                                     customer.getName(),
@@ -151,6 +147,9 @@ public class DebtScheduler {
                                     debt.getRemainingAmount(),
                                     debt.getDueDate()
                             );
+
+                            debt.setOverdueReminderSent(true);
+                            customerDebtRepository.save(debt);
                             processedCount++;
                         }
                     }
