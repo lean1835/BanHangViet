@@ -1,5 +1,7 @@
 package com.sales.scheduler;
 
+import com.sales.constant.DebtStatus;
+import com.sales.constant.DebtType;
 import com.sales.entity.Customer;
 import com.sales.entity.CustomerDebt;
 import com.sales.repository.CustomerDebtRepository;
@@ -10,7 +12,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.util.StringUtils;
 
@@ -38,16 +39,15 @@ public class DebtScheduler {
     private final TransactionTemplate transactionTemplate;
 
     @Scheduled(cron = "${app.scheduler.overdue-scan.cron:0 0 0 * * *}")
-    @Transactional(rollbackFor = Exception.class)
     public void scanAndMarkOverdueDebts() {
         log.info("Starting background job to scan and mark overdue debts");
         List<CustomerDebt> expiredDebts = customerDebtRepository.findByStatusInAndTypeAndDueDateBefore(
-                List.of("PENDING"), "DEBT_CREATED", LocalDateTime.now());
+                List.of(DebtStatus.PENDING), DebtType.DEBT_CREATED, LocalDateTime.now());
         if (!expiredDebts.isEmpty()) {
             for (CustomerDebt debt : expiredDebts) {
-                debt.setStatus("OVERDUE");
+                debt.setStatus(DebtStatus.OVERDUE);
             }
-            customerDebtRepository.saveAll(expiredDebts);
+            transactionTemplate.executeWithoutResult(status -> customerDebtRepository.saveAll(expiredDebts));
             log.info("Marked {} debts as OVERDUE", expiredDebts.size());
         }
     }

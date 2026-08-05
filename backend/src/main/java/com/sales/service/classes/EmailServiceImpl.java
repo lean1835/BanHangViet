@@ -92,28 +92,31 @@ public class EmailServiceImpl implements EmailService {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
 
+            String rawHouseholdName = householdName != null ? householdName : "";
             String safeCustomerName = HtmlUtils.htmlEscape(customerName != null ? customerName : "");
-            String safeHouseholdName = HtmlUtils.htmlEscape(householdName != null ? householdName : "");
+            String safeHouseholdName = HtmlUtils.htmlEscape(rawHouseholdName);
 
             helper.setTo(toEmail);
-            helper.setSubject("Thông báo nhắc nợ sắp đến hạn từ " + safeHouseholdName);
+            helper.setSubject("Thông báo nhắc nợ sắp đến hạn từ " + rawHouseholdName);
 
             String formattedAmount = debtAmount != null ? String.format("%,.0f", debtAmount.doubleValue()) : "0";
             String formattedDueDate = dueDate != null ? dueDate.toLocalDate().toString() : "";
 
-            String bodyContent = buildDebtReminderBody(
-                    safeCustomerName,
-                    safeHouseholdName,
-                    formattedAmount,
-                    formattedDueDate,
-                    "Chúng tôi xin thông báo về khoản công nợ sắp đến hạn thanh toán của Quý khách tại",
-                    "Số tiền nợ:",
-                    "Ngày đến hạn:",
-                    "#f8fafc",
-                    "#e2e8f0",
-                    "#0f172a",
-                    "Rất mong Quý khách sắp xếp thanh toán đúng hạn. Trân trọng cảm ơn!"
-            );
+            DebtReminderEmailContext context = DebtReminderEmailContext.builder()
+                    .safeCustomerName(safeCustomerName)
+                    .safeHouseholdName(safeHouseholdName)
+                    .formattedAmount(formattedAmount)
+                    .formattedDueDate(formattedDueDate)
+                    .introText("Chúng tôi xin thông báo về khoản công nợ sắp đến hạn thanh toán của Quý khách tại")
+                    .amountLabel("Số tiền nợ:")
+                    .dueDateLabel("Ngày đến hạn:")
+                    .bgColor("#f8fafc")
+                    .borderColor("#e2e8f0")
+                    .dueDateColor("#0f172a")
+                    .closingText("Rất mong Quý khách sắp xếp thanh toán đúng hạn. Trân trọng cảm ơn!")
+                    .build();
+
+            String bodyContent = buildDebtReminderBody(context);
             String htmlContent = buildHtmlEmail("NHẮC NHỜ CÔNG NỢ ĐẾN HẠN", "Cung cấp bởi BanHangViet", "linear-gradient(135deg, #1e3c72 0%, #2a5298 100%)", bodyContent);
 
             helper.setText(htmlContent, true);
@@ -127,6 +130,10 @@ public class EmailServiceImpl implements EmailService {
         }
     }
 
+    /**
+     * Async wrapper for sending pre-due debt reminder email.
+     * Note: Currently used for prospective async manual API actions.
+     */
     @Override
     @Async("taskExecutor")
     public void sendDebtReminderEmailAsync(String debtId, String toEmail, String customerName, String householdName, BigDecimal debtAmount, LocalDateTime dueDate) {
@@ -143,28 +150,31 @@ public class EmailServiceImpl implements EmailService {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
 
+            String rawHouseholdName = householdName != null ? householdName : "";
             String safeCustomerName = HtmlUtils.htmlEscape(customerName != null ? customerName : "");
-            String safeHouseholdName = HtmlUtils.htmlEscape(householdName != null ? householdName : "");
+            String safeHouseholdName = HtmlUtils.htmlEscape(rawHouseholdName);
 
             helper.setTo(toEmail);
-            helper.setSubject("Cảnh báo nợ quá hạn từ " + safeHouseholdName);
+            helper.setSubject("Cảnh báo nợ quá hạn từ " + rawHouseholdName);
 
             String formattedAmount = debtAmount != null ? String.format("%,.0f", debtAmount.doubleValue()) : "0";
             String formattedDueDate = dueDate != null ? dueDate.toLocalDate().toString() : "";
 
-            String bodyContent = buildDebtReminderBody(
-                    safeCustomerName,
-                    safeHouseholdName,
-                    formattedAmount,
-                    formattedDueDate,
-                    "Chúng tôi xin thông báo khoản công nợ của Quý khách tại",
-                    "Số tiền nợ quá hạn:",
-                    "Ngày phải thanh toán:",
-                    "#fff1f2",
-                    "#fecdd3",
-                    "#e11d48",
-                    "<span style=\"color: #be123c;\">Kính mong Quý khách nhanh chóng sắp xếp thanh toán dứt điểm khoản nợ này. Trân trọng cảm ơn!</span>"
-            );
+            DebtReminderEmailContext context = DebtReminderEmailContext.builder()
+                    .safeCustomerName(safeCustomerName)
+                    .safeHouseholdName(safeHouseholdName)
+                    .formattedAmount(formattedAmount)
+                    .formattedDueDate(formattedDueDate)
+                    .introText("Chúng tôi xin thông báo khoản công nợ của Quý khách tại")
+                    .amountLabel("Số tiền nợ quá hạn:")
+                    .dueDateLabel("Ngày phải thanh toán:")
+                    .bgColor("#fff1f2")
+                    .borderColor("#fecdd3")
+                    .dueDateColor("#e11d48")
+                    .closingText("<span style=\"color: #be123c;\">Kính mong Quý khách nhanh chóng sắp xếp thanh toán dứt điểm khoản nợ này. Trân trọng cảm ơn!</span>")
+                    .build();
+
+            String bodyContent = buildDebtReminderBody(context);
             String htmlContent = buildHtmlEmail("CẢNH BÁO NỢ QUÁ HẠN", "Cung cấp bởi BanHangViet", "linear-gradient(135deg, #e11d48 0%, #be123c 100%)", bodyContent);
 
             helper.setText(htmlContent, true);
@@ -178,6 +188,10 @@ public class EmailServiceImpl implements EmailService {
         }
     }
 
+    /**
+     * Async wrapper for sending overdue debt reminder email.
+     * Note: Currently used for prospective async manual API actions.
+     */
     @Override
     @Async("taskExecutor")
     public void sendOverdueDebtReminderEmailAsync(String debtId, String toEmail, String customerName, String householdName, BigDecimal debtAmount, LocalDateTime dueDate) {
@@ -188,42 +202,30 @@ public class EmailServiceImpl implements EmailService {
         }
     }
 
-    private String buildDebtReminderBody(
-            String safeCustomerName,
-            String safeHouseholdName,
-            String formattedAmount,
-            String formattedDueDate,
-            String introText,
-            String amountLabel,
-            String dueDateLabel,
-            String bgColor,
-            String borderColor,
-            String dueDateColor,
-            String closingText
-    ) {
-        return "    <p style=\"margin-top: 0; font-size: 16px;\">Kính gửi Ông/Bà <strong>" + safeCustomerName + "</strong>,</p>"
-                + "    <p>" + introText + " <strong>" + safeHouseholdName + "</strong>:</p>"
-                + "    <div style=\"background-color: " + bgColor + "; border: 1px solid " + borderColor + "; border-radius: 6px; padding: 16px; margin: 20px 0;\">"
+    private String buildDebtReminderBody(DebtReminderEmailContext context) {
+        return "    <p style=\"margin-top: 0; font-size: 16px;\">Kính gửi Ông/Bà <strong>" + context.getSafeCustomerName() + "</strong>,</p>"
+                + "    <p>" + context.getIntroText() + " <strong>" + context.getSafeHouseholdName() + "</strong>:</p>"
+                + "    <div style=\"background-color: " + context.getBgColor() + "; border: 1px solid " + context.getBorderColor() + "; border-radius: 6px; padding: 16px; margin: 20px 0;\">"
                 + "      <table style=\"width: 100%; border-collapse: collapse; font-size: 14px;\">"
                 + "        <tr>"
                 + "          <td style=\"padding: 6px 0; color: #64748b; width: 40%;\">Khách hàng:</td>"
-                + "          <td style=\"padding: 6px 0; font-weight: bold; color: #0f172a;\">" + safeCustomerName + "</td>"
+                + "          <td style=\"padding: 6px 0; font-weight: bold; color: #0f172a;\">" + context.getSafeCustomerName() + "</td>"
                 + "        </tr>"
                 + "        <tr>"
                 + "          <td style=\"padding: 6px 0; color: #64748b;\">Đơn vị bán hàng:</td>"
-                + "          <td style=\"padding: 6px 0; font-weight: 500; color: #0f172a;\">" + safeHouseholdName + "</td>"
+                + "          <td style=\"padding: 6px 0; font-weight: 500; color: #0f172a;\">" + context.getSafeHouseholdName() + "</td>"
                 + "        </tr>"
                 + "        <tr>"
-                + "          <td style=\"padding: 6px 0; color: #64748b;\">" + amountLabel + "</td>"
-                + "          <td style=\"padding: 6px 0; font-weight: bold; color: #e11d48; font-size: 16px;\">" + formattedAmount + " VND</td>"
+                + "          <td style=\"padding: 6px 0; color: #64748b;\">" + context.getAmountLabel() + "</td>"
+                + "          <td style=\"padding: 6px 0; font-weight: bold; color: #e11d48; font-size: 16px;\">" + context.getFormattedAmount() + " VND</td>"
                 + "        </tr>"
                 + "        <tr>"
-                + "          <td style=\"padding: 6px 0; color: #64748b;\">" + dueDateLabel + "</td>"
-                + "          <td style=\"padding: 6px 0; font-weight: bold; color: " + dueDateColor + ";\">" + formattedDueDate + "</td>"
+                + "          <td style=\"padding: 6px 0; color: #64748b;\">" + context.getDueDateLabel() + "</td>"
+                + "          <td style=\"padding: 6px 0; font-weight: bold; color: " + context.getDueDateColor() + ";\">" + context.getFormattedDueDate() + "</td>"
                 + "        </tr>"
                 + "      </table>"
                 + "    </div>"
-                + "    <p style=\"margin-bottom: 25px;\">" + closingText + "</p>";
+                + "    <p style=\"margin-bottom: 25px;\">" + context.getClosingText() + "</p>";
     }
 
     private String buildHtmlEmail(String title, String subtitle, String headerGradient, String bodyContent) {
@@ -240,6 +242,22 @@ public class EmailServiceImpl implements EmailService {
                 + "    <p style=\"margin: 0;\">Vui lòng không phản hồi thư này. Xin cảm ơn!</p>"
                 + "  </div>"
                 + "</div>";
+    }
+
+    @lombok.Getter
+    @lombok.Builder
+    private static class DebtReminderEmailContext {
+        private final String safeCustomerName;
+        private final String safeHouseholdName;
+        private final String formattedAmount;
+        private final String formattedDueDate;
+        private final String introText;
+        private final String amountLabel;
+        private final String dueDateLabel;
+        private final String bgColor;
+        private final String borderColor;
+        private final String dueDateColor;
+        private final String closingText;
     }
 
 }

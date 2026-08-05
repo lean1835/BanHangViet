@@ -1,5 +1,7 @@
 package com.sales.scheduler;
 
+import com.sales.constant.DebtStatus;
+import com.sales.constant.DebtType;
 import com.sales.entity.BusinessHousehold;
 import com.sales.entity.Customer;
 import com.sales.entity.CustomerDebt;
@@ -58,8 +60,8 @@ class DebtSchedulerTest {
                 .id("debt-expired")
                 .amount(new BigDecimal("100000.00"))
                 .remainingAmount(new BigDecimal("100000.00"))
-                .type("DEBT_CREATED")
-                .status("PENDING")
+                .type(DebtType.DEBT_CREATED)
+                .status(DebtStatus.PENDING)
                 .dueDate(LocalDateTime.now().minusDays(1))
                 .build();
 
@@ -67,12 +69,13 @@ class DebtSchedulerTest {
         expiredList.add(expiredDebt);
 
         when(customerDebtRepository.findByStatusInAndTypeAndDueDateBefore(
-                eq(List.of("PENDING")), eq("DEBT_CREATED"), any(LocalDateTime.class)))
+                eq(List.of(DebtStatus.PENDING)), eq(DebtType.DEBT_CREATED), any(LocalDateTime.class)))
                 .thenReturn(expiredList);
 
         debtScheduler.scanAndMarkOverdueDebts();
 
-        assertEquals("OVERDUE", expiredDebt.getStatus());
+        assertEquals(DebtStatus.OVERDUE, expiredDebt.getStatus());
+        verify(transactionTemplate, times(1)).executeWithoutResult(any());
         verify(customerDebtRepository, times(1)).saveAll(expiredList);
     }
 
@@ -80,7 +83,7 @@ class DebtSchedulerTest {
     @DisplayName("Tác vụ quét nợ quá hạn - Không làm gì nếu không có khoản nợ nào quá hạn")
     void scanAndMarkOverdueDebts_NoExpiredDebts_NoAction() {
         when(customerDebtRepository.findByStatusInAndTypeAndDueDateBefore(
-                eq(List.of("PENDING")), eq("DEBT_CREATED"), any(LocalDateTime.class)))
+                eq(List.of(DebtStatus.PENDING)), eq(DebtType.DEBT_CREATED), any(LocalDateTime.class)))
                 .thenReturn(List.of());
 
         debtScheduler.scanAndMarkOverdueDebts();
@@ -104,8 +107,8 @@ class DebtSchedulerTest {
                 .household(household)
                 .amount(new BigDecimal("200000"))
                 .remainingAmount(new BigDecimal("200000"))
-                .status("PENDING")
-                .type("DEBT_CREATED")
+                .status(DebtStatus.PENDING)
+                .type(DebtType.DEBT_CREATED)
                 .dueDate(LocalDateTime.now().plusDays(2))
                 .reminderSent(false)
                 .build();
@@ -142,8 +145,8 @@ class DebtSchedulerTest {
                 .household(household)
                 .amount(new BigDecimal("200000"))
                 .remainingAmount(new BigDecimal("200000"))
-                .status("PENDING")
-                .type("DEBT_CREATED")
+                .status(DebtStatus.PENDING)
+                .type(DebtType.DEBT_CREATED)
                 .dueDate(LocalDateTime.now().plusDays(2))
                 .reminderSent(false)
                 .build();
@@ -181,8 +184,8 @@ class DebtSchedulerTest {
                 .household(household)
                 .amount(new BigDecimal("500000"))
                 .remainingAmount(new BigDecimal("500000"))
-                .status("OVERDUE")
-                .type("DEBT_CREATED")
+                .status(DebtStatus.OVERDUE)
+                .type(DebtType.DEBT_CREATED)
                 .dueDate(LocalDateTime.now().minusDays(3))
                 .overdueReminderSent(false)
                 .build();
@@ -218,8 +221,8 @@ class DebtSchedulerTest {
                 .household(null)
                 .amount(new BigDecimal("300000"))
                 .remainingAmount(new BigDecimal("300000"))
-                .status("PENDING")
-                .type("DEBT_CREATED")
+                .status(DebtStatus.PENDING)
+                .type(DebtType.DEBT_CREATED)
                 .dueDate(LocalDateTime.now().plusDays(1))
                 .reminderSent(false)
                 .build();
@@ -252,8 +255,8 @@ class DebtSchedulerTest {
                 .customer(customerNoEmail)
                 .amount(new BigDecimal("100000"))
                 .remainingAmount(new BigDecimal("100000"))
-                .status("PENDING")
-                .type("DEBT_CREATED")
+                .status(DebtStatus.PENDING)
+                .type(DebtType.DEBT_CREATED)
                 .dueDate(LocalDateTime.now().plusDays(1))
                 .reminderSent(false)
                 .build();

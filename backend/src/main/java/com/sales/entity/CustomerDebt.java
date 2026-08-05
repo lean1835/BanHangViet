@@ -1,5 +1,6 @@
 package com.sales.entity;
 
+import com.sales.constant.DebtStatus;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -45,7 +46,7 @@ public class CustomerDebt {
 
     @Column(nullable = false, length = 20)
     @Builder.Default
-    private String status = "PENDING"; // PENDING, PAID, OVERDUE
+    private String status = DebtStatus.PENDING; // PENDING, PAID, OVERDUE
 
     @Column(name = "due_date", nullable = false)
     private LocalDateTime dueDate;

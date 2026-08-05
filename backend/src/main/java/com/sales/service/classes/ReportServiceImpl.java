@@ -1,5 +1,6 @@
 package com.sales.service.classes;
 
+import com.sales.constant.DebtType;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sales.dto.response.*;
 import com.sales.entity.*;
@@ -116,7 +117,7 @@ public class ReportServiceImpl implements ReportService {
             } else if ("BANK_TRANSFER".equals(o.getPaymentMethod())) {
                 transfer = transfer.add(o.getFinalAmount());
             } else if ("DEBT".equals(o.getPaymentMethod())) {
-                Optional<CustomerDebt> debtOpt = customerDebtRepository.findFirstByOrderIdAndType(o.getId(), "DEBT_CREATED");
+                Optional<CustomerDebt> debtOpt = customerDebtRepository.findFirstByOrderIdAndType(o.getId(), DebtType.DEBT_CREATED);
                 if (debtOpt.isPresent()) {
                     BigDecimal debtBalance = debtOpt.get().getAmount() != null ? debtOpt.get().getAmount() : BigDecimal.ZERO;
                     BigDecimal paidAdvance = o.getFinalAmount().subtract(debtBalance);
