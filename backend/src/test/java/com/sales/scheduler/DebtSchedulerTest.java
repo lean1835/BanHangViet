@@ -5,17 +5,21 @@ import com.sales.entity.Customer;
 import com.sales.entity.CustomerDebt;
 import com.sales.repository.CustomerDebtRepository;
 import com.sales.service.interfaces.EmailService;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.transaction.TransactionStatus;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Consumer;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -32,8 +36,20 @@ class DebtSchedulerTest {
     @Mock
     private EmailService emailService;
 
+    @Mock
+    private TransactionTemplate transactionTemplate;
+
     @InjectMocks
     private DebtScheduler debtScheduler;
+
+    @BeforeEach
+    void setUp() {
+        lenient().doAnswer(invocation -> {
+            Consumer<TransactionStatus> action = invocation.getArgument(0);
+            action.accept(null);
+            return null;
+        }).when(transactionTemplate).executeWithoutResult(any());
+    }
 
     @Test
     @DisplayName("Tác vụ quét nợ quá hạn - Cập nhật thành công các khoản nợ đã đến hạn")
@@ -90,7 +106,7 @@ class DebtSchedulerTest {
                 .remainingAmount(new BigDecimal("200000"))
                 .status("PENDING")
                 .type("DEBT_CREATED")
-                .dueDate(LocalDateTime.now().plusDays(2)) // 2 days before due date, threshold is 3 days
+                .dueDate(LocalDateTime.now().plusDays(2))
                 .reminderSent(false)
                 .build();
 
@@ -104,8 +120,8 @@ class DebtSchedulerTest {
 
         debtScheduler.autoSendDebtReminders();
 
-        assertTrue(debt.getReminderSent());
-        verify(customerDebtRepository, times(1)).save(debt);
+        assertTrue(debt.isReminderSent());
+        verify(customerDebtRepository, times(1)).saveAll(List.of(debt));
         verify(emailService, times(1)).sendDebtReminderEmail(
                 eq("debt-1"), eq("customerA@gmail.com"), eq("Khách hàng A"), eq("Hộ KD A"), eq(new BigDecimal("200000")), any(LocalDateTime.class));
     }
@@ -145,8 +161,8 @@ class DebtSchedulerTest {
 
         debtScheduler.autoSendDebtReminders();
 
-        assertEquals(false, debt.getReminderSent());
-        verify(customerDebtRepository, never()).save(debt);
+        assertEquals(false, debt.isReminderSent());
+        verify(customerDebtRepository, never()).saveAll(any());
     }
 
     @Test
@@ -167,7 +183,7 @@ class DebtSchedulerTest {
                 .remainingAmount(new BigDecimal("500000"))
                 .status("OVERDUE")
                 .type("DEBT_CREATED")
-                .dueDate(LocalDateTime.now().minusDays(3)) // 3 days past due, threshold is 2 days
+                .dueDate(LocalDateTime.now().minusDays(3))
                 .overdueReminderSent(false)
                 .build();
 
@@ -181,8 +197,8 @@ class DebtSchedulerTest {
 
         debtScheduler.autoSendDebtReminders();
 
-        assertTrue(debt.getOverdueReminderSent());
-        verify(customerDebtRepository, times(1)).save(debt);
+        assertTrue(debt.isOverdueReminderSent());
+        verify(customerDebtRepository, times(1)).saveAll(List.of(debt));
         verify(emailService, times(1)).sendOverdueDebtReminderEmail(
                 eq("debt-2"), eq("customerB@gmail.com"), eq("Khách hàng B"), eq("Hộ KD A"), eq(new BigDecimal("500000")), any(LocalDateTime.class));
     }
@@ -253,6 +269,6 @@ class DebtSchedulerTest {
         debtScheduler.autoSendDebtReminders();
 
         verify(emailService, never()).sendDebtReminderEmail(any(), any(), any(), any(), any(), any());
-        verify(customerDebtRepository, never()).save(debt);
+        verify(customerDebtRepository, never()).saveAll(any());
     }
 }

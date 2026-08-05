@@ -1,5 +1,7 @@
 package com.sales.service.classes;
 
+import com.sales.exception.AppException;
+import com.sales.exception.ErrorCode;
 import com.sales.repository.InvoiceDeliveryLogRepository;
 import com.sales.service.interfaces.EmailService;
 import jakarta.mail.internet.MimeMessage;
@@ -9,6 +11,7 @@ import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.web.util.HtmlUtils;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -89,45 +92,38 @@ public class EmailServiceImpl implements EmailService {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
 
+            String safeCustomerName = HtmlUtils.htmlEscape(customerName != null ? customerName : "");
+            String safeHouseholdName = HtmlUtils.htmlEscape(householdName != null ? householdName : "");
+
             helper.setTo(toEmail);
-            helper.setSubject("Thông báo nhắc nợ sắp đến hạn từ " + householdName);
+            helper.setSubject("Thông báo nhắc nợ sắp đến hạn từ " + safeHouseholdName);
 
             String formattedAmount = debtAmount != null ? String.format("%,.0f", debtAmount.doubleValue()) : "0";
             String formattedDueDate = dueDate != null ? dueDate.toLocalDate().toString() : "";
 
-            String bodyContent = "    <p style=\"margin-top: 0; font-size: 16px;\">Kính gửi Ông/Bà <strong>" + customerName + "</strong>,</p>"
-                    + "    <p>Chúng tôi xin thông báo về khoản công nợ sắp đến hạn thanh toán của Quý khách tại <strong>" + householdName + "</strong>:</p>"
-                    + "    <div style=\"background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 16px; margin: 20px 0;\">"
-                    + "      <table style=\"width: 100%; border-collapse: collapse; font-size: 14px;\">"
-                    + "        <tr>"
-                    + "          <td style=\"padding: 6px 0; color: #64748b; width: 40%;\">Khách hàng:</td>"
-                    + "          <td style=\"padding: 6px 0; font-weight: bold; color: #0f172a;\">" + customerName + "</td>"
-                    + "        </tr>"
-                    + "        <tr>"
-                    + "          <td style=\"padding: 6px 0; color: #64748b;\">Đơn vị bán hàng:</td>"
-                    + "          <td style=\"padding: 6px 0; font-weight: 500; color: #0f172a;\">" + householdName + "</td>"
-                    + "        </tr>"
-                    + "        <tr>"
-                    + "          <td style=\"padding: 6px 0; color: #64748b;\">Số tiền nợ:</td>"
-                    + "          <td style=\"padding: 6px 0; font-weight: bold; color: #e11d48; font-size: 16px;\">" + formattedAmount + " VND</td>"
-                    + "        </tr>"
-                    + "        <tr>"
-                    + "          <td style=\"padding: 6px 0; color: #64748b;\">Ngày đến hạn:</td>"
-                    + "          <td style=\"padding: 6px 0; font-weight: bold; color: #0f172a;\">" + formattedDueDate + "</td>"
-                    + "        </tr>"
-                    + "      </table>"
-                    + "    </div>"
-                    + "    <p style=\"margin-bottom: 25px;\">Rất mong Quý khách sắp xếp thanh toán đúng hạn. Trân trọng cảm ơn!</p>";
-            String htmlContent = buildHtmlEmail("NHẮC NHỞ CÔNG NỢ ĐẾN HẠN", "Cung cấp bởi BanHangViet", "linear-gradient(135deg, #1e3c72 0%, #2a5298 100%)", bodyContent);
+            String bodyContent = buildDebtReminderBody(
+                    safeCustomerName,
+                    safeHouseholdName,
+                    formattedAmount,
+                    formattedDueDate,
+                    "Chúng tôi xin thông báo về khoản công nợ sắp đến hạn thanh toán của Quý khách tại",
+                    "Số tiền nợ:",
+                    "Ngày đến hạn:",
+                    "#f8fafc",
+                    "#e2e8f0",
+                    "#0f172a",
+                    "Rất mong Quý khách sắp xếp thanh toán đúng hạn. Trân trọng cảm ơn!"
+            );
+            String htmlContent = buildHtmlEmail("NHẮC NHỜ CÔNG NỢ ĐẾN HẠN", "Cung cấp bởi BanHangViet", "linear-gradient(135deg, #1e3c72 0%, #2a5298 100%)", bodyContent);
 
             helper.setText(htmlContent, true);
 
             mailSender.send(message);
 
-            log.info("Email nhắc nợ trước hạn gửi thành công tới {}", toEmail);
+            log.info("Email nhắc nợ trước hạn gửi thành công cho debt ID {} tới {}", debtId, toEmail);
         } catch (Exception e) {
-            log.error("Lỗi khi gửi email nhắc nợ trước hạn tới {}", toEmail, e);
-            throw new RuntimeException("Lỗi gửi email nhắc nợ trước hạn cho email: " + toEmail, e);
+            log.error("Lỗi khi gửi email nhắc nợ trước hạn cho debt ID {} tới {}", debtId, toEmail, e);
+            throw new AppException(ErrorCode.EMAIL_SEND_FAILED);
         }
     }
 
@@ -147,45 +143,38 @@ public class EmailServiceImpl implements EmailService {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
 
+            String safeCustomerName = HtmlUtils.htmlEscape(customerName != null ? customerName : "");
+            String safeHouseholdName = HtmlUtils.htmlEscape(householdName != null ? householdName : "");
+
             helper.setTo(toEmail);
-            helper.setSubject("Cảnh báo nợ quá hạn từ " + householdName);
+            helper.setSubject("Cảnh báo nợ quá hạn từ " + safeHouseholdName);
 
             String formattedAmount = debtAmount != null ? String.format("%,.0f", debtAmount.doubleValue()) : "0";
             String formattedDueDate = dueDate != null ? dueDate.toLocalDate().toString() : "";
 
-            String bodyContent = "    <p style=\"margin-top: 0; font-size: 16px;\">Kính gửi Ông/Bà <strong>" + customerName + "</strong>,</p>"
-                    + "    <p>Chúng tôi xin thông báo khoản công nợ của Quý khách tại <strong>" + householdName + "</strong> đã vượt quá thời hạn thanh toán quy định:</p>"
-                    + "    <div style=\"background-color: #fff1f2; border: 1px solid #fecdd3; border-radius: 6px; padding: 16px; margin: 20px 0;\">"
-                    + "      <table style=\"width: 100%; border-collapse: collapse; font-size: 14px;\">"
-                    + "        <tr>"
-                    + "          <td style=\"padding: 6px 0; color: #64748b; width: 40%;\">Khách hàng:</td>"
-                    + "          <td style=\"padding: 6px 0; font-weight: bold; color: #0f172a;\">" + customerName + "</td>"
-                    + "        </tr>"
-                    + "        <tr>"
-                    + "          <td style=\"padding: 6px 0; color: #64748b;\">Đơn vị bán hàng:</td>"
-                    + "          <td style=\"padding: 6px 0; font-weight: 500; color: #0f172a;\">" + householdName + "</td>"
-                    + "        </tr>"
-                    + "        <tr>"
-                    + "          <td style=\"padding: 6px 0; color: #64748b;\">Số tiền nợ quá hạn:</td>"
-                    + "          <td style=\"padding: 6px 0; font-weight: bold; color: #e11d48; font-size: 16px;\">" + formattedAmount + " VND</td>"
-                    + "        </tr>"
-                    + "        <tr>"
-                    + "          <td style=\"padding: 6px 0; color: #64748b;\">Ngày phải thanh toán:</td>"
-                    + "          <td style=\"padding: 6px 0; font-weight: bold; color: #e11d48;\">" + formattedDueDate + "</td>"
-                    + "        </tr>"
-                    + "      </table>"
-                    + "    </div>"
-                    + "    <p style=\"margin-bottom: 25px; color: #be123c;\">Kính mong Quý khách nhanh chóng sắp xếp thanh toán dứt điểm khoản nợ này. Trân trọng cảm ơn!</p>";
+            String bodyContent = buildDebtReminderBody(
+                    safeCustomerName,
+                    safeHouseholdName,
+                    formattedAmount,
+                    formattedDueDate,
+                    "Chúng tôi xin thông báo khoản công nợ của Quý khách tại",
+                    "Số tiền nợ quá hạn:",
+                    "Ngày phải thanh toán:",
+                    "#fff1f2",
+                    "#fecdd3",
+                    "#e11d48",
+                    "<span style=\"color: #be123c;\">Kính mong Quý khách nhanh chóng sắp xếp thanh toán dứt điểm khoản nợ này. Trân trọng cảm ơn!</span>"
+            );
             String htmlContent = buildHtmlEmail("CẢNH BÁO NỢ QUÁ HẠN", "Cung cấp bởi BanHangViet", "linear-gradient(135deg, #e11d48 0%, #be123c 100%)", bodyContent);
 
             helper.setText(htmlContent, true);
 
             mailSender.send(message);
 
-            log.info("Email nhắc nợ quá hạn gửi thành công tới {}", toEmail);
+            log.info("Email nhắc nợ quá hạn gửi thành công cho debt ID {} tới {}", debtId, toEmail);
         } catch (Exception e) {
-            log.error("Lỗi khi gửi email nhắc nợ quá hạn tới {}", toEmail, e);
-            throw new RuntimeException("Lỗi gửi email nhắc nợ quá hạn cho email: " + toEmail, e);
+            log.error("Lỗi khi gửi email nhắc nợ quá hạn cho debt ID {} tới {}", debtId, toEmail, e);
+            throw new AppException(ErrorCode.EMAIL_SEND_FAILED);
         }
     }
 
@@ -197,6 +186,44 @@ public class EmailServiceImpl implements EmailService {
         } catch (Exception e) {
             // Async wrapper logs error without propagating
         }
+    }
+
+    private String buildDebtReminderBody(
+            String safeCustomerName,
+            String safeHouseholdName,
+            String formattedAmount,
+            String formattedDueDate,
+            String introText,
+            String amountLabel,
+            String dueDateLabel,
+            String bgColor,
+            String borderColor,
+            String dueDateColor,
+            String closingText
+    ) {
+        return "    <p style=\"margin-top: 0; font-size: 16px;\">Kính gửi Ông/Bà <strong>" + safeCustomerName + "</strong>,</p>"
+                + "    <p>" + introText + " <strong>" + safeHouseholdName + "</strong>:</p>"
+                + "    <div style=\"background-color: " + bgColor + "; border: 1px solid " + borderColor + "; border-radius: 6px; padding: 16px; margin: 20px 0;\">"
+                + "      <table style=\"width: 100%; border-collapse: collapse; font-size: 14px;\">"
+                + "        <tr>"
+                + "          <td style=\"padding: 6px 0; color: #64748b; width: 40%;\">Khách hàng:</td>"
+                + "          <td style=\"padding: 6px 0; font-weight: bold; color: #0f172a;\">" + safeCustomerName + "</td>"
+                + "        </tr>"
+                + "        <tr>"
+                + "          <td style=\"padding: 6px 0; color: #64748b;\">Đơn vị bán hàng:</td>"
+                + "          <td style=\"padding: 6px 0; font-weight: 500; color: #0f172a;\">" + safeHouseholdName + "</td>"
+                + "        </tr>"
+                + "        <tr>"
+                + "          <td style=\"padding: 6px 0; color: #64748b;\">" + amountLabel + "</td>"
+                + "          <td style=\"padding: 6px 0; font-weight: bold; color: #e11d48; font-size: 16px;\">" + formattedAmount + " VND</td>"
+                + "        </tr>"
+                + "        <tr>"
+                + "          <td style=\"padding: 6px 0; color: #64748b;\">" + dueDateLabel + "</td>"
+                + "          <td style=\"padding: 6px 0; font-weight: bold; color: " + dueDateColor + ";\">" + formattedDueDate + "</td>"
+                + "        </tr>"
+                + "      </table>"
+                + "    </div>"
+                + "    <p style=\"margin-bottom: 25px;\">" + closingText + "</p>";
     }
 
     private String buildHtmlEmail(String title, String subtitle, String headerGradient, String bodyContent) {
