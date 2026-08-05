@@ -51,6 +51,8 @@ export const BackupExportPanel: React.FC = () => {
       type = "PRODUCTS";
     } else if (scopes.invoices && !scopes.products && !scopes.orders) {
       type = "INVOICES";
+    } else if (scopes.orders && !scopes.products && !scopes.invoices) {
+      type = "ORDERS";
     }
 
     // Calculate fromDate and toDate
@@ -126,7 +128,8 @@ export const BackupExportPanel: React.FC = () => {
     }
   };
 
-  const isZipExport = (scopes.products && (scopes.invoices || scopes.orders)) || (scopes.invoices && scopes.orders);
+  const selectedCount = [scopes.products, scopes.orders, scopes.invoices].filter(Boolean).length;
+  const isZipExport = selectedCount >= 2;
 
   return (
     <div className="grid grid-cols-1 gap-6 w-full">
@@ -206,7 +209,7 @@ export const BackupExportPanel: React.FC = () => {
             <CheckCircle2 className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
             <span className="font-semibold leading-relaxed">
               {isZipExport
-                ? "Tệp sao lưu nén (.zip) chứa 2 bản Excel (.xlsx) độc lập được xuất trực tiếp từ CSDL giúp bạn lưu trữ hoặc đối chiếu sổ sách kinh doanh."
+                ? "Tệp sao lưu nén (.zip) chứa 3 bản Excel (.xlsx) độc lập (Hàng hóa, Đơn hàng, Hóa đơn) được xuất trực tiếp từ CSDL giúp bạn lưu trữ hoặc đối chiếu sổ sách kinh doanh."
                 : "Tệp sao lưu Excel (.xlsx) định dạng chuẩn được xuất trực tiếp từ CSDL giúp bạn lưu trữ độc lập hoặc đối chiếu sổ sách kinh doanh."}
             </span>
           </div>

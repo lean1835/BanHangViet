@@ -29,7 +29,7 @@ public class ExcelParserUtils {
 
                 Row headerRow = sheet.createRow(0);
                 String[] headers = {
-                        "Mã SKU", "Tên hàng hóa", "Đơn vị tính", "Giá nhập", "Giá bán", "% Thuế suất", "Tên nhóm hàng", "Tồn ban đầu"
+                        "Mã SKU", "Tên hàng hóa", "Đơn vị tính", "Giá bán", "% Thuế suất", "Tên nhóm hàng", "Tồn ban đầu"
                 };
 
                 for (int i = 0; i < headers.length; i++) {
@@ -44,11 +44,10 @@ public class ExcelParserUtils {
                 sampleRow.createCell(0).setCellValue("SP001");
                 sampleRow.createCell(1).setCellValue("Cà phê đen túi 500g");
                 sampleRow.createCell(2).setCellValue("Gói");
-                sampleRow.createCell(3).setCellValue(50000);
-                sampleRow.createCell(4).setCellValue(85000);
-                sampleRow.createCell(5).setCellValue(8);
-                sampleRow.createCell(6).setCellValue("Đồ uống");
-                sampleRow.createCell(7).setCellValue(100);
+                sampleRow.createCell(3).setCellValue(85000);
+                sampleRow.createCell(4).setCellValue(8);
+                sampleRow.createCell(5).setCellValue("Đồ uống");
+                sampleRow.createCell(6).setCellValue(100);
 
                 workbook.write(out);
                 return out.toByteArray();

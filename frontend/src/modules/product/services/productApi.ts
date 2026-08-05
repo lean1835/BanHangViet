@@ -196,6 +196,10 @@ export const productApi = baseApi.injectEndpoints({
           type: API_TAG_TYPES.PRODUCT,
           id: PRODUCT_API_TAG_IDS.LIST,
         },
+        {
+          type: API_TAG_TYPES.PRODUCT_GROUP,
+          id: PRODUCT_API_TAG_IDS.LIST,
+        },
       ],
     }),
     updateProduct: builder.mutation<
@@ -221,6 +225,7 @@ export const productApi = baseApi.injectEndpoints({
       invalidatesTags: (_result, _error, { id }) => [
         { type: API_TAG_TYPES.PRODUCT, id: PRODUCT_API_TAG_IDS.LIST },
         { type: API_TAG_TYPES.PRODUCT, id },
+        { type: API_TAG_TYPES.PRODUCT_GROUP, id: PRODUCT_API_TAG_IDS.LIST },
       ],
     }),
     deleteProduct: builder.mutation<void, string>({
@@ -412,7 +417,10 @@ export const productApi = baseApi.injectEndpoints({
           errors: Array.isArray(result?.errors) ? result.errors : [],
         };
       },
-      invalidatesTags: [{ type: API_TAG_TYPES.PRODUCT, id: PRODUCT_API_TAG_IDS.LIST }],
+      invalidatesTags: [
+        { type: API_TAG_TYPES.PRODUCT, id: PRODUCT_API_TAG_IDS.LIST },
+        { type: API_TAG_TYPES.PRODUCT_GROUP, id: PRODUCT_API_TAG_IDS.LIST },
+      ],
     }),
     downloadProductImportTemplate: builder.query<Blob, void>({
       query: () => ({

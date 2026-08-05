@@ -101,7 +101,6 @@ public class ProductImportServiceImpl implements ProductImportService {
                 String sku;
                 String name;
                 String unit;
-                BigDecimal importPrice;
                 BigDecimal price;
                 String taxRateStr;
                 String groupName;
@@ -111,11 +110,10 @@ public class ProductImportServiceImpl implements ProductImportService {
                     sku = ExcelParserUtils.getCellValueAsString(row.getCell(0));
                     name = ExcelParserUtils.getCellValueAsString(row.getCell(1));
                     unit = ExcelParserUtils.getCellValueAsString(row.getCell(2));
-                    importPrice = ExcelParserUtils.getCellValueAsBigDecimal(row.getCell(3));
-                    price = ExcelParserUtils.getCellValueAsBigDecimal(row.getCell(4));
-                    taxRateStr = ExcelParserUtils.getCellValueAsString(row.getCell(5));
-                    groupName = ExcelParserUtils.getCellValueAsString(row.getCell(6));
-                    stock = ExcelParserUtils.getCellValueAsBigDecimal(row.getCell(7));
+                    price = ExcelParserUtils.getCellValueAsBigDecimal(row.getCell(3));
+                    taxRateStr = ExcelParserUtils.getCellValueAsString(row.getCell(4));
+                    groupName = ExcelParserUtils.getCellValueAsString(row.getCell(5));
+                    stock = ExcelParserUtils.getCellValueAsBigDecimal(row.getCell(6));
                 } catch (NumberFormatException e) {
                     String rowName = ExcelParserUtils.getCellValueAsString(row.getCell(1));
                     errors.add(new ImportProductResultResponse.RowErrorDetail(actualRowNumber, rowName, "Dữ liệu số không đúng định dạng"));
@@ -135,12 +133,6 @@ public class ProductImportServiceImpl implements ProductImportService {
                 if (!StringUtils.hasText(unit)) {
                     errors.add(new ImportProductResultResponse.RowErrorDetail(actualRowNumber, name, "Đơn vị tính không được để trống"));
                     continue;
-                }
-                if (row.getCell(3) != null && StringUtils.hasText(ExcelParserUtils.getCellValueAsString(row.getCell(3)))) {
-                    if (importPrice != null && importPrice.compareTo(BigDecimal.ZERO) < 0) {
-                        errors.add(new ImportProductResultResponse.RowErrorDetail(actualRowNumber, name, "Giá nhập không được là số âm"));
-                        continue;
-                    }
                 }
                 if (price == null || price.compareTo(BigDecimal.ZERO) <= 0) {
                     errors.add(new ImportProductResultResponse.RowErrorDetail(actualRowNumber, name, "Giá bán phải lớn hơn 0"));
