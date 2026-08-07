@@ -42,8 +42,8 @@ echo "Tải Docker Images mới nhất..."
 retry docker pull "$BE_IMAGE_NAME"
 retry docker pull "$FE_IMAGE_NAME"
 
-echo "Re-deploy các container..."
-BE_IMAGE_NAME=$BE_IMAGE_NAME FE_IMAGE_NAME=$FE_IMAGE_NAME docker compose up -d
+echo "Re-deploy Backend container..."
+BE_IMAGE_NAME=$BE_IMAGE_NAME FE_IMAGE_NAME=$FE_IMAGE_NAME docker compose up -d banhangviet-be
 
 echo "Kiểm tra Health Check Backend..."
 MAX_RETRIES=24 # 2 phút
@@ -60,8 +60,8 @@ while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
   fi
   
   if [ "$STATUS" = "unhealthy" ]; then
-    echo -e "${RED}!!! Backend Unhealthy !!!${NC}"
-    docker logs --tail 50 banhangviet-be
+    echo -e "${RED}!!! Backend Unhealthy - In log chi tiết 100 dòng của Backend: !!!${NC}"
+    docker logs --tail 100 banhangviet-be || true
     exit 1
   fi
   
@@ -70,10 +70,12 @@ while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
 done
 
 if [ $HEALTHY -eq 1 ]; then
+  echo "Backend đã healthy! Tiến hành Re-deploy Frontend container..."
+  BE_IMAGE_NAME=$BE_IMAGE_NAME FE_IMAGE_NAME=$FE_IMAGE_NAME docker compose up -d banhangviet-fe
   echo -e "${GREEN}=== DEPLOYMENT MONOREPO THÀNH CÔNG ===${NC}"
   docker image prune -f
 else
-  echo -e "${RED}xxx Deployment Hết thời gian chờ (Timeout) xxx${NC}"
-  docker logs --tail 100 banhangviet-be
+  echo -e "${RED}xxx Deployment Hết thời gian chờ (Timeout) - In log Backend: xxx${NC}"
+  docker logs --tail 100 banhangviet-be || true
   exit 1
 fi

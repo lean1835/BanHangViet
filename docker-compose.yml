@@ -43,8 +43,7 @@ services:
       # Port mặc định 80 (có thể đè qua file .env trên VPS: FE_PORT=80)
       - '${FE_PORT:-80}:80'
     depends_on:
-      banhangviet-be:
-        condition: service_healthy
+      - banhangviet-be
     restart: always
     logging: *default-logging
     networks:
