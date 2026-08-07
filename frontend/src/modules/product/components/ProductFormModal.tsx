@@ -13,7 +13,6 @@ import {
   PRODUCT_STATUS_VALUES,
   PRODUCT_SYMBOLS,
   PRODUCT_VALIDATION_MESSAGES,
-  TAX_RATES,
 } from "@/constants/product";
 import { useGetProductGroupsQuery } from "@/modules/product/services/productApi";
 import { useGetTaxRatesQuery } from "@/modules/settings/services/taxRateApi";
@@ -101,19 +100,27 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
   });
 
   const availableTaxRates = useMemo(() => {
-    if (dbTaxRates && dbTaxRates.length > 0) {
-      return dbTaxRates.map((rate) => ({
-        id: rate.id,
-        name: `${rate.name} (${rate.ratePercentage}%)`,
-        isActive: rate.isActive,
-      }));
+    let activeRates = dbTaxRates.filter((rate) => rate.isActive);
+
+    if (product?.taxRateId && !activeRates.some((r) => r.id === product.taxRateId)) {
+      const existingRate = dbTaxRates.find((r) => r.id === product.taxRateId);
+      if (existingRate) {
+        activeRates = [existingRate, ...activeRates];
+      }
     }
-    return TAX_RATES.map((rate) => ({
-      id: rate.id,
-      name: rate.name,
-      isActive: true,
-    }));
-  }, [dbTaxRates]);
+
+    return activeRates.map((rate) => {
+      let name = rate.name;
+      if (!name.includes("%") && typeof rate.ratePercentage === "number") {
+        name = `${rate.name} (${rate.ratePercentage}%)`;
+      }
+      return {
+        id: rate.id,
+        name,
+        isActive: rate.isActive,
+      };
+    });
+  }, [dbTaxRates, product?.taxRateId]);
 
   const sortedGroups = useMemo(() => {
     return [...groups].sort((a, b) =>
@@ -152,6 +159,13 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
   }, [register]);
 
   useEffect(() => {
+    if (!isOpen) return;
+
+    const defaultTaxRateId =
+      product?.taxRateId && availableTaxRates.some((t) => t.id === product.taxRateId)
+        ? product.taxRateId
+        : availableTaxRates[0]?.id || "";
+
     if (product) {
       reset({
         sku: product.sku || PRODUCT_FORM_DEFAULTS.SKU,
@@ -161,7 +175,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         price: product.price || PRODUCT_FORM_DEFAULTS.PRICE,
         stockQuantity:
           product.stockQuantity || PRODUCT_FORM_DEFAULTS.STOCK_QUANTITY,
-        taxRateId: product.taxRateId || availableTaxRates[0]?.id || PRODUCT_FORM_DEFAULTS.TAX_RATE_ID,
+        taxRateId: defaultTaxRateId,
         status: product.status || PRODUCT_FORM_DEFAULTS.STATUS,
       });
       setPriceInput(
@@ -177,10 +191,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         unit: PRODUCT_FORM_DEFAULTS.UNIT,
         price: PRODUCT_FORM_DEFAULTS.PRICE,
         stockQuantity: PRODUCT_FORM_DEFAULTS.STOCK_QUANTITY,
-        taxRateId:
-          availableTaxRates[0]?.id ||
-          TAX_RATES[PRODUCT_FORM_DEFAULTS.DEFAULT_TAX_RATE_INDEX]?.id ||
-          PRODUCT_FORM_DEFAULTS.TAX_RATE_ID,
+        taxRateId: defaultTaxRateId,
         status: PRODUCT_FORM_DEFAULTS.STATUS,
       });
       setPriceInput(PRODUCT_FORM_DEFAULTS.EMPTY_TEXT);
@@ -378,6 +389,11 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                 ))}
               </select>
               {errors.taxRateId && <span className="text-[10px] text-rose-500 font-bold">{errors.taxRateId.message}</span>}
+              {availableTaxRates.length === 0 && (
+                <span className="text-[10px] text-amber-600 font-semibold mt-0.5">
+                  * Chưa có mức thuế suất nào đang áp dụng cho hộ kinh doanh. Vui lòng vào Cấu hình &gt; Thuế suất để kích hoạt hoặc thêm mới.
+                </span>
+              )}
             </div>
           </div>
           </div>
