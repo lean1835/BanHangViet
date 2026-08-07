@@ -1,0 +1,142 @@
+name: Production CI/CD Pipeline - lean1835/banhangviet
+
+on:
+  push:
+    branches:
+      - production
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  BE_IMAGE_BASE: ghcr.io/${{ github.repository }}-be
+  FE_IMAGE_BASE: ghcr.io/${{ github.repository }}-fe
+
+jobs:
+  # ==========================================
+  # STAGE 1: VERIFY BACKEND (Spring Boot) & FRONTEND (React)
+  # ==========================================
+  verify:
+    name: Lint & Test (BE & FE)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Java 17 (Backend)
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Test Backend (Spring Boot Maven)
+        run: cd backend && mvn test -B
+
+      - name: Setup Node 20 (Frontend)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Lint Frontend (React)
+        run: cd frontend && npm ci && npm run lint
+
+  # ==========================================
+  # STAGE 2: BUILD & PUSH DOCKER IMAGES TO GHCR
+  # ==========================================
+  build-and-push:
+    name: Build & Push Images to GHCR
+    needs: verify
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry (GHCR)
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Build & Push Backend Image
+      - name: Build & Push Backend Image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile
+          push: true
+          tags: |
+            ${{ env.BE_IMAGE_BASE }}:${{ github.sha }}
+            ${{ env.BE_IMAGE_BASE }}:latest
+          cache-from: type=gha,scope=be
+          cache-to: type=gha,mode=max,scope=be
+
+      # Build & Push Frontend Image
+      - name: Build & Push Frontend Image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile
+          push: true
+          tags: |
+            ${{ env.FE_IMAGE_BASE }}:${{ github.sha }}
+            ${{ env.FE_IMAGE_BASE }}:latest
+          cache-from: type=gha,scope=fe
+          cache-to: type=gha,mode=max,scope=fe
+
+  # ==========================================
+  # STAGE 3: DEPLOY PRODUCTION TO VPS
+  # ==========================================
+  deploy-production:
+    name: Deploy Both FE & BE to Production VPS
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup SSH Key
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.PRODUCTION_SSH_KEY }}
+
+      - name: Deploy Monorepo to Production VPS
+        run: |
+          DEPLOY_PATH="/home/${{ secrets.PRODUCTION_USER }}/banhangviet-deployment"
+          BE_TAG="${{ env.BE_IMAGE_BASE }}:${{ github.sha }}"
+          FE_TAG="${{ env.FE_IMAGE_BASE }}:${{ github.sha }}"
+
+          mkdir -p ~/.ssh
+          ssh-keyscan -H ${{ secrets.PRODUCTION_IP }} >> ~/.ssh/known_hosts
+
+          # Tạo thư mục trên VPS
+          ssh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_IP }} "mkdir -p $DEPLOY_PATH/scripts $DEPLOY_PATH/backend"
+
+          # Sync docker-compose.yml và deploy.sh
+          scp docker-compose.yml ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_IP }}:$DEPLOY_PATH/docker-compose.yml
+          scp scripts/deploy.sh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_IP }}:$DEPLOY_PATH/scripts/deploy.sh
+
+          # Ghi file .env cho Backend từ Secret ENV_PRODUCTION
+          ssh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_IP }} "cat << 'EOF' > $DEPLOY_PATH/backend/.env
+          ${{ secrets.ENV_PRODUCTION }}
+          EOF"
+
+          # Chạy script Deploy
+          ssh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_IP }} "
+            chmod +x $DEPLOY_PATH/scripts/deploy.sh &&
+            BE_IMAGE_NAME=$BE_TAG \
+            FE_IMAGE_NAME=$FE_TAG \
+            DEPLOY_PATH=$DEPLOY_PATH \
+            REGISTRY_USER=${{ github.actor }} \
+            REGISTRY_PASSWORD=${{ secrets.GITHUB_TOKEN }} \
+            REGISTRY_URL=${{ env.REGISTRY }} \
+            /bin/sh $DEPLOY_PATH/scripts/deploy.sh
+          "

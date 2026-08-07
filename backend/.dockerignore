@@ -1,0 +1,14 @@
+.git
+.gitignore
+.github
+.gitlab-ci.yml
+.idea
+.vscode
+target/
+*.log
+.env
+.env.*
+!.env.example
+*.iml
+docs
+scratch
