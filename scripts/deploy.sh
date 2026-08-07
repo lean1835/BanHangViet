@@ -42,6 +42,14 @@ echo "Tải Docker Images mới nhất..."
 retry docker pull "$BE_IMAGE_NAME"
 retry docker pull "$FE_IMAGE_NAME"
 
+DOCKER_NET="${DOCKER_NETWORK:-default_network}"
+docker network create "$DOCKER_NET" 2>/dev/null || true
+
+if docker ps -a --format '{{.Names}}' | grep -q "^banhangviet-db$"; then
+  echo "Kết nối container banhangviet-db vào Docker Network ($DOCKER_NET)..."
+  docker network connect "$DOCKER_NET" banhangviet-db 2>/dev/null || true
+fi
+
 echo "Re-deploy Backend container..."
 BE_IMAGE_NAME=$BE_IMAGE_NAME FE_IMAGE_NAME=$FE_IMAGE_NAME docker compose up -d banhangviet-be
 
