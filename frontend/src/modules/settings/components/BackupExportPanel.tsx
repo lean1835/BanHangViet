@@ -83,7 +83,7 @@ export const BackupExportPanel: React.FC = () => {
       if (toDateStr) queryParams.append("toDate", toDateStr);
 
       const response = await fetch(
-        `${import.meta.env.VITE_API_URL}/backup/export?${queryParams.toString()}`,
+        `${import.meta.env.VITE_API_URL || "/api/v1"}/backup/export?${queryParams.toString()}`,
         {
           method: "GET",
           headers: {

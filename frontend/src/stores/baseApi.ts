@@ -18,7 +18,7 @@ import { logout } from "./authSlice";
 import { isTokenExpired } from "@/utils/jwt";
 
 const rawBaseQuery = fetchBaseQuery({
-  baseUrl: import.meta.env.VITE_API_URL,
+  baseUrl: import.meta.env.VITE_API_URL || "/api/v1",
   prepareHeaders: (headers) => {
     const token = localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
     if (token) {
