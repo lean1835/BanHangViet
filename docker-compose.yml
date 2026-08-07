@@ -21,7 +21,7 @@ services:
       # Port mặc định 8080 (có thể đè qua file .env trên VPS: BE_PORT=8080)
       - '${BE_PORT:-8080}:8080'
     healthcheck:
-      test: ['CMD', 'curl', '--fail', 'http://127.0.0.1:8080/actuator/health']
+      test: ['CMD', 'curl', '--fail', 'http://127.0.0.1:8080/api/v1/sync/health']
       interval: 10s
       retries: 5
       timeout: 5s
