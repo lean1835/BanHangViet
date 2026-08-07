@@ -80,6 +80,12 @@ done
 if [ $HEALTHY -eq 1 ]; then
   echo "Backend đã healthy! Tiến hành Re-deploy Frontend container..."
   BE_IMAGE_NAME=$BE_IMAGE_NAME FE_IMAGE_NAME=$FE_IMAGE_NAME docker compose up -d banhangviet-fe
+  sleep 3
+  if ! docker ps | grep -q "banhangviet-fe"; then
+    echo -e "${RED}!!! Frontend container thất bại khi khởi chạy - In log Frontend: !!!${NC}"
+    docker logs --tail 50 banhangviet-fe || true
+    exit 1
+  fi
   echo -e "${GREEN}=== DEPLOYMENT MONOREPO THÀNH CÔNG ===${NC}"
   docker image prune -f
 else
