@@ -15,6 +15,8 @@ services:
     image: ${BE_IMAGE_NAME:-ghcr.io/lean1835/banhangviet-be:latest}
     security_opt:
       - no-new-privileges:true
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     ports:
       # Port mặc định 8080 (có thể đè qua file .env trên VPS: BE_PORT=8080)
       - '${BE_PORT:-8080}:8080'
