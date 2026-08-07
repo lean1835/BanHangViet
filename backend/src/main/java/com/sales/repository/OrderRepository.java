@@ -84,7 +84,7 @@ public interface OrderRepository extends JpaRepository<Order, String> {
     );
 
     @Query(value = "SELECT " +
-            "DATE(COALESCE(CONVERT_TZ(o.created_at, '+00:00', '+07:00'), o.created_at)) as salesDate, " +
+            "DATE(o.created_at) as salesDate, " +
             "COUNT(o.id) as orderCount, " +
             "SUM(o.total_amount) as grossSales, " +
             "SUM(o.discount_amount) as totalDiscounts, " +
