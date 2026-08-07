@@ -30,7 +30,8 @@ class ExcelParserUtilsTest {
             assertEquals("Mã SKU", headerRow.getCell(0).getStringCellValue());
             assertEquals("Tên hàng hóa", headerRow.getCell(1).getStringCellValue());
             assertEquals("Đơn vị tính", headerRow.getCell(2).getStringCellValue());
-            assertEquals("Giá bán", headerRow.getCell(4).getStringCellValue());
+            assertEquals("Giá bán", headerRow.getCell(3).getStringCellValue());
+            assertEquals("% Thuế suất", headerRow.getCell(4).getStringCellValue());
         }
     }
 
