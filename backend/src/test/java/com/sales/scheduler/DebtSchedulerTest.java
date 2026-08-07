@@ -125,8 +125,8 @@ class DebtSchedulerTest {
 
         assertTrue(debt.isReminderSent());
         verify(customerDebtRepository, times(1)).saveAll(List.of(debt));
-        verify(emailService, times(1)).sendDebtReminderEmail(
-                eq("debt-1"), eq("customerA@gmail.com"), eq("Khách hàng A"), eq("Hộ KD A"), eq(new BigDecimal("200000")), any(LocalDateTime.class));
+        verify(emailService, times(1)).sendCustomDebtReminderEmail(
+                eq("customerA@gmail.com"), eq("Khách hàng A"), eq("Hộ KD A"), eq(new BigDecimal("200000")), anyString());
     }
 
     @Test
@@ -160,7 +160,7 @@ class DebtSchedulerTest {
                 .thenReturn(List.of());
 
         doThrow(new RuntimeException("SMTP connection error"))
-                .when(emailService).sendDebtReminderEmail(any(), any(), any(), any(), any(), any());
+                .when(emailService).sendCustomDebtReminderEmail(any(), any(), any(), any(), any());
 
         debtScheduler.autoSendDebtReminders();
 
@@ -202,8 +202,8 @@ class DebtSchedulerTest {
 
         assertTrue(debt.isOverdueReminderSent());
         verify(customerDebtRepository, times(1)).saveAll(List.of(debt));
-        verify(emailService, times(1)).sendOverdueDebtReminderEmail(
-                eq("debt-2"), eq("customerB@gmail.com"), eq("Khách hàng B"), eq("Hộ KD A"), eq(new BigDecimal("500000")), any(LocalDateTime.class));
+        verify(emailService, times(1)).sendCustomDebtReminderEmail(
+                eq("customerB@gmail.com"), eq("Khách hàng B"), eq("Hộ KD A"), eq(new BigDecimal("500000")), anyString());
     }
 
     @Test
@@ -237,8 +237,8 @@ class DebtSchedulerTest {
 
         debtScheduler.autoSendDebtReminders();
 
-        verify(emailService, times(1)).sendDebtReminderEmail(
-                eq("debt-3"), eq("customerC@gmail.com"), eq("Khách hàng C"), eq("BanHangViet"), eq(new BigDecimal("300000")), any(LocalDateTime.class));
+        verify(emailService, times(1)).sendCustomDebtReminderEmail(
+                eq("customerC@gmail.com"), eq("Khách hàng C"), eq("BanHangViet"), eq(new BigDecimal("300000")), anyString());
     }
 
     @Test
@@ -271,7 +271,7 @@ class DebtSchedulerTest {
 
         debtScheduler.autoSendDebtReminders();
 
-        verify(emailService, never()).sendDebtReminderEmail(any(), any(), any(), any(), any(), any());
+        verify(emailService, never()).sendCustomDebtReminderEmail(any(), any(), any(), any(), any());
         verify(customerDebtRepository, never()).saveAll(any());
     }
 }
