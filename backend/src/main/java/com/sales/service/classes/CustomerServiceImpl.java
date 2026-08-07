@@ -84,6 +84,8 @@ public class CustomerServiceImpl implements CustomerService {
         map.put("address", customer.getAddress());
         map.put("creditLimit", customer.getCreditLimit());
         map.put("currentDebt", customer.getCurrentDebt());
+        map.put("reminderDaysBefore", customer.getReminderDaysBefore());
+        map.put("reminderDaysAfter", customer.getReminderDaysAfter());
         return map;
     }
 
@@ -97,6 +99,8 @@ public class CustomerServiceImpl implements CustomerService {
                 .address(customer.getAddress())
                 .creditLimit(customer.getCreditLimit())
                 .currentDebt(customer.getCurrentDebt())
+                .reminderDaysBefore(customer.getReminderDaysBefore())
+                .reminderDaysAfter(customer.getReminderDaysAfter())
                 .createdAt(customer.getCreatedAt())
                 .updatedAt(customer.getUpdatedAt())
                 .build();
@@ -117,6 +121,8 @@ public class CustomerServiceImpl implements CustomerService {
         }
 
         BigDecimal creditLimit = request.getCreditLimit() != null ? request.getCreditLimit() : BigDecimal.ZERO;
+        Integer reminderDaysBefore = request.getReminderDaysBefore() != null ? request.getReminderDaysBefore() : 3;
+        Integer reminderDaysAfter = request.getReminderDaysAfter() != null ? request.getReminderDaysAfter() : 3;
 
         Customer customer = Customer.builder()
                 .household(household)
@@ -126,6 +132,8 @@ public class CustomerServiceImpl implements CustomerService {
                 .address(request.getAddress())
                 .creditLimit(creditLimit)
                 .currentDebt(BigDecimal.ZERO)
+                .reminderDaysBefore(reminderDaysBefore)
+                .reminderDaysAfter(reminderDaysAfter)
                 .build();
 
         customer = customerRepository.save(customer);
@@ -162,6 +170,12 @@ public class CustomerServiceImpl implements CustomerService {
         customer.setAddress(request.getAddress());
         if (request.getCreditLimit() != null) {
             customer.setCreditLimit(request.getCreditLimit());
+        }
+        if (request.getReminderDaysBefore() != null) {
+            customer.setReminderDaysBefore(request.getReminderDaysBefore());
+        }
+        if (request.getReminderDaysAfter() != null) {
+            customer.setReminderDaysAfter(request.getReminderDaysAfter());
         }
 
         customer = customerRepository.save(customer);

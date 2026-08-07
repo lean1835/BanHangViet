@@ -109,6 +109,11 @@ export const OrderSuccessModal: React.FC<IOrderSuccessModalProps> = ({
 
   // Handle Real Invoice Issuance (POST /invoices/draft)
   const handleIssueInvoice = async () => {
+    if (realInvoice) {
+      setModalView("ISSUE_INVOICE_VIEW");
+      return;
+    }
+
     try {
       let createdInv: IInvoice | null = null;
       if (tab.backendOrderId) {
@@ -161,6 +166,14 @@ export const OrderSuccessModal: React.FC<IOrderSuccessModalProps> = ({
       setIssueSuccessAlertMsg("Phát hành hóa đơn nháp thành công!");
       setShowIssueSuccessAlert(true);
     } catch (err: any) {
+      const errMsg = err?.data?.message || err?.message || "";
+      const isAlreadyIssued = err?.data?.code === 1045 || errMsg.includes("đã được khởi tạo") || errMsg.includes("khởi tạo");
+
+      if (isAlreadyIssued) {
+        setIssueSuccessAlertMsg("Hóa đơn điện tử cho đơn hàng này đã được phát hành trước đó!");
+        setShowIssueSuccessAlert(true);
+        return;
+      }
       const fallbackInv: IInvoice = {
         id: `inv_${Date.now()}`,
         lookupCode: `HD${Date.now().toString(36).toUpperCase()}`,
@@ -220,7 +233,9 @@ export const OrderSuccessModal: React.FC<IOrderSuccessModalProps> = ({
         return timeB - timeA;
       });
       localStorage.setItem(STORAGE_KEYS.POS_OFFLINE_INVOICES, JSON.stringify(updated));
-    } catch {}
+    } catch {
+      /* ignore offline storage write error */
+    }
   };
 
   // Handlers for inherited InvoiceDetailModal
@@ -242,7 +257,7 @@ export const OrderSuccessModal: React.FC<IOrderSuccessModalProps> = ({
       }
       setIssueSuccessAlertMsg("Đã gửi hóa đơn điện tử chờ cơ quan thuế cấp mã.");
       setShowIssueSuccessAlert(true);
-    } catch (err: any) {
+    } catch {
       setRealInvoice((prev) =>
         prev
           ? {
@@ -265,7 +280,9 @@ export const OrderSuccessModal: React.FC<IOrderSuccessModalProps> = ({
       }
       setIssueSuccessAlertMsg("Đã gửi lại hóa đơn chờ cơ quan thuế cấp mã.");
       setShowIssueSuccessAlert(true);
-    } catch (err: any) {}
+    } catch {
+      /* ignore resend error */
+    }
   };
 
   const handleCancelInvoice = async (id: string, reason: string) => {
@@ -284,7 +301,9 @@ export const OrderSuccessModal: React.FC<IOrderSuccessModalProps> = ({
             : null
         );
       }
-    } catch (err: any) {}
+    } catch {
+      /* ignore cancel error */
+    }
   };
 
   const handleUpdateInvoice = async (
@@ -311,7 +330,9 @@ export const OrderSuccessModal: React.FC<IOrderSuccessModalProps> = ({
             : null
         );
       }
-    } catch (err: any) {}
+    } catch {
+      /* ignore update error */
+    }
   };
 
   // Lookup code / Bill reference
@@ -513,9 +534,18 @@ export const OrderSuccessModal: React.FC<IOrderSuccessModalProps> = ({
               <div className="flex justify-between text-slate-600">
                 <span>Tiền khách đưa:</span>
                 <span className="font-bold text-slate-800">
-                  {formatCurrency(tab.amountGiven || finalTotal)}
+                  {formatCurrency(typeof tab.amountGiven === "number" ? tab.amountGiven : (tab.paymentMethod === "DEBT" ? 0 : finalTotal))}
                 </span>
               </div>
+
+              {tab.paymentMethod === "DEBT" && (
+                <div className="flex justify-between text-rose-600 font-extrabold pt-0.5">
+                  <span>Còn nợ lại:</span>
+                  <span className="font-black">
+                    {formatCurrency(Math.max(0, finalTotal - (tab.amountGiven || 0)))}
+                  </span>
+                </div>
+              )}
 
               {changeAmount > 0 && (
                 <div className="flex justify-between text-emerald-700 font-extrabold pt-0.5">
@@ -530,15 +560,26 @@ export const OrderSuccessModal: React.FC<IOrderSuccessModalProps> = ({
 
           {/* 2 Main Action Buttons */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-            <button
-              type="button"
-              onClick={handleIssueInvoice}
-              disabled={isIssuingInvoice}
-              className="py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white font-extrabold text-xs flex items-center justify-center gap-1.5 transition-all shadow-md shadow-emerald-600/20 disabled:opacity-50"
-            >
-              <FileText className="w-4 h-4 shrink-0" />
-              <span>{isIssuingInvoice ? "Đang phát hành..." : "Phát hành hóa đơn"}</span>
-            </button>
+            {realInvoice ? (
+              <button
+                type="button"
+                onClick={() => setModalView("ISSUE_INVOICE_VIEW")}
+                className="py-2.5 px-3 rounded-xl bg-emerald-700 hover:bg-emerald-800 active:scale-[0.98] text-white font-extrabold text-xs flex items-center justify-center gap-1.5 transition-all shadow-md shadow-emerald-700/20"
+              >
+                <ShieldCheck className="w-4 h-4 shrink-0" />
+                <span>Xem hóa đơn đã lập</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={handleIssueInvoice}
+                disabled={isIssuingInvoice}
+                className="py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white font-extrabold text-xs flex items-center justify-center gap-1.5 transition-all shadow-md shadow-emerald-600/20 disabled:opacity-50"
+              >
+                <FileText className="w-4 h-4 shrink-0" />
+                <span>{isIssuingInvoice ? "Đang phát hành..." : "Phát hành hóa đơn"}</span>
+              </button>
+            )}
 
             <button
               type="button"
@@ -809,8 +850,19 @@ export const OrderSuccessModal: React.FC<IOrderSuccessModalProps> = ({
 
                 <div className="flex justify-between font-semibold text-slate-700 pt-1">
                   <span>Tiền khách đưa:</span>
-                  <span className="font-bold text-slate-900">{formatCurrency(tab.amountGiven || finalTotal)}</span>
+                  <span className="font-bold text-slate-900">
+                    {formatCurrency(typeof tab.amountGiven === "number" ? tab.amountGiven : (tab.paymentMethod === "DEBT" ? 0 : finalTotal))}
+                  </span>
                 </div>
+
+                {tab.paymentMethod === "DEBT" && (
+                  <div className="flex justify-between font-extrabold text-rose-600">
+                    <span>Còn nợ lại:</span>
+                    <span className="font-bold">
+                      {formatCurrency(Math.max(0, finalTotal - (tab.amountGiven || 0)))}
+                    </span>
+                  </div>
+                )}
 
                 {changeAmount > 0 && (
                   <div className="flex justify-between font-extrabold text-emerald-700">

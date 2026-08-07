@@ -1,5 +1,7 @@
 package com.sales.service.classes;
 
+import com.sales.constant.DebtStatus;
+import com.sales.constant.DebtType;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sales.constant.ShiftStatus;
 import com.sales.dto.request.*;
@@ -137,7 +139,7 @@ public class OrderServiceImpl implements OrderService {
         BigDecimal paidAmount = order.getFinalAmount();
 
         if ("DEBT".equals(order.getPaymentMethod())) {
-            CustomerDebt debtRecord = customerDebtRepository.findFirstByOrderIdAndType(order.getId(), "DEBT_CREATED").orElse(null);
+            CustomerDebt debtRecord = customerDebtRepository.findFirstByOrderIdAndType(order.getId(), DebtType.DEBT_CREATED).orElse(null);
             if (debtRecord != null) {
                 debtAmount = debtRecord.getAmount();
                 paidAmount = order.getFinalAmount().subtract(debtAmount).max(BigDecimal.ZERO);
@@ -597,8 +599,8 @@ public class OrderServiceImpl implements OrderService {
                         .order(order)
                         .amount(netDebtAmount)
                         .remainingAmount(netDebtAmount)
-                        .type("DEBT_CREATED")
-                        .status("PENDING")
+                        .type(DebtType.DEBT_CREATED)
+                        .status(DebtStatus.PENDING)
                         .dueDate(debtDueDate)
                         .notes("Ghi nợ từ đơn hàng " + order.getOrderNumber() + (paidAmount.compareTo(BigDecimal.ZERO) > 0 ? " (Đã tạm trả: " + paidAmount + ")" : ""))
                         .createdByUser(currentUser)

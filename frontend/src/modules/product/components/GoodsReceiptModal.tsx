@@ -17,7 +17,7 @@ const goodsReceiptSchema = z.object({
   receivedAt: z.string().min(1, "Vui lòng chọn ngày nhập kho")
     .refine((value) => new Date(value).getTime() <= Date.now(), "Ngày nhập kho không được ở tương lai"),
   productId: z.string().min(1, "Vui lòng chọn hàng hóa"),
-  quantity: z.number({ invalid_type_error: "Vui lòng nhập số lượng" }).min(0.001, "Số lượng nhập phải lớn hơn 0"),
+  quantity: z.number({ invalid_type_error: "Vui lòng nhập số lượng" }).min(1, "Số lượng nhập phải lớn hơn 0").int("Số lượng nhập phải là số nguyên"),
   purchasePrice: z.number({ invalid_type_error: "Vui lòng nhập đơn giá" }).min(0, "Đơn giá nhập không được âm"),
   notes: z.string().trim().max(500, "Ghi chú không được vượt quá 500 ký tự"),
 });
@@ -133,7 +133,7 @@ export const GoodsReceiptModal: React.FC<GoodsReceiptModalProps> = ({ isOpen, on
             {errors.productId && <span className="text-[10px] text-rose-500">{errors.productId.message}</span>}
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <label className="flex flex-col gap-1">Số lượng nhập <span className="text-rose-500">*</span><input type="number" min="0.001" step="0.001" disabled={isSubmitting} {...register("quantity", { valueAsNumber: true })} className="border border-slate-300 h-9 px-3 rounded-lg" />{errors.quantity && <span className="text-[10px] text-rose-500">{errors.quantity.message}</span>}</label>
+            <label className="flex flex-col gap-1">Số lượng nhập <span className="text-rose-500">*</span><input type="number" min="1" step="1" disabled={isSubmitting} {...register("quantity", { valueAsNumber: true })} className="border border-slate-300 h-9 px-3 rounded-lg" />{errors.quantity && <span className="text-[10px] text-rose-500">{errors.quantity.message}</span>}</label>
             <label className="flex flex-col gap-1">Đơn giá nhập (đ) <span className="text-rose-500">*</span><input type="text" disabled={isSubmitting} value={purchasePriceDisplay} onChange={(e) => { const rawVal = e.target.value.replace(/\D/g, ""); const numVal = rawVal ? Number(rawVal) : 0; setPurchasePriceDisplay(rawVal ? formatNumber(numVal) : "0"); setValue("purchasePrice", numVal, { shouldValidate: true }); }} className="border border-slate-300 h-9 px-3 rounded-lg font-bold" />{errors.purchasePrice && <span className="text-[10px] text-rose-500">{errors.purchasePrice.message}</span>}</label>
           </div>
           <label className="flex flex-col gap-1">Ghi chú / Nhà cung cấp<textarea rows={3} maxLength={500} disabled={isSubmitting} placeholder="Ví dụ: Nhập đại lý cấp 1, có hóa đơn VAT đầu vào..." {...register("notes")} className="border border-slate-300 p-3 rounded-lg resize-none" />{errors.notes && <span className="text-[10px] text-rose-500">{errors.notes.message}</span>}</label>

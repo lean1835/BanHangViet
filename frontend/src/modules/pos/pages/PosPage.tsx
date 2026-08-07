@@ -111,7 +111,9 @@ export const PosPage = () => {
           return parsed.activeTabId;
         }
       }
-    } catch (e) {}
+    } catch {
+      /* ignore storage parse error */
+    }
     return tabs[0]?.id || "";
   });
 
@@ -124,7 +126,9 @@ export const PosPage = () => {
           return parsed.tabCounter;
         }
       }
-    } catch (e) {}
+    } catch {
+      /* ignore storage parse error */
+    }
     return 1;
   });
 
@@ -490,8 +494,10 @@ export const PosPage = () => {
     const effectiveAmountGiven =
       activeTab.saleMode === "FAST"
         ? finalTotal
-        : activeTab.amountGiven && activeTab.amountGiven > 0
+        : typeof activeTab.amountGiven === "number"
         ? activeTab.amountGiven
+        : activeTab.paymentMethod === "DEBT"
+        ? 0
         : finalTotal;
 
     const changeAmount = effectiveAmountGiven - finalTotal;

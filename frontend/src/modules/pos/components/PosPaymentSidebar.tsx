@@ -470,7 +470,13 @@ export const PosPaymentSidebar: React.FC<IPosPaymentSidebarProps> = ({
               <button
                 key={pm.id}
                 type="button"
-                onClick={() => onUpdateTab({ paymentMethod: pm.id })}
+                onClick={() => {
+                  if (pm.id === "DEBT") {
+                    onUpdateTab({ paymentMethod: pm.id, amountGiven: 0 });
+                  } else {
+                    onUpdateTab({ paymentMethod: pm.id, amountGiven: finalTotal });
+                  }
+                }}
                 className={`py-2 rounded-lg transition-all text-center ${
                   tab.paymentMethod === pm.id
                     ? "bg-white text-[#0070f4] shadow-sm font-extrabold"

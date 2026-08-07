@@ -2,9 +2,13 @@ import React from "react";
 import { INVOICE_STATUS_OPTIONS, E_INVOICE_UI } from "@/constants/eInvoice";
 import type { TInvoiceStatus } from "../types/IInvoice";
 
+export type TInvoiceVersionFilter = "ALL" | "CURRENT" | "OLD";
+
 interface InvoiceSidebarProps {
   statusFilter: TInvoiceStatus[];
   setStatusFilter: React.Dispatch<React.SetStateAction<TInvoiceStatus[]>>;
+  versionFilter: TInvoiceVersionFilter;
+  setVersionFilter: (filter: TInvoiceVersionFilter) => void;
   fromDate: string;
   setFromDate: (date: string) => void;
   toDate: string;
@@ -16,6 +20,8 @@ interface InvoiceSidebarProps {
 export const InvoiceSidebar: React.FC<InvoiceSidebarProps> = ({
   statusFilter,
   setStatusFilter,
+  versionFilter,
+  setVersionFilter,
   fromDate,
   setFromDate,
   toDate,
@@ -51,6 +57,22 @@ export const InvoiceSidebar: React.FC<InvoiceSidebarProps> = ({
           placeholder={E_INVOICE_UI.SIDEBAR.SEARCH_PLACEHOLDER}
           className="border border-slate-300 h-9 px-3 rounded-lg focus:outline-none focus:border-kv-blue-primary text-xs font-semibold"
         />
+      </div>
+
+      {/* Bộ lọc Phân loại Mẫu Hóa đơn */}
+      <div className="flex flex-col gap-2">
+        <span className="font-bold text-slate-400 uppercase tracking-wide text-[10px]">
+          Phân loại mẫu hóa đơn
+        </span>
+        <select
+          value={versionFilter}
+          onChange={(e) => setVersionFilter(e.target.value as TInvoiceVersionFilter)}
+          className="w-full border border-slate-300 h-9 px-3 rounded-lg focus:outline-none focus:border-kv-blue-primary text-xs font-semibold bg-white text-slate-700 cursor-pointer"
+        >
+          <option value="ALL">Tất cả hóa đơn</option>
+          <option value="CURRENT">Hóa đơn hiện hành</option>
+          <option value="OLD">Hóa đơn cũ</option>
+        </select>
       </div>
 
       {/* Bộ lọc thời gian */}

@@ -113,3 +113,16 @@ export const getLocalDateTimeISOString = (d: Date = new Date()): string => {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 };
 
+/**
+ * Formats any ISO string or YYYY-MM-DD to DD/MM/YYYY.
+ * @param dateStr ISO or YYYY-MM-DD string.
+ * @returns Formatted string e.g. "15/08/2026" or "--" if empty.
+ */
+export const formatDateOnly = (dateStr?: string | null): string => {
+  if (!dateStr || !dateStr.trim()) return "--";
+  const normalized = normalizeDateToYYYYMMDD(dateStr);
+  if (!normalized) return "--";
+  const [y, m, d] = normalized.split("-");
+  return `${d}/${m}/${y}`;
+};
+

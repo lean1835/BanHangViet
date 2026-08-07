@@ -4,6 +4,7 @@ import lombok.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Data
 @Builder
@@ -17,6 +18,7 @@ public class CustomerDebtResponse {
     private String customerPhone;
     private String orderId;
     private String orderNumber;
+    private List<OrderItemResponse> items;
     private BigDecimal amount;
     private BigDecimal remainingAmount;
     private String type; // DEBT_CREATED, DEBT_PAID
