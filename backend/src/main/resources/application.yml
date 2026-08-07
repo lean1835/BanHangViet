@@ -34,3 +34,10 @@ app:
     expiration-ms: ${JWT_EXPIRATION_MS:86400000} # 24 hours
   frontend-url: ${FRONTEND_URL:http://localhost:3000}
   default-household-name: ${DEFAULT_HOUSEHOLD_NAME:BanHangViet}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+

@@ -20,10 +20,10 @@ services:
       - '${BE_PORT:-8080}:8080'
     healthcheck:
       test: ['CMD', 'curl', '--fail', 'http://127.0.0.1:8080/actuator/health']
-      interval: 30s
-      retries: 3
-      timeout: 8s
-      start_period: 20s
+      interval: 10s
+      retries: 5
+      timeout: 5s
+      start_period: 15s
     restart: always
     logging: *default-logging
     env_file: ./backend/.env
