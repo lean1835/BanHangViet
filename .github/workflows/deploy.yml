@@ -8,8 +8,8 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  BE_IMAGE_BASE: ghcr.io/${{ github.repository }}-be
-  FE_IMAGE_BASE: ghcr.io/${{ github.repository }}-fe
+  BE_IMAGE_BASE: ghcr.io/lean1835/banhangviet-be
+  FE_IMAGE_BASE: ghcr.io/lean1835/banhangviet-fe
 
 jobs:
   # ==========================================
