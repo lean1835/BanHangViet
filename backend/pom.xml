@@ -104,6 +104,13 @@
             <scope>test</scope>
         </dependency>
 
+        <!-- H2 Database for In-Memory Unit/Integration Testing -->
+        <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+            <scope>test</scope>
+        </dependency>
+
         <!-- Automatically load environment variables from .env file -->
         <dependency>
             <groupId>me.paulschwarz</groupId>
