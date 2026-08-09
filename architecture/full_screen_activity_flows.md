@@ -1,6 +1,6 @@
-# 🖥️ ĐẶC TẢ SƠ ĐỒ LUỒNG HOẠT ĐỘNG TOÀN BỘ MÀN HÌNH (FULL SCREEN ACTIVITY FLOWS)
+# 🖥️ ĐẶC TẢ SƠ ĐỒ LUỒNG HOẠT ĐỘNG MÀN HÌNH & THAO TÁC NGƯỜI DÙNG (FULL SCREEN ACTIVITY FLOWS)
 
-Tài liệu này tổng hợp **toàn bộ sơ đồ luồng hoạt động (Mermaid Diagrams)** và quy trình tương tác chi tiết từng bước cho **100% các màn hình, popup modal, drawer và luồng nghiệp vụ** trong hệ thống **Bán Hàng Việt**, được ánh xạ chính xác theo mã User Stories và Backlog NCL (`NCL-01-CN-001` đến `NCL-10-CN-003` tại `.huh/ptyc/Yêu cầu hệ thống (excel)`), đồng thời tuân thủ 100% các Quy tắc Nghiệp vụ (`QTN-01` đến `QTN-17`) và kết cấu mã nguồn Backend/Frontend thực tế.
+Tài liệu này tổng hợp toàn bộ **Sơ đồ luồng hoạt động giao diện (UI/UX Activity Flows)** và quy trình tương tác người dùng từng bước cho **100% các màn hình, popup modal, drawer và luồng thao tác nghiệp vụ** trong hệ thống **Bán Hàng Việt**, được ánh xạ chính xác theo mã User Stories và Backlog NCL (`NCL-01-CN-001` đến `NCL-10-CN-003` tại `.huh/ptyc/Yêu cầu hệ thống (excel)`), đồng thời tuân thủ 100% các Quy tắc Nghiệp vụ (`QTN-01` đến `QTN-17`).
 
 ---
 
@@ -44,11 +44,11 @@ Tài liệu này tổng hợp **toàn bộ sơ đồ luồng hoạt động (Mer
    - [9.4 Màn hình Sao Lưu & Xuất Dữ Liệu Danh Mục (`/settings/backup-export`)](#94-màn-hình-sao-lưu--xuất-dữ-liệu-danh-mục-settingsbackup-export)
    - [9.5 Màn hình Cấu Hình Máy In Hóa Đơn (`/settings/printer`)](#95-màn-hình-cấu-hình-máy-in-hóa-đơn-settingsprinter)
 10. [Phân Hệ 10: Workspace Platform Admin (Admin Nền Tảng)](#10-phân-hệ-10-workspace-platform-admin-admin-nền-tảng)
-    - [10.1 Màn hình Bảng Điều Khiển Tổng Quan Admin (`/admin/overview`)](#101-màn-hình-bảng-điều-khiển-tổng-quan-admin-adminoverview)
-    - [10.2 Màn hình Quản Lý Hộ Kinh Doanh (`/admin/households`)](#102-màn-hình-quản-lý-hộ-kinh-doanh-adminhouseholds)
-    - [10.3 Màn hình Nhật Ký Hệ Thống Admin (`/admin/logs`)](#103-màn-hình-nhật-ký-hệ-thống-admin-adminlogs)
+     - [10.1 Màn hình Bảng Điều Khiển Tổng Quan Admin (`/admin/overview`)](#101-màn-hình-bảng-điều-khiển-tổng-quan-admin-adminoverview)
+     - [10.2 Màn hình Quản Lý Hộ Kinh Doanh (`/admin/households`)](#102-màn-hình-quản-lý-hộ-kinh-doanh-adminhouseholds)
+     - [10.3 Màn hình Nhật Ký Hệ Thống Admin (`/admin/logs`)](#103-màn-hình-nhật-ký-hệ-thống-admin-adminlogs)
 11. [Phân Hệ 11: Workspace Cơ Quan Thuế Mô Phỏng (Tax Authority)](#11-phân-hệ-11-workspace-cơ-quan-thuế-mô-phỏng-tax-authority)
-    - [11.1 Cổng Duyệt Cấp Mã Hóa Đơn Điện Tử Cục Thuế (`/tax-authority/invoices`)](#111-cổng-duyệt-cấp-mã-hóa-đơn-điện-tử-cục-thuế-tax-authorityinvoices)
+     - [11.1 Cổng Duyệt Cấp Mã Hóa Đơn Điện Tử Cục Thuế (`/tax-authority/invoices`)](#111-cổng-duyệt-cấp-mã-hóa-đơn-điện-tử-cục-thuế-tax-authorityinvoices)
 12. [📌 Tổng Kết Bảng Ánh Xạ Màn Hình & Backlog (Summary Matrix)](#-tổng-kết-bảng-ánh-xạ-màn-hình--backlog-summary-matrix)
 
 ---
@@ -65,16 +65,15 @@ flowchart TD
     Start[User truy cập /auth/login] --> InputForm[Nhập Username & Password]
     InputForm --> ClickLogin[Bấm nút 'Đăng nhập']
     ClickLogin --> ValidateInput{Validate Form Client?}
-    ValidateInput -- Không hợp lệ --> ShowClientErr[Hiển thị lỗi Validation đỏ]
-    ValidateInput -- Hợp lệ --> CallAPI[POST /api/v1/auth/login]
-    CallAPI --> CheckAPI{Response Backend?}
-    CheckAPI -- 401 Unauthorized --> ShowToastErr[Hiển thị Toast lỗi Sai mật khẩu / Tài khoản bị khóa]
-    CheckAPI -- 200 OK --> SaveToken[Lưu AccessToken & UserInfo vào LocalStorage + Redux authSlice]
-    SaveToken --> CheckRole{Kiểm tra Vai trò RoleCode}
-    CheckRole -- normal_management / owner --> GoDashboard[Chuyển hướng /dashboard]
-    CheckRole -- point_of_sale --> GoPOS[Chuyển hướng /pos]
-    CheckRole -- platform_admin --> GoAdmin[Chuyển hướng /admin/overview]
-    CheckRole -- tax_authority --> GoTax[Chuyển hướng /tax-authority/invoices]
+    ValidateInput -- Không hợp lệ --> ShowClientErr[Hiển thị dòng báo lỗi đỏ dưới ô nhập]
+    ValidateInput -- Hợp lệ --> CheckAuth{Xác thực thông tin?}
+    CheckAuth -- Thất bại / Sai khẩu --> ShowToastErr[Hiển thị Toast lỗi: Sai mật khẩu hoặc Tài khoản bị khóa]
+    CheckAuth -- Thành công --> SaveSession[Lưu phiên đăng nhập AccessToken & UserInfo]
+    SaveSession --> CheckRole{Kiểm tra Vai trò Người dùng}
+    CheckRole -- Chủ hộ / Manager --> GoDashboard[Chuyển hướng màn hình /dashboard]
+    CheckRole -- Thu ngân POS --> GoPOS[Chuyển hướng màn hình /pos]
+    CheckRole -- Admin nền tảng --> GoAdmin[Chuyển hướng màn hình /admin/overview]
+    CheckRole -- Cán bộ Thuế --> GoTax[Chuyển hướng màn hình /tax-authority/invoices]
 ```
 
 ---
@@ -89,24 +88,20 @@ sequenceDiagram
     autonumber
     actor User as Chủ hộ mới
     participant UI as RegisterPage.tsx
-    participant AuthAPI as POST /api/v1/auth/register
-    participant DB as Database
+    participant App as Hệ thống Giao diện
 
     User->>UI: Điền Tên Hộ, MST (10/13 số), Tên chủ hộ, Số điện thoại, Username, Password
-    UI->>UI: Validate Client (Zod Schema)
+    UI->>UI: Kiểm tra định dạng Client (Zod Validation)
     alt Lỗi định dạng MST / Mật khẩu yếu
-        UI-->>User: Hiển thị dòng thông báo đỏ dưới input
+        UI-->>User: Hiển thị dòng thông báo lỗi đỏ dưới ô input
     else Thông tin hợp lệ
-        UI->>AuthAPI: Call API tạo Hộ Kinh Doanh mới
-        AuthAPI->>DB: Kiểm tra trùng MST / Username -> Tạo Hộ & Tài khoản Admin Hộ (QTN-01)
-        alt MST hoặc Username đã tồn tại
-            DB-->>AuthAPI: Duplicate Key Exception
-            AuthAPI-->>UI: 400 Bad Request (ApiResponse.error)
-            UI-->>User: Toast: Mã số thuế hoặc Username đã đăng ký
+        UI->>App: Gửi thông tin đăng ký Hộ kinh doanh
+        alt MST hoặc Username đã tồn tại trên hệ thống
+            App-->>UI: Báo lỗi trùng lập dữ liệu
+            UI-->>User: Hiển thị Toast lỗi: Mã số thuế hoặc Tên đăng ký đã tồn tại
         else Đăng ký thành công
-            DB-->>AuthAPI: Created Household Record
-            AuthAPI-->>UI: 201 Created (Token + AuthResponse)
-            UI-->>User: Toast thành công + Chuyển hướng sang /dashboard
+            App-->>UI: Xác nhận tạo tài khoản thành công
+            UI-->>User: Toast thông báo thành công & Tự động chuyển hướng sang /dashboard
         end
     end
 ```
@@ -120,24 +115,23 @@ sequenceDiagram
 
 ```mermaid
 flowchart TD
-    Start[Vào trang /employees] --> LoadList[GET /api/v1/employees]
-    LoadList --> RenderTable[Render Bảng Nhân Viên & Vai Trò]
+    Start[Vào trang /employees] --> RenderTable[Hiển thị Bảng Danh sách Nhân Viên & Vai Trò]
     
-    RenderTable --> ClickAdd[Bấm '+ Thêm Nhân Viên']
-    ClickAdd --> OpenAddModal[Mở EmployeeFormModal]
-    OpenAddModal --> SubmitAdd[Điền Họ tên, Username, Role: Thu ngân / Kế toán -> Click Lưu]
-    SubmitAdd --> CallAPIAdd[POST /api/v1/employees]
-    CallAPIAdd --> RefreshAdd[RTK Query invalidateTags -> Tự động nạp lại danh sách]
+    RenderTable --> ClickAdd[Bấm nút '+ Thêm Nhân Viên']
+    ClickAdd --> OpenAddModal[Mở Popup Form EmployeeFormModal]
+    OpenAddModal --> SubmitAdd[Nhập Họ tên, Tên đăng nhập, Chọn Vai trò: Thu ngân / Kế toán -> Click Lưu]
+    SubmitAdd --> ProcessAdd[Gửi lệnh thêm nhân viên]
+    ProcessAdd --> RefreshAdd[Tự động nạp lại danh sách nhân viên mới]
 
-    RenderTable --> ClickStatus[Bấm công tắc Khóa/Mở Khóa]
-    ClickStatus --> CallAPIStatus[DELETE/PUT /api/v1/employees/{id}]
-    CallAPIStatus --> ToastStatus[Toast: Đã đổi trạng thái tài khoản thành công]
+    RenderTable --> ClickStatus[Click công tắc Khóa / Mở Khóa tài khoản]
+    ClickStatus --> ProcessStatus[Gửi lệnh đổi trạng thái tài khoản]
+    ProcessStatus --> ToastStatus[Hiển thị Toast: Đã thay đổi trạng thái tài khoản nhân viên]
 ```
 
 ---
 
 ### 1.4 Luồng Quản Lý Phiên Đăng Nhập & Hết Hạn Token (`/auth/*`)
-- **Route**: Tất cả private routes | **Component**: [PrivateRoute.tsx](file:///d:/Intern/Codegym/BanHangViet/frontend/src/routers/guards/PrivateRoute.tsx), `apiClient` Interceptor
+- **Route**: Tất cả trang nội bộ | **Component**: [PrivateRoute.tsx](file:///d:/Intern/Codegym/BanHangViet/frontend/src/routers/guards/PrivateRoute.tsx)
 - **Vai trò**: Tất cả người dùng đã đăng nhập.
 - **Mã Backlog**: `NCL-01-CN-002`
 
@@ -145,25 +139,21 @@ flowchart TD
 sequenceDiagram
     autonumber
     actor User as Người dùng
-    participant UI as Frontend App (RTK Query / Axios Interceptor)
-    participant AuthAPI as POST /api/v1/auth/refresh-token
-    participant DB as Database
+    participant UI as Màn hình Ứng dụng Frontend
+    participant Session as Bộ quản lý phiên đăng nhập
 
-    User->>UI: Thao tác trên giao diện (ví dụ: Tạo đơn / Xóa nhân viên)
-    UI->>UI: Đính kèm Header Authorization: Bearer <AccessToken>
-    alt AccessToken còn hiệu lực (chưa hết hạn)
-        UI->>DB: Thực thi Request thành công (200 OK)
-    else AccessToken hết hạn (HTTP 401 Unauthorized)
-        UI->>AuthAPI: Gọi API Refresh Token tự động (gửi RefreshToken)
-        alt RefreshToken còn hạn
-            AuthAPI->>DB: Kiểm tra RefreshToken hợp lệ
-            AuthAPI-->>UI: 200 OK (AccessToken mới + RefreshToken mới)
-            UI->>UI: Lưu AccessToken mới & Retry lại API request ban đầu
-            UI-->>User: Giao diện cập nhật mượt mà không bị ngắt kết nối
-        else RefreshToken hết hạn / Không hợp lệ
-            AuthAPI-->>UI: 401 Unauthorized / 403 Forbidden
-            UI->>UI: Xóa Token trong LocalStorage + Dispatch authSlice.logout()
-            UI-->>User: Hiển thị Toast "Phiên đăng nhập hết hạn" & Chuyển hướng về /auth/login
+    User->>UI: Thao tác trên màn hình (Ví dụ: Tạo đơn / Xóa sản phẩm)
+    alt Phiên đăng nhập còn hiệu lực
+        UI-->>User: Thao tác thành công, giao diện cập nhật ngay lập tức
+    else Phiên đăng nhập sắp/đã hết hạn
+        UI->>Session: Yêu cầu tự động làm mới phiên làm việc
+        alt Làm mới phiên thành công
+            Session-->>UI: Cập nhật phiên mới thành công
+            UI-->>User: Giao diện tiếp tục hoạt động mượt mà không gián đoạn
+        else Phiên đã bị hủy hoặc hết hạn hoàn toàn
+            Session-->>UI: Báo làm mới phiên thất bại
+            UI->>UI: Xóa thông tin phiên & Đưa tài khoản về trạng thái Đăng xuất
+            UI-->>User: Thông báo "Phiên đăng nhập hết hạn" & Tự động chuyển về /auth/login
         end
     end
 ```
@@ -178,52 +168,48 @@ sequenceDiagram
 
 ```mermaid
 flowchart TD
-    Start[Truy cập /products] --> FetchProducts[GET /api/v1/products kèm filter & search]
-    FetchProducts --> ShowGrid[Hiển thị Bảng Hàng hóa: SKU, Tên, ĐVT, Giá bán, Tồn kho, Thuế]
+    Start[Truy cập /products] --> ShowGrid[Hiển thị Bảng Hàng hóa: SKU, Tên, ĐVT, Giá bán, Tồn kho, Thuế]
     
     ShowGrid --> ActionAdd[Bấm '+ Thêm sản phẩm']
-    ActionAdd --> OpenModal[Mở ProductFormModal]
-    OpenModal --> FillData[Nhập Mã vạch SKU, Tên, Nhóm hàng, Giá bán, Giá vốn, Thuế suất VAT0-10%]
-    FillData --> SaveProd[POST /api/v1/products]
-    SaveProd --> ToastSuccess[Toast: Đã thêm sản phẩm thành công!]
+    ActionAdd --> OpenModal[Mở Popup Form ProductFormModal]
+    OpenModal --> FillData[Nhập Mã vạch SKU, Tên hàng, Chọn Nhóm hàng, Giá bán, Giá vốn, Mức thuế GTGT]
+    FillData --> SaveProd[Bấm nút 'Lưu Sản Phẩm']
+    SaveProd --> ToastSuccess[Hiển thị Toast: Đã thêm sản phẩm thành công!]
 
-    ShowGrid --> ActionImport[Bấm 'Nhập từ Excel']
-    ActionImport --> OpenImportModal[Mở ImportProductsModal]
-    OpenImportModal --> DownloadTemplate[GET /api/v1/products/import-template -> Tải file mẫu .xlsx]
-    OpenImportModal --> UploadFile[Tải file Excel lên]
-    UploadFile --> ValidateExcel{Backend parse & validate file?}
-    ValidateExcel -- Lỗi dòng data --> ShowErrorList[Hiển thị danh sách các dòng bị lỗi chi tiết]
-    ValidateExcel -- Thành công --> ImportSuccess[POST /api/v1/products/import -> Đã nhập N sản phẩm]
+    ShowGrid --> ActionImport[Bấm nút 'Nhập từ Excel']
+    ActionImport --> OpenImportModal[Mở Popup ImportProductsModal]
+    OpenImportModal --> DownloadTemplate[Bấm 'Tải File Mẫu Excel' -> Tải file mẫu .xlsx]
+    OpenImportModal --> UploadFile[Tải file Excel từ máy tính lên]
+    UploadFile --> ValidateExcel{Hệ thống kiểm tra dữ liệu file Excel?}
+    ValidateExcel -- Phát hiện dòng lỗi --> ShowErrorList[Hiển thị danh sách các dòng dữ liệu bị lỗi chi tiết]
+    ValidateExcel -- Hợp lệ --> ImportSuccess[Thông báo: Đã nhập thành công N sản phẩm vào danh mục]
 ```
 
 ---
 
 ### 2.2 Màn hình & Modal Quản Lý Nhóm Hàng (`/products`)
-- **Route**: `/products` | **Component**: [ProductGroupManagerModal.tsx](file:///d:/Intern/Codegym/BanHangViet/frontend/src/modules/product/components/ProductGroupManagerModal.tsx), [ProductGroupController.java](file:///d:/Intern/Codegym/BanHangViet/backend/src/main/java/com/sales/controller/ProductGroupController.java)
+- **Route**: `/products` | **Component**: [ProductGroupManagerModal.tsx](file:///d:/Intern/Codegym/BanHangViet/frontend/src/modules/product/components/ProductGroupManagerModal.tsx)
 - **Mã Backlog**: `NCL-02-CN-003`
 
 ```mermaid
 flowchart TD
-    Start[Bấm 'Quản lý Nhóm Hàng' tại ProductListPage] --> OpenGroupModal[Mở Modal ProductGroupManagerModal]
-    OpenGroupModal --> FetchGroups[GET /api/v1/product-groups]
-    FetchGroups --> RenderGroupList[Hiển thị Danh sách Nhóm hàng: Tên nhóm, Mô tả]
+    Start[Bấm nút 'Quản lý Nhóm Hàng' tại ProductListPage] --> OpenGroupModal[Mở Popup ProductGroupManagerModal]
+    OpenGroupModal --> RenderGroupList[Hiển thị Danh sách Nhóm hàng: Tên nhóm, Số lượng mặt hàng]
     
-    RenderGroupList --> AddGroup[Nhập Tên Nhóm mới -> Bấm 'Thêm Nhóm']
-    AddGroup --> CallAddAPI[POST /api/v1/product-groups]
-    CallAddAPI --> RefreshAdd[Tự động nạp lại danh sách Nhóm]
+    RenderGroupList --> AddGroup[Nhập Tên Nhóm hàng mới -> Bấm 'Thêm Nhóm']
+    AddGroup --> RefreshAdd[Tự động nạp lại danh sách Nhóm mới vào màn hình]
 
-    RenderGroupList --> EditGroup[Sửa Tên/Mô tả Nhóm -> Click 'Lưu']
-    EditGroup --> CallUpdateAPI[PUT /api/v1/product-groups/{id}]
+    RenderGroupList --> EditGroup[Sửa Tên / Mô tả Nhóm -> Click nút 'Lưu']
+    EditGroup --> UpdateUI[Cập nhật tên nhóm mới trên bảng]
 
-    RenderGroupList --> DeleteGroup[Bấm 'Xóa Nhóm']
-    DeleteGroup --> CallDeleteAPI[DELETE /api/v1/product-groups/{id}]
-    CallDeleteAPI --> ToastGroup[Toast: Đã cập nhật danh mục nhóm hàng thành công]
+    RenderGroupList --> DeleteGroup[Bấm biểu tượng 'Xóa Nhóm']
+    DeleteGroup --> ToastGroup[Hiển thị Toast: Đã xóa nhóm hàng thành công]
 ```
 
 ---
 
 ### 2.3 Màn hình Phiếu Nhập Kho (`/products/stock-entry`)
-- **Route**: `/products/stock-entry` | **Components**: [StockEntryPage.tsx](file:///d:/Intern/Codegym/BanHangViet/frontend/src/modules/product/pages/StockEntryPage.tsx), [GoodsReceiptController.java](file:///d:/Intern/Codegym/BanHangViet/backend/src/main/java/com/sales/controller/GoodsReceiptController.java)
+- **Route**: `/products/stock-entry` | **Components**: [StockEntryPage.tsx](file:///d:/Intern/Codegym/BanHangViet/frontend/src/modules/product/pages/StockEntryPage.tsx), [GoodsReceiptModal.tsx](file:///d:/Intern/Codegym/BanHangViet/frontend/src/modules/product/components/GoodsReceiptModal.tsx)
 - **Mã Backlog**: `NCL-02-CN-005`
 
 ```mermaid
@@ -231,18 +217,15 @@ sequenceDiagram
     autonumber
     actor User as Chủ hộ / Quản lý kho
     participant UI as StockEntryPage / GoodsReceiptModal
-    participant API as POST /api/v1/goods-receipts
-    participant DB as Database (Products & StockLogs)
+    participant App as Giao diện Hệ thống
 
-    User->>UI: Bấm "Tạo Phiếu Nhập Kho"
+    User->>UI: Bấm nút "Tạo Phiếu Nhập Kho"
     User->>UI: Chọn Nhà cung cấp + Chọn danh sách Sản phẩm & Nhập số lượng + Đơn giá nhập
-    UI->>UI: Tự động tính Tổng tiền nhập kho
+    UI->>UI: Tự động tính Tổng tiền nhập kho trên giao diện
     User->>UI: Bấm "Hoàn tất Nhập Kho"
-    UI->>API: Send GoodsReceipt Request Payload
-    API->>DB: @Transactional: Lưu Phiếu nhập + Cộng tăng Tồn kho + Tính giá vốn
-    DB-->>API: Success Response
-    API-->>UI: ApiResponse(GoodsReceiptResponse)
-    UI-->>User: Toast thành công + Cập nhật số lượng tồn kho tức thời
+    UI->>App: Gửi yêu cầu lưu phiếu nhập kho
+    App-->>UI: Xác nhận lưu phiếu nhập kho thành công
+    UI-->>User: Hiển thị Toast thành công + Cập nhật số lượng tồn kho tức thời trên màn hình
 ```
 
 ---
@@ -257,63 +240,60 @@ sequenceDiagram
 ```mermaid
 flowchart TD
     Start[Truy cập /pos] --> CheckShift{Kiểm tra Ca bán hàng hiện tại?}
-    CheckShift -- Chưa có Ca Mở --> ForceOpenShift[Mở Modal StartShiftModal: Bắt buộc nhập tiền đầu ca - QTN-15]
-    ForceOpenShift --> ShiftOpened[Mở Ca thành công -> Vào Màn hình POS]
+    CheckShift -- Chưa có Ca Mở --> ForceOpenShift[Hiển thị Bắt buộc Modal StartShiftModal: Nhập tiền quỹ đầu ca - QTN-15]
+    ForceOpenShift --> ShiftOpened[Mở Ca thành công -> Mở giao diện Bán hàng POS]
     CheckShift -- Đã có Ca Mở --> IntoPOS[Vào Màn hình POS Split-View]
     
-    IntoPOS --> SearchProduct[Gõ tên / Quét mã vạch Barcode F1 - NCL-03-CN-001]
+    IntoPOS --> SearchProduct[Gõ tên hàng / Quét mã vạch Barcode F1 - NCL-03-CN-001]
     SearchProduct --> AddToCart[Thêm sản phẩm vào Giỏ hàng - NCL-03-CN-002]
-    AddToCart --> EditQty[Tăng/giảm số lượng / Nhập giảm giá đơn hàng - NCL-03-CN-003]
+    AddToCart --> EditQty[Tăng/giảm số lượng / Nhập mức giảm giá đơn hàng F3 - NCL-03-CN-003]
     
-    AddToCart --> CheckStock{Số lượng vượt số tồn kho? - QTN-08}
-    CheckStock -- Đúng vượt tồn --> ShowStockWarning[Cảnh báo Vượt tồn kho -> Hỏi ý kiến cho phép bán tiếp]
-    CheckStock -- Bình thường / Cho phép bán tiếp --> SelectCustomer[Chọn Khách hàng / Thêm khách mới F3]
+    AddToCart --> CheckStock{Số lượng bán vượt số tồn kho? - QTN-08}
+    CheckStock -- Vượt tồn kho --> ShowStockWarning[Hiển thị Popup Cảnh báo Vượt tồn kho -> Cho phép chọn bán tiếp]
+    CheckStock -- Đủ tồn / Cho phép bán tiếp --> SelectCustomer[Chọn Hồ sơ Khách hàng / Thêm khách quen F3]
     
-    SelectCustomer --> ClickPay[Bấm Nút 'F2 - THANH TOÁN' màu cam]
+    SelectCustomer --> ClickPay[Bấm Nút 'F2 - THANH TOÁN' màu cam nổi bật]
     
-    ClickPay --> OpenPayModal[Mở PosPaymentModal - NCL-03-CN-004]
-    OpenPayModal --> ChooseMethod{Phương thức Thanh toán F4}
-    ChooseMethod -- Tiền mặt --> CashPay[Nhập Tiền khách đưa -> Tự động tính Tiền thừa trả khách]
-    ChooseMethod -- Chuyển khoản QR --> QRPay[Hiển thị Mã VietQR động -> Đợi khách quét chuyển khoản]
+    ClickPay --> OpenPayModal[Mở Popup PosPaymentModal - NCL-03-CN-004]
+    OpenPayModal --> ChooseMethod{Chọn Phương thức Thanh toán F4}
+    ChooseMethod -- Tiền mặt --> CashPay[Nhập Tiền khách đưa -> Giao diện tự động tính Tiền thừa trả khách]
+    ChooseMethod -- Chuyển khoản VietQR --> QRPay[Hiển thị Mã VietQR tĩnh/động trên màn hình -> Chờ khách quét]
     
-    CashPay & QRPay --> ConfirmOrder[POST /api/v1/orders - NCL-03-CN-005, QTN-07]
+    CashPay & QRPay --> ConfirmOrder[Bấm 'Xác Nhận Thanh Toán' - NCL-03-CN-005, QTN-07]
     ConfirmOrder --> PrintReceipt[Mở Modal In Phiếu Tính Tiền / In Nhiệt 80mm]
-    PrintReceipt --> ResetPos[Làm sạch Giỏ hàng -> Sẵn sàng cho đơn mới]
+    PrintReceipt --> ResetPos[Làm sạch Giỏ hàng -> Sẵn sàng cho đơn bán tiếp theo]
 ```
 
 ---
 
 ### 3.2 Màn hình Mở/Đóng Ca & Lịch Sử Ca Làm Việc (`/shifts`)
-- **Route**: `/shifts` | **Components**: [ShiftHistoryPage.tsx](file:///d:/Intern/Codegym/BanHangViet/frontend/src/modules/shift/pages/ShiftHistoryPage.tsx), [ShiftController.java](file:///d:/Intern/Codegym/BanHangViet/backend/src/main/java/com/sales/controller/ShiftController.java)
+- **Route**: `/shifts` | **Components**: [ShiftHistoryPage.tsx](file:///d:/Intern/Codegym/BanHangViet/frontend/src/modules/shift/pages/ShiftHistoryPage.tsx), [ShiftManagementPanel.tsx](file:///d:/Intern/Codegym/BanHangViet/frontend/src/modules/shift/components/ShiftManagementPanel.tsx), [ShiftHistoryTable.tsx](file:///d:/Intern/Codegym/BanHangViet/frontend/src/modules/shift/components/ShiftHistoryTable.tsx)
 - **Mã Backlog**: `NCL-03-CN-006`, `NCL-03-CN-007`, `QTN-15`, `QTN-16`
 
 ```mermaid
 sequenceDiagram
     autonumber
     actor Cashier as Thu ngân (VT-02)
-    participant UI as ShiftHistoryPage / CloseShiftModal
-    participant ShiftAPI as POST /api/v1/shifts/{id}/close
-    participant DB as Database
+    participant UI as ShiftHistoryPage / ShiftManagementPanel
+    participant App as Giao diện Hệ thống
 
     Cashier->>UI: Bấm nút "Đóng ca làm việc" cuối ca
-    UI->>UI: Hiển thị Tổng doanh thu tiền mặt lý thuyết trên máy
+    UI->>UI: Hiển thị Tổng doanh thu tiền mặt lý thuyết tính trên máy
     Cashier->>UI: Nhập Số tiền mặt thực tế kiểm đếm tại két
-    UI->>UI: Tính toán Tự động: Chênh lệch = Thực tế - Lý thuyết
-    alt Có chênh lệch (Thực tế != Lý thuyết)
-        UI-->>Cashier: Yêu cầu nhập Ghi chú giải trình chênh lệch (QTN-16)
+    UI->>UI: Tính chênh lệch tự động: Chênh lệch = Thực tế - Lý thuyết
+    alt Có chênh lệch (Thực tế khác Lý thuyết)
+        UI-->>Cashier: Bắt buộc nhập Ghi chú giải trình lý do chênh lệch (QTN-16)
     end
-    Cashier->>UI: Bấm "Xác nhận Đóng ca"
-    UI->>ShiftAPI: Call CloseShiftRequest
-    ShiftAPI->>DB: Cập nhật Trạng thái Ca = CLOSED, Lưu thời gian kết thúc & Chênh lệch (QTN-16)
-    DB-->>ShiftAPI: Shift Closed Record
-    ShiftAPI-->>UI: ApiResponse(ShiftResponse)
-    UI-->>Cashier: In Phiếu Báo Cáo Chốt Ca & Đăng xuất / Khóa POS
+    Cashier->>UI: Bấm nút "Xác nhận Đóng ca"
+    UI->>App: Gửi yêu cầu chốt ca làm việc
+    App-->>UI: Xác nhận đóng ca thành công
+    UI-->>Cashier: Mở Modal In Phiếu Báo Cáo Chốt Ca & Tự động khóa màn hình POS
 ```
 
 ---
 
 ### 3.3 Màn hình & Sơ đồ Bán Hàng Offline & Đồng Bộ Dữ Liệu (`/pos`, `/sync`)
-- **Route**: `/pos` | **Components**: [PosPage.tsx](file:///d:/Intern/Codegym/BanHangViet/frontend/src/modules/pos/pages/PosPage.tsx), [ConflictResolutionModal.tsx](file:///d:/Intern/Codegym/BanHangViet/frontend/src/modules/sync/components/ConflictResolutionModal.tsx), [SyncController.java](file:///d:/Intern/Codegym/BanHangViet/backend/src/main/java/com/sales/controller/SyncController.java)
+- **Route**: `/pos` | **Components**: [PosPage.tsx](file:///d:/Intern/Codegym/BanHangViet/frontend/src/modules/pos/pages/PosPage.tsx), [ConflictResolutionModal.tsx](file:///d:/Intern/Codegym/BanHangViet/frontend/src/modules/sync/components/ConflictResolutionModal.tsx)
 - **Vai trò**: Thu ngân (`point_of_sale`), Chủ hộ (`normal_management`).
 - **Mã Backlog**: `NCL-08-CN-001`, `NCL-08-CN-002`, `NCL-08-CN-003`, `QTN-11`
 
@@ -322,58 +302,54 @@ sequenceDiagram
 sequenceDiagram
     autonumber
     actor Cashier as Thu ngân (VT-02)
-    participant UI as PosPage.tsx (Offline State)
-    participant IDB as Browser IndexedDB Queue
+    participant UI as PosPage.tsx (Trạng thái Offline)
+    participant IDB as Bộ nhớ tạm Trình duyệt IndexedDB
     
-    Note over Cashier, UI: Hệ thống mất kết nối Internet (navigator.onLine = false)
-    Cashier->>UI: Chọn mặt hàng vào giỏ + Bấm "F2 - THANH TOÁN"
+    Note over Cashier, UI: Mất kết nối Internet (navigator.onLine = false)
+    Cashier->>UI: Thêm hàng vào giỏ + Bấm nút "F2 - THANH TOÁN"
     UI->>UI: Kiểm tra Trạng thái Mạng -> Phát hiện MẤT MẠNG
-    UI->>IDB: Sinh UUID tạm + Lưu Đơn hàng vào Hàng đợi IndexedDB (`sync_status = PENDING`)
-    IDB-->>UI: Đã lưu đơn hàng cục bộ
+    UI->>IDB: Sinh mã tạm UUID + Lưu Đơn hàng vào Hàng đợi IndexedDB (`sync_status = PENDING`)
+    IDB-->>UI: Đã ghi nhận lưu đơn cục bộ thành công
     UI-->>Cashier: Toast: Đã lưu đơn bán Offline! Đơn sẽ tự động đồng bộ khi có mạng lại.
-    UI->>UI: In Phiếu Tính Tiền tạm + Làm sạch giỏ hàng sẵn sàng bán đơn mới
+    UI->>UI: Mở Modal In Phiếu Tính Tiền tạm + Làm sạch giỏ hàng sẵn sàng bán đơn mới
 ```
 
 #### 3.3.2 Luồng Phục Hồi Kết Nối & Đồng Bộ Dữ Liệu (Data Sync & Conflict Resolution - NCL-08-CN-002, NCL-08-CN-003)
 ```mermaid
 flowchart TD
-    Start[Thiết bị có kết nối Mạng trở lại] --> HealthCheck[GET /api/v1/sync/health]
-    HealthCheck --> CheckPending{Kiểm tra IndexedDB có đơn PENDING?}
-    CheckPending -- Không --> NormalOnline[Bán hàng Online bình thường]
-    CheckPending -- Có --> CallCheckAPI[POST /api/v1/sync/check: Kiểm tra xung đột tồn kho & giá]
+    Start[Thiết bị có kết nối Internet trở lại] --> CheckPending{Kiểm tra IndexedDB có đơn chờ PENDING?}
+    CheckPending -- Không --> NormalOnline[Hoạt động bán hàng Online bình thường]
+    CheckPending -- Có đơn chờ --> CallCheck[Kiểm tra xung đột giá bán & tồn kho]
     
-    CallCheckAPI --> ConflictCheck{Backend trả về Xung đột?}
-    ConflictCheck -- Không có xung đột --> BulkUpload[POST /api/v1/sync/bulk-upload]
-    BulkUpload --> SaveDB[Tạo các Đơn hàng chính thức + Trừ Tồn kho + Sinh Hóa đơn DRAFT]
-    SaveDB --> ClearIDB[Xóa các đơn đã đồng bộ khỏi IndexedDB]
-    ClearIDB --> ToastSyncSuccess[Toast: Đồng bộ thành công N đơn bán hàng Offline!]
+    CallCheck --> ConflictCheck{Có đơn phát sinh Xung đột?}
+    ConflictCheck -- Không có xung đột --> BulkUpload[Đẩy toàn bộ đơn hàng trong IndexedDB lên hệ thống]
+    BulkUpload --> ClearIDB[Xóa các đơn đã đồng bộ thành công khỏi IndexedDB]
+    ClearIDB --> ToastSyncSuccess[Toast: Đã đồng bộ thành công N đơn bán hàng Offline!]
 
-    ConflictCheck -- Có đơn bị xung đột --> OpenConflictModal[Mở Modal Giải Quyết Xung Đột ConflictResolutionModal]
-    OpenConflictModal --> ChooseResolve[Chủ hộ chọn: Đè dữ liệu Offline hay Hủy đơn Offline]
-    ChooseResolve --> CallResolveAPI[POST /api/v1/sync/resolve]
-    CallResolveAPI --> RefreshSync[Hoàn tất đồng bộ đơn xung đột -> Cập nhật bảng kê]
+    ConflictCheck -- Có đơn bị xung đột --> OpenConflictModal[Mở Popup Giải Quyết Xung Đột ConflictResolutionModal]
+    OpenConflictModal --> ChooseResolve[Chủ hộ chọn: Đè dữ liệu Offline hay Hủy đơn tạm Offline]
+    ChooseResolve --> RefreshSync[Hoàn tất xử lý xung đột -> Cập nhật bảng kê đơn hàng]
 ```
 
 ---
 
 ### 3.4 Luồng Bán Hàng trên Máy Tính Bảng & Điện Thoại (`/pos`)
-- **Route**: `/pos` | **Component**: [PosPage.tsx](file:///d:/Intern/Codegym/BanHangViet/frontend/src/modules/pos/pages/PosPage.tsx) (Mobile Responsive View)
+- **Route**: `/pos` | **Component**: [PosPage.tsx](file:///d:/Intern/Codegym/BanHangViet/frontend/src/modules/pos/pages/PosPage.tsx) (Mobile Responsive Touch View)
 - **Vai trò**: Thu ngân di động (`point_of_sale`).
 - **Mã Backlog**: `NCL-03-CN-008`
 
 ```mermaid
 flowchart TD
-    Start[Thu ngân truy cập /pos trên Điện thoại / Tablet] --> CheckDevice{Kiểm tra Kích thước Màn hình}
-    CheckDevice --> AdaptLayout[Tự động chuyển Bố cục Touch-Optimized Layout: Nút bấm phóng to, Giỏ hàng dạng Drawer trượt]
+    Start[Thu ngân truy cập /pos trên Điện thoại / Tablet] --> AdaptLayout[Tự động chuyển Bố cục Touch-Optimized Layout: Phóng to nút bấm, Giỏ hàng dạng Drawer vuốt trượt]
     
-    AdaptLayout --> TouchSearch[Chạm ô Tìm nhanh / Bật Camera quét mã vạch Barcode]
+    AdaptLayout --> TouchSearch[Chạm ô Tìm nhanh / Bật Camera thiết bị quét mã vạch Barcode]
     TouchSearch --> AddItem[Thêm Sản phẩm vào Giỏ hàng di động]
-    AddItem --> OpenCartDrawer[Vuốt lên để xem Chi tiết Giỏ hàng & Điền giảm giá]
+    AddItem --> OpenCartDrawer[Vuốt trượt lên để mở xem Chi tiết Giỏ hàng & Điền giảm giá]
     
-    OpenCartDrawer --> ClickPayMobile[Bấm Nút 'THANH TOÁN' cố định chân màn hình Sticky Footer]
+    OpenCartDrawer --> ClickPayMobile[Bấm Nút 'THANH TOÁN' màu cam tại chân màn hình Mobile]
     ClickPayMobile --> MobilePayModal[Mở Modal Thanh toán di động]
-    MobilePayModal --> ConfirmPay[Chọn Tiền mặt / VietQR -> POST /api/v1/orders]
-    ConfirmPay --> SuccessPrint[Hiển thị OrderSuccessModal + Gửi HĐ qua Zalo / In Bluetooth POS Printer]
+    MobilePayModal --> ConfirmPay[Chọn Tiền mặt / Chuyển khoản QR -> Bấm Xác nhận]
+    ConfirmPay --> SuccessPrint[Hiển thị Modal Thanh toán Thành công + Nút Gửi Zalo / In Máy in Bluetooth POS]
 ```
 
 ---
@@ -381,23 +357,21 @@ flowchart TD
 ## 4. PHÂN HỆ 4: QUẢN LÝ ĐƠN HÀNG BÁN LẺ (NCL-03, NCL-04)
 
 ### 4.1 Màn hình Lịch Sử Đơn Hàng (`/orders`)
-- **Route**: `/orders` | **Component**: [OrderHistoryPage.tsx](file:///d:/Intern/Codegym/BanHangViet/frontend/src/modules/order/pages/OrderHistoryPage.tsx)
+- **Route**: `/orders` | **Components**: [OrderHistoryPage.tsx](file:///d:/Intern/Codegym/BanHangViet/frontend/src/modules/order/pages/OrderHistoryPage.tsx), [OrderHistoryTable.tsx](file:///d:/Intern/Codegym/BanHangViet/frontend/src/modules/order/components/OrderHistoryTable.tsx)
 - **Mã Backlog**: `NCL-03-CN-005`, `NCL-04-CN-001`, `QTN-03`
 
 ```mermaid
 flowchart TD
-    Start[Truy cập /orders] --> FetchOrders[GET /api/v1/orders]
-    FetchOrders --> RenderTable[Hiển thị Bảng Lịch sử Đơn hàng]
+    Start[Truy cập /orders] --> RenderTable[Hiển thị Bảng Lịch sử Đơn hàng: Mã đơn, Thời gian, Khách hàng, Tổng tiền, Trạng thái]
     
-    RenderTable --> ViewDetail[Click Dòng đơn hàng]
-    ViewDetail --> OpenDrawer[Mở OrderDetailDrawer: Xem danh sách sản phẩm, Thuế GTGT, Khách hàng]
+    RenderTable --> ViewDetail[Click một dòng đơn hàng]
+    ViewDetail --> OpenDrawer[Mở Drawer Chi Tiết Đơn Hàng: Xem chi tiết danh sách sản phẩm, Thuế GTGT, Người bán]
     
     RenderTable --> ClickIssue[Bấm nút 'Phát hành Hóa đơn']
-    ClickIssue --> CheckStatus{Đơn trạng thái COMPLETED & PAID? - QTN-03}
-    CheckStatus -- Sai --> BlockIssue[Hiển thị lỗi: Đơn chưa thanh toán đủ không được xuất HĐ - QTN-03]
-    CheckStatus -- Đúng --> CallIssueAPI[POST /api/v1/invoices/draft]
-    CallIssueAPI --> CreatedDraft[Tạo Hóa đơn điện tử Nháp DRAFT thành công]
-    CreatedDraft --> ToastIssued[Toast: Đã sinh HĐĐT Nháp -> Nút đổi thành 'Xem Hóa Đơn']
+    ClickIssue --> CheckStatus{Đơn ở trạng thái COMPLETED & đã thanh toán đủ? - QTN-03}
+    CheckStatus -- Đơn chưa thanh toán đủ --> BlockIssue[Hiển thị Toast báo lỗi: Đơn chưa thanh toán đủ không được xuất HĐ - QTN-03]
+    CheckStatus -- Đủ điều kiện --> CreateDraft[Tạo Hóa đơn điện tử Nháp DRAFT thành công]
+    CreateDraft --> ToastIssued[Toast: Đã sinh HĐĐT Nháp thành công -> Nút bấm đổi sang 'Xem Hóa Đơn']
 ```
 
 ---
@@ -405,29 +379,26 @@ flowchart TD
 ## 5. PHÂN HỆ 5: HÓA ĐƠN ĐIỆN TỬ & THUẾ (NCL-04, NCL-05)
 
 ### 5.1 Màn hình Quản Lý Hóa Đơn Điện Tử (`/e-invoices`)
-- **Route**: `/e-invoices` | **Component**: [InvoiceManagementPage.tsx](file:///d:/Intern/Codegym/BanHangViet/frontend/src/modules/e_invoice/pages/InvoiceManagementPage.tsx)
+- **Route**: `/e-invoices` | **Components**: [InvoiceManagementPage.tsx](file:///d:/Intern/Codegym/BanHangViet/frontend/src/modules/e_invoice/pages/InvoiceManagementPage.tsx), [InvoiceDetailModal.tsx](file:///d:/Intern/Codegym/BanHangViet/frontend/src/modules/e_invoice/components/InvoiceDetailModal.tsx), [CancelInvoiceModal.tsx](file:///d:/Intern/Codegym/BanHangViet/frontend/src/modules/e_invoice/components/CancelInvoiceModal.tsx)
 - **Mã Backlog**: `NCL-04-CN-002` đến `NCL-04-CN-005`, `NCL-05-CN-001`, `NCL-05-CN-003`, `NCL-05-CN-004`, `QTN-05`, `QTN-06`, `QTN-09`
 
 ```mermaid
 flowchart TD
-    Start[Truy cập /e-invoices] --> FetchInvoices[GET /api/v1/invoices]
-    FetchInvoices --> RenderTabs[Tabs: Tất cả | Nháp DRAFT | Chờ cấp mã WAITING | Đã phát hành ISSUED | Lỗi SEND_ERROR | Hủy CANCELED]
+    Start[Truy cập /e-invoices] --> RenderTabs[Chuyển Tabs: Tất cả | Nháp DRAFT | Chờ cấp mã WAITING | Đã phát hành ISSUED | Lỗi SEND_ERROR | Hủy CANCELED]
     
     RenderTabs --> ActionSendTax[Bấm 'Gửi Cơ quan Thuế' ở HĐ DRAFT]
-    ActionSendTax --> CallSendAPI[POST /api/v1/invoices/{id}/submit]
-    CallSendAPI --> StatusWaiting[Hóa đơn chuyển trạng thái WAITING_TAX_CODE -> Đẩy vào Hàng đợi đồng bộ]
+    ActionSendTax --> StatusWaiting[Hóa đơn chuyển sang trạng thái Chờ cấp mã WAITING_TAX_CODE]
 
-    RenderTabs --> ActionResend[Bấm 'Gửi Lại' ở HĐ SEND_ERROR - QTN-06]
-    ActionResend --> CallResendAPI[POST /api/v1/invoices/{id}/resend]
-    CallResendAPI --> StatusWaiting2[Hóa đơn gửi lại thành công -> Chuyển về WAITING_TAX_CODE - QTN-06]
+    RenderTabs --> ActionResend[Bấm nút 'Gửi Lại' ở HĐ trạng thái SEND_ERROR - QTN-06]
+    ActionResend --> StatusWaiting2[Chuyển Hóa đơn về lại trạng thái Chờ cấp mã WAITING_TAX_CODE - QTN-06]
 
-    RenderTabs --> ActionCancel[Bấm 'Hủy Hóa đơn' ở HĐ ISSUED]
-    ActionCancel --> OpenCancelDialog[Mở CancelInvoiceModal: Yêu cầu bắt buộc nhập Lý do hủy >= 10 ký tự - QTN-05]
-    OpenCancelDialog --> SubmitCancel[POST /api/v1/invoices/{id}/cancel]
-    SubmitCancel --> StatusCanceled[Hóa đơn chuyển trạng thái CANCELED -> Lưu vết lý do & thời gian - QTN-09]
+    RenderTabs --> ActionCancel[Bấm nút 'Hủy Hóa đơn' ở HĐ ISSUED]
+    ActionCancel --> OpenCancelDialog[Mở Popup CancelInvoiceModal: Bắt buộc nhập Lý do hủy >= 10 ký tự - QTN-05]
+    OpenCancelDialog --> SubmitCancel[Bấm 'Xác Nhận Hủy']
+    SubmitCancel --> StatusCanceled[Hóa đơn chuyển sang trạng thái CANCELED -> Lưu vết lý do & thời điểm hủy - QTN-09]
 
-    RenderTabs --> ActionView[Click Dòng Hóa đơn]
-    ActionView --> OpenInvoiceView[Mở InvoiceDetailModal: Xem Tờ Hóa Đơn A4 có Mẫu số, Ký hiệu, Mã CQT, QR Tra cứu]
+    RenderTabs --> ActionView[Click chọn một dòng Hóa đơn]
+    ActionView --> OpenInvoiceView[Mở Popup InvoiceDetailModal: Xem Tờ Hóa Đơn A4 có Mẫu số, Ký hiệu, Mã CQT, Mã QR Tra cứu]
 ```
 
 ---
@@ -441,18 +412,16 @@ sequenceDiagram
     autonumber
     actor User as Chủ hộ / Kế toán
     participant UI as AdjustInvoicePage.tsx
-    participant API as POST /api/v1/invoices/{id}/adjust
-    participant DB as Database
+    participant App as Giao diện Hệ thống
 
-    User->>UI: Truy cập từ nút "Điều chỉnh Hóa đơn" trên Hóa đơn ISSUED gốc (QTN-04)
-    UI->>UI: Nạp thông tin Hóa đơn gốc (Hiển thị tiêu đề: Điều chỉnh cho HĐ số X)
-    User->>UI: Sửa lại số lượng / Tiền thuế GTGT / Nội dung ghi chú điều chỉnh
-    User->>UI: Bấm "Phát hành Hóa đơn Điều chỉnh"
-    UI->>API: Send AdjustInvoiceRequest
-    API->>DB: @Transactional: Tạo HĐ mới lưu original_invoice_id (QTN-12) -> Chuyển HĐ gốc sang ADJUSTED
-    DB-->>API: Created Adjusted Invoice
-    API-->>UI: ApiResponse(InvoiceResponse)
-    UI-->>User: Toast thành công + Điều hướng về /e-invoices
+    User->>UI: Click nút "Điều chỉnh Hóa đơn" từ Hóa đơn ISSUED gốc (QTN-04)
+    UI->>UI: Nạp dữ liệu Hóa đơn gốc (Hiển thị tiêu đề: Lập Hóa đơn điều chỉnh cho HĐ gốc số X)
+    User->>UI: Sửa lại số lượng sản phẩm / Tiền thuế GTGT / Nội dung ghi chú lý do điều chỉnh
+    User->>UI: Bấm nút "Phát hành Hóa đơn Điều chỉnh"
+    UI->>App: Gửi thông tin Hóa đơn điều chỉnh
+    App-->>UI: Xác nhận khởi tạo Hóa đơn điều chỉnh thành công
+    UI->>UI: Ghi liên kết tới HĐ gốc (QTN-12) & Chuyển Hóa đơn gốc sang trạng thái ADJUSTED
+    UI-->>User: Hiển thị Toast thành công + Tự động điều hướng về /e-invoices
 ```
 
 ---
@@ -465,19 +434,19 @@ sequenceDiagram
 
 ```mermaid
 flowchart TD
-    subgraph Kênh Gửi Tại Quầy
+    subgraph Kênh Gửi Tại Quầy Bán Hàng
         Action[Xem Chi Tiết Hóa Đơn ISSUED] --> MultiChannel[Mở Popup SendInvoiceModal]
-        MultiChannel --> BtnPrint[Nút 'In Hóa đơn' -> Mở PrintInvoiceModal - NCL-06-CN-003]
-        MultiChannel --> BtnEmail[Nút 'Gửi Email' -> Nhập Email -> POST /api/v1/invoices/{id}/deliver/email - NCL-06-CN-002]
-        MultiChannel --> BtnZalo[Nút 'Gửi Zalo' -> Nhập SĐT -> Gửi link qua Zalo OA - NCL-06-CN-002]
-        MultiChannel --> BtnQR[Nút 'Mã QR' -> GET /api/v1/invoices/{id}/qr - NCL-06-CN-001]
+        MultiChannel --> BtnPrint[Nút 'In Hóa đơn' -> Mở Modal xem trước trang in nhiệt - NCL-06-CN-003]
+        MultiChannel --> BtnEmail[Nút 'Gửi Email' -> Nhập Địa chỉ Email -> Bấm Gửi - NCL-06-CN-002]
+        MultiChannel --> BtnZalo[Nút 'Gửi Zalo' -> Nhập Số điện thoại -> Bấm Gửi link qua Zalo OA - NCL-06-CN-002]
+        MultiChannel --> BtnQR[Nút 'Hiện Mã QR' -> Hiển thị Mã QR Code để khách quét bằng điện thoại - NCL-06-CN-001]
     end
 
-    subgraph Cổng Tra Cứu Công Khai
+    subgraph Cổng Tra Cứu Hóa Đơn Công Khai
         Customer[Khách hàng Quét Mã QR / Truy cập /lookup-invoice] --> PublicPage[Màn hình Tra Cứu Hóa Đơn - NCL-06-CN-004]
-        PublicPage --> InputCode[Nhập Mã Tra Cứu lookupCode]
-        InputCode --> SearchAPI[GET /api/v1/public/invoices/lookup?code=XXX]
-        SearchAPI --> RenderPDF[Render Chi tiết Tờ Hóa Đơn Điện Tử A4 + Nút Tải PDF/XML]
+        PublicPage --> InputCode[Nhập Mã Tra Cứu Bảo Mật lookupCode]
+        InputCode --> SearchClick[Bấm nút 'Tra Cứu Hóa Đơn']
+        SearchClick --> RenderPDF[Hiển thị Tờ Hóa Đơn Điện Tử A4 + Nút Tải về bản PDF / XML]
     end
 ```
 
@@ -486,18 +455,17 @@ flowchart TD
 ## 7. PHÂN HỆ 7: BÁO CÁO, NHẬT KÝ & DASHBOARD (NCL-07)
 
 ### 7.1 Màn hình Báo Cáo Doanh Thu Theo Ngày & Mặt Hàng (`/reports/revenue`)
-- **Route**: `/reports/revenue` | **Components**: [RevenueReportPage.tsx](file:///d:/Intern/Codegym/BanHangViet/frontend/src/modules/report/pages/RevenueReportPage.tsx), [ReportController.java](file:///d:/Intern/Codegym/BanHangViet/backend/src/main/java/com/sales/controller/ReportController.java)
+- **Route**: `/reports/revenue` | **Component**: [RevenueReportPage.tsx](file:///d:/Intern/Codegym/BanHangViet/frontend/src/modules/report/pages/RevenueReportPage.tsx)
 - **Mã Backlog**: `NCL-07-CN-001`, `NCL-07-CN-002`, `QTN-10`
 
 ```mermaid
 flowchart TD
     Start[Truy cập /reports/revenue] --> SelectFilter[Chọn Bộ Lọc Thời Gian: Hôm nay | Tháng này | Quý này | Tùy chỉnh]
-    SelectFilter --> FetchReport[Gọi API: GET /api/v1/reports/daily & GET /api/v1/reports/products]
-    FetchReport --> RenderKpi[Hiển thị Cards KPI: Tổng Doanh Thu, Tiền Hàng Chưa Thuế, Tiền Thuế GTGT Thu Hộ]
+    SelectFilter --> RenderKpi[Hiển thị các Thẻ Card KPI: Tổng Doanh Thu, Tiền Hàng Chưa Thuế, Tiền Thuế GTGT Thu Hộ]
     RenderKpi --> RenderChart[Hiển thị Biểu đồ Cột Doanh Thu Tăng Trưởng]
     
-    RenderChart --> ClickExport[Bấm 'Xuất Báo Cáo Excel']
-    ClickExport --> CallExportAPI[Tải file Bieu_Mau_Bao_Cao_Doanh_Thu.xlsx]
+    RenderChart --> ClickExport[Bấm nút 'Xuất Báo Cáo Excel']
+    ClickExport --> DownloadExcel[Tải file Bieu_Mau_Bao_Cao_Doanh_Thu.xlsx về máy tính]
 ```
 
 ---
@@ -509,43 +477,39 @@ flowchart TD
 ```mermaid
 flowchart TD
     Start[Truy cập /reports/comparison] --> SelectPeriods[Chọn 2 Khoảng thời gian: Kỳ 1 vs Kỳ 2]
-    SelectPeriods --> FetchComparison[GET /api/v1/reports/comparison?kỳ1=X&kỳ2=Y]
-    FetchComparison --> RenderComparisonChart[Biểu đồ Cột Kép So Sánh Doanh Thu]
-    RenderComparisonChart --> RenderDiffTable[Bảng chênh lệch: Tăng/Giảm % doanh thu & Số đơn]
+    SelectPeriods --> RenderComparisonChart[Hiển thị Biểu đồ Cột Kép So Sánh Doanh Thu 2 Kỳ]
+    RenderComparisonChart --> RenderDiffTable[Hiển thị Bảng Chênh Lệch: % Tăng/Giảm doanh thu & Số lượng đơn bán]
 ```
 
 ---
 
 ### 7.3 Màn hình Báo Cáo Đối Chiếu Tiền & Doanh Thu Cuối Ngày (`/reports/reconciliation`)
-- **Route**: `/reports/revenue` | **Component**: [RevenueReportPage.tsx](file:///d:/Intern/Codegym/BanHangViet/frontend/src/modules/report/pages/RevenueReportPage.tsx), [ReportController.java](file:///d:/Intern/Codegym/BanHangViet/backend/src/main/java/com/sales/controller/ReportController.java)
+- **Route**: `/reports/revenue` | **Component**: [RevenueReportPage.tsx](file:///d:/Intern/Codegym/BanHangViet/frontend/src/modules/report/pages/RevenueReportPage.tsx)
 - **Mã Backlog**: `NCL-07-CN-003`, `QTN-16`
 
 ```mermaid
 flowchart TD
-    Start[Truy cập Báo cáo Đối chiếu Tiền] --> FetchReconcile[GET /api/v1/reports/reconciliation?date=YYYY-MM-DD]
-    FetchReconcile --> RenderTables[Hiển thị Bảng Tổng hợp Dòng tiền:]
-    RenderTables --> CashTable[1. Tiền mặt: Quỹ đầu ca + Thu từ đơn - Chi trả thừa = Lý thuyết vs Thực đếm]
-    RenderTables --> QRTable[2. Chuyển khoản: Mã VietQR / Ngân hàng đã ghi nhận]
-    RenderTables --> DebtTable[3. Ghi nợ: Công nợ phát sinh trong ngày]
-    RenderTables --> ErrorInvoiceTable[4. Cảnh báo: Danh sách Hóa đơn gửi CQT bị lỗi SEND_ERROR trong ngày - QTN-06]
+    Start[Truy cập Báo cáo Đối chiếu Tiền Cuối Ngày] --> RenderTables[Hiển thị Bảng Tổng hợp Dòng Tiền Thu Chi trong ngày:]
+    RenderTables --> CashTable[1. Tiền mặt: Quỹ đầu ca + Thu từ đơn bán - Chi trả thừa = Lý thuyết vs Thực đếm]
+    RenderTables --> QRTable[2. Chuyển khoản: Danh sách các giao dịch Chuyển khoản QR ngân hàng]
+    RenderTables --> DebtTable[3. Ghi nợ: Tổng dư công nợ phát sinh mới trong ngày]
+    RenderTables --> ErrorInvoiceTable[4. Cảnh báo: Danh sách các Hóa đơn điện tử bị lỗi SEND_ERROR cần xử lý - QTN-06]
     
-    RenderTables --> ClickLock[Chủ hộ bấm 'Chốt Sổ Thu Chi Ngày']
-    ClickLock --> CallLockAPI[POST /api/v1/reports/reconciliation/lock]
-    CallLockAPI --> ToastReconcile[Toast: Đã khóa sổ thu chi ngày thành công!]
+    RenderTables --> ClickLock[Chủ hộ bấm nút 'Chốt Sổ Thu Chi Ngày']
+    ClickLock --> ToastReconcile[Hiển thị Toast: Đã khóa sổ thu chi ngày thành công!]
 ```
 
 ---
 
 ### 7.4 Màn hình Thống Kê Mặt Hàng Bán Chạy (`/reports/top-selling`)
-- **Route**: `/reports/revenue` | **Component**: [RevenueReportPage.tsx](file:///d:/Intern/Codegym/BanHangViet/frontend/src/modules/report/pages/RevenueReportPage.tsx), [ReportController.java](file:///d:/Intern/Codegym/BanHangViet/backend/src/main/java/com/sales/controller/ReportController.java)
+- **Route**: `/reports/revenue` | **Component**: [RevenueReportPage.tsx](file:///d:/Intern/Codegym/BanHangViet/frontend/src/modules/report/pages/RevenueReportPage.tsx)
 - **Mã Backlog**: `NCL-07-CN-007`
 
 ```mermaid
 flowchart TD
     Start[Truy cập Tab Bán Chạy /reports/top-selling] --> SelectDate[Chọn khoảng thời gian: Tuần này / Tháng này / Tùy chọn]
-    SelectDate --> FetchTopSellers[GET /api/v1/reports/top-selling?fromDate=X&toDate=Y&limit=20]
-    FetchTopSellers --> RenderChart[Hiển thị Biểu đồ Thanh Xếp hạng Top Mặt Hàng]
-    RenderChart --> RenderTable[Bảng chi tiết: SKU, Tên SP, Nhóm hàng, Số lượng bán, Doanh thu, Tỷ trọng %]
+    SelectDate --> RenderChart[Hiển thị Biểu đồ Thanh Xếp hạng Top Mặt Hàng Bán Chạy]
+    RenderChart --> RenderTable[Bảng chi tiết: Mã SKU, Tên SP, Nhóm hàng, Số lượng bán, Doanh thu, Tỷ trọng %]
 ```
 
 ---
@@ -559,12 +523,10 @@ sequenceDiagram
     autonumber
     actor Admin as Chủ hộ / Manager
     participant UI as ActivityLogPage.tsx
-    participant API as GET /api/v1/reports/activity-logs
 
     Admin->>UI: Truy cập /reports/activity-logs
-    UI->>API: Call API lấy lịch sử thao tác hệ thống
-    API-->>UI: Danh sách Logs (User, Hành động, IP, Thời gian, Dữ liệu cũ -> mới)
-    UI-->>Admin: Render Bảng Audit Log (Ví dụ: "Thu ngân A đã điều chỉnh giá sản phẩm B")
+    UI->>UI: Nạp danh sách nhật ký lịch sử thao tác hệ thống
+    UI-->>Admin: Render Bảng Audit Log (Ví dụ: "Thu ngân A đã sửa giá sản phẩm B", "Chủ hộ X đã hủy hóa đơn Y")
 ```
 
 ---
@@ -576,22 +538,16 @@ sequenceDiagram
 
 ```mermaid
 flowchart TD
-    Start[Truy cập /dashboard] --> CheckRole{Kiểm tra Vai trò RoleCode - QTN-10}
-    CheckRole -- Thu ngân point_of_sale --> ShowCashierShift[Hiển thị CashierShiftDashboard: Chỉ xem Ca & Đơn cá nhân]
-    CheckRole -- Admin nền tảng platform_admin --> RedirectAdmin[Điều hướng /admin/overview]
-    CheckRole -- Cơ quan Thuế tax_authority --> RedirectTax[Điều hướng /tax-authority/invoices]
+    Start[Truy cập /dashboard] --> CheckRole{Kiểm tra Vai trò Người dùng - QTN-10}
+    CheckRole -- Thu ngân point_of_sale --> ShowCashierShift[Hiển thị Giao diện CashierShiftDashboard: Chỉ xem số liệu Ca & Đơn cá nhân]
+    CheckRole -- Admin nền tảng platform_admin --> RedirectAdmin[Tự động điều hướng sang /admin/overview]
+    CheckRole -- Cơ quan Thuế tax_authority --> RedirectTax[Tự động điều hướng sang /tax-authority/invoices]
     
-    CheckRole -- Chủ hộ owner / Kế toán accountant --> FetchMetrics[Gọi song song các API Dashboard]
-    FetchMetrics --> API1[GET /api/v1/reports/dashboard]
-    FetchMetrics --> API2[GET /api/v1/reports/top-selling]
-    FetchMetrics --> API3[GET /api/v1/reports/activity-logs]
-    FetchMetrics --> API4[GET /api/v1/invoices?status=SEND_ERROR]
-    
-    API1 & API2 & API3 & API4 --> RenderDashboard[Render Màn hình Dashboard Tổng Quan]
-    RenderDashboard --> ShowKPIs[Cards KPI: Tổng Doanh Thu, Số Đơn, Hóa đơn lỗi SEND_ERROR]
-    RenderDashboard --> ShowCharts[Biểu đồ Tăng trưởng Doanh Thu + Biểu đồ Tròn PTTT]
+    CheckRole -- Chủ hộ owner / Kế toán accountant --> RenderDashboard[Render Màn hình Dashboard Tổng Quan Cửa Hàng]
+    RenderDashboard --> ShowKPIs[Các Thẻ KPI: Tổng Doanh Thu, Số Đơn hàng, Số Hóa đơn lỗi SEND_ERROR]
+    RenderDashboard --> ShowCharts[Biểu đồ Tăng trưởng Doanh Thu + Biểu đồ Tròn Phương thức Thanh toán]
     RenderDashboard --> ShowTopSellers[Widget Top 5 Mặt hàng bán chạy nhất]
-    RenderDashboard --> ShowLogs[Panel Nhật ký Hoạt động thao tác gần đây]
+    RenderDashboard --> ShowLogs[Panel Nhật ký Hoạt động thao tác gần nhất]
 ```
 
 ---
@@ -599,26 +555,25 @@ flowchart TD
 ## 8. PHÂN HỆ 8: QUẢN LÝ KHÁCH HÀNG & CÔNG NỢ (NCL-10)
 
 ### 8.1 Màn hình Quản Lý Khách Hàng (`/customers`)
-- **Route**: `/customers` | **Component**: [CustomerPage.tsx](file:///d:/Intern/Codegym/BanHangViet/frontend/src/modules/customer/pages/CustomerPage.tsx)
+- **Route**: `/customers` | **Components**: [CustomerPage.tsx](file:///d:/Intern/Codegym/BanHangViet/frontend/src/modules/customer/pages/CustomerPage.tsx), [CustomerManagement.tsx](file:///d:/Intern/Codegym/BanHangViet/frontend/src/modules/customer/components/CustomerManagement.tsx), [CustomerList.tsx](file:///d:/Intern/Codegym/BanHangViet/frontend/src/modules/customer/components/CustomerList.tsx), [CustomerFormModal.tsx](file:///d:/Intern/Codegym/BanHangViet/frontend/src/modules/customer/components/CustomerFormModal.tsx)
 - **Mã Backlog**: `NCL-10-CN-001`
 
 ```mermaid
 flowchart TD
-    Start[Truy cập /customers] --> FetchCust[GET /api/v1/customers]
-    FetchCust --> RenderCustTable[Hiển thị Bảng Khách hàng: Họ tên, SĐT, MST, Tích điểm, Công nợ]
+    Start[Truy cập /customers] --> RenderCustTable[Hiển thị Bảng Khách hàng: Họ tên, SĐT, Mã số thuế, Tích điểm, Tổng công nợ]
     
     RenderCustTable --> AddCust[Bấm '+ Thêm Khách hàng']
-    AddCust --> OpenModal[Mở CustomerFormModal]
-    OpenModal --> SubmitCust[POST /api/v1/customers -> Toast thành công]
+    AddCust --> OpenModal[Mở Popup Form CustomerFormModal]
+    OpenModal --> SubmitCust[Điền Tên, SĐT, Địa chỉ, Hạn mức nợ -> Click Lưu -> Toast thành công]
 
-    RenderCustTable --> ViewHistory[Click Dòng Khách hàng]
-    ViewHistory --> OpenDrawer[Mở CustomerHistoryDrawer: Lịch sử mua đơn hàng & Điểm thưởng đã tích]
+    RenderCustTable --> ViewHistory[Click một dòng Khách hàng]
+    ViewHistory --> OpenDrawer[Hiển thị Chi Tiết Khách Hàng: Lịch sử mua hàng & Điểm thưởng đã tích lũy]
 ```
 
 ---
 
 ### 8.2 Màn hình Thu Nợ & Nhắc Nợ Khách Hàng (`/customers`, `/debts`)
-- **Route**: `/customers` | **Components**: [CustomerPage.tsx](file:///d:/Intern/Codegym/BanHangViet/frontend/src/modules/customer/pages/CustomerPage.tsx), [DebtPaymentModal.tsx](file:///d:/Intern/Codegym/BanHangViet/frontend/src/modules/customer/components/DebtPaymentModal.tsx), [DebtReminderModal.tsx](file:///d:/Intern/Codegym/BanHangViet/frontend/src/modules/customer/components/DebtReminderModal.tsx), [CustomerDebtController.java](file:///d:/Intern/Codegym/BanHangViet/backend/src/main/java/com/sales/controller/CustomerDebtController.java)
+- **Route**: `/customers` | **Components**: [CustomerPage.tsx](file:///d:/Intern/Codegym/BanHangViet/frontend/src/modules/customer/pages/CustomerPage.tsx), [DebtPaymentModal.tsx](file:///d:/Intern/Codegym/BanHangViet/frontend/src/modules/customer/components/DebtPaymentModal.tsx), [DebtReminderModal.tsx](file:///d:/Intern/Codegym/BanHangViet/frontend/src/modules/customer/components/DebtReminderModal.tsx)
 - **Vai trò**: Chủ hộ (`normal_management`), Kế toán (`normal_management`).
 - **Mã Backlog**: `NCL-10-CN-002`, `NCL-10-CN-003`, `QTN-13`, `QTN-14`
 
@@ -628,30 +583,25 @@ sequenceDiagram
     autonumber
     actor User as Chủ hộ / Kế toán
     participant UI as CustomerPage / DebtPaymentModal
-    participant DebtAPI as POST /api/v1/debts/collect
-    participant DB as Database (CustomerDebts & Customer)
+    participant App as Giao diện Hệ thống
 
-    User->>UI: Bấm "Thu nợ" tại dòng Khách hàng có công nợ > 0
-    UI->>UI: Hiển thị Tổng dư nợ hiện tại + Hạn mức nợ của Khách (QTN-13)
-    User->>UI: Nhập Số tiền thu + Phương thức (Tiền mặt / CK) + Ghi chú
-    User->>UI: Bấm "Xác Nhận Thu Nợ"
-    UI->>DebtAPI: Send CollectDebtRequest(customerId, amount, paymentMethod, note)
-    DebtAPI->>DB: @Transactional: Tạo bản ghi Thu nợ + Trừ Tổng công nợ khách hàng
-    DB-->>DebtAPI: Updated Customer Debt Record
-    DebtAPI-->>UI: ApiResponse(CustomerDebtResponse)
-    UI-->>User: Toast: Đã ghi nhận thu nợ N VNĐ thành công + In phiếu thu nợ
+    User->>UI: Bấm nút "Thu nợ" tại dòng Khách hàng có dư nợ > 0
+    UI->>UI: Hiển thị Tổng dư nợ hiện tại + Hạn mức nợ cho phép của Khách (QTN-13)
+    User->>UI: Nhập Số tiền thu + Chọn Phương thức (Tiền mặt / Chuyển khoản) + Ghi chú
+    User->>UI: Bấm nút "Xác Nhận Thu Nợ"
+    UI->>App: Gửi thông tin thu nợ
+    App-->>UI: Xác nhận ghi nhận thu nợ thành công
+    UI-->>User: Toast thông báo: Đã ghi nhận thu nợ N VNĐ thành công + In phiếu thu nợ
 ```
 
 #### 8.2.2 Sơ Đồ Nhắc Công Nợ & Cảnh Báo Đến Hạn (Debt Reminder Flow - NCL-10-CN-003, QTN-14)
 ```mermaid
 flowchart TD
-    Start[Vào Modal DebtReminderModal] --> LoadReminders[GET /api/v1/debts/reminders?status=OVERDUE]
-    LoadReminders --> RenderDebtTable[Hiển thị Bảng Công Nợ: Khách hàng, Số nợ, Ngày nợ, Ngày đến hạn, Trạng thái - QTN-14]
+    Start[Click Mở Popup DebtReminderModal] --> RenderDebtTable[Hiển thị Bảng Danh Sách Công Nợ: Khách hàng, Số nợ, Ngày nợ, Ngày đến hạn, Trạng thái OVERDUE - QTN-14]
     
-    RenderDebtTable --> ActionRemind[Bấm 'Gửi Email Nhắc Nợ']
-    ActionRemind --> ConfirmRemind[POST /api/v1/debts/remind]
-    ConfirmRemind --> SendMail[Hệ thống gửi Email thông báo tự động tới Khách hàng]
-    SendMail --> ToastRemindSuccess[Toast: Đã gửi email nhắc nợ thành công!]
+    RenderDebtTable --> ActionRemind[Bấm nút 'Gửi Email Nhắc Nợ']
+    ActionRemind --> ConfirmRemind[Bấm 'Xác nhận Gửi']
+    ConfirmRemind --> ToastRemindSuccess[Hiển thị Toast: Đã gửi email thông báo nhắc nợ tới Khách hàng thành công!]
 ```
 
 ---
@@ -659,16 +609,14 @@ flowchart TD
 ## 9. PHÂN HỆ 9: CẤU HÌNH CỬA HÀNG & DỮ LIỆU (NCL-09)
 
 ### 9.1 Màn hình Thông Tin Hộ Kinh Doanh (`/settings/business-info`)
-- **Route**: `/settings/business-info` | **Components**: [BusinessInfoPage.tsx](file:///d:/Intern/Codegym/BanHangViet/frontend/src/modules/settings/pages/BusinessInfoPage.tsx), [HouseholdController.java](file:///d:/Intern/Codegym/BanHangViet/backend/src/main/java/com/sales/controller/HouseholdController.java)
+- **Route**: `/settings/business-info` | **Component**: [BusinessInfoPage.tsx](file:///d:/Intern/Codegym/BanHangViet/frontend/src/modules/settings/pages/BusinessInfoPage.tsx)
 - **Mã Backlog**: `NCL-09-CN-001`
 
 ```mermaid
 flowchart TD
-    Start[Truy cập /settings/business-info] --> LoadInfo[GET /api/v1/households/my-household]
-    LoadInfo --> RenderForm[Hiển thị Form: Tên hộ, MST, Địa chỉ, SĐT, Tên Chủ hộ]
-    RenderForm --> EditForm[Chỉnh sửa thông tin cửa hàng -> Bấm 'Lưu Thay Đổi']
-    EditForm --> CallAPIUpdate[PUT /api/v1/households/my-household]
-    CallAPIUpdate --> ToastSave[Toast: Cập nhật thông tin hộ kinh doanh thành công!]
+    Start[Truy cập /settings/business-info] --> RenderForm[Hiển thị Form Thông tin: Tên hộ, Mã số thuế, Địa chỉ, SĐT, Tên Chủ hộ]
+    RenderForm --> EditForm[Chỉnh sửa thông tin cửa hàng -> Bấm nút 'Lưu Thay Đổi']
+    EditForm --> ToastSave[Hiển thị Toast: Cập nhật thông tin hộ kinh doanh thành công!]
 ```
 
 ---
@@ -679,11 +627,10 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    Start[Truy cập /settings/invoice-template] --> FetchTemplate[GET /api/v1/invoice-templates]
-    FetchTemplate --> ShowTemplate[Hiển thị Mẫu số, Ký hiệu HĐ 1C26M, Logo Hộ & Cấu hình Token Chữ ký số]
+    Start[Truy cập /settings/invoice-template] --> ShowTemplate[Hiển thị Mẫu số, Ký hiệu HĐ 1C26TAA / C26TAA, Logo Hộ & Cấu hình Token Chữ ký số]
     ShowTemplate --> UploadLogo[Tải Logo cửa hàng & Cấu hình Chữ ký số USB Token / HSM]
-    UploadLogo --> SaveTemplate[PUT /api/v1/invoice-templates]
-    SaveTemplate --> ToastTemplate[Toast: Đã lưu thiết lập Mẫu Hóa đơn hợp lệ - QTN-02]
+    UploadLogo --> SaveTemplate[Bấm 'Lưu Cấu Hình Mẫu Hóa Đơn']
+    SaveTemplate --> ToastTemplate[Hiển thị Toast: Đã lưu thiết lập Mẫu Hóa đơn hợp lệ - QTN-02]
 ```
 
 ---
@@ -694,11 +641,9 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    Start[Truy cập /settings/tax-rates] --> FetchTax[GET /api/v1/tax-rates]
-    FetchTax --> ShowTaxList[Danh sách Thuế suất: VAT0, VAT5, VAT8, VAT10]
-    ShowTaxList --> ToggleTax[Công tắc Bật/Tắt Trạng thái Hiệu lực của mức Thuế - QTN-17]
-    ToggleTax --> UpdateTaxAPI[PATCH /api/v1/tax-rates/{id}/status]
-    UpdateTaxAPI --> RefreshTax[Chỉ mức thuế đang hiệu lực mới được áp dụng khi xuất Hóa đơn]
+    Start[Truy cập /settings/tax-rates] --> ShowTaxList[Danh sách Thuế suất: VAT0%, VAT5%, VAT8%, VAT10%]
+    ShowTaxList --> ToggleTax[Click Công tắc Bật/Tắt Trạng thái Hiệu lực của mức Thuế - QTN-17]
+    ToggleTax --> RefreshTax[Mức thuế được BẬT mới xuất hiện khi lập Hóa đơn]
 ```
 
 ---
@@ -710,9 +655,8 @@ flowchart TD
 ```mermaid
 flowchart TD
     Start[Truy cập /settings/backup-export] --> ShowOptions[Tùy chọn: Sao lưu Hệ thống & Export Excel/JSON]
-    ShowOptions --> ClickBackup[Bấm 'Tạo Bản Sao Lưu Dữ Liệu']
-    ClickBackup --> CallBackupAPI[GET /api/v1/backup/export]
-    CallBackupAPI --> DownloadBackup[Tải file SaoLuu_DuLieu_BanHangViet.json / .sql]
+    ShowOptions --> ClickBackup[Bấm nút 'Tạo Bản Sao Lưu Dữ Liệu']
+    ClickBackup --> DownloadBackup[Tải file sao lưu SaoLuu_DuLieu_BanHangViet.json / .sql về máy]
 ```
 
 ---
@@ -723,12 +667,10 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    Start[Truy cập /settings/printer] --> LoadPrinterConfig[Nạp Cấu hình Máy in từ LocalStorage / System Config]
-    LoadPrinterConfig --> RenderPrinterForm[Form: Chọn Cổng kết nối LAN/IP / USB / Bluetooth + Khổ giấy 80mm / 58mm / A4]
-    RenderPrinterForm --> ClickTest[Bấm 'In Thử Nghiệm']
-    ClickTest --> SendTestPrint[Gửi lệnh in mẫu tới Máy in đã chọn]
-    SendTestPrint --> ClickSavePrinter[Bấm 'Lưu Thiết Lập Máy In']
-    ClickSavePrinter --> ToastPrinter[Toast: Cấu hình máy in hóa đơn đã được lưu!]
+    Start[Truy cập /settings/printer] --> RenderPrinterForm[Form: Chọn Cổng kết nối LAN/IP / USB / Bluetooth + Khổ giấy 80mm / 58mm / A4]
+    RenderPrinterForm --> ClickTest[Bấm 'In Thử Nghiệm' -> Gửi lệnh in mẫu tới máy in đã chọn]
+    RenderPrinterForm --> ClickSavePrinter[Bấm 'Lưu Thiết Lập Máy In']
+    ClickSavePrinter --> ToastPrinter[Hiển thị Toast: Cấu hình máy in hóa đơn đã được lưu!]
 ```
 
 ---
@@ -741,9 +683,8 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    Start[Admin truy cập /admin/overview] --> FetchAdminStats[GET /api/v1/admin/stats]
-    FetchAdminStats --> RenderMetrics[Metrics Cards: Tổng Hộ Kinh Doanh, Hộ đang hoạt động, Hộ sắp hết hạn, Tổng HĐĐT đã phát hành]
-    RenderMetrics --> RenderTrafficChart[Biểu đồ Lưu lượng Giao dịch & Request Hệ thống]
+    Start[Admin truy cập /admin/overview] --> RenderMetrics[Metrics Cards: Tổng Hộ Kinh Doanh, Hộ đang hoạt động, Hộ sắp hết hạn, Tổng HĐĐT đã phát hành]
+    RenderMetrics --> RenderTrafficChart[Hiển thị Biểu đồ Lưu lượng Giao dịch & Request Hệ thống toàn nền tảng]
 ```
 
 ---
@@ -757,25 +698,16 @@ sequenceDiagram
     autonumber
     actor Admin as Platform Admin
     participant UI as HouseholdManagementPage.tsx
-    participant API as GET/PATCH /api/v1/admin/households
-    participant DB as Database
 
     Admin->>UI: Truy cập /admin/households
-    UI->>API: GET /api/v1/admin/households (Kèm bộ lọc MST, Tên Hộ, Trạng thái)
-    API-->>UI: Render Danh sách Hộ kinh doanh & Gói dịch vụ
+    UI-->>Admin: Render Danh sách Hộ kinh doanh & Gói dịch vụ đăng ký
     
     alt Khóa / Mở khóa Hộ Kinh Doanh
         Admin->>UI: Bấm công tắc Khóa/Mở khóa Hộ
-        UI->>API: PATCH /api/v1/admin/households/{id}/status
-        API->>DB: Cập nhật Trạng thái Active/Locked
-        API-->>UI: 200 OK
-        UI-->>Admin: Toast: Đã thay đổi trạng thái Hộ thành công
+        UI-->>Admin: Hiển thị Toast: Đã thay đổi trạng thái Hộ kinh doanh thành công
     else Gia hạn Gói Dịch vụ
-        Admin->>UI: Click "Gia hạn" -> Chọn Ngày hết hạn mới
-        UI->>API: POST /api/v1/admin/households/{id}/extend
-        API->>DB: Cập nhật Subscription Expire Date
-        API-->>UI: 200 OK
-        UI-->>Admin: Toast: Gia hạn dịch vụ thành công!
+        Admin->>UI: Click nút "Gia hạn" -> Chọn Ngày hết hạn mới
+        UI-->>Admin: Hiển thị Toast: Gia hạn gói dịch vụ thành công!
     end
 ```
 
@@ -787,9 +719,8 @@ sequenceDiagram
 
 ```mermaid
 flowchart TD
-    Start[Admin truy cập /admin/logs] --> FetchSystemLogs[GET /api/v1/admin/logs]
-    FetchSystemLogs --> RenderLogTable[Bảng Nhật Ký Toàn Hệ Thống: Thời gian, Hộ KD, Người thực hiện, API Endpoint, Trạng thái Response, IP]
-    RenderLogTable --> FilterLogs[Lọc theo Cấp độ Error/Warning, MST Hộ, Khoảng thời gian]
+    Start[Admin truy cập /admin/logs] --> RenderLogTable[Bảng Nhật Ký Toàn Hệ Thống: Thời gian, Hộ KD, Người thực hiện, Tên Thao tác, Trạng thái, IP]
+    RenderLogTable --> FilterLogs[Lọc theo Cấp độ Error/Warning, Mã số thuế Hộ, Khoảng thời gian]
 ```
 
 ---
@@ -797,7 +728,7 @@ flowchart TD
 ## 11. PHÂN HỆ 11: WORKSPACE CƠ QUAN THUẾ MÔ PHỎNG (TAX AUTHORITY)
 
 ### 11.1 Cổng Duyệt Cấp Mã Hóa Đơn Điện Tử Cục Thuế (`/tax-authority/invoices`)
-- **Route**: `/tax-authority/invoices` | **Components**: [TaxInvoiceApprovalRoutePage.tsx](file:///d:/Intern/Codegym/BanHangViet/frontend/src/modules/tax_authority/pages/TaxInvoiceApprovalRoutePage.tsx), [TaxAuthorityController.java](file:///d:/Intern/Codegym/BanHangViet/backend/src/main/java/com/sales/controller/TaxAuthorityController.java)
+- **Route**: `/tax-authority/invoices` | **Component**: [TaxInvoiceApprovalRoutePage.tsx](file:///d:/Intern/Codegym/BanHangViet/frontend/src/modules/tax_authority/pages/TaxInvoiceApprovalRoutePage.tsx)
 - **Vai trò**: Cán bộ Cục Thuế mô phỏng (`tax_authority`).
 - **Mã Backlog**: `NCL-04-CN-003`, `NCL-04-CN-004`, `QTN-06`
 
@@ -806,27 +737,18 @@ sequenceDiagram
     autonumber
     actor TaxOfficer as Cán bộ Cục Thuế (VT-05)
     participant UI as TaxInvoiceApprovalRoutePage.tsx
-    participant TaxAPI as /api/v1/tax-authority/invoices
-    participant DB as Database
 
     TaxOfficer->>UI: Truy cập /tax-authority/invoices
-    UI->>TaxAPI: GET /api/v1/tax-authority/invoices/waiting
-    TaxAPI-->>UI: Render Danh sách Hóa đơn đang chờ cấp mã
+    UI-->>TaxOfficer: Render Danh sách Hóa đơn điện tử đang chờ cấp mã
     
     alt Hành động 1: Duyệt Cấp Mã
-        TaxOfficer->>UI: Click "Duyệt cấp mã" -> Sinh Mã CQT
-        UI->>TaxAPI: POST /api/v1/tax-authority/invoices/{invoiceId}/approve
-        TaxAPI->>DB: Chuyển Trạng thái HĐ sang ISSUED + Gán Mã CQT & Số HĐ tăng dần
-        DB-->>TaxAPI: Approved Record
-        TaxAPI-->>UI: 200 OK
-        UI-->>TaxOfficer: Toast: Đã cấp mã CQT thành công!
+        TaxOfficer->>UI: Click nút "Duyệt cấp mã" -> Hệ thống sinh Mã CQT
+        UI->>UI: Chuyển Trạng thái HĐ sang ISSUED + Gán Mã CQT & Số HĐ tăng dần
+        UI-->>TaxOfficer: Hiển thị Toast: Đã cấp mã CQT thành công!
     else Hành động 2: Từ Chối Cấp Mã (Cảnh báo hạn QTN-06)
-        TaxOfficer->>UI: Click "Từ chối" -> Nhập Thông báo lỗi (VD: Mã số thuế người mua bị sai)
-        UI->>TaxAPI: POST /api/v1/tax-authority/invoices/{invoiceId}/reject
-        TaxAPI->>DB: Chuyển Trạng thái HĐ sang SEND_ERROR + Lưu Chi tiết Lỗi (QTN-06)
-        DB-->>TaxAPI: Rejected Record
-        TaxAPI-->>UI: 200 OK
-        UI-->>TaxOfficer: Toast: Đã chuyển trạng thái Lỗi gửi thuế
+        TaxOfficer->>UI: Click "Từ chối" -> Nhập Thông báo lỗi (VD: Mã số thuế người mua không khớp)
+        UI->>UI: Chuyển Trạng thái HĐ sang SEND_ERROR + Lưu Chi tiết Lỗi (QTN-06)
+        UI-->>TaxOfficer: Hiển thị Toast: Đã chuyển trạng thái Lỗi gửi thuế
     end
 ```
 
