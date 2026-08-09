@@ -33,11 +33,11 @@ backend/src/main/java/com/viet/sales/
 
 ### 🌐 1. `controller/` (Tầng REST Controllers - Tiếp nhận Yêu cầu)
 - **Chức năng**: Là cổng tiếp nhận HTTP Request từ Client (`@RestController`), validate dữ liệu đầu vào sử dụng `@Valid`.
-- **Quy tắc**: Chi tiết tại [controller/README.md](file:///d:/Intern/Codegym/BanHangViet/backend/src/main/java/com/viet/sales/controller/README.md). Tầng Controller **tuyệt đối không chứa logic nghiệp vụ** hay gọi trực tiếp Repository, mà chỉ gọi qua tầng Service và bọc dữ liệu trả về trong chuẩn đối tượng `ResponseEntity<ApiResponse<T>>`.
+- **Quy tắc**: Tầng Controller **tuyệt đối không chứa logic nghiệp vụ** hay gọi trực tiếp Repository, mà chỉ gọi qua tầng Service và bọc dữ liệu trả về trong chuẩn đối tượng `ResponseEntity<ApiResponse<T>>`.
 
 ### 🧠 2. `service/` (Tầng Xử lý Nghiệp vụ - Heart of Application)
 - **Chức năng**: Tập trung toàn bộ logic tính toán, kiểm tra điều kiện nghiệp vụ, điều phối dữ liệu giữa DTO, Entity và Repository.
-- **Cấu trúc**: Chi tiết tại [service/README.md](file:///d:/Intern/Codegym/BanHangViet/backend/src/main/java/com/viet/sales/service/README.md).
+- **Cấu trúc**:
   - **`interfaces/`**: Định nghĩa danh sách các hàm nghiệp vụ (ví dụ: `ProductService`, `OrderService`, `ShiftService`).
   - **`classes/`**: Lớp triển khai thực tế (ví dụ: `ProductServiceImpl`, `OrderServiceImpl`), sử dụng `@Service` và gắn `@Transactional` đối với các thao tác ghi/sửa dữ liệu phức tạp.
 
