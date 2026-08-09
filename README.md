@@ -87,6 +87,13 @@ Dự án được tổ chức dạng **Monorepo** tách biệt giữa backend v�
 
 ```text
 BanHangViet/
+├── architecture/                 # Thư mục Tài liệu Kiến trúc & Quy chuẩn Kỹ thuật
+│   ├── README.md                 # Chỉ mục tài liệu kiến trúc & tổng quan
+│   ├── backend_architecture.md   # Tài liệu chi tiết kiến trúc Backend Spring Boot
+│   ├── frontend_architecture.md  # Tài liệu chi tiết kiến trúc Frontend React
+│   ├── ui_ux_standards.md        # Quy chuẩn thiết kế UI/UX & giao diện POS
+│   └── screen_flows.md           # Sơ đồ luồng màn hình chi tiết theo vai trò
+│
 ├── backend/                      # Mã nguồn Backend Spring Boot
 │   ├── src/main/java/com/viet/sales/
 │   │   ├── configuration/        # Cấu hình Security, JWT Filter, CORS
@@ -99,7 +106,6 @@ BanHangViet/
 │   │   ├── service/              # Logic Nghiệp vụ (Interfaces & Classes)
 │   │   ├── specification/        # Query động với JPA Criteria API
 │   │   └── utils/                # Hàm tiện ích bổ trợ
-│   ├── backend_architecture.md   # Tài liệu chi tiết kiến trúc Backend
 │   └── pom.xml                   # Cấu hình Maven Dependencies
 │
 ├── frontend/                     # Mã nguồn Frontend React TypeScript
@@ -115,7 +121,6 @@ BanHangViet/
 │   │   ├── routers/              # AppRouter & Guards (PrivateRoute, RoleRoute...)
 │   │   ├── stores/               # Redux Store & RTK Query baseApi
 │   │   └── utils/                # Formatters, helpers
-│   ├── frontend_architecture.md  # Tài liệu chi tiết kiến trúc Frontend
 │   ├── package.json              # Npm Dependencies & Scripts
 │   ├── tailwind.config.js        # Cấu hình Tailwind CSS
 │   └── vite.config.ts            # Cấu hình Vite Build Tool
@@ -124,7 +129,6 @@ BanHangViet/
 │   ├── shift_management_analysis.md # Phân tích chi tiết User Story Ca bán hàng
 │   └── shift_management_flow.md     # Sơ đồ luồng mở/đóng ca bán hàng
 │
-├── backend_architecture.md       # Tổng quan Kiến trúc Backend (Root)
 └── README.md                     # Tài liệu tổng quan dự án (File này)
 ```
 
@@ -198,12 +202,15 @@ Hệ thống hỗ trợ phân quyền truy cập chi tiết dựa trên vai trò
 
 ---
 
-## 📖 Tài Liệu Kiến Trúc Chi Tiết
+## 📖 Tài Liệu Kiến Trúc & Quy Chuẩn Chi Tiết
 
-Để tìm hiểu sâu hơn về kiến trúc kỹ thuật và luồng hoạt động từng tầng, vui lòng tham khảo các tài liệu sau:
+Để tìm hiểu sâu hơn về kiến trúc kỹ thuật và luồng hoạt động từng tầng, vui lòng tham khảo thư mục **[architecture/](file:///d:/Intern/Codegym/BanHangViet/architecture/README.md)**:
 
-- 📄 [Tài liệu Kiến trúc Backend](file:///d:/Intern/Codegym/BanHangViet/backend_architecture.md) (`backend_architecture.md`)
-- 📄 [Tài liệu Kiến trúc Frontend](file:///d:/Intern/Codegym/BanHangViet/frontend/frontend_architecture.md) (`frontend/frontend_architecture.md`)
+- 📄 [Tổng quan Chỉ mục Architecture](file:///d:/Intern/Codegym/BanHangViet/architecture/README.md) (`architecture/README.md`)
+- 📄 [Tài liệu Kiến trúc Backend](file:///d:/Intern/Codegym/BanHangViet/architecture/backend_architecture.md) (`architecture/backend_architecture.md`)
+- 📄 [Tài liệu Kiến trúc Frontend](file:///d:/Intern/Codegym/BanHangViet/architecture/frontend_architecture.md) (`architecture/frontend_architecture.md`)
+- 📄 [Quy chuẩn Thiết kế UI/UX](file:///d:/Intern/Codegym/BanHangViet/architecture/ui_ux_standards.md) (`architecture/ui_ux_standards.md`)
+- 📄 [Đặc tả Sơ đồ Luồng Màn hình Chi tiết (Full Screen Activity Flows)](file:///d:/Intern/Codegym/BanHangViet/architecture/full_screen_activity_flows.md) (`architecture/full_screen_activity_flows.md`)
 - 📄 [Phân tích nghiệp vụ Quản lý ca](file:///d:/Intern/Codegym/BanHangViet/.huh/shift_management_analysis.md) (`.huh/shift_management_analysis.md`)
 
 ---

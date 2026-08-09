@@ -43,7 +43,7 @@ frontend/src/
 ## 2. Chi Tiết Chức Năng Từng Thư Mục
 
 ### 🏢 1. `src/modules/` (Thư mục trung tâm nghiệp vụ)
-Được thiết kế theo nguyên tắc **Tách biệt nghiệp vụ (Isolation)** (chi tiết tại [modules/README.md](file:///d:/Intern/Codegym/BanHangViet/frontend/src/modules/README.md)). Mỗi module đại diện cho một miền chức năng riêng biệt (`auth`, `product`, `pos`, `order`, v.v.) và có cấu trúc nội bộ chuẩn:
+Được thiết kế theo nguyên tắc **Tách biệt nghiệp vụ (Isolation)**. Mỗi module đại diện cho một miền chức năng riêng biệt (`auth`, `product`, `pos`, `order`, v.v.) và có cấu trúc nội bộ chuẩn:
 - **`services/`**: Chứa RTK Query Endpoints dùng để gọi API liên quan riêng tới module đó (sử dụng `baseApi.injectEndpoints`).
 - **`pages/`**: Các trang giao diện chính của module.
 - **`components/`**: Các UI Component nhỏ chỉ phục vụ riêng cho module đó.
