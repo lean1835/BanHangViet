@@ -62,18 +62,18 @@ Tài liệu này tổng hợp toàn bộ **Sơ đồ luồng hoạt động giao
 
 ```mermaid
 flowchart TD
-    Start[User truy cập /auth/login] --> InputForm[Nhập Username & Password]
-    InputForm --> ClickLogin[Bấm nút 'Đăng nhập']
-    ClickLogin --> ValidateInput{Validate Form Client?}
-    ValidateInput -- Không hợp lệ --> ShowClientErr[Hiển thị dòng báo lỗi đỏ dưới ô nhập]
-    ValidateInput -- Hợp lệ --> CheckAuth{Xác thực thông tin?}
-    CheckAuth -- Thất bại / Sai khẩu --> ShowToastErr[Hiển thị Toast lỗi: Sai mật khẩu hoặc Tài khoản bị khóa]
-    CheckAuth -- Thành công --> SaveSession[Lưu phiên đăng nhập AccessToken & UserInfo]
-    SaveSession --> CheckRole{Kiểm tra Vai trò Người dùng}
-    CheckRole -- Chủ hộ / Manager --> GoDashboard[Chuyển hướng màn hình /dashboard]
-    CheckRole -- Thu ngân POS --> GoPOS[Chuyển hướng màn hình /pos]
-    CheckRole -- Admin nền tảng --> GoAdmin[Chuyển hướng màn hình /admin/overview]
-    CheckRole -- Cán bộ Thuế --> GoTax[Chuyển hướng màn hình /tax-authority/invoices]
+    Start["User truy cập /auth/login"] --> InputForm["Nhập Username & Password"]
+    InputForm --> ClickLogin["Bấm nút 'Đăng nhập'"]
+    ClickLogin --> ValidateInput{"Validate Form Client?"}
+    ValidateInput -->|Không hợp lệ| ShowClientErr["Hiển thị dòng báo lỗi đỏ dưới ô nhập"]
+    ValidateInput -->|Hợp lệ| CheckAuth{"Xác thực thông tin?"}
+    CheckAuth -->|Thất bại / Sai khẩu| ShowToastErr["Hiển thị Toast lỗi: Sai mật khẩu hoặc Tài khoản bị khóa"]
+    CheckAuth -->|Thành công| SaveSession["Lưu phiên đăng nhập AccessToken & UserInfo"]
+    SaveSession --> CheckRole{"Kiểm tra Vai trò Người dùng"}
+    CheckRole -->|Chủ hộ / Manager| GoDashboard["Chuyển hướng màn hình /dashboard"]
+    CheckRole -->|Thu ngân POS| GoPOS["Chuyển hướng màn hình /pos"]
+    CheckRole -->|Admin nền tảng| GoAdmin["Chuyển hướng màn hình /admin/overview"]
+    CheckRole -->|Cán bộ Thuế| GoTax["Chuyển hướng màn hình /tax-authority/invoices"]
 ```
 
 ---
@@ -115,17 +115,17 @@ sequenceDiagram
 
 ```mermaid
 flowchart TD
-    Start[Vào trang /employees] --> RenderTable[Hiển thị Bảng Danh sách Nhân Viên & Vai Trò]
+    Start["Vào trang /employees"] --> RenderTable["Hiển thị Bảng Danh sách Nhân Viên & Vai Trò"]
     
-    RenderTable --> ClickAdd[Bấm nút '+ Thêm Nhân Viên']
-    ClickAdd --> OpenAddModal[Mở Popup Form EmployeeFormModal]
-    OpenAddModal --> SubmitAdd[Nhập Họ tên, Tên đăng nhập, Chọn Vai trò: Thu ngân / Kế toán -> Click Lưu]
-    SubmitAdd --> ProcessAdd[Gửi lệnh thêm nhân viên]
-    ProcessAdd --> RefreshAdd[Tự động nạp lại danh sách nhân viên mới]
+    RenderTable --> ClickAdd["Bấm nút '+ Thêm Nhân Viên'"]
+    ClickAdd --> OpenAddModal["Mở Popup Form EmployeeFormModal"]
+    OpenAddModal --> SubmitAdd["Nhập Họ tên, Tên đăng nhập, Chọn Vai trò: Thu ngân / Kế toán ➔ Click Lưu"]
+    SubmitAdd --> ProcessAdd["Gửi lệnh thêm nhân viên"]
+    ProcessAdd --> RefreshAdd["Tự động nạp lại danh sách nhân viên mới"]
 
-    RenderTable --> ClickStatus[Click công tắc Khóa / Mở Khóa tài khoản]
-    ClickStatus --> ProcessStatus[Gửi lệnh đổi trạng thái tài khoản]
-    ProcessStatus --> ToastStatus[Hiển thị Toast: Đã thay đổi trạng thái tài khoản nhân viên]
+    RenderTable --> ClickStatus["Click công tắc Khóa / Mở Khóa tài khoản"]
+    ClickStatus --> ProcessStatus["Gửi lệnh đổi trạng thái tài khoản"]
+    ProcessStatus --> ToastStatus["Hiển thị Toast: Đã thay đổi trạng thái tài khoản nhân viên"]
 ```
 
 ---
@@ -168,21 +168,21 @@ sequenceDiagram
 
 ```mermaid
 flowchart TD
-    Start[Truy cập /products] --> ShowGrid[Hiển thị Bảng Hàng hóa: SKU, Tên, ĐVT, Giá bán, Tồn kho, Thuế]
+    Start["Truy cập /products"] --> ShowGrid["Hiển thị Bảng Hàng hóa: SKU, Tên, ĐVT, Giá bán, Tồn kho, Thuế"]
     
-    ShowGrid --> ActionAdd[Bấm '+ Thêm sản phẩm']
-    ActionAdd --> OpenModal[Mở Popup Form ProductFormModal]
-    OpenModal --> FillData[Nhập Mã vạch SKU, Tên hàng, Chọn Nhóm hàng, Giá bán, Giá vốn, Mức thuế GTGT]
-    FillData --> SaveProd[Bấm nút 'Lưu Sản Phẩm']
-    SaveProd --> ToastSuccess[Hiển thị Toast: Đã thêm sản phẩm thành công!]
+    ShowGrid --> ActionAdd["Bấm '+ Thêm sản phẩm'"]
+    ActionAdd --> OpenModal["Mở Popup Form ProductFormModal"]
+    OpenModal --> FillData["Nhập Mã vạch SKU, Tên hàng, Chọn Nhóm hàng, Giá bán, Giá vốn, Mức thuế GTGT"]
+    FillData --> SaveProd["Bấm nút 'Lưu Sản Phẩm'"]
+    SaveProd --> ToastSuccess["Hiển thị Toast: Đã thêm sản phẩm thành công!"]
 
-    ShowGrid --> ActionImport[Bấm nút 'Nhập từ Excel']
-    ActionImport --> OpenImportModal[Mở Popup ImportProductsModal]
-    OpenImportModal --> DownloadTemplate[Bấm 'Tải File Mẫu Excel' -> Tải file mẫu .xlsx]
-    OpenImportModal --> UploadFile[Tải file Excel từ máy tính lên]
-    UploadFile --> ValidateExcel{Hệ thống kiểm tra dữ liệu file Excel?}
-    ValidateExcel -- Phát hiện dòng lỗi --> ShowErrorList[Hiển thị danh sách các dòng dữ liệu bị lỗi chi tiết]
-    ValidateExcel -- Hợp lệ --> ImportSuccess[Thông báo: Đã nhập thành công N sản phẩm vào danh mục]
+    ShowGrid --> ActionImport["Bấm nút 'Nhập từ Excel'"]
+    ActionImport --> OpenImportModal["Mở Popup ImportProductsModal"]
+    OpenImportModal --> DownloadTemplate["Bấm 'Tải File Mẫu Excel' ➔ Tải file mẫu .xlsx"]
+    OpenImportModal --> UploadFile["Tải file Excel từ máy tính lên"]
+    UploadFile --> ValidateExcel{"Hệ thống kiểm tra dữ liệu file Excel?"}
+    ValidateExcel -->|Phát hiện dòng lỗi| ShowErrorList["Hiển thị danh sách các dòng dữ liệu bị lỗi chi tiết"]
+    ValidateExcel -->|Hợp lệ| ImportSuccess["Thông báo: Đã nhập thành công N sản phẩm vào danh mục"]
 ```
 
 ---
@@ -193,17 +193,17 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    Start[Bấm nút 'Quản lý Nhóm Hàng' tại ProductListPage] --> OpenGroupModal[Mở Popup ProductGroupManagerModal]
-    OpenGroupModal --> RenderGroupList[Hiển thị Danh sách Nhóm hàng: Tên nhóm, Số lượng mặt hàng]
+    Start["Bấm nút 'Quản lý Nhóm Hàng' tại ProductListPage"] --> OpenGroupModal["Mở Popup ProductGroupManagerModal"]
+    OpenGroupModal --> RenderGroupList["Hiển thị Danh sách Nhóm hàng: Tên nhóm, Số lượng mặt hàng"]
     
-    RenderGroupList --> AddGroup[Nhập Tên Nhóm hàng mới -> Bấm 'Thêm Nhóm']
-    AddGroup --> RefreshAdd[Tự động nạp lại danh sách Nhóm mới vào màn hình]
+    RenderGroupList --> AddGroup["Nhập Tên Nhóm hàng mới ➔ Bấm 'Thêm Nhóm'"]
+    AddGroup --> RefreshAdd["Tự động nạp lại danh sách Nhóm mới vào màn hình"]
 
-    RenderGroupList --> EditGroup[Sửa Tên / Mô tả Nhóm -> Click nút 'Lưu']
-    EditGroup --> UpdateUI[Cập nhật tên nhóm mới trên bảng]
+    RenderGroupList --> EditGroup["Sửa Tên / Mô tả Nhóm ➔ Click nút 'Lưu'"]
+    EditGroup --> UpdateUI["Cập nhật tên nhóm mới trên bảng"]
 
-    RenderGroupList --> DeleteGroup[Bấm biểu tượng 'Xóa Nhóm']
-    DeleteGroup --> ToastGroup[Hiển thị Toast: Đã xóa nhóm hàng thành công]
+    RenderGroupList --> DeleteGroup["Bấm biểu tượng 'Xóa Nhóm'"]
+    DeleteGroup --> ToastGroup["Hiển thị Toast: Đã xóa nhóm hàng thành công"]
 ```
 
 ---
@@ -239,29 +239,30 @@ sequenceDiagram
 
 ```mermaid
 flowchart TD
-    Start[Truy cập /pos] --> CheckShift{Kiểm tra Ca bán hàng hiện tại?}
-    CheckShift -- Chưa có Ca Mở --> ForceOpenShift[Hiển thị Bắt buộc Modal StartShiftModal: Nhập tiền quỹ đầu ca - QTN-15]
-    ForceOpenShift --> ShiftOpened[Mở Ca thành công -> Mở giao diện Bán hàng POS]
-    CheckShift -- Đã có Ca Mở --> IntoPOS[Vào Màn hình POS Split-View]
+    Start["Truy cập /pos"] --> CheckShift{"Kiểm tra Ca bán hàng hiện tại?"}
+    CheckShift -->|Chưa có Ca Mở| ForceOpenShift["Hiển thị Bắt buộc Modal StartShiftModal: Nhập tiền quỹ đầu ca - QTN-15"]
+    ForceOpenShift --> ShiftOpened["Mở Ca thành công ➔ Mở giao diện Bán hàng POS"]
+    CheckShift -->|Đã có Ca Mở| IntoPOS["Vào Màn hình POS Split-View"]
     
-    IntoPOS --> SearchProduct[Gõ tên hàng / Quét mã vạch Barcode F1 - NCL-03-CN-001]
-    SearchProduct --> AddToCart[Thêm sản phẩm vào Giỏ hàng - NCL-03-CN-002]
-    AddToCart --> EditQty[Tăng/giảm số lượng / Nhập mức giảm giá đơn hàng F3 - NCL-03-CN-003]
+    IntoPOS --> SearchProduct["Gõ tên hàng / Quét mã vạch Barcode F1 - NCL-03-CN-001"]
+    SearchProduct --> AddToCart["Thêm sản phẩm vào Giỏ hàng - NCL-03-CN-002"]
+    AddToCart --> EditQty["Tăng/giảm số lượng / Nhập mức giảm giá đơn hàng F3 - NCL-03-CN-003"]
     
-    AddToCart --> CheckStock{Số lượng bán vượt số tồn kho? - QTN-08}
-    CheckStock -- Vượt tồn kho --> ShowStockWarning[Hiển thị Popup Cảnh báo Vượt tồn kho -> Cho phép chọn bán tiếp]
-    CheckStock -- Đủ tồn / Cho phép bán tiếp --> SelectCustomer[Chọn Hồ sơ Khách hàng / Thêm khách quen F3]
+    AddToCart --> CheckStock{"Số lượng bán vượt số tồn kho? - QTN-08"}
+    CheckStock -->|Vượt tồn kho| ShowStockWarning["Hiển thị Popup Cảnh báo Vượt tồn kho ➔ Cho phép chọn bán tiếp"]
+    CheckStock -->|Đủ tồn / Cho phép bán tiếp| SelectCustomer["Chọn Hồ sơ Khách hàng / Thêm khách quen F3"]
     
-    SelectCustomer --> ClickPay[Bấm Nút 'F2 - THANH TOÁN' màu cam nổi bật]
+    SelectCustomer --> ClickPay["Bấm Nút 'F2 - THANH TOÁN' màu cam nổi bật"]
     
-    ClickPay --> OpenPayModal[Mở Popup PosPaymentModal - NCL-03-CN-004]
-    OpenPayModal --> ChooseMethod{Chọn Phương thức Thanh toán F4}
-    ChooseMethod -- Tiền mặt --> CashPay[Nhập Tiền khách đưa -> Giao diện tự động tính Tiền thừa trả khách]
-    ChooseMethod -- Chuyển khoản VietQR --> QRPay[Hiển thị Mã VietQR tĩnh/động trên màn hình -> Chờ khách quét]
+    ClickPay --> OpenPayModal["Mở Popup PosPaymentModal - NCL-03-CN-004"]
+    OpenPayModal --> ChooseMethod{"Chọn Phương thức Thanh toán F4"}
+    ChooseMethod -->|Tiền mặt| CashPay["Nhập Tiền khách đưa ➔ Giao diện tự động tính Tiền thừa trả khách"]
+    ChooseMethod -->|Chuyển khoản VietQR| QRPay["Hiển thị Mã VietQR tĩnh/động trên màn hình ➔ Chờ khách quét"]
     
-    CashPay & QRPay --> ConfirmOrder[Bấm 'Xác Nhận Thanh Toán' - NCL-03-CN-005, QTN-07]
-    ConfirmOrder --> PrintReceipt[Mở Modal In Phiếu Tính Tiền / In Nhiệt 80mm]
-    PrintReceipt --> ResetPos[Làm sạch Giỏ hàng -> Sẵn sàng cho đơn bán tiếp theo]
+    CashPay --> ConfirmOrder[Bấm 'Xác Nhận Thanh Toán' - NCL-03-CN-005, QTN-07]
+    QRPay --> ConfirmOrder[Bấm 'Xác Nhận Thanh Toán' - NCL-03-CN-005, QTN-07]
+    ConfirmOrder --> PrintReceipt["Mở Modal In Phiếu Tính Tiền / In Nhiệt 80mm"]
+    PrintReceipt --> ResetPos["Làm sạch Giỏ hàng ➔ Sẵn sàng cho đơn bán tiếp theo"]
 ```
 
 ---
@@ -307,7 +308,7 @@ sequenceDiagram
     
     Note over Cashier, UI: Mất kết nối Internet (navigator.onLine = false)
     Cashier->>UI: Thêm hàng vào giỏ + Bấm nút "F2 - THANH TOÁN"
-    UI->>UI: Kiểm tra Trạng thái Mạng -> Phát hiện MẤT MẠNG
+    UI->>UI: Kiểm tra Trạng thái Mạng ➔ Phát hiện MẤT MẠNG
     UI->>IDB: Sinh mã tạm UUID + Lưu Đơn hàng vào Hàng đợi IndexedDB (`sync_status = PENDING`)
     IDB-->>UI: Đã ghi nhận lưu đơn cục bộ thành công
     UI-->>Cashier: Toast: Đã lưu đơn bán Offline! Đơn sẽ tự động đồng bộ khi có mạng lại.
@@ -317,18 +318,18 @@ sequenceDiagram
 #### 3.3.2 Luồng Phục Hồi Kết Nối & Đồng Bộ Dữ Liệu (Data Sync & Conflict Resolution - NCL-08-CN-002, NCL-08-CN-003)
 ```mermaid
 flowchart TD
-    Start[Thiết bị có kết nối Internet trở lại] --> CheckPending{Kiểm tra IndexedDB có đơn chờ PENDING?}
-    CheckPending -- Không --> NormalOnline[Hoạt động bán hàng Online bình thường]
-    CheckPending -- Có đơn chờ --> CallCheck[Kiểm tra xung đột giá bán & tồn kho]
+    Start["Thiết bị có kết nối Internet trở lại"] --> CheckPending{"Kiểm tra IndexedDB có đơn chờ PENDING?"}
+    CheckPending -->|Không| NormalOnline["Hoạt động bán hàng Online bình thường"]
+    CheckPending -->|Có đơn chờ| CallCheck["Kiểm tra xung đột giá bán & tồn kho"]
     
-    CallCheck --> ConflictCheck{Có đơn phát sinh Xung đột?}
-    ConflictCheck -- Không có xung đột --> BulkUpload[Đẩy toàn bộ đơn hàng trong IndexedDB lên hệ thống]
-    BulkUpload --> ClearIDB[Xóa các đơn đã đồng bộ thành công khỏi IndexedDB]
-    ClearIDB --> ToastSyncSuccess[Toast: Đã đồng bộ thành công N đơn bán hàng Offline!]
+    CallCheck --> ConflictCheck{"Có đơn phát sinh Xung đột?"}
+    ConflictCheck -->|Không có xung đột| BulkUpload["Đẩy toàn bộ đơn hàng trong IndexedDB lên hệ thống"]
+    BulkUpload --> ClearIDB["Xóa các đơn đã đồng bộ thành công khỏi IndexedDB"]
+    ClearIDB --> ToastSyncSuccess["Toast: Đã đồng bộ thành công N đơn bán hàng Offline!"]
 
-    ConflictCheck -- Có đơn bị xung đột --> OpenConflictModal[Mở Popup Giải Quyết Xung Đột ConflictResolutionModal]
-    OpenConflictModal --> ChooseResolve[Chủ hộ chọn: Đè dữ liệu Offline hay Hủy đơn tạm Offline]
-    ChooseResolve --> RefreshSync[Hoàn tất xử lý xung đột -> Cập nhật bảng kê đơn hàng]
+    ConflictCheck -->|Có đơn bị xung đột| OpenConflictModal["Mở Popup Giải Quyết Xung Đột ConflictResolutionModal"]
+    OpenConflictModal --> ChooseResolve["Chủ hộ chọn: Đè dữ liệu Offline hay Hủy đơn tạm Offline"]
+    ChooseResolve --> RefreshSync["Hoàn tất xử lý xung đột ➔ Cập nhật bảng kê đơn hàng"]
 ```
 
 ---
@@ -340,16 +341,16 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    Start[Thu ngân truy cập /pos trên Điện thoại / Tablet] --> AdaptLayout[Tự động chuyển Bố cục Touch-Optimized Layout: Phóng to nút bấm, Giỏ hàng dạng Drawer vuốt trượt]
+    Start["Thu ngân truy cập /pos trên Điện thoại / Tablet"] --> AdaptLayout["Tự động chuyển Bố cục Touch-Optimized Layout: Phóng to nút bấm, Giỏ hàng dạng Drawer vuốt trượt"]
     
-    AdaptLayout --> TouchSearch[Chạm ô Tìm nhanh / Bật Camera thiết bị quét mã vạch Barcode]
-    TouchSearch --> AddItem[Thêm Sản phẩm vào Giỏ hàng di động]
-    AddItem --> OpenCartDrawer[Vuốt trượt lên để mở xem Chi tiết Giỏ hàng & Điền giảm giá]
+    AdaptLayout --> TouchSearch["Chạm ô Tìm nhanh / Bật Camera thiết bị quét mã vạch Barcode"]
+    TouchSearch --> AddItem["Thêm Sản phẩm vào Giỏ hàng di động"]
+    AddItem --> OpenCartDrawer["Vuốt trượt lên để mở xem Chi tiết Giỏ hàng & Điền giảm giá"]
     
-    OpenCartDrawer --> ClickPayMobile[Bấm Nút 'THANH TOÁN' màu cam tại chân màn hình Mobile]
-    ClickPayMobile --> MobilePayModal[Mở Modal Thanh toán di động]
-    MobilePayModal --> ConfirmPay[Chọn Tiền mặt / Chuyển khoản QR -> Bấm Xác nhận]
-    ConfirmPay --> SuccessPrint[Hiển thị Modal Thanh toán Thành công + Nút Gửi Zalo / In Máy in Bluetooth POS]
+    OpenCartDrawer --> ClickPayMobile["Bấm Nút 'THANH TOÁN' màu cam tại chân màn hình Mobile"]
+    ClickPayMobile --> MobilePayModal["Mở Modal Thanh toán di động"]
+    MobilePayModal --> ConfirmPay["Chọn Tiền mặt / Chuyển khoản QR ➔ Bấm Xác nhận"]
+    ConfirmPay --> SuccessPrint["Hiển thị Modal Thanh toán Thành công + Nút Gửi Zalo / In Máy in Bluetooth POS"]
 ```
 
 ---
@@ -362,16 +363,16 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    Start[Truy cập /orders] --> RenderTable[Hiển thị Bảng Lịch sử Đơn hàng: Mã đơn, Thời gian, Khách hàng, Tổng tiền, Trạng thái]
+    Start["Truy cập /orders"] --> RenderTable["Hiển thị Bảng Lịch sử Đơn hàng: Mã đơn, Thời gian, Khách hàng, Tổng tiền, Trạng thái"]
     
-    RenderTable --> ViewDetail[Click một dòng đơn hàng]
-    ViewDetail --> OpenDrawer[Mở Drawer Chi Tiết Đơn Hàng: Xem chi tiết danh sách sản phẩm, Thuế GTGT, Người bán]
+    RenderTable --> ViewDetail["Click một dòng đơn hàng"]
+    ViewDetail --> OpenDrawer["Mở Drawer Chi Tiết Đơn Hàng: Xem chi tiết danh sách sản phẩm, Thuế GTGT, Người bán"]
     
-    RenderTable --> ClickIssue[Bấm nút 'Phát hành Hóa đơn']
-    ClickIssue --> CheckStatus{Đơn ở trạng thái COMPLETED & đã thanh toán đủ? - QTN-03}
-    CheckStatus -- Đơn chưa thanh toán đủ --> BlockIssue[Hiển thị Toast báo lỗi: Đơn chưa thanh toán đủ không được xuất HĐ - QTN-03]
-    CheckStatus -- Đủ điều kiện --> CreateDraft[Tạo Hóa đơn điện tử Nháp DRAFT thành công]
-    CreateDraft --> ToastIssued[Toast: Đã sinh HĐĐT Nháp thành công -> Nút bấm đổi sang 'Xem Hóa Đơn']
+    RenderTable --> ClickIssue["Bấm nút 'Phát hành Hóa đơn'"]
+    ClickIssue --> CheckStatus{"Đơn ở trạng thái COMPLETED & đã thanh toán đủ? - QTN-03"}
+    CheckStatus -->|Đơn chưa thanh toán đủ| BlockIssue["Hiển thị Toast báo lỗi: Đơn chưa thanh toán đủ không được xuất HĐ - QTN-03"]
+    CheckStatus -->|Đủ điều kiện| CreateDraft["Tạo Hóa đơn điện tử Nháp DRAFT thành công"]
+    CreateDraft --> ToastIssued["Toast: Đã sinh HĐĐT Nháp thành công ➔ Nút bấm đổi sang 'Xem Hóa Đơn'"]
 ```
 
 ---
@@ -384,21 +385,21 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    Start[Truy cập /e-invoices] --> RenderTabs[Chuyển Tabs: Tất cả | Nháp DRAFT | Chờ cấp mã WAITING | Đã phát hành ISSUED | Lỗi SEND_ERROR | Hủy CANCELED]
+    Start["Truy cập /e-invoices"] --> RenderTabs["Chuyển Tabs: Tất cả | Nháp DRAFT | Chờ cấp mã WAITING | Đã phát hành ISSUED | Lỗi SEND_ERROR | Hủy CANCELED"]
     
-    RenderTabs --> ActionSendTax[Bấm 'Gửi Cơ quan Thuế' ở HĐ DRAFT]
-    ActionSendTax --> StatusWaiting[Hóa đơn chuyển sang trạng thái Chờ cấp mã WAITING_TAX_CODE]
+    RenderTabs --> ActionSendTax["Bấm 'Gửi Cơ quan Thuế' ở HĐ DRAFT"]
+    ActionSendTax --> StatusWaiting["Hóa đơn chuyển sang trạng thái Chờ cấp mã WAITING_TAX_CODE"]
 
-    RenderTabs --> ActionResend[Bấm nút 'Gửi Lại' ở HĐ trạng thái SEND_ERROR - QTN-06]
-    ActionResend --> StatusWaiting2[Chuyển Hóa đơn về lại trạng thái Chờ cấp mã WAITING_TAX_CODE - QTN-06]
+    RenderTabs --> ActionResend["Bấm nút 'Gửi Lại' ở HĐ trạng thái SEND_ERROR - QTN-06"]
+    ActionResend --> StatusWaiting2["Chuyển Hóa đơn về lại trạng thái Chờ cấp mã WAITING_TAX_CODE - QTN-06"]
 
-    RenderTabs --> ActionCancel[Bấm nút 'Hủy Hóa đơn' ở HĐ ISSUED]
-    ActionCancel --> OpenCancelDialog[Mở Popup CancelInvoiceModal: Bắt buộc nhập Lý do hủy >= 10 ký tự - QTN-05]
-    OpenCancelDialog --> SubmitCancel[Bấm 'Xác Nhận Hủy']
-    SubmitCancel --> StatusCanceled[Hóa đơn chuyển sang trạng thái CANCELED -> Lưu vết lý do & thời điểm hủy - QTN-09]
+    RenderTabs --> ActionCancel["Bấm nút 'Hủy Hóa đơn' ở HĐ ISSUED"]
+    ActionCancel --> OpenCancelDialog["Mở Popup CancelInvoiceModal: Bắt buộc nhập Lý do hủy >= 10 ký tự - QTN-05"]
+    OpenCancelDialog --> SubmitCancel["Bấm 'Xác Nhận Hủy'"]
+    SubmitCancel --> StatusCanceled["Hóa đơn chuyển sang trạng thái CANCELED ➔ Lưu vết lý do & thời điểm hủy - QTN-09"]
 
-    RenderTabs --> ActionView[Click chọn một dòng Hóa đơn]
-    ActionView --> OpenInvoiceView[Mở Popup InvoiceDetailModal: Xem Tờ Hóa Đơn A4 có Mẫu số, Ký hiệu, Mã CQT, Mã QR Tra cứu]
+    RenderTabs --> ActionView["Click chọn một dòng Hóa đơn"]
+    ActionView --> OpenInvoiceView["Mở Popup InvoiceDetailModal: Xem Tờ Hóa Đơn A4 có Mẫu số, Ký hiệu, Mã CQT, Mã QR Tra cứu"]
 ```
 
 ---
@@ -435,18 +436,18 @@ sequenceDiagram
 ```mermaid
 flowchart TD
     subgraph Kênh Gửi Tại Quầy Bán Hàng
-        Action[Xem Chi Tiết Hóa Đơn ISSUED] --> MultiChannel[Mở Popup SendInvoiceModal]
-        MultiChannel --> BtnPrint[Nút 'In Hóa đơn' -> Mở Modal xem trước trang in nhiệt - NCL-06-CN-003]
-        MultiChannel --> BtnEmail[Nút 'Gửi Email' -> Nhập Địa chỉ Email -> Bấm Gửi - NCL-06-CN-002]
-        MultiChannel --> BtnZalo[Nút 'Gửi Zalo' -> Nhập Số điện thoại -> Bấm Gửi link qua Zalo OA - NCL-06-CN-002]
-        MultiChannel --> BtnQR[Nút 'Hiện Mã QR' -> Hiển thị Mã QR Code để khách quét bằng điện thoại - NCL-06-CN-001]
+        Action["Xem Chi Tiết Hóa Đơn ISSUED"] --> MultiChannel["Mở Popup SendInvoiceModal"]
+        MultiChannel --> BtnPrint["Nút 'In Hóa đơn' ➔ Mở Modal xem trước trang in nhiệt - NCL-06-CN-003"]
+        MultiChannel --> BtnEmail["Nút 'Gửi Email' ➔ Nhập Địa chỉ Email ➔ Bấm Gửi - NCL-06-CN-002"]
+        MultiChannel --> BtnZalo["Nút 'Gửi Zalo' ➔ Nhập Số điện thoại ➔ Bấm Gửi link qua Zalo OA - NCL-06-CN-002"]
+        MultiChannel --> BtnQR["Nút 'Hiện Mã QR' ➔ Hiển thị Mã QR Code để khách quét bằng điện thoại - NCL-06-CN-001"]
     end
 
     subgraph Cổng Tra Cứu Hóa Đơn Công Khai
-        Customer[Khách hàng Quét Mã QR / Truy cập /lookup-invoice] --> PublicPage[Màn hình Tra Cứu Hóa Đơn - NCL-06-CN-004]
-        PublicPage --> InputCode[Nhập Mã Tra Cứu Bảo Mật lookupCode]
-        InputCode --> SearchClick[Bấm nút 'Tra Cứu Hóa Đơn']
-        SearchClick --> RenderPDF[Hiển thị Tờ Hóa Đơn Điện Tử A4 + Nút Tải về bản PDF / XML]
+        Customer["Khách hàng Quét Mã QR / Truy cập /lookup-invoice"] --> PublicPage["Màn hình Tra Cứu Hóa Đơn - NCL-06-CN-004"]
+        PublicPage --> InputCode["Nhập Mã Tra Cứu Bảo Mật lookupCode"]
+        InputCode --> SearchClick["Bấm nút 'Tra Cứu Hóa Đơn'"]
+        SearchClick --> RenderPDF["Hiển thị Tờ Hóa Đơn Điện Tử A4 + Nút Tải về bản PDF / XML"]
     end
 ```
 
@@ -460,12 +461,12 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    Start[Truy cập /reports/revenue] --> SelectFilter[Chọn Bộ Lọc Thời Gian: Hôm nay | Tháng này | Quý này | Tùy chỉnh]
-    SelectFilter --> RenderKpi[Hiển thị các Thẻ Card KPI: Tổng Doanh Thu, Tiền Hàng Chưa Thuế, Tiền Thuế GTGT Thu Hộ]
-    RenderKpi --> RenderChart[Hiển thị Biểu đồ Cột Doanh Thu Tăng Trưởng]
+    Start["Truy cập /reports/revenue"] --> SelectFilter["Chọn Bộ Lọc Thời Gian: Hôm nay | Tháng này | Quý này | Tùy chỉnh"]
+    SelectFilter --> RenderKpi["Hiển thị các Thẻ Card KPI: Tổng Doanh Thu, Tiền Hàng Chưa Thuế, Tiền Thuế GTGT Thu Hộ"]
+    RenderKpi --> RenderChart["Hiển thị Biểu đồ Cột Doanh Thu Tăng Trưởng"]
     
-    RenderChart --> ClickExport[Bấm nút 'Xuất Báo Cáo Excel']
-    ClickExport --> DownloadExcel[Tải file Bieu_Mau_Bao_Cao_Doanh_Thu.xlsx về máy tính]
+    RenderChart --> ClickExport["Bấm nút 'Xuất Báo Cáo Excel'"]
+    ClickExport --> DownloadExcel["Tải file Bieu_Mau_Bao_Cao_Doanh_Thu.xlsx về máy tính"]
 ```
 
 ---
@@ -476,9 +477,9 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    Start[Truy cập /reports/comparison] --> SelectPeriods[Chọn 2 Khoảng thời gian: Kỳ 1 vs Kỳ 2]
-    SelectPeriods --> RenderComparisonChart[Hiển thị Biểu đồ Cột Kép So Sánh Doanh Thu 2 Kỳ]
-    RenderComparisonChart --> RenderDiffTable[Hiển thị Bảng Chênh Lệch: % Tăng/Giảm doanh thu & Số lượng đơn bán]
+    Start["Truy cập /reports/comparison"] --> SelectPeriods["Chọn 2 Khoảng thời gian: Kỳ 1 vs Kỳ 2"]
+    SelectPeriods --> RenderComparisonChart["Hiển thị Biểu đồ Cột Kép So Sánh Doanh Thu 2 Kỳ"]
+    RenderComparisonChart --> RenderDiffTable["Hiển thị Bảng Chênh Lệch: % Tăng/Giảm doanh thu & Số lượng đơn bán"]
 ```
 
 ---
@@ -489,14 +490,14 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    Start[Truy cập Báo cáo Đối chiếu Tiền Cuối Ngày] --> RenderTables[Hiển thị Bảng Tổng hợp Dòng Tiền Thu Chi trong ngày:]
-    RenderTables --> CashTable[1. Tiền mặt: Quỹ đầu ca + Thu từ đơn bán - Chi trả thừa = Lý thuyết vs Thực đếm]
-    RenderTables --> QRTable[2. Chuyển khoản: Danh sách các giao dịch Chuyển khoản QR ngân hàng]
-    RenderTables --> DebtTable[3. Ghi nợ: Tổng dư công nợ phát sinh mới trong ngày]
-    RenderTables --> ErrorInvoiceTable[4. Cảnh báo: Danh sách các Hóa đơn điện tử bị lỗi SEND_ERROR cần xử lý - QTN-06]
+    Start["Truy cập Báo cáo Đối chiếu Tiền Cuối Ngày"] --> RenderTables["Hiển thị Bảng Tổng hợp Dòng Tiền Thu Chi trong ngày:"]
+    RenderTables --> CashTable["1. Tiền mặt: Quỹ đầu ca + Thu từ đơn bán - Chi trả thừa = Lý thuyết vs Thực đếm"]
+    RenderTables --> QRTable["2. Chuyển khoản: Danh sách các giao dịch Chuyển khoản QR ngân hàng"]
+    RenderTables --> DebtTable["3. Ghi nợ: Tổng dư công nợ phát sinh mới trong ngày"]
+    RenderTables --> ErrorInvoiceTable["4. Cảnh báo: Danh sách các Hóa đơn điện tử bị lỗi SEND_ERROR cần xử lý - QTN-06"]
     
-    RenderTables --> ClickLock[Chủ hộ bấm nút 'Chốt Sổ Thu Chi Ngày']
-    ClickLock --> ToastReconcile[Hiển thị Toast: Đã khóa sổ thu chi ngày thành công!]
+    RenderTables --> ClickLock["Chủ hộ bấm nút 'Chốt Sổ Thu Chi Ngày'"]
+    ClickLock --> ToastReconcile["Hiển thị Toast: Đã khóa sổ thu chi ngày thành công!"]
 ```
 
 ---
@@ -507,9 +508,9 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    Start[Truy cập Tab Bán Chạy /reports/top-selling] --> SelectDate[Chọn khoảng thời gian: Tuần này / Tháng này / Tùy chọn]
-    SelectDate --> RenderChart[Hiển thị Biểu đồ Thanh Xếp hạng Top Mặt Hàng Bán Chạy]
-    RenderChart --> RenderTable[Bảng chi tiết: Mã SKU, Tên SP, Nhóm hàng, Số lượng bán, Doanh thu, Tỷ trọng %]
+    Start["Truy cập Tab Bán Chạy /reports/top-selling"] --> SelectDate["Chọn khoảng thời gian: Tuần này / Tháng này / Tùy chọn"]
+    SelectDate --> RenderChart["Hiển thị Biểu đồ Thanh Xếp hạng Top Mặt Hàng Bán Chạy"]
+    RenderChart --> RenderTable["Bảng chi tiết: Mã SKU, Tên SP, Nhóm hàng, Số lượng bán, Doanh thu, Tỷ trọng %"]
 ```
 
 ---
@@ -538,16 +539,16 @@ sequenceDiagram
 
 ```mermaid
 flowchart TD
-    Start[Truy cập /dashboard] --> CheckRole{Kiểm tra Vai trò Người dùng - QTN-10}
-    CheckRole -- Thu ngân point_of_sale --> ShowCashierShift[Hiển thị Giao diện CashierShiftDashboard: Chỉ xem số liệu Ca & Đơn cá nhân]
-    CheckRole -- Admin nền tảng platform_admin --> RedirectAdmin[Tự động điều hướng sang /admin/overview]
-    CheckRole -- Cơ quan Thuế tax_authority --> RedirectTax[Tự động điều hướng sang /tax-authority/invoices]
+    Start["Truy cập /dashboard"] --> CheckRole{"Kiểm tra Vai trò Người dùng - QTN-10"}
+    CheckRole -->|Thu ngân point_of_sale| ShowCashierShift["Hiển thị Giao diện CashierShiftDashboard: Chỉ xem số liệu Ca & Đơn cá nhân"]
+    CheckRole -->|Admin nền tảng platform_admin| RedirectAdmin["Tự động điều hướng sang /admin/overview"]
+    CheckRole -->|Cơ quan Thuế tax_authority| RedirectTax["Tự động điều hướng sang /tax-authority/invoices"]
     
-    CheckRole -- Chủ hộ owner / Kế toán accountant --> RenderDashboard[Render Màn hình Dashboard Tổng Quan Cửa Hàng]
-    RenderDashboard --> ShowKPIs[Các Thẻ KPI: Tổng Doanh Thu, Số Đơn hàng, Số Hóa đơn lỗi SEND_ERROR]
-    RenderDashboard --> ShowCharts[Biểu đồ Tăng trưởng Doanh Thu + Biểu đồ Tròn Phương thức Thanh toán]
-    RenderDashboard --> ShowTopSellers[Widget Top 5 Mặt hàng bán chạy nhất]
-    RenderDashboard --> ShowLogs[Panel Nhật ký Hoạt động thao tác gần nhất]
+    CheckRole -->|Chủ hộ owner / Kế toán accountant| RenderDashboard["Render Màn hình Dashboard Tổng Quan Cửa Hàng"]
+    RenderDashboard --> ShowKPIs["Các Thẻ KPI: Tổng Doanh Thu, Số Đơn hàng, Số Hóa đơn lỗi SEND_ERROR"]
+    RenderDashboard --> ShowCharts["Biểu đồ Tăng trưởng Doanh Thu + Biểu đồ Tròn Phương thức Thanh toán"]
+    RenderDashboard --> ShowTopSellers["Widget Top 5 Mặt hàng bán chạy nhất"]
+    RenderDashboard --> ShowLogs["Panel Nhật ký Hoạt động thao tác gần nhất"]
 ```
 
 ---
@@ -560,14 +561,14 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    Start[Truy cập /customers] --> RenderCustTable[Hiển thị Bảng Khách hàng: Họ tên, SĐT, Mã số thuế, Tích điểm, Tổng công nợ]
+    Start["Truy cập /customers"] --> RenderCustTable["Hiển thị Bảng Khách hàng: Họ tên, SĐT, Mã số thuế, Tích điểm, Tổng công nợ"]
     
-    RenderCustTable --> AddCust[Bấm '+ Thêm Khách hàng']
-    AddCust --> OpenModal[Mở Popup Form CustomerFormModal]
-    OpenModal --> SubmitCust[Điền Tên, SĐT, Địa chỉ, Hạn mức nợ -> Click Lưu -> Toast thành công]
+    RenderCustTable --> AddCust["Bấm '+ Thêm Khách hàng'"]
+    AddCust --> OpenModal["Mở Popup Form CustomerFormModal"]
+    OpenModal --> SubmitCust["Điền Tên, SĐT, Địa chỉ, Hạn mức nợ ➔ Click Lưu ➔ Toast thành công"]
 
-    RenderCustTable --> ViewHistory[Click một dòng Khách hàng]
-    ViewHistory --> OpenDrawer[Hiển thị Chi Tiết Khách Hàng: Lịch sử mua hàng & Điểm thưởng đã tích lũy]
+    RenderCustTable --> ViewHistory["Click một dòng Khách hàng"]
+    ViewHistory --> OpenDrawer["Hiển thị Chi Tiết Khách Hàng: Lịch sử mua hàng & Điểm thưởng đã tích lũy"]
 ```
 
 ---
@@ -597,11 +598,11 @@ sequenceDiagram
 #### 8.2.2 Sơ Đồ Nhắc Công Nợ & Cảnh Báo Đến Hạn (Debt Reminder Flow - NCL-10-CN-003, QTN-14)
 ```mermaid
 flowchart TD
-    Start[Click Mở Popup DebtReminderModal] --> RenderDebtTable[Hiển thị Bảng Danh Sách Công Nợ: Khách hàng, Số nợ, Ngày nợ, Ngày đến hạn, Trạng thái OVERDUE - QTN-14]
+    Start["Click Mở Popup DebtReminderModal"] --> RenderDebtTable["Hiển thị Bảng Danh Sách Công Nợ: Khách hàng, Số nợ, Ngày nợ, Ngày đến hạn, Trạng thái OVERDUE - QTN-14"]
     
-    RenderDebtTable --> ActionRemind[Bấm nút 'Gửi Email Nhắc Nợ']
-    ActionRemind --> ConfirmRemind[Bấm 'Xác nhận Gửi']
-    ConfirmRemind --> ToastRemindSuccess[Hiển thị Toast: Đã gửi email thông báo nhắc nợ tới Khách hàng thành công!]
+    RenderDebtTable --> ActionRemind["Bấm nút 'Gửi Email Nhắc Nợ'"]
+    ActionRemind --> ConfirmRemind["Bấm 'Xác nhận Gửi'"]
+    ConfirmRemind --> ToastRemindSuccess["Hiển thị Toast: Đã gửi email thông báo nhắc nợ tới Khách hàng thành công!"]
 ```
 
 ---
@@ -614,9 +615,9 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    Start[Truy cập /settings/business-info] --> RenderForm[Hiển thị Form Thông tin: Tên hộ, Mã số thuế, Địa chỉ, SĐT, Tên Chủ hộ]
-    RenderForm --> EditForm[Chỉnh sửa thông tin cửa hàng -> Bấm nút 'Lưu Thay Đổi']
-    EditForm --> ToastSave[Hiển thị Toast: Cập nhật thông tin hộ kinh doanh thành công!]
+    Start["Truy cập /settings/business-info"] --> RenderForm["Hiển thị Form Thông tin: Tên hộ, Mã số thuế, Địa chỉ, SĐT, Tên Chủ hộ"]
+    RenderForm --> EditForm["Chỉnh sửa thông tin cửa hàng ➔ Bấm nút 'Lưu Thay Đổi'"]
+    EditForm --> ToastSave["Hiển thị Toast: Cập nhật thông tin hộ kinh doanh thành công!"]
 ```
 
 ---
@@ -627,10 +628,10 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    Start[Truy cập /settings/invoice-template] --> ShowTemplate[Hiển thị Mẫu số, Ký hiệu HĐ 1C26TAA / C26TAA, Logo Hộ & Cấu hình Token Chữ ký số]
-    ShowTemplate --> UploadLogo[Tải Logo cửa hàng & Cấu hình Chữ ký số USB Token / HSM]
-    UploadLogo --> SaveTemplate[Bấm 'Lưu Cấu Hình Mẫu Hóa Đơn']
-    SaveTemplate --> ToastTemplate[Hiển thị Toast: Đã lưu thiết lập Mẫu Hóa đơn hợp lệ - QTN-02]
+    Start["Truy cập /settings/invoice-template"] --> ShowTemplate["Hiển thị Mẫu số, Ký hiệu HĐ 1C26TAA / C26TAA, Logo Hộ & Cấu hình Token Chữ ký số"]
+    ShowTemplate --> UploadLogo["Tải Logo cửa hàng & Cấu hình Chữ ký số USB Token / HSM"]
+    UploadLogo --> SaveTemplate["Bấm 'Lưu Cấu Hình Mẫu Hóa Đơn'"]
+    SaveTemplate --> ToastTemplate["Hiển thị Toast: Đã lưu thiết lập Mẫu Hóa đơn hợp lệ - QTN-02"]
 ```
 
 ---
@@ -641,9 +642,9 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    Start[Truy cập /settings/tax-rates] --> ShowTaxList[Danh sách Thuế suất: VAT0%, VAT5%, VAT8%, VAT10%]
-    ShowTaxList --> ToggleTax[Click Công tắc Bật/Tắt Trạng thái Hiệu lực của mức Thuế - QTN-17]
-    ToggleTax --> RefreshTax[Mức thuế được BẬT mới xuất hiện khi lập Hóa đơn]
+    Start["Truy cập /settings/tax-rates"] --> ShowTaxList["Danh sách Thuế suất: VAT0%, VAT5%, VAT8%, VAT10%"]
+    ShowTaxList --> ToggleTax["Click Công tắc Bật/Tắt Trạng thái Hiệu lực của mức Thuế - QTN-17"]
+    ToggleTax --> RefreshTax["Mức thuế được BẬT mới xuất hiện khi lập Hóa đơn"]
 ```
 
 ---
@@ -654,9 +655,9 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    Start[Truy cập /settings/backup-export] --> ShowOptions[Tùy chọn: Sao lưu Hệ thống & Export Excel/JSON]
-    ShowOptions --> ClickBackup[Bấm nút 'Tạo Bản Sao Lưu Dữ Liệu']
-    ClickBackup --> DownloadBackup[Tải file sao lưu SaoLuu_DuLieu_BanHangViet.json / .sql về máy]
+    Start["Truy cập /settings/backup-export"] --> ShowOptions["Tùy chọn: Sao lưu Hệ thống & Export Excel/JSON"]
+    ShowOptions --> ClickBackup["Bấm nút 'Tạo Bản Sao Lưu Dữ Liệu'"]
+    ClickBackup --> DownloadBackup["Tải file sao lưu SaoLuu_DuLieu_BanHangViet.json / .sql về máy"]
 ```
 
 ---
@@ -667,10 +668,10 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    Start[Truy cập /settings/printer] --> RenderPrinterForm[Form: Chọn Cổng kết nối LAN/IP / USB / Bluetooth + Khổ giấy 80mm / 58mm / A4]
-    RenderPrinterForm --> ClickTest[Bấm 'In Thử Nghiệm' -> Gửi lệnh in mẫu tới máy in đã chọn]
-    RenderPrinterForm --> ClickSavePrinter[Bấm 'Lưu Thiết Lập Máy In']
-    ClickSavePrinter --> ToastPrinter[Hiển thị Toast: Cấu hình máy in hóa đơn đã được lưu!]
+    Start["Truy cập /settings/printer"] --> RenderPrinterForm["Form: Chọn Cổng kết nối LAN/IP / USB / Bluetooth + Khổ giấy 80mm / 58mm / A4"]
+    RenderPrinterForm --> ClickTest["Bấm 'In Thử Nghiệm' ➔ Gửi lệnh in mẫu tới máy in đã chọn"]
+    RenderPrinterForm --> ClickSavePrinter["Bấm 'Lưu Thiết Lập Máy In'"]
+    ClickSavePrinter --> ToastPrinter["Hiển thị Toast: Cấu hình máy in hóa đơn đã được lưu!"]
 ```
 
 ---
@@ -683,8 +684,8 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    Start[Admin truy cập /admin/overview] --> RenderMetrics[Metrics Cards: Tổng Hộ Kinh Doanh, Hộ đang hoạt động, Hộ sắp hết hạn, Tổng HĐĐT đã phát hành]
-    RenderMetrics --> RenderTrafficChart[Hiển thị Biểu đồ Lưu lượng Giao dịch & Request Hệ thống toàn nền tảng]
+    Start["Admin truy cập /admin/overview"] --> RenderMetrics["Metrics Cards: Tổng Hộ Kinh Doanh, Hộ đang hoạt động, Hộ sắp hết hạn, Tổng HĐĐT đã phát hành"]
+    RenderMetrics --> RenderTrafficChart["Hiển thị Biểu đồ Lưu lượng Giao dịch & Request Hệ thống toàn nền tảng"]
 ```
 
 ---
@@ -706,7 +707,7 @@ sequenceDiagram
         Admin->>UI: Bấm công tắc Khóa/Mở khóa Hộ
         UI-->>Admin: Hiển thị Toast: Đã thay đổi trạng thái Hộ kinh doanh thành công
     else Gia hạn Gói Dịch vụ
-        Admin->>UI: Click nút "Gia hạn" -> Chọn Ngày hết hạn mới
+        Admin->>UI: Click nút "Gia hạn" ➔ Chọn Ngày hết hạn mới
         UI-->>Admin: Hiển thị Toast: Gia hạn gói dịch vụ thành công!
     end
 ```
@@ -719,8 +720,8 @@ sequenceDiagram
 
 ```mermaid
 flowchart TD
-    Start[Admin truy cập /admin/logs] --> RenderLogTable[Bảng Nhật Ký Toàn Hệ Thống: Thời gian, Hộ KD, Người thực hiện, Tên Thao tác, Trạng thái, IP]
-    RenderLogTable --> FilterLogs[Lọc theo Cấp độ Error/Warning, Mã số thuế Hộ, Khoảng thời gian]
+    Start["Admin truy cập /admin/logs"] --> RenderLogTable["Bảng Nhật Ký Toàn Hệ Thống: Thời gian, Hộ KD, Người thực hiện, Tên Thao tác, Trạng thái, IP"]
+    RenderLogTable --> FilterLogs["Lọc theo Cấp độ Error/Warning, Mã số thuế Hộ, Khoảng thời gian"]
 ```
 
 ---
@@ -742,11 +743,11 @@ sequenceDiagram
     UI-->>TaxOfficer: Render Danh sách Hóa đơn điện tử đang chờ cấp mã
     
     alt Hành động 1: Duyệt Cấp Mã
-        TaxOfficer->>UI: Click nút "Duyệt cấp mã" -> Hệ thống sinh Mã CQT
+        TaxOfficer->>UI: Click nút "Duyệt cấp mã" ➔ Hệ thống sinh Mã CQT
         UI->>UI: Chuyển Trạng thái HĐ sang ISSUED + Gán Mã CQT & Số HĐ tăng dần
         UI-->>TaxOfficer: Hiển thị Toast: Đã cấp mã CQT thành công!
     else Hành động 2: Từ Chối Cấp Mã (Cảnh báo hạn QTN-06)
-        TaxOfficer->>UI: Click "Từ chối" -> Nhập Thông báo lỗi (VD: Mã số thuế người mua không khớp)
+        TaxOfficer->>UI: Click "Từ chối" ➔ Nhập Thông báo lỗi (VD: Mã số thuế người mua không khớp)
         UI->>UI: Chuyển Trạng thái HĐ sang SEND_ERROR + Lưu Chi tiết Lỗi (QTN-06)
         UI-->>TaxOfficer: Hiển thị Toast: Đã chuyển trạng thái Lỗi gửi thuế
     end
