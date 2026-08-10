@@ -36,10 +36,10 @@ jobs:
       - name: Test Backend (Spring Boot Maven)
         run: cd backend && mvn test -B
 
-      - name: Setup Node 20 (Frontend)
+      - name: Setup Node 22 (Frontend)
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
           cache-dependency-path: frontend/package-lock.json
 
@@ -58,15 +58,15 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
       - name: Log in to GitHub Container Registry (GHCR)
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
       # Build & Push Backend Image
       - name: Build & Push Backend Image
