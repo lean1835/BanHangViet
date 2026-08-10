@@ -4,13 +4,45 @@ import { USER_ROLES, ROLE_LABELS } from "@/constants/roles";
 import { useNotification } from "@/hooks/useNotification";
 import { STORAGE_KEYS } from "@/constants/app";
 import { getApiErrorMessage } from "@/utils/getApiErrorMessage";
-import { Download, Database, ShieldAlert, CheckCircle2, Loader2, Calendar } from "lucide-react";
+import { Download, Database, ShieldAlert, CheckCircle2, Loader2, Calendar, AlertCircle } from "lucide-react";
+
+const getLocalDateString = (date: Date = new Date()): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+const getPresetDates = (preset: string) => {
+  const now = new Date();
+  const todayStr = getLocalDateString(now);
+
+  if (preset === "TODAY") {
+    return { fromDate: todayStr, toDate: todayStr };
+  }
+  if (preset === "THIS_MONTH") {
+    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+    return { fromDate: getLocalDateString(firstDay), toDate: todayStr };
+  }
+  if (preset === "LAST_3_MONTHS") {
+    const threeMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 3, 1);
+    return { fromDate: getLocalDateString(threeMonthsAgo), toDate: todayStr };
+  }
+  if (preset === "ALL") {
+    return { fromDate: "", toDate: "" };
+  }
+  return null;
+};
 
 export const BackupExportPanel: React.FC = () => {
   const { currentRole, addLogEntry } = useDashboardDemo();
   const { showSuccess, showError } = useNotification();
 
-  const [dateRange, setDateRange] = useState("THIS_MONTH");
+  const [dateRangePreset, setDateRangePreset] = useState("THIS_MONTH");
+  const initialDates = getPresetDates("THIS_MONTH") || { fromDate: "", toDate: "" };
+  const [fromDate, setFromDate] = useState<string>(initialDates.fromDate);
+  const [toDate, setToDate] = useState<string>(initialDates.toDate);
+
   const [scopes, setScopes] = useState({
     products: true,
     orders: true,
@@ -35,6 +67,39 @@ export const BackupExportPanel: React.FC = () => {
     );
   }
 
+  const handlePresetChange = (preset: string) => {
+    setDateRangePreset(preset);
+    const newDates = getPresetDates(preset);
+    if (newDates) {
+      setFromDate(newDates.fromDate);
+      setToDate(newDates.toDate);
+    }
+  };
+
+  const handleFromDateChange = (val: string) => {
+    setFromDate(val);
+    setDateRangePreset("CUSTOM");
+  };
+
+  const handleToDateChange = (val: string) => {
+    setToDate(val);
+    setDateRangePreset("CUSTOM");
+  };
+
+  // Date range validations
+  const isDateInvalid = Boolean(fromDate && toDate && fromDate > toDate);
+
+  let isRangeTooLong = false;
+  if (fromDate && toDate && !isDateInvalid) {
+    const start = new Date(fromDate);
+    const end = new Date(toDate);
+    const diffTime = end.getTime() - start.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    if (diffDays > 366) {
+      isRangeTooLong = true;
+    }
+  }
+
   const handleExport = async () => {
     const selectedScopes = Object.entries(scopes)
       .filter(([, val]) => val)
@@ -42,6 +107,16 @@ export const BackupExportPanel: React.FC = () => {
 
     if (selectedScopes.length === 0) {
       showError("Vui lòng chọn ít nhất một phạm vi dữ liệu cần xuất!");
+      return;
+    }
+
+    if (isDateInvalid) {
+      showError("Từ ngày không được lớn hơn Đến ngày!");
+      return;
+    }
+
+    if (isRangeTooLong) {
+      showError("Khoảng thời gian sao lưu tối đa là 1 năm (365 ngày)!");
       return;
     }
 
@@ -55,32 +130,13 @@ export const BackupExportPanel: React.FC = () => {
       type = "ORDERS";
     }
 
-    // Calculate fromDate and toDate
-    const now = new Date();
-    let fromDateStr: string | undefined;
-    let toDateStr: string | undefined = now.toISOString().split("T")[0];
-
-    if (dateRange === "TODAY") {
-      fromDateStr = toDateStr;
-    } else if (dateRange === "THIS_MONTH") {
-      const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
-      fromDateStr = firstDay.toISOString().split("T")[0];
-    } else if (dateRange === "LAST_3_MONTHS") {
-      const threeMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 3, 1);
-      fromDateStr = threeMonthsAgo.toISOString().split("T")[0];
-    } else {
-      // ALL
-      fromDateStr = undefined;
-      toDateStr = undefined;
-    }
-
     setIsExporting(true);
 
     try {
       const token = localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
       const queryParams = new URLSearchParams({ type });
-      if (fromDateStr) queryParams.append("fromDate", fromDateStr);
-      if (toDateStr) queryParams.append("toDate", toDateStr);
+      if (fromDate) queryParams.append("fromDate", fromDate);
+      if (toDate) queryParams.append("toDate", toDate);
 
       const response = await fetch(
         `${import.meta.env.VITE_API_URL || "/api/v1"}/backup/export?${queryParams.toString()}`,
@@ -99,7 +155,7 @@ export const BackupExportPanel: React.FC = () => {
       const blob = await response.blob();
       const contentDisposition = response.headers.get("content-disposition");
       const defaultExt = type === "FULL" ? "zip" : "xlsx";
-      let filename = `BanHangViet_Backup_${type}_${now.toISOString().split("T")[0]}.${defaultExt}`;
+      let filename = `BanHangViet_Backup_${type}_${getLocalDateString()}.${defaultExt}`;
 
       if (contentDisposition) {
         const match = contentDisposition.match(/filename="?([^"]+)"?/);
@@ -116,7 +172,7 @@ export const BackupExportPanel: React.FC = () => {
       window.URL.revokeObjectURL(url);
 
       showSuccess("Tạo tệp sao lưu thành công! Tệp tin đang được tải xuống.");
-      addLogEntry("XUẤT_SAO_LƯU_DỮ_LIỆU", `Phạm vi: ${type} (${dateRange})`);
+      addLogEntry("XUẤT_SAO_LƯU_DỮ_LIỆU", `Phạm vi: ${type} (Từ ${fromDate || "đầu"} đến ${toDate || "hiện tại"})`);
     } catch (err: unknown) {
       const errMsg = getApiErrorMessage(
         err,
@@ -150,21 +206,63 @@ export const BackupExportPanel: React.FC = () => {
 
         <div className="flex flex-col gap-5 text-xs font-semibold text-slate-700">
           {/* Date range picker */}
-          <div className="flex flex-col gap-2">
-            <label className="font-bold text-slate-800 flex items-center gap-1.5">
-              <Calendar className="w-4 h-4 text-slate-400" />
-              Khoảng thời gian sao lưu:
-            </label>
-            <select
-              value={dateRange}
-              onChange={(e) => setDateRange(e.target.value)}
-              className="border border-slate-300 h-10 px-3 rounded-lg focus:outline-none focus:border-kv-blue-primary font-bold bg-white text-xs max-w-md"
-            >
-              <option value="TODAY">Hôm nay</option>
-              <option value="THIS_MONTH">Tháng này (Từ đầu tháng)</option>
-              <option value="LAST_3_MONTHS">3 Tháng gần nhất</option>
-              <option value="ALL">Tất cả thời gian</option>
-            </select>
+          <div className="flex flex-col gap-3 bg-slate-50 p-4 rounded-xl border border-slate-200">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <label className="font-bold text-slate-800 flex items-center gap-1.5">
+                <Calendar className="w-4 h-4 text-kv-blue-primary" />
+                Khoảng thời gian sao lưu:
+              </label>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-slate-500 font-medium">Chọn nhanh:</span>
+                <select
+                  value={dateRangePreset}
+                  onChange={(e) => handlePresetChange(e.target.value)}
+                  className="border border-slate-300 h-9 px-3 rounded-lg focus:outline-none focus:border-kv-blue-primary font-bold bg-white text-xs text-slate-700 shadow-sm"
+                >
+                  <option value="TODAY">Hôm nay</option>
+                  <option value="THIS_MONTH">Tháng này (Từ đầu tháng)</option>
+                  <option value="LAST_3_MONTHS">3 Tháng gần nhất</option>
+                  <option value="ALL">Tất cả thời gian</option>
+                  <option value="CUSTOM">Tùy chỉnh ngày</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+              <div className="flex flex-col gap-1.5">
+                <span className="text-xs font-bold text-slate-600">Từ ngày:</span>
+                <input
+                  type="date"
+                  value={fromDate}
+                  onChange={(e) => handleFromDateChange(e.target.value)}
+                  className="border border-slate-300 rounded-lg px-3 py-2 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-kv-blue-primary/20 focus:border-kv-blue-primary bg-white shadow-sm"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <span className="text-xs font-bold text-slate-600">Đến ngày:</span>
+                <input
+                  type="date"
+                  value={toDate}
+                  onChange={(e) => handleToDateChange(e.target.value)}
+                  className="border border-slate-300 rounded-lg px-3 py-2 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-kv-blue-primary/20 focus:border-kv-blue-primary bg-white shadow-sm"
+                />
+              </div>
+            </div>
+
+            {isDateInvalid && (
+              <div className="flex items-center gap-1.5 text-xs text-rose-600 font-semibold bg-rose-50 p-2.5 rounded-lg border border-rose-200">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>Từ ngày không được lớn hơn Đến ngày. Vui lòng kiểm tra lại.</span>
+              </div>
+            )}
+
+            {isRangeTooLong && (
+              <div className="flex items-center gap-1.5 text-xs text-rose-600 font-semibold bg-rose-50 p-2.5 rounded-lg border border-rose-200">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>Khoảng thời gian sao lưu tối đa là 1 năm (365 ngày). Vui lòng thu hẹp khoảng thời gian.</span>
+              </div>
+            )}
           </div>
 
           {/* Scope selection */}
@@ -217,7 +315,7 @@ export const BackupExportPanel: React.FC = () => {
           <div className="flex justify-end pt-2">
             <button
               onClick={handleExport}
-              disabled={isExporting}
+              disabled={isExporting || isDateInvalid || isRangeTooLong}
               className="bg-kv-blue-primary hover:bg-kv-blue-dark text-white font-bold px-6 h-10 rounded-lg transition-colors flex items-center gap-2 text-xs shadow-sm disabled:opacity-50"
             >
               {isExporting ? (
@@ -236,3 +334,4 @@ export const BackupExportPanel: React.FC = () => {
     </div>
   );
 };
+

@@ -116,7 +116,7 @@ export const CUSTOMER_UI = {
     },
   },
   REMINDER_MODAL: {
-    TITLE: "Nhắc công hạn đến nợaaâ",
+    TITLE: "Nhắc nợ công nợ đến hạn",
     SUBTITLE: "Nội dung tin nhắn nhắc nợ gửi cho khách hàng",
     LABEL_MESSAGE: "Nội dung tin nhắn nhắc nợ (Có thể chỉnh sửa):",
     COPY_BUTTON: "Sao chép tin nhắn",

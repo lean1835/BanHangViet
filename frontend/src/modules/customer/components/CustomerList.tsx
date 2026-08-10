@@ -1,7 +1,9 @@
 import React, { useState } from "react";
 import { createPortal } from "react-dom";
-import { Search, Plus, Edit, Trash2, AlertTriangle, Bell, Wallet, Calendar } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Search, Plus, Edit, Trash2, AlertTriangle, Bell, Wallet, Calendar, Eye } from "lucide-react";
 import { CUSTOMER_UI } from "@/constants/customer";
+import { APP_ROUTES } from "@/constants/routes";
 import { formatCurrency } from "@/utils/formatCurrency";
 import { formatDateOnly } from "@/utils/dateFormatter";
 import { useAccessibleDialog } from "@/hooks/useAccessibleDialog";
@@ -30,6 +32,7 @@ export const CustomerList: React.FC<CustomerListProps> = ({
   onConfirmReminder,
   onConfirmPayDebt,
 }) => {
+  const navigate = useNavigate();
   const [customerToDelete, setCustomerToDelete] = useState<ICustomer | null>(null);
   const [customerToRemind, setCustomerToRemind] = useState<ICustomer | null>(null);
   const [customerToPayDebt, setCustomerToPayDebt] = useState<ICustomer | null>(null);
@@ -115,9 +118,17 @@ export const CustomerList: React.FC<CustomerListProps> = ({
                   );
 
                   return (
-                    <tr key={customer.id} className="group hover:bg-slate-50/50 transition-all">
-                      <td className="p-3 font-bold text-slate-800">
-                        {customer.name}
+                    <tr
+                      key={customer.id}
+                      onClick={() => navigate(APP_ROUTES.CUSTOMER_DETAIL(customer.id))}
+                      className="group hover:bg-blue-50/40 transition-all cursor-pointer"
+                      title="Nhấn để xem chi tiết danh sách đơn hàng nợ & thông tin khách hàng"
+                    >
+                      <td className="p-3 font-bold text-slate-800 group-hover:text-kv-blue-primary transition-colors">
+                        <div className="flex items-center gap-1.5">
+                          <span>{customer.name}</span>
+                          <Eye size={12} className="text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity" />
+                        </div>
                       </td>
                       <td className="p-3 font-mono font-semibold text-slate-800">
                         {customer.phone}
@@ -138,8 +149,8 @@ export const CustomerList: React.FC<CustomerListProps> = ({
                               <span
                                 className={
                                   isOverdue
-                                    ? "inline-flex items-center gap-1 font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded border border-rose-200"
-                                    : "inline-flex items-center gap-1 font-semibold text-slate-700"
+                                    ? "inline-flex items-center gap-1 font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded border border-rose-200 whitespace-nowrap"
+                                    : "inline-flex items-center gap-1 font-semibold text-slate-700 whitespace-nowrap"
                                 }
                                 title={isOverdue ? "Đã quá hạn thanh toán nợ!" : "Ngày đến hạn thanh toán nợ"}
                               >
@@ -161,7 +172,7 @@ export const CustomerList: React.FC<CustomerListProps> = ({
                       </td>
                       <td className="p-3 text-center">
                         <span
-                          className={`px-2.5 py-0.5 rounded text-[10px] font-bold ${
+                          className={`px-2.5 py-0.5 rounded text-[10px] font-bold whitespace-nowrap inline-block ${
                             isOverdue
                               ? "bg-rose-600 text-white animate-pulse"
                               : isExceeded
@@ -180,12 +191,15 @@ export const CustomerList: React.FC<CustomerListProps> = ({
                                 : "Không có nợ"}
                         </span>
                       </td>
-                      <td className="p-3 text-center">
+                      <td className="p-3 text-center" onClick={(e) => e.stopPropagation()}>
                         {hasDebt ? (
                           <div className="flex items-center justify-center gap-1.5 flex-wrap">
                             <button
                               type="button"
-                              onClick={() => setCustomerToPayDebt(customer)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setCustomerToPayDebt(customer);
+                              }}
                               title="Ghi nhận thu nợ"
                               className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 font-bold text-xs transition-all border border-emerald-200/80 shadow-sm"
                             >
@@ -194,7 +208,10 @@ export const CustomerList: React.FC<CustomerListProps> = ({
                             </button>
                             <button
                               type="button"
-                              onClick={() => setCustomerToRemind(customer)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setCustomerToRemind(customer);
+                              }}
                               title="Nhắc công nợ đến hạn"
                               className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-amber-50 text-amber-700 hover:bg-amber-100 font-bold text-xs transition-all border border-amber-200/80 shadow-sm"
                             >
@@ -206,11 +223,14 @@ export const CustomerList: React.FC<CustomerListProps> = ({
                           <span className="text-slate-300 font-medium">--</span>
                         )}
                       </td>
-                      <td className="p-3 text-center">
+                      <td className="p-3 text-center" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center justify-center gap-1.5 md:opacity-0 md:group-hover:opacity-100 opacity-100 transition-opacity">
                           <button
                             type="button"
-                            onClick={() => onOpenEditModal(customer)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onOpenEditModal(customer);
+                            }}
                             title="Sửa thông tin khách hàng"
                             className="p-1 rounded text-slate-500 hover:text-kv-blue-primary hover:bg-slate-100 transition-all"
                           >
@@ -218,7 +238,10 @@ export const CustomerList: React.FC<CustomerListProps> = ({
                           </button>
                           <button
                             type="button"
-                            onClick={() => setCustomerToDelete(customer)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setCustomerToDelete(customer);
+                            }}
                             title="Xóa khách hàng"
                             className="p-1 rounded text-slate-500 hover:text-rose-600 hover:bg-rose-50 transition-all"
                           >
@@ -282,7 +305,7 @@ export const CustomerList: React.FC<CustomerListProps> = ({
                 <span>⚠️ CẢNH BÁO CÔNG NỢ:</span>
                 <span>
                   Khách hàng hiện còn dư nợ chưa thanh toán:{" "}
-                  <strong className="text-rose-800">{formatCurrency(customerToDelete.debt)} đ</strong>.
+                  <strong className="text-rose-800">{formatCurrency(customerToDelete.debt)}</strong>.
                   Xóa khách hàng này sẽ làm mất lịch sử theo dõi dư nợ!
                 </span>
               </div>
@@ -310,3 +333,4 @@ export const CustomerList: React.FC<CustomerListProps> = ({
     </div>
   );
 };
+

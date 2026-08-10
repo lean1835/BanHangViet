@@ -3,8 +3,15 @@ name: Production CI/CD Pipeline - lean1835/banhangviet
 on:
   push:
     branches:
-      - production
+      - '**'
+  pull_request:
+    branches:
+      - '**'
   workflow_dispatch:
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
 
 permissions:
   contents: read
@@ -43,8 +50,8 @@ jobs:
           cache: 'npm'
           cache-dependency-path: frontend/package-lock.json
 
-      - name: Lint Frontend (React)
-        run: cd frontend && npm ci && npm run lint
+      - name: Lint & Build Check Frontend (React)
+        run: cd frontend && npm ci && npm run lint && npm run build
 
   # ==========================================
   # STAGE 2: BUILD & PUSH DOCKER IMAGES TO GHCR
@@ -53,7 +60,7 @@ jobs:
     name: Build & Push Images to GHCR
     needs: verify
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    if: github.ref == 'refs/heads/production' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -101,6 +108,7 @@ jobs:
     name: Deploy Both FE & BE to Production VPS
     needs: build-and-push
     runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/production' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     environment:
       name: production
     steps:
@@ -122,25 +130,26 @@ jobs:
           ssh-keyscan -H ${{ secrets.PRODUCTION_IP }} >> ~/.ssh/known_hosts
 
           # Tạo thư mục trên VPS
-          ssh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_IP }} "mkdir -p $DEPLOY_PATH/scripts $DEPLOY_PATH/backend"
+          ssh -o StrictHostKeyChecking=accept-new ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_IP }} "mkdir -p $DEPLOY_PATH/scripts $DEPLOY_PATH/backend"
 
           # Sync docker-compose.yml và deploy.sh
-          scp docker-compose.yml ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_IP }}:$DEPLOY_PATH/docker-compose.yml
-          scp scripts/deploy.sh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_IP }}:$DEPLOY_PATH/scripts/deploy.sh
+          scp -o StrictHostKeyChecking=accept-new docker-compose.yml ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_IP }}:$DEPLOY_PATH/docker-compose.yml
+          scp -o StrictHostKeyChecking=accept-new scripts/deploy.sh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_IP }}:$DEPLOY_PATH/scripts/deploy.sh
 
-          # Ghi file .env cho Backend từ Secret ENV_PRODUCTION
-          ssh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_IP }} "cat << 'EOF' > $DEPLOY_PATH/backend/.env
+          # Ghi file .env cho Backend từ Secret ENV_PRODUCTION (truyền qua stdin để tránh biến đổi ký tự đặc biệt)
+          ssh -o StrictHostKeyChecking=accept-new ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_IP }} "cat > $DEPLOY_PATH/backend/.env" << 'EOF'
           ${{ secrets.ENV_PRODUCTION }}
-          EOF"
+          EOF
 
           # Chạy script Deploy
-          ssh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_IP }} "
+          ssh -o StrictHostKeyChecking=accept-new ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_IP }} "
             chmod +x $DEPLOY_PATH/scripts/deploy.sh &&
-            BE_IMAGE_NAME=$BE_TAG \
-            FE_IMAGE_NAME=$FE_TAG \
-            DEPLOY_PATH=$DEPLOY_PATH \
-            REGISTRY_USER=${{ github.actor }} \
-            REGISTRY_PASSWORD=${{ secrets.GITHUB_TOKEN }} \
-            REGISTRY_URL=${{ env.REGISTRY }} \
+            BE_IMAGE_NAME='$BE_TAG' \
+            FE_IMAGE_NAME='$FE_TAG' \
+            DEPLOY_PATH='$DEPLOY_PATH' \
+            REGISTRY_USER='${{ github.actor }}' \
+            REGISTRY_PASSWORD='${{ secrets.GITHUB_TOKEN }}' \
+            REGISTRY_URL='${{ env.REGISTRY }}' \
             /bin/sh $DEPLOY_PATH/scripts/deploy.sh
           "
+

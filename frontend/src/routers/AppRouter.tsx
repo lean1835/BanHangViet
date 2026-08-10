@@ -170,6 +170,14 @@ export const AppRouter = () => (
             }
           />
           <Route
+            path={`${ROUTE_SEGMENTS.CUSTOMERS}/:id`}
+            element={
+              <RoleRoute allowedRoles={ROLE_GROUPS.NORMAL_MANAGEMENT}>
+                <CustomerPage />
+              </RoleRoute>
+            }
+          />
+          <Route
             path={ROUTE_SEGMENTS.EMPLOYEES}
             element={
               <RoleRoute allowedRoles={ROLE_GROUPS.PRODUCT_MANAGEMENT}>

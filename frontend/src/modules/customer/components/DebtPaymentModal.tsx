@@ -69,7 +69,7 @@ export const DebtPaymentModal: React.FC<DebtPaymentModalProps> = ({
 
     if (numAmount > customer.debt) {
       setErrorMessage(
-        `Số tiền thu nợ (${formatCurrency(numAmount)} đ) không được vượt quá tổng dư nợ hiện tại (${formatCurrency(customer.debt)} đ).`
+        `Số tiền thu nợ (${formatCurrency(numAmount)}) không được vượt quá tổng dư nợ hiện tại (${formatCurrency(customer.debt)}).`
       );
       return;
     }
@@ -166,10 +166,10 @@ export const DebtPaymentModal: React.FC<DebtPaymentModalProps> = ({
                 Dư nợ hiện tại
               </span>
               <span className="font-black text-rose-600 text-sm block">
-                {formatCurrency(customer.debt)} đ
+                {formatCurrency(customer.debt)}
               </span>
               <span className="text-[10px] font-bold text-slate-500">
-                Hạn mức: {formatCurrency(customer.creditLimit)} đ
+                Hạn mức: {formatCurrency(customer.creditLimit)}
               </span>
             </div>
           </div>
@@ -215,7 +215,7 @@ export const DebtPaymentModal: React.FC<DebtPaymentModalProps> = ({
               <p className="text-[11px] font-semibold text-slate-600 flex items-center justify-between pt-0.5">
                 <span>Dư nợ còn lại sau thu:</span>
                 <strong className={remainingDebt === 0 ? "text-emerald-600" : "text-rose-600"}>
-                  {formatCurrency(Math.max(0, remainingDebt))} đ
+                  {formatCurrency(Math.max(0, remainingDebt))}
                   {remainingDebt === 0 && " (Hết nợ 🎉)"}
                 </strong>
               </p>

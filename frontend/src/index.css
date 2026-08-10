@@ -51,6 +51,15 @@
   }
 }
 
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
 .animate-logo-text-glow {
   background-size: 200% auto;
   animation: logoTextGlow 4s ease infinite;
@@ -58,6 +67,10 @@
 
 .animate-logo-shimmer {
   animation: logoShimmer 2.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.animate-slide-in-right {
+  animation: slideInRight 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 @layer components {

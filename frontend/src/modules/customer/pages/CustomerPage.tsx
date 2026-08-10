@@ -1,10 +1,12 @@
 import React, { useState, useMemo } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 import { DashboardWorkspaceLayout } from "@/components/layouts/DashboardWorkspaceLayout";
 import {
   CUSTOMER_DEBT_STATUS_FILTER,
   CUSTOMER_FILTER_OPTIONS,
   CUSTOMER_LOG,
 } from "@/constants/customer";
+import { APP_ROUTES } from "@/constants/routes";
 import { useDebounce } from "@/hooks/useDebounce";
 import { useNotification } from "@/hooks/useNotification";
 import { useDashboardDemo } from "@/providers/DashboardDemoProvider";
@@ -13,7 +15,9 @@ import { getApiErrorMessage } from "@/utils/getApiErrorMessage";
 import { CustomerManagement } from "../components/CustomerManagement";
 import { CustomerSidebar } from "../components/CustomerSidebar";
 import { CustomerFormModal } from "../components/CustomerFormModal";
-import type { DebtPaymentData } from "../components/DebtPaymentModal";
+import { CustomerDetailModal } from "../components/CustomerDetailModal";
+import { DebtPaymentModal, type DebtPaymentData } from "../components/DebtPaymentModal";
+import { DebtReminderModal } from "../components/DebtReminderModal";
 import {
   useGetCustomersQuery,
   useGetDebtRemindersQuery,
@@ -286,7 +290,7 @@ export const CustomerPage: React.FC = () => {
       );
 
       showSuccess(
-        `Đã ghi nhận thu ${formatCurrency(amount)} đ từ khách hàng "${targetName}". Dư nợ còn lại: ${formatCurrency(remainingDebt)} đ.`,
+        `Đã ghi nhận thu ${formatCurrency(amount)} từ khách hàng "${targetName}". Dư nợ còn lại: ${formatCurrency(remainingDebt)}.`,
       );
     } catch (err: unknown) {
       const apiErr = getApiErrorMessage(
@@ -297,6 +301,16 @@ export const CustomerPage: React.FC = () => {
       throw new Error(apiErr);
     }
   };
+
+  const { id: routeCustomerId } = useParams<{ id?: string }>();
+  const navigate = useNavigate();
+  const [drawerPayDebtCustomer, setDrawerPayDebtCustomer] = useState<ICustomer | null>(null);
+  const [drawerRemindCustomer, setDrawerRemindCustomer] = useState<ICustomer | null>(null);
+
+  const selectedCustomerDetail = useMemo(() => {
+    if (!routeCustomerId) return null;
+    return customersWithDebtInfo.find((c) => c.id === routeCustomerId) || null;
+  }, [customersWithDebtInfo, routeCustomerId]);
 
   return (
     <DashboardWorkspaceLayout
@@ -338,6 +352,31 @@ export const CustomerPage: React.FC = () => {
           onConfirmPayDebt={handleConfirmPayDebt}
         />
       )}
+
+      {/* Customer Detail Slide-Over Drawer (/customers/:id) */}
+      <CustomerDetailModal
+        isOpen={Boolean(routeCustomerId)}
+        onClose={() => navigate(APP_ROUTES.CUSTOMERS)}
+        customer={selectedCustomerDetail}
+        onOpenEditModal={handleOpenEditModal}
+        onOpenPayDebtModal={(c) => setDrawerPayDebtCustomer(c)}
+        onOpenRemindModal={(c) => setDrawerRemindCustomer(c)}
+      />
+
+      {/* Modals triggered from Detail Drawer */}
+      <DebtPaymentModal
+        isOpen={Boolean(drawerPayDebtCustomer)}
+        onClose={() => setDrawerPayDebtCustomer(null)}
+        customer={drawerPayDebtCustomer}
+        onConfirmPayment={handleConfirmPayDebt}
+      />
+
+      <DebtReminderModal
+        isOpen={Boolean(drawerRemindCustomer)}
+        onClose={() => setDrawerRemindCustomer(null)}
+        customer={drawerRemindCustomer}
+        onConfirmReminder={handleConfirmReminder}
+      />
 
       {/* Create / Edit Form Modal */}
       <CustomerFormModal
