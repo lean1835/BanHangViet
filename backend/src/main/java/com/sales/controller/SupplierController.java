@@ -80,7 +80,7 @@ public class SupplierController {
     @PreAuthorize("hasAnyRole('VT-01', 'VT-02', 'VT-03')")
     public ResponseEntity<ApiResponse<List<SupplierResponse>>> searchSuppliers(
             Principal principal,
-            @RequestParam String query) {
+            @RequestParam(required = false) String query) {
         List<SupplierResponse> result = supplierService.searchSuppliers(principal.getName(), query);
         ApiResponse<List<SupplierResponse>> response = ApiResponse.<List<SupplierResponse>>builder()
                 .code(1000)

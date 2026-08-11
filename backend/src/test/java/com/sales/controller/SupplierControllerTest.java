@@ -197,6 +197,15 @@ public class SupplierControllerTest {
     }
 
     @Test
+    @WithMockUser(username = "nhanvien_supp_test", roles = {"VT-02"})
+    void employeeSearchSuppliers_withoutQueryParam_success() throws Exception {
+        mockMvc.perform(get("/api/v1/suppliers/search"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(1000))
+                .andExpect(jsonPath("$.result[0].name").value("Công Ty Nước Giải Khát Việt"));
+    }
+
+    @Test
     @WithMockUser(username = "chuho_supp_test", roles = {"VT-01"})
     void ownerCanDeleteSupplier_success() throws Exception {
         mockMvc.perform(delete("/api/v1/suppliers/" + supplier.getId()))

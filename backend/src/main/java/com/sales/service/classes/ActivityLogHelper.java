@@ -32,7 +32,7 @@ public class ActivityLogHelper {
                     .userAgent(userAgent)
                     .build();
 
-            activityLogRepository.save(logRecord);
+            activityLogRepository.saveAndFlush(logRecord);
         } catch (Exception e) {
             log.error("Lỗi khi ghi activity log (REQUIRES_NEW transaction)", e);
         }
