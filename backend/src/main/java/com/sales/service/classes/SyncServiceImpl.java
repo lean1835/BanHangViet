@@ -344,8 +344,8 @@ public class SyncServiceImpl implements SyncService {
             // Write activity logs
             logActivity(household, currentUser, "SYNC_OFFLINE_ORDER", order.getId(), null, buildOrderLogMap(order));
 
-            // 5. Decoupled automatic invoice generation via Event Listener (running post-commit asynchronously)
-            eventPublisher.publishEvent(new OrderSyncedEvent(username, order.getId()));
+            // 5. Decoupled automatic invoice generation via Event Listener (running post-commit asynchronously if issued offline at POS)
+            eventPublisher.publishEvent(new OrderSyncedEvent(username, order.getId(), Boolean.TRUE.equals(req.getIsInvoiceIssuedOffline())));
 
             OrderResponse orderResponse = mapToResponse(order);
             orderResponse.setWarningMessages(warnings);

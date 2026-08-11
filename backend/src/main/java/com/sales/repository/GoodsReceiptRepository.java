@@ -19,4 +19,6 @@ public interface GoodsReceiptRepository extends JpaRepository<GoodsReceipt, Stri
     Page<GoodsReceipt> findByHouseholdId(String householdId, Pageable pageable);
     
     boolean existsByReceiptNumber(String receiptNumber);
+
+    boolean existsBySupplierId(String supplierId);
 }

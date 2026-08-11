@@ -120,3 +120,24 @@ export interface IInvoiceStatusLog {
   notes?: string;
   createdAt: string;
 }
+
+export interface IBulkIssueInvoiceRequest {
+  syncSessionCode?: string;
+  orderIds: string[];
+}
+
+export interface IBulkIssueFailedItem {
+  orderId: string;
+  orderNumber: string;
+  errorMessage: string;
+}
+
+export interface IBulkIssueInvoiceResult {
+  syncSessionCode?: string;
+  totalProcessed: number;
+  successCount: number;
+  failedCount: number;
+  successInvoices: IInvoice[];
+  failedItems: IBulkIssueFailedItem[];
+}
+
