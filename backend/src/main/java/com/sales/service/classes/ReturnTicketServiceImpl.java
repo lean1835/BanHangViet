@@ -328,12 +328,16 @@ public class ReturnTicketServiceImpl implements ReturnTicketService {
         Map<String, BigDecimal> returnedQtyMap = new HashMap<>();
         for (ReturnedQuantityProjection proj : projections) {
             BigDecimal qty = proj.getTotalReturned() != null ? proj.getTotalReturned() : BigDecimal.ZERO;
+            String key = null;
             if (proj.getInvoiceItemId() != null) {
-                returnedQtyMap.put(proj.getInvoiceItemId(), qty);
+                key = proj.getInvoiceItemId();
             } else if (proj.getProductId() != null) {
-                returnedQtyMap.put(proj.getProductId(), qty);
+                key = proj.getProductId();
             } else if (proj.getProductName() != null) {
-                returnedQtyMap.put(proj.getProductName(), qty);
+                key = proj.getProductName();
+            }
+            if (key != null) {
+                returnedQtyMap.merge(key, qty, BigDecimal::add);
             }
         }
         return returnedQtyMap;

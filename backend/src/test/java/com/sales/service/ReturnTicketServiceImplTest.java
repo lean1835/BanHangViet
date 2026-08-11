@@ -566,4 +566,32 @@ class ReturnTicketServiceImplTest {
         assertEquals(1, response.getContent().size());
         assertEquals("PTH-20260811-0001", response.getContent().get(0).getTicketNumber());
     }
+
+    @Test
+    @DisplayName("Check Invoice Returnable - Tích lũy đúng khi có nhiều projection trùng sản phẩm (P1 Fix)")
+    void testCheckInvoiceReturnable_AccumulatesMultipleProjections() {
+        when(userRepository.findByUsername("chuho_viet")).thenReturn(Optional.of(ownerUser));
+        when(eInvoiceRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("inv-1", "house-1"))
+                .thenReturn(Optional.of(issuedInvoice));
+
+        ReturnedQuantityProjection proj1 = mock(ReturnedQuantityProjection.class);
+        when(proj1.getInvoiceItemId()).thenReturn(null);
+        when(proj1.getProductId()).thenReturn("prod-1");
+        when(proj1.getTotalReturned()).thenReturn(new BigDecimal("2.000"));
+
+        ReturnedQuantityProjection proj2 = mock(ReturnedQuantityProjection.class);
+        when(proj2.getInvoiceItemId()).thenReturn(null);
+        when(proj2.getProductId()).thenReturn("prod-1");
+        when(proj2.getTotalReturned()).thenReturn(new BigDecimal("1.500"));
+
+        when(returnTicketItemRepository.findReturnedQuantitiesByInvoiceId(eq("inv-1"), anyList()))
+                .thenReturn(List.of(proj1, proj2));
+
+        InvoiceReturnableCheckResponse response = returnTicketService.checkInvoiceReturnable("inv-1", "chuho_viet");
+
+        assertNotNull(response);
+        assertEquals(1, response.getItems().size());
+        // Invoice quantity = 5.000, already returned sum = 2.000 + 1.500 = 3.500 => returnable = 1.500
+        assertEquals(new BigDecimal("1.500"), response.getItems().get(0).getReturnableQuantity());
+    }
 }
