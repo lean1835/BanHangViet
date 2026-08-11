@@ -45,6 +45,10 @@ public class Product {
     @Column(nullable = false, precision = 15, scale = 2)
     private BigDecimal price;
 
+    @Column(name = "cost_price", nullable = false, precision = 15, scale = 2)
+    @Builder.Default
+    private BigDecimal costPrice = BigDecimal.ZERO;
+
     @Column(name = "stock_quantity", nullable = false, precision = 12, scale = 3)
     private BigDecimal stockQuantity;
 
