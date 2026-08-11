@@ -361,4 +361,176 @@ class ReturnTicketServiceImplTest {
         assertNotNull(response);
         verify(returnTicketRepository, times(1)).save(any());
     }
+
+    @Test
+    @DisplayName("Create Return Ticket - Hóa đơn có nhiều dòng trùng sản phẩm, tính theo invoiceItemId")
+    void testCreateReturnTicket_MultipleLinesSameProduct_Success() {
+        EInvoiceItem line1 = EInvoiceItem.builder()
+                .id("item-line-1")
+                .product(product)
+                .productName(product.getName())
+                .unit(product.getUnit())
+                .quantity(new BigDecimal("5.000"))
+                .unitPrice(new BigDecimal("10000.00"))
+                .taxRatePercentage(BigDecimal.ZERO)
+                .subtotal(new BigDecimal("50000.00"))
+                .build();
+
+        EInvoiceItem line2 = EInvoiceItem.builder()
+                .id("item-line-2")
+                .product(product)
+                .productName(product.getName())
+                .unit(product.getUnit())
+                .quantity(new BigDecimal("3.000"))
+                .unitPrice(new BigDecimal("8000.00"))
+                .taxRatePercentage(BigDecimal.ZERO)
+                .subtotal(new BigDecimal("24000.00"))
+                .build();
+
+        EInvoice multiLineInvoice = EInvoice.builder()
+                .id("inv-multi")
+                .household(household)
+                .invoiceNumber("00000777")
+                .createdByUser(ownerUser)
+                .status("ISSUED")
+                .createdAt(LocalDateTime.now().minusDays(1))
+                .items(List.of(line1, line2))
+                .build();
+
+        // Giả lập đã có 1 phiếu trả cho line1 (trả 2 cái)
+        ReturnTicketItem existingItem = ReturnTicketItem.builder()
+                .id("ret-item-1")
+                .invoiceItemId("item-line-1")
+                .product(product)
+                .quantity(new BigDecimal("2.000"))
+                .build();
+
+        ReturnTicket existingTicket = ReturnTicket.builder()
+                .id("prev-ticket")
+                .status("APPROVED")
+                .items(List.of(existingItem))
+                .build();
+
+        when(userRepository.findByUsername("chuho_viet")).thenReturn(Optional.of(ownerUser));
+        when(eInvoiceRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("inv-multi", "house-1"))
+                .thenReturn(Optional.of(multiLineInvoice));
+        when(returnTicketRepository.findByOriginalInvoiceIdAndStatusIn(eq("inv-multi"), anyList()))
+                .thenReturn(List.of(existingTicket));
+        when(returnTicketRepository.findMaxTicketNumberByPrefix(eq("house-1"), anyString()))
+                .thenReturn(Optional.empty());
+
+        ReturnTicket savedTicket = ReturnTicket.builder()
+                .id("ticket-multi")
+                .ticketNumber("PTH-20260811-0004")
+                .household(household)
+                .originalInvoice(multiLineInvoice)
+                .createdByUser(ownerUser)
+                .status("PENDING")
+                .totalReturnAmount(new BigDecimal("24000.00"))
+                .items(Collections.emptyList())
+                .build();
+
+        when(returnTicketRepository.save(any())).thenReturn(savedTicket);
+
+        // Lập phiếu mới trả full 3 cái cho line2 (dòng 2 chưa trả cái nào)
+        CreateReturnTicketRequest request = CreateReturnTicketRequest.builder()
+                .originalInvoiceId("inv-multi")
+                .reason("Trả hàng dòng 2 giá khuyến mãi")
+                .items(List.of(
+                        CreateReturnTicketItemRequest.builder()
+                                .invoiceItemId("item-line-2")
+                                .quantity(new BigDecimal("3.000"))
+                                .build()
+                ))
+                .build();
+
+        ReturnTicketResponse response = returnTicketService.createReturnTicket(request, "chuho_viet");
+        assertNotNull(response);
+        verify(returnTicketRepository, times(1)).save(any());
+    }
+
+    @Test
+    @DisplayName("Create Return Ticket - QTN-18: Quá hạn 7 ngày, Chủ hộ tạo nhưng không bật allowOverdueOverride -> Thất bại")
+    void testCreateReturnTicket_Overdue_WithoutOverride_ThrowsException() {
+        EInvoice expiredInvoice = EInvoice.builder()
+                .id("inv-expired")
+                .household(household)
+                .invoiceNumber("00000666")
+                .createdByUser(ownerUser)
+                .status("ISSUED")
+                .createdAt(LocalDateTime.now().minusDays(10)) // Quá 7 ngày
+                .items(List.of(invoiceItem))
+                .build();
+
+        when(userRepository.findByUsername("chuho_viet")).thenReturn(Optional.of(ownerUser));
+        when(eInvoiceRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("inv-expired", "house-1"))
+                .thenReturn(Optional.of(expiredInvoice));
+
+        CreateReturnTicketRequest request = CreateReturnTicketRequest.builder()
+                .originalInvoiceId("inv-expired")
+                .allowOverdueOverride(false)
+                .items(List.of(
+                        CreateReturnTicketItemRequest.builder()
+                                .productId("prod-1")
+                                .quantity(new BigDecimal("1.000"))
+                                .build()
+                ))
+                .build();
+
+        AppException ex = assertThrows(AppException.class, () ->
+                returnTicketService.createReturnTicket(request, "chuho_viet")
+        );
+
+        assertEquals(ErrorCode.RETURN_PERIOD_EXPIRED, ex.getErrorCode());
+    }
+
+    @Test
+    @DisplayName("Create Return Ticket - QTN-18: Quá hạn 7 ngày, Chủ hộ tạo và bật allowOverdueOverride = true -> Thành công")
+    void testCreateReturnTicket_Overdue_WithOwnerOverride_Success() {
+        EInvoice expiredInvoice = EInvoice.builder()
+                .id("inv-expired")
+                .household(household)
+                .invoiceNumber("00000666")
+                .createdByUser(ownerUser)
+                .status("ISSUED")
+                .createdAt(LocalDateTime.now().minusDays(10)) // Quá 7 ngày
+                .items(List.of(invoiceItem))
+                .build();
+
+        when(userRepository.findByUsername("chuho_viet")).thenReturn(Optional.of(ownerUser));
+        when(eInvoiceRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("inv-expired", "house-1"))
+                .thenReturn(Optional.of(expiredInvoice));
+        when(returnTicketRepository.findByOriginalInvoiceIdAndStatusIn(eq("inv-expired"), anyList()))
+                .thenReturn(Collections.emptyList());
+        when(returnTicketRepository.findMaxTicketNumberByPrefix(eq("house-1"), anyString()))
+                .thenReturn(Optional.empty());
+
+        ReturnTicket savedTicket = ReturnTicket.builder()
+                .id("ticket-overdue")
+                .ticketNumber("PTH-20260811-0005")
+                .household(household)
+                .originalInvoice(expiredInvoice)
+                .createdByUser(ownerUser)
+                .status("PENDING")
+                .totalReturnAmount(new BigDecimal("11000.00"))
+                .items(Collections.emptyList())
+                .build();
+
+        when(returnTicketRepository.save(any())).thenReturn(savedTicket);
+
+        CreateReturnTicketRequest request = CreateReturnTicketRequest.builder()
+                .originalInvoiceId("inv-expired")
+                .allowOverdueOverride(true)
+                .items(List.of(
+                        CreateReturnTicketItemRequest.builder()
+                                .productId("prod-1")
+                                .quantity(new BigDecimal("1.000"))
+                                .build()
+                ))
+                .build();
+
+        ReturnTicketResponse response = returnTicketService.createReturnTicket(request, "chuho_viet");
+        assertNotNull(response);
+        verify(returnTicketRepository, times(1)).save(any());
+    }
 }

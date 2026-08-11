@@ -18,7 +18,7 @@ import java.util.Optional;
 public interface ReturnTicketRepository extends JpaRepository<ReturnTicket, String>, JpaSpecificationExecutor<ReturnTicket> {
 
     @Override
-    @EntityGraph(attributePaths = {"items", "items.product", "createdByUser", "approvedByUser", "household", "originalInvoice", "originalOrder", "customer"})
+    @EntityGraph(attributePaths = {"createdByUser", "approvedByUser", "household", "originalInvoice", "originalOrder", "customer"})
     Page<ReturnTicket> findAll(Specification<ReturnTicket> spec, Pageable pageable);
 
     @Override

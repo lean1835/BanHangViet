@@ -41,6 +41,8 @@ app:
     expiration-ms: ${JWT_EXPIRATION_MS:86400000} # 24 hours
   frontend-url: ${FRONTEND_URL:http://localhost:3000}
   default-household-name: ${DEFAULT_HOUSEHOLD_NAME:BanHangViet}
+  return-ticket:
+    max-days: ${MAX_RETURN_DAYS:7}
 
 management:
   endpoints:

@@ -13,6 +13,7 @@ import java.math.BigDecimal;
 @AllArgsConstructor
 public class ReturnTicketItemResponse {
     private String id;
+    private String invoiceItemId;
     private String productId;
     private String productName;
     private String unit;

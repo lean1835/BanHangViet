@@ -11,6 +11,7 @@ import com.sales.service.interfaces.ReturnTicketService;
 import com.sales.specification.ReturnTicketSpecification;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -33,7 +34,8 @@ import java.util.stream.Collectors;
 @Slf4j
 public class ReturnTicketServiceImpl implements ReturnTicketService {
 
-    private static final int MAX_RETURN_DAYS = 7;
+    @Value("${app.return-ticket.max-days:7}")
+    private int maxReturnDays = 7;
 
     private final ReturnTicketRepository returnTicketRepository;
     private final ReturnTicketItemRepository returnTicketItemRepository;
@@ -59,10 +61,10 @@ public class ReturnTicketServiceImpl implements ReturnTicketService {
 
         LocalDateTime issueTime = invoice.getCreatedAt();
         long daysSinceIssued = ChronoUnit.DAYS.between(issueTime, LocalDateTime.now());
-        boolean isExpired = daysSinceIssued > MAX_RETURN_DAYS;
+        boolean isExpired = daysSinceIssued > maxReturnDays;
 
         if (isExpired && isEligible) {
-            ineligibilityReason = "Hóa đơn đã quá thời hạn trả hàng " + MAX_RETURN_DAYS + " ngày theo quy định";
+            ineligibilityReason = "Hóa đơn đã quá thời hạn trả hàng " + maxReturnDays + " ngày theo quy định";
         }
 
         // Tính toán số lượng khả dụng của từng sản phẩm trong hóa đơn gốc
@@ -100,7 +102,7 @@ public class ReturnTicketServiceImpl implements ReturnTicketService {
                 .isEligibleForReturn(isEligible)
                 .isExpired(isExpired)
                 .daysSinceIssued(daysSinceIssued)
-                .maxReturnDays(MAX_RETURN_DAYS)
+                .maxReturnDays(maxReturnDays)
                 .ineligibilityReason(ineligibilityReason)
                 .items(itemDtos)
                 .build();
@@ -120,12 +122,14 @@ public class ReturnTicketServiceImpl implements ReturnTicketService {
         }
 
         long daysSinceIssued = ChronoUnit.DAYS.between(invoice.getCreatedAt(), LocalDateTime.now());
-        boolean isExpired = daysSinceIssued > MAX_RETURN_DAYS;
+        boolean isExpired = daysSinceIssued > maxReturnDays;
         boolean isOwner = user.getRole() != null && "VT-01".equals(user.getRole().getCode());
 
-        // QTN-18: Cảnh báo quá hạn và chỉ cho lập khi chủ hộ đồng ý ngoại lệ
-        if (isExpired && !isOwner) {
-            throw new AppException(ErrorCode.RETURN_PERIOD_EXPIRED);
+        // QTN-18: Cảnh báo quá hạn và chỉ cho lập khi chủ hộ đồng ý ngoại lệ (allowOverdueOverride == true)
+        if (isExpired) {
+            if (!isOwner || !Boolean.TRUE.equals(request.getAllowOverdueOverride())) {
+                throw new AppException(ErrorCode.RETURN_PERIOD_EXPIRED);
+            }
         }
 
         if (request.getItems() == null || request.getItems().isEmpty()) {
@@ -205,6 +209,7 @@ public class ReturnTicketServiceImpl implements ReturnTicketService {
             totalReturnAmount = totalReturnAmount.add(lineSubtotal);
 
             ReturnTicketItem ticketItem = ReturnTicketItem.builder()
+                    .invoiceItemId(originalItem.getId())
                     .product(originalItem.getProduct())
                     .productName(originalItem.getProductName())
                     .unit(originalItem.getUnit())
@@ -323,9 +328,16 @@ public class ReturnTicketServiceImpl implements ReturnTicketService {
         Map<String, BigDecimal> returnedQtyMap = new HashMap<>();
         for (ReturnTicket ticket : existingTickets) {
             for (ReturnTicketItem item : ticket.getItems()) {
-                String key = item.getProduct() != null ? item.getProduct().getId() : item.getProductName();
-                BigDecimal current = returnedQtyMap.getOrDefault(key, BigDecimal.ZERO);
-                returnedQtyMap.put(key, current.add(item.getQuantity()));
+                if (item.getInvoiceItemId() != null) {
+                    BigDecimal current = returnedQtyMap.getOrDefault(item.getInvoiceItemId(), BigDecimal.ZERO);
+                    returnedQtyMap.put(item.getInvoiceItemId(), current.add(item.getQuantity()));
+                } else {
+                    String prodKey = item.getProduct() != null ? item.getProduct().getId() : item.getProductName();
+                    if (prodKey != null) {
+                        BigDecimal currentProd = returnedQtyMap.getOrDefault(prodKey, BigDecimal.ZERO);
+                        returnedQtyMap.put(prodKey, currentProd.add(item.getQuantity()));
+                    }
+                }
             }
         }
         return returnedQtyMap;
@@ -353,6 +365,7 @@ public class ReturnTicketServiceImpl implements ReturnTicketService {
         List<ReturnTicketItemResponse> itemResponses = ticket.getItems().stream()
                 .map(item -> ReturnTicketItemResponse.builder()
                         .id(item.getId())
+                        .invoiceItemId(item.getInvoiceItemId())
                         .productId(item.getProduct() != null ? item.getProduct().getId() : null)
                         .productName(item.getProductName())
                         .unit(item.getUnit())

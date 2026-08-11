@@ -33,6 +33,9 @@ public class ReturnTicketItem {
     @JoinColumn(name = "product_id")
     private Product product;
 
+    @Column(name = "invoice_item_id", length = 36)
+    private String invoiceItemId;
+
     @Column(name = "product_name", nullable = false, length = 255)
     private String productName;
 

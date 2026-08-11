@@ -24,6 +24,8 @@ public class CreateReturnTicketRequest {
     @Builder.Default
     private String refundPaymentMethod = "CASH"; // CASH, BANK_TRANSFER, DEBT_REDUCTION
 
+    private Boolean allowOverdueOverride;
+
     @NotEmpty(message = "Danh sách sản phẩm trả lại không được rỗng")
     @Valid
     private List<CreateReturnTicketItemRequest> items;
