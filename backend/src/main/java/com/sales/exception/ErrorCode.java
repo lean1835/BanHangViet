@@ -81,7 +81,18 @@ public enum ErrorCode {
     DEBT_NOT_FOUND(3027, "Khoản công nợ không tồn tại", HttpStatus.NOT_FOUND),
     INVALID_DEBT_PAYMENT_AMOUNT(3028, "Số tiền thu nợ không hợp lệ", HttpStatus.BAD_REQUEST),
     CUSTOMER_HAS_OUTSTANDING_DEBT(3029, "Không thể xóa khách hàng đang còn dư nợ công nợ", HttpStatus.BAD_REQUEST),
-    EMAIL_SEND_FAILED(3030, "Gửi thư điện tử thất bại", HttpStatus.INTERNAL_SERVER_ERROR);
+    EMAIL_SEND_FAILED(3030, "Gửi thư điện tử thất bại", HttpStatus.INTERNAL_SERVER_ERROR),
+
+    // Quản lý Trả hàng, hoàn tiền và điều chỉnh giảm (NCL-11)
+    RETURN_TICKET_NOT_FOUND(4020, "Không tìm thấy phiếu trả hàng", HttpStatus.NOT_FOUND),
+    INVOICE_NOT_ELIGIBLE_FOR_RETURN(4021, "Hóa đơn gốc không ở trạng thái được phép trả hàng (phải là ISSUED và chưa bị hủy)", HttpStatus.BAD_REQUEST),
+    EXCEEDED_RETURNABLE_QUANTITY(4022, "Số lượng trả vượt quá số lượng còn lại có thể trả của hóa đơn gốc", HttpStatus.BAD_REQUEST),
+    RETURN_PERIOD_EXPIRED(4023, "Hóa đơn gốc đã quá thời hạn trả hàng theo quy định của cửa hàng", HttpStatus.BAD_REQUEST),
+    RETURN_TICKET_ALREADY_PROCESSED(4024, "Phiếu trả hàng đã được xử lý duyệt hoặc từ chối trước đó", HttpStatus.BAD_REQUEST),
+    RETURN_TICKET_NOT_APPROVED(4025, "Phiếu trả hàng chưa được duyệt, không thể lập hóa đơn điều chỉnh giảm", HttpStatus.BAD_REQUEST),
+    ADJUSTMENT_INVOICE_ALREADY_EXISTS(4026, "Hóa đơn điều chỉnh giảm đã được lập cho phiếu trả hàng này", HttpStatus.BAD_REQUEST),
+    EMPTY_RETURN_TICKET_ITEMS(4027, "Phiếu trả hàng phải chọn ít nhất một mặt hàng để trả", HttpStatus.BAD_REQUEST),
+    UNAUTHORIZED_RETURN_ACTION(4028, "Chỉ có chủ hộ mới có quyền duyệt hoặc từ chối phiếu trả hàng", HttpStatus.FORBIDDEN);
 
     private final int code;
     private final String message;
