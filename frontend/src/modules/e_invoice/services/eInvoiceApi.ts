@@ -3,6 +3,8 @@ import { HTTP_METHODS, API_TAG_TYPES } from "@/constants/api";
 import type { IApiResponse, IPageResponse } from "@/types/api";
 import type {
   IAdjustInvoiceParams,
+  IBulkIssueInvoiceRequest,
+  IBulkIssueInvoiceResult,
   ICancelInvoiceRequest,
   IGetInvoicesParams,
   IInvoice,
@@ -12,6 +14,14 @@ import type {
 
 export const eInvoiceApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
+    bulkIssueInvoices: builder.mutation<IApiResponse<IBulkIssueInvoiceResult>, IBulkIssueInvoiceRequest>({
+      query: (body) => ({
+        url: "/invoices/bulk-issue",
+        method: HTTP_METHODS.POST,
+        body,
+      }),
+      invalidatesTags: [{ type: API_TAG_TYPES.INVOICE, id: "LIST" }],
+    }),
     getInvoices: builder.query<IApiResponse<IPageResponse<IInvoice>>, IGetInvoicesParams | void>({
       query: (params) => ({
         url: "/invoices",
@@ -106,6 +116,7 @@ export const eInvoiceApi = baseApi.injectEndpoints({
 });
 
 export const {
+  useBulkIssueInvoicesMutation,
   useGetInvoicesQuery,
   useLazyGetInvoicesQuery,
   useGetInvoiceQuery,

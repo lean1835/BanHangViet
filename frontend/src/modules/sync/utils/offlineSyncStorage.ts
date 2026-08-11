@@ -72,6 +72,23 @@ export const updateOfflineOrderStatus = (
 };
 
 /**
+ * Đánh dấu một đơn hàng ngoại tuyến đã được người dùng chọn phát hành HĐĐT ngay lúc bán POS
+ */
+export const markOfflineOrderInvoiceIssued = (orderNumber: string): void => {
+  if (!orderNumber) return;
+  const currentOrders = getPendingOfflineOrders();
+  const index = currentOrders.findIndex((o) => o.orderNumber === orderNumber);
+  if (index >= 0) {
+    currentOrders[index].isInvoiceIssuedOffline = true;
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(currentOrders));
+    } catch (error) {
+      console.error("Lỗi khi đánh dấu hóa đơn offline đã phát hành:", error);
+    }
+  }
+};
+
+/**
  * Xóa một đơn hàng ngoại tuyến khỏi kho lưu trữ
  */
 export const removeOfflineOrder = (orderNumber: string): void => {

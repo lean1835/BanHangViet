@@ -23,6 +23,7 @@ import {
   useCancelInvoiceMutation,
   useUpdateInvoiceMutation,
 } from "@/modules/e_invoice/services/eInvoiceApi";
+import { markOfflineOrderInvoiceIssued } from "@/modules/sync/utils/offlineSyncStorage";
 
 interface IOrderSuccessModalProps {
   isOpen: boolean;
@@ -222,6 +223,9 @@ export const OrderSuccessModal: React.FC<IOrderSuccessModalProps> = ({
 
   const saveInvoiceToOfflineCache = (inv: IInvoice) => {
     try {
+      if (tab.orderNumber) {
+        markOfflineOrderInvoiceIssued(tab.orderNumber);
+      }
       const raw = localStorage.getItem(STORAGE_KEYS.POS_OFFLINE_INVOICES);
       const list: IInvoice[] = raw ? JSON.parse(raw) : [];
       const map = new Map<string, IInvoice>();

@@ -40,7 +40,12 @@ public class OrderSyncedEventListener {
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void handleOrderSyncedEvent(OrderSyncedEvent event) {
-        log.info("Starting automatic invoice generation for order ID: {}", event.getOrderId());
+        if (!event.isInvoiceIssuedOffline()) {
+            log.info("Order synced event received for order ID: {}. Skipping automatic invoice generation (unissued order, handled by NCL-08-CN-004 bulk issue).", event.getOrderId());
+            return;
+        }
+
+        log.info("Starting automatic invoice generation for offline-issued order ID: {}", event.getOrderId());
         String invoiceDraftId = null;
         try {
             InvoiceResponse invoiceDraft = eInvoiceService.createInvoiceDraft(event.getUsername(), event.getOrderId());
