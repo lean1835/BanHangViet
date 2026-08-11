@@ -33,6 +33,8 @@ public class OfflineOrderRequest {
     private String discountType;
     private BigDecimal discountRateOrValue;
 
+    private Boolean isInvoiceIssuedOffline;
+
     @NotNull(message = "Thời gian tạo offline không được để trống")
     private LocalDateTime createdAt;
 

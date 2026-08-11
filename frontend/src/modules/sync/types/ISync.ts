@@ -33,6 +33,7 @@ export interface IOfflineOrderRequest {
   createdAt?: string;
   discountType?: string | null;
   discountRateOrValue?: number | null;
+  isInvoiceIssuedOffline?: boolean;
   items: IOfflineOrderItemRequest[];
 }
 

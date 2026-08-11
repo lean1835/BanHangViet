@@ -36,6 +36,8 @@ export const AuthenticatedAppLayout = () => {
     conflictingOrders,
     warnings,
     isSyncing,
+    unissuedOrderIds,
+    clearUnissuedOrderIds,
     triggerSync,
     resolveOrderConflict,
   } = useOfflineSync({
@@ -93,7 +95,10 @@ export const AuthenticatedAppLayout = () => {
         conflictingOrdersCount={conflictingOrders.length}
         warnings={warnings}
         isSyncing={isSyncing}
+        unissuedOrderIds={unissuedOrderIds}
+        userRole={currentRole}
         onSync={triggerSync}
+        onClearUnissuedOrders={clearUnissuedOrderIds}
         onOpenConflictModal={() => setIsConflictModalOpen(true)}
       />
       <Outlet />

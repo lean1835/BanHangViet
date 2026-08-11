@@ -1,6 +1,7 @@
 package com.sales.service.classes;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.sales.dto.request.BulkIssueInvoiceRequest;
 import com.sales.dto.request.CancelInvoiceRequest;
 import com.sales.dto.request.CreateAdjustmentInvoiceItemRequest;
 import com.sales.dto.request.CreateAdjustmentInvoiceRequest;
@@ -25,6 +26,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
@@ -53,6 +55,7 @@ public class EInvoiceServiceImpl implements EInvoiceService {
     private final InvoiceDeliveryLogRepository invoiceDeliveryLogRepository;
     private final EmailService emailService;
     private final ObjectMapper objectMapper;
+    private final TransactionTemplate transactionTemplate;
 
     @Value("${app.frontend-url:http://localhost:3000}")
     private String frontendUrl;
@@ -1422,6 +1425,73 @@ public class EInvoiceServiceImpl implements EInvoiceService {
                     .append("</div>\n</body>\n</html>");
             return html.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
         }
+    }
+
+    @Override
+    public BulkIssueInvoiceResponse bulkIssueInvoices(String currentUsername, BulkIssueInvoiceRequest request) {
+        User currentUser = getAuthenticatedUser(currentUsername);
+
+        // Phân quyền theo AC-03: Kế toán (VT-03) bị chặn
+        if (currentUser.getRole() != null && "VT-03".equals(currentUser.getRole().getCode())) {
+            throw new AppException(ErrorCode.FORBIDDEN);
+        }
+
+        List<String> orderIds = request.getOrderIds() != null ? request.getOrderIds() : Collections.emptyList();
+        List<InvoiceResponse> successInvoices = new ArrayList<>();
+        List<BulkIssueFailedItemResponse> failedItems = new ArrayList<>();
+
+        for (String orderId : orderIds) {
+            try {
+                // Tái sử dụng logic tạo draft và submit to tax trong giao dịch độc lập per-order
+                InvoiceResponse submitted = transactionTemplate.execute(status -> {
+                    InvoiceResponse draft = createInvoiceDraft(currentUsername, orderId);
+                    return submitToTax(currentUsername, draft.getId());
+                });
+                if (submitted != null) {
+                    successInvoices.add(submitted);
+                }
+            } catch (Exception e) {
+                // Xử lý đơn bị lỗi thiếu thông tin/vi phạm ràng buộc (AC-02) mà không làm ngắt giao dịch của cả lô
+                log.warn("Lỗi phát hành dồn hóa đơn cho orderId: {}, lý do: {}", orderId, e.getMessage());
+                String orderNum = orderId;
+                try {
+                    Optional<Order> ordOpt = orderRepository.findById(orderId);
+                    if (ordOpt.isPresent()) {
+                        orderNum = ordOpt.get().getOrderNumber();
+                    }
+                } catch (Exception ex) {
+                    log.debug("Không thể tìm orderNumber cho orderId: {}", orderId);
+                }
+                failedItems.add(BulkIssueFailedItemResponse.builder()
+                        .orderId(orderId)
+                        .orderNumber(orderNum)
+                        .errorMessage(e.getMessage() != null ? e.getMessage() : "Thiếu thông tin bắt buộc hoặc vi phạm quy tắc hóa đơn")
+                        .build());
+            }
+        }
+
+        BulkIssueInvoiceResponse result = BulkIssueInvoiceResponse.builder()
+                .syncSessionCode(request.getSyncSessionCode())
+                .totalProcessed(orderIds.size())
+                .successCount(successInvoices.size())
+                .failedCount(failedItems.size())
+                .successInvoices(successInvoices)
+                .failedItems(failedItems)
+                .build();
+
+        // Lưu nhật ký phiên vào activity_logs (AC-04)
+        Map<String, Object> logSummary = new HashMap<>();
+        logSummary.put("syncSessionCode", request.getSyncSessionCode());
+        logSummary.put("totalProcessed", orderIds.size());
+        logSummary.put("successCount", successInvoices.size());
+        logSummary.put("failedCount", failedItems.size());
+        logSummary.put("failedItems", failedItems);
+
+        logActivity(currentUser.getHousehold(), currentUser, "BULK_ISSUE_INVOICES",
+                request.getSyncSessionCode() != null ? request.getSyncSessionCode() : UUID.randomUUID().toString(),
+                null, logSummary);
+
+        return result;
     }
 
     private String escXml(String val) {
