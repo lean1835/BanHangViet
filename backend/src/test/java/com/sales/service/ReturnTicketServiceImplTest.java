@@ -2,8 +2,7 @@ package com.sales.service;
 
 import com.sales.dto.request.CreateReturnTicketItemRequest;
 import com.sales.dto.request.CreateReturnTicketRequest;
-import com.sales.dto.response.InvoiceReturnableCheckResponse;
-import com.sales.dto.response.ReturnTicketResponse;
+import com.sales.dto.response.*;
 import com.sales.entity.*;
 import com.sales.exception.AppException;
 import com.sales.exception.ErrorCode;
@@ -123,7 +122,7 @@ class ReturnTicketServiceImplTest {
         when(userRepository.findByUsername("chuho_viet")).thenReturn(Optional.of(ownerUser));
         when(eInvoiceRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("inv-1", "house-1"))
                 .thenReturn(Optional.of(issuedInvoice));
-        when(returnTicketRepository.findByOriginalInvoiceIdAndStatusIn(eq("inv-1"), anyList()))
+        when(returnTicketItemRepository.findReturnedQuantitiesByInvoiceId(eq("inv-1"), anyList()))
                 .thenReturn(Collections.emptyList());
 
         InvoiceReturnableCheckResponse response = returnTicketService.checkInvoiceReturnable("inv-1", "chuho_viet");
@@ -142,7 +141,7 @@ class ReturnTicketServiceImplTest {
         when(userRepository.findByUsername("chuho_viet")).thenReturn(Optional.of(ownerUser));
         when(eInvoiceRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("inv-1", "house-1"))
                 .thenReturn(Optional.of(issuedInvoice));
-        when(returnTicketRepository.findByOriginalInvoiceIdAndStatusIn(eq("inv-1"), anyList()))
+        when(returnTicketItemRepository.findReturnedQuantitiesByInvoiceId(eq("inv-1"), anyList()))
                 .thenReturn(Collections.emptyList());
         when(returnTicketRepository.findMaxTicketNumberByPrefix(eq("house-1"), anyString()))
                 .thenReturn(Optional.empty());
@@ -186,7 +185,7 @@ class ReturnTicketServiceImplTest {
         when(userRepository.findByUsername("chuho_viet")).thenReturn(Optional.of(ownerUser));
         when(eInvoiceRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("inv-1", "house-1"))
                 .thenReturn(Optional.of(issuedInvoice));
-        when(returnTicketRepository.findByOriginalInvoiceIdAndStatusIn(eq("inv-1"), anyList()))
+        when(returnTicketItemRepository.findReturnedQuantitiesByInvoiceId(eq("inv-1"), anyList()))
                 .thenReturn(Collections.emptyList());
 
         CreateReturnTicketRequest request = CreateReturnTicketRequest.builder()
@@ -258,7 +257,7 @@ class ReturnTicketServiceImplTest {
         when(userRepository.findByUsername("chuho_viet")).thenReturn(Optional.of(ownerUser));
         when(eInvoiceRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("inv-custom", "house-1"))
                 .thenReturn(Optional.of(customInvoice));
-        when(returnTicketRepository.findByOriginalInvoiceIdAndStatusIn(eq("inv-custom"), anyList()))
+        when(returnTicketItemRepository.findReturnedQuantitiesByInvoiceId(eq("inv-custom"), anyList()))
                 .thenReturn(Collections.emptyList());
         when(returnTicketRepository.findMaxTicketNumberByPrefix(eq("house-1"), anyString()))
                 .thenReturn(Optional.empty());
@@ -326,7 +325,7 @@ class ReturnTicketServiceImplTest {
         when(userRepository.findByUsername("chuho_viet")).thenReturn(Optional.of(ownerUser));
         when(eInvoiceRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("inv-disc", "house-1"))
                 .thenReturn(Optional.of(discInvoice));
-        when(returnTicketRepository.findByOriginalInvoiceIdAndStatusIn(eq("inv-disc"), anyList()))
+        when(returnTicketItemRepository.findReturnedQuantitiesByInvoiceId(eq("inv-disc"), anyList()))
                 .thenReturn(Collections.emptyList());
 
         CreateReturnTicketRequest request = CreateReturnTicketRequest.builder()
@@ -405,17 +404,15 @@ class ReturnTicketServiceImplTest {
                 .quantity(new BigDecimal("2.000"))
                 .build();
 
-        ReturnTicket existingTicket = ReturnTicket.builder()
-                .id("prev-ticket")
-                .status("APPROVED")
-                .items(List.of(existingItem))
-                .build();
+        ReturnedQuantityProjection existingProj = mock(ReturnedQuantityProjection.class);
+        when(existingProj.getInvoiceItemId()).thenReturn("item-line-1");
+        when(existingProj.getTotalReturned()).thenReturn(new BigDecimal("2.000"));
 
         when(userRepository.findByUsername("chuho_viet")).thenReturn(Optional.of(ownerUser));
         when(eInvoiceRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("inv-multi", "house-1"))
                 .thenReturn(Optional.of(multiLineInvoice));
-        when(returnTicketRepository.findByOriginalInvoiceIdAndStatusIn(eq("inv-multi"), anyList()))
-                .thenReturn(List.of(existingTicket));
+        when(returnTicketItemRepository.findReturnedQuantitiesByInvoiceId(eq("inv-multi"), anyList()))
+                .thenReturn(List.of(existingProj));
         when(returnTicketRepository.findMaxTicketNumberByPrefix(eq("house-1"), anyString()))
                 .thenReturn(Optional.empty());
 
@@ -500,7 +497,7 @@ class ReturnTicketServiceImplTest {
         when(userRepository.findByUsername("chuho_viet")).thenReturn(Optional.of(ownerUser));
         when(eInvoiceRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("inv-expired", "house-1"))
                 .thenReturn(Optional.of(expiredInvoice));
-        when(returnTicketRepository.findByOriginalInvoiceIdAndStatusIn(eq("inv-expired"), anyList()))
+        when(returnTicketItemRepository.findReturnedQuantitiesByInvoiceId(eq("inv-expired"), anyList()))
                 .thenReturn(Collections.emptyList());
         when(returnTicketRepository.findMaxTicketNumberByPrefix(eq("house-1"), anyString()))
                 .thenReturn(Optional.empty());
@@ -532,5 +529,41 @@ class ReturnTicketServiceImplTest {
         ReturnTicketResponse response = returnTicketService.createReturnTicket(request, "chuho_viet");
         assertNotNull(response);
         verify(returnTicketRepository, times(1)).save(any());
+    }
+
+    @Test
+    @DisplayName("Get Return Tickets - Lấy danh sách phân trang thành công")
+    void testGetReturnTickets_Success() {
+        when(userRepository.findByUsername("chuho_viet")).thenReturn(Optional.of(ownerUser));
+
+        ReturnTicket ticket1 = ReturnTicket.builder()
+                .id("ticket-1")
+                .ticketNumber("PTH-20260811-0001")
+                .household(household)
+                .originalInvoice(issuedInvoice)
+                .createdByUser(ownerUser)
+                .status("PENDING")
+                .totalReturnAmount(new BigDecimal("22000.00"))
+                .items(Collections.emptyList())
+                .createdAt(LocalDateTime.now())
+                .build();
+
+        org.springframework.data.domain.Page<ReturnTicket> page = new org.springframework.data.domain.PageImpl<>(
+                List.of(ticket1),
+                org.springframework.data.domain.PageRequest.of(0, 10),
+                1
+        );
+
+        when(returnTicketRepository.findAll(any(org.springframework.data.jpa.domain.Specification.class), any(org.springframework.data.domain.Pageable.class)))
+                .thenReturn(page);
+
+        var response = returnTicketService.getReturnTickets(
+                "chuho_viet", "PENDING", null, null, null, 0, 10
+        );
+
+        assertNotNull(response);
+        assertEquals(1, response.getTotalElements());
+        assertEquals(1, response.getContent().size());
+        assertEquals("PTH-20260811-0001", response.getContent().get(0).getTicketNumber());
     }
 }

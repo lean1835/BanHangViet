@@ -321,23 +321,19 @@ public class ReturnTicketServiceImpl implements ReturnTicketService {
     }
 
     private Map<String, BigDecimal> getAlreadyReturnedQuantities(String invoiceId) {
-        List<ReturnTicket> existingTickets = returnTicketRepository.findByOriginalInvoiceIdAndStatusIn(
+        List<ReturnedQuantityProjection> projections = returnTicketItemRepository.findReturnedQuantitiesByInvoiceId(
                 invoiceId, List.of("PENDING", "APPROVED")
         );
 
         Map<String, BigDecimal> returnedQtyMap = new HashMap<>();
-        for (ReturnTicket ticket : existingTickets) {
-            for (ReturnTicketItem item : ticket.getItems()) {
-                if (item.getInvoiceItemId() != null) {
-                    BigDecimal current = returnedQtyMap.getOrDefault(item.getInvoiceItemId(), BigDecimal.ZERO);
-                    returnedQtyMap.put(item.getInvoiceItemId(), current.add(item.getQuantity()));
-                } else {
-                    String prodKey = item.getProduct() != null ? item.getProduct().getId() : item.getProductName();
-                    if (prodKey != null) {
-                        BigDecimal currentProd = returnedQtyMap.getOrDefault(prodKey, BigDecimal.ZERO);
-                        returnedQtyMap.put(prodKey, currentProd.add(item.getQuantity()));
-                    }
-                }
+        for (ReturnedQuantityProjection proj : projections) {
+            BigDecimal qty = proj.getTotalReturned() != null ? proj.getTotalReturned() : BigDecimal.ZERO;
+            if (proj.getInvoiceItemId() != null) {
+                returnedQtyMap.put(proj.getInvoiceItemId(), qty);
+            } else if (proj.getProductId() != null) {
+                returnedQtyMap.put(proj.getProductId(), qty);
+            } else if (proj.getProductName() != null) {
+                returnedQtyMap.put(proj.getProductName(), qty);
             }
         }
         return returnedQtyMap;
