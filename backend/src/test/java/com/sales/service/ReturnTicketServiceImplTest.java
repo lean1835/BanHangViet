@@ -1,0 +1,597 @@
+package com.sales.service;
+
+import com.sales.dto.request.CreateReturnTicketItemRequest;
+import com.sales.dto.request.CreateReturnTicketRequest;
+import com.sales.dto.response.*;
+import com.sales.entity.*;
+import com.sales.exception.AppException;
+import com.sales.exception.ErrorCode;
+import com.sales.repository.*;
+import com.sales.service.classes.ReturnTicketServiceImpl;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.*;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
+
+@ExtendWith(MockitoExtension.class)
+class ReturnTicketServiceImplTest {
+
+    @Mock
+    private ReturnTicketRepository returnTicketRepository;
+
+    @Mock
+    private ReturnTicketItemRepository returnTicketItemRepository;
+
+    @Mock
+    private EInvoiceRepository eInvoiceRepository;
+
+    @Mock
+    private UserRepository userRepository;
+
+    @InjectMocks
+    private ReturnTicketServiceImpl returnTicketService;
+
+    private User ownerUser;
+    private User customerUser;
+    private BusinessHousehold household;
+    private EInvoice issuedInvoice;
+    private Product product;
+    private EInvoiceItem invoiceItem;
+
+    @BeforeEach
+    void setUp() {
+        household = BusinessHousehold.builder()
+                .id("house-1")
+                .name("Hộ kinh doanh Tạp Hóa Việt")
+                .taxCode("0123456789")
+                .build();
+
+        Role ownerRole = Role.builder().id(1).code("VT-01").name("Chủ hộ").build();
+        Role customerRole = Role.builder().id(6).code("VT-06").name("Khách hàng").build();
+
+        ownerUser = User.builder()
+                .id("user-1")
+                .username("chuho_viet")
+                .fullName("Nguyễn Văn A")
+                .role(ownerRole)
+                .household(household)
+                .build();
+
+        customerUser = User.builder()
+                .id("user-2")
+                .username("khachhang")
+                .fullName("Nguyễn Thị Lan")
+                .role(customerRole)
+                .household(household)
+                .build();
+
+        product = Product.builder()
+                .id("prod-1")
+                .name("Nước ngọt Coca-Cola 320ml")
+                .unit("Lon")
+                .price(new BigDecimal("10000.00"))
+                .household(household)
+                .build();
+
+        invoiceItem = EInvoiceItem.builder()
+                .id("item-1")
+                .product(product)
+                .productName(product.getName())
+                .unit(product.getUnit())
+                .quantity(new BigDecimal("5.000"))
+                .unitPrice(product.getPrice())
+                .taxRatePercentage(new BigDecimal("10.00"))
+                .taxAmount(new BigDecimal("5000.00"))
+                .subtotal(new BigDecimal("55000.00"))
+                .build();
+
+        List<EInvoiceItem> items = new ArrayList<>();
+        items.add(invoiceItem);
+
+        issuedInvoice = EInvoice.builder()
+                .id("inv-1")
+                .household(household)
+                .invoiceNumber("00000123")
+                .invoicePattern("1")
+                .invoiceSymbol("1C26TAA")
+                .createdByUser(ownerUser)
+                .status("ISSUED")
+                .totalAmountBeforeTax(new BigDecimal("50000.00"))
+                .taxAmount(new BigDecimal("5000.00"))
+                .finalAmount(new BigDecimal("55000.00"))
+                .lookupCode("LOOKUP123")
+                .createdAt(LocalDateTime.now().minusDays(2))
+                .items(items)
+                .build();
+    }
+
+    @Test
+    @DisplayName("Check Invoice Returnable - Thành công")
+    void testCheckInvoiceReturnable_Success() {
+        when(userRepository.findByUsername("chuho_viet")).thenReturn(Optional.of(ownerUser));
+        when(eInvoiceRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("inv-1", "house-1"))
+                .thenReturn(Optional.of(issuedInvoice));
+        when(returnTicketItemRepository.findReturnedQuantitiesByInvoiceId(eq("inv-1"), anyList()))
+                .thenReturn(Collections.emptyList());
+
+        InvoiceReturnableCheckResponse response = returnTicketService.checkInvoiceReturnable("inv-1", "chuho_viet");
+
+        assertNotNull(response);
+        assertTrue(response.isEligibleForReturn());
+        assertFalse(response.isExpired());
+        assertEquals("inv-1", response.getInvoiceId());
+        assertEquals(1, response.getItems().size());
+        assertEquals(new BigDecimal("5.000"), response.getItems().get(0).getReturnableQuantity());
+    }
+
+    @Test
+    @DisplayName("Create Return Ticket - Thành công")
+    void testCreateReturnTicket_Success() {
+        when(userRepository.findByUsername("chuho_viet")).thenReturn(Optional.of(ownerUser));
+        when(eInvoiceRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("inv-1", "house-1"))
+                .thenReturn(Optional.of(issuedInvoice));
+        when(returnTicketItemRepository.findReturnedQuantitiesByInvoiceId(eq("inv-1"), anyList()))
+                .thenReturn(Collections.emptyList());
+        when(returnTicketRepository.findMaxTicketNumberByPrefix(eq("house-1"), anyString()))
+                .thenReturn(Optional.empty());
+
+        ReturnTicket savedTicket = ReturnTicket.builder()
+                .id("ticket-1")
+                .ticketNumber("PTH-20260811-0001")
+                .household(household)
+                .originalInvoice(issuedInvoice)
+                .createdByUser(ownerUser)
+                .status("PENDING")
+                .totalReturnAmount(new BigDecimal("22000.00"))
+                .items(Collections.emptyList())
+                .build();
+
+        when(returnTicketRepository.save(any(ReturnTicket.class))).thenReturn(savedTicket);
+
+        CreateReturnTicketRequest request = CreateReturnTicketRequest.builder()
+                .originalInvoiceId("inv-1")
+                .reason("Khách đổi trả 2 lon")
+                .refundPaymentMethod("CASH")
+                .items(List.of(
+                        CreateReturnTicketItemRequest.builder()
+                                .productId("prod-1")
+                                .quantity(new BigDecimal("2.000"))
+                                .build()
+                ))
+                .build();
+
+        ReturnTicketResponse response = returnTicketService.createReturnTicket(request, "chuho_viet");
+
+        assertNotNull(response);
+        assertEquals("PTH-20260811-0001", response.getTicketNumber());
+        assertEquals("PENDING", response.getStatus());
+        verify(returnTicketRepository, times(1)).save(any(ReturnTicket.class));
+    }
+
+    @Test
+    @DisplayName("Create Return Ticket - Thất bại khi số lượng trả vượt quá số lượng mua")
+    void testCreateReturnTicket_ExceedQuantity_ThrowsException() {
+        when(userRepository.findByUsername("chuho_viet")).thenReturn(Optional.of(ownerUser));
+        when(eInvoiceRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("inv-1", "house-1"))
+                .thenReturn(Optional.of(issuedInvoice));
+        when(returnTicketItemRepository.findReturnedQuantitiesByInvoiceId(eq("inv-1"), anyList()))
+                .thenReturn(Collections.emptyList());
+
+        CreateReturnTicketRequest request = CreateReturnTicketRequest.builder()
+                .originalInvoiceId("inv-1")
+                .reason("Trả 10 lon (chỉ mua 5)")
+                .refundPaymentMethod("CASH")
+                .items(List.of(
+                        CreateReturnTicketItemRequest.builder()
+                                .productId("prod-1")
+                                .quantity(new BigDecimal("10.000"))
+                                .build()
+                ))
+                .build();
+
+        AppException ex = assertThrows(AppException.class, () ->
+                returnTicketService.createReturnTicket(request, "chuho_viet")
+        );
+
+        assertEquals(ErrorCode.EXCEEDED_RETURNABLE_QUANTITY, ex.getErrorCode());
+    }
+
+    @Test
+    @DisplayName("Create Return Ticket - Thất bại khi người dùng là Khách hàng (VT-06)")
+    void testCreateReturnTicket_CustomerRole_ThrowsException() {
+        when(userRepository.findByUsername("khachhang")).thenReturn(Optional.of(customerUser));
+
+        CreateReturnTicketRequest request = CreateReturnTicketRequest.builder()
+                .originalInvoiceId("inv-1")
+                .items(List.of(
+                        CreateReturnTicketItemRequest.builder()
+                                .productId("prod-1")
+                                .quantity(new BigDecimal("1.000"))
+                                .build()
+                ))
+                .build();
+
+        AppException ex = assertThrows(AppException.class, () ->
+                returnTicketService.createReturnTicket(request, "khachhang")
+        );
+
+        assertEquals(ErrorCode.UNAUTHORIZED_RETURN_ACTION, ex.getErrorCode());
+    }
+
+    @Test
+    @DisplayName("Create Return Ticket - Thành công cho sản phẩm tự nhập (product = null)")
+    void testCreateReturnTicket_CustomProduct_Success() {
+        EInvoiceItem customItem = EInvoiceItem.builder()
+                .id("item-custom-1")
+                .product(null)
+                .productName("Sản phẩm tự nhập không có trong danh mục")
+                .unit("Cái")
+                .quantity(new BigDecimal("2.000"))
+                .unitPrice(new BigDecimal("50000.00"))
+                .taxRatePercentage(new BigDecimal("10.00"))
+                .taxAmount(new BigDecimal("10000.00"))
+                .subtotal(new BigDecimal("110000.00"))
+                .build();
+
+        EInvoice customInvoice = EInvoice.builder()
+                .id("inv-custom")
+                .household(household)
+                .invoiceNumber("00000999")
+                .createdByUser(ownerUser)
+                .status("ISSUED")
+                .createdAt(LocalDateTime.now().minusDays(1))
+                .items(List.of(customItem))
+                .build();
+
+        when(userRepository.findByUsername("chuho_viet")).thenReturn(Optional.of(ownerUser));
+        when(eInvoiceRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("inv-custom", "house-1"))
+                .thenReturn(Optional.of(customInvoice));
+        when(returnTicketItemRepository.findReturnedQuantitiesByInvoiceId(eq("inv-custom"), anyList()))
+                .thenReturn(Collections.emptyList());
+        when(returnTicketRepository.findMaxTicketNumberByPrefix(eq("house-1"), anyString()))
+                .thenReturn(Optional.empty());
+
+        ReturnTicket savedTicket = ReturnTicket.builder()
+                .id("ticket-custom")
+                .ticketNumber("PTH-20260811-0002")
+                .household(household)
+                .originalInvoice(customInvoice)
+                .createdByUser(ownerUser)
+                .status("PENDING")
+                .totalReturnAmount(new BigDecimal("55000.00"))
+                .items(Collections.emptyList())
+                .build();
+
+        when(returnTicketRepository.save(any(ReturnTicket.class))).thenReturn(savedTicket);
+
+        CreateReturnTicketRequest request = CreateReturnTicketRequest.builder()
+                .originalInvoiceId("inv-custom")
+                .reason("Trả 1 cái sản phẩm tự nhập")
+                .refundPaymentMethod("CASH")
+                .items(List.of(
+                        CreateReturnTicketItemRequest.builder()
+                                .invoiceItemId("item-custom-1")
+                                .productName("Sản phẩm tự nhập không có trong danh mục")
+                                .quantity(new BigDecimal("1.000"))
+                                .build()
+                ))
+                .build();
+
+        ReturnTicketResponse response = returnTicketService.createReturnTicket(request, "chuho_viet");
+
+        assertNotNull(response);
+        assertEquals("PTH-20260811-0002", response.getTicketNumber());
+        verify(returnTicketRepository, times(1)).save(any(ReturnTicket.class));
+    }
+
+    @Test
+    @DisplayName("Create Return Ticket - Tính toán chính xác chiết khấu phân bổ")
+    void testCreateReturnTicket_ProratedDiscount_Success() {
+        // Mua 5 sản phẩm đơn giá 10.000, chiết khấu 5.000, thuế 10%
+        EInvoiceItem discountedItem = EInvoiceItem.builder()
+                .id("item-disc-1")
+                .product(product)
+                .productName(product.getName())
+                .unit(product.getUnit())
+                .quantity(new BigDecimal("5.000"))
+                .unitPrice(new BigDecimal("10000.00"))
+                .discountAmount(new BigDecimal("5000.00"))
+                .taxRatePercentage(new BigDecimal("10.00"))
+                .taxAmount(new BigDecimal("4500.00"))
+                .subtotal(new BigDecimal("49500.00"))
+                .build();
+
+        EInvoice discInvoice = EInvoice.builder()
+                .id("inv-disc")
+                .household(household)
+                .invoiceNumber("00000888")
+                .createdByUser(ownerUser)
+                .status("ISSUED")
+                .createdAt(LocalDateTime.now().minusDays(1))
+                .items(List.of(discountedItem))
+                .build();
+
+        when(userRepository.findByUsername("chuho_viet")).thenReturn(Optional.of(ownerUser));
+        when(eInvoiceRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("inv-disc", "house-1"))
+                .thenReturn(Optional.of(discInvoice));
+        when(returnTicketItemRepository.findReturnedQuantitiesByInvoiceId(eq("inv-disc"), anyList()))
+                .thenReturn(Collections.emptyList());
+
+        CreateReturnTicketRequest request = CreateReturnTicketRequest.builder()
+                .originalInvoiceId("inv-disc")
+                .reason("Trả 2 cái có chiết khấu")
+                .items(List.of(
+                        CreateReturnTicketItemRequest.builder()
+                                .invoiceItemId("item-disc-1")
+                                .productId("prod-1")
+                                .quantity(new BigDecimal("2.000"))
+                                .build()
+                ))
+                .build();
+
+        ReturnTicket savedTicket = ReturnTicket.builder()
+                .id("ticket-disc")
+                .ticketNumber("PTH-20260811-0003")
+                .household(household)
+                .originalInvoice(discInvoice)
+                .createdByUser(ownerUser)
+                .status("PENDING")
+                .totalReturnAmount(new BigDecimal("19800.00"))
+                .items(Collections.emptyList())
+                .build();
+
+        when(returnTicketRepository.save(argThat(t -> {
+            // Kiểm tra tổng tiền trả lại phải được trừ chiết khấu: (20000 - 2000) * 1.10 = 19800.00
+            return t.getTotalReturnAmount().compareTo(new BigDecimal("19800.00")) == 0;
+        }))).thenReturn(savedTicket);
+
+        ReturnTicketResponse response = returnTicketService.createReturnTicket(request, "chuho_viet");
+        assertNotNull(response);
+        verify(returnTicketRepository, times(1)).save(any());
+    }
+
+    @Test
+    @DisplayName("Create Return Ticket - Hóa đơn có nhiều dòng trùng sản phẩm, tính theo invoiceItemId")
+    void testCreateReturnTicket_MultipleLinesSameProduct_Success() {
+        EInvoiceItem line1 = EInvoiceItem.builder()
+                .id("item-line-1")
+                .product(product)
+                .productName(product.getName())
+                .unit(product.getUnit())
+                .quantity(new BigDecimal("5.000"))
+                .unitPrice(new BigDecimal("10000.00"))
+                .taxRatePercentage(BigDecimal.ZERO)
+                .subtotal(new BigDecimal("50000.00"))
+                .build();
+
+        EInvoiceItem line2 = EInvoiceItem.builder()
+                .id("item-line-2")
+                .product(product)
+                .productName(product.getName())
+                .unit(product.getUnit())
+                .quantity(new BigDecimal("3.000"))
+                .unitPrice(new BigDecimal("8000.00"))
+                .taxRatePercentage(BigDecimal.ZERO)
+                .subtotal(new BigDecimal("24000.00"))
+                .build();
+
+        EInvoice multiLineInvoice = EInvoice.builder()
+                .id("inv-multi")
+                .household(household)
+                .invoiceNumber("00000777")
+                .createdByUser(ownerUser)
+                .status("ISSUED")
+                .createdAt(LocalDateTime.now().minusDays(1))
+                .items(List.of(line1, line2))
+                .build();
+
+        // Giả lập đã có 1 phiếu trả cho line1 (trả 2 cái)
+        ReturnTicketItem existingItem = ReturnTicketItem.builder()
+                .id("ret-item-1")
+                .invoiceItemId("item-line-1")
+                .product(product)
+                .quantity(new BigDecimal("2.000"))
+                .build();
+
+        ReturnedQuantityProjection existingProj = mock(ReturnedQuantityProjection.class);
+        when(existingProj.getInvoiceItemId()).thenReturn("item-line-1");
+        when(existingProj.getTotalReturned()).thenReturn(new BigDecimal("2.000"));
+
+        when(userRepository.findByUsername("chuho_viet")).thenReturn(Optional.of(ownerUser));
+        when(eInvoiceRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("inv-multi", "house-1"))
+                .thenReturn(Optional.of(multiLineInvoice));
+        when(returnTicketItemRepository.findReturnedQuantitiesByInvoiceId(eq("inv-multi"), anyList()))
+                .thenReturn(List.of(existingProj));
+        when(returnTicketRepository.findMaxTicketNumberByPrefix(eq("house-1"), anyString()))
+                .thenReturn(Optional.empty());
+
+        ReturnTicket savedTicket = ReturnTicket.builder()
+                .id("ticket-multi")
+                .ticketNumber("PTH-20260811-0004")
+                .household(household)
+                .originalInvoice(multiLineInvoice)
+                .createdByUser(ownerUser)
+                .status("PENDING")
+                .totalReturnAmount(new BigDecimal("24000.00"))
+                .items(Collections.emptyList())
+                .build();
+
+        when(returnTicketRepository.save(any())).thenReturn(savedTicket);
+
+        // Lập phiếu mới trả full 3 cái cho line2 (dòng 2 chưa trả cái nào)
+        CreateReturnTicketRequest request = CreateReturnTicketRequest.builder()
+                .originalInvoiceId("inv-multi")
+                .reason("Trả hàng dòng 2 giá khuyến mãi")
+                .items(List.of(
+                        CreateReturnTicketItemRequest.builder()
+                                .invoiceItemId("item-line-2")
+                                .quantity(new BigDecimal("3.000"))
+                                .build()
+                ))
+                .build();
+
+        ReturnTicketResponse response = returnTicketService.createReturnTicket(request, "chuho_viet");
+        assertNotNull(response);
+        verify(returnTicketRepository, times(1)).save(any());
+    }
+
+    @Test
+    @DisplayName("Create Return Ticket - QTN-18: Quá hạn 7 ngày, Chủ hộ tạo nhưng không bật allowOverdueOverride -> Thất bại")
+    void testCreateReturnTicket_Overdue_WithoutOverride_ThrowsException() {
+        EInvoice expiredInvoice = EInvoice.builder()
+                .id("inv-expired")
+                .household(household)
+                .invoiceNumber("00000666")
+                .createdByUser(ownerUser)
+                .status("ISSUED")
+                .createdAt(LocalDateTime.now().minusDays(10)) // Quá 7 ngày
+                .items(List.of(invoiceItem))
+                .build();
+
+        when(userRepository.findByUsername("chuho_viet")).thenReturn(Optional.of(ownerUser));
+        when(eInvoiceRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("inv-expired", "house-1"))
+                .thenReturn(Optional.of(expiredInvoice));
+
+        CreateReturnTicketRequest request = CreateReturnTicketRequest.builder()
+                .originalInvoiceId("inv-expired")
+                .allowOverdueOverride(false)
+                .items(List.of(
+                        CreateReturnTicketItemRequest.builder()
+                                .productId("prod-1")
+                                .quantity(new BigDecimal("1.000"))
+                                .build()
+                ))
+                .build();
+
+        AppException ex = assertThrows(AppException.class, () ->
+                returnTicketService.createReturnTicket(request, "chuho_viet")
+        );
+
+        assertEquals(ErrorCode.RETURN_PERIOD_EXPIRED, ex.getErrorCode());
+    }
+
+    @Test
+    @DisplayName("Create Return Ticket - QTN-18: Quá hạn 7 ngày, Chủ hộ tạo và bật allowOverdueOverride = true -> Thành công")
+    void testCreateReturnTicket_Overdue_WithOwnerOverride_Success() {
+        EInvoice expiredInvoice = EInvoice.builder()
+                .id("inv-expired")
+                .household(household)
+                .invoiceNumber("00000666")
+                .createdByUser(ownerUser)
+                .status("ISSUED")
+                .createdAt(LocalDateTime.now().minusDays(10)) // Quá 7 ngày
+                .items(List.of(invoiceItem))
+                .build();
+
+        when(userRepository.findByUsername("chuho_viet")).thenReturn(Optional.of(ownerUser));
+        when(eInvoiceRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("inv-expired", "house-1"))
+                .thenReturn(Optional.of(expiredInvoice));
+        when(returnTicketItemRepository.findReturnedQuantitiesByInvoiceId(eq("inv-expired"), anyList()))
+                .thenReturn(Collections.emptyList());
+        when(returnTicketRepository.findMaxTicketNumberByPrefix(eq("house-1"), anyString()))
+                .thenReturn(Optional.empty());
+
+        ReturnTicket savedTicket = ReturnTicket.builder()
+                .id("ticket-overdue")
+                .ticketNumber("PTH-20260811-0005")
+                .household(household)
+                .originalInvoice(expiredInvoice)
+                .createdByUser(ownerUser)
+                .status("PENDING")
+                .totalReturnAmount(new BigDecimal("11000.00"))
+                .items(Collections.emptyList())
+                .build();
+
+        when(returnTicketRepository.save(any())).thenReturn(savedTicket);
+
+        CreateReturnTicketRequest request = CreateReturnTicketRequest.builder()
+                .originalInvoiceId("inv-expired")
+                .allowOverdueOverride(true)
+                .items(List.of(
+                        CreateReturnTicketItemRequest.builder()
+                                .productId("prod-1")
+                                .quantity(new BigDecimal("1.000"))
+                                .build()
+                ))
+                .build();
+
+        ReturnTicketResponse response = returnTicketService.createReturnTicket(request, "chuho_viet");
+        assertNotNull(response);
+        verify(returnTicketRepository, times(1)).save(any());
+    }
+
+    @Test
+    @DisplayName("Get Return Tickets - Lấy danh sách phân trang thành công")
+    void testGetReturnTickets_Success() {
+        when(userRepository.findByUsername("chuho_viet")).thenReturn(Optional.of(ownerUser));
+
+        ReturnTicket ticket1 = ReturnTicket.builder()
+                .id("ticket-1")
+                .ticketNumber("PTH-20260811-0001")
+                .household(household)
+                .originalInvoice(issuedInvoice)
+                .createdByUser(ownerUser)
+                .status("PENDING")
+                .totalReturnAmount(new BigDecimal("22000.00"))
+                .items(Collections.emptyList())
+                .createdAt(LocalDateTime.now())
+                .build();
+
+        org.springframework.data.domain.Page<ReturnTicket> page = new org.springframework.data.domain.PageImpl<>(
+                List.of(ticket1),
+                org.springframework.data.domain.PageRequest.of(0, 10),
+                1
+        );
+
+        when(returnTicketRepository.findAll(any(org.springframework.data.jpa.domain.Specification.class), any(org.springframework.data.domain.Pageable.class)))
+                .thenReturn(page);
+
+        var response = returnTicketService.getReturnTickets(
+                "chuho_viet", "PENDING", null, null, null, 0, 10
+        );
+
+        assertNotNull(response);
+        assertEquals(1, response.getTotalElements());
+        assertEquals(1, response.getContent().size());
+        assertEquals("PTH-20260811-0001", response.getContent().get(0).getTicketNumber());
+    }
+
+    @Test
+    @DisplayName("Check Invoice Returnable - Tích lũy đúng khi có nhiều projection trùng sản phẩm (P1 Fix)")
+    void testCheckInvoiceReturnable_AccumulatesMultipleProjections() {
+        when(userRepository.findByUsername("chuho_viet")).thenReturn(Optional.of(ownerUser));
+        when(eInvoiceRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("inv-1", "house-1"))
+                .thenReturn(Optional.of(issuedInvoice));
+
+        ReturnedQuantityProjection proj1 = mock(ReturnedQuantityProjection.class);
+        when(proj1.getInvoiceItemId()).thenReturn(null);
+        when(proj1.getProductId()).thenReturn("prod-1");
+        when(proj1.getTotalReturned()).thenReturn(new BigDecimal("2.000"));
+
+        ReturnedQuantityProjection proj2 = mock(ReturnedQuantityProjection.class);
+        when(proj2.getInvoiceItemId()).thenReturn(null);
+        when(proj2.getProductId()).thenReturn("prod-1");
+        when(proj2.getTotalReturned()).thenReturn(new BigDecimal("1.500"));
+
+        when(returnTicketItemRepository.findReturnedQuantitiesByInvoiceId(eq("inv-1"), anyList()))
+                .thenReturn(List.of(proj1, proj2));
+
+        InvoiceReturnableCheckResponse response = returnTicketService.checkInvoiceReturnable("inv-1", "chuho_viet");
+
+        assertNotNull(response);
+        assertEquals(1, response.getItems().size());
+        // Invoice quantity = 5.000, already returned sum = 2.000 + 1.500 = 3.500 => returnable = 1.500
+        assertEquals(new BigDecimal("1.500"), response.getItems().get(0).getReturnableQuantity());
+    }
+}

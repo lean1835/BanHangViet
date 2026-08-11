@@ -43,6 +43,11 @@ public class EInvoice {
     private EInvoice originalInvoice;
 
     @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "return_ticket_id")
+    @ToString.Exclude
+    private ReturnTicket returnTicket;
+
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "created_by_user_id", nullable = false)
     @ToString.Exclude
     private User createdByUser;
