@@ -2,6 +2,7 @@ package com.sales.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.BatchSize;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
@@ -92,7 +93,7 @@ public class ReturnTicket {
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 
-    @org.hibernate.annotations.BatchSize(size = 20)
+    @BatchSize(size = 20)
     @OneToMany(mappedBy = "returnTicket", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @Builder.Default
     @ToString.Exclude
