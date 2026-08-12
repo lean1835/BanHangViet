@@ -1,6 +1,7 @@
 package com.sales.service.interfaces;
 
 import com.sales.dto.request.CreateReturnTicketRequest;
+import com.sales.dto.request.RejectReturnTicketRequest;
 import com.sales.dto.response.InvoiceReturnableCheckResponse;
 import com.sales.dto.response.PageResponse;
 import com.sales.dto.response.ReturnTicketResponse;
@@ -20,6 +21,21 @@ public interface ReturnTicketService {
     ReturnTicketResponse createReturnTicket(CreateReturnTicketRequest request, String currentUsername);
 
     /**
+     * NCL-11-CN-002: Duyệt phiếu trả hàng, hoàn tồn kho và ghi nhận hoàn tiền/giảm nợ cho khách hàng.
+     */
+    ReturnTicketResponse approveReturnTicket(String ticketId, String currentUsername);
+
+    /**
+     * NCL-11-CN-002: Từ chối phiếu trả hàng kèm lý do từ chối.
+     */
+    ReturnTicketResponse rejectReturnTicket(String ticketId, RejectReturnTicketRequest request, String currentUsername);
+
+    /**
+     * NCL-11-CN-003: Lập hóa đơn điều chỉnh giảm từ phiếu trả hàng đã được duyệt.
+     */
+    ReturnTicketResponse createDecreaseAdjustmentInvoice(String ticketId, String currentUsername);
+
+    /**
      * Tra cứu chi tiết một phiếu trả hàng.
      */
     ReturnTicketResponse getReturnTicketDetail(String ticketId, String currentUsername);
@@ -36,3 +52,4 @@ public interface ReturnTicketService {
             int page,
             int size);
 }
+

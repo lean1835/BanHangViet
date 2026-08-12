@@ -2,6 +2,7 @@ package com.sales.controller;
 
 import com.sales.dto.ApiResponse;
 import com.sales.dto.request.CreateReturnTicketRequest;
+import com.sales.dto.request.RejectReturnTicketRequest;
 import com.sales.dto.response.InvoiceReturnableCheckResponse;
 import com.sales.dto.response.PageResponse;
 import com.sales.dto.response.ReturnTicketResponse;
@@ -50,6 +51,50 @@ public class ReturnTicketController {
                 .build();
         return ResponseEntity.ok(response);
     }
+
+    @PutMapping("/{id}/approve")
+    @PreAuthorize("hasRole('VT-01')")
+    public ResponseEntity<ApiResponse<ReturnTicketResponse>> approveReturnTicket(
+            Principal principal,
+            @PathVariable String id) {
+        ReturnTicketResponse result = returnTicketService.approveReturnTicket(id, principal.getName());
+        ApiResponse<ReturnTicketResponse> response = ApiResponse.<ReturnTicketResponse>builder()
+                .code(1000)
+                .message("Duyệt phiếu trả hàng thành công")
+                .result(result)
+                .build();
+        return ResponseEntity.ok(response);
+    }
+
+    @PutMapping("/{id}/reject")
+    @PreAuthorize("hasAnyRole('VT-01', 'VT-03')")
+    public ResponseEntity<ApiResponse<ReturnTicketResponse>> rejectReturnTicket(
+            Principal principal,
+            @PathVariable String id,
+            @Valid @RequestBody RejectReturnTicketRequest request) {
+        ReturnTicketResponse result = returnTicketService.rejectReturnTicket(id, request, principal.getName());
+        ApiResponse<ReturnTicketResponse> response = ApiResponse.<ReturnTicketResponse>builder()
+                .code(1000)
+                .message("Từ chối phiếu trả hàng thành công")
+                .result(result)
+                .build();
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/{id}/create-adjustment-invoice")
+    @PreAuthorize("hasAnyRole('VT-01', 'VT-03')")
+    public ResponseEntity<ApiResponse<ReturnTicketResponse>> createDecreaseAdjustmentInvoice(
+            Principal principal,
+            @PathVariable String id) {
+        ReturnTicketResponse result = returnTicketService.createDecreaseAdjustmentInvoice(id, principal.getName());
+        ApiResponse<ReturnTicketResponse> response = ApiResponse.<ReturnTicketResponse>builder()
+                .code(1000)
+                .message("Lập hóa đơn điều chỉnh giảm từ phiếu trả hàng thành công")
+                .result(result)
+                .build();
+        return ResponseEntity.ok(response);
+    }
+
 
     @GetMapping("/{id}")
     @PreAuthorize("hasAnyRole('VT-01', 'VT-02', 'VT-03')")
