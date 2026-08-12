@@ -21,6 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
@@ -75,6 +76,7 @@ public class SupplierServiceImpl implements SupplierService {
         map.put("address", supplier.getAddress());
         map.put("taxCode", supplier.getTaxCode());
         map.put("note", supplier.getNote());
+        map.put("currentDebt", supplier.getCurrentDebt());
         return map;
     }
 
@@ -88,6 +90,7 @@ public class SupplierServiceImpl implements SupplierService {
                 .address(supplier.getAddress())
                 .taxCode(supplier.getTaxCode())
                 .note(supplier.getNote())
+                .currentDebt(supplier.getCurrentDebt() != null ? supplier.getCurrentDebt() : BigDecimal.ZERO)
                 .createdAt(supplier.getCreatedAt())
                 .updatedAt(supplier.getUpdatedAt())
                 .build();
@@ -183,6 +186,10 @@ public class SupplierServiceImpl implements SupplierService {
 
         Supplier supplier = supplierRepository.findByIdAndHouseholdIdAndDeletedAtIsNull(id, household.getId())
                 .orElseThrow(() -> new AppException(ErrorCode.SUPPLIER_NOT_FOUND));
+
+        if (supplier.getCurrentDebt() != null && supplier.getCurrentDebt().compareTo(BigDecimal.ZERO) > 0) {
+            throw new AppException(ErrorCode.SUPPLIER_HAS_OUTSTANDING_DEBT);
+        }
 
         if (goodsReceiptRepository.existsBySupplierId(id)) {
             throw new AppException(ErrorCode.SUPPLIER_HAS_DEPENDENCIES);
