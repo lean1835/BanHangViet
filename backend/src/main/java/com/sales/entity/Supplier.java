@@ -25,14 +25,14 @@ public class Supplier {
     @JoinColumn(name = "household_id")
     private BusinessHousehold household;
 
-    @Column(nullable = false, length = 50, unique = true)
+    @Column(length = 50, unique = true)
     private String code;
 
     @Column(nullable = false, length = 100)
     private String name;
 
-    @Column(nullable = false, length = 20)
-    private String phone;
+    @Column(name = "phone_number", nullable = false, length = 20)
+    private String phoneNumber;
 
     @Column(length = 100)
     private String email;
@@ -50,7 +50,7 @@ public class Supplier {
     private String companyName;
 
     @Column(columnDefinition = "TEXT")
-    private String notes;
+    private String note;
 
     @Column(name = "current_debt", nullable = false, precision = 15, scale = 2)
     @Builder.Default
@@ -74,4 +74,20 @@ public class Supplier {
 
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
+
+    public String getPhone() {
+        return phoneNumber;
+    }
+
+    public void setPhone(String phone) {
+        this.phoneNumber = phone;
+    }
+
+    public String getNotes() {
+        return note;
+    }
+
+    public void setNotes(String notes) {
+        this.note = notes;
+    }
 }
