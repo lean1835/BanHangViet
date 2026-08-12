@@ -233,6 +233,11 @@ public class ReturnTicketServiceImpl implements ReturnTicketService {
         Order originalOrder = invoice.getOrder();
         Customer customer = originalOrder != null ? originalOrder.getCustomer() : null;
 
+        String refundMethod = request.getRefundPaymentMethod() != null ? request.getRefundPaymentMethod() : "CASH";
+        if ("DEBT_REDUCTION".equals(refundMethod) && customer == null) {
+            throw new AppException(ErrorCode.CUSTOMER_REQUIRED_FOR_DEBT);
+        }
+
         ReturnTicket ticket = ReturnTicket.builder()
                 .household(user.getHousehold())
                 .originalInvoice(invoice)
@@ -261,7 +266,7 @@ public class ReturnTicketServiceImpl implements ReturnTicketService {
     @Transactional
     public ReturnTicketResponse approveReturnTicket(String ticketId, String currentUsername) {
         User user = getUserByUsername(currentUsername);
-        validateOwnerOrAccountantRole(user);
+        validateOwnerRole(user);
 
         ReturnTicket ticket = returnTicketRepository.findByIdAndHouseholdId(ticketId, user.getHousehold().getId())
                 .orElseThrow(() -> new AppException(ErrorCode.RETURN_TICKET_NOT_FOUND));
@@ -334,7 +339,7 @@ public class ReturnTicketServiceImpl implements ReturnTicketService {
     @Transactional
     public ReturnTicketResponse rejectReturnTicket(String ticketId, RejectReturnTicketRequest request, String currentUsername) {
         User user = getUserByUsername(currentUsername);
-        validateOwnerOrAccountantRole(user);
+        validateOwnerRole(user);
 
         if (request == null || request.getRejectReason() == null || request.getRejectReason().trim().isEmpty()) {
             throw new AppException(ErrorCode.INVALID_INPUT);
@@ -440,9 +445,7 @@ public class ReturnTicketServiceImpl implements ReturnTicketService {
         }
 
         // Kiểm tra xem đã có hóa đơn điều chỉnh giảm cho phiếu trả hàng này chưa
-        boolean alreadyAdjusted = eInvoiceRepository.findAll().stream()
-                .anyMatch(inv -> inv.getReturnTicket() != null && ticketId.equals(inv.getReturnTicket().getId()));
-        if (alreadyAdjusted) {
+        if (eInvoiceRepository.existsByReturnTicketIdAndDeletedAtIsNull(ticketId)) {
             throw new AppException(ErrorCode.ADJUSTMENT_INVOICE_ALREADY_EXISTS);
         }
 

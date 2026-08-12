@@ -806,7 +806,7 @@ class ReturnTicketServiceImplTest {
 
         when(userRepository.findByUsername("chuho_viet")).thenReturn(Optional.of(ownerUser));
         when(returnTicketRepository.findByIdAndHouseholdId("ticket-1", "house-1")).thenReturn(Optional.of(ticket));
-        when(eInvoiceRepository.findAll()).thenReturn(Collections.emptyList());
+        when(eInvoiceRepository.existsByReturnTicketIdAndDeletedAtIsNull("ticket-1")).thenReturn(false);
         when(eInvoiceRepository.save(any(EInvoice.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         ReturnTicketResponse response = returnTicketService.createDecreaseAdjustmentInvoice("ticket-1", "chuho_viet");
@@ -820,6 +820,80 @@ class ReturnTicketServiceImplTest {
         verify(eInvoiceRepository, times(1)).save(argThat(inv ->
                 "ADJUSTED".equals(inv.getStatus()) && "inv-1".equals(inv.getId())
         ));
+    }
+
+    @Test
+    @DisplayName("Approve Return Ticket - Thất bại khi người thao tác là Kế toán (VT-03)")
+    void testApproveReturnTicket_AccountantUser_ThrowsException() {
+        Role accountantRole = Role.builder().id(3).code("VT-03").name("Kế toán").build();
+        User accountantUser = User.builder()
+                .id("user-4")
+                .username("ketoan_viet")
+                .role(accountantRole)
+                .household(household)
+                .build();
+
+        when(userRepository.findByUsername("ketoan_viet")).thenReturn(Optional.of(accountantUser));
+
+        AppException ex = assertThrows(AppException.class, () ->
+                returnTicketService.approveReturnTicket("ticket-1", "ketoan_viet")
+        );
+
+        assertEquals(ErrorCode.UNAUTHORIZED_RETURN_ACTION, ex.getErrorCode());
+        verify(returnTicketRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Reject Return Ticket - Thất bại khi người thao tác là Kế toán (VT-03)")
+    void testRejectReturnTicket_AccountantUser_ThrowsException() {
+        Role accountantRole = Role.builder().id(3).code("VT-03").name("Kế toán").build();
+        User accountantUser = User.builder()
+                .id("user-4")
+                .username("ketoan_viet")
+                .role(accountantRole)
+                .household(household)
+                .build();
+
+        when(userRepository.findByUsername("ketoan_viet")).thenReturn(Optional.of(accountantUser));
+
+        var rejectReq = com.sales.dto.request.RejectReturnTicketRequest.builder()
+                .rejectReason("Từ chối bởi kế toán")
+                .build();
+
+        AppException ex = assertThrows(AppException.class, () ->
+                returnTicketService.rejectReturnTicket("ticket-1", rejectReq, "ketoan_viet")
+        );
+
+        assertEquals(ErrorCode.UNAUTHORIZED_RETURN_ACTION, ex.getErrorCode());
+        verify(returnTicketRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Create Return Ticket - Thất bại khi chọn DEBT_REDUCTION cho đơn khách lẻ (không có khách hàng)")
+    void testCreateReturnTicket_DebtReduction_NoCustomer_ThrowsException() {
+        when(userRepository.findByUsername("chuho_viet")).thenReturn(Optional.of(ownerUser));
+        when(eInvoiceRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("inv-1", "house-1"))
+                .thenReturn(Optional.of(issuedInvoice));
+        when(returnTicketItemRepository.findReturnedQuantitiesByInvoiceId(eq("inv-1"), anyList()))
+                .thenReturn(Collections.emptyList());
+
+        CreateReturnTicketRequest request = CreateReturnTicketRequest.builder()
+                .originalInvoiceId("inv-1")
+                .reason("Trả hàng giảm nợ nhưng đơn khách lẻ")
+                .refundPaymentMethod("DEBT_REDUCTION")
+                .items(List.of(
+                        CreateReturnTicketItemRequest.builder()
+                                .productId("prod-1")
+                                .quantity(new BigDecimal("1.000"))
+                                .build()
+                ))
+                .build();
+
+        AppException ex = assertThrows(AppException.class, () ->
+                returnTicketService.createReturnTicket(request, "chuho_viet")
+        );
+
+        assertEquals(ErrorCode.CUSTOMER_REQUIRED_FOR_DEBT, ex.getErrorCode());
     }
 }
 
