@@ -50,6 +50,9 @@ class ReturnTicketServiceImplTest {
     private CustomerDebtRepository customerDebtRepository;
 
     @Mock
+    private InvoiceStatusLogRepository invoiceStatusLogRepository;
+
+    @Mock
     private ActivityLogHelper activityLogHelper;
 
     @InjectMocks
@@ -820,6 +823,111 @@ class ReturnTicketServiceImplTest {
         verify(eInvoiceRepository, times(1)).save(argThat(inv ->
                 "ADJUSTED".equals(inv.getStatus()) && "inv-1".equals(inv.getId())
         ));
+        verify(invoiceStatusLogRepository, times(2)).save(any(InvoiceStatusLog.class));
+    }
+
+    @Test
+    @DisplayName("Create Decrease Adjustment Invoice (NCL-11-CN-003) - Thất bại khi phiếu trả hàng chưa được duyệt (status != APPROVED)")
+    void testCreateDecreaseAdjustmentInvoice_TicketNotApproved_ThrowsException() {
+        ReturnTicket ticket = ReturnTicket.builder()
+                .id("ticket-1")
+                .ticketNumber("PTH-20260812-0001")
+                .household(household)
+                .originalInvoice(issuedInvoice)
+                .createdByUser(ownerUser)
+                .status("PENDING")
+                .totalReturnAmount(new BigDecimal("21600.00"))
+                .items(Collections.emptyList())
+                .build();
+
+        when(userRepository.findByUsername("chuho_viet")).thenReturn(Optional.of(ownerUser));
+        when(returnTicketRepository.findByIdAndHouseholdId("ticket-1", "house-1")).thenReturn(Optional.of(ticket));
+
+        AppException ex = assertThrows(AppException.class, () ->
+                returnTicketService.createDecreaseAdjustmentInvoice("ticket-1", "chuho_viet")
+        );
+
+        assertEquals(ErrorCode.RETURN_TICKET_NOT_APPROVED, ex.getErrorCode());
+        verify(eInvoiceRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Create Decrease Adjustment Invoice (NCL-11-CN-003) - Thất bại khi đã tồn tại hóa đơn điều chỉnh giảm")
+    void testCreateDecreaseAdjustmentInvoice_AlreadyExists_ThrowsException() {
+        ReturnTicket ticket = ReturnTicket.builder()
+                .id("ticket-1")
+                .ticketNumber("PTH-20260812-0001")
+                .household(household)
+                .originalInvoice(issuedInvoice)
+                .createdByUser(ownerUser)
+                .status("APPROVED")
+                .totalReturnAmount(new BigDecimal("21600.00"))
+                .items(Collections.emptyList())
+                .build();
+
+        when(userRepository.findByUsername("chuho_viet")).thenReturn(Optional.of(ownerUser));
+        when(returnTicketRepository.findByIdAndHouseholdId("ticket-1", "house-1")).thenReturn(Optional.of(ticket));
+        when(eInvoiceRepository.existsByReturnTicketIdAndDeletedAtIsNull("ticket-1")).thenReturn(true);
+
+        AppException ex = assertThrows(AppException.class, () ->
+                returnTicketService.createDecreaseAdjustmentInvoice("ticket-1", "chuho_viet")
+        );
+
+        assertEquals(ErrorCode.ADJUSTMENT_INVOICE_ALREADY_EXISTS, ex.getErrorCode());
+        verify(eInvoiceRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Create Decrease Adjustment Invoice (NCL-11-CN-003) - Thất bại khi hóa đơn gốc không ở trạng thái ISSUED")
+    void testCreateDecreaseAdjustmentInvoice_OriginalInvoiceNotIssued_ThrowsException() {
+        EInvoice canceledInvoice = EInvoice.builder()
+                .id("inv-canceled")
+                .household(household)
+                .status("CANCELED")
+                .build();
+
+        ReturnTicket ticket = ReturnTicket.builder()
+                .id("ticket-1")
+                .ticketNumber("PTH-20260812-0001")
+                .household(household)
+                .originalInvoice(canceledInvoice)
+                .createdByUser(ownerUser)
+                .status("APPROVED")
+                .totalReturnAmount(new BigDecimal("21600.00"))
+                .items(Collections.emptyList())
+                .build();
+
+        when(userRepository.findByUsername("chuho_viet")).thenReturn(Optional.of(ownerUser));
+        when(returnTicketRepository.findByIdAndHouseholdId("ticket-1", "house-1")).thenReturn(Optional.of(ticket));
+        when(eInvoiceRepository.existsByReturnTicketIdAndDeletedAtIsNull("ticket-1")).thenReturn(false);
+
+        AppException ex = assertThrows(AppException.class, () ->
+                returnTicketService.createDecreaseAdjustmentInvoice("ticket-1", "chuho_viet")
+        );
+
+        assertEquals(ErrorCode.INVOICE_NOT_ISSUED, ex.getErrorCode());
+        verify(eInvoiceRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Create Decrease Adjustment Invoice (NCL-11-CN-003) - Thất bại khi người thao tác là Nhân viên bán hàng (VT-02)")
+    void testCreateDecreaseAdjustmentInvoice_SellerUser_ThrowsException() {
+        Role sellerRole = Role.builder().id(2).code("VT-02").name("Nhân viên bán hàng").build();
+        User sellerUser = User.builder()
+                .id("user-3")
+                .username("nhanvien_banhang")
+                .role(sellerRole)
+                .household(household)
+                .build();
+
+        when(userRepository.findByUsername("nhanvien_banhang")).thenReturn(Optional.of(sellerUser));
+
+        AppException ex = assertThrows(AppException.class, () ->
+                returnTicketService.createDecreaseAdjustmentInvoice("ticket-1", "nhanvien_banhang")
+        );
+
+        assertEquals(ErrorCode.UNAUTHORIZED_RETURN_ACTION, ex.getErrorCode());
+        verify(returnTicketRepository, never()).save(any());
     }
 
     @Test
