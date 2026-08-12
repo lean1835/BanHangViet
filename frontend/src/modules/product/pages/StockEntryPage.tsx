@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { APP_ROUTES } from "@/constants/routes";
 import {
   PRODUCT_LOG_ACTIONS,
   PRODUCT_MESSAGE_BUILDERS,
@@ -20,6 +22,7 @@ import { getApiErrorMessage } from "@/utils/getApiErrorMessage";
 import { useNotification } from "@/hooks/useNotification";
 
 export const StockEntryPage = () => {
+  const navigate = useNavigate();
   const { showSuccess, showError } = useNotification();
   const { currentRole, addLogEntry } = useDashboardDemo();
   const { data: productsData } = useGetProductsQuery({
@@ -141,18 +144,34 @@ export const StockEntryPage = () => {
           />
         </div>
 
-        {canCreateGoodsReceipt && (
+        <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={() => setIsGoodsReceiptModalOpen(true)}
+            onClick={() => navigate(APP_ROUTES.PRODUCT_SUPPLIERS)}
             className="font-bold px-4 h-9 rounded-lg flex items-center gap-1.5 text-xs transition-all bg-kv-blue-primary hover:bg-kv-blue-dark text-white shadow-sm"
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <path d="M12 5v14M5 12h14" />
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+              <circle cx="9" cy="7" r="4" />
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+              <path d="M16 3.13a4 4 0 0 1 0 7.75" />
             </svg>
-            Nhập kho
+            Quản lý Nhà cung cấp
           </button>
-        )}
+
+          {canCreateGoodsReceipt && (
+            <button
+              type="button"
+              onClick={() => setIsGoodsReceiptModalOpen(true)}
+              className="font-bold px-4 h-9 rounded-lg flex items-center gap-1.5 text-xs transition-all bg-kv-blue-primary hover:bg-kv-blue-dark text-white shadow-sm"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <path d="M12 5v14M5 12h14" />
+              </svg>
+              Nhập kho
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Receipts History Table */}

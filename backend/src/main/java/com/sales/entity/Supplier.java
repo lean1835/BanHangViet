@@ -5,6 +5,7 @@ import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
@@ -21,14 +22,17 @@ public class Supplier {
     private String id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "household_id", nullable = false)
+    @JoinColumn(name = "household_id")
     private BusinessHousehold household;
+
+    @Column(nullable = false, length = 50, unique = true)
+    private String code;
 
     @Column(nullable = false, length = 100)
     private String name;
 
-    @Column(name = "phone_number", nullable = false, length = 20)
-    private String phoneNumber;
+    @Column(nullable = false, length = 20)
+    private String phone;
 
     @Column(length = 100)
     private String email;
@@ -36,11 +40,29 @@ public class Supplier {
     @Column(length = 255)
     private String address;
 
-    @Column(name = "tax_code", length = 20)
+    @Column(name = "tax_code", length = 50)
     private String taxCode;
 
+    @Column(name = "group_name", length = 100)
+    private String groupName;
+
+    @Column(name = "company_name", length = 100)
+    private String companyName;
+
     @Column(columnDefinition = "TEXT")
-    private String note;
+    private String notes;
+
+    @Column(name = "current_debt", nullable = false, precision = 15, scale = 2)
+    @Builder.Default
+    private BigDecimal currentDebt = BigDecimal.ZERO;
+
+    @Column(name = "total_purchase", nullable = false, precision = 15, scale = 2)
+    @Builder.Default
+    private BigDecimal totalPurchase = BigDecimal.ZERO;
+
+    @Column(nullable = false, length = 20)
+    @Builder.Default
+    private String status = "ACTIVE";
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)

@@ -250,6 +250,7 @@ export const PRODUCT_SECTION_COPY = {
   FUNCTION_SECTION: "Danh mục chức năng",
   PRODUCT_LIST_ROUTE: "Danh mục hàng hóa",
   STOCK_ENTRY_ROUTE: "Nhập kho hàng hóa",
+  SUPPLIER_MANAGEMENT_ROUTE: "Quản lý Nhà cung cấp",
   GROUP_LABEL: "Nhóm hàng",
   GROUP_MANAGEMENT_ACTION: "Quản lý",
   GROUP_PLACEHOLDER: "Chọn nhóm hàng",

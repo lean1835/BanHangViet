@@ -3,6 +3,7 @@ import { PRODUCT_SECTION_COPY } from "@/constants/product";
 import { APP_ROUTES } from "@/constants/routes";
 import type { TDemoRole } from "@/constants/roles";
 import { ProductSidebar } from "@/modules/product/components/ProductSidebar";
+import { SupplierSidebarFilter } from "@/modules/goods_receipt/components/SupplierSidebarFilter";
 import type { TStockFilter } from "@/modules/product/types/TStockFilter";
 
 interface ProductSectionSidebarProps {
@@ -11,6 +12,19 @@ interface ProductSectionSidebarProps {
   onSelectedGroupChange: (groupId: string) => void;
   stockFilter: TStockFilter;
   onStockFilterChange: (filter: TStockFilter) => void;
+  // Supplier filter props
+  supplierSearchQuery: string;
+  supplierGroup: string;
+  onSupplierGroupChange: (g: string) => void;
+  supplierMinDebt: number | "";
+  onSupplierMinDebtChange: (v: number | "") => void;
+  supplierMaxDebt: number | "";
+  onSupplierMaxDebtChange: (v: number | "") => void;
+  supplierStatusFilter: "ALL" | "ACTIVE" | "INACTIVE";
+  onSupplierStatusFilterChange: (s: "ALL" | "ACTIVE" | "INACTIVE") => void;
+  onResetSupplierFilter: () => void;
+  supplierGroupsList?: string[];
+  onOpenCreateSupplierGroupModal?: () => void;
 }
 
 const getNavLinkClass = (isActive: boolean): string =>
@@ -26,9 +40,22 @@ export const ProductSectionSidebar = ({
   onSelectedGroupChange,
   stockFilter,
   onStockFilterChange,
+  supplierSearchQuery,
+  supplierGroup,
+  onSupplierGroupChange,
+  supplierMinDebt,
+  onSupplierMinDebtChange,
+  supplierMaxDebt,
+  onSupplierMaxDebtChange,
+  supplierStatusFilter,
+  onSupplierStatusFilterChange,
+  onResetSupplierFilter,
+  supplierGroupsList,
+  onOpenCreateSupplierGroupModal,
 }: ProductSectionSidebarProps) => {
   const location = useLocation();
   const isProductListRoute = location.pathname === APP_ROUTES.PRODUCTS;
+  const isSupplierListRoute = location.pathname === APP_ROUTES.PRODUCT_SUPPLIERS;
 
   return (
     <div className="flex flex-col gap-4">
@@ -53,6 +80,12 @@ export const ProductSectionSidebar = ({
           >
             {PRODUCT_SECTION_COPY.STOCK_ENTRY_ROUTE}
           </NavLink>
+          <NavLink
+            to={APP_ROUTES.PRODUCT_SUPPLIERS}
+            className={({ isActive }) => getNavLinkClass(isActive)}
+          >
+            {PRODUCT_SECTION_COPY.SUPPLIER_MANAGEMENT_ROUTE}
+          </NavLink>
         </div>
       </div>
 
@@ -64,6 +97,25 @@ export const ProductSectionSidebar = ({
             stockFilter={stockFilter}
             setStockFilter={onStockFilterChange}
             userRole={currentRole}
+          />
+        </div>
+      )}
+
+      {isSupplierListRoute && (
+        <div className="border-t pt-4">
+          <SupplierSidebarFilter
+            searchQuery={supplierSearchQuery}
+            selectedGroup={supplierGroup}
+            onGroupChange={onSupplierGroupChange}
+            minDebt={supplierMinDebt}
+            onMinDebtChange={onSupplierMinDebtChange}
+            maxDebt={supplierMaxDebt}
+            onMaxDebtChange={onSupplierMaxDebtChange}
+            statusFilter={supplierStatusFilter}
+            onStatusFilterChange={onSupplierStatusFilterChange}
+            onReset={onResetSupplierFilter}
+            groupsList={supplierGroupsList}
+            onOpenCreateGroupModal={onOpenCreateSupplierGroupModal}
           />
         </div>
       )}
