@@ -2,6 +2,7 @@ package com.sales.dto.response;
 
 import lombok.*;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Data
@@ -17,6 +18,7 @@ public class SupplierResponse {
     private String address;
     private String taxCode;
     private String note;
+    private BigDecimal currentDebt;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

@@ -12,6 +12,7 @@ import com.sales.exception.AppException;
 import com.sales.exception.ErrorCode;
 import com.sales.repository.*;
 import com.sales.service.interfaces.GoodsReceiptService;
+import com.sales.service.interfaces.SupplierDebtService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -46,6 +47,7 @@ public class GoodsReceiptServiceImpl implements GoodsReceiptService {
     private final ProductRepository productRepository;
     private final SupplierRepository supplierRepository;
     private final ActivityLogRepository activityLogRepository;
+    private final SupplierDebtService supplierDebtService;
     private final ObjectMapper objectMapper;
 
     private User getAuthenticatedUser(String username) {
@@ -278,6 +280,10 @@ public class GoodsReceiptServiceImpl implements GoodsReceiptService {
         // Batch save details and products
         List<GoodsReceiptDetail> savedDetails = goodsReceiptDetailRepository.saveAll(detailsToSave);
         productRepository.saveAll(productMap.values());
+
+        if (supplier != null) {
+            supplierDebtService.recordGoodsReceiptDebt(household, supplier, receipt, currentUser);
+        }
 
         logActivity(household, currentUser, LOG_ACTION_CREATE_RECEIPT, receipt.getId(), null, buildReceiptLogMap(receipt, savedDetails));
 
