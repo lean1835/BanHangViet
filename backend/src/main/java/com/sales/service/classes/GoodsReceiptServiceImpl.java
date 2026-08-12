@@ -177,6 +177,34 @@ public class GoodsReceiptServiceImpl implements GoodsReceiptService {
                     .orElseThrow(() -> new AppException(ErrorCode.SUPPLIER_NOT_FOUND));
         }
 
+        // Extract product IDs and query all products in one batch
+        List<String> productIds = request.getDetails().stream()
+                .map(CreateGoodsReceiptDetailRequest::getProductId)
+                .distinct()
+                .collect(Collectors.toList());
+
+        List<Product> products = productRepository.findAllByIdInAndHouseholdIdAndDeletedAtIsNull(productIds, household.getId());
+        Map<String, Product> productMap = products.stream()
+                .collect(Collectors.toMap(Product::getId, p -> p));
+
+        // Validate that all products exist and belong to the household
+        for (CreateGoodsReceiptDetailRequest detailRequest : request.getDetails()) {
+            if (!productMap.containsKey(detailRequest.getProductId())) {
+                throw new AppException(ErrorCode.PRODUCT_NOT_FOUND);
+            }
+        }
+
+        // Check for selling below cost warning (purchasePrice > product.price)
+        boolean containsSellingBelowCost = request.getDetails().stream().anyMatch(d -> {
+            Product p = productMap.get(d.getProductId());
+            return p != null && d.getPurchasePrice() != null && p.getPrice() != null
+                    && d.getPurchasePrice().compareTo(p.getPrice()) > 0;
+        });
+
+        if (containsSellingBelowCost && !Boolean.TRUE.equals(request.getConfirmSellingBelowCost())) {
+            throw new AppException(ErrorCode.SELLING_BELOW_COST_WARNING);
+        }
+
         // Generate receipt number if not provided
         String receiptNumber = request.getReceiptNumber();
         if (!StringUtils.hasText(receiptNumber)) {
@@ -212,23 +240,6 @@ public class GoodsReceiptServiceImpl implements GoodsReceiptService {
                 .build();
 
         receipt = goodsReceiptRepository.save(receipt);
-
-        // Extract product IDs and query all products in one batch
-        List<String> productIds = request.getDetails().stream()
-                .map(CreateGoodsReceiptDetailRequest::getProductId)
-                .distinct()
-                .collect(Collectors.toList());
-
-        List<Product> products = productRepository.findAllByIdInAndHouseholdIdAndDeletedAtIsNull(productIds, household.getId());
-        Map<String, Product> productMap = products.stream()
-                .collect(Collectors.toMap(Product::getId, p -> p));
-
-        // Validate that all products exist and belong to the household
-        for (CreateGoodsReceiptDetailRequest detailRequest : request.getDetails()) {
-            if (!productMap.containsKey(detailRequest.getProductId())) {
-                throw new AppException(ErrorCode.PRODUCT_NOT_FOUND);
-            }
-        }
 
         List<GoodsReceiptDetail> detailsToSave = new ArrayList<>();
         for (CreateGoodsReceiptDetailRequest detailRequest : request.getDetails()) {

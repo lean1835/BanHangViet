@@ -24,7 +24,10 @@ public class CreateGoodsReceiptRequest {
     @PastOrPresent(message = "Ngày nhập kho không được là ngày trong tương lai")
     private LocalDateTime receivedAt;
 
+    @Size(max = 1000, message = "Ghi chú không được vượt quá 1000 ký tự")
     private String notes;
+
+    private Boolean confirmSellingBelowCost;
 
     @NotEmpty(message = "Phiếu nhập kho phải chứa ít nhất một mặt hàng")
     @Valid

@@ -86,7 +86,8 @@ public enum ErrorCode {
     // NCL-13 Quản lý nhà cung cấp
     SUPPLIER_NOT_FOUND(3031, "Nhà cung cấp không tồn tại", HttpStatus.NOT_FOUND),
     SUPPLIER_PHONE_EXISTS(3032, "Số điện thoại nhà cung cấp đã tồn tại trong hộ kinh doanh", HttpStatus.BAD_REQUEST),
-    SUPPLIER_HAS_DEPENDENCIES(3033, "Không thể xóa nhà cung cấp đã phát sinh phiếu nhập kho", HttpStatus.BAD_REQUEST);
+    SUPPLIER_HAS_DEPENDENCIES(3033, "Không thể xóa nhà cung cấp đã phát sinh phiếu nhập kho", HttpStatus.BAD_REQUEST),
+    SELLING_BELOW_COST_WARNING(3034, "Đơn giá nhập cao hơn giá bán niêm yết. Cần xác nhận từ chủ hộ", HttpStatus.BAD_REQUEST);
 
     private final int code;
     private final String message;

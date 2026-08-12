@@ -436,4 +436,73 @@ public class GoodsReceiptControllerTest {
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest());
     }
+
+    @Test
+    @WithMockUser(username = "owner_test_inv", roles = "VT-01")
+    public void createGoodsReceipt_sellingBelowCost_withoutConfirmation_fails() throws Exception {
+        // product1 price is 10000.00, purchase price is 12000.00 (selling below cost)
+        CreateGoodsReceiptDetailRequest detail = CreateGoodsReceiptDetailRequest.builder()
+                .productId(product1.getId())
+                .quantity(new BigDecimal("5.000"))
+                .purchasePrice(new BigDecimal("12000.00"))
+                .build();
+
+        CreateGoodsReceiptRequest request = CreateGoodsReceiptRequest.builder()
+                .receiptNumber("GR-BELOW-COST-1")
+                .confirmSellingBelowCost(false)
+                .details(Collections.singletonList(detail))
+                .build();
+
+        mockMvc.perform(post("/api/v1/goods-receipts")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(3034))
+                .andExpect(jsonPath("$.message").value("Đơn giá nhập cao hơn giá bán niêm yết. Cần xác nhận từ chủ hộ"));
+    }
+
+    @Test
+    @WithMockUser(username = "owner_test_inv", roles = "VT-01")
+    public void createGoodsReceipt_sellingBelowCost_withConfirmation_success() throws Exception {
+        CreateGoodsReceiptDetailRequest detail = CreateGoodsReceiptDetailRequest.builder()
+                .productId(product1.getId())
+                .quantity(new BigDecimal("5.000"))
+                .purchasePrice(new BigDecimal("12000.00"))
+                .build();
+
+        CreateGoodsReceiptRequest request = CreateGoodsReceiptRequest.builder()
+                .receiptNumber("GR-BELOW-COST-2")
+                .confirmSellingBelowCost(true)
+                .details(Collections.singletonList(detail))
+                .build();
+
+        mockMvc.perform(post("/api/v1/goods-receipts")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(1000));
+    }
+
+    @Test
+    @WithMockUser(username = "owner_test_inv", roles = "VT-01")
+    public void createGoodsReceipt_notesTooLong_fails() throws Exception {
+        CreateGoodsReceiptDetailRequest detail = CreateGoodsReceiptDetailRequest.builder()
+                .productId(product1.getId())
+                .quantity(new BigDecimal("10.000"))
+                .purchasePrice(new BigDecimal("8000.00"))
+                .build();
+
+        String longNotes = "N".repeat(1001);
+
+        CreateGoodsReceiptRequest request = CreateGoodsReceiptRequest.builder()
+                .receiptNumber("GR-LONG-NOTES")
+                .notes(longNotes)
+                .details(Collections.singletonList(detail))
+                .build();
+
+        mockMvc.perform(post("/api/v1/goods-receipts")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest());
+    }
 }
