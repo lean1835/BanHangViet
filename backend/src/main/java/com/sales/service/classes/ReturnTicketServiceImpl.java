@@ -2,6 +2,7 @@ package com.sales.service.classes;
 
 import com.sales.dto.request.CreateReturnTicketItemRequest;
 import com.sales.dto.request.CreateReturnTicketRequest;
+import com.sales.dto.request.RejectReturnTicketRequest;
 import com.sales.dto.response.*;
 import com.sales.entity.*;
 import com.sales.exception.AppException;
@@ -41,6 +42,11 @@ public class ReturnTicketServiceImpl implements ReturnTicketService {
     private final ReturnTicketItemRepository returnTicketItemRepository;
     private final EInvoiceRepository eInvoiceRepository;
     private final UserRepository userRepository;
+    private final ProductRepository productRepository;
+    private final CustomerRepository customerRepository;
+    private final CustomerDebtRepository customerDebtRepository;
+    private final ActivityLogHelper activityLogHelper;
+
 
     @Override
     @Transactional(readOnly = true)
@@ -54,9 +60,9 @@ public class ReturnTicketServiceImpl implements ReturnTicketService {
         boolean isEligible = true;
         String ineligibilityReason = null;
 
-        if (!"ISSUED".equals(invoice.getStatus())) {
+        if (!"ISSUED".equals(invoice.getStatus()) && !"ADJUSTED".equals(invoice.getStatus())) {
             isEligible = false;
-            ineligibilityReason = "Hóa đơn gốc chưa được cấp mã hoặc đã bị hủy/điều chỉnh";
+            ineligibilityReason = "Hóa đơn gốc chưa được cấp mã hoặc đã bị hủy";
         }
 
         LocalDateTime issueTime = invoice.getCreatedAt();
@@ -117,7 +123,7 @@ public class ReturnTicketServiceImpl implements ReturnTicketService {
         EInvoice invoice = eInvoiceRepository.findByIdAndHouseholdIdAndDeletedAtIsNull(request.getOriginalInvoiceId(), user.getHousehold().getId())
                 .orElseThrow(() -> new AppException(ErrorCode.INVOICE_NOT_FOUND));
 
-        if (!"ISSUED".equals(invoice.getStatus())) {
+        if (!"ISSUED".equals(invoice.getStatus()) && !"ADJUSTED".equals(invoice.getStatus())) {
             throw new AppException(ErrorCode.INVOICE_NOT_ELIGIBLE_FOR_RETURN);
         }
 
@@ -252,6 +258,122 @@ public class ReturnTicketServiceImpl implements ReturnTicketService {
     }
 
     @Override
+    @Transactional
+    public ReturnTicketResponse approveReturnTicket(String ticketId, String currentUsername) {
+        User user = getUserByUsername(currentUsername);
+        validateOwnerOrAccountantRole(user);
+
+        ReturnTicket ticket = returnTicketRepository.findByIdAndHouseholdId(ticketId, user.getHousehold().getId())
+                .orElseThrow(() -> new AppException(ErrorCode.RETURN_TICKET_NOT_FOUND));
+
+        if (!"PENDING".equals(ticket.getStatus())) {
+            throw new AppException(ErrorCode.RETURN_TICKET_ALREADY_PROCESSED);
+        }
+
+        ticket.setStatus("APPROVED");
+        ticket.setApprovedByUser(user);
+        ticket.setApprovedAt(LocalDateTime.now());
+
+        // 1. Hoàn tồn kho nguyên tử cho các sản phẩm trong dòng trả (Atomic Update)
+        if (ticket.getItems() != null) {
+            for (ReturnTicketItem item : ticket.getItems()) {
+                Product product = item.getProduct();
+                if (product != null) {
+                    productRepository.addStock(product.getId(), user.getHousehold().getId(), item.getQuantity());
+                }
+            }
+        }
+
+        // 2. Ghi nhận hoàn tiền / giảm trừ công nợ nếu áp dụng
+        if ("DEBT_REDUCTION".equals(ticket.getRefundPaymentMethod()) && ticket.getCustomer() != null) {
+            Customer customer = ticket.getCustomer();
+            BigDecimal currentDebt = customer.getCurrentDebt() != null ? customer.getCurrentDebt() : BigDecimal.ZERO;
+            BigDecimal newDebt = currentDebt.subtract(ticket.getTotalReturnAmount());
+            if (newDebt.compareTo(BigDecimal.ZERO) < 0) {
+                newDebt = BigDecimal.ZERO;
+            }
+            customer.setCurrentDebt(newDebt);
+            customerRepository.save(customer);
+
+            CustomerDebt debtRecord = CustomerDebt.builder()
+                    .household(user.getHousehold())
+                    .customer(customer)
+                    .order(ticket.getOriginalOrder())
+                    .amount(ticket.getTotalReturnAmount())
+                    .type("DEBT_PAID")
+                    .status("PAID")
+                    .dueDate(LocalDateTime.now())
+                    .notes("Giảm trừ công nợ từ phiếu trả hàng " + ticket.getTicketNumber())
+                    .createdByUser(user)
+                    .build();
+            customerDebtRepository.save(debtRecord);
+        }
+
+        ReturnTicket savedTicket = returnTicketRepository.save(ticket);
+        log.info("Approved return ticket {} for invoice {} by user {}", savedTicket.getTicketNumber(), savedTicket.getOriginalInvoice().getInvoiceNumber(), currentUsername);
+
+        // 3. Ghi log hoạt động hệ thống
+        if (activityLogHelper != null) {
+            activityLogHelper.logActivityInNewTransaction(
+                    user.getHousehold(),
+                    user,
+                    "APPROVE_RETURN_TICKET",
+                    "return_tickets",
+                    savedTicket.getId(),
+                    "PENDING",
+                    "APPROVED",
+                    null,
+                    null
+            );
+        }
+
+        return mapToResponse(savedTicket);
+    }
+
+    @Override
+    @Transactional
+    public ReturnTicketResponse rejectReturnTicket(String ticketId, RejectReturnTicketRequest request, String currentUsername) {
+        User user = getUserByUsername(currentUsername);
+        validateOwnerOrAccountantRole(user);
+
+        if (request == null || request.getRejectReason() == null || request.getRejectReason().trim().isEmpty()) {
+            throw new AppException(ErrorCode.INVALID_INPUT);
+        }
+
+        ReturnTicket ticket = returnTicketRepository.findByIdAndHouseholdId(ticketId, user.getHousehold().getId())
+                .orElseThrow(() -> new AppException(ErrorCode.RETURN_TICKET_NOT_FOUND));
+
+        if (!"PENDING".equals(ticket.getStatus())) {
+            throw new AppException(ErrorCode.RETURN_TICKET_ALREADY_PROCESSED);
+        }
+
+        ticket.setStatus("REJECTED");
+        ticket.setApprovedByUser(user);
+        ticket.setRejectedAt(LocalDateTime.now());
+        ticket.setRejectReason(request.getRejectReason().trim());
+
+        ReturnTicket savedTicket = returnTicketRepository.save(ticket);
+        log.info("Rejected return ticket {} for invoice {} by user {}", savedTicket.getTicketNumber(), savedTicket.getOriginalInvoice().getInvoiceNumber(), currentUsername);
+
+        // Ghi log hoạt động hệ thống
+        if (activityLogHelper != null) {
+            activityLogHelper.logActivityInNewTransaction(
+                    user.getHousehold(),
+                    user,
+                    "REJECT_RETURN_TICKET",
+                    "return_tickets",
+                    savedTicket.getId(),
+                    "PENDING",
+                    "REJECTED",
+                    null,
+                    null
+            );
+        }
+
+        return mapToResponse(savedTicket);
+    }
+
+    @Override
     @Transactional(readOnly = true)
     public ReturnTicketResponse getReturnTicketDetail(String ticketId, String currentUsername) {
         User user = getUserByUsername(currentUsername);
@@ -304,6 +426,112 @@ public class ReturnTicketServiceImpl implements ReturnTicketService {
                 .build();
     }
 
+    @Override
+    @Transactional
+    public ReturnTicketResponse createDecreaseAdjustmentInvoice(String ticketId, String currentUsername) {
+        User user = getUserByUsername(currentUsername);
+        validateOwnerOrAccountantRole(user);
+
+        ReturnTicket ticket = returnTicketRepository.findByIdAndHouseholdId(ticketId, user.getHousehold().getId())
+                .orElseThrow(() -> new AppException(ErrorCode.RETURN_TICKET_NOT_FOUND));
+
+        if (!"APPROVED".equals(ticket.getStatus())) {
+            throw new AppException(ErrorCode.INVALID_INPUT);
+        }
+
+        // Kiểm tra xem đã có hóa đơn điều chỉnh giảm cho phiếu trả hàng này chưa
+        boolean alreadyAdjusted = eInvoiceRepository.findAll().stream()
+                .anyMatch(inv -> inv.getReturnTicket() != null && ticketId.equals(inv.getReturnTicket().getId()));
+        if (alreadyAdjusted) {
+            throw new AppException(ErrorCode.ADJUSTMENT_INVOICE_ALREADY_EXISTS);
+        }
+
+        EInvoice origInvoice = ticket.getOriginalInvoice();
+
+        // Sinh mã tra cứu hóa đơn ngẫu nhiên duy nhất
+        String lookupCode;
+        do {
+            lookupCode = UUID.randomUUID().toString().replaceAll("-", "").substring(0, 10).toUpperCase();
+        } while (eInvoiceRepository.existsByLookupCodeAndDeletedAtIsNull(lookupCode));
+
+        List<EInvoiceItem> adjItems = new ArrayList<>();
+        BigDecimal totalBeforeTax = BigDecimal.ZERO;
+        BigDecimal totalTax = BigDecimal.ZERO;
+
+        if (ticket.getItems() != null) {
+            for (ReturnTicketItem ticketItem : ticket.getItems()) {
+                BigDecimal lineBeforeTax = ticketItem.getQuantity().multiply(ticketItem.getUnitPrice());
+                totalBeforeTax = totalBeforeTax.add(lineBeforeTax);
+                totalTax = totalTax.add(ticketItem.getTaxAmount() != null ? ticketItem.getTaxAmount() : BigDecimal.ZERO);
+
+                EInvoiceItem adjItem = EInvoiceItem.builder()
+                        .product(ticketItem.getProduct())
+                        .productName(ticketItem.getProductName())
+                        .unit(ticketItem.getUnit())
+                        .quantity(ticketItem.getQuantity())
+                        .unitPrice(ticketItem.getUnitPrice())
+                        .taxRatePercentage(ticketItem.getTaxRatePercentage())
+                        .taxAmount(ticketItem.getTaxAmount())
+                        .subtotal(ticketItem.getSubtotal())
+                        .build();
+                adjItems.add(adjItem);
+            }
+        }
+
+        BigDecimal finalAmount = totalBeforeTax.add(totalTax);
+
+        EInvoice adjInvoice = EInvoice.builder()
+                .household(user.getHousehold())
+                .order(ticket.getOriginalOrder())
+                .originalInvoice(origInvoice)
+                .returnTicket(ticket)
+                .createdByUser(user)
+                .title("HÓA ĐƠN ĐIỀU CHỈNH GIẢM")
+                .invoicePattern(origInvoice.getInvoicePattern())
+                .invoiceSymbol(origInvoice.getInvoiceSymbol())
+                .buyerName(origInvoice.getBuyerName())
+                .buyerTaxCode(origInvoice.getBuyerTaxCode())
+                .buyerAddress(origInvoice.getBuyerAddress())
+                .buyerPhone(origInvoice.getBuyerPhone())
+                .buyerEmail(origInvoice.getBuyerEmail())
+                .totalAmountBeforeTax(totalBeforeTax)
+                .taxAmount(totalTax)
+                .discountAmount(BigDecimal.ZERO)
+                .finalAmount(finalAmount)
+                .status("ISSUED")
+                .lookupCode(lookupCode)
+                .build();
+
+        for (EInvoiceItem item : adjItems) {
+            item.setInvoice(adjInvoice);
+        }
+        adjInvoice.setItems(adjItems);
+
+        eInvoiceRepository.save(adjInvoice);
+
+        // Cập nhật trạng thái hóa đơn gốc thành ADJUSTED theo QTN-20
+        origInvoice.setStatus("ADJUSTED");
+        eInvoiceRepository.save(origInvoice);
+
+        log.info("Created decrease adjustment invoice {} for return ticket {} by user {}", adjInvoice.getLookupCode(), ticket.getTicketNumber(), currentUsername);
+
+        if (activityLogHelper != null) {
+            activityLogHelper.logActivityInNewTransaction(
+                    user.getHousehold(),
+                    user,
+                    "CREATE_ADJUSTMENT_INVOICE",
+                    "e_invoices",
+                    adjInvoice.getId(),
+                    null,
+                    "ISSUED",
+                    null,
+                    null
+            );
+        }
+
+        return mapToResponse(ticket);
+    }
+
     // ==================== HELPER METHODS ====================
 
     private User getUserByUsername(String username) {
@@ -319,6 +547,25 @@ public class ReturnTicketServiceImpl implements ReturnTicketService {
             throw new AppException(ErrorCode.UNAUTHORIZED_RETURN_ACTION);
         }
     }
+
+    private void validateOwnerRole(User user) {
+        if (user.getHousehold() == null) {
+            throw new AppException(ErrorCode.HOUSEHOLD_NOT_FOUND);
+        }
+        if (user.getRole() == null || !"VT-01".equals(user.getRole().getCode())) {
+            throw new AppException(ErrorCode.UNAUTHORIZED_RETURN_ACTION);
+        }
+    }
+
+    private void validateOwnerOrAccountantRole(User user) {
+        if (user.getHousehold() == null) {
+            throw new AppException(ErrorCode.HOUSEHOLD_NOT_FOUND);
+        }
+        if (user.getRole() == null || "VT-06".equals(user.getRole().getCode()) || "VT-02".equals(user.getRole().getCode())) {
+            throw new AppException(ErrorCode.UNAUTHORIZED_RETURN_ACTION);
+        }
+    }
+
 
     private Map<String, BigDecimal> getAlreadyReturnedQuantities(String invoiceId) {
         List<ReturnedQuantityProjection> projections = returnTicketItemRepository.findReturnedQuantitiesByInvoiceId(
