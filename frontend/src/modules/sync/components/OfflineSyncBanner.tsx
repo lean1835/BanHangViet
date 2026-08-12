@@ -3,7 +3,9 @@ import { BulkIssueInvoiceModal } from "./BulkIssueInvoiceModal";
 import { BulkIssueResultModal } from "./BulkIssueResultModal";
 import type { IBulkIssueInvoiceResult } from "@/modules/e_invoice/types/IInvoice";
 
-  interface OfflineSyncBannerProps {
+import { checkOfflineLimitStatus } from "../utils/offlineSyncStorage";
+
+interface OfflineSyncBannerProps {
   isOnline: boolean;
   pendingCount: number;
   conflictingOrdersCount?: number;
@@ -49,13 +51,46 @@ export const OfflineSyncBanner: React.FC<OfflineSyncBannerProps> = ({
   const renderBannerContent = () => {
     // 1. Chế độ Mất mạng
     if (!isOnline) {
+      const limitStatus = checkOfflineLimitStatus();
+
+      if (limitStatus.isExceeded) {
+        return (
+          <div className="bg-rose-700 text-white px-4 py-2.5 text-xs font-bold shadow-md flex items-center justify-between gap-4 animate-fade-in border-b-2 border-rose-900">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <span className="truncate">
+                <strong>ĐÃ VƯỢT GIỚI HẠN BÁN KHI MẤT MẠNG (NCL-08-CN-005):</strong>{" "}
+                {limitStatus.errorMessage || `Đã vượt quá số đơn hoặc số giờ cho phép bán offline (${limitStatus.maxOrders} đơn / ${limitStatus.maxHours}h).`}
+              </span>
+            </div>
+          </div>
+        );
+      }
+
+      if (limitStatus.isOrderNearLimit || limitStatus.isTimeNearLimit) {
+        return (
+          <div className="bg-amber-600 text-white px-4 py-2.5 text-xs font-semibold shadow-md flex items-center justify-between gap-4 animate-fade-in">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <span className="flex h-2 w-2 rounded-full bg-white animate-ping shrink-0" />
+              <span className="truncate">
+                <strong>CẢNH BÁO SẮP CHẠM NGƯỠNG BÁN OFFLINE:</strong>{" "}
+                {limitStatus.warningMessage || `Đã bán ${pendingCount}/${limitStatus.maxOrders} đơn khi mất mạng.`}
+              </span>
+            </div>
+          </div>
+        );
+      }
+
       return (
         <div className="bg-rose-600 text-white px-4 py-2.5 text-xs font-semibold shadow-md flex items-center justify-between gap-4 animate-fade-in">
           <div className="flex items-center gap-2.5 min-w-0">
             <span className="flex h-2 w-2 rounded-full bg-white animate-ping shrink-0" />
-            <span className="truncate">
-              <strong>Chế độ Ngoại tuyến (Offline):</strong> Mọi đơn hàng mới sẽ được lưu tạm tại thiết bị và đồng bộ sau.
-              {pendingCount > 0 && ` (Đang có ${pendingCount} đơn chờ đồng bộ)`}
+            <span className="truncate flex items-center gap-2 flex-wrap">
+              <span>
+                <strong>Chế độ Ngoại tuyến (Offline):</strong> Mọi đơn hàng mới sẽ được lưu tạm tại thiết bị.
+              </span>
+              <span className="font-extrabold px-2.5 py-0.5 bg-white/20 text-yellow-200 rounded-full border border-white/30 text-[11px]">
+                Đã lưu: {pendingCount}/{limitStatus.maxOrders} đơn
+              </span>
             </span>
           </div>
         </div>
@@ -67,7 +102,6 @@ export const OfflineSyncBanner: React.FC<OfflineSyncBannerProps> = ({
       return (
         <div className="bg-amber-500 text-white px-4 py-2.5 text-xs font-semibold shadow-md flex items-center justify-between gap-4 animate-fade-in">
           <div className="flex items-center gap-2.5 min-w-0">
-            <span className="text-base shrink-0">⚡</span>
             <span className="truncate">
               <strong>Cảnh báo xung đột:</strong> Có {conflictingOrdersCount} đơn hàng ngoại tuyến bị trùng mã với dữ liệu máy chủ.
             </span>
@@ -89,7 +123,7 @@ export const OfflineSyncBanner: React.FC<OfflineSyncBannerProps> = ({
           <div className="flex items-center gap-2.5 min-w-0">
             <span className="flex h-2 w-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
             <span className="truncate">
-              🔄 Phát hiện <strong>{pendingCount} đơn hàng ngoại tuyến</strong> sẵn sàng đồng bộ lên máy chủ.
+              Phát hiện <strong>{pendingCount} đơn hàng ngoại tuyến</strong> sẵn sàng đồng bộ lên máy chủ.
             </span>
           </div>
           <button
@@ -119,17 +153,27 @@ export const OfflineSyncBanner: React.FC<OfflineSyncBannerProps> = ({
         <>
           <div className="bg-indigo-600 text-white px-4 py-2.5 text-xs font-semibold shadow-md flex items-center justify-between gap-4 animate-fade-in">
             <div className="flex items-center gap-2.5 min-w-0">
-              <span className="text-base shrink-0">📄</span>
               <span className="truncate">
                 <strong>Phát hành dồn hóa đơn:</strong> Có <strong>{unissuedOrderIds.length} đơn hàng</strong> vừa đồng bộ chưa phát hành hóa đơn điện tử.
               </span>
             </div>
-            <button
-              onClick={() => setIsBulkModalOpen(true)}
-              className="bg-white text-indigo-700 font-extrabold px-3.5 py-1 rounded shadow-sm hover:bg-indigo-50 transition-colors text-xs shrink-0 flex items-center gap-1"
-            >
-              🚀 Phát hành dồn hóa đơn
-            </button>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                onClick={() => setIsBulkModalOpen(true)}
+                className="bg-white text-indigo-700 font-extrabold px-3.5 py-1 rounded shadow-sm hover:bg-indigo-50 transition-colors text-xs shrink-0"
+              >
+                Phát hành
+              </button>
+              {onClearUnissuedOrders && (
+                <button
+                  onClick={onClearUnissuedOrders}
+                  className="text-indigo-200 hover:text-white px-2 py-0.5 rounded hover:bg-indigo-700 transition-colors text-xs font-bold shrink-0 ml-1"
+                  title="Bỏ qua / Đóng thông báo"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
           </div>
 
           <BulkIssueInvoiceModal
@@ -153,7 +197,6 @@ export const OfflineSyncBanner: React.FC<OfflineSyncBannerProps> = ({
       return (
         <div className="bg-amber-50 border-b border-amber-200 text-amber-800 px-4 py-2 text-xs font-medium flex items-start justify-between gap-3 animate-fade-in">
           <div className="flex items-start gap-2">
-            <span className="text-sm shrink-0">💡</span>
             <div>
               <strong className="font-bold">Thông báo đồng bộ Ngoại tuyến:</strong>
               <ul className="list-disc list-inside mt-0.5 space-y-0.5">

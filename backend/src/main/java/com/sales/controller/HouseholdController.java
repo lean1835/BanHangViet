@@ -20,7 +20,7 @@ public class HouseholdController {
     private final HouseholdService householdService;
 
     @GetMapping("/my-household")
-    @PreAuthorize("hasRole('VT-01')")
+    @PreAuthorize("hasAnyRole('VT-01', 'VT-02', 'VT-03')")
     public ResponseEntity<ApiResponse<HouseholdResponse>> getMyHousehold(Principal principal) {
         HouseholdResponse result = householdService.getMyHousehold(principal.getName());
         ApiResponse<HouseholdResponse> response = ApiResponse.<HouseholdResponse>builder()

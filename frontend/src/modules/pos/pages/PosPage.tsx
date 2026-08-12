@@ -15,9 +15,10 @@ import {
   useCompleteOrderMutation,
 } from "@/modules/order/services/orderApi";
 import { useGetActiveShiftQuery } from "@/modules/shift/services/shiftApi";
+import { useGetMyHouseholdQuery } from "@/modules/settings/services/settingsApi";
 
 import { useDashboardDemo } from "@/providers/DashboardDemoProvider";
-import { saveOfflineOrder } from "@/modules/sync/utils/offlineSyncStorage";
+import { saveOfflineOrder, checkOfflineLimitStatus, saveOfflineConfig } from "@/modules/sync/utils/offlineSyncStorage";
 import type { IOfflineOrderRequest } from "@/modules/sync/types/ISync";
 import type { IOrderResponse } from "@/modules/order/types/IOrder";
 import { getLocalDateTimeISOString } from "@/utils/dateFormatter";
@@ -63,6 +64,17 @@ export const PosPage = () => {
   const { data: productsData } = useGetProductsQuery({ page: 0, size: 200 });
   const { data: customersData } = useGetCustomersQuery();
   const { data: activeShiftData, isLoading: isShiftLoading } = useGetActiveShiftQuery();
+  const { data: householdData } = useGetMyHouseholdQuery(undefined, { skip: isOnline === false });
+
+  // Tự động đồng bộ cấu hình bán offline vào localStorage khi online
+  useEffect(() => {
+    if (householdData?.result) {
+      const h = householdData.result;
+      if (typeof h.offlineMaxOrders === "number" && typeof h.offlineMaxHours === "number") {
+        saveOfflineConfig({ maxOrders: h.offlineMaxOrders, maxHours: h.offlineMaxHours });
+      }
+    }
+  }, [householdData]);
 
   const activeShift = activeShiftData?.result;
   const isShiftOpen = Boolean(activeShift);
@@ -182,6 +194,16 @@ export const PosPage = () => {
 
   // Tab management handlers
   const handleAddTab = () => {
+    if (isOnline === false) {
+      const limitStatus = checkOfflineLimitStatus();
+      if (limitStatus.isExceeded) {
+        showToast(
+          limitStatus.errorMessage ||
+            `Không thể tạo thêm hóa đơn mới! Đã vượt quá giới hạn bán khi mất mạng (${limitStatus.maxOrders} đơn / ${limitStatus.maxHours}h). Vui lòng kết nối mạng để đồng bộ!`
+        );
+        return;
+      }
+    }
     const nextIndex = tabCounter + 1;
     const newTab = createInitialTab(nextIndex);
     setTabs((prev) => [...prev, newTab]);
@@ -200,6 +222,16 @@ export const PosPage = () => {
 
   // Product selection & cart manipulation
   const handleSelectProduct = (product: IProduct) => {
+    if (isOnline === false) {
+      const limitStatus = checkOfflineLimitStatus();
+      if (limitStatus.isExceeded) {
+        showToast(
+          limitStatus.errorMessage ||
+            `Không thể chọn thêm hàng! Đã vượt quá giới hạn bán khi mất mạng (${limitStatus.maxOrders} đơn / ${limitStatus.maxHours}h). Vui lòng kết nối mạng để đồng bộ!`
+        );
+        return;
+      }
+    }
     setTabs((prevTabs) =>
       prevTabs.map((t) => {
         if (t.id !== activeTabId) return t;
@@ -461,7 +493,10 @@ export const PosPage = () => {
     });
 
     updateActiveTab({ backendOrderId: `local_${offlineOrderNumber}`, status: "COMPLETED", isSaved: true });
-    showToast("Đã lưu đơn hàng ở chế độ Ngoại tuyến. Đơn hàng sẽ tự động đồng bộ khi có kết nối mạng.");
+    const limitStatus = checkOfflineLimitStatus();
+    showToast(
+      `Đã lưu đơn hàng ở chế độ Ngoại tuyến (Đã lưu ${limitStatus.currentOrdersCount}/${limitStatus.maxOrders} đơn). Đơn hàng sẽ tự động đồng bộ khi có kết nối mạng.`
+    );
   };
 
   // Complete Order (Thanh toán hoàn tất)
@@ -504,6 +539,16 @@ export const PosPage = () => {
 
     // Check if system is offline
     if (isOnline === false) {
+      const limitStatus = checkOfflineLimitStatus();
+      if (limitStatus.isExceeded) {
+        showToast(
+          limitStatus.errorMessage ||
+            `Không thể chốt đơn! Đã vượt quá giới hạn bán khi mất mạng (${limitStatus.maxOrders} đơn / ${limitStatus.maxHours}h). Vui lòng kết nối mạng để đồng bộ!`
+        );
+        setIsCompletingOrder(false);
+        return;
+      }
+
       completeOrderOffline(
         totalCart,
         discountCash,
