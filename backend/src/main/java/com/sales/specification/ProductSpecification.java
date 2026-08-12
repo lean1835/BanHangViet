@@ -60,4 +60,31 @@ public class ProductSpecification {
             return criteriaBuilder.and(predicates.toArray(new Predicate[0]));
         };
     }
+
+    public static Specification<Product> filterLowStockProducts(
+            String householdId,
+            String search,
+            String groupId) {
+        return (root, query, criteriaBuilder) -> {
+            List<Predicate> predicates = new ArrayList<>();
+
+            predicates.add(criteriaBuilder.equal(root.get("household").get("id"), householdId));
+            predicates.add(criteriaBuilder.isNull(root.get("deletedAt")));
+            predicates.add(criteriaBuilder.equal(root.get("status"), "ACTIVE"));
+            predicates.add(criteriaBuilder.lessThanOrEqualTo(root.get("stockQuantity"), root.get("minStockQuantity")));
+
+            if (StringUtils.hasText(groupId)) {
+                predicates.add(criteriaBuilder.equal(root.get("group").get("id"), groupId));
+            }
+
+            if (StringUtils.hasText(search)) {
+                String searchPattern = "%" + search.trim().toLowerCase() + "%";
+                Predicate namePredicate = criteriaBuilder.like(criteriaBuilder.lower(root.get("name")), searchPattern);
+                Predicate skuPredicate = criteriaBuilder.like(criteriaBuilder.lower(root.get("sku")), searchPattern);
+                predicates.add(criteriaBuilder.or(namePredicate, skuPredicate));
+            }
+
+            return criteriaBuilder.and(predicates.toArray(new Predicate[0]));
+        };
+    }
 }

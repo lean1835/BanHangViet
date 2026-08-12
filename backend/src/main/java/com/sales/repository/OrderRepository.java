@@ -126,4 +126,20 @@ public interface OrderRepository extends JpaRepository<Order, String> {
             @Param("startDateTime") LocalDateTime startDateTime,
             @Param("endDateTime") LocalDateTime endDateTime
     );
+
+    @Query(value = "SELECT " +
+            "oi.product_id as productId, " +
+            "SUM(oi.quantity) as totalQuantitySold, " +
+            "SUM(CASE WHEN (o.discount_amount > 0 OR oi.discount_amount > 0) THEN 1 ELSE 0 END) as promotionCount " +
+            "FROM order_items oi " +
+            "JOIN orders o ON o.id = oi.order_id " +
+            "WHERE o.household_id = :householdId " +
+            "AND o.status = 'COMPLETED' " +
+            "AND o.deleted_at IS NULL " +
+            "AND o.created_at >= :startDateTime " +
+            "GROUP BY oi.product_id", nativeQuery = true)
+    List<com.sales.dto.response.ProductSalesSummaryProjection> getProductSalesSummary(
+            @Param("householdId") String householdId,
+            @Param("startDateTime") LocalDateTime startDateTime
+    );
 }

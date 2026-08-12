@@ -52,6 +52,10 @@ public class Product {
     @Column(name = "stock_quantity", nullable = false, precision = 12, scale = 3)
     private BigDecimal stockQuantity;
 
+    @Column(name = "min_stock_quantity", nullable = false, precision = 12, scale = 3)
+    @Builder.Default
+    private BigDecimal minStockQuantity = BigDecimal.ZERO;
+
     @Column(nullable = false, length = 20)
     @Builder.Default
     private String status = "ACTIVE";

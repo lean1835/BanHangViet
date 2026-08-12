@@ -31,6 +31,9 @@ public class CreateProductRequest {
     @DecimalMin(value = "0.0", message = "Số lượng tồn kho không được nhỏ hơn 0")
     private BigDecimal stockQuantity;
 
+    @DecimalMin(value = "0.0", message = "Ngưỡng tồn tối thiểu không được nhỏ hơn 0")
+    private BigDecimal minStockQuantity;
+
     @NotBlank(message = "Trạng thái không được để trống")
     @Pattern(regexp = "^(ACTIVE|INACTIVE)$", message = "Trạng thái chỉ có thể là ACTIVE hoặc INACTIVE")
     private String status;
