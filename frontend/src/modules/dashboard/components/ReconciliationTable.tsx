@@ -21,6 +21,7 @@ import {
 import { InvoiceDetailModal } from "@/modules/e_invoice/components/InvoiceDetailModal";
 import type { IInvoice } from "@/modules/e_invoice/types/IInvoice";
 import { getApiErrorMessage } from "@/utils/getApiErrorMessage";
+import { SyncReconciliationPanel } from "@/modules/sync/components/SyncReconciliationPanel";
 
 interface ReconciliationTableProps {
   date: string;
@@ -28,7 +29,7 @@ interface ReconciliationTableProps {
 }
 
 export const ReconciliationTable = ({ date, currentRole }: ReconciliationTableProps) => {
-  const [activeTab, setActiveTab] = useState<"shifts" | "failedInvoices">("shifts");
+  const [activeTab, setActiveTab] = useState<"shifts" | "failedInvoices" | "syncReconciliation">("shifts");
   const { showSuccess, showError } = useNotification();
   const [selectedInvoice, setSelectedInvoice] = useState<IInvoice | null>(null);
 
@@ -268,11 +269,21 @@ export const ReconciliationTable = ({ date, currentRole }: ReconciliationTablePr
               </span>
             )}
           </button>
+          <button
+            onClick={() => setActiveTab("syncReconciliation")}
+            className={`py-3.5 px-1 text-xs font-bold border-b-2 transition-all flex items-center gap-1.5 ${
+              activeTab === "syncReconciliation"
+                ? "border-kv-blue-primary text-kv-blue-primary"
+                : "border-transparent text-slate-500 hover:text-slate-700"
+            }`}
+          >
+            Đối soát phiên đồng bộ
+          </button>
         </div>
       </div>
 
       {/* Tab Content Body */}
-      <div className="flex-1 overflow-hidden p-4 flex flex-col min-h-0">
+      <div className="flex-1 overflow-y-auto p-4 flex flex-col">
         {isReconLoading ? (
           <div className="text-center text-slate-400 py-10 text-xs font-medium">Đang tải dữ liệu đối chiếu ngày...</div>
         ) : activeTab === "shifts" ? (
@@ -404,7 +415,7 @@ export const ReconciliationTable = ({ date, currentRole }: ReconciliationTablePr
               )}
             </div>
           </div>
-        ) : (
+        ) : activeTab === "failedInvoices" ? (
           <div className="w-full h-full">
             {failedInvoices.length === 0 ? (
               <div className="text-center text-slate-400 py-12 text-xs font-semibold">
@@ -442,6 +453,10 @@ export const ReconciliationTable = ({ date, currentRole }: ReconciliationTablePr
                 </tbody>
               </table>
             )}
+          </div>
+        ) : (
+          <div className="w-full">
+            <SyncReconciliationPanel currentRole={currentRole} selectedDate={date} />
           </div>
         )}
       </div>
