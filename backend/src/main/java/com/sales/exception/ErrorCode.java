@@ -107,6 +107,7 @@ public enum ErrorCode {
     INVENTORY_AUDIT_NOT_FOUND(3040, "Phiếu kiểm kê kho không tồn tại", HttpStatus.NOT_FOUND),
     EMPTY_AUDIT_DETAILS(3041, "Phiếu kiểm kê kho phải chứa ít nhất một mặt hàng", HttpStatus.BAD_REQUEST),
     DISCREPANCY_REASON_REQUIRED(3042, "Cần ghi rõ lý do khi số lượng đếm thực tế có chênh lệch so với tồn hệ thống", HttpStatus.BAD_REQUEST),
+    DUPLICATE_PRODUCT_IN_AUDIT(3043, "Không được chứa sản phẩm trùng lặp trong cùng một phiếu kiểm kê", HttpStatus.BAD_REQUEST),
     ONLY_STORE_OWNER_CAN_AUDIT(3044, "Chỉ chủ hộ kinh doanh mới có quyền thực hiện kiểm kê và điều chỉnh tồn kho", HttpStatus.FORBIDDEN);
 
     private final int code;

@@ -58,6 +58,14 @@ public class InventoryAuditServiceImpl implements InventoryAuditService {
             throw new AppException(ErrorCode.EMPTY_AUDIT_DETAILS);
         }
 
+        // Kiểm tra trùng lặp mặt hàng trong cùng 1 phiếu kiểm kê
+        Set<String> processedProductIds = new HashSet<>();
+        for (CreateInventoryAuditDetailRequest detailReq : request.getDetails()) {
+            if (!processedProductIds.add(detailReq.getProductId())) {
+                throw new AppException(ErrorCode.DUPLICATE_PRODUCT_IN_AUDIT);
+            }
+        }
+
         // Sinh mã phiếu kiểm kê độc nhất
         String auditNumber = generateAuditNumber(household.getId());
 

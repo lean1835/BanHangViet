@@ -287,4 +287,32 @@ class InventoryAuditServiceImplTest {
         assertEquals(1, response.getDetails().size());
         assertEquals("SP001", response.getDetails().get(0).getProductSku());
     }
+
+    @Test
+    @DisplayName("Ném ngoại lệ khi có sản phẩm trùng lặp trong cùng một phiếu kiểm kê")
+    void testCreateInventoryAudit_DuplicateProduct_ThrowsException() {
+        CreateInventoryAuditDetailRequest detail1 = CreateInventoryAuditDetailRequest.builder()
+                .productId("prod-1")
+                .actualQuantity(new BigDecimal("10.000"))
+                .reason("Hao hụt")
+                .build();
+
+        CreateInventoryAuditDetailRequest detail2 = CreateInventoryAuditDetailRequest.builder()
+                .productId("prod-1")
+                .actualQuantity(new BigDecimal("8.000"))
+                .reason("Sai sót đếm lại")
+                .build();
+
+        CreateInventoryAuditRequest request = CreateInventoryAuditRequest.builder()
+                .details(List.of(detail1, detail2))
+                .build();
+
+        when(userRepository.findByUsername("chuho_test")).thenReturn(Optional.of(ownerUser));
+
+        AppException exception = assertThrows(AppException.class, () ->
+                inventoryAuditService.createInventoryAudit("chuho_test", request)
+        );
+
+        assertEquals(ErrorCode.DUPLICATE_PRODUCT_IN_AUDIT, exception.getErrorCode());
+    }
 }

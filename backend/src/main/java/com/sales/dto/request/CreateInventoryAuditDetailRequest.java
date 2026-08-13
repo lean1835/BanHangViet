@@ -1,5 +1,6 @@
 package com.sales.dto.request;
 
+import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.PositiveOrZero;
@@ -21,6 +22,7 @@ public class CreateInventoryAuditDetailRequest {
 
     @NotNull(message = "Số lượng đếm thực tế không được để trống")
     @PositiveOrZero(message = "Số lượng đếm thực tế không được là số âm")
+    @Digits(integer = 9, fraction = 3, message = "Số lượng đếm thực tế vượt quá giới hạn cho phép (tối đa 9 chữ số nguyên và 3 chữ số thập phân)")
     private BigDecimal actualQuantity;
 
     private String reason;
