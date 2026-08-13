@@ -42,6 +42,7 @@ public interface EInvoiceRepository extends JpaRepository<EInvoice, String>, Jpa
 
     boolean existsByReturnTicketIdAndDeletedAtIsNull(String returnTicketId);
 
+    @EntityGraph(attributePaths = {"originalInvoice", "returnTicket"})
     List<EInvoice> findByHouseholdIdAndDeletedAtIsNullOrderByCreatedAtDesc(String householdId);
 
     @Query("SELECT MAX(e.invoiceNumber) FROM EInvoice e WHERE e.household.id = :householdId AND e.invoicePattern = :pattern AND e.invoiceSymbol = :symbol AND e.invoiceNumber IS NOT NULL AND e.deletedAt IS NULL")
