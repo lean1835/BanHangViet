@@ -26,6 +26,8 @@ public interface OrderRepository extends JpaRepository<Order, String> {
 
     boolean existsByOrderNumber(String orderNumber);
 
+    long countByHouseholdIdAndIsOfflineTrue(String householdId);
+
     Optional<Order> findByOrderNumberAndDeletedAtIsNull(String orderNumber);
 
     Optional<Order> findByOrderNumberAndHouseholdIdAndDeletedAtIsNull(String orderNumber, String householdId);
