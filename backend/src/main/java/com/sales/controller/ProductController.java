@@ -22,6 +22,7 @@ public class ProductController {
 
     private final ProductService productService;
     private final com.sales.service.interfaces.ProductImportService productImportService;
+    private final com.sales.service.interfaces.InventoryWarningService inventoryWarningService;
 
     @GetMapping("/import-template")
     @PreAuthorize("hasRole('VT-01')")
@@ -72,6 +73,21 @@ public class ProductController {
         ApiResponse<ProductResponse> response = ApiResponse.<ProductResponse>builder()
                 .code(1000)
                 .message("Cập nhật hàng hóa thành công")
+                .result(result)
+                .build();
+        return ResponseEntity.ok(response);
+    }
+
+    @PutMapping("/{id}/min-stock")
+    @PreAuthorize("hasRole('VT-01')")
+    public ResponseEntity<ApiResponse<ProductResponse>> updateMinStock(
+            Principal principal,
+            @PathVariable String id,
+            @Valid @RequestBody com.sales.dto.request.UpdateMinStockRequest request) {
+        ProductResponse result = inventoryWarningService.updateMinStock(principal.getName(), id, request);
+        ApiResponse<ProductResponse> response = ApiResponse.<ProductResponse>builder()
+                .code(1000)
+                .message("Cập nhật ngưỡng tồn tối thiểu thành công")
                 .result(result)
                 .build();
         return ResponseEntity.ok(response);

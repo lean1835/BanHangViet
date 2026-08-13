@@ -13,7 +13,8 @@ import { SETTINGS_UI } from "@/constants/settings";
 import { useNotification } from "@/hooks/useNotification";
 import { useDashboardDemo } from "@/providers/DashboardDemoProvider";
 import { getApiErrorMessage } from "@/utils/getApiErrorMessage";
-import { Save, Building2, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
+import { saveOfflineConfig } from "@/modules/sync/utils/offlineSyncStorage";
+import { Save, Building2, CheckCircle2, AlertCircle, Loader2, WifiOff } from "lucide-react";
 
 export const BusinessInfoPanel: React.FC = () => {
   const { showSuccess, showError } = useNotification();
@@ -38,19 +39,26 @@ export const BusinessInfoPanel: React.FC = () => {
       phoneNumber: "",
       address: "",
       representativeName: "",
+      offlineMaxOrders: 50,
+      offlineMaxHours: 24,
     },
   });
 
   // Reset form when data is loaded from server API
   useEffect(() => {
     if (household) {
+      const maxOrders = household.offlineMaxOrders ?? 50;
+      const maxHours = household.offlineMaxHours ?? 24;
       reset({
         name: household.name || "",
         taxCode: household.taxCode || "",
         phoneNumber: household.phoneNumber || "",
         address: household.address || "",
         representativeName: household.representativeName || "",
+        offlineMaxOrders: maxOrders,
+        offlineMaxHours: maxHours,
       });
+      saveOfflineConfig({ maxOrders, maxHours });
     }
   }, [household, reset]);
 
@@ -62,9 +70,16 @@ export const BusinessInfoPanel: React.FC = () => {
         address: data.address,
         phoneNumber: data.phoneNumber,
         representativeName: data.representativeName || undefined,
+        offlineMaxOrders: data.offlineMaxOrders,
+        offlineMaxHours: data.offlineMaxHours,
       }).unwrap();
 
-      showSuccess("Cập nhật thông tin hộ kinh doanh thành công!");
+      saveOfflineConfig({
+        maxOrders: data.offlineMaxOrders,
+        maxHours: data.offlineMaxHours,
+      });
+
+      showSuccess("Cập nhật thông tin hộ kinh doanh và cấu hình bán ngoại tuyến thành công!");
       addLogEntry("CẬP_NHẬT_THÔNG_TIN_HỘ", `Hộ kinh doanh ${data.name}`);
     } catch (err: unknown) {
       const errMsg = getApiErrorMessage(
@@ -212,6 +227,77 @@ export const BusinessInfoPanel: React.FC = () => {
                   <AlertCircle className="w-3 h-3 shrink-0" /> {errors.address.message}
                 </span>
               )}
+            </div>
+
+            {/* Cấu hình giới hạn bán Ngoại tuyến (Offline POS - NCL-08-CN-005) */}
+            <div className="md:col-span-2 pt-4 border-t border-slate-100 flex flex-col gap-4">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 bg-amber-50 text-amber-600 rounded-lg">
+                  <WifiOff className="w-4 h-4" />
+                </div>
+                <div>
+                  <h4 className="font-extrabold text-slate-800 text-sm">
+                    Cấu hình Giới hạn bán hàng khi Mất mạng (Offline Mode - NCL-08-CN-005)
+                  </h4>
+                  <p className="text-[11px] text-slate-400 font-semibold">
+                    Chỉ Chủ hộ (VT-01) mới có quyền đặt số đơn và số giờ tối đa cho phép bán khi mất kết nối mạng.
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                {/* Số đơn offline tối đa */}
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-bold text-slate-700">
+                    Số đơn tối đa được bán khi mất mạng (đơn): <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={1000}
+                    {...register("offlineMaxOrders")}
+                    className={`border ${
+                      errors.offlineMaxOrders ? "border-rose-500" : "border-slate-300"
+                    } h-10 px-3 rounded-lg focus:outline-none focus:border-kv-blue-primary text-xs font-bold text-slate-800 bg-white`}
+                    placeholder="Mặc định: 50 đơn..."
+                  />
+                  {errors.offlineMaxOrders ? (
+                    <span className="text-[11px] font-bold text-rose-500 flex items-center gap-1 mt-0.5">
+                      <AlertCircle className="w-3 h-3 shrink-0" /> {errors.offlineMaxOrders.message}
+                    </span>
+                  ) : (
+                    <span className="text-[11px] text-slate-400 font-medium">
+                      (Tối đa 1000 đơn. Khi đạt ngưỡng, hệ thống POS sẽ chặn tạo thêm đơn mới).
+                    </span>
+                  )}
+                </div>
+
+                {/* Số giờ offline tối đa */}
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-bold text-slate-700">
+                    Thời gian tối đa được bán khi mất mạng (giờ): <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={168}
+                    {...register("offlineMaxHours")}
+                    className={`border ${
+                      errors.offlineMaxHours ? "border-rose-500" : "border-slate-300"
+                    } h-10 px-3 rounded-lg focus:outline-none focus:border-kv-blue-primary text-xs font-bold text-slate-800 bg-white`}
+                    placeholder="Mặc định: 24 giờ..."
+                  />
+                  {errors.offlineMaxHours ? (
+                    <span className="text-[11px] font-bold text-rose-500 flex items-center gap-1 mt-0.5">
+                      <AlertCircle className="w-3 h-3 shrink-0" /> {errors.offlineMaxHours.message}
+                    </span>
+                  ) : (
+                    <span className="text-[11px] text-slate-400 font-medium">
+                      (Tối đa 168 giờ. Khi trôi qua số giờ này, POS sẽ yêu cầu kết nối lại mạng).
+                    </span>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
 

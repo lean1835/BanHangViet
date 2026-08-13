@@ -111,6 +111,10 @@ export const clearSyncedOrders = (orderNumbers: string[]): void => {
   const filtered = currentOrders.filter((o) => !set.has(o.orderNumber));
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(filtered));
+    const remainingPending = filtered.filter((o) => o.syncStatus === "PENDING" || o.syncStatus === "CONFLICT").length;
+    if (remainingPending === 0) {
+      setOfflineStartTime(null);
+    }
   } catch (error) {
     console.error("Lỗi khi xóa danh sách đơn hàng đã đồng bộ:", error);
   }
@@ -121,4 +125,135 @@ export const clearSyncedOrders = (orderNumbers: string[]): void => {
  */
 export const getOfflineOrderCount = (): number => {
   return getPendingOfflineOrders().filter((o) => o.syncStatus === "PENDING" || o.syncStatus === "CONFLICT").length;
+};
+
+/* =========================================================================
+ * ⚙️ NCL-08-CN-005: QUẢN LÝ CẤU HÌNH VÀ GIỚI HẠN BÁN KHI MẤT MẠNG (OFFLINE)
+ * ========================================================================= */
+
+const OFFLINE_CONFIG_KEY = "bhv_offline_config_v1";
+const OFFLINE_START_TIME_KEY = "bhv_offline_start_time_v1";
+
+export interface IOfflineConfig {
+  maxOrders: number;
+  maxHours: number;
+}
+
+export const getOfflineConfig = (): IOfflineConfig => {
+  try {
+    const raw = localStorage.getItem(OFFLINE_CONFIG_KEY);
+    if (!raw) return { maxOrders: 50, maxHours: 24 };
+    const parsed = JSON.parse(raw);
+    return {
+      maxOrders: typeof parsed.maxOrders === "number" && parsed.maxOrders > 0 ? parsed.maxOrders : 50,
+      maxHours: typeof parsed.maxHours === "number" && parsed.maxHours > 0 ? parsed.maxHours : 24,
+    };
+  } catch {
+    return { maxOrders: 50, maxHours: 24 };
+  }
+};
+
+export const saveOfflineConfig = (config: Partial<IOfflineConfig>): void => {
+  try {
+    const current = getOfflineConfig();
+    const updated: IOfflineConfig = {
+      maxOrders: typeof config.maxOrders === "number" ? config.maxOrders : current.maxOrders,
+      maxHours: typeof config.maxHours === "number" ? config.maxHours : current.maxHours,
+    };
+    localStorage.setItem(OFFLINE_CONFIG_KEY, JSON.stringify(updated));
+  } catch (error) {
+    console.error("Lỗi khi lưu cấu hình bán ngoại tuyến:", error);
+  }
+};
+
+export const getOfflineStartTime = (): number | null => {
+  try {
+    const raw = localStorage.getItem(OFFLINE_START_TIME_KEY);
+    return raw ? parseInt(raw, 10) : null;
+  } catch {
+    return null;
+  }
+};
+
+export const setOfflineStartTime = (time: number | null): void => {
+  try {
+    if (time === null) {
+      localStorage.removeItem(OFFLINE_START_TIME_KEY);
+    } else {
+      localStorage.setItem(OFFLINE_START_TIME_KEY, time.toString());
+    }
+  } catch (error) {
+    console.error("Lỗi khi ghi nhận thời gian bắt đầu mất mạng:", error);
+  }
+};
+
+export interface IOfflineLimitStatus {
+  maxOrders: number;
+  maxHours: number;
+  currentOrdersCount: number;
+  elapsedHours: number;
+  isOrderNearLimit: boolean;
+  isTimeNearLimit: boolean;
+  isOrderExceeded: boolean;
+  isTimeExceeded: boolean;
+  isExceeded: boolean;
+  warningMessage?: string;
+  errorMessage?: string;
+}
+
+export const checkOfflineLimitStatus = (): IOfflineLimitStatus => {
+  const config = getOfflineConfig();
+  const pendingOrders = getPendingOfflineOrders().filter(
+    (o) => o.syncStatus === "PENDING" || o.syncStatus === "CONFLICT"
+  );
+  const currentOrdersCount = pendingOrders.length;
+
+  let offlineStartTime = getOfflineStartTime();
+
+  // Reset thời gian bắt đầu mất mạng nếu không còn đơn hàng offline nào chưa đồng bộ
+  if (currentOrdersCount === 0) {
+    if (offlineStartTime !== null) {
+      setOfflineStartTime(null);
+      offlineStartTime = null;
+    }
+  } else if (!offlineStartTime) {
+    offlineStartTime = Date.now();
+    setOfflineStartTime(offlineStartTime);
+  }
+
+  const elapsedMs = offlineStartTime ? Date.now() - offlineStartTime : 0;
+  const elapsedHours = elapsedMs / (1000 * 60 * 60);
+
+  const isOrderNearLimit = currentOrdersCount >= Math.ceil(config.maxOrders * 0.9);
+  const isTimeNearLimit = elapsedHours >= config.maxHours * 0.9;
+  const isOrderExceeded = currentOrdersCount >= config.maxOrders;
+  const isTimeExceeded = elapsedHours >= config.maxHours;
+  const isExceeded = isOrderExceeded || isTimeExceeded;
+
+  let warningMessage: string | undefined;
+  let errorMessage: string | undefined;
+
+  if (isOrderExceeded) {
+    errorMessage = `Đã đạt giới hạn tối đa ${config.maxOrders} đơn hàng bán khi mất mạng. Vui lòng kết nối mạng để đồng bộ trước khi tạo thêm đơn mới!`;
+  } else if (isTimeExceeded) {
+    errorMessage = `Đã vượt quá thời hạn ${config.maxHours} giờ bán khi mất mạng. Vui lòng kết nối mạng để đồng bộ trước khi tạo thêm đơn mới!`;
+  } else if (isOrderNearLimit) {
+    warningMessage = `Cảnh báo: Đã bán ${currentOrdersCount}/${config.maxOrders} đơn hàng ngoại tuyến (gần chạm ngưỡng). Vui lòng kết nối mạng sớm!`;
+  } else if (isTimeNearLimit) {
+    warningMessage = `Cảnh báo: Thời gian bán hàng khi mất mạng đã gần chạm ngưỡng ${config.maxHours} giờ. Vui lòng kết nối mạng sớm!`;
+  }
+
+  return {
+    maxOrders: config.maxOrders,
+    maxHours: config.maxHours,
+    currentOrdersCount,
+    elapsedHours,
+    isOrderNearLimit,
+    isTimeNearLimit,
+    isOrderExceeded,
+    isTimeExceeded,
+    isExceeded,
+    warningMessage,
+    errorMessage,
+  };
 };

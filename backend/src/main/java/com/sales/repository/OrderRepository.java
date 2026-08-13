@@ -2,7 +2,10 @@ package com.sales.repository;
 
 import com.sales.dto.response.DailyRevenueProjection;
 import com.sales.dto.response.ProductRevenueProjection;
+import com.sales.dto.response.PurchaseSuggestionProjection;
 import com.sales.entity.Order;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -54,6 +57,8 @@ public interface OrderRepository extends JpaRepository<Order, String> {
 
     @EntityGraph(attributePaths = {"items", "items.product", "customer", "shift", "createdByUser", "household"})
     List<Order> findByHouseholdIdAndDeletedAtIsNullOrderByCreatedAtDesc(String householdId);
+
+    List<Order> findByHouseholdIdAndStatusAndDeletedAtIsNull(String householdId, String status);
 
     @EntityGraph(attributePaths = {"items", "items.product", "customer", "createdByUser"})
     @Query("SELECT o FROM Order o WHERE o.household.id = :householdId AND o.deletedAt IS NULL AND o.createdAt BETWEEN :start AND :end ORDER BY o.createdAt DESC")
@@ -126,4 +131,70 @@ public interface OrderRepository extends JpaRepository<Order, String> {
             @Param("startDateTime") LocalDateTime startDateTime,
             @Param("endDateTime") LocalDateTime endDateTime
     );
+
+    @Query(value = "SELECT " +
+            "oi.product_id as productId, " +
+            "SUM(oi.quantity) as totalQuantitySold, " +
+            "SUM(CASE WHEN (o.discount_amount > 0 OR oi.discount_amount > 0) THEN 1 ELSE 0 END) as promotionCount " +
+            "FROM order_items oi " +
+            "JOIN orders o ON o.id = oi.order_id " +
+            "WHERE o.household_id = :householdId " +
+            "AND o.status = 'COMPLETED' " +
+            "AND o.deleted_at IS NULL " +
+            "AND o.created_at >= :startDateTime " +
+            "GROUP BY oi.product_id", nativeQuery = true)
+    List<com.sales.dto.response.ProductSalesSummaryProjection> getProductSalesSummary(
+            @Param("householdId") String householdId,
+            @Param("startDateTime") LocalDateTime startDateTime
+    );
+
+    @Query(value = "SELECT " +
+            "p.id AS productId, " +
+            "p.sku AS sku, " +
+            "p.name AS productName, " +
+            "p.unit AS unit, " +
+            "p.cost_price AS costPrice, " +
+            "COALESCE(p.stock_quantity, 0) AS stockQuantity, " +
+            "COALESCE(p.min_stock_quantity, 0) AS minStockQuantity, " +
+            "g.id AS groupId, " +
+            "g.name AS groupName, " +
+            "SUM(oi.quantity) AS totalSoldInPeriod, " +
+            "SUM(CASE WHEN (o.discount_amount > 0 OR oi.discount_amount > 0) THEN 1 ELSE 0 END) AS promotionCount, " +
+            "ROUND(SUM(oi.quantity) / (:periodWeeks), 2) AS averageWeeklySales, " +
+            "CEIL(ROUND(SUM(oi.quantity) / (:periodWeeks), 2) - COALESCE(p.stock_quantity, 0)) AS suggestedQuantity " +
+            "FROM order_items oi " +
+            "JOIN orders o ON o.id = oi.order_id " +
+            "JOIN products p ON p.id = oi.product_id " +
+            "LEFT JOIN product_groups g ON g.id = p.group_id AND g.deleted_at IS NULL " +
+            "WHERE o.household_id = :householdId " +
+            "AND o.status = 'COMPLETED' " +
+            "AND o.deleted_at IS NULL " +
+            "AND o.created_at >= :startDateTime " +
+            "AND p.deleted_at IS NULL " +
+            "AND p.status = 'ACTIVE' " +
+            "AND (:groupId IS NULL OR :groupId = '' OR p.group_id = :groupId) " +
+            "GROUP BY p.id, p.sku, p.name, p.unit, p.cost_price, p.stock_quantity, p.min_stock_quantity, g.id, g.name " +
+            "HAVING CEIL(ROUND(SUM(oi.quantity) / (:periodWeeks), 2) - COALESCE(p.stock_quantity, 0)) > 0 " +
+            "ORDER BY suggestedQuantity DESC, p.id ASC",
+            countQuery = "SELECT COUNT(*) FROM (" +
+                    "SELECT p.id FROM order_items oi " +
+                    "JOIN orders o ON o.id = oi.order_id " +
+                    "JOIN products p ON p.id = oi.product_id " +
+                    "WHERE o.household_id = :householdId " +
+                    "AND o.status = 'COMPLETED' " +
+                    "AND o.deleted_at IS NULL " +
+                    "AND o.created_at >= :startDateTime " +
+                    "AND p.deleted_at IS NULL " +
+                    "AND p.status = 'ACTIVE' " +
+                    "AND (:groupId IS NULL OR :groupId = '' OR p.group_id = :groupId) " +
+                    "GROUP BY p.id, p.stock_quantity " +
+                    "HAVING CEIL(ROUND(SUM(oi.quantity) / (:periodWeeks), 2) - COALESCE(p.stock_quantity, 0)) > 0" +
+                    ") AS count_table",
+            nativeQuery = true)
+    Page<PurchaseSuggestionProjection> getPurchaseSuggestions(
+            @Param("householdId") String householdId,
+            @Param("startDateTime") LocalDateTime startDateTime,
+            @Param("periodWeeks") double periodWeeks,
+            @Param("groupId") String groupId,
+            Pageable pageable);
 }

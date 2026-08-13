@@ -27,6 +27,14 @@ export const householdInfoSchema = z.object({
     .max(100, "Tên người đại diện không được vượt quá 100 ký tự")
     .optional()
     .or(z.literal("")),
+  offlineMaxOrders: z.coerce
+    .number({ invalid_type_error: "Số đơn tối đa phải là số hợp lệ" })
+    .min(1, "Số đơn tối đa phải lớn hơn 0")
+    .max(1000, "Số đơn tối đa không quá 1000 đơn"),
+  offlineMaxHours: z.coerce
+    .number({ invalid_type_error: "Số giờ tối đa phải là số hợp lệ" })
+    .min(1, "Số giờ tối đa phải lớn hơn 0")
+    .max(168, "Số giờ tối đa không quá 168 giờ"),
 });
 
 export type THouseholdInfoFormData = z.infer<typeof householdInfoSchema>;
