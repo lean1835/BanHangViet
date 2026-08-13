@@ -26,8 +26,8 @@ public class ActivityLogHelper {
                     .action(action)
                     .targetTable(targetTable)
                     .targetId(targetId)
-                    .oldValue(oldValue)
-                    .newValue(newValue)
+                    .oldValue(toJsonString(oldValue))
+                    .newValue(toJsonString(newValue))
                     .clientIp(clientIp)
                     .userAgent(userAgent)
                     .build();
@@ -36,5 +36,16 @@ public class ActivityLogHelper {
         } catch (Exception e) {
             log.error("Lỗi khi ghi activity log (REQUIRES_NEW transaction)", e);
         }
+    }
+
+    private String toJsonString(String val) {
+        if (val == null) return null;
+        String trimmed = val.trim();
+        if ((trimmed.startsWith("{") && trimmed.endsWith("}")) ||
+            (trimmed.startsWith("[") && trimmed.endsWith("]")) ||
+            (trimmed.startsWith("\"") && trimmed.endsWith("\""))) {
+            return trimmed;
+        }
+        return "\"" + trimmed.replace("\"", "\\\"") + "\"";
     }
 }

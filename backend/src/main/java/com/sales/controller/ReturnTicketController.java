@@ -67,7 +67,7 @@ public class ReturnTicketController {
     }
 
     @PutMapping("/{id}/reject")
-    @PreAuthorize("hasAnyRole('VT-01', 'VT-03')")
+    @PreAuthorize("hasRole('VT-01')")
     public ResponseEntity<ApiResponse<ReturnTicketResponse>> rejectReturnTicket(
             Principal principal,
             @PathVariable String id,

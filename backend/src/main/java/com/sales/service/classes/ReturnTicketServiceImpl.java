@@ -45,6 +45,7 @@ public class ReturnTicketServiceImpl implements ReturnTicketService {
     private final ProductRepository productRepository;
     private final CustomerRepository customerRepository;
     private final CustomerDebtRepository customerDebtRepository;
+    private final InvoiceStatusLogRepository invoiceStatusLogRepository;
     private final ActivityLogHelper activityLogHelper;
 
 
@@ -293,25 +294,28 @@ public class ReturnTicketServiceImpl implements ReturnTicketService {
         if ("DEBT_REDUCTION".equals(ticket.getRefundPaymentMethod()) && ticket.getCustomer() != null) {
             Customer customer = ticket.getCustomer();
             BigDecimal currentDebt = customer.getCurrentDebt() != null ? customer.getCurrentDebt() : BigDecimal.ZERO;
-            BigDecimal newDebt = currentDebt.subtract(ticket.getTotalReturnAmount());
-            if (newDebt.compareTo(BigDecimal.ZERO) < 0) {
-                newDebt = BigDecimal.ZERO;
+            BigDecimal actualDebtReduced = currentDebt.min(ticket.getTotalReturnAmount());
+            if (actualDebtReduced.compareTo(BigDecimal.ZERO) < 0) {
+                actualDebtReduced = BigDecimal.ZERO;
             }
+            BigDecimal newDebt = currentDebt.subtract(actualDebtReduced);
             customer.setCurrentDebt(newDebt);
             customerRepository.save(customer);
 
-            CustomerDebt debtRecord = CustomerDebt.builder()
-                    .household(user.getHousehold())
-                    .customer(customer)
-                    .order(ticket.getOriginalOrder())
-                    .amount(ticket.getTotalReturnAmount())
-                    .type("DEBT_PAID")
-                    .status("PAID")
-                    .dueDate(LocalDateTime.now())
-                    .notes("Giảm trừ công nợ từ phiếu trả hàng " + ticket.getTicketNumber())
-                    .createdByUser(user)
-                    .build();
-            customerDebtRepository.save(debtRecord);
+            if (actualDebtReduced.compareTo(BigDecimal.ZERO) > 0) {
+                CustomerDebt debtRecord = CustomerDebt.builder()
+                        .household(user.getHousehold())
+                        .customer(customer)
+                        .order(ticket.getOriginalOrder())
+                        .amount(actualDebtReduced)
+                        .type("DEBT_PAID")
+                        .status("PAID")
+                        .dueDate(LocalDateTime.now())
+                        .notes("Giảm trừ công nợ từ phiếu trả hàng " + ticket.getTicketNumber())
+                        .createdByUser(user)
+                        .build();
+                customerDebtRepository.save(debtRecord);
+            }
         }
 
         ReturnTicket savedTicket = returnTicketRepository.save(ticket);
@@ -319,17 +323,21 @@ public class ReturnTicketServiceImpl implements ReturnTicketService {
 
         // 3. Ghi log hoạt động hệ thống
         if (activityLogHelper != null) {
-            activityLogHelper.logActivityInNewTransaction(
-                    user.getHousehold(),
-                    user,
-                    "APPROVE_RETURN_TICKET",
-                    "return_tickets",
-                    savedTicket.getId(),
-                    "PENDING",
-                    "APPROVED",
-                    null,
-                    null
-            );
+            try {
+                activityLogHelper.logActivityInNewTransaction(
+                        user.getHousehold(),
+                        user,
+                        "APPROVE_RETURN_TICKET",
+                        "return_tickets",
+                        savedTicket.getId(),
+                        "PENDING",
+                        "APPROVED",
+                        null,
+                        null
+                );
+            } catch (Exception e) {
+                log.error("Lỗi khi ghi activity log cho approveReturnTicket", e);
+            }
         }
 
         return mapToResponse(savedTicket);
@@ -362,17 +370,21 @@ public class ReturnTicketServiceImpl implements ReturnTicketService {
 
         // Ghi log hoạt động hệ thống
         if (activityLogHelper != null) {
-            activityLogHelper.logActivityInNewTransaction(
-                    user.getHousehold(),
-                    user,
-                    "REJECT_RETURN_TICKET",
-                    "return_tickets",
-                    savedTicket.getId(),
-                    "PENDING",
-                    "REJECTED",
-                    null,
-                    null
-            );
+            try {
+                activityLogHelper.logActivityInNewTransaction(
+                        user.getHousehold(),
+                        user,
+                        "REJECT_RETURN_TICKET",
+                        "return_tickets",
+                        savedTicket.getId(),
+                        "PENDING",
+                        "REJECTED",
+                        null,
+                        null
+                );
+            } catch (Exception e) {
+                log.error("Lỗi khi ghi activity log cho rejectReturnTicket", e);
+            }
         }
 
         return mapToResponse(savedTicket);
@@ -441,7 +453,7 @@ public class ReturnTicketServiceImpl implements ReturnTicketService {
                 .orElseThrow(() -> new AppException(ErrorCode.RETURN_TICKET_NOT_FOUND));
 
         if (!"APPROVED".equals(ticket.getStatus())) {
-            throw new AppException(ErrorCode.INVALID_INPUT);
+            throw new AppException(ErrorCode.RETURN_TICKET_NOT_APPROVED);
         }
 
         // Kiểm tra xem đã có hóa đơn điều chỉnh giảm cho phiếu trả hàng này chưa
@@ -450,6 +462,9 @@ public class ReturnTicketServiceImpl implements ReturnTicketService {
         }
 
         EInvoice origInvoice = ticket.getOriginalInvoice();
+        if (origInvoice == null || !"ISSUED".equals(origInvoice.getStatus())) {
+            throw new AppException(ErrorCode.INVOICE_NOT_ISSUED);
+        }
 
         // Sinh mã tra cứu hóa đơn ngẫu nhiên duy nhất
         String lookupCode;
@@ -463,9 +478,10 @@ public class ReturnTicketServiceImpl implements ReturnTicketService {
 
         if (ticket.getItems() != null) {
             for (ReturnTicketItem ticketItem : ticket.getItems()) {
-                BigDecimal lineBeforeTax = ticketItem.getQuantity().multiply(ticketItem.getUnitPrice());
+                BigDecimal itemTax = ticketItem.getTaxAmount() != null ? ticketItem.getTaxAmount() : BigDecimal.ZERO;
+                BigDecimal lineBeforeTax = (ticketItem.getSubtotal() != null ? ticketItem.getSubtotal() : BigDecimal.ZERO).subtract(itemTax);
                 totalBeforeTax = totalBeforeTax.add(lineBeforeTax);
-                totalTax = totalTax.add(ticketItem.getTaxAmount() != null ? ticketItem.getTaxAmount() : BigDecimal.ZERO);
+                totalTax = totalTax.add(itemTax);
 
                 EInvoiceItem adjItem = EInvoiceItem.builder()
                         .product(ticketItem.getProduct())
@@ -513,23 +529,47 @@ public class ReturnTicketServiceImpl implements ReturnTicketService {
         eInvoiceRepository.save(adjInvoice);
 
         // Cập nhật trạng thái hóa đơn gốc thành ADJUSTED theo QTN-20
+        String origOldStatus = origInvoice.getStatus();
         origInvoice.setStatus("ADJUSTED");
         eInvoiceRepository.save(origInvoice);
+
+        // Lưu nhật ký chuyển trạng thái hóa đơn cho cả Hóa đơn gốc và Hóa đơn điều chỉnh giảm
+        if (invoiceStatusLogRepository != null) {
+            invoiceStatusLogRepository.save(InvoiceStatusLog.builder()
+                    .invoice(origInvoice)
+                    .fromStatus(origOldStatus != null ? origOldStatus : "ISSUED")
+                    .toStatus("ADJUSTED")
+                    .changedByUser(user)
+                    .notes("Hóa đơn bị điều chỉnh giảm theo phiếu trả hàng: " + ticket.getTicketNumber())
+                    .build());
+
+            invoiceStatusLogRepository.save(InvoiceStatusLog.builder()
+                    .invoice(adjInvoice)
+                    .fromStatus("DRAFT")
+                    .toStatus("ISSUED")
+                    .changedByUser(user)
+                    .notes("Phát hành hóa đơn điều chỉnh giảm từ phiếu trả hàng: " + ticket.getTicketNumber())
+                    .build());
+        }
 
         log.info("Created decrease adjustment invoice {} for return ticket {} by user {}", adjInvoice.getLookupCode(), ticket.getTicketNumber(), currentUsername);
 
         if (activityLogHelper != null) {
-            activityLogHelper.logActivityInNewTransaction(
-                    user.getHousehold(),
-                    user,
-                    "CREATE_ADJUSTMENT_INVOICE",
-                    "e_invoices",
-                    adjInvoice.getId(),
-                    null,
-                    "ISSUED",
-                    null,
-                    null
-            );
+            try {
+                activityLogHelper.logActivityInNewTransaction(
+                        user.getHousehold(),
+                        user,
+                        "CREATE_ADJUSTMENT_INVOICE",
+                        "e_invoices",
+                        adjInvoice.getId(),
+                        null,
+                        "ISSUED",
+                        null,
+                        null
+                );
+            } catch (Exception e) {
+                log.error("Lỗi khi ghi activity log cho createDecreaseAdjustmentInvoice", e);
+            }
         }
 
         return mapToResponse(ticket);
@@ -564,7 +604,8 @@ public class ReturnTicketServiceImpl implements ReturnTicketService {
         if (user.getHousehold() == null) {
             throw new AppException(ErrorCode.HOUSEHOLD_NOT_FOUND);
         }
-        if (user.getRole() == null || "VT-06".equals(user.getRole().getCode()) || "VT-02".equals(user.getRole().getCode())) {
+        String roleCode = user.getRole() != null ? user.getRole().getCode() : "";
+        if (!"VT-01".equals(roleCode) && !"VT-03".equals(roleCode)) {
             throw new AppException(ErrorCode.UNAUTHORIZED_RETURN_ACTION);
         }
     }
