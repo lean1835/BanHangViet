@@ -55,6 +55,8 @@ public interface OrderRepository extends JpaRepository<Order, String> {
     @EntityGraph(attributePaths = {"items", "items.product", "customer", "shift", "createdByUser", "household"})
     List<Order> findByHouseholdIdAndDeletedAtIsNullOrderByCreatedAtDesc(String householdId);
 
+    List<Order> findByHouseholdIdAndStatusAndDeletedAtIsNull(String householdId, String status);
+
     @EntityGraph(attributePaths = {"items", "items.product", "customer", "createdByUser"})
     @Query("SELECT o FROM Order o WHERE o.household.id = :householdId AND o.deletedAt IS NULL AND o.createdAt BETWEEN :start AND :end ORDER BY o.createdAt DESC")
     List<Order> findOrdersForBackup(
