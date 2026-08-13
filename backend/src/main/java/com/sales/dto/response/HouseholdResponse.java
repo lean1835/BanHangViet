@@ -20,6 +20,8 @@ public class HouseholdResponse {
     private String phoneNumber;
     private String representativeName;
     private Boolean revenueThresholdEnabled;
+    private Integer offlineMaxOrders;
+    private Integer offlineMaxHours;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

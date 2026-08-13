@@ -93,6 +93,12 @@ public class HouseholdServiceImpl implements HouseholdService {
         if (request.getRepresentativeName() != null) {
             household.setRepresentativeName(request.getRepresentativeName().trim());
         }
+        if (request.getOfflineMaxOrders() != null) {
+            household.setOfflineMaxOrders(request.getOfflineMaxOrders());
+        }
+        if (request.getOfflineMaxHours() != null) {
+            household.setOfflineMaxHours(request.getOfflineMaxHours());
+        }
 
         BusinessHousehold saved = householdRepository.save(household);
 
@@ -131,6 +137,8 @@ public class HouseholdServiceImpl implements HouseholdService {
         map.put("address", household.getAddress());
         map.put("phoneNumber", household.getPhoneNumber());
         map.put("representativeName", household.getRepresentativeName());
+        map.put("offlineMaxOrders", household.getOfflineMaxOrders());
+        map.put("offlineMaxHours", household.getOfflineMaxHours());
         return map;
     }
 
@@ -143,6 +151,8 @@ public class HouseholdServiceImpl implements HouseholdService {
                 .phoneNumber(household.getPhoneNumber())
                 .representativeName(household.getRepresentativeName())
                 .revenueThresholdEnabled(household.getRevenueThresholdEnabled())
+                .offlineMaxOrders(household.getOfflineMaxOrders())
+                .offlineMaxHours(household.getOfflineMaxHours())
                 .createdAt(household.getCreatedAt())
                 .updatedAt(household.getUpdatedAt())
                 .build();
