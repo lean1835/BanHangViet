@@ -7,6 +7,7 @@ import {
   PRODUCT_QUERY_CONFIG,
   PRODUCT_STATUS,
 } from "@/constants/product";
+import { SUPPLIER_API_TAG_IDS } from "@/constants/supplier";
 import type { IProduct, IGetProductsParams, TProductPayload } from "@/modules/product/types/IProduct";
 import type { IProductGroup } from "@/modules/product/types/IProductGroup";
 import type {
@@ -90,6 +91,9 @@ const toGoodsReceipt = (value: unknown): IGoodsReceipt => {
   return {
     id: readString(receipt.id),
     receiptNumber: readString(receipt.receiptNumber),
+    supplierId: readNullableString(receipt.supplierId),
+    supplierName: readNullableString(receipt.supplierName),
+    totalAmount: readNumber(receipt.totalAmount),
     receivedAt: readString(receipt.receivedAt),
     notes: readString(receipt.notes),
     createdByUserId: readString(receipt.createdByUserId),
@@ -117,6 +121,9 @@ const toGoodsReceiptDetailInfo = (value: unknown): IGoodsReceiptDetailInfo => {
   return {
     id: readString(info.id),
     receiptNumber: readString(info.receiptNumber),
+    supplierId: readNullableString(info.supplierId),
+    supplierName: readNullableString(info.supplierName),
+    totalAmount: readNumber(info.totalAmount),
     receivedAt: readString(info.receivedAt),
     notes: readString(info.notes),
     createdByUserId: readString(info.createdByUserId),
@@ -351,6 +358,7 @@ export const productApi = baseApi.injectEndpoints({
     createGoodsReceipt: builder.mutation<
       IGoodsReceipt,
       {
+        supplierId?: string;
         receiptNumber?: string;
         receivedAt: string;
         notes?: string;
@@ -372,6 +380,10 @@ export const productApi = baseApi.injectEndpoints({
         {
           type: API_TAG_TYPES.PRODUCT,
           id: PRODUCT_API_TAG_IDS.LIST,
+        },
+        {
+          type: API_TAG_TYPES.SUPPLIER,
+          id: SUPPLIER_API_TAG_IDS.LIST,
         },
       ],
     }),
@@ -409,12 +421,21 @@ export const productApi = baseApi.injectEndpoints({
         };
       },
       transformResponse: (response: unknown) => {
-        const result = readResult(response) as any;
+        const rawResult = readResult(response);
+        const result = isRecord(rawResult) ? rawResult : {};
+        const errors = Array.isArray(result.errors) ? result.errors : [];
         return {
-          totalRows: result?.totalRows || 0,
-          successCount: result?.successCount || 0,
-          errorCount: result?.errorCount || 0,
-          errors: Array.isArray(result?.errors) ? result.errors : [],
+          totalRows: readNumber(result.totalRows),
+          successCount: readNumber(result.successCount),
+          errorCount: readNumber(result.errorCount),
+          errors: errors.map((value) => {
+            const error = isRecord(value) ? value : {};
+            return {
+              rowNumber: readNumber(error.rowNumber),
+              productName: readString(error.productName),
+              errorMessage: readString(error.errorMessage),
+            };
+          }),
         };
       },
       invalidatesTags: [

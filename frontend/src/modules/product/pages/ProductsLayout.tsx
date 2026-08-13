@@ -5,10 +5,13 @@ import { PRODUCT_FILTER, PRODUCT_STOCK_FILTER } from "@/constants/product";
 import { useDashboardDemo } from "@/providers/DashboardDemoProvider";
 import { ProductSectionSidebar } from "@/modules/product/components/ProductSectionSidebar";
 import type { TStockFilter } from "@/modules/product/types/TStockFilter";
+import { SUPPLIER_FILTER_DEFAULTS } from "@/constants/supplier";
+import type { ISupplierFilters } from "@/modules/supplier/types/ISupplier";
 
 export interface IProductOutletContext {
   selectedGroup: string;
   stockFilter: TStockFilter;
+  supplierFilters: ISupplierFilters;
 }
 
 export const ProductsLayout = () => {
@@ -17,6 +20,9 @@ export const ProductsLayout = () => {
   const [stockFilter, setStockFilter] = useState<TStockFilter>(
     PRODUCT_STOCK_FILTER.ALL,
   );
+  const [supplierFilters, setSupplierFilters] = useState<ISupplierFilters>({
+    ...SUPPLIER_FILTER_DEFAULTS,
+  });
 
   return (
     <DashboardWorkspaceLayout
@@ -27,10 +33,18 @@ export const ProductsLayout = () => {
           onSelectedGroupChange={setSelectedGroup}
           stockFilter={stockFilter}
           onStockFilterChange={setStockFilter}
+          supplierFilters={supplierFilters}
+          onSupplierFiltersChange={setSupplierFilters}
         />
       }
     >
-      <Outlet context={{ selectedGroup, stockFilter } satisfies IProductOutletContext} />
+      <Outlet
+        context={{
+          selectedGroup,
+          stockFilter,
+          supplierFilters,
+        } satisfies IProductOutletContext}
+      />
     </DashboardWorkspaceLayout>
   );
 };

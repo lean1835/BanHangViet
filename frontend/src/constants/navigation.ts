@@ -28,7 +28,6 @@ export const PRIMARY_NAVIGATION_ACTION = {
 
 export const HIDDEN_NAVIGATION_BY_ROLE: Partial<Record<TDemoRole, readonly string[]>> = {
   [USER_ROLES.CASHIER]: [
-    NAVIGATION_ITEM_IDS.PRODUCTS,
     NAVIGATION_ITEM_IDS.REPORTS,
     NAVIGATION_ITEM_IDS.SETTINGS,
     NAVIGATION_ITEM_IDS.EMPLOYEES,
@@ -48,7 +47,7 @@ export const PRIMARY_NAVIGATION_ITEMS: IPrimaryNavigationItem[] = [
     id: NAVIGATION_ITEM_IDS.PRODUCTS,
     label: "Hàng hóa",
     path: APP_ROUTES.PRODUCTS,
-    allowedRoles: ROLE_GROUPS.PRODUCT_MANAGEMENT,
+    allowedRoles: ROLE_GROUPS.INVENTORY_READ,
   },
   {
     id: NAVIGATION_ITEM_IDS.SHIFTS,

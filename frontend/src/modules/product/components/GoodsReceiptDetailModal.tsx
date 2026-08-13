@@ -45,13 +45,13 @@ export const GoodsReceiptDetailModal: React.FC<GoodsReceiptDetailModalProps> = (
 
   if (!isOpen) return null;
 
-  // Compute total
   const details = detailInfo?.details || [];
-  const totalAmount = details.reduce((sum: number, detail: any) => {
+  const calculatedTotalAmount = details.reduce((sum, detail) => {
     const qty = Number(detail.quantity || 0);
     const price = Number(detail.purchasePrice || 0);
     return sum + qty * price;
   }, 0);
+  const totalAmount = detailInfo?.totalAmount || calculatedTotalAmount;
 
   return createPortal(
     <div
@@ -110,7 +110,13 @@ export const GoodsReceiptDetailModal: React.FC<GoodsReceiptDetailModalProps> = (
                   <span className="text-slate-800">{detailInfo.createdByUserName}</span>
                 </div>
                 <div>
-                  <span className="text-slate-400 font-medium block">Ghi chú / Nhà cung cấp</span>
+                  <span className="text-slate-400 font-medium block">Nhà cung cấp</span>
+                  <span className="text-slate-800 font-medium">
+                    {detailInfo.supplierName || "---"}
+                  </span>
+                </div>
+                <div className="sm:col-span-2">
+                  <span className="text-slate-400 font-medium block">Ghi chú</span>
                   <span className="text-slate-800 font-medium">{detailInfo.notes || "---"}</span>
                 </div>
               </div>
@@ -132,7 +138,7 @@ export const GoodsReceiptDetailModal: React.FC<GoodsReceiptDetailModalProps> = (
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
-                      {details.map((detail: any) => (
+                      {details.map((detail) => (
                         <tr key={detail.id} className="hover:bg-slate-50/50">
                           <td className="p-3 font-bold text-slate-800">{detail.productName}</td>
                           <td className="p-3 font-mono text-slate-500">{detail.productSku}</td>

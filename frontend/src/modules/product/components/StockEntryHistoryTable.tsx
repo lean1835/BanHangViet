@@ -18,15 +18,20 @@ const StockEntryHistoryRow = ({
   const { data: detailData, isLoading } = useGetGoodsReceiptByIdQuery(receipt.id);
 
   const details = detailData?.details || [];
-  const totalAmount = details.reduce(
-    (sum: number, d) => sum + Number(d.quantity || 0) * Number(d.purchasePrice || 0),
+  const calculatedTotalAmount = details.reduce(
+    (sum, detail) =>
+      sum +
+      Number(detail.quantity || 0) * Number(detail.purchasePrice || 0),
     0
   );
+  const totalAmount =
+    receipt.totalAmount || detailData?.totalAmount || calculatedTotalAmount;
   const totalQty = details.reduce(
-    (sum: number, d) => sum + Number(d.quantity || 0),
+    (sum, detail) => sum + Number(detail.quantity || 0),
     0
   );
-  const summaryStr = details.map((d) => d.productName).join(", ");
+  const summaryStr = details.map((detail) => detail.productName).join(", ");
+  const supplierName = receipt.supplierName || detailData?.supplierName;
 
   return (
     <tr
@@ -39,6 +44,9 @@ const StockEntryHistoryRow = ({
       </td>
       <td className="p-3 text-slate-500">{formatDateShort(receipt.receivedAt)}</td>
       <td className="p-3 font-bold text-slate-700">{receipt.createdByUserName}</td>
+      <td className="p-3 text-slate-600 font-semibold">
+        {supplierName || "---"}
+      </td>
       <td className="p-3">
         {isLoading ? (
           <span className="text-slate-400 font-medium">Đang tải...</span>
@@ -85,6 +93,7 @@ export const StockEntryHistoryTable = ({ receipts, onViewDetails }: StockEntryHi
               <th className="p-3">Mã phiếu</th>
               <th className="p-3">Thời gian nhập</th>
               <th className="p-3">Người lập</th>
+              <th className="p-3">Nhà cung cấp</th>
               <th className="p-3">Sản phẩm</th>
               <th className="p-3 text-right">Số lượng</th>
               <th className="p-3 text-right">Tổng tiền</th>
@@ -101,7 +110,7 @@ export const StockEntryHistoryTable = ({ receipts, onViewDetails }: StockEntryHi
             ))}
             {receipts.length === 0 && (
               <tr>
-                <td colSpan={7} className="p-8 text-center text-slate-400 font-semibold">
+                <td colSpan={8} className="p-8 text-center text-slate-400 font-semibold">
                   Không tìm thấy phiếu nhập kho nào.
                 </td>
               </tr>

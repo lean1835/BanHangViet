@@ -1,6 +1,9 @@
 export interface IGoodsReceipt {
   id: string;
   receiptNumber: string;
+  supplierId: string | null;
+  supplierName: string | null;
+  totalAmount: number;
   receivedAt: string;
   notes: string;
   createdByUserId: string;
@@ -21,6 +24,9 @@ export interface IGoodsReceiptDetail {
 export interface IGoodsReceiptDetailInfo {
   id: string;
   receiptNumber: string;
+  supplierId: string | null;
+  supplierName: string | null;
+  totalAmount: number;
   receivedAt: string;
   notes: string;
   createdByUserId: string;

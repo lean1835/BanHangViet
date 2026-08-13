@@ -39,6 +39,8 @@ export const API_TAG_TYPES = {
   TAX_RATE: "TaxRate",
   SETTINGS: "Settings",
   DEBT: "Debt",
+  SUPPLIER: "Supplier",
+  SUPPLIER_GROUP: "SupplierGroup",
 } as const;
 
 export const API_TAG_TYPE_VALUES = Object.values(API_TAG_TYPES);

@@ -1,9 +1,13 @@
 import { NavLink, useLocation } from "react-router-dom";
 import { PRODUCT_SECTION_COPY } from "@/constants/product";
 import { APP_ROUTES } from "@/constants/routes";
+import { ROLE_GROUPS } from "@/constants/roles";
 import type { TDemoRole } from "@/constants/roles";
 import { ProductSidebar } from "@/modules/product/components/ProductSidebar";
 import type { TStockFilter } from "@/modules/product/types/TStockFilter";
+import { SupplierSidebar } from "@/modules/supplier/components/SupplierSidebar";
+import { SUPPLIER_SECTION_COPY } from "@/constants/supplier";
+import type { ISupplierFilters } from "@/modules/supplier/types/ISupplier";
 
 interface ProductSectionSidebarProps {
   currentRole: TDemoRole;
@@ -11,6 +15,8 @@ interface ProductSectionSidebarProps {
   onSelectedGroupChange: (groupId: string) => void;
   stockFilter: TStockFilter;
   onStockFilterChange: (filter: TStockFilter) => void;
+  supplierFilters: ISupplierFilters;
+  onSupplierFiltersChange: (filters: ISupplierFilters) => void;
 }
 
 const getNavLinkClass = (isActive: boolean): string =>
@@ -26,9 +32,12 @@ export const ProductSectionSidebar = ({
   onSelectedGroupChange,
   stockFilter,
   onStockFilterChange,
+  supplierFilters,
+  onSupplierFiltersChange,
 }: ProductSectionSidebarProps) => {
   const location = useLocation();
   const isProductListRoute = location.pathname === APP_ROUTES.PRODUCTS;
+  const isSupplierRoute = location.pathname === APP_ROUTES.PRODUCT_SUPPLIERS;
 
   return (
     <div className="flex flex-col gap-4">
@@ -47,11 +56,19 @@ export const ProductSectionSidebar = ({
           >
             {PRODUCT_SECTION_COPY.PRODUCT_LIST_ROUTE}
           </NavLink>
+          {ROLE_GROUPS.PRODUCT_MANAGEMENT.some((role) => role === currentRole) && (
+            <NavLink
+              to={APP_ROUTES.PRODUCT_STOCK_ENTRY}
+              className={({ isActive }) => getNavLinkClass(isActive)}
+            >
+              {PRODUCT_SECTION_COPY.STOCK_ENTRY_ROUTE}
+            </NavLink>
+          )}
           <NavLink
-            to={APP_ROUTES.PRODUCT_STOCK_ENTRY}
+            to={APP_ROUTES.PRODUCT_SUPPLIERS}
             className={({ isActive }) => getNavLinkClass(isActive)}
           >
-            {PRODUCT_SECTION_COPY.STOCK_ENTRY_ROUTE}
+            {SUPPLIER_SECTION_COPY.NAVIGATION_LABEL}
           </NavLink>
         </div>
       </div>
@@ -64,6 +81,15 @@ export const ProductSectionSidebar = ({
             stockFilter={stockFilter}
             setStockFilter={onStockFilterChange}
             userRole={currentRole}
+          />
+        </div>
+      )}
+
+      {isSupplierRoute && (
+        <div className="border-t pt-4">
+          <SupplierSidebar
+            filters={supplierFilters}
+            onFiltersChange={onSupplierFiltersChange}
           />
         </div>
       )}

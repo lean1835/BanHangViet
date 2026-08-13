@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   PRODUCT_LOG_ACTIONS,
   PRODUCT_MESSAGE_BUILDERS,
@@ -6,6 +7,8 @@ import {
   PRODUCT_STOCK_ENTRY_CONFIG,
 } from "@/constants/product";
 import { USER_ROLES } from "@/constants/roles";
+import { APP_ROUTES } from "@/constants/routes";
+import { SUPPLIER_STATUS } from "@/constants/supplier";
 import { useDashboardDemo } from "@/providers/DashboardDemoProvider";
 import { StockEntryHistoryTable } from "@/modules/product/components/StockEntryHistoryTable";
 import { GoodsReceiptModal } from "@/modules/product/components/GoodsReceiptModal";
@@ -18,14 +21,18 @@ import {
 } from "@/modules/product/services/productApi";
 import { getApiErrorMessage } from "@/utils/getApiErrorMessage";
 import { useNotification } from "@/hooks/useNotification";
+import { useGetSuppliersQuery } from "@/modules/supplier/services/supplierApi";
 
 export const StockEntryPage = () => {
+  const navigate = useNavigate();
   const { showSuccess, showError } = useNotification();
   const { currentRole, addLogEntry } = useDashboardDemo();
   const { data: productsData } = useGetProductsQuery({
     size: PRODUCT_STOCK_ENTRY_CONFIG.PRODUCT_QUERY_SIZE,
   });
   const products = productsData?.content || [];
+  const { data: suppliers = [], isLoading: isSuppliersLoading } =
+    useGetSuppliersQuery({ status: SUPPLIER_STATUS.ACTIVE });
 
   // Manage pagination state
   const [page, setPage] = useState<number>(PRODUCT_STOCK_ENTRY_CONFIG.INITIAL_PAGE);
@@ -55,8 +62,14 @@ export const StockEntryPage = () => {
   const filteredReceipts = useMemo(() => {
     const list = receiptsData?.content || [];
     if (!normalizedStockEntrySearch) return list;
-    return list.filter((receipt: any) =>
-      [receipt.receiptNumber, receipt.notes, receipt.createdByUserName, receipt.receivedAt].some((value) =>
+    return list.filter((receipt) =>
+      [
+        receipt.receiptNumber,
+        receipt.notes,
+        receipt.createdByUserName,
+        receipt.receivedAt,
+        receipt.supplierName,
+      ].some((value) =>
         (value || "").toLocaleLowerCase("vi").includes(normalizedStockEntrySearch)
       )
     );
@@ -84,6 +97,7 @@ export const StockEntryPage = () => {
 
     try {
       await createGoodsReceipt({
+        supplierId: values.supplierId.trim() || undefined,
         receiptNumber: receiptNumber,
         receivedAt: values.receivedAt + ":00",
         notes: values.notes || undefined,
@@ -141,18 +155,40 @@ export const StockEntryPage = () => {
           />
         </div>
 
-        {canCreateGoodsReceipt && (
+        <div className="flex flex-wrap items-center justify-end gap-2">
           <button
             type="button"
-            onClick={() => setIsGoodsReceiptModalOpen(true)}
-            className="font-bold px-4 h-9 rounded-lg flex items-center gap-1.5 text-xs transition-all bg-kv-blue-primary hover:bg-kv-blue-dark text-white shadow-sm"
+            onClick={() => navigate(APP_ROUTES.PRODUCT_SUPPLIERS)}
+            className="flex h-9 items-center gap-1.5 rounded-lg bg-kv-blue-primary px-4 text-xs font-bold text-white shadow-sm transition-all hover:bg-kv-blue-dark"
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <path d="M12 5v14M5 12h14" />
+            <svg
+              width="15"
+              height="15"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              aria-hidden="true"
+            >
+              <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+              <circle cx="9" cy="7" r="4" />
+              <path d="M19 8v6M22 11h-6" />
             </svg>
-            Nhập kho
+            Quản lý Nhà cung cấp
           </button>
-        )}
+          {canCreateGoodsReceipt && (
+            <button
+              type="button"
+              onClick={() => setIsGoodsReceiptModalOpen(true)}
+              className="flex h-9 items-center gap-1.5 rounded-lg bg-kv-blue-primary px-4 text-xs font-bold text-white shadow-sm transition-all hover:bg-kv-blue-dark"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <path d="M12 5v14M5 12h14" />
+              </svg>
+              Nhập kho
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Receipts History Table */}
@@ -221,6 +257,8 @@ export const StockEntryPage = () => {
           onClose={() => setIsGoodsReceiptModalOpen(false)}
           onSave={handleAddStock}
           products={products}
+          suppliers={suppliers}
+          isSuppliersLoading={isSuppliersLoading}
         />
       )}
 
