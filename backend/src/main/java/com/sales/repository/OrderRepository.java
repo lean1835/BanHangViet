@@ -163,7 +163,7 @@ public interface OrderRepository extends JpaRepository<Order, String> {
             "FROM order_items oi " +
             "JOIN orders o ON o.id = oi.order_id " +
             "JOIN products p ON p.id = oi.product_id " +
-            "LEFT JOIN product_groups g ON g.id = p.group_id " +
+            "LEFT JOIN product_groups g ON g.id = p.group_id AND g.deleted_at IS NULL " +
             "WHERE o.household_id = :householdId " +
             "AND o.status = 'COMPLETED' " +
             "AND o.deleted_at IS NULL " +

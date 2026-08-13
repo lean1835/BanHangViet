@@ -71,6 +71,10 @@ public class ProductSpecification {
             predicates.add(criteriaBuilder.equal(root.get("household").get("id"), householdId));
             predicates.add(criteriaBuilder.isNull(root.get("deletedAt")));
             predicates.add(criteriaBuilder.equal(root.get("status"), "ACTIVE"));
+            predicates.add(criteriaBuilder.greaterThan(
+                    criteriaBuilder.coalesce(root.get("minStockQuantity"), BigDecimal.ZERO),
+                    BigDecimal.ZERO
+            ));
             predicates.add(criteriaBuilder.lessThanOrEqualTo(
                     criteriaBuilder.coalesce(root.get("stockQuantity"), BigDecimal.ZERO),
                     criteriaBuilder.coalesce(root.get("minStockQuantity"), BigDecimal.ZERO)

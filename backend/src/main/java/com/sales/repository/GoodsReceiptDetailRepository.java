@@ -25,12 +25,13 @@ public interface GoodsReceiptDetailRepository extends JpaRepository<GoodsReceipt
     @Query(value = "SELECT grd.product_id as productId, s.id as supplierId, s.name as supplierName, s.phone_number as supplierPhone " +
            "FROM goods_receipt_details grd " +
            "JOIN goods_receipts gr ON gr.id = grd.receipt_id " +
-           "JOIN suppliers s ON s.id = gr.supplier_id " +
+           "JOIN suppliers s ON s.id = gr.supplier_id AND s.deleted_at IS NULL " +
            "WHERE grd.product_id IN (:productIds) " +
            "AND (grd.product_id, gr.received_at) IN (" +
            "    SELECT grd2.product_id, MAX(gr2.received_at) " +
            "    FROM goods_receipt_details grd2 " +
            "    JOIN goods_receipts gr2 ON gr2.id = grd2.receipt_id " +
+           "    JOIN suppliers s2 ON s2.id = gr2.supplier_id AND s2.deleted_at IS NULL " +
            "    WHERE grd2.product_id IN (:productIds) " +
            "    GROUP BY grd2.product_id" +
            ") " +

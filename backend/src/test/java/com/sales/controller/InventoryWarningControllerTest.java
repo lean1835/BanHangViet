@@ -63,6 +63,9 @@ public class InventoryWarningControllerTest {
     @Autowired
     private OrderItemRepository orderItemRepository;
 
+    @Autowired
+    private ProductGroupRepository productGroupRepository;
+
     private BusinessHousehold testHousehold;
     private Role ownerRole;
     private Role employeeRole;
@@ -262,6 +265,101 @@ public class InventoryWarningControllerTest {
                 .andExpect(jsonPath("$.result.stockAdequate").value(true))
                 .andExpect(jsonPath("$.result.message").value("Tồn kho đang đầy đủ"))
                 .andExpect(jsonPath("$.result.page.content", hasSize(0)));
+    }
+
+    @Test
+    @WithMockUser(username = "test_owner_inv_warning", roles = {"VT-01"})
+    public void getLowStockWarnings_productWithoutMinStockSet_excluded() throws Exception {
+        productRepository.save(Product.builder()
+                .household(testHousehold)
+                .taxRate(testTaxRate)
+                .sku("SP-NOMIN-001")
+                .name("Sản phẩm chưa đặt ngưỡng tồn")
+                .unit("Cái")
+                .price(new BigDecimal("20000.00"))
+                .stockQuantity(BigDecimal.ZERO)
+                .minStockQuantity(BigDecimal.ZERO)
+                .status("ACTIVE")
+                .build());
+
+        mockMvc.perform(get("/api/v1/inventory/low-stock-warnings"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(1000))
+                .andExpect(jsonPath("$.result.stockAdequate").value(true))
+                .andExpect(jsonPath("$.result.page.content", hasSize(0)));
+    }
+
+    @Test
+    @WithMockUser(username = "test_owner_inv_warning", roles = {"VT-01"})
+    public void getLowStockWarnings_productWithDeletedGroup_groupNameIsNull() throws Exception {
+        ProductGroup deletedGroup = productGroupRepository.save(ProductGroup.builder()
+                .household(testHousehold)
+                .name("Nhóm đã xóa")
+                .deletedAt(java.time.LocalDateTime.now())
+                .build());
+
+        productRepository.save(Product.builder()
+                .household(testHousehold)
+                .group(deletedGroup)
+                .taxRate(testTaxRate)
+                .sku("SP-DELGRP-001")
+                .name("Sản phẩm thuộc nhóm đã xóa")
+                .unit("Hộp")
+                .price(new BigDecimal("15000.00"))
+                .stockQuantity(new BigDecimal("2.000"))
+                .minStockQuantity(new BigDecimal("10.000"))
+                .status("ACTIVE")
+                .build());
+
+        mockMvc.perform(get("/api/v1/inventory/low-stock-warnings"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(1000))
+                .andExpect(jsonPath("$.result.stockAdequate").value(false))
+                .andExpect(jsonPath("$.result.page.content[0].groupName").value(org.hamcrest.Matchers.nullValue()));
+    }
+
+    @Test
+    @WithMockUser(username = "test_owner_inv_warning", roles = {"VT-01"})
+    public void getLowStockWarnings_productWithDeletedSupplier_supplierIsNull() throws Exception {
+        Supplier deletedSupplier = supplierRepository.save(Supplier.builder()
+                .household(testHousehold)
+                .name("Nhà cung cấp đã xóa")
+                .phoneNumber("0988888888")
+                .deletedAt(LocalDateTime.now())
+                .build());
+
+        Product p = productRepository.save(Product.builder()
+                .household(testHousehold)
+                .taxRate(testTaxRate)
+                .sku("SP-DELSUP-001")
+                .name("Sản phẩm thuộc NCC đã xóa")
+                .unit("Cái")
+                .price(new BigDecimal("15000.00"))
+                .stockQuantity(new BigDecimal("1.000"))
+                .minStockQuantity(new BigDecimal("10.000"))
+                .status("ACTIVE")
+                .build());
+
+        GoodsReceipt receipt = goodsReceiptRepository.save(GoodsReceipt.builder()
+                .household(testHousehold)
+                .supplier(deletedSupplier)
+                .createdByUser(testOwner)
+                .receiptNumber("GR-DELSUP-001")
+                .receivedAt(LocalDateTime.now())
+                .totalAmount(new BigDecimal("150000.00"))
+                .build());
+
+        goodsReceiptDetailRepository.save(GoodsReceiptDetail.builder()
+                .receipt(receipt)
+                .product(p)
+                .quantity(new BigDecimal("10.000"))
+                .purchasePrice(new BigDecimal("15000.00"))
+                .build());
+
+        mockMvc.perform(get("/api/v1/inventory/low-stock-warnings"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(1000))
+                .andExpect(jsonPath("$.result.page.content[0].lastSupplierId").value(org.hamcrest.Matchers.nullValue()));
     }
 
     @Test

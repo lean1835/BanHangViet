@@ -144,6 +144,8 @@ public class InventoryWarningServiceImpl implements InventoryWarningService {
 
                     LatestSupplierProjection lastSupplier = supplierMap.get(product.getId());
 
+                    boolean isGroupActive = product.getGroup() != null && product.getGroup().getDeletedAt() == null;
+
                     return LowStockWarningResponse.builder()
                             .productId(product.getId())
                             .sku(product.getSku())
@@ -154,8 +156,8 @@ public class InventoryWarningServiceImpl implements InventoryWarningService {
                             .stockQuantity(currentStock)
                             .minStockQuantity(minStock)
                             .shortageQuantity(shortage)
-                            .groupId(product.getGroup() != null ? product.getGroup().getId() : null)
-                            .groupName(product.getGroup() != null ? product.getGroup().getName() : null)
+                            .groupId(isGroupActive ? product.getGroup().getId() : null)
+                            .groupName(isGroupActive ? product.getGroup().getName() : null)
                             .lastSupplierId(lastSupplier != null ? lastSupplier.getSupplierId() : null)
                             .lastSupplierName(lastSupplier != null ? lastSupplier.getSupplierName() : null)
                             .lastSupplierPhone(lastSupplier != null ? lastSupplier.getSupplierPhone() : null)
