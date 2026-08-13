@@ -5,9 +5,12 @@ import com.sales.dto.response.LowStockWarningListResponse;
 import com.sales.dto.response.PageResponse;
 import com.sales.dto.response.PurchaseSuggestionResponse;
 import com.sales.service.interfaces.InventoryWarningService;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.security.Principal;
@@ -15,6 +18,7 @@ import java.security.Principal;
 @RestController
 @RequestMapping("/api/v1/inventory")
 @RequiredArgsConstructor
+@Validated
 public class InventoryWarningController {
 
     private final InventoryWarningService inventoryWarningService;
@@ -25,8 +29,8 @@ public class InventoryWarningController {
             Principal principal,
             @RequestParam(required = false) String search,
             @RequestParam(required = false) String groupId,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size) {
+            @RequestParam(defaultValue = "0") @Min(0) int page,
+            @RequestParam(defaultValue = "10") @Min(1) @Max(100) int size) {
         LowStockWarningListResponse result = inventoryWarningService.getLowStockWarnings(
                 principal.getName(), search, groupId, page, size);
         ApiResponse<LowStockWarningListResponse> response = ApiResponse.<LowStockWarningListResponse>builder()
@@ -41,10 +45,10 @@ public class InventoryWarningController {
     @PreAuthorize("hasRole('VT-01')")
     public ResponseEntity<ApiResponse<PageResponse<PurchaseSuggestionResponse>>> getPurchaseSuggestions(
             Principal principal,
-            @RequestParam(required = false, defaultValue = "28") Integer periodDays,
+            @RequestParam(required = false, defaultValue = "28") @Min(1) @Max(365) Integer periodDays,
             @RequestParam(required = false) String groupId,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size) {
+            @RequestParam(defaultValue = "0") @Min(0) int page,
+            @RequestParam(defaultValue = "10") @Min(1) @Max(100) int size) {
         PageResponse<PurchaseSuggestionResponse> result = inventoryWarningService.getPurchaseSuggestions(
                 principal.getName(), periodDays, groupId, page, size);
         ApiResponse<PageResponse<PurchaseSuggestionResponse>> response = ApiResponse.<PageResponse<PurchaseSuggestionResponse>>builder()
