@@ -17,7 +17,7 @@ public class ActivityLogHelper {
 
     private final ActivityLogRepository activityLogRepository;
 
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void logActivityInNewTransaction(BusinessHousehold household, User actor, String action, String targetTable, String targetId, String oldValue, String newValue, String clientIp, String userAgent) {
         try {
             ActivityLog logRecord = ActivityLog.builder()

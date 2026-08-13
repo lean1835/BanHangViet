@@ -1003,5 +1003,72 @@ class ReturnTicketServiceImplTest {
 
         assertEquals(ErrorCode.CUSTOMER_REQUIRED_FOR_DEBT, ex.getErrorCode());
     }
+
+    @Test
+    @DisplayName("Create Decrease Adjustment Invoice (NCL-11-CN-003) - Tính chính xác số tiền khi sản phẩm trả có chiết khấu dòng")
+    void testCreateDecreaseAdjustmentInvoice_WithLineDiscount_CalculatesCorrectFinalAmount() {
+        // Xi măng: 100.000đ/bao x 2 bao, chiết khấu 10.000đ/bao
+        // Net before tax: 180.000đ, Tax (8%): 14.400đ -> Subtotal/TotalReturnAmount = 194.400đ
+        ReturnTicketItem discountedItem = ReturnTicketItem.builder()
+                .id("item-disc-1")
+                .product(product)
+                .productName(product.getName())
+                .unit("Bao")
+                .quantity(new BigDecimal("2.000"))
+                .unitPrice(new BigDecimal("100000.00"))
+                .taxRatePercentage(new BigDecimal("8.00"))
+                .taxAmount(new BigDecimal("14400.00"))
+                .subtotal(new BigDecimal("194400.00"))
+                .build();
+
+        ReturnTicket ticket = ReturnTicket.builder()
+                .id("ticket-disc")
+                .ticketNumber("PTH-20260812-0002")
+                .household(household)
+                .originalInvoice(issuedInvoice)
+                .createdByUser(ownerUser)
+                .status("APPROVED")
+                .totalReturnAmount(new BigDecimal("194400.00"))
+                .items(List.of(discountedItem))
+                .build();
+
+        when(userRepository.findByUsername("chuho_viet")).thenReturn(Optional.of(ownerUser));
+        when(returnTicketRepository.findByIdAndHouseholdId("ticket-disc", "house-1")).thenReturn(Optional.of(ticket));
+        when(eInvoiceRepository.existsByReturnTicketIdAndDeletedAtIsNull("ticket-disc")).thenReturn(false);
+        when(eInvoiceRepository.save(any(EInvoice.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        ReturnTicketResponse response = returnTicketService.createDecreaseAdjustmentInvoice("ticket-disc", "chuho_viet");
+
+        assertNotNull(response);
+        verify(eInvoiceRepository, times(1)).save(argThat(inv ->
+                "HÓA ĐƠN ĐIỀU CHỈNH GIẢM".equals(inv.getTitle()) &&
+                "ISSUED".equals(inv.getStatus()) &&
+                new BigDecimal("180000.00").compareTo(inv.getTotalAmountBeforeTax()) == 0 &&
+                new BigDecimal("14400.00").compareTo(inv.getTaxAmount()) == 0 &&
+                new BigDecimal("194400.00").compareTo(inv.getFinalAmount()) == 0
+        ));
+    }
+
+    @Test
+    @DisplayName("Create Decrease Adjustment Invoice (NCL-11-CN-003) - Thất bại khi người thao tác là Nhân viên kho (VT-04, Whitelist check)")
+    void testCreateDecreaseAdjustmentInvoice_WarehouseStaffUser_ThrowsException() {
+        Role warehouseRole = Role.builder().id(4).code("VT-04").name("Nhân viên kho").build();
+        User warehouseUser = User.builder()
+                .id("user-5")
+                .username("nhanvien_kho")
+                .role(warehouseRole)
+                .household(household)
+                .build();
+
+        when(userRepository.findByUsername("nhanvien_kho")).thenReturn(Optional.of(warehouseUser));
+
+        AppException ex = assertThrows(AppException.class, () ->
+                returnTicketService.createDecreaseAdjustmentInvoice("ticket-1", "nhanvien_kho")
+        );
+
+        assertEquals(ErrorCode.UNAUTHORIZED_RETURN_ACTION, ex.getErrorCode());
+        verify(returnTicketRepository, never()).save(any());
+    }
 }
+
 

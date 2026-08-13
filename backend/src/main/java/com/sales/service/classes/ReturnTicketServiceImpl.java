@@ -323,17 +323,21 @@ public class ReturnTicketServiceImpl implements ReturnTicketService {
 
         // 3. Ghi log hoạt động hệ thống
         if (activityLogHelper != null) {
-            activityLogHelper.logActivityInNewTransaction(
-                    user.getHousehold(),
-                    user,
-                    "APPROVE_RETURN_TICKET",
-                    "return_tickets",
-                    savedTicket.getId(),
-                    "PENDING",
-                    "APPROVED",
-                    null,
-                    null
-            );
+            try {
+                activityLogHelper.logActivityInNewTransaction(
+                        user.getHousehold(),
+                        user,
+                        "APPROVE_RETURN_TICKET",
+                        "return_tickets",
+                        savedTicket.getId(),
+                        "PENDING",
+                        "APPROVED",
+                        null,
+                        null
+                );
+            } catch (Exception e) {
+                log.error("Lỗi khi ghi activity log cho approveReturnTicket", e);
+            }
         }
 
         return mapToResponse(savedTicket);
@@ -366,17 +370,21 @@ public class ReturnTicketServiceImpl implements ReturnTicketService {
 
         // Ghi log hoạt động hệ thống
         if (activityLogHelper != null) {
-            activityLogHelper.logActivityInNewTransaction(
-                    user.getHousehold(),
-                    user,
-                    "REJECT_RETURN_TICKET",
-                    "return_tickets",
-                    savedTicket.getId(),
-                    "PENDING",
-                    "REJECTED",
-                    null,
-                    null
-            );
+            try {
+                activityLogHelper.logActivityInNewTransaction(
+                        user.getHousehold(),
+                        user,
+                        "REJECT_RETURN_TICKET",
+                        "return_tickets",
+                        savedTicket.getId(),
+                        "PENDING",
+                        "REJECTED",
+                        null,
+                        null
+                );
+            } catch (Exception e) {
+                log.error("Lỗi khi ghi activity log cho rejectReturnTicket", e);
+            }
         }
 
         return mapToResponse(savedTicket);
@@ -470,9 +478,10 @@ public class ReturnTicketServiceImpl implements ReturnTicketService {
 
         if (ticket.getItems() != null) {
             for (ReturnTicketItem ticketItem : ticket.getItems()) {
-                BigDecimal lineBeforeTax = ticketItem.getQuantity().multiply(ticketItem.getUnitPrice());
+                BigDecimal itemTax = ticketItem.getTaxAmount() != null ? ticketItem.getTaxAmount() : BigDecimal.ZERO;
+                BigDecimal lineBeforeTax = (ticketItem.getSubtotal() != null ? ticketItem.getSubtotal() : BigDecimal.ZERO).subtract(itemTax);
                 totalBeforeTax = totalBeforeTax.add(lineBeforeTax);
-                totalTax = totalTax.add(ticketItem.getTaxAmount() != null ? ticketItem.getTaxAmount() : BigDecimal.ZERO);
+                totalTax = totalTax.add(itemTax);
 
                 EInvoiceItem adjItem = EInvoiceItem.builder()
                         .product(ticketItem.getProduct())
@@ -546,17 +555,21 @@ public class ReturnTicketServiceImpl implements ReturnTicketService {
         log.info("Created decrease adjustment invoice {} for return ticket {} by user {}", adjInvoice.getLookupCode(), ticket.getTicketNumber(), currentUsername);
 
         if (activityLogHelper != null) {
-            activityLogHelper.logActivityInNewTransaction(
-                    user.getHousehold(),
-                    user,
-                    "CREATE_ADJUSTMENT_INVOICE",
-                    "e_invoices",
-                    adjInvoice.getId(),
-                    null,
-                    "ISSUED",
-                    null,
-                    null
-            );
+            try {
+                activityLogHelper.logActivityInNewTransaction(
+                        user.getHousehold(),
+                        user,
+                        "CREATE_ADJUSTMENT_INVOICE",
+                        "e_invoices",
+                        adjInvoice.getId(),
+                        null,
+                        "ISSUED",
+                        null,
+                        null
+                );
+            } catch (Exception e) {
+                log.error("Lỗi khi ghi activity log cho createDecreaseAdjustmentInvoice", e);
+            }
         }
 
         return mapToResponse(ticket);
@@ -591,7 +604,8 @@ public class ReturnTicketServiceImpl implements ReturnTicketService {
         if (user.getHousehold() == null) {
             throw new AppException(ErrorCode.HOUSEHOLD_NOT_FOUND);
         }
-        if (user.getRole() == null || "VT-06".equals(user.getRole().getCode()) || "VT-02".equals(user.getRole().getCode())) {
+        String roleCode = user.getRole() != null ? user.getRole().getCode() : "";
+        if (!"VT-01".equals(roleCode) && !"VT-03".equals(roleCode)) {
             throw new AppException(ErrorCode.UNAUTHORIZED_RETURN_ACTION);
         }
     }
