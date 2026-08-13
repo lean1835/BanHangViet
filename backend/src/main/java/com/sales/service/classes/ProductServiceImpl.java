@@ -85,6 +85,7 @@ public class ProductServiceImpl implements ProductService {
         map.put("unit", product.getUnit());
         map.put("price", product.getPrice());
         map.put("stockQuantity", product.getStockQuantity());
+        map.put("minStockQuantity", product.getMinStockQuantity());
         map.put("status", product.getStatus());
         map.put("groupId", product.getGroup() != null ? product.getGroup().getId() : null);
         map.put("taxRateId", product.getTaxRate() != null ? product.getTaxRate().getId() : null);
@@ -99,6 +100,7 @@ public class ProductServiceImpl implements ProductService {
                 .unit(product.getUnit())
                 .price(product.getPrice())
                 .stockQuantity(product.getStockQuantity())
+                .minStockQuantity(product.getMinStockQuantity())
                 .status(product.getStatus())
                 .groupId(product.getGroup() != null ? product.getGroup().getId() : null)
                 .groupName(product.getGroup() != null ? product.getGroup().getName() : null)
@@ -144,6 +146,7 @@ public class ProductServiceImpl implements ProductService {
                 .unit(request.getUnit())
                 .price(request.getPrice())
                 .stockQuantity(request.getStockQuantity())
+                .minStockQuantity(request.getMinStockQuantity() != null ? request.getMinStockQuantity() : java.math.BigDecimal.ZERO)
                 .status(request.getStatus())
                 .build();
 
@@ -189,6 +192,9 @@ public class ProductServiceImpl implements ProductService {
         product.setUnit(request.getUnit());
         product.setPrice(request.getPrice());
         product.setStockQuantity(request.getStockQuantity());
+        if (request.getMinStockQuantity() != null) {
+            product.setMinStockQuantity(request.getMinStockQuantity());
+        }
         product.setStatus(request.getStatus());
         product.setGroup(group);
         product.setTaxRate(taxRate);
