@@ -90,6 +90,9 @@ const toGoodsReceipt = (value: unknown): IGoodsReceipt => {
   return {
     id: readString(receipt.id),
     receiptNumber: readString(receipt.receiptNumber),
+    supplierId: readString(receipt.supplierId) || undefined,
+    supplierName: readString(receipt.supplierName) || undefined,
+    totalAmount: readNumber(receipt.totalAmount) || undefined,
     receivedAt: readString(receipt.receivedAt),
     notes: readString(receipt.notes),
     createdByUserId: readString(receipt.createdByUserId),
@@ -117,6 +120,9 @@ const toGoodsReceiptDetailInfo = (value: unknown): IGoodsReceiptDetailInfo => {
   return {
     id: readString(info.id),
     receiptNumber: readString(info.receiptNumber),
+    supplierId: readString(info.supplierId) || undefined,
+    supplierName: readString(info.supplierName) || undefined,
+    totalAmount: readNumber(info.totalAmount) || undefined,
     receivedAt: readString(info.receivedAt),
     notes: readString(info.notes),
     createdByUserId: readString(info.createdByUserId),
@@ -351,6 +357,7 @@ export const productApi = baseApi.injectEndpoints({
     createGoodsReceipt: builder.mutation<
       IGoodsReceipt,
       {
+        supplierId?: string;
         receiptNumber?: string;
         receivedAt: string;
         notes?: string;
@@ -372,6 +379,10 @@ export const productApi = baseApi.injectEndpoints({
         {
           type: API_TAG_TYPES.PRODUCT,
           id: PRODUCT_API_TAG_IDS.LIST,
+        },
+        {
+          type: API_TAG_TYPES.SUPPLIER,
+          id: "LIST",
         },
       ],
     }),

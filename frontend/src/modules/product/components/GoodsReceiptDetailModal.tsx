@@ -102,6 +102,12 @@ export const GoodsReceiptDetailModal: React.FC<GoodsReceiptDetailModalProps> = (
                   </span>
                 </div>
                 <div>
+                  <span className="text-slate-400 font-medium block">Nhà cung cấp</span>
+                  <span className="font-bold text-slate-800 text-sm">
+                    {detailInfo.supplierName || "— (Nhập lẻ / Không chọn NCC)"}
+                  </span>
+                </div>
+                <div>
                   <span className="text-slate-400 font-medium block">Thời gian nhập kho</span>
                   <span className="text-slate-800">{formatDate(detailInfo.receivedAt)}</span>
                 </div>
@@ -109,8 +115,8 @@ export const GoodsReceiptDetailModal: React.FC<GoodsReceiptDetailModalProps> = (
                   <span className="text-slate-400 font-medium block">Người lập phiếu</span>
                   <span className="text-slate-800">{detailInfo.createdByUserName}</span>
                 </div>
-                <div>
-                  <span className="text-slate-400 font-medium block">Ghi chú / Nhà cung cấp</span>
+                <div className="sm:col-span-2">
+                  <span className="text-slate-400 font-medium block">Ghi chú</span>
                   <span className="text-slate-800 font-medium">{detailInfo.notes || "---"}</span>
                 </div>
               </div>

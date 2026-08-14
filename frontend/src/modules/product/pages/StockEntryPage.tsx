@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import {
   PRODUCT_LOG_ACTIONS,
   PRODUCT_MESSAGE_BUILDERS,
@@ -6,6 +7,7 @@ import {
   PRODUCT_STOCK_ENTRY_CONFIG,
 } from "@/constants/product";
 import { USER_ROLES } from "@/constants/roles";
+import { APP_ROUTES } from "@/constants/routes";
 import { useDashboardDemo } from "@/providers/DashboardDemoProvider";
 import { StockEntryHistoryTable } from "@/modules/product/components/StockEntryHistoryTable";
 import { GoodsReceiptModal } from "@/modules/product/components/GoodsReceiptModal";
@@ -16,6 +18,7 @@ import {
   useCreateGoodsReceiptMutation,
   useGetGoodsReceiptsQuery,
 } from "@/modules/product/services/productApi";
+import { useGetSuppliersQuery } from "@/modules/supplier/services/supplierApi";
 import { getApiErrorMessage } from "@/utils/getApiErrorMessage";
 import { useNotification } from "@/hooks/useNotification";
 
@@ -26,6 +29,17 @@ export const StockEntryPage = () => {
     size: PRODUCT_STOCK_ENTRY_CONFIG.PRODUCT_QUERY_SIZE,
   });
   const products = productsData?.content || [];
+
+  const { data: suppliers = [] } = useGetSuppliersQuery();
+  const supplierMap = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const s of suppliers) {
+      if (s.id && s.name) {
+        map.set(s.id, s.name);
+      }
+    }
+    return map;
+  }, [suppliers]);
 
   // Manage pagination state
   const [page, setPage] = useState<number>(PRODUCT_STOCK_ENTRY_CONFIG.INITIAL_PAGE);
@@ -50,17 +64,22 @@ export const StockEntryPage = () => {
     setPage(0);
   }, [stockEntrySearch]);
 
-  // Filter goods receipts from backend using useMemo for performance
+  // Filter goods receipts from backend using useMemo for performance (mã phiếu, nhà cung cấp, ghi chú)
   const normalizedStockEntrySearch = stockEntrySearch.trim().toLocaleLowerCase("vi");
   const filteredReceipts = useMemo(() => {
     const list = receiptsData?.content || [];
     if (!normalizedStockEntrySearch) return list;
-    return list.filter((receipt: any) =>
-      [receipt.receiptNumber, receipt.notes, receipt.createdByUserName, receipt.receivedAt].some((value) =>
-        (value || "").toLocaleLowerCase("vi").includes(normalizedStockEntrySearch)
-      )
-    );
-  }, [receiptsData?.content, normalizedStockEntrySearch]);
+    return list.filter((receipt: any) => {
+      const supplierName =
+        receipt.supplierName ||
+        (receipt.supplierId ? supplierMap.get(receipt.supplierId) : "") ||
+        "";
+      return [receipt.receiptNumber, supplierName, receipt.notes].some(
+        (value) =>
+          (value || "").toLocaleLowerCase("vi").includes(normalizedStockEntrySearch)
+      );
+    });
+  }, [receiptsData?.content, normalizedStockEntrySearch, supplierMap]);
 
   const totalElements = filteredReceipts.length;
   const totalPages = Math.ceil(totalElements / PAGE_SIZE);
@@ -86,6 +105,7 @@ export const StockEntryPage = () => {
       await createGoodsReceipt({
         receiptNumber: receiptNumber,
         receivedAt: values.receivedAt + ":00",
+        supplierId: values.supplierId || undefined,
         notes: values.notes || undefined,
         details: [
           {
@@ -135,24 +155,48 @@ export const StockEntryPage = () => {
             type="search"
             value={stockEntrySearch}
             onChange={(event) => setStockEntrySearch(event.target.value)}
-            placeholder="Theo mã phiếu, tên người lập, ghi chú"
+            placeholder="Theo mã phiếu, nhà cung cấp, ghi chú"
             aria-label="Tìm kiếm phiếu nhập kho"
             className="w-full pl-9 pr-4 h-9 bg-white border border-slate-300 rounded-lg focus:outline-none focus:border-kv-blue-primary text-xs font-semibold text-slate-700 shadow-sm transition-all"
           />
         </div>
 
-        {canCreateGoodsReceipt && (
-          <button
-            type="button"
-            onClick={() => setIsGoodsReceiptModalOpen(true)}
-            className="font-bold px-4 h-9 rounded-lg flex items-center gap-1.5 text-xs transition-all bg-kv-blue-primary hover:bg-kv-blue-dark text-white shadow-sm"
+        <div className="flex items-center gap-2.5">
+          <Link
+            to={APP_ROUTES.PRODUCT_SUPPLIERS}
+            className="font-bold px-3.5 h-9 rounded-lg flex items-center gap-1.5 text-xs transition-all bg-kv-blue-primary hover:bg-kv-blue-dark text-white shadow-sm"
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <path d="M12 5v14M5 12h14" />
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+              <circle cx="9" cy="7" r="4" />
+              <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+              <path d="M16 3.13a4 4 0 0 1 0 7.75" />
             </svg>
-            Nhập kho
-          </button>
-        )}
+            Quản lý Nhà cung cấp
+          </Link>
+
+          {canCreateGoodsReceipt && (
+            <button
+              type="button"
+              onClick={() => setIsGoodsReceiptModalOpen(true)}
+              className="font-bold px-4 h-9 rounded-lg flex items-center gap-1.5 text-xs transition-all bg-kv-blue-primary hover:bg-kv-blue-dark text-white shadow-sm"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <path d="M12 5v14M5 12h14" />
+              </svg>
+              Nhập kho
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Receipts History Table */}
