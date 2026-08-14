@@ -244,4 +244,87 @@ public class TaxPeriodControllerTest {
         mockMvc.perform(get("/api/v1/tax-periods/period-123/export-declaration"))
                 .andExpect(status().isForbidden());
     }
+
+    // =========================================================================
+    // TESTS FOR NCL-12-CN-004: Chốt kỳ kê khai và khóa số liệu
+    // =========================================================================
+
+    @Test
+    @DisplayName("Chốt kỳ kê khai thuế thành công (200) với vai trò VT-01 (Chủ hộ)")
+    @WithMockUser(username = "owner_test", roles = {"VT-01"})
+    public void lockTaxPeriod_success_owner() throws Exception {
+        TaxPeriodResponse response = TaxPeriodResponse.builder()
+                .id("period-123")
+                .periodName("Bảng kê hóa đơn bán ra Quý 3 năm 2026")
+                .status("LOCKED")
+                .lockedByName("Chủ Hộ")
+                .lockedAt(java.time.LocalDateTime.now())
+                .build();
+
+        when(taxPeriodService.lockTaxPeriod(eq("owner_test"), eq("period-123")))
+                .thenReturn(response);
+
+        mockMvc.perform(post("/api/v1/tax-periods/period-123/lock"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(1000))
+                .andExpect(jsonPath("$.result.id").value("period-123"))
+                .andExpect(jsonPath("$.result.status").value("LOCKED"));
+    }
+
+    @Test
+    @DisplayName("Chốt kỳ kê khai thuế thất bại (403) với vai trò VT-03 (Kế toán)")
+    @WithMockUser(username = "accountant_test", roles = {"VT-03"})
+    public void lockTaxPeriod_forbidden_accountant() throws Exception {
+        mockMvc.perform(post("/api/v1/tax-periods/period-123/lock"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @DisplayName("Chốt kỳ kê khai thuế thất bại (403) với vai trò VT-02 (Nhân viên bán hàng)")
+    @WithMockUser(username = "sales_test", roles = {"VT-02"})
+    public void lockTaxPeriod_forbidden_salesStaff() throws Exception {
+        mockMvc.perform(post("/api/v1/tax-periods/period-123/lock"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @DisplayName("Mở lại kỳ kê khai thuế thành công (200) với vai trò VT-01 (Chủ hộ)")
+    @WithMockUser(username = "owner_test", roles = {"VT-01"})
+    public void unlockTaxPeriod_success_owner() throws Exception {
+        com.sales.dto.request.UnlockTaxPeriodRequest request = com.sales.dto.request.UnlockTaxPeriodRequest.builder()
+                .reason("Cần điều chỉnh bổ sung hóa đơn")
+                .build();
+
+        TaxPeriodResponse response = TaxPeriodResponse.builder()
+                .id("period-123")
+                .periodName("Bảng kê hóa đơn bán ra Quý 3 năm 2026")
+                .status("GENERATED")
+                .build();
+
+        when(taxPeriodService.unlockTaxPeriod(eq("owner_test"), eq("period-123"), any(com.sales.dto.request.UnlockTaxPeriodRequest.class)))
+                .thenReturn(response);
+
+        mockMvc.perform(post("/api/v1/tax-periods/period-123/unlock")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(1000))
+                .andExpect(jsonPath("$.result.id").value("period-123"))
+                .andExpect(jsonPath("$.result.status").value("GENERATED"));
+    }
+
+    @Test
+    @DisplayName("Mở lại kỳ kê khai thuế thất bại (403) với vai trò VT-03 (Kế toán)")
+    @WithMockUser(username = "accountant_test", roles = {"VT-03"})
+    public void unlockTaxPeriod_forbidden_accountant() throws Exception {
+        com.sales.dto.request.UnlockTaxPeriodRequest request = com.sales.dto.request.UnlockTaxPeriodRequest.builder()
+                .reason("Cần điều chỉnh bổ sung hóa đơn")
+                .build();
+
+        mockMvc.perform(post("/api/v1/tax-periods/period-123/unlock")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isForbidden());
+    }
 }
+

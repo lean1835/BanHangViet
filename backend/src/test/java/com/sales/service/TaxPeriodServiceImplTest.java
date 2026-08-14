@@ -56,6 +56,7 @@ class TaxPeriodServiceImplTest {
 
     private User accountantUser;
     private User salesStaffUser;
+    private User ownerUser;
     private BusinessHousehold household;
 
     @BeforeEach
@@ -63,6 +64,15 @@ class TaxPeriodServiceImplTest {
         household = BusinessHousehold.builder()
                 .id("hh-001")
                 .name("Hộ kinh doanh Tạp Hóa Việt")
+                .build();
+
+        Role ownerRole = Role.builder().id(1).code("VT-01").name("Chủ hộ kinh doanh").build();
+        ownerUser = User.builder()
+                .id("user-owner")
+                .username("chuho01")
+                .fullName("Nguyễn Văn Chủ Hộ")
+                .household(household)
+                .role(ownerRole)
                 .build();
 
         Role accountantRole = Role.builder().id(3).code("VT-03").name("Kế toán").build();
@@ -563,4 +573,222 @@ class TaxPeriodServiceImplTest {
 
         assertEquals(ErrorCode.NO_DATA_TO_EXPORT, ex.getErrorCode());
     }
+
+    // =========================================================================
+    // TESTS FOR NCL-12-CN-004: Chốt kỳ kê khai và khóa số liệu
+    // =========================================================================
+
+    @Test
+    @DisplayName("NCL-12-CN-004-TC-01: Chủ hộ (VT-01) chốt kỳ kê khai thành công -> Trạng thái chuyển LOCKED")
+    void lockTaxPeriod_success_owner() {
+        TaxDeclarationPeriod period = TaxDeclarationPeriod.builder()
+                .id("period-q3-2026")
+                .household(household)
+                .periodName("Bảng kê hóa đơn bán ra Quý 3 năm 2026")
+                .periodType("QUARTERLY")
+                .year(2026)
+                .periodNumber(3)
+                .status("GENERATED")
+                .build();
+
+        when(userRepository.findByUsername("chuho01")).thenReturn(Optional.of(ownerUser));
+        when(taxPeriodRepository.findByIdAndHouseholdId("period-q3-2026", "hh-001")).thenReturn(Optional.of(period));
+        when(taxPeriodRepository.save(any(TaxDeclarationPeriod.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        TaxPeriodResponse response = taxPeriodService.lockTaxPeriod("chuho01", "period-q3-2026");
+
+        assertNotNull(response);
+        assertEquals("LOCKED", response.getStatus());
+        assertEquals("period-q3-2026", response.getId());
+        assertEquals("Nguyễn Văn Chủ Hộ", response.getLockedByName());
+        assertNotNull(response.getLockedAt());
+
+        verify(activityLogHelper).logActivityInNewTransaction(
+                eq(household), eq(ownerUser), eq("LOCK_TAX_PERIOD"), eq("tax_declaration_periods"),
+                eq("period-q3-2026"), isNull(), anyString(), isNull(), isNull()
+        );
+    }
+
+    @Test
+    @DisplayName("NCL-12-CN-004-TC-02: Kỳ đã LOCKED gọi chốt lại -> Ném TAX_PERIOD_ALREADY_LOCKED")
+    void lockTaxPeriod_alreadyLocked_throwsException() {
+        TaxDeclarationPeriod period = TaxDeclarationPeriod.builder()
+                .id("period-q3-2026")
+                .household(household)
+                .status("LOCKED")
+                .build();
+
+        when(userRepository.findByUsername("chuho01")).thenReturn(Optional.of(ownerUser));
+        when(taxPeriodRepository.findByIdAndHouseholdId("period-q3-2026", "hh-001")).thenReturn(Optional.of(period));
+
+        AppException ex = assertThrows(AppException.class, () ->
+                taxPeriodService.lockTaxPeriod("chuho01", "period-q3-2026"));
+
+        assertEquals(ErrorCode.TAX_PERIOD_ALREADY_LOCKED, ex.getErrorCode());
+        verify(taxPeriodRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("NCL-12-CN-004-TC-02: Kỳ đã chốt (LOCKED) -> Không cho phép lập lại bảng kê kỳ cũ mà giữ nguyên số liệu")
+    void generateSalesRegister_lockedPeriod_preventsModification_TC02() {
+        TaxDeclarationPeriod period = TaxDeclarationPeriod.builder()
+                .id("period-q3-2026")
+                .household(household)
+                .periodName("Bảng kê hóa đơn bán ra Quý 3 năm 2026")
+                .periodType("QUARTERLY")
+                .year(2026)
+                .periodNumber(3)
+                .status("LOCKED")
+                .build();
+
+        GenerateTaxRegisterRequest request = GenerateTaxRegisterRequest.builder()
+                .periodType("QUARTERLY")
+                .year(2026)
+                .periodNumber(3)
+                .build();
+
+        when(userRepository.findByUsername("chuho01")).thenReturn(Optional.of(ownerUser));
+        when(invoiceRepository.findValidInvoicesForTaxPeriod(eq("hh-001"), any(), any()))
+                .thenReturn(List.of(EInvoice.builder().id("inv-01").totalAmountBeforeTax(new BigDecimal("100000")).taxAmount(new BigDecimal("10000")).build()));
+        when(taxPeriodRepository.findByHouseholdIdAndPeriodTypeAndYearAndPeriodNumber("hh-001", "QUARTERLY", 2026, 3))
+                .thenReturn(Optional.of(period));
+
+        AppException ex = assertThrows(AppException.class, () ->
+                taxPeriodService.generateSalesRegister("chuho01", request));
+
+        assertEquals(ErrorCode.TAX_PERIOD_ALREADY_LOCKED, ex.getErrorCode());
+        verify(salesRegisterRepository, never()).deleteByPeriodId(anyString());
+    }
+
+    @Test
+    @DisplayName("NCL-12-CN-004-TC-03: Kế toán (VT-03) gọi chốt kỳ -> Bị chặn FORBIDDEN (403)")
+    void lockTaxPeriod_forbidden_accountant() {
+        when(userRepository.findByUsername("ketoan01")).thenReturn(Optional.of(accountantUser));
+
+        AppException ex = assertThrows(AppException.class, () ->
+                taxPeriodService.lockTaxPeriod("ketoan01", "period-q3-2026"));
+
+        assertEquals(ErrorCode.FORBIDDEN, ex.getErrorCode());
+        verify(taxPeriodRepository, never()).findByIdAndHouseholdId(anyString(), anyString());
+    }
+
+    @Test
+    @DisplayName("NCL-12-CN-004-TC-03: Nhân viên bán hàng (VT-02) gọi chốt kỳ -> Bị chặn FORBIDDEN (403)")
+    void lockTaxPeriod_forbidden_salesStaff() {
+        when(userRepository.findByUsername("banhang01")).thenReturn(Optional.of(salesStaffUser));
+
+        AppException ex = assertThrows(AppException.class, () ->
+                taxPeriodService.lockTaxPeriod("banhang01", "period-q3-2026"));
+
+        assertEquals(ErrorCode.FORBIDDEN, ex.getErrorCode());
+        verify(taxPeriodRepository, never()).findByIdAndHouseholdId(anyString(), anyString());
+    }
+
+    @Test
+    @DisplayName("Chốt kỳ thất bại khi không tìm thấy kỳ kê khai -> Ném TAX_PERIOD_NOT_FOUND")
+    void lockTaxPeriod_notFound_throwsException() {
+        when(userRepository.findByUsername("chuho01")).thenReturn(Optional.of(ownerUser));
+        when(taxPeriodRepository.findByIdAndHouseholdId("period-invalid", "hh-001")).thenReturn(Optional.empty());
+
+        AppException ex = assertThrows(AppException.class, () ->
+                taxPeriodService.lockTaxPeriod("chuho01", "period-invalid"));
+
+        assertEquals(ErrorCode.TAX_PERIOD_NOT_FOUND, ex.getErrorCode());
+    }
+
+    @Test
+    @DisplayName("NCL-12-CN-004-TC-04: Chủ hộ (VT-01) mở lại kỳ kê khai thành công -> Trạng thái chuyển GENERATED")
+    void unlockTaxPeriod_success_owner() {
+        TaxDeclarationPeriod period = TaxDeclarationPeriod.builder()
+                .id("period-q3-2026")
+                .household(household)
+                .periodName("Bảng kê hóa đơn bán ra Quý 3 năm 2026")
+                .status("LOCKED")
+                .lockedAt(LocalDateTime.now())
+                .lockedByUser(ownerUser)
+                .build();
+
+        com.sales.dto.request.UnlockTaxPeriodRequest request = com.sales.dto.request.UnlockTaxPeriodRequest.builder()
+                .reason("Bổ sung hóa đơn sót trước khi nộp lại")
+                .build();
+
+        when(userRepository.findByUsername("chuho01")).thenReturn(Optional.of(ownerUser));
+        when(taxPeriodRepository.findByIdAndHouseholdId("period-q3-2026", "hh-001")).thenReturn(Optional.of(period));
+        when(taxPeriodRepository.save(any(TaxDeclarationPeriod.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        TaxPeriodResponse response = taxPeriodService.unlockTaxPeriod("chuho01", "period-q3-2026", request);
+
+        assertNotNull(response);
+        assertEquals("GENERATED", response.getStatus());
+        assertNull(response.getLockedAt());
+        assertNull(response.getLockedByName());
+
+        verify(activityLogHelper).logActivityInNewTransaction(
+                eq(household), eq(ownerUser), eq("UNLOCK_TAX_PERIOD"), eq("tax_declaration_periods"),
+                eq("period-q3-2026"), isNull(), contains("Bổ sung hóa đơn sót"), isNull(), isNull()
+        );
+    }
+
+    @Test
+    @DisplayName("Mở lại kỳ thất bại khi kỳ chưa ở trạng thái LOCKED -> Ném TAX_PERIOD_NOT_LOCKED")
+    void unlockTaxPeriod_notLocked_throwsException() {
+        TaxDeclarationPeriod period = TaxDeclarationPeriod.builder()
+                .id("period-q3-2026")
+                .household(household)
+                .status("GENERATED")
+                .build();
+
+        com.sales.dto.request.UnlockTaxPeriodRequest request = com.sales.dto.request.UnlockTaxPeriodRequest.builder()
+                .reason("Mở lại kỳ")
+                .build();
+
+        when(userRepository.findByUsername("chuho01")).thenReturn(Optional.of(ownerUser));
+        when(taxPeriodRepository.findByIdAndHouseholdId("period-q3-2026", "hh-001")).thenReturn(Optional.of(period));
+
+        AppException ex = assertThrows(AppException.class, () ->
+                taxPeriodService.unlockTaxPeriod("chuho01", "period-q3-2026", request));
+
+        assertEquals(ErrorCode.TAX_PERIOD_NOT_LOCKED, ex.getErrorCode());
+        verify(taxPeriodRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Mở lại kỳ thất bại khi để trống lý do -> Ném TAX_PERIOD_UNLOCK_REASON_REQUIRED")
+    void unlockTaxPeriod_emptyReason_throwsException() {
+        TaxDeclarationPeriod period = TaxDeclarationPeriod.builder()
+                .id("period-q3-2026")
+                .household(household)
+                .status("LOCKED")
+                .build();
+
+        com.sales.dto.request.UnlockTaxPeriodRequest request = com.sales.dto.request.UnlockTaxPeriodRequest.builder()
+                .reason("  ")
+                .build();
+
+        when(userRepository.findByUsername("chuho01")).thenReturn(Optional.of(ownerUser));
+        when(taxPeriodRepository.findByIdAndHouseholdId("period-q3-2026", "hh-001")).thenReturn(Optional.of(period));
+
+        AppException ex = assertThrows(AppException.class, () ->
+                taxPeriodService.unlockTaxPeriod("chuho01", "period-q3-2026", request));
+
+        assertEquals(ErrorCode.TAX_PERIOD_UNLOCK_REASON_REQUIRED, ex.getErrorCode());
+        verify(taxPeriodRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Kế toán (VT-03) gọi mở lại kỳ -> Bị chặn FORBIDDEN (403)")
+    void unlockTaxPeriod_forbidden_accountant() {
+        when(userRepository.findByUsername("ketoan01")).thenReturn(Optional.of(accountantUser));
+
+        com.sales.dto.request.UnlockTaxPeriodRequest request = com.sales.dto.request.UnlockTaxPeriodRequest.builder()
+                .reason("Mở lại kỳ")
+                .build();
+
+        AppException ex = assertThrows(AppException.class, () ->
+                taxPeriodService.unlockTaxPeriod("ketoan01", "period-q3-2026", request));
+
+        assertEquals(ErrorCode.FORBIDDEN, ex.getErrorCode());
+        verify(taxPeriodRepository, never()).findByIdAndHouseholdId(anyString(), anyString());
+    }
 }
+
