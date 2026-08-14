@@ -1,0 +1,19 @@
+package com.sales.service.interfaces;
+
+import com.sales.dto.request.GenerateTaxRegisterRequest;
+import com.sales.dto.response.PageResponse;
+import com.sales.dto.response.TaxPeriodResponse;
+import com.sales.dto.response.TaxSalesRegisterResponse;
+
+import java.util.List;
+
+public interface TaxPeriodService {
+
+    TaxPeriodResponse generateSalesRegister(String currentUsername, GenerateTaxRegisterRequest request);
+
+    PageResponse<TaxSalesRegisterResponse> getSalesRegisterItems(String currentUsername, String periodId, int page, int size);
+
+    TaxPeriodResponse getTaxPeriodDetail(String currentUsername, String periodId);
+
+    List<TaxPeriodResponse> getAllTaxPeriods(String currentUsername);
+}
