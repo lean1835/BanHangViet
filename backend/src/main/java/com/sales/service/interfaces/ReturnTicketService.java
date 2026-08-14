@@ -51,5 +51,23 @@ public interface ReturnTicketService {
             String search,
             int page,
             int size);
+
+    /**
+     * NCL-11-CN-004: Thống kê hàng trả lại và tiền đã hoàn theo khoảng thời gian.
+     */
+    com.sales.dto.response.ReturnTicketStatisticsResponse getReturnTicketStatistics(
+            String currentUsername,
+            LocalDate fromDate,
+            LocalDate toDate,
+            Integer topLimit);
+
+    /**
+     * NCL-11-CN-004: Lấy danh sách xếp hạng mặt hàng bị trả nhiều nhất.
+     */
+    java.util.List<com.sales.dto.response.ReturnItemRankingResponse> getTopReturnedProducts(
+            String currentUsername,
+            LocalDate fromDate,
+            LocalDate toDate,
+            Integer limit);
 }
 

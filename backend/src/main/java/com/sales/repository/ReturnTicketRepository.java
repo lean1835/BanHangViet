@@ -35,4 +35,45 @@ public interface ReturnTicketRepository extends JpaRepository<ReturnTicket, Stri
     Optional<String> findMaxTicketNumberByPrefix(@Param("householdId") String householdId, @Param("prefix") String prefix);
 
     boolean existsByTicketNumber(String ticketNumber);
+
+    @Query("SELECT r.status AS status, COUNT(r.id) AS ticketCount FROM ReturnTicket r " +
+           "WHERE r.household.id = :householdId " +
+           "AND (COALESCE(r.approvedAt, r.createdAt) BETWEEN :startDateTime AND :endDateTime) " +
+           "GROUP BY r.status")
+    List<com.sales.dto.response.TicketStatusCountProjection> countTicketsByStatus(
+            @Param("householdId") String householdId,
+            @Param("startDateTime") java.time.LocalDateTime startDateTime,
+            @Param("endDateTime") java.time.LocalDateTime endDateTime
+    );
+
+    @EntityGraph(attributePaths = {"items", "items.product", "createdByUser", "approvedByUser", "household", "originalInvoice", "originalOrder", "customer"})
+    @Query("SELECT r FROM ReturnTicket r WHERE r.household.id = :householdId AND r.createdAt >= :startDateTime AND r.createdAt <= :endDateTime ORDER BY r.createdAt DESC")
+    List<ReturnTicket> findByHouseholdIdAndCreatedAtBetween(
+            @Param("householdId") String householdId,
+            @Param("startDateTime") java.time.LocalDateTime startDateTime,
+            @Param("endDateTime") java.time.LocalDateTime endDateTime
+    );
+
+    @EntityGraph(attributePaths = {"items", "items.product", "createdByUser", "approvedByUser", "household", "originalInvoice", "originalOrder", "customer"})
+    @Query("SELECT r FROM ReturnTicket r WHERE r.household.id = :householdId AND r.status = :status AND (COALESCE(r.approvedAt, r.createdAt) BETWEEN :startDateTime AND :endDateTime) ORDER BY r.createdAt DESC")
+    List<ReturnTicket> findByHouseholdIdAndStatusAndPeriod(
+            @Param("householdId") String householdId,
+            @Param("status") String status,
+            @Param("startDateTime") java.time.LocalDateTime startDateTime,
+            @Param("endDateTime") java.time.LocalDateTime endDateTime
+    );
+
+    @Query("SELECT CAST(COALESCE(r.approvedAt, r.createdAt) AS LocalDate) AS reportDate, " +
+           "COUNT(r.id) AS ticketCount, " +
+           "SUM(r.totalReturnAmount) AS totalAmount " +
+           "FROM ReturnTicket r " +
+           "WHERE r.household.id = :householdId AND r.status = 'APPROVED' " +
+           "AND (COALESCE(r.approvedAt, r.createdAt) BETWEEN :startDateTime AND :endDateTime) " +
+           "GROUP BY CAST(COALESCE(r.approvedAt, r.createdAt) AS LocalDate) " +
+           "ORDER BY CAST(COALESCE(r.approvedAt, r.createdAt) AS LocalDate) ASC")
+    List<com.sales.dto.response.DailyReturnProjection> findDailyReturnStatistics(
+            @Param("householdId") String householdId,
+            @Param("startDateTime") java.time.LocalDateTime startDateTime,
+            @Param("endDateTime") java.time.LocalDateTime endDateTime
+    );
 }

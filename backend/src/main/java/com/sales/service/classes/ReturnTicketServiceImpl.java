@@ -575,6 +575,215 @@ public class ReturnTicketServiceImpl implements ReturnTicketService {
         return mapToResponse(ticket);
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public ReturnTicketStatisticsResponse getReturnTicketStatistics(
+            String currentUsername,
+            LocalDate fromDate,
+            LocalDate toDate,
+            Integer topLimit) {
+        User user = getUserByUsername(currentUsername);
+        validateOwnerOrAccountantRole(user);
+
+        LocalDate effectiveFromDate = fromDate != null ? fromDate : LocalDate.now().withDayOfMonth(1);
+        LocalDate effectiveToDate = toDate != null ? toDate : LocalDate.now();
+
+        if (effectiveFromDate.isAfter(effectiveToDate)) {
+            LocalDate temp = effectiveFromDate;
+            effectiveFromDate = effectiveToDate;
+            effectiveToDate = temp;
+        }
+
+        LocalDateTime startDateTime = effectiveFromDate.atStartOfDay();
+        LocalDateTime endDateTime = effectiveToDate.atTime(23, 59, 59, 999999999);
+        String householdId = user.getHousehold().getId();
+
+        // 1. Lấy số lượng phiếu đếm theo từng trạng thái bằng DB Aggregation Query (Thống nhất mốc thời gian COALESCE(approvedAt, createdAt))
+        List<TicketStatusCountProjection> statusCounts = returnTicketRepository.countTicketsByStatus(householdId, startDateTime, endDateTime);
+
+        long approvedCount = 0;
+        long pendingCount = 0;
+        long rejectedCount = 0;
+
+        if (statusCounts != null) {
+            for (TicketStatusCountProjection sc : statusCounts) {
+                if ("APPROVED".equalsIgnoreCase(sc.getStatus())) {
+                    approvedCount += sc.getTicketCount() != null ? sc.getTicketCount() : 0;
+                } else if ("PENDING".equalsIgnoreCase(sc.getStatus())) {
+                    pendingCount += sc.getTicketCount() != null ? sc.getTicketCount() : 0;
+                } else if ("REJECTED".equalsIgnoreCase(sc.getStatus())) {
+                    rejectedCount += sc.getTicketCount() != null ? sc.getTicketCount() : 0;
+                }
+            }
+        }
+        long totalTickets = approvedCount + pendingCount + rejectedCount;
+
+        // 2. Lấy các phiếu đã duyệt trong khoảng thời gian để tính tổng tiền hoàn & phân loại theo hình thức
+        List<ReturnTicket> approvedTickets = returnTicketRepository.findByHouseholdIdAndStatusAndPeriod(
+                householdId, "APPROVED", startDateTime, endDateTime
+        );
+
+        BigDecimal totalRefundAmount = BigDecimal.ZERO;
+        BigDecimal totalReturnedQuantity = BigDecimal.ZERO;
+
+        Map<String, BigDecimal> methodAmountMap = new HashMap<>();
+        Map<String, Long> methodCountMap = new HashMap<>();
+        methodAmountMap.put("CASH", BigDecimal.ZERO);
+        methodAmountMap.put("BANK_TRANSFER", BigDecimal.ZERO);
+        methodAmountMap.put("DEBT_REDUCTION", BigDecimal.ZERO);
+        methodCountMap.put("CASH", 0L);
+        methodCountMap.put("BANK_TRANSFER", 0L);
+        methodCountMap.put("DEBT_REDUCTION", 0L);
+
+        for (ReturnTicket ticket : approvedTickets) {
+            BigDecimal ticketAmount = ticket.getTotalReturnAmount() != null ? ticket.getTotalReturnAmount() : BigDecimal.ZERO;
+            totalRefundAmount = totalRefundAmount.add(ticketAmount);
+
+            String method = ticket.getRefundPaymentMethod() != null ? ticket.getRefundPaymentMethod() : "CASH";
+            methodAmountMap.put(method, methodAmountMap.getOrDefault(method, BigDecimal.ZERO).add(ticketAmount));
+            methodCountMap.put(method, methodCountMap.getOrDefault(method, 0L) + 1);
+
+            if (ticket.getItems() != null) {
+                for (ReturnTicketItem item : ticket.getItems()) {
+                    BigDecimal qty = item.getQuantity() != null ? item.getQuantity() : BigDecimal.ZERO;
+                    totalReturnedQuantity = totalReturnedQuantity.add(qty);
+                }
+            }
+        }
+
+        List<RefundPaymentMethodSummary> paymentSummaries = new ArrayList<>();
+        paymentSummaries.add(RefundPaymentMethodSummary.builder()
+                .paymentMethod("CASH")
+                .paymentMethodName("Tiền mặt")
+                .ticketCount(methodCountMap.getOrDefault("CASH", 0L))
+                .totalAmount(methodAmountMap.getOrDefault("CASH", BigDecimal.ZERO))
+                .build());
+        paymentSummaries.add(RefundPaymentMethodSummary.builder()
+                .paymentMethod("BANK_TRANSFER")
+                .paymentMethodName("Chuyển khoản")
+                .ticketCount(methodCountMap.getOrDefault("BANK_TRANSFER", 0L))
+                .totalAmount(methodAmountMap.getOrDefault("BANK_TRANSFER", BigDecimal.ZERO))
+                .build());
+        paymentSummaries.add(RefundPaymentMethodSummary.builder()
+                .paymentMethod("DEBT_REDUCTION")
+                .paymentMethodName("Giảm trừ công nợ")
+                .ticketCount(methodCountMap.getOrDefault("DEBT_REDUCTION", 0L))
+                .totalAmount(methodAmountMap.getOrDefault("DEBT_REDUCTION", BigDecimal.ZERO))
+                .build());
+
+        // 3. Xếp hạng mặt hàng bị trả nhiều nhất
+        int limit = (topLimit != null && topLimit > 0) ? topLimit : 10;
+        List<ReturnItemRankingResponse> topProducts = getTopReturnedProductsInternal(
+                householdId, startDateTime, endDateTime, limit, totalRefundAmount
+        );
+
+        // 4. Chuỗi dữ liệu biểu đồ theo ngày
+        List<DailyReturnProjection> dailyProjections = returnTicketRepository.findDailyReturnStatistics(
+                householdId, startDateTime, endDateTime
+        );
+
+        List<DailyReturnStatistic> dailyTimeline = new ArrayList<>();
+        if (dailyProjections != null) {
+            for (DailyReturnProjection proj : dailyProjections) {
+                dailyTimeline.add(DailyReturnStatistic.builder()
+                        .date(proj.getReportDate())
+                        .ticketCount(proj.getTicketCount() != null ? proj.getTicketCount() : 0L)
+                        .totalReturnAmount(proj.getTotalAmount() != null ? proj.getTotalAmount() : BigDecimal.ZERO)
+                        .totalReturnedQuantity(proj.getTotalQuantity() != null ? proj.getTotalQuantity() : BigDecimal.ZERO)
+                        .build());
+            }
+        }
+
+        // 5. Danh sách chi tiết các phiếu trả hàng đã duyệt
+        List<ReturnTicketResponse> ticketResponses = approvedTickets.stream()
+                .map(this::mapToResponse)
+                .collect(Collectors.toList());
+
+        return ReturnTicketStatisticsResponse.builder()
+                .fromDate(effectiveFromDate)
+                .toDate(effectiveToDate)
+                .totalTickets(totalTickets)
+                .approvedTicketsCount(approvedCount)
+                .pendingTicketsCount(pendingCount)
+                .rejectedTicketsCount(rejectedCount)
+                .totalRefundAmount(totalRefundAmount)
+                .totalReturnedQuantity(totalReturnedQuantity)
+                .topReturnedProducts(topProducts)
+                .paymentMethodSummaries(paymentSummaries)
+                .dailyTimeline(dailyTimeline)
+                .returnTickets(ticketResponses)
+                .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ReturnItemRankingResponse> getTopReturnedProducts(
+            String currentUsername,
+            LocalDate fromDate,
+            LocalDate toDate,
+            Integer limit) {
+        User user = getUserByUsername(currentUsername);
+        validateOwnerOrAccountantRole(user);
+
+        LocalDate effectiveFromDate = fromDate != null ? fromDate : LocalDate.now().withDayOfMonth(1);
+        LocalDate effectiveToDate = toDate != null ? toDate : LocalDate.now();
+
+        if (effectiveFromDate.isAfter(effectiveToDate)) {
+            LocalDate temp = effectiveFromDate;
+            effectiveFromDate = effectiveToDate;
+            effectiveToDate = temp;
+        }
+
+        LocalDateTime startDateTime = effectiveFromDate.atStartOfDay();
+        LocalDateTime endDateTime = effectiveToDate.atTime(23, 59, 59, 999999999);
+        String householdId = user.getHousehold().getId();
+
+        int effLimit = (limit != null && limit > 0) ? limit : 10;
+
+        List<ReturnTicket> approvedTickets = returnTicketRepository.findByHouseholdIdAndStatusAndPeriod(
+                householdId, "APPROVED", startDateTime, endDateTime
+        );
+        BigDecimal totalRefundAmount = approvedTickets.stream()
+                .map(t -> t.getTotalReturnAmount() != null ? t.getTotalReturnAmount() : BigDecimal.ZERO)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        return getTopReturnedProductsInternal(householdId, startDateTime, endDateTime, effLimit, totalRefundAmount);
+    }
+
+    private List<ReturnItemRankingResponse> getTopReturnedProductsInternal(
+            String householdId,
+            LocalDateTime startDateTime,
+            LocalDateTime endDateTime,
+            int limit,
+            BigDecimal totalRefundAmount) {
+        List<TopReturnedProductProjection> projections = returnTicketItemRepository.findTopReturnedProducts(
+                householdId, startDateTime, endDateTime, PageRequest.of(0, limit)
+        );
+
+        List<ReturnItemRankingResponse> result = new ArrayList<>();
+        if (projections != null) {
+            for (TopReturnedProductProjection proj : projections) {
+                BigDecimal itemAmount = proj.getTotalReturnAmount() != null ? proj.getTotalReturnAmount() : BigDecimal.ZERO;
+                BigDecimal pct = BigDecimal.ZERO;
+                if (totalRefundAmount.compareTo(BigDecimal.ZERO) > 0) {
+                    pct = itemAmount.multiply(new BigDecimal("100")).divide(totalRefundAmount, 2, RoundingMode.HALF_UP);
+                }
+
+                result.add(ReturnItemRankingResponse.builder()
+                        .productId(proj.getProductId())
+                        .productName(proj.getProductName())
+                        .sku(proj.getSku())
+                        .unit(proj.getUnit())
+                        .totalReturnedQuantity(proj.getTotalReturnedQuantity() != null ? proj.getTotalReturnedQuantity() : BigDecimal.ZERO)
+                        .totalReturnAmount(itemAmount)
+                        .returnTicketCount(proj.getTicketCount() != null ? proj.getTicketCount() : 0L)
+                        .percentageOfTotalAmount(pct)
+                        .build());
+            }
+        }
+        return result;
+    }
+
     // ==================== HELPER METHODS ====================
 
     private User getUserByUsername(String username) {
