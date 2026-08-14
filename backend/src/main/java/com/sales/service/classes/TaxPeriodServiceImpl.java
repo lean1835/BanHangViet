@@ -15,6 +15,10 @@ import com.sales.repository.EInvoiceRepository;
 import com.sales.repository.TaxDeclarationPeriodRepository;
 import com.sales.repository.TaxSalesRegisterRepository;
 import com.sales.repository.UserRepository;
+import com.sales.dto.response.TaxRateRevenueSummaryItem;
+import com.sales.dto.response.TaxRevenueSummaryResponse;
+import com.sales.entity.TaxRate;
+import com.sales.repository.TaxRateRepository;
 import com.sales.service.interfaces.TaxPeriodService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -32,6 +36,8 @@ import java.time.LocalTime;
 import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -43,6 +49,7 @@ public class TaxPeriodServiceImpl implements TaxPeriodService {
     private final TaxSalesRegisterRepository salesRegisterRepository;
     private final EInvoiceRepository invoiceRepository;
     private final UserRepository userRepository;
+    private final TaxRateRepository taxRateRepository;
     private final ActivityLogHelper activityLogHelper;
 
     @Override
@@ -287,6 +294,103 @@ public class TaxPeriodServiceImpl implements TaxPeriodService {
                 .invoiceType(item.getInvoiceType())
                 .notes(item.getNotes())
                 .createdAt(item.getCreatedAt())
+                .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public TaxRevenueSummaryResponse getTaxRevenueSummary(String currentUsername, String periodId) {
+        User currentUser = userRepository.findByUsername(currentUsername)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+
+        BusinessHousehold household = currentUser.getHousehold();
+        if (household == null) {
+            throw new AppException(ErrorCode.HOUSEHOLD_NOT_FOUND);
+        }
+
+        // TC-03: Sales staff (VT-02) cannot access tax revenue summary
+        if (currentUser.getRole() != null && "VT-02".equalsIgnoreCase(currentUser.getRole().getCode())) {
+            throw new AppException(ErrorCode.FORBIDDEN);
+        }
+
+        TaxDeclarationPeriod period = taxPeriodRepository.findByIdAndHouseholdId(periodId, household.getId())
+                .orElseThrow(() -> new AppException(ErrorCode.TAX_PERIOD_NOT_FOUND));
+
+        List<TaxSalesRegister> registerItems = salesRegisterRepository.findByPeriodId(period.getId());
+
+        // Check if household tax rates contain any rate assigned to items in this period that is INACTIVE (TC-02)
+        List<TaxRate> allHouseholdTaxRates = taxRateRepository.findByHouseholdIdOrderByCreatedAtDesc(household.getId());
+
+        Set<BigDecimal> usedPercentages = registerItems.stream()
+                .map(TaxSalesRegister::getTaxRatePercentage)
+                .collect(Collectors.toSet());
+
+        boolean hasInactiveRateInPeriod = allHouseholdTaxRates.stream()
+                .anyMatch(tr -> Boolean.FALSE.equals(tr.getIsActive()) && usedPercentages.stream().anyMatch(p -> p.compareTo(tr.getRatePercentage()) == 0));
+
+        if (hasInactiveRateInPeriod) {
+            throw new AppException(ErrorCode.PRODUCT_TAX_RATE_INACTIVE);
+        }
+
+        Map<BigDecimal, List<TaxSalesRegister>> groupedByRate = registerItems.stream()
+                .collect(Collectors.groupingBy(item -> item.getTaxRatePercentage() != null ?
+                        item.getTaxRatePercentage().setScale(2, java.math.RoundingMode.HALF_UP) : BigDecimal.ZERO.setScale(2)));
+
+        List<TaxRateRevenueSummaryItem> summaryItems = new ArrayList<>();
+        BigDecimal grandTotalRevenue = BigDecimal.ZERO;
+        BigDecimal grandTotalTax = BigDecimal.ZERO;
+
+        for (Map.Entry<BigDecimal, List<TaxSalesRegister>> entry : groupedByRate.entrySet()) {
+            BigDecimal ratePct = entry.getKey();
+            List<TaxSalesRegister> items = entry.getValue();
+
+            BigDecimal groupRevenue = items.stream()
+                    .map(TaxSalesRegister::getRevenueAmount)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+            BigDecimal groupTax = items.stream()
+                    .map(TaxSalesRegister::getTaxAmount)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+            long invoiceCount = items.stream()
+                    .map(item -> item.getInvoice().getId())
+                    .distinct()
+                    .count();
+
+            String rateName = allHouseholdTaxRates.stream()
+                    .filter(tr -> tr.getRatePercentage().compareTo(ratePct) == 0)
+                    .map(TaxRate::getName)
+                    .findFirst()
+                    .orElse(String.format("Thuế suất %.1f%%", ratePct));
+
+            summaryItems.add(TaxRateRevenueSummaryItem.builder()
+                    .taxRatePercentage(ratePct)
+                    .taxRateName(rateName)
+                    .revenueAmount(groupRevenue)
+                    .taxAmount(groupTax)
+                    .invoiceCount((int) invoiceCount)
+                    .build());
+
+            grandTotalRevenue = grandTotalRevenue.add(groupRevenue);
+            grandTotalTax = grandTotalTax.add(groupTax);
+        }
+
+        summaryItems.sort((a, b) -> a.getTaxRatePercentage().compareTo(b.getTaxRatePercentage()));
+
+        activityLogHelper.logActivityInNewTransaction(
+                household, currentUser, "SUMMARIZE_TAX_REVENUE", "tax_declaration_periods",
+                period.getId(), null, "Tổng hợp doanh thu chịu thuế: " + period.getPeriodName(), null, null
+        );
+
+        return TaxRevenueSummaryResponse.builder()
+                .periodId(period.getId())
+                .periodName(period.getPeriodName())
+                .periodType(period.getPeriodType())
+                .year(period.getYear())
+                .periodNumber(period.getPeriodNumber())
+                .totalRevenue(grandTotalRevenue)
+                .totalTaxAmount(grandTotalTax)
+                .taxRateSummaries(summaryItems)
                 .build();
     }
 }
