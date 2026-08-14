@@ -14,6 +14,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
@@ -192,6 +193,55 @@ public class TaxPeriodControllerTest {
     @WithMockUser(username = "sales_test", roles = {"VT-02"})
     public void getTaxRevenueSummary_forbidden_salesStaff() throws Exception {
         mockMvc.perform(get("/api/v1/tax-periods/period-123/tax-summary"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @DisplayName("Xuất tờ khai thuế mô phỏng thành công với vai trò VT-01 (Chủ hộ)")
+    @WithMockUser(username = "owner_test", roles = {"VT-01"})
+    public void exportTaxDeclaration_success_owner() throws Exception {
+        byte[] sampleExcel = new byte[]{1, 2, 3, 4, 5};
+        org.springframework.core.io.ByteArrayResource resource = new org.springframework.core.io.ByteArrayResource(sampleExcel);
+
+        when(taxPeriodService.exportTaxDeclaration(eq("owner_test"), eq("period-123")))
+                .thenReturn(ResponseEntity.ok()
+                        .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"To_khai_thue_QUARTERLY_2026_3.xlsx\"")
+                        .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                        .contentLength(sampleExcel.length)
+                        .body(resource));
+
+        mockMvc.perform(get("/api/v1/tax-periods/period-123/export-declaration"))
+                .andExpect(status().isOk())
+                .andExpect(header().string(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"To_khai_thue_QUARTERLY_2026_3.xlsx\""))
+                .andExpect(content().contentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                .andExpect(content().bytes(sampleExcel));
+    }
+
+    @Test
+    @DisplayName("Xuất tờ khai thuế mô phỏng thành công với vai trò VT-03 (Kế toán)")
+    @WithMockUser(username = "accountant_test", roles = {"VT-03"})
+    public void exportTaxDeclaration_success_accountant() throws Exception {
+        byte[] sampleExcel = new byte[]{10, 20, 30};
+        org.springframework.core.io.ByteArrayResource resource = new org.springframework.core.io.ByteArrayResource(sampleExcel);
+
+        when(taxPeriodService.exportTaxDeclaration(eq("accountant_test"), eq("period-123")))
+                .thenReturn(ResponseEntity.ok()
+                        .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"To_khai_thue_QUARTERLY_2026_3.xlsx\"")
+                        .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                        .contentLength(sampleExcel.length)
+                        .body(resource));
+
+        mockMvc.perform(get("/api/v1/tax-periods/period-123/export-declaration"))
+                .andExpect(status().isOk())
+                .andExpect(content().contentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                .andExpect(content().bytes(sampleExcel));
+    }
+
+    @Test
+    @DisplayName("Xuất tờ khai thuế mô phỏng thất bại (403) với vai trò VT-02 (Nhân viên bán hàng)")
+    @WithMockUser(username = "sales_test", roles = {"VT-02"})
+    public void exportTaxDeclaration_forbidden_salesStaff() throws Exception {
+        mockMvc.perform(get("/api/v1/tax-periods/period-123/export-declaration"))
                 .andExpect(status().isForbidden());
     }
 }

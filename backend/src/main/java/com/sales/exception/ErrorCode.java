@@ -115,7 +115,10 @@ public enum ErrorCode {
     TAX_PERIOD_NOT_FOUND(5002, "Kỳ kê khai thuế không tồn tại", HttpStatus.NOT_FOUND),
     TAX_PERIOD_ALREADY_EXISTS(5003, "Kỳ kê khai thuế này đã được tạo trước đó", HttpStatus.BAD_REQUEST),
     TAX_PERIOD_ALREADY_LOCKED(5004, "Kỳ kê khai thuế đã bị khóa, không thể thay đổi", HttpStatus.BAD_REQUEST),
-    PRODUCT_TAX_RATE_INACTIVE(5005, "Có mặt hàng trong kỳ đang gán mức thuế đã ngừng hiệu lực", HttpStatus.BAD_REQUEST);
+    PRODUCT_TAX_RATE_INACTIVE(5005, "Có mặt hàng trong kỳ đang gán mức thuế đã ngừng hiệu lực", HttpStatus.BAD_REQUEST),
+    HOUSEHOLD_TAX_INFO_INCOMPLETE(5006, "Thông tin hộ kinh doanh chưa đầy đủ (thiếu mã số thuế hoặc người đại diện) để xuất tờ khai thuế", HttpStatus.BAD_REQUEST),
+    HOUSEHOLD_TAX_CODE_MISSING(5007, "Thông tin hộ kinh doanh chưa đầy đủ: Thiếu mã số thuế", HttpStatus.BAD_REQUEST),
+    HOUSEHOLD_REPRESENTATIVE_MISSING(5008, "Thông tin hộ kinh doanh chưa đầy đủ: Thiếu người đại diện hợp pháp", HttpStatus.BAD_REQUEST);
 
     private final int code;
     private final String message;
