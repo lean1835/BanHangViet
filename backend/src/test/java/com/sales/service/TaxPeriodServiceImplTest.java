@@ -115,7 +115,7 @@ class TaxPeriodServiceImplTest {
                 .build();
 
         when(userRepository.findByUsername("ketoan01")).thenReturn(Optional.of(accountantUser));
-        when(invoiceRepository.findByHouseholdIdAndDeletedAtIsNullOrderByCreatedAtDesc("hh-001"))
+        when(invoiceRepository.findValidInvoicesForTaxPeriod(eq("hh-001"), any(LocalDateTime.class), any(LocalDateTime.class)))
                 .thenReturn(List.of(inv1, inv2));
         when(taxPeriodRepository.findByHouseholdIdAndPeriodTypeAndYearAndPeriodNumber("hh-001", "QUARTERLY", 2026, 3))
                 .thenReturn(Optional.empty());
@@ -157,15 +157,6 @@ class TaxPeriodServiceImplTest {
                 .household(household)
                 .build();
 
-        EInvoice canceledInvoice = EInvoice.builder()
-                .id("inv-canceled")
-                .status("CANCELED")
-                .totalAmountBeforeTax(new BigDecimal("3000000.00"))
-                .taxAmount(new BigDecimal("300000.00"))
-                .taxResponseAt(LocalDateTime.of(2026, 9, 12, 11, 0))
-                .household(household)
-                .build();
-
         EInvoice decreaseAdjust = EInvoice.builder()
                 .id("inv-decrease")
                 .status("TAX_CODE_GRANTED")
@@ -178,8 +169,8 @@ class TaxPeriodServiceImplTest {
                 .build();
 
         when(userRepository.findByUsername("ketoan01")).thenReturn(Optional.of(accountantUser));
-        when(invoiceRepository.findByHouseholdIdAndDeletedAtIsNullOrderByCreatedAtDesc("hh-001"))
-                .thenReturn(List.of(validOriginal, canceledInvoice, decreaseAdjust));
+        when(invoiceRepository.findValidInvoicesForTaxPeriod(eq("hh-001"), any(LocalDateTime.class), any(LocalDateTime.class)))
+                .thenReturn(List.of(validOriginal, decreaseAdjust));
         when(taxPeriodRepository.save(any(TaxDeclarationPeriod.class))).thenAnswer(i -> {
             TaxDeclarationPeriod p = i.getArgument(0);
             p.setId("period-m9-2026");
@@ -189,7 +180,7 @@ class TaxPeriodServiceImplTest {
         TaxPeriodResponse response = taxPeriodService.generateSalesRegister("ketoan01", request);
 
         assertNotNull(response);
-        // Hóa đơn bị HỦY bị loại bỏ -> Còn 2 hóa đơn
+        // Hóa đơn bị HỦY bị loại bỏ từ query Database -> Còn 2 hóa đơn trong list trả về
         assertEquals(2, response.getTotalValidInvoices());
         // Doanh thu = 5,000,000 - 1,000,000 = 4,000,000
         assertEquals(new BigDecimal("4000000.00"), response.getTotalRevenue());
@@ -207,7 +198,7 @@ class TaxPeriodServiceImplTest {
                 .build();
 
         when(userRepository.findByUsername("ketoan01")).thenReturn(Optional.of(accountantUser));
-        when(invoiceRepository.findByHouseholdIdAndDeletedAtIsNullOrderByCreatedAtDesc("hh-001"))
+        when(invoiceRepository.findValidInvoicesForTaxPeriod(eq("hh-001"), any(LocalDateTime.class), any(LocalDateTime.class)))
                 .thenReturn(Collections.emptyList());
 
         AppException ex = assertThrows(AppException.class, () ->
@@ -234,5 +225,101 @@ class TaxPeriodServiceImplTest {
 
         assertEquals(ErrorCode.FORBIDDEN, ex.getErrorCode());
         verify(taxPeriodRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Lấy chi tiết kỳ kê khai thuế thành công")
+    void getTaxPeriodDetail_success() {
+        TaxDeclarationPeriod period = TaxDeclarationPeriod.builder()
+                .id("period-123")
+                .household(household)
+                .periodName("Tháng 09/2026")
+                .periodType("MONTHLY")
+                .year(2026)
+                .periodNumber(9)
+                .startDate(java.time.LocalDate.of(2026, 9, 1))
+                .endDate(java.time.LocalDate.of(2026, 9, 30))
+                .status("GENERATED")
+                .createdByUser(accountantUser)
+                .build();
+
+        when(userRepository.findByUsername("ketoan01")).thenReturn(Optional.of(accountantUser));
+        when(taxPeriodRepository.findByIdAndHouseholdId("period-123", "hh-001")).thenReturn(Optional.of(period));
+
+        TaxPeriodResponse response = taxPeriodService.getTaxPeriodDetail("ketoan01", "period-123");
+
+        assertNotNull(response);
+        assertEquals("period-123", response.getId());
+        assertEquals("Tháng 09/2026", response.getPeriodName());
+    }
+
+    @Test
+    @DisplayName("Lấy danh sách các kỳ kê khai thuế thành công")
+    void getAllTaxPeriods_success() {
+        TaxDeclarationPeriod period = TaxDeclarationPeriod.builder()
+                .id("period-123")
+                .household(household)
+                .periodName("Tháng 09/2026")
+                .periodType("MONTHLY")
+                .year(2026)
+                .periodNumber(9)
+                .status("GENERATED")
+                .build();
+
+        when(userRepository.findByUsername("ketoan01")).thenReturn(Optional.of(accountantUser));
+        when(taxPeriodRepository.findByHouseholdIdOrderByYearDescPeriodNumberDesc("hh-001")).thenReturn(List.of(period));
+
+        List<TaxPeriodResponse> response = taxPeriodService.getAllTaxPeriods("ketoan01");
+
+        assertNotNull(response);
+        assertEquals(1, response.size());
+        assertEquals("period-123", response.get(0).getId());
+    }
+
+    @Test
+    @DisplayName("Lấy danh sách dòng bảng kê hóa đơn bán ra phân trang thành công")
+    void getSalesRegisterItems_success() {
+        TaxDeclarationPeriod period = TaxDeclarationPeriod.builder()
+                .id("period-123")
+                .household(household)
+                .build();
+
+        EInvoice inv = EInvoice.builder()
+                .id("inv-001")
+                .build();
+
+        TaxSalesRegister registerItem = TaxSalesRegister.builder()
+                .id("item-123")
+                .period(period)
+                .invoice(inv)
+                .invoicePattern("1")
+                .invoiceSymbol("1C26TAA")
+                .invoiceNumber("00000001")
+                .issueDate(LocalDateTime.now())
+                .taxRatePercentage(new BigDecimal("10.00"))
+                .revenueAmount(new BigDecimal("1000000.00"))
+                .taxAmount(new BigDecimal("100000.00"))
+                .invoiceType("ORIGINAL")
+                .build();
+
+        org.springframework.data.domain.Page<TaxSalesRegister> page = new org.springframework.data.domain.PageImpl<>(
+                List.of(registerItem),
+                org.springframework.data.domain.PageRequest.of(0, 10),
+                1
+        );
+
+        when(userRepository.findByUsername("ketoan01")).thenReturn(Optional.of(accountantUser));
+        when(taxPeriodRepository.findByIdAndHouseholdId("period-123", "hh-001")).thenReturn(Optional.of(period));
+        when(salesRegisterRepository.findByPeriodId(eq("period-123"), any(org.springframework.data.domain.Pageable.class)))
+                .thenReturn(page);
+
+        var response = taxPeriodService.getSalesRegisterItems("ketoan01", "period-123", 0, 10);
+
+        assertNotNull(response);
+        assertEquals(0, response.getPageNumber());
+        assertEquals(10, response.getPageSize());
+        assertEquals(1, response.getTotalElements());
+        assertEquals(1, response.getContent().size());
+        assertEquals("item-123", response.getContent().get(0).getId());
     }
 }

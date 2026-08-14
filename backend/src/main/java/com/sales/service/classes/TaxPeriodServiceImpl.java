@@ -93,18 +93,10 @@ public class TaxPeriodServiceImpl implements TaxPeriodService {
         LocalDateTime startDateTime = startDate.atStartOfDay();
         LocalDateTime endDateTime = endDate.atTime(LocalTime.MAX);
 
-        // Fetch all e-invoices for household in period
-        List<EInvoice> allInvoices = invoiceRepository.findByHouseholdIdAndDeletedAtIsNullOrderByCreatedAtDesc(household.getId());
-
-        // Filter invoices granted tax code within the period and NOT canceled (QTN-22 & TC-01, TC-02)
-        List<EInvoice> validInvoices = allInvoices.stream()
-                .filter(inv -> ! "CANCELED".equalsIgnoreCase(inv.getStatus()))
-                .filter(inv -> "TAX_CODE_GRANTED".equalsIgnoreCase(inv.getStatus()) || "ISSUED".equalsIgnoreCase(inv.getStatus()) || inv.getTaxAuthorityCode() != null)
-                .filter(inv -> {
-                    LocalDateTime dt = inv.getTaxResponseAt() != null ? inv.getTaxResponseAt() : inv.getCreatedAt();
-                    return !dt.isBefore(startDateTime) && !dt.isAfter(endDateTime);
-                })
-                .collect(Collectors.toList());
+        // Fetch valid e-invoices for household in period directly from DB (Optimized query)
+        List<EInvoice> validInvoices = invoiceRepository.findValidInvoicesForTaxPeriod(
+                household.getId(), startDateTime, endDateTime
+        );
 
         // TC-03 & QTN-22: If period has no valid invoices, throw exception and do NOT create empty register
         if (validInvoices.isEmpty()) {
@@ -148,19 +140,27 @@ public class TaxPeriodServiceImpl implements TaxPeriodService {
                 invoiceType = "ADJUSTMENT_INCREASE";
             }
 
+            BigDecimal beforeTax = inv.getTotalAmountBeforeTax() != null ? inv.getTotalAmountBeforeTax() : BigDecimal.ZERO;
+            BigDecimal taxAmt = inv.getTaxAmount() != null ? inv.getTaxAmount() : BigDecimal.ZERO;
+
             BigDecimal revenue;
             BigDecimal tax;
 
             if ("ADJUSTMENT_DECREASE".equals(invoiceType)) {
-                revenue = inv.getTotalAmountBeforeTax().negate();
-                tax = inv.getTaxAmount().negate();
+                revenue = beforeTax.negate();
+                tax = taxAmt.negate();
             } else {
-                revenue = inv.getTotalAmountBeforeTax();
-                tax = inv.getTaxAmount();
+                revenue = beforeTax;
+                tax = taxAmt;
             }
 
             totalRevenue = totalRevenue.add(revenue);
             totalTaxAmount = totalTaxAmount.add(tax);
+
+            BigDecimal taxRatePercentage = BigDecimal.ZERO;
+            if (beforeTax.compareTo(BigDecimal.ZERO) != 0) {
+                taxRatePercentage = taxAmt.divide(beforeTax, 4, java.math.RoundingMode.HALF_UP).multiply(BigDecimal.valueOf(100));
+            }
 
             TaxSalesRegister item = TaxSalesRegister.builder()
                     .period(period)
@@ -171,7 +171,7 @@ public class TaxPeriodServiceImpl implements TaxPeriodService {
                     .issueDate(inv.getTaxResponseAt() != null ? inv.getTaxResponseAt() : inv.getCreatedAt())
                     .buyerName(inv.getBuyerName())
                     .buyerTaxCode(inv.getBuyerTaxCode())
-                    .taxRatePercentage(BigDecimal.valueOf(10.00)) // Standard VAT rate default
+                    .taxRatePercentage(taxRatePercentage)
                     .revenueAmount(revenue)
                     .taxAmount(tax)
                     .invoiceType(invoiceType)

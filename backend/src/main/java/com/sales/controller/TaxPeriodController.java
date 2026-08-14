@@ -23,7 +23,7 @@ public class TaxPeriodController {
     private final TaxPeriodService taxPeriodService;
 
     @PostMapping("/generate-sales-register")
-    @PreAuthorize("hasAnyRole('HOUSEHOLD_OWNER', 'ACCOUNTANT', 'SYSTEM_ADMIN')")
+    @PreAuthorize("hasAnyRole('VT-01', 'VT-03', 'VT-04')")
     public ResponseEntity<ApiResponse<TaxPeriodResponse>> generateSalesRegister(
             Principal principal,
             @Valid @RequestBody GenerateTaxRegisterRequest request) {
@@ -37,7 +37,7 @@ public class TaxPeriodController {
     }
 
     @GetMapping("/{periodId}/sales-register")
-    @PreAuthorize("hasAnyRole('HOUSEHOLD_OWNER', 'ACCOUNTANT', 'SYSTEM_ADMIN')")
+    @PreAuthorize("hasAnyRole('VT-01', 'VT-03', 'VT-04')")
     public ResponseEntity<ApiResponse<PageResponse<TaxSalesRegisterResponse>>> getSalesRegisterItems(
             Principal principal,
             @PathVariable String periodId,
@@ -53,7 +53,7 @@ public class TaxPeriodController {
     }
 
     @GetMapping("/{periodId}")
-    @PreAuthorize("hasAnyRole('HOUSEHOLD_OWNER', 'ACCOUNTANT', 'SYSTEM_ADMIN')")
+    @PreAuthorize("hasAnyRole('VT-01', 'VT-03', 'VT-04')")
     public ResponseEntity<ApiResponse<TaxPeriodResponse>> getTaxPeriodDetail(
             Principal principal,
             @PathVariable String periodId) {
@@ -67,7 +67,7 @@ public class TaxPeriodController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('HOUSEHOLD_OWNER', 'ACCOUNTANT', 'SYSTEM_ADMIN')")
+    @PreAuthorize("hasAnyRole('VT-01', 'VT-03', 'VT-04')")
     public ResponseEntity<ApiResponse<List<TaxPeriodResponse>>> getAllTaxPeriods(Principal principal) {
         List<TaxPeriodResponse> result = taxPeriodService.getAllTaxPeriods(principal.getName());
         ApiResponse<List<TaxPeriodResponse>> response = ApiResponse.<List<TaxPeriodResponse>>builder()
