@@ -434,4 +434,133 @@ class TaxPeriodServiceImplTest {
 
         assertEquals(ErrorCode.FORBIDDEN, ex.getErrorCode());
     }
+
+    @Test
+    @DisplayName("Xuất tờ khai thuế mô phỏng thành công kèm bảng kê 2 sheets (TC-01 & TC-04)")
+    void exportTaxDeclaration_success_generatesWorkbook() throws java.io.IOException {
+        household.setTaxCode("8123456789");
+        household.setRepresentativeName("Nguyễn Văn Chủ Hộ");
+        household.setAddress("123 Đường Trần Phú, Đà Nẵng");
+        household.setPhoneNumber("0905123456");
+
+        TaxDeclarationPeriod period = TaxDeclarationPeriod.builder()
+                .id("period-q3-2026")
+                .household(household)
+                .periodName("Bảng kê hóa đơn bán ra Quý 3 năm 2026")
+                .periodType("QUARTERLY")
+                .year(2026)
+                .periodNumber(3)
+                .startDate(java.time.LocalDate.of(2026, 7, 1))
+                .endDate(java.time.LocalDate.of(2026, 9, 30))
+                .totalRevenue(new BigDecimal("184000000.00"))
+                .totalTaxAmount(new BigDecimal("12400000.00"))
+                .build();
+
+        EInvoice inv1 = EInvoice.builder().id("inv-01").build();
+        TaxSalesRegister reg1 = TaxSalesRegister.builder()
+                .id("reg-01")
+                .period(period)
+                .invoice(inv1)
+                .invoicePattern("1")
+                .invoiceSymbol("1C26TAA")
+                .invoiceNumber("00000001")
+                .issueDate(LocalDateTime.of(2026, 8, 10, 10, 0))
+                .buyerName("Nguyễn Văn A")
+                .buyerTaxCode("0101234567")
+                .taxRatePercentage(new BigDecimal("8.00"))
+                .revenueAmount(new BigDecimal("100000000.00"))
+                .taxAmount(new BigDecimal("8000000.00"))
+                .invoiceType("ORIGINAL")
+                .build();
+
+        TaxRate tr8 = TaxRate.builder().id("tr-8").household(household).name("Thuế VAT 8%").ratePercentage(new BigDecimal("8.00")).isActive(true).build();
+
+        when(userRepository.findByUsername("ketoan01")).thenReturn(Optional.of(accountantUser));
+        when(taxPeriodRepository.findByIdAndHouseholdId("period-q3-2026", "hh-001")).thenReturn(Optional.of(period));
+        when(salesRegisterRepository.findByPeriodId("period-q3-2026")).thenReturn(List.of(reg1));
+        when(taxRateRepository.findByHouseholdIdOrderByCreatedAtDesc("hh-001")).thenReturn(List.of(tr8));
+
+        var response = taxPeriodService.exportTaxDeclaration("ketoan01", "period-q3-2026");
+
+        assertNotNull(response);
+        assertEquals(200, response.getStatusCode().value());
+        assertNotNull(response.getBody());
+
+        // Verify Excel structure
+        byte[] bytes = ((org.springframework.core.io.ByteArrayResource) response.getBody()).getByteArray();
+        assertTrue(bytes.length > 0);
+
+        try (org.apache.poi.ss.usermodel.Workbook wb = org.apache.poi.ss.usermodel.WorkbookFactory.create(new java.io.ByteArrayInputStream(bytes))) {
+            assertEquals(2, wb.getNumberOfSheets());
+            assertNotNull(wb.getSheet("To_Khai_Thue_01_CNKD"));
+            assertNotNull(wb.getSheet("Bang_Ke_Ban_Ra_01_2_BK"));
+        }
+
+        // TC-04: Verify activity log
+        verify(activityLogHelper).logActivityInNewTransaction(
+                eq(household), eq(accountantUser), eq("EXPORT_TAX_DECLARATION"), eq("tax_declaration_periods"),
+                eq("period-q3-2026"), isNull(), anyString(), isNull(), isNull()
+        );
+    }
+
+    @Test
+    @DisplayName("Ngoại lệ: Hộ chưa khai báo người đại diện -> Ném HOUSEHOLD_REPRESENTATIVE_MISSING (TC-02)")
+    void exportTaxDeclaration_missingRepresentative_throwsException() {
+        household.setTaxCode("8123456789");
+        household.setRepresentativeName(null);
+
+        when(userRepository.findByUsername("ketoan01")).thenReturn(Optional.of(accountantUser));
+
+        AppException ex = assertThrows(AppException.class, () ->
+                taxPeriodService.exportTaxDeclaration("ketoan01", "period-q3-2026"));
+
+        assertEquals(ErrorCode.HOUSEHOLD_REPRESENTATIVE_MISSING, ex.getErrorCode());
+        verify(salesRegisterRepository, never()).findByPeriodId(anyString());
+    }
+
+    @Test
+    @DisplayName("Ngoại lệ: Hộ chưa khai báo mã số thuế -> Ném HOUSEHOLD_TAX_CODE_MISSING (TC-02)")
+    void exportTaxDeclaration_missingTaxCode_throwsException() {
+        household.setTaxCode("");
+        household.setRepresentativeName("Nguyễn Văn Chủ Hộ");
+
+        when(userRepository.findByUsername("ketoan01")).thenReturn(Optional.of(accountantUser));
+
+        AppException ex = assertThrows(AppException.class, () ->
+                taxPeriodService.exportTaxDeclaration("ketoan01", "period-q3-2026"));
+
+        assertEquals(ErrorCode.HOUSEHOLD_TAX_CODE_MISSING, ex.getErrorCode());
+    }
+
+    @Test
+    @DisplayName("Chặn quyền: Nhân viên bán hàng (VT-02) không được phép xuất tờ khai -> Ném FORBIDDEN (TC-03)")
+    void exportTaxDeclaration_salesStaffRole_throwsForbidden() {
+        when(userRepository.findByUsername("banhang01")).thenReturn(Optional.of(salesStaffUser));
+
+        AppException ex = assertThrows(AppException.class, () ->
+                taxPeriodService.exportTaxDeclaration("banhang01", "period-q3-2026"));
+
+        assertEquals(ErrorCode.FORBIDDEN, ex.getErrorCode());
+    }
+
+    @Test
+    @DisplayName("Ngoại lệ: Kỳ chưa có dòng bảng kê nào -> Ném NO_DATA_TO_EXPORT")
+    void exportTaxDeclaration_noData_throwsException() {
+        household.setTaxCode("8123456789");
+        household.setRepresentativeName("Nguyễn Văn Chủ Hộ");
+
+        TaxDeclarationPeriod period = TaxDeclarationPeriod.builder()
+                .id("period-q3-2026")
+                .household(household)
+                .build();
+
+        when(userRepository.findByUsername("ketoan01")).thenReturn(Optional.of(accountantUser));
+        when(taxPeriodRepository.findByIdAndHouseholdId("period-q3-2026", "hh-001")).thenReturn(Optional.of(period));
+        when(salesRegisterRepository.findByPeriodId("period-q3-2026")).thenReturn(Collections.emptyList());
+
+        AppException ex = assertThrows(AppException.class, () ->
+                taxPeriodService.exportTaxDeclaration("ketoan01", "period-q3-2026"));
+
+        assertEquals(ErrorCode.NO_DATA_TO_EXPORT, ex.getErrorCode());
+    }
 }

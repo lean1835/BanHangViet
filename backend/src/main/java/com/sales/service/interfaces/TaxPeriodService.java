@@ -6,6 +6,8 @@ import com.sales.dto.response.TaxPeriodResponse;
 import com.sales.dto.response.TaxSalesRegisterResponse;
 
 import com.sales.dto.response.TaxRevenueSummaryResponse;
+import org.springframework.core.io.Resource;
+import org.springframework.http.ResponseEntity;
 
 import java.util.List;
 
@@ -20,4 +22,6 @@ public interface TaxPeriodService {
     List<TaxPeriodResponse> getAllTaxPeriods(String currentUsername);
 
     TaxRevenueSummaryResponse getTaxRevenueSummary(String currentUsername, String periodId);
+
+    ResponseEntity<Resource> exportTaxDeclaration(String currentUsername, String periodId);
 }

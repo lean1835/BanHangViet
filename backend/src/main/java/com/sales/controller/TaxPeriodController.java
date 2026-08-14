@@ -92,4 +92,12 @@ public class TaxPeriodController {
                 .build();
         return ResponseEntity.ok(response);
     }
+
+    @GetMapping("/{periodId}/export-declaration")
+    @PreAuthorize("hasAnyRole('VT-01', 'VT-03', 'VT-04')")
+    public ResponseEntity<org.springframework.core.io.Resource> exportTaxDeclaration(
+            Principal principal,
+            @PathVariable String periodId) {
+        return taxPeriodService.exportTaxDeclaration(principal.getName(), periodId);
+    }
 }
