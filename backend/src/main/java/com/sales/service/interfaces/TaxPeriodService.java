@@ -24,4 +24,9 @@ public interface TaxPeriodService {
     TaxRevenueSummaryResponse getTaxRevenueSummary(String currentUsername, String periodId);
 
     ResponseEntity<Resource> exportTaxDeclaration(String currentUsername, String periodId);
+
+    TaxPeriodResponse lockTaxPeriod(String currentUsername, String periodId);
+
+    TaxPeriodResponse unlockTaxPeriod(String currentUsername, String periodId, com.sales.dto.request.UnlockTaxPeriodRequest request);
 }
+

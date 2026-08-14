@@ -2,6 +2,7 @@ package com.sales.controller;
 
 import com.sales.dto.ApiResponse;
 import com.sales.dto.request.GenerateTaxRegisterRequest;
+import com.sales.dto.request.UnlockTaxPeriodRequest;
 import com.sales.dto.response.PageResponse;
 import com.sales.dto.response.TaxPeriodResponse;
 import com.sales.dto.response.TaxRevenueSummaryResponse;
@@ -100,4 +101,34 @@ public class TaxPeriodController {
             @PathVariable String periodId) {
         return taxPeriodService.exportTaxDeclaration(principal.getName(), periodId);
     }
+
+    @PostMapping("/{periodId}/lock")
+    @PreAuthorize("hasRole('VT-01')")
+    public ResponseEntity<ApiResponse<TaxPeriodResponse>> lockTaxPeriod(
+            Principal principal,
+            @PathVariable String periodId) {
+        TaxPeriodResponse result = taxPeriodService.lockTaxPeriod(principal.getName(), periodId);
+        ApiResponse<TaxPeriodResponse> response = ApiResponse.<TaxPeriodResponse>builder()
+                .code(1000)
+                .message("Chốt kỳ kê khai thuế và khóa số liệu thành công")
+                .result(result)
+                .build();
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/{periodId}/unlock")
+    @PreAuthorize("hasRole('VT-01')")
+    public ResponseEntity<ApiResponse<TaxPeriodResponse>> unlockTaxPeriod(
+            Principal principal,
+            @PathVariable String periodId,
+            @Valid @RequestBody UnlockTaxPeriodRequest request) {
+        TaxPeriodResponse result = taxPeriodService.unlockTaxPeriod(principal.getName(), periodId, request);
+        ApiResponse<TaxPeriodResponse> response = ApiResponse.<TaxPeriodResponse>builder()
+                .code(1000)
+                .message("Mở lại kỳ kê khai thuế thành công")
+                .result(result)
+                .build();
+        return ResponseEntity.ok(response);
+    }
 }
+

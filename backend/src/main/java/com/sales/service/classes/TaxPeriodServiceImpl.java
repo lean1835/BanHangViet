@@ -1,6 +1,7 @@
 package com.sales.service.classes;
 
 import com.sales.dto.request.GenerateTaxRegisterRequest;
+import com.sales.dto.request.UnlockTaxPeriodRequest;
 import com.sales.dto.response.PageResponse;
 import com.sales.dto.response.TaxPeriodResponse;
 import com.sales.dto.response.TaxSalesRegisterResponse;
@@ -64,7 +65,7 @@ public class TaxPeriodServiceImpl implements TaxPeriodService {
     private final ActivityLogHelper activityLogHelper;
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public TaxPeriodResponse generateSalesRegister(String currentUsername, GenerateTaxRegisterRequest request) {
         User currentUser = userRepository.findByUsername(currentUsername)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
@@ -467,6 +468,92 @@ public class TaxPeriodServiceImpl implements TaxPeriodService {
                 .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
                 .contentLength(excelContent.length)
                 .body(resource);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public TaxPeriodResponse lockTaxPeriod(String currentUsername, String periodId) {
+        User currentUser = userRepository.findByUsername(currentUsername)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+
+        BusinessHousehold household = currentUser.getHousehold();
+        if (household == null) {
+            throw new AppException(ErrorCode.HOUSEHOLD_NOT_FOUND);
+        }
+
+        // TC-03: Chỉ chủ hộ kinh doanh (VT-01) mới có quyền chốt kỳ kê khai thuế
+        if (currentUser.getRole() == null || !"VT-01".equalsIgnoreCase(currentUser.getRole().getCode())) {
+            throw new AppException(ErrorCode.FORBIDDEN);
+        }
+
+        TaxDeclarationPeriod period = taxPeriodRepository.findByIdAndHouseholdId(periodId, household.getId())
+                .orElseThrow(() -> new AppException(ErrorCode.TAX_PERIOD_NOT_FOUND));
+
+        // TC-02: Kiểm tra nếu kỳ đã bị khóa trước đó
+        if ("LOCKED".equalsIgnoreCase(period.getStatus())) {
+            throw new AppException(ErrorCode.TAX_PERIOD_ALREADY_LOCKED);
+        }
+
+        period.setStatus("LOCKED");
+        period.setLockedAt(LocalDateTime.now());
+        period.setLockedByUser(currentUser);
+
+        period = taxPeriodRepository.save(period);
+
+        // TC-04: Lưu nhật ký hoạt động (Audit log)
+        activityLogHelper.logActivityInNewTransaction(
+                household, currentUser, "LOCK_TAX_PERIOD", "tax_declaration_periods",
+                period.getId(), null,
+                "Chốt kỳ kê khai thuế: " + period.getPeriodName(),
+                null, null
+        );
+
+        return mapToPeriodResponse(period);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public TaxPeriodResponse unlockTaxPeriod(String currentUsername, String periodId, UnlockTaxPeriodRequest request) {
+        User currentUser = userRepository.findByUsername(currentUsername)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+
+        BusinessHousehold household = currentUser.getHousehold();
+        if (household == null) {
+            throw new AppException(ErrorCode.HOUSEHOLD_NOT_FOUND);
+        }
+
+        // Chỉ chủ hộ kinh doanh (VT-01) mới có quyền mở lại kỳ kê khai thuế
+        if (currentUser.getRole() == null || !"VT-01".equalsIgnoreCase(currentUser.getRole().getCode())) {
+            throw new AppException(ErrorCode.FORBIDDEN);
+        }
+
+        TaxDeclarationPeriod period = taxPeriodRepository.findByIdAndHouseholdId(periodId, household.getId())
+                .orElseThrow(() -> new AppException(ErrorCode.TAX_PERIOD_NOT_FOUND));
+
+        // Kiểm tra nếu kỳ chưa bị khóa
+        if (!"LOCKED".equalsIgnoreCase(period.getStatus())) {
+            throw new AppException(ErrorCode.TAX_PERIOD_NOT_LOCKED);
+        }
+
+        if (request == null || request.getReason() == null || request.getReason().trim().isEmpty()) {
+            throw new AppException(ErrorCode.TAX_PERIOD_UNLOCK_REASON_REQUIRED);
+        }
+
+        period.setStatus("GENERATED");
+        period.setLockedAt(null);
+        period.setLockedByUser(null);
+
+        period = taxPeriodRepository.save(period);
+
+        // TC-04: Lưu nhật ký hoạt động (Audit log) kèm lý do mở lại
+        activityLogHelper.logActivityInNewTransaction(
+                household, currentUser, "UNLOCK_TAX_PERIOD", "tax_declaration_periods",
+                period.getId(), null,
+                "Mở lại kỳ kê khai thuế: " + period.getPeriodName() + " - Lý do: " + request.getReason().trim(),
+                null, null
+        );
+
+        return mapToPeriodResponse(period);
     }
 
     private byte[] generateTaxDeclarationWorkbook(
