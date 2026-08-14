@@ -5,6 +5,8 @@ import com.sales.dto.response.PageResponse;
 import com.sales.dto.response.TaxPeriodResponse;
 import com.sales.dto.response.TaxSalesRegisterResponse;
 
+import com.sales.dto.response.TaxRevenueSummaryResponse;
+
 import java.util.List;
 
 public interface TaxPeriodService {
@@ -16,4 +18,6 @@ public interface TaxPeriodService {
     TaxPeriodResponse getTaxPeriodDetail(String currentUsername, String periodId);
 
     List<TaxPeriodResponse> getAllTaxPeriods(String currentUsername);
+
+    TaxRevenueSummaryResponse getTaxRevenueSummary(String currentUsername, String periodId);
 }

@@ -4,6 +4,7 @@ import com.sales.dto.ApiResponse;
 import com.sales.dto.request.GenerateTaxRegisterRequest;
 import com.sales.dto.response.PageResponse;
 import com.sales.dto.response.TaxPeriodResponse;
+import com.sales.dto.response.TaxRevenueSummaryResponse;
 import com.sales.dto.response.TaxSalesRegisterResponse;
 import com.sales.service.interfaces.TaxPeriodService;
 import jakarta.validation.Valid;
@@ -73,6 +74,20 @@ public class TaxPeriodController {
         ApiResponse<List<TaxPeriodResponse>> response = ApiResponse.<List<TaxPeriodResponse>>builder()
                 .code(1000)
                 .message("Lấy danh sách các kỳ kê khai thuế thành công")
+                .result(result)
+                .build();
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/{periodId}/tax-summary")
+    @PreAuthorize("hasAnyRole('VT-01', 'VT-03', 'VT-04')")
+    public ResponseEntity<ApiResponse<TaxRevenueSummaryResponse>> getTaxRevenueSummary(
+            Principal principal,
+            @PathVariable String periodId) {
+        TaxRevenueSummaryResponse result = taxPeriodService.getTaxRevenueSummary(principal.getName(), periodId);
+        ApiResponse<TaxRevenueSummaryResponse> response = ApiResponse.<TaxRevenueSummaryResponse>builder()
+                .code(1000)
+                .message("Tổng hợp doanh thu chịu thuế theo kỳ thành công")
                 .result(result)
                 .build();
         return ResponseEntity.ok(response);

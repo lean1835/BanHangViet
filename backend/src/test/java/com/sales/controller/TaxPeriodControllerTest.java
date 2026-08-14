@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sales.dto.request.GenerateTaxRegisterRequest;
 import com.sales.dto.response.PageResponse;
 import com.sales.dto.response.TaxPeriodResponse;
+import com.sales.dto.response.TaxRevenueSummaryResponse;
 import com.sales.dto.response.TaxSalesRegisterResponse;
 import com.sales.service.interfaces.TaxPeriodService;
 import org.junit.jupiter.api.DisplayName;
@@ -162,5 +163,35 @@ public class TaxPeriodControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(1000))
                 .andExpect(jsonPath("$.result[0].id").value("period-123"));
+    }
+
+    @Test
+    @DisplayName("Lấy tổng hợp doanh thu chịu thuế thành công với vai trò VT-01 (Chủ hộ)")
+    @WithMockUser(username = "owner_test", roles = {"VT-01"})
+    public void getTaxRevenueSummary_success_owner() throws Exception {
+        TaxRevenueSummaryResponse response = TaxRevenueSummaryResponse.builder()
+                .periodId("period-123")
+                .periodName("Tháng 09/2026")
+                .totalRevenue(new java.math.BigDecimal("184000000.00"))
+                .totalTaxAmount(new java.math.BigDecimal("12200000.00"))
+                .taxRateSummaries(Collections.emptyList())
+                .build();
+
+        when(taxPeriodService.getTaxRevenueSummary(eq("owner_test"), eq("period-123")))
+                .thenReturn(response);
+
+        mockMvc.perform(get("/api/v1/tax-periods/period-123/tax-summary"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(1000))
+                .andExpect(jsonPath("$.result.periodId").value("period-123"))
+                .andExpect(jsonPath("$.result.totalRevenue").value(184000000.00));
+    }
+
+    @Test
+    @DisplayName("Lấy tổng hợp doanh thu chịu thuế thất bại (403) với vai trò VT-02 (Nhân viên bán hàng)")
+    @WithMockUser(username = "sales_test", roles = {"VT-02"})
+    public void getTaxRevenueSummary_forbidden_salesStaff() throws Exception {
+        mockMvc.perform(get("/api/v1/tax-periods/period-123/tax-summary"))
+                .andExpect(status().isForbidden());
     }
 }

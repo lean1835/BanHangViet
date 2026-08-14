@@ -27,6 +27,9 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
+import com.sales.dto.response.TaxRevenueSummaryResponse;
+import com.sales.repository.TaxRateRepository;
+
 @ExtendWith(MockitoExtension.class)
 class TaxPeriodServiceImplTest {
 
@@ -41,6 +44,9 @@ class TaxPeriodServiceImplTest {
 
     @Mock
     private UserRepository userRepository;
+
+    @Mock
+    private TaxRateRepository taxRateRepository;
 
     @Mock
     private ActivityLogHelper activityLogHelper;
@@ -321,5 +327,111 @@ class TaxPeriodServiceImplTest {
         assertEquals(1, response.getTotalElements());
         assertEquals(1, response.getContent().size());
         assertEquals("item-123", response.getContent().get(0).getId());
+    }
+
+    @Test
+    @DisplayName("Tổng hợp doanh thu chịu thuế thành công - Phân tách nhiều mức thuế suất (TC-01)")
+    void getTaxRevenueSummary_success_multiTaxRates() {
+        TaxDeclarationPeriod period = TaxDeclarationPeriod.builder()
+                .id("period-q3-2026")
+                .household(household)
+                .periodName("Bảng kê hóa đơn bán ra Quý 3 năm 2026")
+                .periodType("QUARTERLY")
+                .year(2026)
+                .periodNumber(3)
+                .build();
+
+        EInvoice inv1 = EInvoice.builder().id("inv-01").build();
+        EInvoice inv2 = EInvoice.builder().id("inv-02").build();
+
+        TaxSalesRegister reg1 = TaxSalesRegister.builder()
+                .id("reg-01")
+                .period(period)
+                .invoice(inv1)
+                .taxRatePercentage(new BigDecimal("8.00"))
+                .revenueAmount(new BigDecimal("100000000.00"))
+                .taxAmount(new BigDecimal("8000000.00"))
+                .build();
+
+        TaxSalesRegister reg2 = TaxSalesRegister.builder()
+                .id("reg-02")
+                .period(period)
+                .invoice(inv2)
+                .taxRatePercentage(new BigDecimal("5.00"))
+                .revenueAmount(new BigDecimal("84000000.00"))
+                .taxAmount(new BigDecimal("4200000.00"))
+                .build();
+
+        TaxRate tr8 = TaxRate.builder().id("tr-8").household(household).name("Thuế VAT 8%").ratePercentage(new BigDecimal("8.00")).isActive(true).build();
+        TaxRate tr5 = TaxRate.builder().id("tr-5").household(household).name("Thuế VAT 5%").ratePercentage(new BigDecimal("5.00")).isActive(true).build();
+
+        when(userRepository.findByUsername("ketoan01")).thenReturn(Optional.of(accountantUser));
+        when(taxPeriodRepository.findByIdAndHouseholdId("period-q3-2026", "hh-001")).thenReturn(Optional.of(period));
+        when(salesRegisterRepository.findByPeriodId("period-q3-2026")).thenReturn(List.of(reg1, reg2));
+        when(taxRateRepository.findByHouseholdIdOrderByCreatedAtDesc("hh-001")).thenReturn(List.of(tr8, tr5));
+
+        TaxRevenueSummaryResponse response = taxPeriodService.getTaxRevenueSummary("ketoan01", "period-q3-2026");
+
+        assertNotNull(response);
+        assertEquals("period-q3-2026", response.getPeriodId());
+        assertEquals(new BigDecimal("184000000.00"), response.getTotalRevenue());
+        assertEquals(new BigDecimal("12200000.00"), response.getTotalTaxAmount());
+        assertEquals(2, response.getTaxRateSummaries().size());
+
+        // Verified sorted by rate ascending: 5.00% first, 8.00% second
+        assertEquals(new BigDecimal("5.00"), response.getTaxRateSummaries().get(0).getTaxRatePercentage());
+        assertEquals(new BigDecimal("84000000.00"), response.getTaxRateSummaries().get(0).getRevenueAmount());
+
+        assertEquals(new BigDecimal("8.00"), response.getTaxRateSummaries().get(1).getTaxRatePercentage());
+        assertEquals(new BigDecimal("100000000.00"), response.getTaxRateSummaries().get(1).getRevenueAmount());
+    }
+
+    @Test
+    @DisplayName("Ngoại lệ: Mặt hàng trong kỳ gán mức thuế đã ngừng hiệu lực -> Ném PRODUCT_TAX_RATE_INACTIVE (TC-02)")
+    void getTaxRevenueSummary_inactiveTaxRate_throwsException() {
+        TaxDeclarationPeriod period = TaxDeclarationPeriod.builder()
+                .id("period-q3-2026")
+                .household(household)
+                .build();
+
+        EInvoice inv1 = EInvoice.builder().id("inv-01").build();
+
+        TaxSalesRegister reg1 = TaxSalesRegister.builder()
+                .id("reg-01")
+                .period(period)
+                .invoice(inv1)
+                .taxRatePercentage(new BigDecimal("10.00"))
+                .revenueAmount(new BigDecimal("5000000.00"))
+                .taxAmount(new BigDecimal("500000.00"))
+                .build();
+
+        TaxRate trInactive = TaxRate.builder()
+                .id("tr-10")
+                .household(household)
+                .name("Thuế VAT 10% (Cũ)")
+                .ratePercentage(new BigDecimal("10.00"))
+                .isActive(false)
+                .build();
+
+        when(userRepository.findByUsername("ketoan01")).thenReturn(Optional.of(accountantUser));
+        when(taxPeriodRepository.findByIdAndHouseholdId("period-q3-2026", "hh-001")).thenReturn(Optional.of(period));
+        when(salesRegisterRepository.findByPeriodId("period-q3-2026")).thenReturn(List.of(reg1));
+        when(taxRateRepository.findByHouseholdIdOrderByCreatedAtDesc("hh-001")).thenReturn(List.of(trInactive));
+
+        AppException ex = assertThrows(AppException.class, () ->
+                taxPeriodService.getTaxRevenueSummary("ketoan01", "period-q3-2026"));
+
+        assertEquals(ErrorCode.PRODUCT_TAX_RATE_INACTIVE, ex.getErrorCode());
+    }
+
+    @Test
+    @DisplayName("Chặn truy cập: Nhân viên bán hàng (VT-02) không được phép xem tổng hợp doanh thu -> Ném FORBIDDEN (TC-03)")
+    void getTaxRevenueSummary_salesStaffRole_throwsForbidden() {
+        when(userRepository.findByUsername("banhang01")).thenReturn(Optional.of(salesStaffUser));
+
+        AppException ex = assertThrows(AppException.class, () ->
+                taxPeriodService.getTaxRevenueSummary("banhang01", "period-q3-2026"));
+
+        assertEquals(ErrorCode.FORBIDDEN, ex.getErrorCode());
     }
 }
