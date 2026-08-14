@@ -3,6 +3,7 @@ import {
   FileText,
   FileSpreadsheet,
   Layers,
+  History,
 } from "lucide-react";
 import { REPORT_UI } from "@/constants/report";
 import type {
@@ -10,18 +11,29 @@ import type {
   ITaxDeclarationSummary,
   ITaxAnnexInvoice,
 } from "../types/ITaxDeclaration";
+import type {
+  IPeriodLockAudit,
+  IRolloverAdjustment,
+} from "../types/ITaxPeriodLock";
 import {
   useGetTaxDeclarationSummaryQuery,
   useGetTaxAnnexInvoicesQuery,
+  useGetPeriodLockHistoryQuery,
+  useGetRolloverAdjustmentsQuery,
 } from "../services/taxDeclarationApi";
 import { useTaxPeriodValidation } from "../hooks/useTaxPeriodValidation";
 import { useTaxDeclarationExport } from "../hooks/useTaxDeclarationExport";
+import { usePeriodLockAction } from "../hooks/usePeriodLockAction";
 import { TaxPeriodFilterBar } from "../components/TaxPeriodFilterBar";
 import { TaxSummaryKpiCards } from "../components/TaxSummaryKpiCards";
 import { SimulatedTaxForm01 } from "../components/SimulatedTaxForm01";
 import { TaxInvoiceAnnexTable } from "../components/TaxInvoiceAnnexTable";
 import { TaxDeclarationPreviewModal } from "../components/TaxDeclarationPreviewModal";
 import { MissingInfoAlertModal } from "../components/MissingInfoAlertModal";
+import { LockPeriodConfirmModal } from "../components/LockPeriodConfirmModal";
+import { UnlockPeriodModal } from "../components/UnlockPeriodModal";
+import { RolloverAdjustmentNotice } from "../components/RolloverAdjustmentNotice";
+import { PeriodLockAuditTimeline } from "../components/PeriodLockAuditTimeline";
 import { formatCurrency } from "@/utils/formatCurrency";
 
 const TAX_PERIODS_2026: ITaxPeriodOption[] = [
@@ -85,9 +97,16 @@ export const TaxDeclarationPage: React.FC = () => {
   const [selectedPeriod, setSelectedPeriod] = useState<ITaxPeriodOption>(
     TAX_PERIODS_2026[0]
   );
-  const [activeTab, setActiveTab] = useState<"FORM" | "ANNEX" | "TAX_GROUPS">("FORM");
+  const [activeTab, setActiveTab] = useState<
+    "FORM" | "ANNEX" | "TAX_GROUPS" | "AUDIT_HISTORY"
+  >("FORM");
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
   const [isMissingInfoModalOpen, setIsMissingInfoModalOpen] = useState(false);
+
+  // Trạng thái khóa cục bộ của từng kỳ (quản lý reactive state)
+  const [periodStatusOverrides, setPeriodStatusOverrides] = useState<
+    Record<string, { status: "OPEN" | "LOCKED"; lockedAt?: string; lockedBy?: string }>
+  >({});
 
   // 1. Kiểm tra validation & Phân quyền (TC-02 & TC-03)
   const {
@@ -114,12 +133,25 @@ export const TaxDeclarationPage: React.FC = () => {
     endDate: selectedPeriod.endDate,
   });
 
-  // Mock / Calculated Fallback data chuẩn xác theo TC-01 & QTN-22
+  const { data: lockHistoryRes } = useGetPeriodLockHistoryQuery();
+  const { data: rolloverRes } = useGetRolloverAdjustmentsQuery({
+    periodCode: selectedPeriod.value,
+    year: selectedPeriod.year,
+  });
+
+  // Mock / Calculated Fallback data chuẩn xác theo TC-01 & QTN-21 / QTN-22
   const summary: ITaxDeclarationSummary = useMemo(() => {
     if (summaryRes?.result) return summaryRes.result;
 
-    const isPeriodLocked =
+    const defaultLocked =
       selectedPeriod.value === "Q1-2026" || selectedPeriod.value === "Q2-2026";
+    const currentOverride = periodStatusOverrides[selectedPeriod.value];
+
+    const currentStatus = currentOverride
+      ? currentOverride.status
+      : defaultLocked
+      ? "LOCKED"
+      : "OPEN";
 
     return {
       periodCode: selectedPeriod.value,
@@ -127,7 +159,7 @@ export const TaxDeclarationPage: React.FC = () => {
       year: selectedPeriod.year,
       startDate: selectedPeriod.startDate,
       endDate: selectedPeriod.endDate,
-      status: isPeriodLocked ? "LOCKED" : "OPEN",
+      status: currentStatus,
       householdName: householdData?.name || "Hộ kinh doanh Bán Hàng Việt",
       taxCode: householdData?.taxCode || "8123456789",
       representativeName: householdData?.representativeName || "Nguyễn Văn A",
@@ -163,10 +195,14 @@ export const TaxDeclarationPage: React.FC = () => {
       validInvoicesCount: 24,
       adjustedInvoicesCount: 2,
       cancelledInvoicesCount: 1,
-      lockedAt: isPeriodLocked ? "2026-07-05T09:00:00Z" : undefined,
-      lockedBy: isPeriodLocked ? "VT-01 (Chủ hộ)" : undefined,
+      lockedAt:
+        currentOverride?.lockedAt ||
+        (defaultLocked ? "2026-07-05T09:00:00Z" : undefined),
+      lockedBy:
+        currentOverride?.lockedBy ||
+        (defaultLocked ? "VT-01 (Chủ hộ - Nguyễn Văn A)" : undefined),
     };
-  }, [summaryRes, selectedPeriod, householdData]);
+  }, [summaryRes, selectedPeriod, householdData, periodStatusOverrides]);
 
   const annexInvoices: ITaxAnnexInvoice[] = useMemo(() => {
     if (annexRes?.result) return annexRes.result;
@@ -244,7 +280,62 @@ export const TaxDeclarationPage: React.FC = () => {
     ];
   }, [annexRes]);
 
-  // 3. Hook xử lý xuất file (PDF / Excel / XML)
+  // Danh sách các khoản điều chỉnh giảm bị chuyển tiếp sang kỳ sau (TC-02, QTN-21)
+  const rolloverAdjustments: IRolloverAdjustment[] = useMemo(() => {
+    if (rolloverRes?.result) return rolloverRes.result;
+
+    if (summary.status === "LOCKED") {
+      return [
+        {
+          id: "ROLLOVER-01",
+          originalInvoiceNumber: "00000123",
+          originalInvoiceSeries: "1C26TAA",
+          returnTicketNumber: "PTH-0009",
+          originalPeriod: summary.periodCode,
+          rolloverPeriod: "Q4-2026",
+          adjustmentAmount: -5000000,
+          adjustmentTaxAmount: -400000,
+          approvedDate: "2026-10-08",
+          reason: "Khách trả hàng sau khi Quý 3 đã chốt sổ",
+        },
+      ];
+    }
+    return [];
+  }, [rolloverRes, summary.status, summary.periodCode]);
+
+  // Lịch sử kiểm toán chốt và mở lại kỳ (TC-04)
+  const auditHistory: IPeriodLockAudit[] = useMemo(() => {
+    if (lockHistoryRes?.result) return lockHistoryRes.result;
+
+    return [
+      {
+        id: "AUDIT-01",
+        periodCode: "Q2-2026",
+        periodLabel: "Quý 2 / 2026",
+        action: "LOCK",
+        performedBy: "VT-01 (Chủ hộ - Nguyễn Văn A)",
+        performedAt: "2026-07-05T09:00:00Z",
+        notes: "Đã nộp tờ khai quý 2 qua hệ thống eTax",
+        totalRevenueAtAction: 175000000,
+        totalTaxAtAction: 11800000,
+        validInvoicesCount: 22,
+      },
+      {
+        id: "AUDIT-02",
+        periodCode: "Q1-2026",
+        periodLabel: "Quý 1 / 2026",
+        action: "LOCK",
+        performedBy: "VT-01 (Chủ hộ - Nguyễn Văn A)",
+        performedAt: "2026-04-05T14:30:00Z",
+        notes: "Khóa số liệu quý 1 theo quy định",
+        totalRevenueAtAction: 160000000,
+        totalTaxAtAction: 10500000,
+        validInvoicesCount: 19,
+      },
+    ];
+  }, [lockHistoryRes]);
+
+  // 3. Hook xử lý xuất file (NCL-12-CN-003)
   const { handleExport, isExporting } = useTaxDeclarationExport({
     summary,
     annexInvoices,
@@ -252,6 +343,31 @@ export const TaxDeclarationPage: React.FC = () => {
     onMissingInfoAlert: () => setIsMissingInfoModalOpen(true),
     isMissingInfo,
     roleAllowed,
+  });
+
+  // 4. Hook xử lý chốt kỳ & mở lại kỳ (NCL-12-CN-004)
+  const {
+    isOwner,
+    roleLockRestrictionReason,
+    isLockModalOpen,
+    setIsLockModalOpen,
+    isUnlockModalOpen,
+    setIsUnlockModalOpen,
+    handleLockPeriod,
+    handleUnlockPeriod,
+    isLoading: isLockingAction,
+  } = usePeriodLockAction({
+    summary,
+    onStatusChange: (newStatus, lockedAt, lockedBy) => {
+      setPeriodStatusOverrides((prev) => ({
+        ...prev,
+        [selectedPeriod.value]: {
+          status: newStatus,
+          lockedAt,
+          lockedBy,
+        },
+      }));
+    },
   });
 
   return (
@@ -269,7 +385,7 @@ export const TaxDeclarationPage: React.FC = () => {
         </div>
       </div>
 
-      {/* 2. Thanh lọc kỳ tính thuế & Nút Xuất tệp */}
+      {/* 2. Thanh lọc kỳ tính thuế, Nút Xuất tệp & Nút Chốt/Mở lại kỳ */}
       <TaxPeriodFilterBar
         periods={TAX_PERIODS_2026}
         selectedPeriod={selectedPeriod}
@@ -280,7 +396,19 @@ export const TaxDeclarationPage: React.FC = () => {
         isExporting={isExporting}
         canExport={canExport}
         roleRestrictionReason={roleRestrictionReason}
+        onOpenLockModal={() => setIsLockModalOpen(true)}
+        onOpenUnlockModal={() => setIsUnlockModalOpen(true)}
+        isOwner={isOwner}
+        roleLockRestrictionReason={roleLockRestrictionReason}
       />
+
+      {/* Banner thông báo Rollover nếu kỳ đã chốt (TC-02, QTN-21) */}
+      {summary.status === "LOCKED" && rolloverAdjustments.length > 0 && (
+        <RolloverAdjustmentNotice
+          adjustments={rolloverAdjustments}
+          currentPeriodLabel={summary.periodLabel}
+        />
+      )}
 
       {/* 3. Thẻ KPI Tổng hợp doanh thu & Nghĩa vụ thuế */}
       <TaxSummaryKpiCards summary={summary} />
@@ -328,6 +456,19 @@ export const TaxDeclarationPage: React.FC = () => {
             <Layers className="w-4 h-4" />
             <span>{REPORT_UI.TAX_DECLARATION.TAB_TAX_GROUPS}</span>
           </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab("AUDIT_HISTORY")}
+            className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition ${
+              activeTab === "AUDIT_HISTORY"
+                ? "bg-kv-blue-light text-kv-blue-primary border border-blue-200 shadow-xs"
+                : "text-slate-600 hover:bg-slate-100"
+            }`}
+          >
+            <History className="w-4 h-4" />
+            <span>Nhật ký chốt kỳ (TC-04)</span>
+          </button>
         </div>
 
         {/* Nội dung từng Tab */}
@@ -336,6 +477,7 @@ export const TaxDeclarationPage: React.FC = () => {
             <div className="w-full flex justify-between items-center mb-4 text-xs">
               <span className="text-slate-500 italic">
                 * Dưới đây là bản mô phỏng trực tiếp Mẫu 01/CNKD sẽ được in / xuất tệp
+                {summary.status === "LOCKED" && " (ĐÃ ĐÓNG BĂNG DỮ LIỆU)"}
               </span>
               <button
                 type="button"
@@ -431,6 +573,13 @@ export const TaxDeclarationPage: React.FC = () => {
             </div>
           </div>
         )}
+
+        {activeTab === "AUDIT_HISTORY" && (
+          <PeriodLockAuditTimeline
+            history={auditHistory}
+            periodLabel={summary.periodLabel}
+          />
+        )}
       </div>
 
       {/* 5. Modals */}
@@ -448,6 +597,24 @@ export const TaxDeclarationPage: React.FC = () => {
         isOpen={isMissingInfoModalOpen}
         onClose={() => setIsMissingInfoModalOpen(false)}
         missingFields={missingFields}
+      />
+
+      {/* Modal Chốt kỳ kê khai (NCL-12-CN-004) */}
+      <LockPeriodConfirmModal
+        isOpen={isLockModalOpen}
+        onClose={() => setIsLockModalOpen(false)}
+        summary={summary}
+        onConfirmLock={handleLockPeriod}
+        isLoading={isLockingAction}
+      />
+
+      {/* Modal Mở lại kỳ kê khai (NCL-12-CN-004) */}
+      <UnlockPeriodModal
+        isOpen={isUnlockModalOpen}
+        onClose={() => setIsUnlockModalOpen(false)}
+        periodLabel={summary.periodLabel}
+        onConfirmUnlock={handleUnlockPeriod}
+        isLoading={isLockingAction}
       />
     </div>
   );

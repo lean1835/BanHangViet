@@ -10,6 +10,7 @@ import {
   FileSpreadsheet,
   FileCode,
   FileText,
+  ShieldCheck,
 } from "lucide-react";
 import { Dropdown, type MenuProps } from "antd";
 import type { ITaxPeriodOption, TTaxExportFormat } from "../types/ITaxDeclaration";
@@ -25,6 +26,11 @@ interface ITaxPeriodFilterBarProps {
   isExporting: boolean;
   canExport: boolean;
   roleRestrictionReason?: string;
+  // Các props mới phục vụ NCL-12-CN-004
+  onOpenLockModal?: () => void;
+  onOpenUnlockModal?: () => void;
+  isOwner?: boolean;
+  roleLockRestrictionReason?: string;
 }
 
 export const TaxPeriodFilterBar: React.FC<ITaxPeriodFilterBarProps> = ({
@@ -37,6 +43,10 @@ export const TaxPeriodFilterBar: React.FC<ITaxPeriodFilterBarProps> = ({
   isExporting,
   canExport,
   roleRestrictionReason,
+  onOpenLockModal,
+  onOpenUnlockModal,
+  isOwner = false,
+  roleLockRestrictionReason,
 }) => {
   const exportMenuItems: MenuProps["items"] = [
     {
@@ -106,7 +116,7 @@ export const TaxPeriodFilterBar: React.FC<ITaxPeriodFilterBarProps> = ({
         >
           {status === "LOCKED" ? (
             <>
-              <Lock className="w-3.5 h-3.5 text-emerald-600" />
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
               <span>{REPORT_UI.TAX_DECLARATION.STATUS_LOCKED}</span>
             </>
           ) : (
@@ -119,7 +129,7 @@ export const TaxPeriodFilterBar: React.FC<ITaxPeriodFilterBarProps> = ({
       </div>
 
       {/* Cột phải: Các nút Thao tác */}
-      <div className="flex items-center gap-2.5">
+      <div className="flex flex-wrap items-center gap-2.5">
         {/* Nút Xem trước */}
         <button
           type="button"
@@ -130,7 +140,7 @@ export const TaxPeriodFilterBar: React.FC<ITaxPeriodFilterBarProps> = ({
           <span>{REPORT_UI.TAX_DECLARATION.BTN_PREVIEW}</span>
         </button>
 
-        {/* Dropdown Nút Xuất tờ khai thuế */}
+        {/* Dropdown Nút Xuất tờ khai thuế (NCL-12-CN-003) */}
         {canExport ? (
           <Dropdown menu={{ items: exportMenuItems }} placement="bottomRight" arrow>
             <button
@@ -156,6 +166,51 @@ export const TaxPeriodFilterBar: React.FC<ITaxPeriodFilterBarProps> = ({
             >
               <Lock className="w-4 h-4" />
               <span>{REPORT_UI.TAX_DECLARATION.BTN_EXPORT}</span>
+            </button>
+          </div>
+        )}
+
+        {/* Nút Chốt kỳ / Mở lại kỳ (NCL-12-CN-004) */}
+        {status === "OPEN" ? (
+          isOwner ? (
+            <button
+              type="button"
+              onClick={onOpenLockModal}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs transition shadow-sm cursor-pointer"
+            >
+              <Lock className="w-4 h-4" />
+              <span>Chốt kỳ kê khai</span>
+            </button>
+          ) : (
+            <div title={roleLockRestrictionReason || "Chỉ Chủ hộ kinh doanh (VT-01) mới có quyền chốt kỳ kê khai"}>
+              <button
+                type="button"
+                disabled
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-200 text-slate-400 font-bold text-xs cursor-not-allowed opacity-70"
+              >
+                <Lock className="w-4 h-4" />
+                <span>Chốt kỳ kê khai</span>
+              </button>
+            </div>
+          )
+        ) : isOwner ? (
+          <button
+            type="button"
+            onClick={onOpenUnlockModal}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs transition shadow-sm cursor-pointer"
+          >
+            <Unlock className="w-4 h-4" />
+            <span>Mở lại kỳ</span>
+          </button>
+        ) : (
+          <div title={roleLockRestrictionReason || "Chỉ Chủ hộ kinh doanh (VT-01) mới có quyền mở lại kỳ kê khai"}>
+            <button
+              type="button"
+              disabled
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-200 text-slate-400 font-bold text-xs cursor-not-allowed opacity-70"
+            >
+              <Unlock className="w-4 h-4" />
+              <span>Mở lại kỳ</span>
             </button>
           </div>
         )}

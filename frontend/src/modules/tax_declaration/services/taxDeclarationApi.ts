@@ -6,6 +6,12 @@ import type {
   ITaxAnnexInvoice,
   ITaxExportPayload,
 } from "../types/ITaxDeclaration";
+import type {
+  ILockPeriodRequest,
+  IUnlockPeriodRequest,
+  IPeriodLockAudit,
+  IRolloverAdjustment,
+} from "../types/ITaxPeriodLock";
 
 export const taxDeclarationApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
@@ -43,6 +49,50 @@ export const taxDeclarationApi = baseApi.injectEndpoints({
       }),
       invalidatesTags: [{ type: API_TAG_TYPES.REPORT, id: "ACTIVITY_LOGS" }],
     }),
+
+    lockTaxPeriod: builder.mutation<IApiResponse<void>, ILockPeriodRequest>({
+      query: (body) => ({
+        url: "/reports/tax-declaration/lock",
+        method: HTTP_METHODS.POST,
+        body,
+      }),
+      invalidatesTags: (_result, _error, { periodCode, year }) => [
+        { type: API_TAG_TYPES.REPORT, id: `TAX_SUMMARY_${periodCode}_${year}` },
+        { type: API_TAG_TYPES.REPORT, id: "ACTIVITY_LOGS" },
+      ],
+    }),
+
+    unlockTaxPeriod: builder.mutation<IApiResponse<void>, IUnlockPeriodRequest>({
+      query: (body) => ({
+        url: "/reports/tax-declaration/unlock",
+        method: HTTP_METHODS.POST,
+        body,
+      }),
+      invalidatesTags: (_result, _error, { periodCode, year }) => [
+        { type: API_TAG_TYPES.REPORT, id: `TAX_SUMMARY_${periodCode}_${year}` },
+        { type: API_TAG_TYPES.REPORT, id: "ACTIVITY_LOGS" },
+      ],
+    }),
+
+    getPeriodLockHistory: builder.query<IApiResponse<IPeriodLockAudit[]>, void>({
+      query: () => ({
+        url: "/reports/tax-declaration/lock-history",
+        method: HTTP_METHODS.GET,
+      }),
+      providesTags: [{ type: API_TAG_TYPES.REPORT, id: "LOCK_HISTORY" }],
+    }),
+
+    getRolloverAdjustments: builder.query<
+      IApiResponse<IRolloverAdjustment[]>,
+      { periodCode: string; year: number }
+    >({
+      query: (params) => ({
+        url: "/reports/tax-declaration/rollover-adjustments",
+        method: HTTP_METHODS.GET,
+        params,
+      }),
+      providesTags: [{ type: API_TAG_TYPES.REPORT, id: "ROLLOVER_ADJUSTMENTS" }],
+    }),
   }),
   overrideExisting: false,
 });
@@ -51,4 +101,8 @@ export const {
   useGetTaxDeclarationSummaryQuery,
   useGetTaxAnnexInvoicesQuery,
   useLogTaxExportAuditMutation,
+  useLockTaxPeriodMutation,
+  useUnlockTaxPeriodMutation,
+  useGetPeriodLockHistoryQuery,
+  useGetRolloverAdjustmentsQuery,
 } = taxDeclarationApi;
