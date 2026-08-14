@@ -95,6 +95,41 @@ public class ReturnTicketController {
         return ResponseEntity.ok(response);
     }
 
+    @GetMapping("/statistics")
+    @PreAuthorize("hasAnyRole('VT-01', 'VT-03')")
+    public ResponseEntity<ApiResponse<com.sales.dto.response.ReturnTicketStatisticsResponse>> getReturnTicketStatistics(
+            Principal principal,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate,
+            @RequestParam(required = false, defaultValue = "10") Integer topLimit) {
+        com.sales.dto.response.ReturnTicketStatisticsResponse result = returnTicketService.getReturnTicketStatistics(
+                principal.getName(), fromDate, toDate, topLimit
+        );
+        ApiResponse<com.sales.dto.response.ReturnTicketStatisticsResponse> response = ApiResponse.<com.sales.dto.response.ReturnTicketStatisticsResponse>builder()
+                .code(1000)
+                .message("Lấy thống kê hàng trả lại và tiền đã hoàn thành công")
+                .result(result)
+                .build();
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/top-returned-products")
+    @PreAuthorize("hasAnyRole('VT-01', 'VT-03')")
+    public ResponseEntity<ApiResponse<java.util.List<com.sales.dto.response.ReturnItemRankingResponse>>> getTopReturnedProducts(
+            Principal principal,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate,
+            @RequestParam(required = false, defaultValue = "10") Integer limit) {
+        java.util.List<com.sales.dto.response.ReturnItemRankingResponse> result = returnTicketService.getTopReturnedProducts(
+                principal.getName(), fromDate, toDate, limit
+        );
+        ApiResponse<java.util.List<com.sales.dto.response.ReturnItemRankingResponse>> response = ApiResponse.<java.util.List<com.sales.dto.response.ReturnItemRankingResponse>>builder()
+                .code(1000)
+                .message("Lấy xếp hạng mặt hàng bị trả nhiều nhất thành công")
+                .result(result)
+                .build();
+        return ResponseEntity.ok(response);
+    }
 
     @GetMapping("/{id}")
     @PreAuthorize("hasAnyRole('VT-01', 'VT-02', 'VT-03')")

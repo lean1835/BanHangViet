@@ -18,6 +18,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
 
@@ -1068,6 +1069,171 @@ class ReturnTicketServiceImplTest {
 
         assertEquals(ErrorCode.UNAUTHORIZED_RETURN_ACTION, ex.getErrorCode());
         verify(returnTicketRepository, never()).save(any());
+    }
+
+    // ==================== TESTS FOR NCL-11-CN-004 ====================
+
+    @Test
+    @DisplayName("NCL-11-CN-004-TC-01: Thống kê hàng trả lại và tiền đã hoàn - Luồng thành công với 6 phiếu đã duyệt")
+    void testGetReturnTicketStatistics_Success_With6ApprovedTickets() {
+        LocalDate fromDate = LocalDate.of(2026, 9, 1);
+        LocalDate toDate = LocalDate.of(2026, 9, 30);
+
+        when(userRepository.findByUsername("chuho_viet")).thenReturn(Optional.of(ownerUser));
+
+        List<ReturnTicket> mockTickets = new ArrayList<>();
+        for (int i = 1; i <= 6; i++) {
+            ReturnTicketItem rti = ReturnTicketItem.builder()
+                    .id("item-" + i)
+                    .product(product)
+                    .productName(product.getName())
+                    .unit(product.getUnit())
+                    .quantity(new BigDecimal("2.000"))
+                    .subtotal(new BigDecimal("20000.00"))
+                    .build();
+
+            ReturnTicket t = ReturnTicket.builder()
+                    .id("ticket-" + i)
+                    .ticketNumber("PTH-2026090" + i + "-0001")
+                    .household(household)
+                    .originalInvoice(issuedInvoice)
+                    .createdByUser(ownerUser)
+                    .approvedByUser(ownerUser)
+                    .status("APPROVED")
+                    .refundPaymentMethod(i % 2 == 0 ? "CASH" : "BANK_TRANSFER")
+                    .totalReturnAmount(new BigDecimal("20000.00"))
+                    .approvedAt(LocalDateTime.of(2026, 9, i, 10, 0))
+                    .createdAt(LocalDateTime.of(2026, 9, i, 9, 0))
+                    .items(List.of(rti))
+                    .build();
+            mockTickets.add(t);
+        }
+
+        TicketStatusCountProjection statusProj = mock(TicketStatusCountProjection.class);
+        when(statusProj.getStatus()).thenReturn("APPROVED");
+        when(statusProj.getTicketCount()).thenReturn(6L);
+
+        when(returnTicketRepository.countTicketsByStatus(eq("house-1"), any(), any()))
+                .thenReturn(List.of(statusProj));
+        when(returnTicketRepository.findByHouseholdIdAndStatusAndPeriod(eq("house-1"), eq("APPROVED"), any(), any()))
+                .thenReturn(mockTickets);
+
+        TopReturnedProductProjection proj = mock(TopReturnedProductProjection.class);
+        when(proj.getProductId()).thenReturn("prod-1");
+        when(proj.getProductName()).thenReturn("Nước ngọt Coca-Cola 320ml");
+        when(proj.getUnit()).thenReturn("Lon");
+        when(proj.getSku()).thenReturn("8934567890123");
+        when(proj.getTotalReturnedQuantity()).thenReturn(new BigDecimal("12.000"));
+        when(proj.getTotalReturnAmount()).thenReturn(new BigDecimal("120000.00"));
+        when(proj.getTicketCount()).thenReturn(6L);
+
+        when(returnTicketItemRepository.findTopReturnedProducts(eq("house-1"), any(), any(), any()))
+                .thenReturn(List.of(proj));
+
+        DailyReturnProjection dailyProj = mock(DailyReturnProjection.class);
+        when(dailyProj.getReportDate()).thenReturn(LocalDate.of(2026, 9, 1));
+        when(dailyProj.getTicketCount()).thenReturn(1L);
+        when(dailyProj.getTotalAmount()).thenReturn(new BigDecimal("20000.00"));
+        when(dailyProj.getTotalQuantity()).thenReturn(new BigDecimal("2.000"));
+
+        when(returnTicketRepository.findDailyReturnStatistics(eq("house-1"), any(), any()))
+                .thenReturn(List.of(dailyProj));
+
+        ReturnTicketStatisticsResponse response = returnTicketService.getReturnTicketStatistics("chuho_viet", fromDate, toDate, 10);
+
+        assertNotNull(response);
+        assertEquals(fromDate, response.getFromDate());
+        assertEquals(toDate, response.getToDate());
+        assertEquals(6L, response.getTotalTickets());
+        assertEquals(6L, response.getApprovedTicketsCount());
+        assertEquals(0L, response.getPendingTicketsCount());
+        assertEquals(new BigDecimal("120000.00"), response.getTotalRefundAmount());
+        assertEquals(new BigDecimal("12.000"), response.getTotalReturnedQuantity());
+        assertEquals(1, response.getTopReturnedProducts().size());
+        assertEquals(new BigDecimal("120000.00"), response.getTopReturnedProducts().get(0).getTotalReturnAmount());
+        assertEquals(new BigDecimal("100.00"), response.getTopReturnedProducts().get(0).getPercentageOfTotalAmount());
+        assertEquals(3, response.getPaymentMethodSummaries().size());
+        assertEquals(6, response.getReturnTickets().size());
+    }
+
+    @Test
+    @DisplayName("NCL-11-CN-004-TC-02: Thống kê hàng trả lại và tiền đã hoàn - Dữ liệu rỗng khi không có phiếu trả hàng")
+    void testGetReturnTicketStatistics_EmptyData_ReturnsZeroAndEmptyLists() {
+        LocalDate fromDate = LocalDate.of(2026, 7, 1);
+        LocalDate toDate = LocalDate.of(2026, 7, 31);
+
+        when(userRepository.findByUsername("chuho_viet")).thenReturn(Optional.of(ownerUser));
+        when(returnTicketRepository.countTicketsByStatus(eq("house-1"), any(), any()))
+                .thenReturn(Collections.emptyList());
+        when(returnTicketRepository.findByHouseholdIdAndStatusAndPeriod(eq("house-1"), eq("APPROVED"), any(), any()))
+                .thenReturn(Collections.emptyList());
+        when(returnTicketItemRepository.findTopReturnedProducts(eq("house-1"), any(), any(), any()))
+                .thenReturn(Collections.emptyList());
+        when(returnTicketRepository.findDailyReturnStatistics(eq("house-1"), any(), any()))
+                .thenReturn(Collections.emptyList());
+
+        ReturnTicketStatisticsResponse response = returnTicketService.getReturnTicketStatistics("chuho_viet", fromDate, toDate, 10);
+
+        assertNotNull(response);
+        assertEquals(0L, response.getTotalTickets());
+        assertEquals(0L, response.getApprovedTicketsCount());
+        assertEquals(BigDecimal.ZERO, response.getTotalRefundAmount());
+        assertEquals(BigDecimal.ZERO, response.getTotalReturnedQuantity());
+        assertTrue(response.getTopReturnedProducts().isEmpty());
+        assertTrue(response.getReturnTickets().isEmpty());
+    }
+
+    @Test
+    @DisplayName("NCL-11-CN-004-TC-03: Thống kê hàng trả lại - Chặn người dùng có vai trò Nhân viên bán hàng (VT-02)")
+    void testGetReturnTicketStatistics_SellerRole_ThrowsForbiddenException() {
+        Role sellerRole = Role.builder().id(2).code("VT-02").name("Nhân viên bán hàng").build();
+        User sellerUser = User.builder()
+                .id("user-seller")
+                .username("nhanvien_viet")
+                .role(sellerRole)
+                .household(household)
+                .build();
+
+        when(userRepository.findByUsername("nhanvien_viet")).thenReturn(Optional.of(sellerUser));
+
+        AppException ex = assertThrows(AppException.class, () ->
+                returnTicketService.getReturnTicketStatistics("nhanvien_viet", LocalDate.now(), LocalDate.now(), 10)
+        );
+
+        assertEquals(ErrorCode.UNAUTHORIZED_RETURN_ACTION, ex.getErrorCode());
+    }
+
+    @Test
+    @DisplayName("NCL-11-CN-004: getTopReturnedProducts - Trả về danh sách xếp hạng theo số lượng giảm dần")
+    void testGetTopReturnedProducts_Success() {
+        when(userRepository.findByUsername("chuho_viet")).thenReturn(Optional.of(ownerUser));
+
+        ReturnTicket ticket = ReturnTicket.builder()
+                .id("ticket-1")
+                .status("APPROVED")
+                .totalReturnAmount(new BigDecimal("100000.00"))
+                .build();
+        when(returnTicketRepository.findByHouseholdIdAndStatusAndPeriod(eq("house-1"), eq("APPROVED"), any(), any()))
+                .thenReturn(List.of(ticket));
+
+        TopReturnedProductProjection proj1 = mock(TopReturnedProductProjection.class);
+        when(proj1.getProductId()).thenReturn("prod-1");
+        when(proj1.getProductName()).thenReturn("Bia Tiger");
+        when(proj1.getUnit()).thenReturn("Thùng");
+        when(proj1.getSku()).thenReturn("SKU-01");
+        when(proj1.getTotalReturnedQuantity()).thenReturn(new BigDecimal("10.000"));
+        when(proj1.getTotalReturnAmount()).thenReturn(new BigDecimal("80000.00"));
+        when(proj1.getTicketCount()).thenReturn(3L);
+
+        when(returnTicketItemRepository.findTopReturnedProducts(eq("house-1"), any(), any(), any()))
+                .thenReturn(List.of(proj1));
+
+        List<ReturnItemRankingResponse> topList = returnTicketService.getTopReturnedProducts("chuho_viet", null, null, 5);
+
+        assertNotNull(topList);
+        assertEquals(1, topList.size());
+        assertEquals("Bia Tiger", topList.get(0).getProductName());
+        assertEquals(new BigDecimal("80.00"), topList.get(0).getPercentageOfTotalAmount());
     }
 }
 
