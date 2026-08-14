@@ -4,6 +4,10 @@ import { APP_ROUTES } from "@/constants/routes";
 import type { TDemoRole } from "@/constants/roles";
 import { ProductSidebar } from "@/modules/product/components/ProductSidebar";
 import type { TStockFilter } from "@/modules/product/types/TStockFilter";
+import {
+  SupplierSidebar,
+  type SupplierFilterState,
+} from "@/modules/supplier/components/SupplierSidebar";
 
 interface ProductSectionSidebarProps {
   currentRole: TDemoRole;
@@ -11,6 +15,8 @@ interface ProductSectionSidebarProps {
   onSelectedGroupChange: (groupId: string) => void;
   stockFilter: TStockFilter;
   onStockFilterChange: (filter: TStockFilter) => void;
+  supplierFilter?: SupplierFilterState;
+  onSupplierFilterChange?: (filter: SupplierFilterState) => void;
 }
 
 const getNavLinkClass = (isActive: boolean): string =>
@@ -26,9 +32,15 @@ export const ProductSectionSidebar = ({
   onSelectedGroupChange,
   stockFilter,
   onStockFilterChange,
+  supplierFilter,
+  onSupplierFilterChange,
 }: ProductSectionSidebarProps) => {
   const location = useLocation();
   const isProductListRoute = location.pathname === APP_ROUTES.PRODUCTS;
+  const isSupplierRoute =
+    location.pathname === APP_ROUTES.PRODUCT_SUPPLIERS ||
+    location.pathname === APP_ROUTES.SUPPLIERS ||
+    location.pathname.startsWith("/products/suppliers");
 
   return (
     <div className="flex flex-col gap-4">
@@ -53,6 +65,12 @@ export const ProductSectionSidebar = ({
           >
             {PRODUCT_SECTION_COPY.STOCK_ENTRY_ROUTE}
           </NavLink>
+          <NavLink
+            to={APP_ROUTES.PRODUCT_SUPPLIERS}
+            className={({ isActive }) => getNavLinkClass(isActive || isSupplierRoute)}
+          >
+            {PRODUCT_SECTION_COPY.SUPPLIER_ROUTE}
+          </NavLink>
         </div>
       </div>
 
@@ -64,6 +82,15 @@ export const ProductSectionSidebar = ({
             stockFilter={stockFilter}
             setStockFilter={onStockFilterChange}
             userRole={currentRole}
+          />
+        </div>
+      )}
+
+      {isSupplierRoute && supplierFilter && onSupplierFilterChange && (
+        <div className="border-t pt-4">
+          <SupplierSidebar
+            filter={supplierFilter}
+            onFilterChange={onSupplierFilterChange}
           />
         </div>
       )}

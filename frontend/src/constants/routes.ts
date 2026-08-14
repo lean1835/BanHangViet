@@ -8,6 +8,7 @@ export const ROUTE_SEGMENTS = {
   SHIFTS: "shifts",
   ORDERS: "orders",
   CUSTOMERS: "customers",
+  SUPPLIERS: "suppliers",
   EMPLOYEES: "employees",
   REPORTS: "reports",
   REVENUE: "revenue",
@@ -50,10 +51,18 @@ export const APP_ROUTES = {
     ROUTE_SEGMENTS.PRODUCTS,
     ROUTE_SEGMENTS.STOCK_ENTRY,
   ),
+  PRODUCT_SUPPLIERS: createRoute(
+    ROUTE_SEGMENTS.PRODUCTS,
+    ROUTE_SEGMENTS.SUPPLIERS,
+  ),
   SHIFTS: createRoute(ROUTE_SEGMENTS.SHIFTS),
   ORDERS: createRoute(ROUTE_SEGMENTS.ORDERS),
   CUSTOMERS: createRoute(ROUTE_SEGMENTS.CUSTOMERS),
   CUSTOMER_DETAIL: (id: string) => `${createRoute(ROUTE_SEGMENTS.CUSTOMERS)}/${id}`,
+  SUPPLIERS: createRoute(
+    ROUTE_SEGMENTS.PRODUCTS,
+    ROUTE_SEGMENTS.SUPPLIERS,
+  ),
   EMPLOYEES: createRoute(ROUTE_SEGMENTS.EMPLOYEES),
   REPORTS: createRoute(ROUTE_SEGMENTS.REPORTS),
   REPORT_REVENUE: createRoute(

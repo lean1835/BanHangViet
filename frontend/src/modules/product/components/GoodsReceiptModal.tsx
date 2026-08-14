@@ -5,6 +5,7 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { IProduct } from "../types/IProduct";
 import { formatNumber } from "@/utils/formatCurrency";
+import { useGetSuppliersQuery } from "@/modules/supplier/services/supplierApi";
 
 const getLocalDateTimeValue = () => {
   const now = new Date();
@@ -16,6 +17,7 @@ const goodsReceiptSchema = z.object({
   receiptNumber: z.string().trim().max(50, "Mã phiếu không được vượt quá 50 ký tự"),
   receivedAt: z.string().min(1, "Vui lòng chọn ngày nhập kho")
     .refine((value) => new Date(value).getTime() <= Date.now(), "Ngày nhập kho không được ở tương lai"),
+  supplierId: z.string().optional().or(z.literal("")),
   productId: z.string().min(1, "Vui lòng chọn hàng hóa"),
   quantity: z.number({ invalid_type_error: "Vui lòng nhập số lượng" }).min(1, "Số lượng nhập phải lớn hơn 0").int("Số lượng nhập phải là số nguyên"),
   purchasePrice: z.number({ invalid_type_error: "Vui lòng nhập đơn giá" }).min(0, "Đơn giá nhập không được âm"),
@@ -32,6 +34,10 @@ interface GoodsReceiptModalProps {
 }
 
 export const GoodsReceiptModal: React.FC<GoodsReceiptModalProps> = ({ isOpen, onClose, onSave, products }) => {
+  const { data: suppliers = [] } = useGetSuppliersQuery(undefined, {
+    skip: !isOpen,
+  });
+
   const [productSearch, setProductSearch] = useState("");
   const [isProductDropdownOpen, setIsProductDropdownOpen] = useState(false);
   const [activeProductIndex, setActiveProductIndex] = useState(-1);
@@ -39,7 +45,7 @@ export const GoodsReceiptModal: React.FC<GoodsReceiptModalProps> = ({ isOpen, on
   const productSearchInputRef = useRef<HTMLInputElement>(null);
   const { register, handleSubmit, reset, setValue, clearErrors, formState: { errors, isSubmitting } } = useForm<GoodsReceiptFormValues>({
     resolver: zodResolver(goodsReceiptSchema),
-    defaultValues: { receiptNumber: "", receivedAt: getLocalDateTimeValue(), productId: "", quantity: 1, purchasePrice: 0, notes: "" },
+    defaultValues: { receiptNumber: "", receivedAt: getLocalDateTimeValue(), supplierId: "", productId: "", quantity: 1, purchasePrice: 0, notes: "" },
   });
 
   const normalizedProductSearch = productSearch.trim().toLocaleLowerCase("vi");
@@ -52,7 +58,7 @@ export const GoodsReceiptModal: React.FC<GoodsReceiptModalProps> = ({ isOpen, on
 
   useEffect(() => {
     if (!isOpen) return;
-    reset({ receiptNumber: "", receivedAt: getLocalDateTimeValue(), productId: "", quantity: 1, purchasePrice: 0, notes: "" });
+    reset({ receiptNumber: "", receivedAt: getLocalDateTimeValue(), supplierId: "", productId: "", quantity: 1, purchasePrice: 0, notes: "" });
     setProductSearch("");
     setPurchasePriceDisplay("0");
     setIsProductDropdownOpen(false);
@@ -104,18 +110,48 @@ export const GoodsReceiptModal: React.FC<GoodsReceiptModalProps> = ({ isOpen, on
           <button type="button" onClick={onClose} disabled={isSubmitting} aria-label="Đóng modal lập phiếu nhập kho" className="text-white/80 hover:text-white disabled:opacity-50 transition-colors text-lg">✕</button>
         </div>
         <form onSubmit={handleSubmit(submitForm)} className="p-5 flex flex-col gap-4 font-semibold text-slate-700 text-xs">
+          {/* Row 1: Mã phiếu nhập & Ngày nhập kho */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <label className="flex flex-col gap-1">Mã phiếu nhập
-              <input type="text" maxLength={50} autoFocus disabled={isSubmitting} placeholder="Để trống để hệ thống tự sinh" {...register("receiptNumber")} className="border border-slate-300 h-9 px-3 rounded-lg focus:outline-none focus:border-kv-blue-primary" />
+            <label className="flex flex-col gap-1.5">
+              <span>Mã phiếu nhập</span>
+              <input type="text" maxLength={50} autoFocus disabled={isSubmitting} placeholder="Để trống để hệ thống tự sinh" {...register("receiptNumber")} className="border border-slate-300 h-9 px-3 rounded-lg focus:outline-none focus:border-kv-blue-primary font-normal" />
               {errors.receiptNumber && <span className="text-[10px] text-rose-500">{errors.receiptNumber.message}</span>}
             </label>
-            <label className="flex flex-col gap-1">Ngày nhập kho <span className="text-rose-500">*</span>
-              <input type="datetime-local" max={getLocalDateTimeValue()} disabled={isSubmitting} {...register("receivedAt")} className="border border-slate-300 h-9 px-3 rounded-lg focus:outline-none focus:border-kv-blue-primary" />
+            <label className="flex flex-col gap-1.5">
+              <span className="flex items-center gap-1">Ngày nhập kho <span className="text-rose-500">*</span></span>
+              <input type="datetime-local" max={getLocalDateTimeValue()} disabled={isSubmitting} {...register("receivedAt")} className="border border-slate-300 h-9 px-3 rounded-lg focus:outline-none focus:border-kv-blue-primary font-normal" />
               {errors.receivedAt && <span className="text-[10px] text-rose-500">{errors.receivedAt.message}</span>}
             </label>
           </div>
-          <div ref={productComboboxRef} className="relative flex flex-col gap-1">
-            <label htmlFor="receipt-product-search">Chọn hàng hóa nhập <span className="text-rose-500">*</span></label>
+
+          {/* Row 2: Chọn Nhà cung cấp */}
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="receipt-supplier">Nhà cung cấp</label>
+            <select
+              id="receipt-supplier"
+              disabled={isSubmitting}
+              {...register("supplierId")}
+              className="border border-slate-300 h-9 px-3 rounded-lg bg-white focus:outline-none focus:border-kv-blue-primary font-normal"
+            >
+              <option value="">-- Không chọn nhà cung cấp / Nhập lẻ --</option>
+              {suppliers.map((sup) => (
+                <option
+                  key={sup.id}
+                  value={sup.id}
+                  disabled={sup.status === "INACTIVE"}
+                >
+                  {sup.name} ({sup.phoneNumber})
+                  {sup.status === "INACTIVE" ? " - [Ngừng hoạt động]" : ""}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Row 3: Chọn hàng hóa nhập */}
+          <div ref={productComboboxRef} className="relative flex flex-col gap-1.5">
+            <label htmlFor="receipt-product-search" className="flex items-center gap-1">
+              Chọn hàng hóa nhập <span className="text-rose-500">*</span>
+            </label>
             <input type="hidden" {...register("productId")} />
             <div className="relative">
               <input ref={productSearchInputRef} id="receipt-product-search" type="text" role="combobox" aria-autocomplete="list" aria-expanded={isProductDropdownOpen} aria-controls="receipt-product-options" disabled={isSubmitting} value={productSearch} onFocus={() => setIsProductDropdownOpen(true)} onChange={(event) => { setProductSearch(event.target.value); setValue("productId", "", { shouldDirty: true }); clearErrors("productId"); setIsProductDropdownOpen(true); setActiveProductIndex(-1); }} onKeyDown={(event) => {
@@ -123,7 +159,7 @@ export const GoodsReceiptModal: React.FC<GoodsReceiptModalProps> = ({ isOpen, on
                 else if (event.key === "ArrowUp") { event.preventDefault(); setActiveProductIndex((current) => Math.max(current - 1, 0)); }
                 else if (event.key === "Enter" && activeProductIndex >= 0) { event.preventDefault(); handleSelectProduct(filteredProducts[activeProductIndex]); }
                 else if (event.key === "Escape") { event.stopPropagation(); setIsProductDropdownOpen(false); }
-              }} placeholder="Tìm theo tên hàng hóa hoặc SKU" className="w-full border border-slate-300 h-9 pl-3 pr-16 rounded-lg focus:outline-none focus:border-kv-blue-primary" />
+              }} placeholder="Tìm theo tên hàng hóa hoặc SKU" className="w-full border border-slate-300 h-9 pl-3 pr-16 rounded-lg focus:outline-none focus:border-kv-blue-primary font-normal" />
               {productSearch && !isSubmitting && <button type="button" onClick={handleClearProduct} aria-label="Xóa hàng hóa đã tìm kiếm" title="Xóa nhanh" className="absolute inset-y-0 right-8 px-2 text-slate-400 hover:text-slate-700">✕</button>}
               <button type="button" disabled={isSubmitting} onMouseDown={(event) => event.preventDefault()} onClick={() => { setIsProductDropdownOpen((current) => !current); productSearchInputRef.current?.focus(); }} aria-label="Mở danh sách hàng hóa" className="absolute inset-y-0 right-0 px-3 text-slate-400">▾</button>
             </div>
@@ -132,14 +168,32 @@ export const GoodsReceiptModal: React.FC<GoodsReceiptModalProps> = ({ isOpen, on
             </div>}
             {errors.productId && <span className="text-[10px] text-rose-500">{errors.productId.message}</span>}
           </div>
+
+          {/* Row 4: Số lượng nhập & Đơn giá nhập */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <label className="flex flex-col gap-1">Số lượng nhập <span className="text-rose-500">*</span><input type="number" min="1" step="1" disabled={isSubmitting} {...register("quantity", { valueAsNumber: true })} className="border border-slate-300 h-9 px-3 rounded-lg" />{errors.quantity && <span className="text-[10px] text-rose-500">{errors.quantity.message}</span>}</label>
-            <label className="flex flex-col gap-1">Đơn giá nhập (đ) <span className="text-rose-500">*</span><input type="text" disabled={isSubmitting} value={purchasePriceDisplay} onChange={(e) => { const rawVal = e.target.value.replace(/\D/g, ""); const numVal = rawVal ? Number(rawVal) : 0; setPurchasePriceDisplay(rawVal ? formatNumber(numVal) : "0"); setValue("purchasePrice", numVal, { shouldValidate: true }); }} className="border border-slate-300 h-9 px-3 rounded-lg font-bold" />{errors.purchasePrice && <span className="text-[10px] text-rose-500">{errors.purchasePrice.message}</span>}</label>
+            <label className="flex flex-col gap-1.5">
+              <span className="flex items-center gap-1">Số lượng nhập <span className="text-rose-500">*</span></span>
+              <input type="number" min="1" step="1" disabled={isSubmitting} {...register("quantity", { valueAsNumber: true })} className="border border-slate-300 h-9 px-3 rounded-lg focus:outline-none focus:border-kv-blue-primary font-normal" />
+              {errors.quantity && <span className="text-[10px] text-rose-500">{errors.quantity.message}</span>}
+            </label>
+            <label className="flex flex-col gap-1.5">
+              <span className="flex items-center gap-1">Đơn giá nhập (đ) <span className="text-rose-500">*</span></span>
+              <input type="text" disabled={isSubmitting} value={purchasePriceDisplay} onChange={(e) => { const rawVal = e.target.value.replace(/\D/g, ""); const numVal = rawVal ? Number(rawVal) : 0; setPurchasePriceDisplay(rawVal ? formatNumber(numVal) : "0"); setValue("purchasePrice", numVal, { shouldValidate: true }); }} className="border border-slate-300 h-9 px-3 rounded-lg font-bold focus:outline-none focus:border-kv-blue-primary" />
+              {errors.purchasePrice && <span className="text-[10px] text-rose-500">{errors.purchasePrice.message}</span>}
+            </label>
           </div>
-          <label className="flex flex-col gap-1">Ghi chú / Nhà cung cấp<textarea rows={3} maxLength={500} disabled={isSubmitting} placeholder="Ví dụ: Nhập đại lý cấp 1, có hóa đơn VAT đầu vào..." {...register("notes")} className="border border-slate-300 p-3 rounded-lg resize-none" />{errors.notes && <span className="text-[10px] text-rose-500">{errors.notes.message}</span>}</label>
+
+          {/* Row 5: Ghi chú */}
+          <label className="flex flex-col gap-1.5">
+            <span>Ghi chú / Diễn giải</span>
+            <textarea rows={3} maxLength={500} disabled={isSubmitting} placeholder="Ví dụ: Nhập đại lý cấp 1, có hóa đơn VAT đầu vào..." {...register("notes")} className="border border-slate-300 p-3 rounded-lg resize-none focus:outline-none focus:border-kv-blue-primary font-normal" />
+            {errors.notes && <span className="text-[10px] text-rose-500">{errors.notes.message}</span>}
+          </label>
+
+          {/* Footer Actions */}
           <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
-            <button type="button" onClick={onClose} disabled={isSubmitting} className="h-9 px-4 rounded-lg border border-slate-300">Hủy</button>
-            <button type="submit" disabled={isSubmitting || products.length === 0} className="h-9 px-4 rounded-lg bg-kv-blue-primary text-white disabled:bg-slate-300">{isSubmitting ? "Đang nhập kho..." : "Xác nhận nhập kho"}</button>
+            <button type="button" onClick={onClose} disabled={isSubmitting} className="h-9 px-4 rounded-lg border border-slate-300 font-semibold hover:bg-slate-50 transition-colors">Hủy</button>
+            <button type="submit" disabled={isSubmitting || products.length === 0} className="h-9 px-4 rounded-lg bg-kv-blue-primary hover:bg-kv-blue-dark text-white font-bold disabled:bg-slate-300 transition-colors">{isSubmitting ? "Đang nhập kho..." : "Xác nhận nhập kho"}</button>
           </div>
         </form>
       </div>
