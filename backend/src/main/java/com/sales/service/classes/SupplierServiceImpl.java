@@ -76,6 +76,7 @@ public class SupplierServiceImpl implements SupplierService {
         map.put("address", supplier.getAddress());
         map.put("taxCode", supplier.getTaxCode());
         map.put("note", supplier.getNote());
+        map.put("status", supplier.getStatus());
         map.put("currentDebt", supplier.getCurrentDebt());
         return map;
     }
@@ -90,6 +91,7 @@ public class SupplierServiceImpl implements SupplierService {
                 .address(supplier.getAddress())
                 .taxCode(supplier.getTaxCode())
                 .note(supplier.getNote())
+                .status(supplier.getStatus() != null ? supplier.getStatus() : "ACTIVE")
                 .currentDebt(supplier.getCurrentDebt() != null ? supplier.getCurrentDebt() : BigDecimal.ZERO)
                 .createdAt(supplier.getCreatedAt())
                 .updatedAt(supplier.getUpdatedAt())
@@ -106,15 +108,29 @@ public class SupplierServiceImpl implements SupplierService {
             throw new AppException(ErrorCode.SUPPLIER_PHONE_EXISTS);
         }
 
-        Supplier supplier = Supplier.builder()
+        String email = (request.getEmail() != null && !request.getEmail().trim().isEmpty())
+                ? request.getEmail().trim()
+                : null;
+
+        String status = (request.getStatus() != null && !request.getStatus().trim().isEmpty())
+                ? request.getStatus().trim().toUpperCase()
+                : "ACTIVE";
+
+        Supplier.SupplierBuilder supplierBuilder = Supplier.builder()
                 .household(household)
                 .name(request.getName())
                 .phoneNumber(request.getPhoneNumber())
-                .email(request.getEmail())
+                .email(email)
                 .address(request.getAddress())
                 .taxCode(request.getTaxCode())
                 .note(request.getNote())
-                .build();
+                .status(status);
+
+        if (request.getInitialDebt() != null) {
+            supplierBuilder.currentDebt(request.getInitialDebt());
+        }
+
+        Supplier supplier = supplierBuilder.build();
 
         Supplier savedSupplier = supplierRepository.save(supplier);
         logActivity(household, user, "CREATE_SUPPLIER", savedSupplier.getId(), null, buildSupplierLogMap(savedSupplier));
@@ -137,15 +153,49 @@ public class SupplierServiceImpl implements SupplierService {
 
         Map<String, Object> oldMap = buildSupplierLogMap(supplier);
 
+        String email = (request.getEmail() != null && !request.getEmail().trim().isEmpty())
+                ? request.getEmail().trim()
+                : null;
+
         supplier.setName(request.getName());
         supplier.setPhoneNumber(request.getPhoneNumber());
-        supplier.setEmail(request.getEmail());
+        supplier.setEmail(email);
         supplier.setAddress(request.getAddress());
         supplier.setTaxCode(request.getTaxCode());
         supplier.setNote(request.getNote());
 
+        if (request.getStatus() != null && !request.getStatus().trim().isEmpty()) {
+            supplier.setStatus(request.getStatus().trim().toUpperCase());
+        }
+
+        if (request.getCurrentDebt() != null) {
+            supplier.setCurrentDebt(request.getCurrentDebt());
+        } else if (request.getInitialDebt() != null) {
+            supplier.setCurrentDebt(request.getInitialDebt());
+        }
+
         Supplier updatedSupplier = supplierRepository.save(supplier);
         logActivity(household, user, "UPDATE_SUPPLIER", updatedSupplier.getId(), oldMap, buildSupplierLogMap(updatedSupplier));
+
+        return mapToResponse(updatedSupplier);
+    }
+
+    @Override
+    @Transactional
+    public SupplierResponse toggleSupplierStatus(String currentUsername, String id, String status) {
+        User user = getAuthenticatedUser(currentUsername);
+        BusinessHousehold household = user.getHousehold();
+
+        Supplier supplier = supplierRepository.findByIdAndHouseholdIdAndDeletedAtIsNull(id, household.getId())
+                .orElseThrow(() -> new AppException(ErrorCode.SUPPLIER_NOT_FOUND));
+
+        Map<String, Object> oldMap = buildSupplierLogMap(supplier);
+
+        String newStatus = (status != null && status.equalsIgnoreCase("INACTIVE")) ? "INACTIVE" : "ACTIVE";
+        supplier.setStatus(newStatus);
+
+        Supplier updatedSupplier = supplierRepository.save(supplier);
+        logActivity(household, user, "UPDATE_SUPPLIER_STATUS", updatedSupplier.getId(), oldMap, buildSupplierLogMap(updatedSupplier));
 
         return mapToResponse(updatedSupplier);
     }

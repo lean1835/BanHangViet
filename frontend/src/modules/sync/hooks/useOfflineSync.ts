@@ -113,10 +113,21 @@ export const useOfflineSync = ({
           .filter(Boolean) as string[];
 
         setUnissuedOrderIds(unissuedIds);
-        clearSyncedOrders(syncedOrderNumbers);
+        
+        // Theo tiêu chuẩn NCL-08-CN-006-TC-02: Chỉ xóa khỏi cache các đơn đã xác nhận đồng bộ thành công
+        if (syncedOrderNumbers.length > 0) {
+          clearSyncedOrders(syncedOrderNumbers);
+        }
 
-        // Gom các thông điệp cảnh báo (như cảnh báo quá 24h, sản phẩm vượt tồn kho)
+        // Gom các thông điệp cảnh báo
         const collectedWarnings: string[] = [];
+        if (syncedOrderNumbers.length < cleanOrders.length) {
+          const missingCount = cleanOrders.length - syncedOrderNumbers.length;
+          collectedWarnings.push(
+            `Phát hiện phiên đồng bộ lệch dữ liệu (${missingCount} đơn chưa ghi nhận thành công). Các đơn bị lệch đã được giữ lại trên thiết bị để đối soát.`
+          );
+        }
+
         uploadRes.result?.forEach((r) => {
           if (r.warningMessages && r.warningMessages.length > 0) {
             collectedWarnings.push(...r.warningMessages);

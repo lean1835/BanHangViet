@@ -25,5 +25,26 @@ public interface ReturnTicketItemRepository extends JpaRepository<ReturnTicketIt
             @Param("invoiceId") String invoiceId,
             @Param("statuses") List<String> statuses
     );
+
+    @Query("SELECT rti.product.id AS productId, " +
+           "COALESCE(p.name, rti.productName) AS productName, " +
+           "p.sku AS sku, " +
+           "COALESCE(p.unit, rti.unit) AS unit, " +
+           "SUM(rti.quantity) AS totalReturnedQuantity, " +
+           "SUM(rti.subtotal) AS totalReturnAmount, " +
+           "COUNT(DISTINCT rti.returnTicket.id) AS ticketCount " +
+           "FROM ReturnTicketItem rti " +
+           "LEFT JOIN rti.product p " +
+           "WHERE rti.returnTicket.household.id = :householdId " +
+           "AND rti.returnTicket.status = 'APPROVED' " +
+           "AND (COALESCE(rti.returnTicket.approvedAt, rti.returnTicket.createdAt) BETWEEN :startDateTime AND :endDateTime) " +
+           "GROUP BY rti.product.id, COALESCE(p.name, rti.productName), p.sku, COALESCE(p.unit, rti.unit) " +
+           "ORDER BY SUM(rti.quantity) DESC, SUM(rti.subtotal) DESC")
+    List<com.sales.dto.response.TopReturnedProductProjection> findTopReturnedProducts(
+            @Param("householdId") String householdId,
+            @Param("startDateTime") java.time.LocalDateTime startDateTime,
+            @Param("endDateTime") java.time.LocalDateTime endDateTime,
+            org.springframework.data.domain.Pageable pageable
+    );
 }
 

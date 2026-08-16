@@ -3,6 +3,8 @@ package com.sales.dto.request;
 import jakarta.validation.constraints.*;
 import lombok.*;
 
+import java.math.BigDecimal;
+
 @Data
 @Builder
 @NoArgsConstructor
@@ -29,4 +31,12 @@ public class UpdateSupplierRequest {
     private String taxCode;
 
     private String note;
+
+    private String status;
+
+    @Min(value = 0, message = "Số tiền nợ không được âm")
+    private BigDecimal currentDebt;
+
+    @Min(value = 0, message = "Số tiền nợ không được âm")
+    private BigDecimal initialDebt;
 }

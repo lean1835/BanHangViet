@@ -50,6 +50,21 @@ public class SupplierController {
         return ResponseEntity.ok(response);
     }
 
+    @RequestMapping(value = "/{id}/status", method = {RequestMethod.PATCH, RequestMethod.PUT})
+    @PreAuthorize("hasRole('VT-01')")
+    public ResponseEntity<ApiResponse<SupplierResponse>> updateStatus(
+            Principal principal,
+            @PathVariable String id,
+            @RequestParam String status) {
+        SupplierResponse result = supplierService.toggleSupplierStatus(principal.getName(), id, status);
+        ApiResponse<SupplierResponse> response = ApiResponse.<SupplierResponse>builder()
+                .code(1000)
+                .message("Cập nhật trạng thái nhà cung cấp thành công")
+                .result(result)
+                .build();
+        return ResponseEntity.ok(response);
+    }
+
     @GetMapping("/{id}")
     @PreAuthorize("hasAnyRole('VT-01', 'VT-02', 'VT-03')")
     public ResponseEntity<ApiResponse<SupplierResponse>> getSupplier(
