@@ -19,6 +19,9 @@ public class ActivityLog {
     @Column(length = 36, nullable = false)
     private String id;
 
+    @Column(name = "sequence_number", insertable = false, updatable = false)
+    private Long sequenceNumber;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "household_id")
     private BusinessHousehold household;
@@ -47,6 +50,12 @@ public class ActivityLog {
 
     @Column(name = "user_agent", length = 255)
     private String userAgent;
+
+    @Column(name = "previous_hash", length = 64)
+    private String previousHash;
+
+    @Column(name = "hash", nullable = false, length = 64)
+    private String hash;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
