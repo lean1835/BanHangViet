@@ -120,7 +120,15 @@ public enum ErrorCode {
     HOUSEHOLD_TAX_CODE_MISSING(5007, "Thông tin hộ kinh doanh chưa đầy đủ: Thiếu mã số thuế", HttpStatus.BAD_REQUEST),
     HOUSEHOLD_REPRESENTATIVE_MISSING(5008, "Thông tin hộ kinh doanh chưa đầy đủ: Thiếu người đại diện hợp pháp", HttpStatus.BAD_REQUEST),
     TAX_PERIOD_NOT_LOCKED(5009, "Kỳ kê khai thuế chưa bị khóa", HttpStatus.BAD_REQUEST),
-    TAX_PERIOD_UNLOCK_REASON_REQUIRED(5010, "Lý do mở lại kỳ kê khai không được để trống", HttpStatus.BAD_REQUEST);
+    TAX_PERIOD_UNLOCK_REASON_REQUIRED(5010, "Lý do mở lại kỳ kê khai không được để trống", HttpStatus.BAD_REQUEST),
+
+    // NCL-14-CN-002 Sao lưu dữ liệu tự động theo ngày
+    BACKUP_CONFIG_NOT_FOUND(5020, "Cấu hình sao lưu dữ liệu tự động không tồn tại", HttpStatus.NOT_FOUND),
+    INVALID_RETENTION_COUNT(5021, "Số lượng bản sao lưu giữ lại phải từ 1 đến 100", HttpStatus.BAD_REQUEST),
+    INVALID_SCHEDULED_TIME(5022, "Thời gian chạy sao lưu không đúng định dạng HH:mm (00:00 - 23:59)", HttpStatus.BAD_REQUEST),
+    BACKUP_FILE_NOT_FOUND(5023, "Tệp sao lưu không tồn tại trên hệ thống", HttpStatus.NOT_FOUND),
+    BACKUP_EXECUTION_FAILED(5024, "Lỗi thực thi sao lưu dữ liệu tự động", HttpStatus.INTERNAL_SERVER_ERROR),
+    ONLY_STORE_OWNER_CAN_BACKUP(5025, "Chỉ chủ hộ kinh doanh mới có quyền cấu hình và thực thi sao lưu dữ liệu", HttpStatus.FORBIDDEN);
 
     private final int code;
     private final String message;
