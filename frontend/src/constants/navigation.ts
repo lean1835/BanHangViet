@@ -16,6 +16,7 @@ export const NAVIGATION_ITEM_IDS = {
   ORDERS: "orders",
   E_INVOICES: "e-invoices",
   CUSTOMERS: "customers",
+  SUPPLIERS: "suppliers",
   EMPLOYEES: "employees",
   REPORTS: "reports",
   SETTINGS: "settings",
@@ -33,6 +34,7 @@ export const HIDDEN_NAVIGATION_BY_ROLE: Partial<Record<TDemoRole, readonly strin
     NAVIGATION_ITEM_IDS.SETTINGS,
     NAVIGATION_ITEM_IDS.EMPLOYEES,
     NAVIGATION_ITEM_IDS.SHIFTS,
+    NAVIGATION_ITEM_IDS.SUPPLIERS,
   ],
   [USER_ROLES.ACCOUNTANT]: [NAVIGATION_ITEM_IDS.SHIFTS],
 };

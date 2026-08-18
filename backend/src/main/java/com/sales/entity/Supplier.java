@@ -43,6 +43,10 @@ public class Supplier {
     @Column(columnDefinition = "TEXT")
     private String note;
 
+    @Column(name = "status", nullable = false, length = 20)
+    @Builder.Default
+    private String status = "ACTIVE";
+
     @Column(name = "current_debt", nullable = false, precision = 15, scale = 2)
     @Builder.Default
     private BigDecimal currentDebt = BigDecimal.ZERO;

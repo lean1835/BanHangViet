@@ -5,10 +5,13 @@ import { PRODUCT_FILTER, PRODUCT_STOCK_FILTER } from "@/constants/product";
 import { useDashboardDemo } from "@/providers/DashboardDemoProvider";
 import { ProductSectionSidebar } from "@/modules/product/components/ProductSectionSidebar";
 import type { TStockFilter } from "@/modules/product/types/TStockFilter";
+import type { SupplierFilterState } from "@/modules/supplier/components/SupplierSidebar";
 
 export interface IProductOutletContext {
   selectedGroup: string;
   stockFilter: TStockFilter;
+  supplierFilter: SupplierFilterState;
+  setSupplierFilter: React.Dispatch<React.SetStateAction<SupplierFilterState>>;
 }
 
 export const ProductsLayout = () => {
@@ -17,6 +20,13 @@ export const ProductsLayout = () => {
   const [stockFilter, setStockFilter] = useState<TStockFilter>(
     PRODUCT_STOCK_FILTER.ALL,
   );
+
+  // Supplier filter states
+  const [supplierFilter, setSupplierFilter] = useState<SupplierFilterState>({
+    debtFrom: "",
+    debtTo: "",
+    status: "ACTIVE",
+  });
 
   return (
     <DashboardWorkspaceLayout
@@ -27,10 +37,21 @@ export const ProductsLayout = () => {
           onSelectedGroupChange={setSelectedGroup}
           stockFilter={stockFilter}
           onStockFilterChange={setStockFilter}
+          supplierFilter={supplierFilter}
+          onSupplierFilterChange={setSupplierFilter}
         />
       }
     >
-      <Outlet context={{ selectedGroup, stockFilter } satisfies IProductOutletContext} />
+      <Outlet
+        context={
+          {
+            selectedGroup,
+            stockFilter,
+            supplierFilter,
+            setSupplierFilter,
+          } satisfies IProductOutletContext
+        }
+      />
     </DashboardWorkspaceLayout>
   );
 };

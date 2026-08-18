@@ -29,6 +29,7 @@ const AdjustInvoicePage = React.lazy(
   () => import("@/modules/e_invoice/pages/AdjustInvoicePage")
 );
 const CustomerPage = React.lazy(() => import("@/modules/customer/pages/CustomerPage"));
+const SupplierPage = React.lazy(() => import("@/modules/supplier/pages/SupplierPage"));
 const EmployeePage = React.lazy(() => import("@/modules/employee/pages/EmployeePage"));
 const ReportsLayout = React.lazy(() => import("@/modules/report/pages/ReportsLayout"));
 const RevenueReportPage = React.lazy(
@@ -130,6 +131,7 @@ export const AppRouter = () => (
           >
             <Route index element={<ProductListPage />} />
             <Route path={ROUTE_SEGMENTS.STOCK_ENTRY} element={<StockEntryPage />} />
+            <Route path={ROUTE_SEGMENTS.SUPPLIERS} element={<SupplierPage />} />
           </Route>
 
           <Route
@@ -179,6 +181,10 @@ export const AppRouter = () => (
                 <CustomerPage />
               </RoleRoute>
             }
+          />
+          <Route
+            path="suppliers"
+            element={<Navigate to={APP_ROUTES.PRODUCT_SUPPLIERS} replace />}
           />
           <Route
             path={ROUTE_SEGMENTS.EMPLOYEES}

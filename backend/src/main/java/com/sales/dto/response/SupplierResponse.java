@@ -18,6 +18,7 @@ public class SupplierResponse {
     private String address;
     private String taxCode;
     private String note;
+    private String status;
     private BigDecimal currentDebt;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

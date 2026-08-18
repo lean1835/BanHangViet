@@ -42,7 +42,22 @@ public interface EInvoiceRepository extends JpaRepository<EInvoice, String>, Jpa
 
     boolean existsByReturnTicketIdAndDeletedAtIsNull(String returnTicketId);
 
+    @EntityGraph(attributePaths = {"originalInvoice", "returnTicket"})
     List<EInvoice> findByHouseholdIdAndDeletedAtIsNullOrderByCreatedAtDesc(String householdId);
+
+    @EntityGraph(attributePaths = {"originalInvoice", "returnTicket"})
+    @Query("SELECT e FROM EInvoice e " +
+           "WHERE e.household.id = :householdId " +
+           "AND e.deletedAt IS NULL " +
+           "AND e.status <> 'CANCELED' " +
+           "AND (e.status IN ('TAX_CODE_GRANTED', 'ISSUED') OR e.taxAuthorityCode IS NOT NULL) " +
+           "AND (COALESCE(e.taxResponseAt, e.createdAt) BETWEEN :startDateTime AND :endDateTime) " +
+           "ORDER BY COALESCE(e.taxResponseAt, e.createdAt) ASC")
+    List<EInvoice> findValidInvoicesForTaxPeriod(
+            @Param("householdId") String householdId,
+            @Param("startDateTime") LocalDateTime startDateTime,
+            @Param("endDateTime") LocalDateTime endDateTime
+    );
 
     @Query("SELECT MAX(e.invoiceNumber) FROM EInvoice e WHERE e.household.id = :householdId AND e.invoicePattern = :pattern AND e.invoiceSymbol = :symbol AND e.invoiceNumber IS NOT NULL AND e.deletedAt IS NULL")
     Optional<String> findMaxInvoiceNumber(@Param("householdId") String householdId,
