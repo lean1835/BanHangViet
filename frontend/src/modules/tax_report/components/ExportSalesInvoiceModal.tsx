@@ -21,18 +21,18 @@ export const ExportSalesInvoiceModal: React.FC<IExportSalesInvoiceModalProps> = 
   if (!isOpen) return null;
 
   const getPeriodText = () => {
-    if (filters.periodType === "MONTH") {
-      return `Tháng ${filters.periodValue}/${filters.year}`;
+    if (filters.periodType === "MONTHLY") {
+      return `Tháng ${filters.periodNumber}/${filters.year}`;
     }
-    if (filters.periodType === "QUARTER") {
-      return `Quý ${filters.periodValue} - Năm ${filters.year}`;
+    if (filters.periodType === "QUARTERLY") {
+      return `Quý ${filters.periodNumber} - Năm ${filters.year}`;
     }
     return `Năm ${filters.year}`;
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4">
-      <div className="bg-white rounded-2xl shadow-xl border border-slate-100 max-w-md w-full p-6 animate-in fade-in zoom-in-95 duration-200">
+      <div className="bg-white rounded-3xl shadow-xl border border-slate-100 max-w-md w-full p-6 animate-in fade-in zoom-in-95 duration-200">
         <div className="flex items-center justify-between border-b border-slate-100 pb-3">
           <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
             <svg
@@ -48,7 +48,7 @@ export const ExportSalesInvoiceModal: React.FC<IExportSalesInvoiceModalProps> = 
                 d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
               />
             </svg>
-            Xuất Bảng kê hóa đơn bán ra
+            Xuất Bảng kê & Tờ khai thuế
           </h3>
           <button
             onClick={onClose}
@@ -59,10 +59,10 @@ export const ExportSalesInvoiceModal: React.FC<IExportSalesInvoiceModalProps> = 
         </div>
 
         <div className="py-4 space-y-4">
-          <div className="bg-blue-50/70 border border-blue-100 p-3.5 rounded-xl text-xs text-blue-900">
+          <div className="bg-blue-50/70 border border-blue-100 p-3.5 rounded-2xl text-xs text-blue-900">
             <p className="font-semibold">Kỳ kê khai đã chọn: <strong>{getPeriodText()}</strong></p>
             <p className="mt-1 text-slate-600">
-              Bảng kê được tổng hợp chuẩn theo quy định kê khai thuế của cơ quan thuế.
+              Tệp bao gồm Tờ khai thuế 01/CNKD và Bảng kê hóa đơn bán ra phụ lục BK01/CNKD theo mẫu quy định.
             </p>
           </div>
 
@@ -72,7 +72,7 @@ export const ExportSalesInvoiceModal: React.FC<IExportSalesInvoiceModalProps> = 
             </label>
             <div className="grid grid-cols-2 gap-3">
               <label
-                className={`flex items-center justify-between p-3.5 border-2 rounded-xl cursor-pointer transition ${
+                className={`flex items-center justify-between p-3.5 border-2 rounded-2xl cursor-pointer transition ${
                   selectedFormat === "excel"
                     ? "border-emerald-500 bg-emerald-50/40 text-emerald-900"
                     : "border-slate-200 hover:border-slate-300"
@@ -96,7 +96,7 @@ export const ExportSalesInvoiceModal: React.FC<IExportSalesInvoiceModalProps> = 
               </label>
 
               <label
-                className={`flex items-center justify-between p-3.5 border-2 rounded-xl cursor-pointer transition ${
+                className={`flex items-center justify-between p-3.5 border-2 rounded-2xl cursor-pointer transition ${
                   selectedFormat === "pdf"
                     ? "border-rose-500 bg-rose-50/40 text-rose-900"
                     : "border-slate-200 hover:border-slate-300"
@@ -106,7 +106,7 @@ export const ExportSalesInvoiceModal: React.FC<IExportSalesInvoiceModalProps> = 
                   <span className="text-xl">📄</span>
                   <div>
                     <div className="font-bold text-xs">PDF (.pdf)</div>
-                    <div className="text-[10px] text-slate-500">Bản in xem lưu trữ</div>
+                    <div className="text-[10px] text-slate-500">Bản in lưu trữ</div>
                   </div>
                 </div>
                 <input
@@ -144,7 +144,7 @@ export const ExportSalesInvoiceModal: React.FC<IExportSalesInvoiceModalProps> = 
                 Đang khởi tạo tệp...
               </>
             ) : (
-              <>Tải tệp bảng kê</>
+              <>Tải tệp kê khai</>
             )}
           </button>
         </div>

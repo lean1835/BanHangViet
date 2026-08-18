@@ -4,13 +4,17 @@ import { APP_ROUTES } from "@/constants/routes";
 import type { IInvalidTaxRateItem } from "../types/taxRevenueSummary.types";
 
 interface IInvalidTaxRateWarningBannerProps {
-  items: IInvalidTaxRateItem[];
+  items?: IInvalidTaxRateItem[];
+  errorMessage?: string | null;
 }
 
-export const InvalidTaxRateWarningBanner: React.FC<IInvalidTaxRateWarningBannerProps> = ({ items }) => {
+export const InvalidTaxRateWarningBanner: React.FC<IInvalidTaxRateWarningBannerProps> = ({
+  items = [],
+  errorMessage,
+}) => {
   const [isExpanded, setIsExpanded] = useState(true);
 
-  if (!items || items.length === 0) return null;
+  if (!errorMessage && (!items || items.length === 0)) return null;
 
   return (
     <div className="bg-gradient-to-r from-amber-50 via-rose-50 to-amber-50 border-2 border-rose-300 rounded-2xl p-4 shadow-sm text-slate-800 space-y-3">
@@ -33,31 +37,33 @@ export const InvalidTaxRateWarningBanner: React.FC<IInvalidTaxRateWarningBannerP
                 Cảnh báo nghiệp vụ thuế (TC-02)
               </span>
               <span className="text-xs text-rose-700 font-semibold">
-                Phát sinh {items.length} mặt hàng gán thuế suất hết hiệu lực
+                Phát sinh mức thuế ngưng hiệu lực trong kỳ kê khai
               </span>
             </div>
             <h3 className="text-sm font-bold text-slate-900 mt-1">
-              Yêu cầu xử lý mức thuế ngưng hiệu lực trước khi tổng hợp số liệu
+              {errorMessage || "Có mặt hàng trong kỳ đang gán mức thuế đã ngừng hiệu lực. Vui lòng kiểm tra và cập nhật lại danh mục thuế."}
             </h3>
           </div>
         </div>
 
         <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
-          <button
-            type="button"
-            onClick={() => setIsExpanded(!isExpanded)}
-            className="px-3 py-1.5 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-100 border border-slate-300 rounded-lg transition shadow-xs flex items-center gap-1"
-          >
-            {isExpanded ? "Ẩn danh sách" : "Xem chi tiết"}
-            <svg
-              className={`w-3.5 h-3.5 transform transition-transform ${isExpanded ? "rotate-180" : ""}`}
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
+          {items.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setIsExpanded(!isExpanded)}
+              className="px-3 py-1.5 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-100 border border-slate-300 rounded-lg transition shadow-xs flex items-center gap-1"
             >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
-          </button>
+              {isExpanded ? "Ẩn danh sách" : "Xem chi tiết"}
+              <svg
+                className={`w-3.5 h-3.5 transform transition-transform ${isExpanded ? "rotate-180" : ""}`}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+          )}
 
           <Link
             to={APP_ROUTES.SETTINGS_TAX_RATES}
@@ -77,7 +83,7 @@ export const InvalidTaxRateWarningBanner: React.FC<IInvalidTaxRateWarningBannerP
       </div>
 
       {/* Item List */}
-      {isExpanded && (
+      {isExpanded && items.length > 0 && (
         <div className="divide-y divide-rose-200/60 bg-white/80 backdrop-blur-xs rounded-xl border border-rose-200 overflow-hidden text-xs">
           {items.map((item) => (
             <div key={item.id} className="p-3 flex flex-col md:flex-row md:items-center justify-between gap-2">
