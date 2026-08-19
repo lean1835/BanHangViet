@@ -128,7 +128,12 @@ public enum ErrorCode {
     INVALID_SCHEDULED_TIME(5022, "Thời gian chạy sao lưu không đúng định dạng HH:mm (00:00 - 23:59)", HttpStatus.BAD_REQUEST),
     BACKUP_FILE_NOT_FOUND(5023, "Tệp sao lưu không tồn tại trên hệ thống", HttpStatus.NOT_FOUND),
     BACKUP_EXECUTION_FAILED(5024, "Lỗi thực thi sao lưu dữ liệu tự động", HttpStatus.INTERNAL_SERVER_ERROR),
-    ONLY_STORE_OWNER_CAN_BACKUP(5025, "Chỉ chủ hộ kinh doanh mới có quyền cấu hình và thực thi sao lưu dữ liệu", HttpStatus.FORBIDDEN);
+    ONLY_STORE_OWNER_CAN_BACKUP(5025, "Chỉ chủ hộ kinh doanh mới có quyền cấu hình và thực thi sao lưu dữ liệu", HttpStatus.FORBIDDEN),
+
+    // NCL-14 Nhật ký kiểm toán không sửa xóa được
+    AUDIT_LOG_IMMUTABLE(6001, "Nhật ký kiểm toán là dữ liệu bất biến, tuyệt đối không được sửa hoặc xóa", HttpStatus.FORBIDDEN),
+    AUDIT_LOG_TAMPERED(6002, "Phát hiện chuỗi kiểm tra Hash Chain bị đứt gãy hoặc bị can thiệp trái phép", HttpStatus.INTERNAL_SERVER_ERROR),
+    AUDIT_LOG_NOT_FOUND(6003, "Không tìm thấy bản ghi nhật ký kiểm toán", HttpStatus.NOT_FOUND);
 
     private final int code;
     private final String message;
