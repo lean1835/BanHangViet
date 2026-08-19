@@ -1,0 +1,47 @@
+package com.sales.dto.request;
+
+import com.sales.constant.DiscountType;
+import com.sales.constant.PromotionApplyScope;
+import com.sales.constant.PromotionStatus;
+import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import lombok.*;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.List;
+
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class PromotionUpdateRequest {
+
+    @NotBlank(message = "Tên chương trình khuyến mại không được để trống")
+    private String name;
+
+    private String description;
+
+    @NotNull(message = "Loại giảm giá không được để trống")
+    private DiscountType discountType;
+
+    @NotNull(message = "Mức giảm giá không được để trống")
+    @DecimalMin(value = "0.0", message = "Mức giảm giá không được nhỏ hơn 0")
+    private BigDecimal discountValue;
+
+    @NotNull(message = "Phạm vi áp dụng không được để trống")
+    private PromotionApplyScope applyScope;
+
+    @NotNull(message = "Thời gian bắt đầu không được để trống")
+    private LocalDateTime startDate;
+
+    @NotNull(message = "Thời gian kết thúc không được để trống")
+    private LocalDateTime endDate;
+
+    private PromotionStatus status;
+
+    private List<String> productIds;
+
+    private List<String> productGroupIds;
+}
