@@ -130,6 +130,13 @@ public enum ErrorCode {
     BACKUP_EXECUTION_FAILED(5024, "Lỗi thực thi sao lưu dữ liệu tự động", HttpStatus.INTERNAL_SERVER_ERROR),
     ONLY_STORE_OWNER_CAN_BACKUP(5025, "Chỉ chủ hộ kinh doanh mới có quyền cấu hình và thực thi sao lưu dữ liệu", HttpStatus.FORBIDDEN),
 
+    // NCL-14-CN-003 Phục hồi dữ liệu từ bản sao lưu
+    RESTORE_NOT_ALLOWED(5030, "Chỉ chủ hộ kinh doanh mới có quyền thực hiện phục hồi dữ liệu", HttpStatus.FORBIDDEN),
+    BACKUP_NOT_ELIGIBLE_FOR_RESTORE(5031, "Bản sao lưu không hợp lệ hoặc đã bị dọn dẹp (PURGED), không thể phục hồi", HttpStatus.BAD_REQUEST),
+    BACKUP_CORRUPTED_OR_INVALID(5032, "Bản sao lưu bị lỗi cấu trúc hoặc không đọc được dữ liệu", HttpStatus.BAD_REQUEST),
+    RESTORE_CONFIRMATION_REQUIRED(5033, "Yêu cầu xác nhận đồng ý ghi đè/khôi phục dữ liệu trước khi thực hiện", HttpStatus.BAD_REQUEST),
+    RESTORE_EXECUTION_FAILED(5034, "Quá trình phục hồi dữ liệu gặp sự cố kỹ thuật", HttpStatus.INTERNAL_SERVER_ERROR),
+
     // NCL-14 Nhật ký kiểm toán không sửa xóa được
     AUDIT_LOG_IMMUTABLE(6001, "Nhật ký kiểm toán là dữ liệu bất biến, tuyệt đối không được sửa hoặc xóa", HttpStatus.FORBIDDEN),
     AUDIT_LOG_TAMPERED(6002, "Phát hiện chuỗi kiểm tra Hash Chain bị đứt gãy hoặc bị can thiệp trái phép", HttpStatus.INTERNAL_SERVER_ERROR),
