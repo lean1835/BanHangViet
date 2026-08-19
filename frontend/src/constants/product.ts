@@ -60,8 +60,8 @@ export const PRODUCT_QUERY_CONFIG = {
   PAGE_STEP: 1,
   DISPLAY_INDEX_OFFSET: 1,
   MIN_PAGINATION_PAGE_COUNT: 1,
-  PAGE_SIZE: 15,
-  API_FALLBACK_PAGE_SIZE: 10,
+  PAGE_SIZE: 9,
+  API_FALLBACK_PAGE_SIZE: 9,
 } as const;
 
 export const PRODUCT_UI_CONFIG = {
@@ -128,7 +128,7 @@ export const PRODUCT_STOCK_ENTRY_CONFIG = {
   PRODUCT_QUERY_SIZE: 100,
   ID_PREFIX: "se",
   START_INDEX: 1,
-  GOODS_RECEIPT_PAGE_SIZE: 10,
+  GOODS_RECEIPT_PAGE_SIZE: 9,
   GOODS_RECEIPT_BATCH_SIZE: 1000,
   INITIAL_PAGE: 0,
 } as const;
@@ -211,6 +211,8 @@ export const PRODUCT_GROUP_COPY = {
 } as const;
 
 export const PRODUCT_LIST_COPY = {
+  CARD_TITLE: "Danh mục hàng hóa",
+  CARD_SUBTITLE: "Quản lý thông tin, giá bán và số lượng tồn kho của từng mặt hàng",
   SEARCH_PLACEHOLDER: "Theo mã, tên hàng",
   OWNER_CREATE_TOOLTIP: "Chỉ Chủ hộ kinh doanh mới được thêm hàng hóa",
   LOADING_MESSAGE: "Đang tải danh mục hàng hóa...",

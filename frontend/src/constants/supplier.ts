@@ -43,3 +43,9 @@ export const SUPPLIER_LOG_ACTIONS = {
   UPDATE: "Cập nhật nhà cung cấp",
   DELETE: "Xóa nhà cung cấp",
 } as const;
+
+export const SUPPLIER_PAGINATION = {
+  PAGE_SIZE: 9,
+  INITIAL_PAGE: 0,
+} as const;
+
