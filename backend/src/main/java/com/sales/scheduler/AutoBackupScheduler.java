@@ -10,6 +10,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 
@@ -19,17 +20,18 @@ import java.util.List;
 public class AutoBackupScheduler {
 
     private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm");
+    private static final ZoneId VIETNAM_ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
 
     private final BackupConfigRepository backupConfigRepository;
     private final AutoBackupService autoBackupService;
 
     /**
      * Tác vụ tự động quét và kích hoạt sao lưu ngầm theo lịch đã cấu hình.
-     * Chạy hàng giờ (vào phút thứ 0 của mỗi giờ) để kiểm tra các hộ kinh doanh đến giờ sao lưu.
+     * Chạy mỗi phút để kiểm tra chính xác thời điểm HH:mm của từng hộ kinh doanh.
      */
-    @Scheduled(cron = "0 0 * * * *")
+    @Scheduled(cron = "0 * * * * *")
     public void runDailyAutoBackupJob() {
-        String currentHourMinute = LocalTime.now().format(TIME_FORMATTER);
+        String currentHourMinute = LocalTime.now(VIETNAM_ZONE).format(TIME_FORMATTER);
         log.info("Bắt đầu tác vụ kiểm tra sao lưu tự động ngầm lúc HH:mm = {}", currentHourMinute);
 
         List<BackupConfig> enabledConfigs = backupConfigRepository.findAllEnabledAutoBackupConfigs();

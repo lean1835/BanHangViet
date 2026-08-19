@@ -103,7 +103,7 @@ public class AutoBackupServiceImpl implements AutoBackupService {
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @Transactional
     public BackupStatusOverviewResponse getBackupOverview(String currentUsername) {
         User user = validateAndGetOwnerUser(currentUsername);
         BusinessHousehold household = getHouseholdOrThrow(user);
