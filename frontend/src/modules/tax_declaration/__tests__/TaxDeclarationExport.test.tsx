@@ -1,96 +1,110 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { SimulatedTaxForm01 } from "../components/SimulatedTaxForm01";
-import {
-  exportTaxDeclarationToExcel,
-  exportTaxDeclarationToXml,
-} from "../utils/taxExportHelper";
+import { exportTaxDeclarationToXml } from "../utils/taxExportHelper";
 import type {
-  ITaxDeclarationSummary,
-  ITaxAnnexInvoice,
+  ITaxDeclarationPeriodResponse,
+  ITaxRevenueSummaryResponse,
+  ITaxSalesRegisterItemResponse,
 } from "../types/ITaxDeclaration";
 import { numberToVietnameseWords } from "@/utils/numberToVietnameseWords";
 
-const mockSummary: ITaxDeclarationSummary = {
-  periodCode: "Q3-2026",
-  periodLabel: "Quý 3 / 2026",
+const mockPeriod: ITaxDeclarationPeriodResponse = {
+  id: "period-123",
+  householdId: "hh-001",
+  periodName: "Quý 3 / 2026",
+  periodType: "QUARTERLY",
   year: 2026,
+  periodNumber: 3,
   startDate: "2026-07-01",
   endDate: "2026-09-30",
-  status: "OPEN",
-  householdName: "Tạp Hóa & Siêu Thị Mini Bán Hàng Việt",
+  status: "GENERATED",
+  totalValidInvoices: 24,
+  totalRevenue: 184000000,
+  totalTaxAmount: 12400000,
+  createdByName: "Nguyễn Văn A",
+  createdAt: "2026-08-15T08:00:00Z",
+};
+
+const mockSummary: ITaxRevenueSummaryResponse = {
+  periodId: "period-123",
+  periodName: "Quý 3 / 2026",
+  periodType: "QUARTERLY",
+  year: 2026,
+  periodNumber: 3,
+  totalRevenue: 184000000,
+  totalTaxAmount: 12400000,
+  taxRateSummaries: [
+    {
+      taxRatePercentage: 8,
+      taxRateName: "Phân phối, cung cấp hàng hóa (Thuế suất 8%)",
+      revenueAmount: 120000000,
+      taxAmount: 6000000,
+      invoiceCount: 15,
+    },
+    {
+      taxRatePercentage: 5,
+      taxRateName: "Dịch vụ, ăn uống, tiêu dùng (Thuế suất 5%)",
+      revenueAmount: 64000000,
+      taxAmount: 6400000,
+      invoiceCount: 9,
+    },
+  ],
+};
+
+const mockHousehold = {
+  name: "Tạp Hóa & Siêu Thị Mini Bán Hàng Việt",
   taxCode: "8123456789",
   representativeName: "Nguyễn Văn A",
   address: "123 Trần Phú, Hải Châu, Đà Nẵng",
   phoneNumber: "0905123456",
-  taxAuthorityName: "CHI CỤC THUẾ QUẬN HẢI CHÂU",
-  totalRevenue: 184000000,
-  totalVatAmount: 7440000,
-  totalPitAmount: 4960000,
-  totalPayableTaxAmount: 12400000,
-  taxGroups: [
-    {
-      taxRatePercentage: 8,
-      categoryLabel: "Phân phối, cung cấp hàng hóa (Thuế suất 8%)",
-      revenueBeforeTax: 120000000,
-      vatRatePercent: 4.0,
-      vatAmount: 4800000,
-      pitRatePercent: 1.0,
-      pitAmount: 1200000,
-      totalTaxAmount: 6000000,
-    },
-    {
-      taxRatePercentage: 5,
-      categoryLabel: "Dịch vụ, ăn uống, tiêu dùng (Thuế suất 5%)",
-      revenueBeforeTax: 64000000,
-      vatRatePercent: 4.125,
-      vatAmount: 2640000,
-      pitRatePercent: 5.875,
-      pitAmount: 3760000,
-      totalTaxAmount: 6400000,
-    },
-  ],
-  validInvoicesCount: 24,
-  adjustedInvoicesCount: 2,
-  cancelledInvoicesCount: 1,
 };
 
-const mockAnnexInvoices: ITaxAnnexInvoice[] = [
+const mockAnnexInvoices: ITaxSalesRegisterItemResponse[] = [
   {
     id: "INV-001",
+    periodId: "period-123",
+    invoiceId: "inv-01",
+    invoicePattern: "1",
+    invoiceSymbol: "1C26TAA",
     invoiceNumber: "00000123",
-    invoiceSeries: "1C26TAA",
-    issuedDate: "2026-08-10",
+    issueDate: "2026-08-10T10:00:00Z",
     buyerName: "Công ty TNHH Ánh Dương",
     buyerTaxCode: "0108999888",
-    preTaxAmount: 50000000,
     taxRatePercentage: 8,
+    revenueAmount: 50000000,
     taxAmount: 4000000,
-    finalAmount: 54000000,
-    taxAuthorityCode: "T26-0012345",
-    isAdjustment: false,
+    invoiceType: "ORIGINAL",
+    createdAt: "2026-08-10T10:00:00Z",
   },
   {
     id: "INV-002",
+    periodId: "period-123",
+    invoiceId: "inv-02",
+    invoicePattern: "1",
+    invoiceSymbol: "1C26TAA",
     invoiceNumber: "00000127",
-    invoiceSeries: "1C26TAA",
-    issuedDate: "2026-08-14",
+    issueDate: "2026-08-14T15:30:00Z",
     buyerName: "Công ty TNHH Ánh Dương",
     buyerTaxCode: "0108999888",
-    preTaxAmount: -5000000,
     taxRatePercentage: 8,
+    revenueAmount: -5000000,
     taxAmount: -400000,
-    finalAmount: -5400000,
-    taxAuthorityCode: "T26-0012349",
-    isAdjustment: true,
-    originalInvoiceNumber: "00000123",
+    invoiceType: "ADJUSTMENT_DECREASE",
+    createdAt: "2026-08-14T15:30:00Z",
   },
 ];
 
 describe("NCL-12-CN-003: Xuất tờ khai thuế theo mẫu mô phỏng", () => {
   // Test Case TC-01: Render Mẫu 01/CNKD thành công với đầy đủ số liệu
   it("NCL-12-CN-003-TC-01: Hiển thị đầy đủ thông tin mẫu tờ khai 01/CNKD với số liệu khớp doanh thu và thuế", () => {
-    render(<SimulatedTaxForm01 summary={mockSummary} />);
+    render(
+      <SimulatedTaxForm01
+        period={mockPeriod}
+        revenueSummary={mockSummary}
+        householdData={mockHousehold}
+      />
+    );
 
     // Kiểm tra tên người nộp thuế & MST
     expect(
@@ -121,19 +135,18 @@ describe("NCL-12-CN-003: Xuất tờ khai thuế theo mẫu mô phỏng", () => 
     expect(numberToVietnameseWords(0)).toBe("Không đồng");
   });
 
-  // Test Case TC-03 & Export: Xuất Excel tạo 2 Sheet có Tờ khai và Bảng kê
-  it("NCL-12-CN-003-TC-01-Excel: Xuất file Excel thành công với 2 sheet To_Khai_01_CNKD và Bang_Ke_01_2_BK", () => {
-    const success = exportTaxDeclarationToExcel(mockSummary, mockAnnexInvoices);
-    expect(success).toBe(true);
-  });
-
   // Test Case TC-04 & Export: Xuất XML eTax mô phỏng
   it("NCL-12-CN-003-TC-01-XML: Xuất file XML eTax mô phỏng với đầy đủ cấu trúc hóa đơn và phụ lục", () => {
     // Mock Blob and URL
     global.URL.createObjectURL = vi.fn(() => "blob:mock-url");
     global.URL.revokeObjectURL = vi.fn();
 
-    const success = exportTaxDeclarationToXml(mockSummary, mockAnnexInvoices);
+    const success = exportTaxDeclarationToXml(
+      mockPeriod,
+      mockSummary,
+      mockAnnexInvoices,
+      mockHousehold
+    );
     expect(success).toBe(true);
   });
 });

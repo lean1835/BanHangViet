@@ -1,4 +1,5 @@
 import React from "react";
+import { createPortal } from "react-dom";
 import { useForm, type SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Unlock, AlertCircle, X, Loader2 } from "lucide-react";
@@ -46,14 +47,14 @@ export const UnlockPeriodModal: React.FC<IUnlockPeriodModalProps> = ({
     onClose();
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/70 backdrop-blur-xs animate-in fade-in duration-200">
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-md w-full overflow-hidden flex flex-col">
+  return createPortal(
+    <div className="fixed inset-0 z-[1000] flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-modal-backdrop">
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-md w-full overflow-hidden flex flex-col animate-modal-scale">
         {/* Header */}
         <div className="bg-amber-50 px-5 py-4 border-b border-amber-100 flex items-center justify-between">
           <div className="flex items-center gap-2.5 text-amber-800">
-            <div className="w-9 h-9 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center">
-              <Unlock className="w-5 h-5" />
+            <div className="w-9 h-9 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center shadow-xs">
+              <Unlock className="w-5 h-5 shrink-0 stroke-[2.2]" />
             </div>
             <div>
               <h2 className="font-extrabold text-sm text-slate-800">
@@ -67,18 +68,18 @@ export const UnlockPeriodModal: React.FC<IUnlockPeriodModalProps> = ({
           <button
             type="button"
             onClick={handleClose}
-            className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition"
+            className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 active:scale-95 transition-all duration-150 cursor-pointer"
           >
-            <X className="w-5 h-5" />
+            <X className="w-5 h-5 stroke-[2]" />
           </button>
         </div>
 
         {/* Body Form */}
         <form onSubmit={handleSubmit(onSubmit)} className="p-5 space-y-4 text-xs">
           <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 flex items-start gap-2.5 text-slate-600">
-            <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+            <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5 stroke-[2.2]" />
             <p className="text-[11px] leading-relaxed">
-              Mở lại kỳ sẽ chuyển trạng thái về <strong>Dự thảo (Đang mở)</strong>. Mọi thao tác mở lại đều được <strong>lưu vết vĩnh viễn vào Nhật ký kiểm toán</strong>.
+              Mở lại kỳ sẽ chuyển trạng thái về <strong>Đã lập bảng kê (Đang mở)</strong>. Mọi thao tác mở lại đều được <strong>lưu vết vĩnh viễn vào Nhật ký kiểm toán</strong>.
             </p>
           </div>
 
@@ -90,10 +91,10 @@ export const UnlockPeriodModal: React.FC<IUnlockPeriodModalProps> = ({
               rows={3}
               placeholder="VD: Cần lập hóa đơn điều chỉnh bổ sung theo thông báo từ Cơ quan Thuế..."
               {...register("reason")}
-              className={`w-full px-3 py-2 bg-slate-50 border rounded-lg text-xs focus:outline-none focus:bg-white resize-none ${
+              className={`w-full px-3 py-2 bg-slate-50 border rounded-xl text-xs focus:outline-none focus:bg-white resize-none transition-all ${
                 errors.reason
                   ? "border-rose-400 focus:border-rose-500"
-                  : "border-slate-200 focus:border-kv-blue-primary"
+                  : "border-slate-200 focus:border-blue-600 focus:ring-2 focus:ring-blue-500/10"
               }`}
             />
             {errors.reason && (
@@ -109,25 +110,26 @@ export const UnlockPeriodModal: React.FC<IUnlockPeriodModalProps> = ({
               type="button"
               disabled={isLoading}
               onClick={handleClose}
-              className="px-4 py-2 rounded-lg border border-slate-200 text-slate-600 font-bold hover:bg-slate-50 transition"
+              className="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 font-bold hover:bg-slate-50 active:scale-95 transition-all duration-150 cursor-pointer"
             >
               Hủy bỏ
             </button>
             <button
               type="submit"
               disabled={isLoading}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-bold transition shadow-sm disabled:opacity-50"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 active:bg-amber-800 active:scale-95 text-white font-bold transition-all duration-150 shadow-sm hover:shadow-md hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 cursor-pointer"
             >
               {isLoading ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
+                <Loader2 className="w-4 h-4 animate-spin shrink-0 stroke-[2.5]" />
               ) : (
-                <Unlock className="w-4 h-4" />
+                <Unlock className="w-4 h-4 shrink-0 stroke-[2.2]" />
               )}
               <span>Xác nhận mở lại kỳ</span>
             </button>
           </div>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

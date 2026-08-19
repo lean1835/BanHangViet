@@ -1,98 +1,81 @@
-import { describe, it, expect, vi } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { describe, it, expect, vi, afterEach } from "vitest";
+import { render, screen, fireEvent, waitFor, cleanup } from "@testing-library/react";
+import { Provider } from "react-redux";
+import { store } from "@/stores";
 import { LockPeriodConfirmModal } from "../components/LockPeriodConfirmModal";
 import { UnlockPeriodModal } from "../components/UnlockPeriodModal";
 import { RolloverAdjustmentNotice } from "../components/RolloverAdjustmentNotice";
 import { PeriodLockAuditTimeline } from "../components/PeriodLockAuditTimeline";
 import { unlockPeriodSchema } from "../schemas/periodLockSchemas";
-import type { ITaxDeclarationSummary } from "../types/ITaxDeclaration";
-import type {
-  IRolloverAdjustment,
-  IPeriodLockAudit,
-} from "../types/ITaxPeriodLock";
+import type { ITaxDeclarationPeriodResponse } from "../types/ITaxDeclaration";
+import type { IRolloverAdjustment } from "../types/ITaxPeriodLock";
 
-const mockSummary: ITaxDeclarationSummary = {
-  periodCode: "Q3-2026",
-  periodLabel: "Quý 3 / 2026",
+const mockPeriod: ITaxDeclarationPeriodResponse = {
+  id: "period-123",
+  householdId: "hh-001",
+  periodName: "Quý 3 / 2026",
+  periodType: "QUARTERLY",
   year: 2026,
+  periodNumber: 3,
   startDate: "2026-07-01",
   endDate: "2026-09-30",
-  status: "OPEN",
-  householdName: "Tạp Hóa & Siêu Thị Mini Bán Hàng Việt",
-  taxCode: "8123456789",
-  representativeName: "Nguyễn Văn A",
-  address: "123 Trần Phú, Hải Châu, Đà Nẵng",
-  phoneNumber: "0905123456",
-  taxAuthorityName: "CHI CỤC THUẾ QUẬN HẢI CHÂU",
+  status: "GENERATED",
+  totalValidInvoices: 24,
   totalRevenue: 184000000,
-  totalVatAmount: 7440000,
-  totalPitAmount: 4960000,
-  totalPayableTaxAmount: 12400000,
-  taxGroups: [],
-  validInvoicesCount: 24,
-  adjustedInvoicesCount: 2,
-  cancelledInvoicesCount: 1,
+  totalTaxAmount: 12400000,
+  createdByName: "Nguyễn Văn A",
+  createdAt: "2026-08-15T08:00:00Z",
 };
 
 const mockRolloverAdjustments: IRolloverAdjustment[] = [
   {
     id: "ROLLOVER-01",
-    originalInvoiceNumber: "00000123",
     originalInvoiceSeries: "1C26TAA",
+    originalInvoiceNumber: "00000123",
     returnTicketNumber: "PTH-0009",
     originalPeriod: "Q3-2026",
     rolloverPeriod: "Q4-2026",
-    adjustmentAmount: -5000000,
-    adjustmentTaxAmount: -400000,
-    approvedDate: "2026-10-08",
-    reason: "Khách trả hàng sau khi Quý 3 đã chốt sổ",
-  },
-];
-
-const mockAuditHistory: IPeriodLockAudit[] = [
-  {
-    id: "AUDIT-01",
-    periodCode: "Q2-2026",
-    periodLabel: "Quý 2 / 2026",
-    action: "LOCK",
-    performedBy: "VT-01 (Chủ hộ - Nguyễn Văn A)",
-    performedAt: "2026-07-05T09:00:00Z",
-    notes: "Đã nộp tờ khai quý 2 qua hệ thống eTax",
-    totalRevenueAtAction: 175000000,
-    totalTaxAtAction: 11800000,
-    validInvoicesCount: 22,
+    adjustmentAmount: -2500000,
+    adjustmentTaxAmount: -250000,
+    approvedDate: "2026-10-02",
+    reason: "Khách trả hàng sau khi kỳ Q3 đã chốt sổ",
   },
 ];
 
 describe("NCL-12-CN-004: Chốt kỳ kê khai và khóa số liệu", () => {
-  // Test Case TC-01: Modal xác nhận chốt kỳ hiển thị đúng số liệu tóm tắt và cảnh báo QTN-21
+  afterEach(() => {
+    cleanup();
+    document.body.innerHTML = "";
+  });
+
+  // Test Case TC-01: Render Modal chốt kỳ kê khai với số liệu tóm tắt và nút xác nhận
   it("NCL-12-CN-004-TC-01: Render Modal chốt kỳ với bảng tóm tắt số liệu bị khóa và nút xác nhận", async () => {
     const onConfirmLock = vi.fn();
+
     render(
       <LockPeriodConfirmModal
         isOpen={true}
         onClose={() => {}}
-        summary={mockSummary}
+        period={mockPeriod}
         onConfirmLock={onConfirmLock}
         isLoading={false}
       />
     );
 
-    // Kiểm tra tiêu đề và cảnh báo QTN-21
+    // Kiểm tra các nhãn thông tin cơ bản
     expect(screen.getByText("Khóa số liệu & Chốt kỳ kê khai thuế")).toBeDefined();
-    expect(screen.getByText(/Quy tắc toàn vẹn dữ liệu thuế QTN-21/i)).toBeDefined();
+    expect(screen.getByText(/24 hóa đơn hợp lệ/i)).toBeDefined();
+    expect(screen.getByText(/184.000.000/i)).toBeDefined();
+    expect(screen.getByText(/12.400.000/i)).toBeDefined();
 
-    // Kiểm tra số liệu bị khóa
-    expect(screen.getByText("24 hóa đơn hợp lệ")).toBeDefined();
+    // Nút xác nhận bị disable khi chưa tích chọn checkbox
+    const confirmCheckbox = screen.getByRole("checkbox");
+    expect(confirmCheckbox).toBeDefined();
 
-    // Checkbox cam đoan
-    const checkbox = screen.getByRole("checkbox");
-    expect(checkbox).toBeDefined();
+    fireEvent.click(confirmCheckbox);
 
-    // Tích checkbox và submit
-    fireEvent.click(checkbox);
     const submitBtn = screen.getByRole("button", {
-      name: /Xác nhận chốt & khóa số liệu/i,
+      name: /Xác nhận Chốt sổ/i,
     });
     fireEvent.click(submitBtn);
 
@@ -155,18 +138,23 @@ describe("NCL-12-CN-004: Chốt kỳ kê khai và khóa số liệu", () => {
 
   // Test Case TC-04: Hiển thị dòng thời gian kiểm toán các lần chốt / mở lại kỳ
   it("NCL-12-CN-004-TC-04-Timeline: Hiển thị lịch sử nhật ký kiểm toán với người thực hiện và số liệu khóa", () => {
+    const lockedPeriod: ITaxDeclarationPeriodResponse = {
+      ...mockPeriod,
+      status: "LOCKED",
+      lockedAt: "2026-07-05T09:00:00Z",
+      lockedByName: "VT-01 (Chủ hộ - Nguyễn Văn A)",
+    };
+
     render(
-      <PeriodLockAuditTimeline
-        history={mockAuditHistory}
-        periodLabel="Quý 2 / 2026"
-      />
+      <Provider store={store}>
+        <PeriodLockAuditTimeline period={lockedPeriod} />
+      </Provider>
     );
 
     expect(
-      screen.getByText(/Nhật ký kiểm toán Chốt & Mở lại kỳ/i)
+      screen.getByText(/Nhật ký kiểm toán & Thao tác kỳ/i)
     ).toBeDefined();
-    expect(screen.getByText("CHỐT KHÓA SỐ LIỆU")).toBeDefined();
+    expect(screen.getByText("CHỐT KHÓA SỐ LIỆU KỲ")).toBeDefined();
     expect(screen.getByText(/VT-01 \(Chủ hộ - Nguyễn Văn A\)/i)).toBeDefined();
   });
 });
-

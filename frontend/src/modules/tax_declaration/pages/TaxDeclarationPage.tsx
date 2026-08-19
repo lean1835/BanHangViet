@@ -4,109 +4,38 @@ import {
   FileSpreadsheet,
   Layers,
   History,
+  Plus,
+  FolderOpen,
 } from "lucide-react";
 import { REPORT_UI } from "@/constants/report";
-import type {
-  ITaxPeriodOption,
-  ITaxDeclarationSummary,
-  ITaxAnnexInvoice,
-} from "../types/ITaxDeclaration";
-import type {
-  IPeriodLockAudit,
-  IRolloverAdjustment,
-} from "../types/ITaxPeriodLock";
+import type { ITaxPeriodOption } from "../types/ITaxDeclaration";
 import {
-  useGetTaxDeclarationSummaryQuery,
-  useGetTaxAnnexInvoicesQuery,
-  useGetPeriodLockHistoryQuery,
-  useGetRolloverAdjustmentsQuery,
+  useGetAllTaxPeriodsQuery,
+  useGetTaxPeriodDetailQuery,
+  useGetTaxRevenueSummaryQuery,
+  useGetSalesRegisterItemsQuery,
 } from "../services/taxDeclarationApi";
 import { useTaxPeriodValidation } from "../hooks/useTaxPeriodValidation";
 import { useTaxDeclarationExport } from "../hooks/useTaxDeclarationExport";
 import { usePeriodLockAction } from "../hooks/usePeriodLockAction";
 import { TaxPeriodFilterBar } from "../components/TaxPeriodFilterBar";
 import { TaxSummaryKpiCards } from "../components/TaxSummaryKpiCards";
-import { SimulatedTaxForm01 } from "../components/SimulatedTaxForm01";
 import { TaxInvoiceAnnexTable } from "../components/TaxInvoiceAnnexTable";
 import { TaxDeclarationPreviewModal } from "../components/TaxDeclarationPreviewModal";
 import { MissingInfoAlertModal } from "../components/MissingInfoAlertModal";
 import { LockPeriodConfirmModal } from "../components/LockPeriodConfirmModal";
 import { UnlockPeriodModal } from "../components/UnlockPeriodModal";
-import { RolloverAdjustmentNotice } from "../components/RolloverAdjustmentNotice";
+import { GeneratePeriodModal } from "../components/GeneratePeriodModal";
 import { PeriodLockAuditTimeline } from "../components/PeriodLockAuditTimeline";
-import { formatCurrency } from "@/utils/formatCurrency";
-
-const TAX_PERIODS_2026: ITaxPeriodOption[] = [
-  {
-    value: "Q3-2026",
-    label: "Quý 3 / 2026 (01/07/2026 - 30/09/2026)",
-    type: "QUARTER",
-    quarter: 3,
-    year: 2026,
-    startDate: "2026-07-01",
-    endDate: "2026-09-30",
-  },
-  {
-    value: "Q2-2026",
-    label: "Quý 2 / 2026 (01/04/2026 - 30/06/2026) [Đã chốt]",
-    type: "QUARTER",
-    quarter: 2,
-    year: 2026,
-    startDate: "2026-04-01",
-    endDate: "2026-06-30",
-  },
-  {
-    value: "Q1-2026",
-    label: "Quý 1 / 2026 (01/01/2026 - 31/03/2026) [Đã chốt]",
-    type: "QUARTER",
-    quarter: 1,
-    year: 2026,
-    startDate: "2026-01-01",
-    endDate: "2026-03-31",
-  },
-  {
-    value: "M09-2026",
-    label: "Tháng 09 / 2026 (01/09/2026 - 30/09/2026)",
-    type: "MONTH",
-    month: 9,
-    year: 2026,
-    startDate: "2026-09-01",
-    endDate: "2026-09-30",
-  },
-  {
-    value: "M08-2026",
-    label: "Tháng 08 / 2026 (01/08/2026 - 31/08/2026)",
-    type: "MONTH",
-    month: 8,
-    year: 2026,
-    startDate: "2026-08-01",
-    endDate: "2026-08-31",
-  },
-  {
-    value: "M07-2026",
-    label: "Tháng 07 / 2026 (01/07/2026 - 31/07/2026)",
-    type: "MONTH",
-    month: 7,
-    year: 2026,
-    startDate: "2026-07-01",
-    endDate: "2026-07-31",
-  },
-];
 
 export const TaxDeclarationPage: React.FC = () => {
-  const [selectedPeriod, setSelectedPeriod] = useState<ITaxPeriodOption>(
-    TAX_PERIODS_2026[0]
-  );
+  const [selectedPeriodId, setSelectedPeriodId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<
-    "FORM" | "ANNEX" | "TAX_GROUPS" | "AUDIT_HISTORY"
-  >("FORM");
+    "ANNEX" | "TAX_GROUPS" | "AUDIT_HISTORY"
+  >("ANNEX");
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
   const [isMissingInfoModalOpen, setIsMissingInfoModalOpen] = useState(false);
-
-  // Trạng thái khóa cục bộ của từng kỳ (quản lý reactive state)
-  const [periodStatusOverrides, setPeriodStatusOverrides] = useState<
-    Record<string, { status: "OPEN" | "LOCKED"; lockedAt?: string; lockedBy?: string }>
-  >({});
+  const [isGenerateModalOpen, setIsGenerateModalOpen] = useState(false);
 
   // 1. Kiểm tra validation & Phân quyền (TC-02 & TC-03)
   const {
@@ -118,234 +47,76 @@ export const TaxDeclarationPage: React.FC = () => {
     householdData,
   } = useTaxPeriodValidation();
 
-  // 2. Query dữ liệu từ máy chủ
-  const { data: summaryRes } = useGetTaxDeclarationSummaryQuery({
-    periodCode: selectedPeriod.value,
-    year: selectedPeriod.year,
-    startDate: selectedPeriod.startDate,
-    endDate: selectedPeriod.endDate,
-  });
+  // 2. Query danh sách tất cả các kỳ kê khai từ Backend
+  const {
+    data: periodsRes,
+    isLoading: isPeriodsLoading,
+    refetch: refetchPeriods,
+  } = useGetAllTaxPeriodsQuery();
 
-  const { data: annexRes } = useGetTaxAnnexInvoicesQuery({
-    periodCode: selectedPeriod.value,
-    year: selectedPeriod.year,
-    startDate: selectedPeriod.startDate,
-    endDate: selectedPeriod.endDate,
-  });
+  const periodsList = periodsRes?.result || [];
 
-  const { data: lockHistoryRes } = useGetPeriodLockHistoryQuery();
-  const { data: rolloverRes } = useGetRolloverAdjustmentsQuery({
-    periodCode: selectedPeriod.value,
-    year: selectedPeriod.year,
-  });
+  // Chuyển đổi danh sách kỳ sang options cho dropdown
+  const periodOptions: ITaxPeriodOption[] = useMemo(() => {
+    return periodsList.map((p) => {
+      const typeLabel =
+        p.periodType === "QUARTERLY"
+          ? `Quý ${p.periodNumber}`
+          : `Tháng ${p.periodNumber}`;
+      const statusLabel = p.status === "LOCKED" ? " [Đã chốt]" : "";
+      return {
+        value: p.id,
+        label: `${typeLabel} / ${p.year} (${p.startDate} - ${p.endDate})${statusLabel}`,
+        type: p.periodType,
+        periodNumber: p.periodNumber,
+        year: p.year,
+        startDate: p.startDate,
+        endDate: p.endDate,
+        periodId: p.id,
+        status: p.status,
+      };
+    });
+  }, [periodsList]);
 
-  // Mock / Calculated Fallback data chuẩn xác theo TC-01 & QTN-21 / QTN-22
-  const summary: ITaxDeclarationSummary = useMemo(() => {
-    if (summaryRes?.result) return summaryRes.result;
+  // Kỳ đang được chọn (mặc định lấy kỳ đầu tiên nếu chưa chọn)
+  const currentPeriodId =
+    selectedPeriodId || (periodOptions.length > 0 ? periodOptions[0].value : null);
+  const selectedPeriodOption = periodOptions.find(
+    (p) => p.value === currentPeriodId
+  );
 
-    const defaultLocked =
-      selectedPeriod.value === "Q1-2026" || selectedPeriod.value === "Q2-2026";
-    const currentOverride = periodStatusOverrides[selectedPeriod.value];
+  // 3. Query chi tiết kỳ, tóm tắt doanh thu theo thuế suất và bảng kê hóa đơn
+  const { data: periodDetailRes, isLoading: isDetailLoading } =
+    useGetTaxPeriodDetailQuery(currentPeriodId!, {
+      skip: !currentPeriodId,
+    });
+  const { data: summaryRes, isLoading: isSummaryLoading } =
+    useGetTaxRevenueSummaryQuery(currentPeriodId!, {
+      skip: !currentPeriodId,
+    });
+  const { data: salesRegisterRes, isLoading: isRegisterLoading } =
+    useGetSalesRegisterItemsQuery(
+      { periodId: currentPeriodId!, page: 0, size: 100 },
+      { skip: !currentPeriodId }
+    );
 
-    const currentStatus = currentOverride
-      ? currentOverride.status
-      : defaultLocked
-      ? "LOCKED"
-      : "OPEN";
+  const currentPeriod = periodDetailRes?.result;
+  const revenueSummary = summaryRes?.result;
+  const salesRegisterItems = salesRegisterRes?.result?.content || [];
 
-    return {
-      periodCode: selectedPeriod.value,
-      periodLabel: selectedPeriod.label.split(" (")[0],
-      year: selectedPeriod.year,
-      startDate: selectedPeriod.startDate,
-      endDate: selectedPeriod.endDate,
-      status: currentStatus,
-      householdName: householdData?.name || "Hộ kinh doanh Bán Hàng Việt",
-      taxCode: householdData?.taxCode || "8123456789",
-      representativeName: householdData?.representativeName || "Nguyễn Văn A",
-      address: householdData?.address || "Số 123 Trần Phú, Hải Châu, Đà Nẵng",
-      phoneNumber: householdData?.phoneNumber || "0905123456",
-      taxAuthorityName: "CHI CỤC THUẾ KHU VỰC QUẬN HẢI CHÂU",
-      totalRevenue: 184000000,
-      totalVatAmount: 7440000,
-      totalPitAmount: 4960000,
-      totalPayableTaxAmount: 12400000,
-      taxGroups: [
-        {
-          taxRatePercentage: 8,
-          categoryLabel: "Phân phối, cung cấp hàng hóa (Thuế suất 8%)",
-          revenueBeforeTax: 120000000,
-          vatRatePercent: 4.0,
-          vatAmount: 4800000,
-          pitRatePercent: 1.0,
-          pitAmount: 1200000,
-          totalTaxAmount: 6000000,
-        },
-        {
-          taxRatePercentage: 5,
-          categoryLabel: "Dịch vụ, ăn uống, tiêu dùng (Thuế suất 5%)",
-          revenueBeforeTax: 64000000,
-          vatRatePercent: 4.125,
-          vatAmount: 2640000,
-          pitRatePercent: 5.875,
-          pitAmount: 3760000,
-          totalTaxAmount: 6400000,
-        },
-      ],
-      validInvoicesCount: 24,
-      adjustedInvoicesCount: 2,
-      cancelledInvoicesCount: 1,
-      lockedAt:
-        currentOverride?.lockedAt ||
-        (defaultLocked ? "2026-07-05T09:00:00Z" : undefined),
-      lockedBy:
-        currentOverride?.lockedBy ||
-        (defaultLocked ? "VT-01 (Chủ hộ - Nguyễn Văn A)" : undefined),
-    };
-  }, [summaryRes, selectedPeriod, householdData, periodStatusOverrides]);
-
-  const annexInvoices: ITaxAnnexInvoice[] = useMemo(() => {
-    if (annexRes?.result) return annexRes.result;
-
-    return [
-      {
-        id: "INV-001",
-        invoiceNumber: "00000123",
-        invoiceSeries: "1C26TAA",
-        issuedDate: "2026-08-10",
-        buyerName: "Công ty TNHH Ánh Dương",
-        buyerTaxCode: "0108999888",
-        preTaxAmount: 50000000,
-        taxRatePercentage: 8,
-        taxAmount: 4000000,
-        finalAmount: 54000000,
-        taxAuthorityCode: "T26-0012345",
-        isAdjustment: false,
-      },
-      {
-        id: "INV-002",
-        invoiceNumber: "00000124",
-        invoiceSeries: "1C26TAA",
-        issuedDate: "2026-08-11",
-        buyerName: "Khách lẻ - Anh Hùng",
-        preTaxAmount: 25000000,
-        taxRatePercentage: 8,
-        taxAmount: 2000000,
-        finalAmount: 27000000,
-        taxAuthorityCode: "T26-0012346",
-        isAdjustment: false,
-      },
-      {
-        id: "INV-003",
-        invoiceNumber: "00000125",
-        invoiceSeries: "1C26TAA",
-        issuedDate: "2026-08-12",
-        buyerName: "Nhà hàng Biển Xanh",
-        buyerTaxCode: "0401222333",
-        preTaxAmount: 40000000,
-        taxRatePercentage: 5,
-        taxAmount: 2000000,
-        finalAmount: 42000000,
-        taxAuthorityCode: "T26-0012347",
-        isAdjustment: false,
-      },
-      {
-        id: "INV-004",
-        invoiceNumber: "00000126",
-        invoiceSeries: "1C26TAA",
-        issuedDate: "2026-08-13",
-        buyerName: "Khách lẻ - Chị Mai",
-        preTaxAmount: 24000000,
-        taxRatePercentage: 5,
-        taxAmount: 1200000,
-        finalAmount: 25200000,
-        taxAuthorityCode: "T26-0012348",
-        isAdjustment: false,
-      },
-      {
-        id: "INV-005",
-        invoiceNumber: "00000127",
-        invoiceSeries: "1C26TAA",
-        issuedDate: "2026-08-14",
-        buyerName: "Công ty TNHH Ánh Dương",
-        buyerTaxCode: "0108999888",
-        preTaxAmount: -5000000,
-        taxRatePercentage: 8,
-        taxAmount: -400000,
-        finalAmount: -5400000,
-        taxAuthorityCode: "T26-0012349",
-        isAdjustment: true,
-        originalInvoiceNumber: "00000123",
-      },
-    ];
-  }, [annexRes]);
-
-  // Danh sách các khoản điều chỉnh giảm bị chuyển tiếp sang kỳ sau (TC-02, QTN-21)
-  const rolloverAdjustments: IRolloverAdjustment[] = useMemo(() => {
-    if (rolloverRes?.result) return rolloverRes.result;
-
-    if (summary.status === "LOCKED") {
-      return [
-        {
-          id: "ROLLOVER-01",
-          originalInvoiceNumber: "00000123",
-          originalInvoiceSeries: "1C26TAA",
-          returnTicketNumber: "PTH-0009",
-          originalPeriod: summary.periodCode,
-          rolloverPeriod: "Q4-2026",
-          adjustmentAmount: -5000000,
-          adjustmentTaxAmount: -400000,
-          approvedDate: "2026-10-08",
-          reason: "Khách trả hàng sau khi Quý 3 đã chốt sổ",
-        },
-      ];
-    }
-    return [];
-  }, [rolloverRes, summary.status, summary.periodCode]);
-
-  // Lịch sử kiểm toán chốt và mở lại kỳ (TC-04)
-  const auditHistory: IPeriodLockAudit[] = useMemo(() => {
-    if (lockHistoryRes?.result) return lockHistoryRes.result;
-
-    return [
-      {
-        id: "AUDIT-01",
-        periodCode: "Q2-2026",
-        periodLabel: "Quý 2 / 2026",
-        action: "LOCK",
-        performedBy: "VT-01 (Chủ hộ - Nguyễn Văn A)",
-        performedAt: "2026-07-05T09:00:00Z",
-        notes: "Đã nộp tờ khai quý 2 qua hệ thống eTax",
-        totalRevenueAtAction: 175000000,
-        totalTaxAtAction: 11800000,
-        validInvoicesCount: 22,
-      },
-      {
-        id: "AUDIT-02",
-        periodCode: "Q1-2026",
-        periodLabel: "Quý 1 / 2026",
-        action: "LOCK",
-        performedBy: "VT-01 (Chủ hộ - Nguyễn Văn A)",
-        performedAt: "2026-04-05T14:30:00Z",
-        notes: "Khóa số liệu quý 1 theo quy định",
-        totalRevenueAtAction: 160000000,
-        totalTaxAtAction: 10500000,
-        validInvoicesCount: 19,
-      },
-    ];
-  }, [lockHistoryRes]);
-
-  // 3. Hook xử lý xuất file (NCL-12-CN-003)
+  // 4. Hook xử lý xuất file Excel / PDF / XML (NCL-12-CN-003)
   const { handleExport, isExporting } = useTaxDeclarationExport({
-    summary,
-    annexInvoices,
+    period: currentPeriod,
+    revenueSummary,
+    registerItems: salesRegisterItems,
+    householdData,
     previewElementId: "tax-declaration-page-preview-form",
     onMissingInfoAlert: () => setIsMissingInfoModalOpen(true),
     isMissingInfo,
     roleAllowed,
   });
 
-  // 4. Hook xử lý chốt kỳ & mở lại kỳ (NCL-12-CN-004)
+  // 5. Hook xử lý chốt kỳ & mở lại kỳ (NCL-12-CN-004)
   const {
     isOwner,
     roleLockRestrictionReason,
@@ -357,40 +128,45 @@ export const TaxDeclarationPage: React.FC = () => {
     handleUnlockPeriod,
     isLoading: isLockingAction,
   } = usePeriodLockAction({
-    summary,
-    onStatusChange: (newStatus, lockedAt, lockedBy) => {
-      setPeriodStatusOverrides((prev) => ({
-        ...prev,
-        [selectedPeriod.value]: {
-          status: newStatus,
-          lockedAt,
-          lockedBy,
-        },
-      }));
+    period: currentPeriod,
+    onSuccess: () => {
+      refetchPeriods();
     },
   });
 
   return (
-    <div className="space-y-6 pb-12">
+    <div className="max-w-7xl mx-auto flex flex-col gap-6 pb-12">
       {/* 1. Tiêu đề trang & Mô tả */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl font-extrabold text-slate-800 flex items-center gap-2">
-            <FileText className="w-6 h-6 text-kv-blue-primary" />
+          <h1 className="text-lg sm:text-xl font-black text-slate-800 flex items-center gap-2.5">
+            <span className="p-2 bg-blue-50 text-blue-600 rounded-xl shadow-2xs inline-flex items-center justify-center">
+              <FileText className="w-5 h-5 shrink-0 stroke-[2.2]" />
+            </span>
             <span>{REPORT_UI.TAX_DECLARATION.TITLE}</span>
           </h1>
           <p className="text-xs text-slate-500 mt-1 max-w-3xl leading-relaxed">
             {REPORT_UI.TAX_DECLARATION.DESCRIPTION}
           </p>
         </div>
+
+        {/* Nút Lập bảng kê kỳ mới trên Header */}
+        <button
+          type="button"
+          onClick={() => setIsGenerateModalOpen(true)}
+          className="group inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 active:scale-95 text-white font-bold text-xs transition-all duration-200 ease-out shadow-sm hover:shadow-md hover:-translate-y-0.5 active:translate-y-0 cursor-pointer shrink-0 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+        >
+          <Plus className="w-4 h-4 shrink-0 stroke-[2.5] transition-transform duration-200 group-hover:rotate-90" />
+          <span>Lập bảng kê kỳ mới</span>
+        </button>
       </div>
 
       {/* 2. Thanh lọc kỳ tính thuế, Nút Xuất tệp & Nút Chốt/Mở lại kỳ */}
       <TaxPeriodFilterBar
-        periods={TAX_PERIODS_2026}
-        selectedPeriod={selectedPeriod}
-        onSelectPeriod={setSelectedPeriod}
-        status={summary.status}
+        periods={periodOptions}
+        selectedPeriod={selectedPeriodOption}
+        onSelectPeriod={(opt) => setSelectedPeriodId(opt.value)}
+        status={currentPeriod?.status}
         onOpenPreview={() => setIsPreviewModalOpen(true)}
         onExport={handleExport}
         isExporting={isExporting}
@@ -398,196 +174,202 @@ export const TaxDeclarationPage: React.FC = () => {
         roleRestrictionReason={roleRestrictionReason}
         onOpenLockModal={() => setIsLockModalOpen(true)}
         onOpenUnlockModal={() => setIsUnlockModalOpen(true)}
+        onOpenCreatePeriodModal={() => setIsGenerateModalOpen(true)}
         isOwner={isOwner}
         roleLockRestrictionReason={roleLockRestrictionReason}
       />
 
-      {/* Banner thông báo Rollover nếu kỳ đã chốt (TC-02, QTN-21) */}
-      {summary.status === "LOCKED" && rolloverAdjustments.length > 0 && (
-        <RolloverAdjustmentNotice
-          adjustments={rolloverAdjustments}
-          currentPeriodLabel={summary.periodLabel}
-        />
-      )}
-
-      {/* 3. Thẻ KPI Tổng hợp doanh thu & Nghĩa vụ thuế */}
-      <TaxSummaryKpiCards summary={summary} />
-
-      {/* 4. Tab Điều hướng Chi tiết */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 space-y-4">
-        <div className="flex flex-wrap items-center gap-3 border-b border-slate-100 pb-3">
+      {/* Trường hợp chưa có kỳ kê khai nào được lập */}
+      {!isPeriodsLoading && periodOptions.length === 0 && (
+        <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center shadow-sm animate-in fade-in zoom-in-95 duration-200">
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-50 text-blue-600 mb-4 shadow-xs">
+            <FolderOpen className="h-8 w-8 stroke-[1.8]" />
+          </div>
+          <h3 className="text-base font-bold text-slate-800">
+            Chưa có kỳ kê khai thuế nào được tạo
+          </h3>
+          <p className="mt-1.5 text-xs text-slate-500 max-w-md mx-auto leading-relaxed">
+            Hệ thống sẽ tự động quét và tổng hợp toàn bộ hóa đơn điện tử hợp lệ đã được Cơ quan Thuế cấp mã trong kỳ để lập bảng kê và tính doanh thu chịu thuế.
+          </p>
           <button
             type="button"
-            onClick={() => setActiveTab("FORM")}
-            className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition ${
-              activeTab === "FORM"
-                ? "bg-kv-blue-light text-kv-blue-primary border border-blue-200 shadow-xs"
-                : "text-slate-600 hover:bg-slate-100"
-            }`}
+            onClick={() => setIsGenerateModalOpen(true)}
+            className="group mt-5 inline-flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-blue-700 active:bg-blue-800 active:scale-95 hover:shadow-md hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 ease-out cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500/40"
           >
-            <FileText className="w-4 h-4" />
-            <span>{REPORT_UI.TAX_DECLARATION.TAB_SIMULATED_FORM}</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab("ANNEX")}
-            className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition ${
-              activeTab === "ANNEX"
-                ? "bg-kv-blue-light text-kv-blue-primary border border-blue-200 shadow-xs"
-                : "text-slate-600 hover:bg-slate-100"
-            }`}
-          >
-            <FileSpreadsheet className="w-4 h-4" />
-            <span>
-              {REPORT_UI.TAX_DECLARATION.TAB_ANNEX_INVOICES} ({annexInvoices.length})
-            </span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab("TAX_GROUPS")}
-            className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition ${
-              activeTab === "TAX_GROUPS"
-                ? "bg-kv-blue-light text-kv-blue-primary border border-blue-200 shadow-xs"
-                : "text-slate-600 hover:bg-slate-100"
-            }`}
-          >
-            <Layers className="w-4 h-4" />
-            <span>{REPORT_UI.TAX_DECLARATION.TAB_TAX_GROUPS}</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab("AUDIT_HISTORY")}
-            className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition ${
-              activeTab === "AUDIT_HISTORY"
-                ? "bg-kv-blue-light text-kv-blue-primary border border-blue-200 shadow-xs"
-                : "text-slate-600 hover:bg-slate-100"
-            }`}
-          >
-            <History className="w-4 h-4" />
-            <span>Nhật ký chốt kỳ (TC-04)</span>
+            <Plus className="h-4 w-4 stroke-[2.5] transition-transform duration-200 group-hover:rotate-90" />
+            <span>Lập bảng kê kỳ đầu tiên</span>
           </button>
         </div>
+      )}
 
-        {/* Nội dung từng Tab */}
-        {activeTab === "FORM" && (
-          <div className="bg-slate-100/70 p-4 sm:p-6 rounded-xl border border-slate-200 flex flex-col items-center">
-            <div className="w-full flex justify-between items-center mb-4 text-xs">
-              <span className="text-slate-500 italic">
-                * Dưới đây là bản mô phỏng trực tiếp Mẫu 01/CNKD sẽ được in / xuất tệp
-                {summary.status === "LOCKED" && " (ĐÃ ĐÓNG BĂNG DỮ LIỆU)"}
-              </span>
+      {/* Khi đã có kỳ được chọn */}
+      {currentPeriod && (
+        <>
+          {/* 3. Thẻ KPI Tổng hợp doanh thu & Nghĩa vụ thuế (CN-002) */}
+          <TaxSummaryKpiCards
+            period={currentPeriod}
+            summary={revenueSummary}
+            isLoading={isDetailLoading || isSummaryLoading}
+          />
+
+          {/* 4. Tab Điều hướng Chi tiết */}
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 space-y-4">
+            <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 pb-3">
               <button
                 type="button"
-                onClick={() => setIsPreviewModalOpen(true)}
-                className="text-kv-blue-primary font-bold hover:underline"
+                onClick={() => setActiveTab("ANNEX")}
+                className={`group inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 active:scale-95 cursor-pointer select-none focus:outline-none ${
+                  activeTab === "ANNEX"
+                    ? "bg-blue-50 text-blue-700 border border-blue-200 shadow-xs translate-y-0"
+                    : "text-slate-600 hover:bg-slate-100 hover:text-slate-800"
+                }`}
               >
-                Mở rộng toàn màn hình & In ↗
+                <FileSpreadsheet className="w-4 h-4 shrink-0 stroke-[2] transition-transform duration-200 group-hover:scale-110" />
+                <span>
+                  {REPORT_UI.TAX_DECLARATION.TAB_ANNEX_INVOICES} ({salesRegisterItems.length})
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveTab("TAX_GROUPS")}
+                className={`group inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 active:scale-95 cursor-pointer select-none focus:outline-none ${
+                  activeTab === "TAX_GROUPS"
+                    ? "bg-blue-50 text-blue-700 border border-blue-200 shadow-xs translate-y-0"
+                    : "text-slate-600 hover:bg-slate-100 hover:text-slate-800"
+                }`}
+              >
+                <Layers className="w-4 h-4 shrink-0 stroke-[2] transition-transform duration-200 group-hover:scale-110" />
+                <span>{REPORT_UI.TAX_DECLARATION.TAB_TAX_GROUPS}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveTab("AUDIT_HISTORY")}
+                className={`group inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 active:scale-95 cursor-pointer select-none focus:outline-none ${
+                  activeTab === "AUDIT_HISTORY"
+                    ? "bg-blue-50 text-blue-700 border border-blue-200 shadow-xs translate-y-0"
+                    : "text-slate-600 hover:bg-slate-100 hover:text-slate-800"
+                }`}
+              >
+                <History className="w-4 h-4 shrink-0 stroke-[2] transition-transform duration-200 group-hover:rotate-45" />
+                <span>Nhật ký thao tác & Chốt kỳ</span>
               </button>
             </div>
-            <SimulatedTaxForm01
-              id="tax-declaration-page-preview-form"
-              summary={summary}
-            />
+
+            {/* Nội dung từng Tab */}
+            {activeTab === "ANNEX" && (
+              <div className="animate-in fade-in duration-200">
+                <TaxInvoiceAnnexTable
+                  invoices={salesRegisterItems}
+                  periodLabel={currentPeriod.periodName}
+                  isLoading={isRegisterLoading}
+                />
+              </div>
+            )}
+
+            {activeTab === "TAX_GROUPS" && (
+              <div className="space-y-4 animate-in fade-in duration-200">
+                <div className="text-xs text-slate-500">
+                  Chi tiết phân rã doanh thu và nghĩa vụ thuế phát sinh theo từng mức thuế suất đang áp dụng tại hộ kinh doanh:
+                </div>
+                <div className="overflow-x-auto border border-slate-200 rounded-2xl">
+                  <table className="w-full text-xs text-left border-collapse">
+                    <thead className="bg-slate-50 text-slate-700 font-bold uppercase text-[10px] border-b border-slate-200">
+                      <tr>
+                        <th className="p-3 text-center w-12">STT</th>
+                        <th className="p-3">Mức thuế suất</th>
+                        <th className="p-3">Mô tả / Ngành hàng</th>
+                        <th className="p-3 text-center">Số lượng HĐ</th>
+                        <th className="p-3 text-right">Doanh thu chịu thuế</th>
+                        <th className="p-3 text-right">Tiền thuế phát sinh</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 text-slate-700">
+                      {revenueSummary?.taxRateSummaries &&
+                      revenueSummary.taxRateSummaries.length > 0 ? (
+                        revenueSummary.taxRateSummaries.map((g, idx) => (
+                          <tr key={idx} className="hover:bg-slate-50/80 transition-colors">
+                            <td className="p-3 text-center font-bold text-slate-400">
+                              {idx + 1}
+                            </td>
+                            <td className="p-3 font-bold text-blue-700">
+                              Thuế suất {g.taxRatePercentage}%
+                            </td>
+                            <td className="p-3 font-semibold text-slate-800">
+                              {g.taxRateName ||
+                                `Nhóm hàng chịu thuế suất ${g.taxRatePercentage}%`}
+                            </td>
+                            <td className="p-3 text-center font-bold text-slate-600">
+                              {g.invoiceCount}
+                            </td>
+                            <td className="p-3 text-right font-bold text-slate-900">
+                              {new Intl.NumberFormat("vi-VN", {
+                                style: "currency",
+                                currency: "VND",
+                              }).format(g.revenueAmount)}
+                            </td>
+                            <td className="p-3 text-right font-extrabold text-rose-600">
+                              {new Intl.NumberFormat("vi-VN", {
+                                style: "currency",
+                                currency: "VND",
+                              }).format(g.taxAmount)}
+                            </td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td
+                            colSpan={6}
+                            className="p-6 text-center text-slate-400 italic"
+                          >
+                            Chưa có dữ liệu phân nhóm thuế suất trong kỳ này.
+                          </td>
+                        </tr>
+                      )}
+                      <tr className="bg-slate-50/90 font-black text-slate-900 border-t border-slate-300">
+                        <td colSpan={3} className="p-3 text-center uppercase">
+                          TỔNG CỘNG NGHĨA VỤ THUẾ CỦA KỲ
+                        </td>
+                        <td className="p-3 text-center font-bold text-slate-800">
+                          {currentPeriod.totalValidInvoices} HĐ
+                        </td>
+                        <td className="p-3 text-right text-blue-700 font-extrabold">
+                          {new Intl.NumberFormat("vi-VN", {
+                            style: "currency",
+                            currency: "VND",
+                          }).format(currentPeriod.totalRevenue)}
+                        </td>
+                        <td className="p-3 text-right text-rose-600 text-sm font-black">
+                          {new Intl.NumberFormat("vi-VN", {
+                            style: "currency",
+                            currency: "VND",
+                          }).format(currentPeriod.totalTaxAmount)}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {activeTab === "AUDIT_HISTORY" && (
+              <div className="animate-in fade-in duration-200">
+                <PeriodLockAuditTimeline period={currentPeriod} />
+              </div>
+            )}
           </div>
-        )}
-
-        {activeTab === "ANNEX" && (
-          <TaxInvoiceAnnexTable
-            invoices={annexInvoices}
-            periodLabel={summary.periodLabel}
-          />
-        )}
-
-        {activeTab === "TAX_GROUPS" && (
-          <div className="space-y-4">
-            <div className="text-xs text-slate-500">
-              Chi tiết phân rã doanh thu và nghĩa vụ thuế phát sinh theo từng mức thuế suất đang áp dụng tại hộ kinh doanh:
-            </div>
-            <div className="overflow-x-auto border border-slate-200 rounded-xl">
-              <table className="w-full text-xs text-left border-collapse">
-                <thead className="bg-slate-50 text-slate-700 font-bold uppercase text-[10px] border-b border-slate-200">
-                  <tr>
-                    <th className="p-3 text-center w-12">STT</th>
-                    <th className="p-3">Nhóm ngành nghề / Mức thuế</th>
-                    <th className="p-3 text-right">Doanh thu chịu thuế</th>
-                    <th className="p-3 text-center">Thuế suất GTGT</th>
-                    <th className="p-3 text-right">Tiền thuế GTGT</th>
-                    <th className="p-3 text-center">Thuế suất TNCN</th>
-                    <th className="p-3 text-right">Tiền thuế TNCN</th>
-                    <th className="p-3 text-right">Tổng thuế phải nộp</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 text-slate-700">
-                  {summary.taxGroups.map((g, idx) => (
-                    <tr key={idx} className="hover:bg-slate-50">
-                      <td className="p-3 text-center font-bold text-slate-400">
-                        {idx + 1}
-                      </td>
-                      <td className="p-3 font-semibold text-slate-800">
-                        {g.categoryLabel}
-                      </td>
-                      <td className="p-3 text-right font-bold text-slate-900">
-                        {formatCurrency(g.revenueBeforeTax)}
-                      </td>
-                      <td className="p-3 text-center font-bold text-slate-600">
-                        {g.vatRatePercent}%
-                      </td>
-                      <td className="p-3 text-right font-bold text-emerald-600">
-                        {formatCurrency(g.vatAmount)}
-                      </td>
-                      <td className="p-3 text-center font-bold text-slate-600">
-                        {g.pitRatePercent}%
-                      </td>
-                      <td className="p-3 text-right font-bold text-indigo-600">
-                        {formatCurrency(g.pitAmount)}
-                      </td>
-                      <td className="p-3 text-right font-extrabold text-rose-600 text-sm">
-                        {formatCurrency(g.totalTaxAmount)}
-                      </td>
-                    </tr>
-                  ))}
-                  <tr className="bg-slate-50/80 font-black text-slate-900 border-t border-slate-300">
-                    <td colSpan={2} className="p-3 text-center uppercase">
-                      TỔNG CỘNG
-                    </td>
-                    <td className="p-3 text-right text-kv-blue-primary">
-                      {formatCurrency(summary.totalRevenue)}
-                    </td>
-                    <td className="p-3 text-center">-</td>
-                    <td className="p-3 text-right text-emerald-600">
-                      {formatCurrency(summary.totalVatAmount)}
-                    </td>
-                    <td className="p-3 text-center">-</td>
-                    <td className="p-3 text-right text-indigo-600">
-                      {formatCurrency(summary.totalPitAmount)}
-                    </td>
-                    <td className="p-3 text-right text-rose-600 text-base">
-                      {formatCurrency(summary.totalPayableTaxAmount)}
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
-        {activeTab === "AUDIT_HISTORY" && (
-          <PeriodLockAuditTimeline
-            history={auditHistory}
-            periodLabel={summary.periodLabel}
-          />
-        )}
-      </div>
+        </>
+      )}
 
       {/* 5. Modals */}
       <TaxDeclarationPreviewModal
         isOpen={isPreviewModalOpen}
         onClose={() => setIsPreviewModalOpen(false)}
-        summary={summary}
-        annexInvoices={annexInvoices}
+        period={currentPeriod}
+        revenueSummary={revenueSummary}
+        registerItems={salesRegisterItems}
+        householdData={householdData}
         onExport={handleExport}
         isExporting={isExporting}
         canExport={canExport}
@@ -599,11 +381,21 @@ export const TaxDeclarationPage: React.FC = () => {
         missingFields={missingFields}
       />
 
+      {/* Modal Lập bảng kê kỳ mới (CN-001) */}
+      <GeneratePeriodModal
+        isOpen={isGenerateModalOpen}
+        onClose={() => setIsGenerateModalOpen(false)}
+        onSuccess={(newPeriodId) => {
+          setSelectedPeriodId(newPeriodId);
+          refetchPeriods();
+        }}
+      />
+
       {/* Modal Chốt kỳ kê khai (NCL-12-CN-004) */}
       <LockPeriodConfirmModal
         isOpen={isLockModalOpen}
         onClose={() => setIsLockModalOpen(false)}
-        summary={summary}
+        period={currentPeriod}
         onConfirmLock={handleLockPeriod}
         isLoading={isLockingAction}
       />
@@ -612,7 +404,7 @@ export const TaxDeclarationPage: React.FC = () => {
       <UnlockPeriodModal
         isOpen={isUnlockModalOpen}
         onClose={() => setIsUnlockModalOpen(false)}
-        periodLabel={summary.periodLabel}
+        periodLabel={currentPeriod?.periodName || ""}
         onConfirmUnlock={handleUnlockPeriod}
         isLoading={isLockingAction}
       />

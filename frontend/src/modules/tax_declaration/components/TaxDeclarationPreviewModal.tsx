@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { createPortal } from "react-dom";
 import {
   X,
   Printer,
@@ -11,19 +12,28 @@ import {
   Loader2,
 } from "lucide-react";
 import type {
-  ITaxDeclarationSummary,
-  ITaxAnnexInvoice,
+  ITaxDeclarationPeriodResponse,
+  ITaxRevenueSummaryResponse,
+  ITaxSalesRegisterItemResponse,
   TTaxExportFormat,
 } from "../types/ITaxDeclaration";
 import { SimulatedTaxForm01 } from "./SimulatedTaxForm01";
 import { TaxInvoiceAnnexTable } from "./TaxInvoiceAnnexTable";
-import { REPORT_UI } from "@/constants/report";
+import { formatCurrency } from "@/utils/formatCurrency";
 
 interface ITaxDeclarationPreviewModalProps {
   isOpen: boolean;
   onClose: () => void;
-  summary: ITaxDeclarationSummary;
-  annexInvoices: ITaxAnnexInvoice[];
+  period?: ITaxDeclarationPeriodResponse;
+  revenueSummary?: ITaxRevenueSummaryResponse;
+  registerItems?: ITaxSalesRegisterItemResponse[];
+  householdData?: {
+    name: string;
+    taxCode: string;
+    representativeName?: string;
+    address: string;
+    phoneNumber: string;
+  };
   onExport: (format: TTaxExportFormat) => void;
   isExporting: boolean;
   canExport: boolean;
@@ -34,8 +44,10 @@ export const TaxDeclarationPreviewModal: React.FC<
 > = ({
   isOpen,
   onClose,
-  summary,
-  annexInvoices,
+  period,
+  revenueSummary,
+  registerItems = [],
+  householdData,
   onExport,
   isExporting,
   canExport,
@@ -43,7 +55,7 @@ export const TaxDeclarationPreviewModal: React.FC<
   const [activeTab, setActiveTab] = useState<"FORM" | "ANNEX">("FORM");
   const [zoomLevel, setZoomLevel] = useState<number>(100);
 
-  if (!isOpen) return null;
+  if (!isOpen || !period) return null;
 
   const handlePrint = () => {
     window.print();
@@ -53,18 +65,20 @@ export const TaxDeclarationPreviewModal: React.FC<
   const handleZoomOut = () => setZoomLevel((prev) => Math.max(prev - 10, 70));
   const handleResetZoom = () => setZoomLevel(100);
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-900/70 backdrop-blur-xs animate-in fade-in duration-200">
-      <div className="bg-slate-100 rounded-2xl border border-slate-200 shadow-2xl max-w-5xl w-full h-[92vh] flex flex-col overflow-hidden">
+  const totalTaxAmount = revenueSummary?.totalTaxAmount ?? period.totalTaxAmount;
+
+  return createPortal(
+    <div className="fixed inset-0 z-[1000] flex items-center justify-center p-2 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-modal-backdrop">
+      <div className="bg-slate-100 rounded-2xl border border-slate-200 shadow-2xl max-w-5xl w-full h-[92vh] flex flex-col overflow-hidden animate-modal-scale">
         {/* Modal Top Header */}
         <div className="bg-white px-5 py-3.5 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3 shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-blue-50 text-kv-blue-primary flex items-center justify-center">
-              <FileText className="w-4 h-4" />
+            <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shadow-xs">
+              <FileText className="w-4 h-4 shrink-0 stroke-[2.2]" />
             </div>
             <div>
               <h2 className="text-sm font-extrabold text-slate-800">
-                Xem trước Tờ khai thuế & Sổ sách ({summary.periodLabel})
+                Xem trước Tờ khai thuế & Sổ sách ({period.periodName})
               </h2>
               <p className="text-[11px] text-slate-500">
                 Mẫu mô phỏng chuẩn Thông tư 40/2021/TT-BTC dành cho Hộ kinh doanh
@@ -80,10 +94,10 @@ export const TaxDeclarationPreviewModal: React.FC<
                 <button
                   type="button"
                   onClick={handleZoomOut}
-                  className="p-1 text-slate-600 hover:bg-slate-200 rounded"
+                  className="p-1 text-slate-600 hover:bg-slate-200 active:scale-95 rounded transition cursor-pointer"
                   title="Thu nhỏ"
                 >
-                  <ZoomOut className="w-3.5 h-3.5" />
+                  <ZoomOut className="w-3.5 h-3.5 stroke-[2.2]" />
                 </button>
                 <span className="px-1 font-mono font-bold text-[11px] text-slate-700">
                   {zoomLevel}%
@@ -91,18 +105,18 @@ export const TaxDeclarationPreviewModal: React.FC<
                 <button
                   type="button"
                   onClick={handleZoomIn}
-                  className="p-1 text-slate-600 hover:bg-slate-200 rounded"
+                  className="p-1 text-slate-600 hover:bg-slate-200 active:scale-95 rounded transition cursor-pointer"
                   title="Phóng to"
                 >
-                  <ZoomIn className="w-3.5 h-3.5" />
+                  <ZoomIn className="w-3.5 h-3.5 stroke-[2.2]" />
                 </button>
                 <button
                   type="button"
                   onClick={handleResetZoom}
-                  className="p-1 text-slate-600 hover:bg-slate-200 rounded ml-0.5"
+                  className="p-1 text-slate-600 hover:bg-slate-200 active:scale-95 rounded ml-0.5 transition cursor-pointer"
                   title="Đặt lại 100%"
                 >
-                  <RotateCcw className="w-3 h-3" />
+                  <RotateCcw className="w-3 h-3 stroke-[2.2]" />
                 </button>
               </div>
             )}
@@ -111,10 +125,10 @@ export const TaxDeclarationPreviewModal: React.FC<
             <button
               type="button"
               onClick={handlePrint}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition border border-slate-200"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-700 font-bold text-xs transition border border-slate-200 cursor-pointer select-none"
               title="In bản xem trước"
             >
-              <Printer className="w-3.5 h-3.5" />
+              <Printer className="w-3.5 h-3.5 shrink-0 stroke-[2.2]" />
               <span className="hidden sm:inline">In trang</span>
             </button>
 
@@ -122,9 +136,9 @@ export const TaxDeclarationPreviewModal: React.FC<
             <button
               type="button"
               onClick={onClose}
-              className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition"
+              className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 active:scale-95 rounded-lg transition cursor-pointer"
             >
-              <X className="w-5 h-5" />
+              <X className="w-5 h-5 stroke-[2]" />
             </button>
           </div>
         </div>
@@ -134,28 +148,28 @@ export const TaxDeclarationPreviewModal: React.FC<
           <button
             type="button"
             onClick={() => setActiveTab("FORM")}
-            className={`py-3 font-bold border-b-2 transition flex items-center gap-1.5 ${
+            className={`py-3 font-bold border-b-2 transition-all duration-150 flex items-center gap-1.5 cursor-pointer active:scale-95 select-none ${
               activeTab === "FORM"
-                ? "border-kv-blue-primary text-kv-blue-primary"
+                ? "border-blue-600 text-blue-600"
                 : "border-transparent text-slate-500 hover:text-slate-700"
             }`}
           >
-            <FileText className="w-3.5 h-3.5" />
-            <span>{REPORT_UI.TAX_DECLARATION.TAB_SIMULATED_FORM}</span>
+            <FileText className="w-3.5 h-3.5 shrink-0 stroke-[2.2]" />
+            <span>Mẫu 01/CNKD (Tờ khai)</span>
           </button>
 
           <button
             type="button"
             onClick={() => setActiveTab("ANNEX")}
-            className={`py-3 font-bold border-b-2 transition flex items-center gap-1.5 ${
+            className={`py-3 font-bold border-b-2 transition-all duration-150 flex items-center gap-1.5 cursor-pointer active:scale-95 select-none ${
               activeTab === "ANNEX"
-                ? "border-kv-blue-primary text-kv-blue-primary"
+                ? "border-blue-600 text-blue-600"
                 : "border-transparent text-slate-500 hover:text-slate-700"
             }`}
           >
-            <FileSpreadsheet className="w-3.5 h-3.5" />
+            <FileSpreadsheet className="w-3.5 h-3.5 shrink-0 stroke-[2.2]" />
             <span>
-              {REPORT_UI.TAX_DECLARATION.TAB_ANNEX_INVOICES} ({annexInvoices.length})
+              Phụ lục 01-2/BK ({registerItems.length} hóa đơn)
             </span>
           </button>
         </div>
@@ -171,13 +185,17 @@ export const TaxDeclarationPreviewModal: React.FC<
               }}
               className="w-full flex justify-center"
             >
-              <SimulatedTaxForm01 summary={summary} />
+              <SimulatedTaxForm01
+                period={period}
+                revenueSummary={revenueSummary}
+                householdData={householdData}
+              />
             </div>
           ) : (
             <div className="w-full max-w-5xl">
               <TaxInvoiceAnnexTable
-                invoices={annexInvoices}
-                periodLabel={summary.periodLabel}
+                invoices={registerItems}
+                periodLabel={period.periodName}
               />
             </div>
           )}
@@ -188,9 +206,7 @@ export const TaxDeclarationPreviewModal: React.FC<
           <div className="text-xs text-slate-500">
             Tổng thuế phải nộp:{" "}
             <strong className="text-rose-600 font-bold">
-              {new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(
-                summary.totalPayableTaxAmount
-              )}
+              {formatCurrency(totalTaxAmount)}
             </strong>
           </div>
 
@@ -198,7 +214,7 @@ export const TaxDeclarationPreviewModal: React.FC<
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-lg border border-slate-200 text-slate-600 font-bold text-xs hover:bg-slate-50 transition"
+              className="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 font-bold text-xs hover:bg-slate-50 active:scale-95 transition-all duration-150 cursor-pointer"
             >
               Đóng
             </button>
@@ -209,12 +225,12 @@ export const TaxDeclarationPreviewModal: React.FC<
                   type="button"
                   disabled={isExporting}
                   onClick={() => onExport("PDF")}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs transition shadow-sm disabled:opacity-50"
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 active:bg-rose-800 active:scale-95 text-white font-bold text-xs transition-all duration-150 shadow-sm hover:shadow-md hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 cursor-pointer select-none"
                 >
                   {isExporting ? (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0 stroke-[2.5]" />
                   ) : (
-                    <FileText className="w-3.5 h-3.5" />
+                    <FileText className="w-3.5 h-3.5 shrink-0 stroke-[2.2]" />
                   )}
                   <span>Tải PDF A4</span>
                 </button>
@@ -223,26 +239,26 @@ export const TaxDeclarationPreviewModal: React.FC<
                   type="button"
                   disabled={isExporting}
                   onClick={() => onExport("EXCEL")}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs transition shadow-sm disabled:opacity-50"
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 active:scale-95 text-white font-bold text-xs transition-all duration-150 shadow-sm hover:shadow-md hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 cursor-pointer select-none"
                 >
                   {isExporting ? (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0 stroke-[2.5]" />
                   ) : (
-                    <FileSpreadsheet className="w-3.5 h-3.5" />
+                    <FileSpreadsheet className="w-3.5 h-3.5 shrink-0 stroke-[2.2]" />
                   )}
-                  <span>Tải Excel (.xlsx)</span>
+                  <span>Tải Excel từ Máy chủ</span>
                 </button>
 
                 <button
                   type="button"
                   disabled={isExporting}
                   onClick={() => onExport("XML")}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs transition shadow-sm disabled:opacity-50"
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 active:scale-95 text-white font-bold text-xs transition-all duration-150 shadow-sm hover:shadow-md hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 cursor-pointer select-none"
                 >
                   {isExporting ? (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0 stroke-[2.5]" />
                   ) : (
-                    <FileCode className="w-3.5 h-3.5" />
+                    <FileCode className="w-3.5 h-3.5 shrink-0 stroke-[2.2]" />
                   )}
                   <span>Tải XML eTax</span>
                 </button>
@@ -251,6 +267,7 @@ export const TaxDeclarationPreviewModal: React.FC<
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

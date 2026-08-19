@@ -1,4 +1,5 @@
 import React from "react";
+import { createPortal } from "react-dom";
 import { AlertTriangle, ArrowRight, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { APP_ROUTES } from "@/constants/routes";
@@ -24,14 +25,14 @@ export const MissingInfoAlertModal: React.FC<IMissingInfoAlertModalProps> = ({
     navigate(APP_ROUTES.SETTINGS_BUSINESS_INFO);
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-md w-full overflow-hidden">
+  return createPortal(
+    <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-modal-backdrop">
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-md w-full overflow-hidden animate-modal-scale">
         {/* Header Modal */}
         <div className="bg-amber-50 p-4 border-b border-amber-100 flex items-center justify-between">
           <div className="flex items-center gap-2.5 text-amber-800">
-            <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center">
-              <AlertTriangle className="w-5 h-5 text-amber-600" />
+            <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center shadow-xs">
+              <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 stroke-[2.2]" />
             </div>
             <h3 className="font-extrabold text-sm text-slate-800">
               {REPORT_UI.TAX_DECLARATION.WARNING_MISSING_INFO_TITLE}
@@ -40,9 +41,9 @@ export const MissingInfoAlertModal: React.FC<IMissingInfoAlertModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-600 transition"
+            className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100 active:scale-95 transition-all duration-150 cursor-pointer"
           >
-            <X className="w-5 h-5" />
+            <X className="w-5 h-5 stroke-[2]" />
           </button>
         </div>
 
@@ -79,20 +80,21 @@ export const MissingInfoAlertModal: React.FC<IMissingInfoAlertModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 rounded-lg border border-slate-200 text-slate-600 font-bold text-xs hover:bg-slate-100 transition"
+            className="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 font-bold text-xs hover:bg-slate-100 active:scale-95 transition-all duration-150 cursor-pointer"
           >
             Để sau
           </button>
           <button
             type="button"
             onClick={handleNavigateToSettings}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-kv-blue-primary hover:bg-blue-600 text-white font-bold text-xs transition shadow-sm"
+            className="group inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 active:scale-95 text-white font-bold text-xs transition-all duration-150 shadow-sm hover:shadow-md hover:-translate-y-0.5 active:translate-y-0 cursor-pointer select-none"
           >
             <span>{REPORT_UI.TAX_DECLARATION.BTN_UPDATE_SETTINGS}</span>
-            <ArrowRight className="w-4 h-4" />
+            <ArrowRight className="w-4 h-4 stroke-[2.2] transition-transform duration-200 group-hover:translate-x-0.5" />
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

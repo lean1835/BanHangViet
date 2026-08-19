@@ -3,20 +3,28 @@ import { useNotification } from "@/hooks/useNotification";
 import { useDashboardDemo } from "@/providers/DashboardDemoProvider";
 import {
   exportTaxDeclarationToPdf,
-  exportTaxDeclarationToExcel,
   exportTaxDeclarationToXml,
 } from "../utils/taxExportHelper";
-import { useLogTaxExportAuditMutation } from "../services/taxDeclarationApi";
+import { downloadTaxDeclarationExcel } from "../services/taxDeclarationApi";
 import type {
-  ITaxDeclarationSummary,
-  ITaxAnnexInvoice,
+  ITaxDeclarationPeriodResponse,
+  ITaxRevenueSummaryResponse,
+  ITaxSalesRegisterItemResponse,
   TTaxExportFormat,
 } from "../types/ITaxDeclaration";
 import { formatCurrency } from "@/utils/formatCurrency";
 
 interface IUseTaxDeclarationExportProps {
-  summary: ITaxDeclarationSummary;
-  annexInvoices: ITaxAnnexInvoice[];
+  period?: ITaxDeclarationPeriodResponse;
+  revenueSummary?: ITaxRevenueSummaryResponse;
+  registerItems?: ITaxSalesRegisterItemResponse[];
+  householdData?: {
+    name: string;
+    taxCode: string;
+    representativeName?: string;
+    address: string;
+    phoneNumber: string;
+  };
   previewElementId?: string;
   onMissingInfoAlert?: () => void;
   isMissingInfo: boolean;
@@ -24,8 +32,10 @@ interface IUseTaxDeclarationExportProps {
 }
 
 export const useTaxDeclarationExport = ({
-  summary,
-  annexInvoices,
+  period,
+  revenueSummary,
+  registerItems = [],
+  householdData,
   previewElementId = "tax-declaration-form-simulation",
   onMissingInfoAlert,
   isMissingInfo,
@@ -33,7 +43,6 @@ export const useTaxDeclarationExport = ({
 }: IUseTaxDeclarationExportProps) => {
   const { showSuccess, showError, showWarning } = useNotification();
   const { addLogEntry } = useDashboardDemo();
-  const [logTaxExportAudit] = useLogTaxExportAuditMutation();
   const [isExporting, setIsExporting] = useState(false);
 
   const handleExport = useCallback(
@@ -54,46 +63,35 @@ export const useTaxDeclarationExport = ({
         return;
       }
 
+      if (!period) {
+        showWarning("Vui lòng chọn hoặc lập bảng kê kỳ kê khai trước khi xuất tờ khai.");
+        return;
+      }
+
       setIsExporting(true);
       try {
-        let success = false;
-        if (format === "PDF") {
-          success = await exportTaxDeclarationToPdf(previewElementId, summary);
-        } else if (format === "EXCEL") {
-          success = exportTaxDeclarationToExcel(summary, annexInvoices);
+        if (format === "EXCEL") {
+          // Gọi trực tiếp API tải tệp Excel 2 sheet từ Backend (Apache POI engine)
+          const fileName = `To_khai_thue_${period.periodType}_${period.year}_${period.periodNumber}.xlsx`;
+          await downloadTaxDeclarationExcel(period.id, fileName);
+        } else if (format === "PDF") {
+          await exportTaxDeclarationToPdf(previewElementId, period.periodName, period.year);
         } else if (format === "XML") {
-          success = exportTaxDeclarationToXml(summary, annexInvoices);
+          exportTaxDeclarationToXml(period, revenueSummary, registerItems, householdData);
         }
 
-        if (success) {
-          // 3. Ghi nhận nhật ký kiểm toán hệ thống (TC-04)
-          const formatLabels: Record<TTaxExportFormat, string> = {
-            PDF: "PDF (Mẫu 01/CNKD A4)",
-            EXCEL: "Excel (Tờ khai + Bảng kê)",
-            XML: "XML (eTax mô phỏng)",
-          };
+        const formatLabels: Record<TTaxExportFormat, string> = {
+          PDF: "PDF (Mẫu 01/CNKD A4)",
+          EXCEL: "Excel từ Máy chủ (Tờ khai 01 + Bảng kê 01-2)",
+          XML: "XML (eTax mô phỏng)",
+        };
 
-          const logDesc = `Xuất tờ khai thuế ${summary.periodLabel} (${formatLabels[format]}) - Tổng thuế: ${formatCurrency(summary.totalPayableTaxAmount)}`;
-          
-          addLogEntry("XUAT_TO_KHAI_THUE", logDesc);
+        const logDesc = `Xuất tờ khai thuế ${period.periodName} (${formatLabels[format]}) - Tổng thuế: ${formatCurrency(period.totalTaxAmount)}`;
+        addLogEntry("XUAT_TO_KHAI_THUE", logDesc);
 
-          try {
-            await logTaxExportAudit({
-              periodCode: summary.periodCode,
-              exportFormat: format,
-              exportedAt: new Date().toISOString(),
-              totalTaxAmount: summary.totalPayableTaxAmount,
-              householdTaxCode: summary.taxCode,
-              representativeName: summary.representativeName,
-            }).unwrap();
-          } catch {
-            // Logged locally in dashboard demo state even if server is offline
-          }
-
-          showSuccess(
-            `Xuất tờ khai thuế ${summary.periodLabel} (${format}) thành công! Đã ghi nhận lịch sử kiểm toán.`
-          );
-        }
+        showSuccess(
+          `Xuất tờ khai thuế ${period.periodName} (${format}) thành công! Đã ghi nhận lịch sử kiểm toán.`
+        );
       } catch (err: unknown) {
         const errorMsg = err instanceof Error ? err.message : "Xuất tờ khai thuế thất bại. Vui lòng thử lại!";
         showError(errorMsg);
@@ -105,14 +103,15 @@ export const useTaxDeclarationExport = ({
       roleAllowed,
       isMissingInfo,
       onMissingInfoAlert,
+      period,
       previewElementId,
-      summary,
-      annexInvoices,
+      revenueSummary,
+      registerItems,
+      householdData,
       showError,
       showWarning,
       showSuccess,
       addLogEntry,
-      logTaxExportAudit,
     ]
   );
 

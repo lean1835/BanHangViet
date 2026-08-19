@@ -1,30 +1,18 @@
-export interface ILockPeriodRequest {
-  periodCode: string;
-  year: number;
-  notes?: string;
-  lockedTotalRevenue: number;
-  lockedTotalTax: number;
-  validInvoicesCount: number;
-}
-
-export interface IUnlockPeriodRequest {
-  periodCode: string;
-  year: number;
+export interface IUnlockTaxPeriodRequest {
   reason: string;
 }
 
 export interface IPeriodLockAudit {
   id: string;
-  periodCode: string;
-  periodLabel: string;
-  action: "LOCK" | "UNLOCK";
+  periodId?: string;
+  periodName?: string;
+  action: "LOCK_TAX_PERIOD" | "UNLOCK_TAX_PERIOD" | "GENERATE_TAX_SALES_REGISTER" | "EXPORT_TAX_DECLARATION";
   performedBy: string;
   performedAt: string;
   reason?: string;
   notes?: string;
-  totalRevenueAtAction: number;
-  totalTaxAtAction: number;
-  validInvoicesCount: number;
+  totalRevenue?: number;
+  totalTaxAmount?: number;
 }
 
 export interface IRolloverAdjustment {

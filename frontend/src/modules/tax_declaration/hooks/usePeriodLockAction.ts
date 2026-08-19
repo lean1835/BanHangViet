@@ -6,17 +6,17 @@ import {
   useLockTaxPeriodMutation,
   useUnlockTaxPeriodMutation,
 } from "../services/taxDeclarationApi";
-import type { ITaxDeclarationSummary } from "../types/ITaxDeclaration";
+import type { ITaxDeclarationPeriodResponse } from "../types/ITaxDeclaration";
 import { formatCurrency } from "@/utils/formatCurrency";
 
 interface IUsePeriodLockActionProps {
-  summary: ITaxDeclarationSummary;
-  onStatusChange?: (newStatus: "OPEN" | "LOCKED", lockedAt?: string, lockedBy?: string) => void;
+  period?: ITaxDeclarationPeriodResponse;
+  onSuccess?: () => void;
 }
 
 export const usePeriodLockAction = ({
-  summary,
-  onStatusChange,
+  period,
+  onSuccess,
 }: IUsePeriodLockActionProps) => {
   const { currentRole, addLogEntry } = useDashboardDemo();
   const { showSuccess, showError, showWarning } = useNotification();
@@ -40,45 +40,39 @@ export const usePeriodLockAction = ({
         return;
       }
 
+      if (!period) {
+        showWarning("Không tìm thấy thông tin kỳ kê khai để chốt.");
+        return;
+      }
+
       try {
-        await lockTaxPeriod({
-          periodCode: summary.periodCode,
-          year: summary.year,
-          notes,
-          lockedTotalRevenue: summary.totalRevenue,
-          lockedTotalTax: summary.totalPayableTaxAmount,
-          validInvoicesCount: summary.validInvoicesCount,
-        }).unwrap();
+        await lockTaxPeriod(period.id).unwrap();
 
-        const logMsg = `Chốt kỳ kê khai ${summary.periodLabel} - Doanh thu: ${formatCurrency(summary.totalRevenue)} - Thuế: ${formatCurrency(summary.totalPayableTaxAmount)}${notes ? ` (${notes})` : ""}`;
+        const logMsg = `Chốt kỳ kê khai ${period.periodName} - Doanh thu: ${formatCurrency(period.totalRevenue)} - Thuế: ${formatCurrency(period.totalTaxAmount)}${notes ? ` (${notes})` : ""}`;
         addLogEntry("CHOT_KY_KE_KHAI", logMsg);
 
-        if (onStatusChange) {
-          onStatusChange("LOCKED", new Date().toISOString(), "VT-01 (Chủ hộ)");
-        }
-
-        showSuccess(`Chốt kỳ kê khai ${summary.periodLabel} thành công! Số liệu đã được đóng băng an toàn.`);
+        showSuccess(`Chốt kỳ kê khai ${period.periodName} thành công! Số liệu đã được đóng băng an toàn.`);
         setIsLockModalOpen(false);
-      } catch (_err: unknown) {
-        // Fallback demo local update
-        const logMsg = `Chốt kỳ kê khai ${summary.periodLabel} - Doanh thu: ${formatCurrency(summary.totalRevenue)} - Thuế: ${formatCurrency(summary.totalPayableTaxAmount)}${notes ? ` (${notes})` : ""}`;
-        addLogEntry("CHOT_KY_KE_KHAI", logMsg);
-
-        if (onStatusChange) {
-          onStatusChange("LOCKED", new Date().toISOString(), "VT-01 (Chủ hộ)");
-        }
-
-        showSuccess(`Chốt kỳ kê khai ${summary.periodLabel} thành công! Số liệu đã được đóng băng an toàn.`);
-        setIsLockModalOpen(false);
+        if (onSuccess) onSuccess();
+      } catch (err: unknown) {
+        const errorMsg = err && typeof err === "object" && "data" in err && (err as { data: { message?: string } }).data?.message
+          ? (err as { data: { message: string } }).data.message
+          : "Chốt kỳ kê khai thất bại. Vui lòng thử lại!";
+        showError(errorMsg);
       }
     },
-    [isOwner, summary, lockTaxPeriod, addLogEntry, onStatusChange, showSuccess, showError]
+    [isOwner, period, lockTaxPeriod, addLogEntry, onSuccess, showSuccess, showError, showWarning]
   );
 
   const handleUnlockPeriod = useCallback(
     async (reason: string) => {
       if (!isOwner) {
         showError("Bạn không có quyền mở lại kỳ kê khai thuế (Chỉ dành cho Chủ hộ kinh doanh).");
+        return;
+      }
+
+      if (!period) {
+        showWarning("Không tìm thấy thông tin kỳ kê khai để mở lại.");
         return;
       }
 
@@ -89,34 +83,24 @@ export const usePeriodLockAction = ({
 
       try {
         await unlockTaxPeriod({
-          periodCode: summary.periodCode,
-          year: summary.year,
+          periodId: period.id,
           reason: reason.trim(),
         }).unwrap();
 
-        const logMsg = `Mở lại kỳ kê khai ${summary.periodLabel} - Lý do: ${reason.trim()}`;
+        const logMsg = `Mở lại kỳ kê khai ${period.periodName} - Lý do: ${reason.trim()}`;
         addLogEntry("MO_LAI_KY_KE_KHAI", logMsg);
 
-        if (onStatusChange) {
-          onStatusChange("OPEN");
-        }
-
-        showSuccess(`Mở lại kỳ kê khai ${summary.periodLabel} thành công! Kỳ chuyển về trạng thái Dự thảo.`);
+        showSuccess(`Mở lại kỳ kê khai ${period.periodName} thành công! Kỳ chuyển về trạng thái sẵn sàng kê khai.`);
         setIsUnlockModalOpen(false);
-      } catch (_err: unknown) {
-        // Fallback demo local update
-        const logMsg = `Mở lại kỳ kê khai ${summary.periodLabel} - Lý do: ${reason.trim()}`;
-        addLogEntry("MO_LAI_KY_KE_KHAI", logMsg);
-
-        if (onStatusChange) {
-          onStatusChange("OPEN");
-        }
-
-        showSuccess(`Mở lại kỳ kê khai ${summary.periodLabel} thành công! Kỳ chuyển về trạng thái Dự thảo.`);
-        setIsUnlockModalOpen(false);
+        if (onSuccess) onSuccess();
+      } catch (err: unknown) {
+        const errorMsg = err && typeof err === "object" && "data" in err && (err as { data: { message?: string } }).data?.message
+          ? (err as { data: { message: string } }).data.message
+          : "Mở lại kỳ kê khai thất bại. Vui lòng thử lại!";
+        showError(errorMsg);
       }
     },
-    [isOwner, summary, unlockTaxPeriod, addLogEntry, onStatusChange, showSuccess, showError, showWarning]
+    [isOwner, period, unlockTaxPeriod, addLogEntry, onSuccess, showSuccess, showError, showWarning]
   );
 
   return {

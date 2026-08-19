@@ -60,7 +60,7 @@ export const RolloverAdjustmentNotice: React.FC<
               </span>
               <span className="text-slate-400">|</span>
               <span className="text-slate-500">
-                HĐ gốc: {item.originalInvoiceSeries}-{item.originalInvoiceNumber}
+                HĐ gốc: {item.originalInvoiceSeries ? `${item.originalInvoiceSeries}-` : ""}{item.originalInvoiceNumber}
               </span>
               <span className="text-slate-400">|</span>
               <span className="text-slate-500 italic">{item.reason}</span>
