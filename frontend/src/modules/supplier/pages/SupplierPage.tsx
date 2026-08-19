@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { Link, useOutletContext } from "react-router-dom";
 import { USER_ROLES } from "@/constants/roles";
 import { APP_ROUTES } from "@/constants/routes";
@@ -6,6 +6,7 @@ import {
   SUPPLIER_MESSAGES,
   SUPPLIER_LOG_ACTIONS,
   SUPPLIER_ERROR_CODES,
+  SUPPLIER_PAGINATION,
 } from "@/constants/supplier";
 import { useDashboardDemo } from "@/providers/DashboardDemoProvider";
 import { useNotification } from "@/hooks/useNotification";
@@ -106,6 +107,24 @@ export const SupplierPage: React.FC = () => {
       return true;
     });
   }, [suppliers, debouncedSearch, supplierFilter]);
+
+  // Pagination State
+  const [page, setPage] = useState<number>(SUPPLIER_PAGINATION.INITIAL_PAGE);
+  const PAGE_SIZE = SUPPLIER_PAGINATION.PAGE_SIZE;
+
+  // Reset page when search or filter changes
+  useEffect(() => {
+    setPage(SUPPLIER_PAGINATION.INITIAL_PAGE);
+  }, [debouncedSearch, supplierFilter]);
+
+  const totalElements = filteredSuppliers.length;
+  const totalPages = Math.ceil(totalElements / PAGE_SIZE) || 1;
+
+  const paginatedSuppliers = useMemo(() => {
+    const start = page * PAGE_SIZE;
+    const end = start + PAGE_SIZE;
+    return filteredSuppliers.slice(start, end);
+  }, [filteredSuppliers, page, PAGE_SIZE]);
 
   // Handlers
   const handleOpenCreateModal = () => {
@@ -379,13 +398,68 @@ export const SupplierPage: React.FC = () => {
 
       {/* Supplier Table Card */}
       <SupplierTable
-        suppliers={filteredSuppliers}
+        suppliers={paginatedSuppliers}
+        totalCount={totalElements}
         isLoading={isLoading || isFetching}
         canManage={canManage}
         onEdit={handleOpenEditModal}
         onToggleStatus={handleOpenStatusModal}
         onViewDetail={handleOpenDetailModal}
       />
+
+      {/* Pagination Controls */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between border border-slate-200 bg-white px-5 py-3 rounded-xl shadow-2xs animate-auth-fade-in text-xs font-semibold text-slate-700">
+          <div className="flex flex-1 justify-between sm:hidden">
+            <button
+              onClick={() => setPage((p) => Math.max(0, p - 1))}
+              disabled={page === 0}
+              className="relative inline-flex items-center rounded-lg border border-slate-300 bg-white px-4 py-2 hover:bg-slate-50 disabled:opacity-50 transition-colors"
+            >
+              Trang trước
+            </button>
+            <button
+              onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+              disabled={page + 1 >= totalPages}
+              className="relative ml-3 inline-flex items-center rounded-lg border border-slate-300 bg-white px-4 py-2 hover:bg-slate-50 disabled:opacity-50 transition-colors"
+            >
+              Trang sau
+            </button>
+          </div>
+          <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
+            <div>
+              <p className="text-slate-500">
+                Hiển thị bản ghi từ <span className="font-bold text-slate-800">{page * PAGE_SIZE + 1}</span> đến{" "}
+                <span className="font-bold text-slate-800">
+                  {Math.min((page + 1) * PAGE_SIZE, totalElements)}
+                </span>{" "}
+                trong tổng số <span className="font-bold text-slate-800">{totalElements}</span> bản ghi
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setPage((p) => Math.max(0, p - 1))}
+                disabled={page === 0}
+                className="px-3 h-8 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 transition-colors disabled:opacity-50 flex items-center justify-center font-bold"
+              >
+                Trang trước
+              </button>
+              <span className="px-3 h-8 flex items-center justify-center border border-slate-200 rounded-lg bg-slate-50 font-bold">
+                Trang {page + 1} / {totalPages}
+              </span>
+              <button
+                type="button"
+                onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+                disabled={page + 1 >= totalPages}
+                className="px-3 h-8 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 transition-colors disabled:opacity-50 flex items-center justify-center font-bold"
+              >
+                Trang sau
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Create / Edit Modal */}
       <SupplierFormModal

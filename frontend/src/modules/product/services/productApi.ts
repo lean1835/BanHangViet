@@ -13,6 +13,7 @@ import type {
   IGoodsReceipt,
   IGoodsReceiptDetail,
   IGoodsReceiptDetailInfo,
+  ICreateGoodsReceiptPayload,
 } from "@/modules/product/types/IGoodsReceipt";
 import { isRecord } from "@/utils/typeGuards";
 import type { IPageResponse } from "@/types/api";
@@ -104,13 +105,16 @@ const toGoodsReceipt = (value: unknown): IGoodsReceipt => {
 
 const toGoodsReceiptDetail = (value: unknown): IGoodsReceiptDetail => {
   const detail = isRecord(value) ? value : {};
+  const quantity = readNumber(detail.quantity);
+  const purchasePrice = readNumber(detail.purchasePrice);
   return {
     id: readString(detail.id),
     productId: readString(detail.productId),
     productName: readString(detail.productName),
     productSku: readString(detail.productSku),
-    quantity: readNumber(detail.quantity),
-    purchasePrice: readNumber(detail.purchasePrice),
+    quantity,
+    purchasePrice,
+    subtotal: readNumber(detail.subtotal) || quantity * purchasePrice,
   };
 };
 
@@ -354,20 +358,7 @@ export const productApi = baseApi.injectEndpoints({
               },
             ],
     }),
-    createGoodsReceipt: builder.mutation<
-      IGoodsReceipt,
-      {
-        supplierId?: string;
-        receiptNumber?: string;
-        receivedAt: string;
-        notes?: string;
-        details: Array<{
-          productId: string;
-          quantity: number;
-          purchasePrice: number;
-        }>;
-      }
-    >({
+    createGoodsReceipt: builder.mutation<IGoodsReceipt, ICreateGoodsReceiptPayload>({
       query: (body) => ({
         url: PRODUCT_API_ENDPOINTS.GOODS_RECEIPTS,
         method: HTTP_METHODS.POST,

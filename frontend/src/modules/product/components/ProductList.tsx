@@ -219,7 +219,21 @@ export const ProductList: React.FC<ProductListProps> = ({
       </div>
 
       {/* Main product table card */}
-      <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col min-h-[500px] w-full">
+      <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col min-h-[500px] w-full">
+        {/* Block Header matching StockEntryHistoryTable */}
+        <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-4">
+          <div>
+            <h3 className="font-extrabold text-slate-800 text-sm">
+              {PRODUCT_LIST_COPY.CARD_TITLE}
+            </h3>
+            <p className="text-[11px] text-slate-400 font-normal">
+              {PRODUCT_LIST_COPY.CARD_SUBTITLE}
+            </p>
+          </div>
+          <span className="text-xs font-bold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-lg">
+            {totalElements} {PRODUCT_LIST_COPY.PAGINATION_SUFFIX}
+          </span>
+        </div>
         {isLoading ? (
           <div className="flex flex-col justify-center items-center flex-1 py-20 text-slate-400 gap-2">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-kv-blue-primary"></div>

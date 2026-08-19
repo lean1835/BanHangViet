@@ -4,6 +4,7 @@ import type { ISupplier } from "../types/ISupplier";
 
 interface SupplierTableProps {
   suppliers: ISupplier[];
+  totalCount?: number;
   isLoading: boolean;
   canManage: boolean;
   onEdit: (supplier: ISupplier) => void;
@@ -13,6 +14,7 @@ interface SupplierTableProps {
 
 export const SupplierTable: React.FC<SupplierTableProps> = ({
   suppliers,
+  totalCount,
   isLoading,
   canManage,
   onEdit,
@@ -20,17 +22,19 @@ export const SupplierTable: React.FC<SupplierTableProps> = ({
   onViewDetail,
 }) => {
   return (
-    <div className="w-full bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden animate-auth-fade-in">
-      {/* Title matching Screenshot 3 & 4 */}
-      <div className="border-b border-slate-100 px-6 py-3.5 flex items-center justify-between">
-        <h2 className="text-xs font-bold text-slate-800 uppercase tracking-wide">
-          Quản lý Nhà cung cấp
-        </h2>
-        {suppliers.length > 0 && (
-          <span className="text-[11px] font-semibold text-slate-400">
-            Tổng cộng: <strong className="text-slate-700">{suppliers.length}</strong> nhà cung cấp
-          </span>
-        )}
+    <div className="w-full bg-white p-5 rounded-2xl border border-slate-200 shadow-sm animate-auth-fade-in">
+      <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-4">
+        <div>
+          <h3 className="font-extrabold text-slate-800 text-sm">
+            Danh sách Nhà cung cấp
+          </h3>
+          <p className="text-[11px] text-slate-400 font-normal">
+            Quản lý hồ sơ đối tác, thông tin liên hệ và theo dõi công nợ phải trả
+          </p>
+        </div>
+        <span className="text-xs font-bold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-lg">
+          {totalCount ?? suppliers.length} nhà cung cấp
+        </span>
       </div>
 
       {isLoading ? (
