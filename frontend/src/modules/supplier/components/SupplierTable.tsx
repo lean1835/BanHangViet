@@ -1,15 +1,18 @@
 import React from "react";
 import { formatCurrency } from "@/utils/formatCurrency";
 import type { ISupplier } from "../types/ISupplier";
+import { Wallet } from "lucide-react";
 
 interface SupplierTableProps {
   suppliers: ISupplier[];
   totalCount?: number;
   isLoading: boolean;
   canManage: boolean;
+  canPayDebt?: boolean;
   onEdit: (supplier: ISupplier) => void;
   onToggleStatus: (supplier: ISupplier) => void;
   onViewDetail: (supplier: ISupplier) => void;
+  onPayDebt?: (supplier: ISupplier) => void;
 }
 
 export const SupplierTable: React.FC<SupplierTableProps> = ({
@@ -17,24 +20,35 @@ export const SupplierTable: React.FC<SupplierTableProps> = ({
   totalCount,
   isLoading,
   canManage,
+  canPayDebt,
   onEdit,
   onToggleStatus,
   onViewDetail,
+  onPayDebt,
 }) => {
+  const showActionColumn = canManage || Boolean(canPayDebt && onPayDebt);
+
   return (
-    <div className="w-full bg-white p-5 rounded-2xl border border-slate-200 shadow-sm animate-auth-fade-in">
-      <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-4">
+    <div className="w-full bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden animate-auth-fade-in">
+      {/* Title */}
+      <div className="border-b border-slate-100 px-6 py-3.5 flex items-center justify-between">
         <div>
-          <h3 className="font-extrabold text-slate-800 text-sm">
-            Danh sách Nhà cung cấp
-          </h3>
-          <p className="text-[11px] text-slate-400 font-normal">
+          <h2 className="text-xs font-bold text-slate-800 uppercase tracking-wide">
+            Quản lý Nhà cung cấp
+          </h2>
+          <p className="text-[11px] text-slate-400 font-normal mt-0.5">
             Quản lý hồ sơ đối tác, thông tin liên hệ và theo dõi công nợ phải trả
           </p>
         </div>
-        <span className="text-xs font-bold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-lg">
-          {totalCount ?? suppliers.length} nhà cung cấp
-        </span>
+        {suppliers.length > 0 && (
+          <span className="text-[11px] font-semibold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-lg">
+            Tổng cộng:{" "}
+            <strong className="text-slate-700">
+              {totalCount ?? suppliers.length}
+            </strong>{" "}
+            nhà cung cấp
+          </span>
+        )}
       </div>
 
       {isLoading ? (
@@ -60,9 +74,9 @@ export const SupplierTable: React.FC<SupplierTableProps> = ({
                 <th className="py-3 px-4">Địa chỉ</th>
                 <th className="py-3 px-4">Ghi chú</th>
                 <th className="py-3 px-4">Trạng thái</th>
-                <th className="py-3 px-4 text-right">Nợ cần trả </th>
-                {canManage && (
-                  <th className="py-3 px-4 text-center w-24">Thao tác</th>
+                <th className="py-3 px-4 text-right">Nợ cần trả</th>
+                {showActionColumn && (
+                  <th className="py-3 px-4 text-center w-28">Thao tác</th>
                 )}
               </tr>
             </thead>
@@ -80,7 +94,7 @@ export const SupplierTable: React.FC<SupplierTableProps> = ({
                     <td className="py-3.5 px-4 font-bold text-slate-900 group-hover:text-kv-blue-primary transition-colors">
                       {supplier.name}
                     </td>
-                    <td className="py-3.5 px-4 font-mono text-slate-700">
+                    <td className="py-3.5 px-4 font-semibold text-slate-700">
                       {supplier.phoneNumber}
                     </td>
                     <td className="py-3.5 px-4 text-slate-600 max-w-xs truncate font-normal">
@@ -114,88 +128,107 @@ export const SupplierTable: React.FC<SupplierTableProps> = ({
                     <td className="py-3.5 px-4 text-right font-bold">
                       <span
                         className={
-                          hasDebt ? "text-rose-600 font-bold" : "text-slate-500 font-normal"
+                          hasDebt
+                            ? "text-rose-600 font-bold"
+                            : "text-slate-500 font-normal"
                         }
                       >
                         {formatCurrency(supplier.currentDebt || 0)}
                       </span>
                     </td>
-                    {canManage && (
+                    {showActionColumn && (
                       <td
                         className="py-3.5 px-4 text-center"
                         onClick={(e) => e.stopPropagation()}
                       >
-                        <div className="flex items-center justify-center gap-1.5">
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onEdit(supplier);
-                            }}
-                            title="Chỉnh sửa thông tin"
-                            className="p-1.5 text-slate-400 hover:text-kv-blue-primary hover:bg-slate-100 rounded-lg transition-colors"
-                          >
-                            <svg
-                              aria-hidden="true"
-                              viewBox="0 0 24 24"
-                              className="w-4 h-4"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="2"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
+                        <div className="flex items-center justify-center gap-1">
+                          {canPayDebt && hasDebt && onPayDebt && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onPayDebt(supplier);
+                              }}
+                              title="Thanh toán nợ cho nhà cung cấp"
+                              className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
                             >
-                              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-                            </svg>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onToggleStatus(supplier);
-                            }}
-                            title={
-                              isActive
-                                ? "Chuyển sang Ngừng hoạt động"
-                                : "Chuyển sang Đang hoạt động"
-                            }
-                            className={`p-1.5 rounded-lg transition-colors ${
-                              isActive
-                                ? "text-slate-400 hover:text-amber-600 hover:bg-amber-50"
-                                : "text-slate-400 hover:text-emerald-600 hover:bg-emerald-50"
-                            }`}
-                          >
-                            {isActive ? (
-                              <svg
-                                aria-hidden="true"
-                                viewBox="0 0 24 24"
-                                className="w-4 h-4"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
+                              <Wallet size={16} />
+                            </button>
+                          )}
+                          {canManage && (
+                            <>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onEdit(supplier);
+                                }}
+                                title="Chỉnh sửa thông tin"
+                                className="p-1.5 text-slate-400 hover:text-kv-blue-primary hover:bg-slate-100 rounded-lg transition-colors"
                               >
-                                <circle cx="12" cy="12" r="10" />
-                                <line x1="10" y1="15" x2="10" y2="9" />
-                                <line x1="14" y1="15" x2="14" y2="9" />
-                              </svg>
-                            ) : (
-                              <svg
-                                aria-hidden="true"
-                                viewBox="0 0 24 24"
-                                className="w-4 h-4"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
+                                <svg
+                                  aria-hidden="true"
+                                  viewBox="0 0 24 24"
+                                  className="w-4 h-4"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  strokeWidth="2"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                >
+                                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                                </svg>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onToggleStatus(supplier);
+                                }}
+                                title={
+                                  isActive
+                                    ? "Chuyển sang Ngừng hoạt động"
+                                    : "Chuyển sang Đang hoạt động"
+                                }
+                                className={`p-1.5 rounded-lg transition-colors ${
+                                  isActive
+                                    ? "text-slate-400 hover:text-amber-600 hover:bg-amber-50"
+                                    : "text-slate-400 hover:text-emerald-600 hover:bg-emerald-50"
+                                }`}
                               >
-                                <polygon points="5 3 19 12 5 21 5 3" />
-                              </svg>
-                            )}
-                          </button>
+                                {isActive ? (
+                                  <svg
+                                    aria-hidden="true"
+                                    viewBox="0 0 24 24"
+                                    className="w-4 h-4"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="2"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                  >
+                                    <circle cx="12" cy="12" r="10" />
+                                    <line x1="10" y1="15" x2="10" y2="9" />
+                                    <line x1="14" y1="15" x2="14" y2="9" />
+                                  </svg>
+                                ) : (
+                                  <svg
+                                    aria-hidden="true"
+                                    viewBox="0 0 24 24"
+                                    className="w-4 h-4"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="2"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                  >
+                                    <polygon points="5 3 19 12 5 21 5 3" />
+                                  </svg>
+                                )}
+                              </button>
+                            </>
+                          )}
                         </div>
                       </td>
                     )}
