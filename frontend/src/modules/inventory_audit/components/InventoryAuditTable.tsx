@@ -55,23 +55,39 @@ export const InventoryAuditTable: React.FC<InventoryAuditTableProps> = ({
   }
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden flex flex-col">
-      <div className="overflow-x-auto">
-        <table className="w-full text-left text-xs border-collapse">
-          <thead>
-            <tr className="bg-slate-50 text-slate-700 font-bold border-b border-slate-200">
-              <th className="py-3 px-3 w-12 text-center">{INVENTORY_AUDIT_COPY.TABLE_HEADERS.INDEX}</th>
-              <th className="py-3 px-4 min-w-[150px]">{INVENTORY_AUDIT_COPY.TABLE_HEADERS.AUDIT_NUMBER}</th>
-              <th className="py-3 px-4 min-w-[140px]">{INVENTORY_AUDIT_COPY.TABLE_HEADERS.AUDIT_DATE}</th>
-              <th className="py-3 px-4 min-w-[140px]">{INVENTORY_AUDIT_COPY.TABLE_HEADERS.CREATED_BY}</th>
-              <th className="py-3 px-3 text-right w-28">{INVENTORY_AUDIT_COPY.TABLE_HEADERS.TOTAL_ITEMS}</th>
-              <th className="py-3 px-4 text-right w-36">{INVENTORY_AUDIT_COPY.TABLE_HEADERS.TOTAL_DIFF}</th>
-              <th className="py-3 px-3 text-center w-32">{INVENTORY_AUDIT_COPY.TABLE_HEADERS.STATUS}</th>
-              <th className="py-3 px-4 min-w-[180px]">{INVENTORY_AUDIT_COPY.TABLE_HEADERS.NOTES}</th>
-              <th className="py-3 px-4 text-center w-28">{INVENTORY_AUDIT_COPY.TABLE_HEADERS.ACTION}</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
+    <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col min-h-[500px] w-full animate-auth-fade-in">
+      {/* Block Header */}
+      <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-4">
+        <div>
+          <h3 className="font-extrabold text-slate-800 text-sm">
+            Danh sách phiếu kiểm kê kho
+          </h3>
+          <p className="text-[11px] text-slate-400 font-normal">
+            Theo dõi kết quả kiểm đếm thực tế và lịch sử điều chỉnh số lượng tồn kho
+          </p>
+        </div>
+        <span className="text-xs font-bold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-lg">
+          {totalElements} phiếu kiểm kê
+        </span>
+      </div>
+
+      <div className="flex flex-col flex-1 justify-between">
+        <div className="overflow-x-auto">
+          <table className="responsive-data-table responsive-data-table--page w-full text-left border-collapse">
+            <thead>
+              <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold text-xs">
+                <th className="p-3 w-12 text-center">{INVENTORY_AUDIT_COPY.TABLE_HEADERS.INDEX}</th>
+                <th className="p-3">{INVENTORY_AUDIT_COPY.TABLE_HEADERS.AUDIT_NUMBER}</th>
+                <th className="p-3">{INVENTORY_AUDIT_COPY.TABLE_HEADERS.AUDIT_DATE}</th>
+                <th className="p-3">{INVENTORY_AUDIT_COPY.TABLE_HEADERS.CREATED_BY}</th>
+                <th className="p-3 text-right">{INVENTORY_AUDIT_COPY.TABLE_HEADERS.TOTAL_ITEMS}</th>
+                <th className="p-3 text-right">{INVENTORY_AUDIT_COPY.TABLE_HEADERS.TOTAL_DIFF}</th>
+                <th className="p-3 text-center">{INVENTORY_AUDIT_COPY.TABLE_HEADERS.STATUS}</th>
+                <th className="p-3">{INVENTORY_AUDIT_COPY.TABLE_HEADERS.NOTES}</th>
+                <th className="p-3 text-center w-24">{INVENTORY_AUDIT_COPY.TABLE_HEADERS.ACTION}</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 font-medium text-slate-700 text-xs">
             {audits.length === 0 ? (
               <tr>
                 <td colSpan={9} className="py-16 text-center text-slate-400">
@@ -155,36 +171,37 @@ export const InventoryAuditTable: React.FC<InventoryAuditTableProps> = ({
       </div>
 
       {/* Pagination Bar */}
-      {totalElements > 0 && (
-        <div className="p-3.5 bg-slate-50/70 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500">
+      {totalPages > 1 && (
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-4 mt-4 border-t border-slate-100 text-xs font-semibold text-slate-600">
           <div>
-            Hiển thị <strong>{Math.min(page * pageSize + 1, totalElements)}</strong> đến{" "}
-            <strong>{Math.min((page + 1) * pageSize, totalElements)}</strong> trong tổng số{" "}
-            <strong>{totalElements}</strong> phiếu kiểm kê
+            Hiển thị bản ghi từ <span className="font-bold text-slate-800">{page * pageSize + 1}</span> đến{" "}
+            <span className="font-bold text-slate-800">{Math.min((page + 1) * pageSize, totalElements)}</span> trong tổng số{" "}
+            <span className="font-bold text-slate-800">{totalElements}</span> bản ghi
           </div>
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={() => onPageChange(page - 1)}
               disabled={page <= 0}
-              className="h-8 px-3 rounded-lg border border-slate-300 bg-white font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              className="px-3 h-8 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center font-bold text-slate-700"
             >
-              Trước
+              Trang trước
             </button>
-            <span className="px-3 py-1 font-bold text-slate-800">
+            <span className="px-3 h-8 flex items-center justify-center border border-slate-200 rounded-lg bg-slate-50 font-bold text-slate-700">
               Trang {page + 1} / {totalPages || 1}
             </span>
             <button
               type="button"
               onClick={() => onPageChange(page + 1)}
               disabled={page >= totalPages - 1}
-              className="h-8 px-3 rounded-lg border border-slate-300 bg-white font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              className="px-3 h-8 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center font-bold text-slate-700"
             >
-              Sau
+              Trang sau
             </button>
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 };

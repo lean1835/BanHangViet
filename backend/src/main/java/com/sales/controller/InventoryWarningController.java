@@ -30,7 +30,7 @@ public class InventoryWarningController {
             @RequestParam(required = false) String search,
             @RequestParam(required = false) String groupId,
             @RequestParam(defaultValue = "0") @Min(0) int page,
-            @RequestParam(defaultValue = "10") @Min(1) @Max(100) int size) {
+            @RequestParam(defaultValue = "6") @Min(1) @Max(500) int size) {
         LowStockWarningListResponse result = inventoryWarningService.getLowStockWarnings(
                 principal.getName(), search, groupId, page, size);
         ApiResponse<LowStockWarningListResponse> response = ApiResponse.<LowStockWarningListResponse>builder()
@@ -48,7 +48,7 @@ public class InventoryWarningController {
             @RequestParam(required = false, defaultValue = "28") @Min(1) @Max(365) Integer periodDays,
             @RequestParam(required = false) String groupId,
             @RequestParam(defaultValue = "0") @Min(0) int page,
-            @RequestParam(defaultValue = "10") @Min(1) @Max(100) int size) {
+            @RequestParam(defaultValue = "6") @Min(1) @Max(500) int size) {
         PageResponse<PurchaseSuggestionResponse> result = inventoryWarningService.getPurchaseSuggestions(
                 principal.getName(), periodDays, groupId, page, size);
         ApiResponse<PageResponse<PurchaseSuggestionResponse>> response = ApiResponse.<PageResponse<PurchaseSuggestionResponse>>builder()

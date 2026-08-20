@@ -7,7 +7,9 @@ export interface IProduct {
   name: string;
   unit: string;
   price: number;
+  costPrice?: number;
   stockQuantity: number;
+  minStockQuantity?: number;
   status: TProductStatus;
   groupId: string | null;
   groupName: string | null;

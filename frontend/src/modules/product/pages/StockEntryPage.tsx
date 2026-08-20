@@ -200,63 +200,14 @@ export const StockEntryPage = () => {
           <StockEntryHistoryTable
             receipts={paginatedReceipts}
             onViewDetails={setSelectedReceiptId}
+            page={page}
+            pageSize={PAGE_SIZE}
+            totalElements={totalElements}
+            totalPages={totalPages}
+            onPageChange={setPage}
           />
         )}
       </div>
-
-      {/* Pagination Controls */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between border border-slate-200 bg-white px-5 py-3 rounded-xl shadow-2xs animate-auth-fade-in text-xs font-semibold text-slate-700">
-          <div className="flex flex-1 justify-between sm:hidden">
-            <button
-              onClick={() => setPage((p) => Math.max(0, p - 1))}
-              disabled={page === 0}
-              className="relative inline-flex items-center rounded-lg border border-slate-300 bg-white px-4 py-2 hover:bg-slate-50 disabled:opacity-50 transition-colors"
-            >
-              Trang trước
-            </button>
-            <button
-              onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
-              disabled={page + 1 >= totalPages}
-              className="relative ml-3 inline-flex items-center rounded-lg border border-slate-300 bg-white px-4 py-2 hover:bg-slate-50 disabled:opacity-50 transition-colors"
-            >
-              Trang sau
-            </button>
-          </div>
-          <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
-            <div>
-              <p className="text-slate-500">
-                Hiển thị bản ghi từ <span className="font-bold text-slate-800">{page * PAGE_SIZE + 1}</span> đến{" "}
-                <span className="font-bold text-slate-800">
-                  {Math.min((page + 1) * PAGE_SIZE, totalElements)}
-                </span>{" "}
-                trong tổng số <span className="font-bold text-slate-800">{totalElements}</span> bản ghi
-              </p>
-            </div>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => setPage((p) => Math.max(0, p - 1))}
-                disabled={page === 0}
-                className="px-3 h-8 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 transition-colors disabled:opacity-50 flex items-center justify-center font-bold"
-              >
-                Trang trước
-              </button>
-              <span className="px-3 h-8 flex items-center justify-center border border-slate-200 rounded-lg bg-slate-50 font-bold">
-                Trang {page + 1} / {totalPages}
-              </span>
-              <button
-                type="button"
-                onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
-                disabled={page + 1 >= totalPages}
-                className="px-3 h-8 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 transition-colors disabled:opacity-50 flex items-center justify-center font-bold"
-              >
-                Trang sau
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Create Goods Receipt Modal */}
       {canCreateGoodsReceipt && (
