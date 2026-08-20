@@ -289,9 +289,12 @@ export const GoodsReceiptDetailModal: React.FC<GoodsReceiptDetailModalProps> = (
               type="button"
               onClick={onClose}
               aria-label="Đóng phiếu nhập kho"
-              className="text-white/80 hover:text-white transition-colors text-xl p-1"
+              className="text-white/80 hover:text-white transition-colors p-1 rounded-lg hover:bg-slate-700"
             >
-              ✕
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
             </button>
           </div>
         </div>

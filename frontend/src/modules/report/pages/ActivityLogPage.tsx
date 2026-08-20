@@ -301,7 +301,7 @@ interface IParsedLogPayload {
             )}
           </span>
           {errCount > 0 && (
-            <span className="text-amber-700 font-bold">⚠ {errCount} hóa đơn lỗi</span>
+            <span className="text-amber-700 font-bold">{errCount} hóa đơn lỗi</span>
           )}
           {parsed.notes && (
             <span className="text-blue-700 italic">Ghi chú: "{parsed.notes}"</span>

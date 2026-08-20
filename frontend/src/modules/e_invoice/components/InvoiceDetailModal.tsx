@@ -219,9 +219,13 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
           <button
             onClick={onClose}
             type="button"
-            className="flex min-h-11 min-w-11 items-center justify-center text-lg text-white/80 transition-colors hover:text-white"
+            aria-label="Đóng"
+            className="flex min-h-11 min-w-11 items-center justify-center text-white/80 transition-colors hover:text-white"
           >
-            ✕
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
           </button>
         </div>
 
@@ -423,8 +427,8 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
                 
                 {invoice.status !== E_INVOICE_STATUS.DRAFT ? (
                   <div className="mt-2.5 px-3 py-2 border-2 border-rose-500 rounded bg-rose-50/40 text-[8px] text-rose-700 font-bold flex flex-col items-center gap-0.5 rotate-[-2deg] shadow-sm max-w-[180px] leading-normal select-none">
-                    <span className="text-[9px] text-rose-600 flex items-center gap-1 font-black">
-                      🛡️ ĐÃ KÝ SỐ ĐIỆN TỬ
+                    <span className="text-[9px] text-rose-600 flex items-center gap-1 font-black uppercase">
+                      ĐÃ KÝ SỐ ĐIỆN TỬ
                     </span>
                     <span className="uppercase tracking-wide text-[7px] text-rose-600">{invoice.householdName || "HỘ KINH DOANH BÁN HÀNG VIỆT"}</span>
                     <span>MST: {invoice.householdTaxCode || "-"}</span>
@@ -441,7 +445,6 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
               {invoice.status === E_INVOICE_STATUS.ISSUED && invoice.taxAuthorityCode && invoice.taxAuthorityCode !== E_INVOICE_DEFAULTS.EMPTY_TAX_AUTHORITY_CODE && (
                 <div className="col-span-1 sm:col-span-2 flex justify-center mt-2">
                   <div className="px-4 py-2 border-2 border-emerald-500 rounded bg-emerald-50/40 text-[8px] text-emerald-800 font-bold flex items-center gap-3 rotate-[1deg] shadow-sm max-w-[320px] leading-normal select-none">
-                    <span className="text-[12px] text-emerald-600 font-black">✓</span>
                     <div className="flex flex-col text-left">
                       <span className="font-black uppercase tracking-wider text-[9px]">MÃ CƠ QUAN THUẾ CẤP</span>
                       <span className="font-mono text-[9px] tracking-wider text-slate-800 font-extrabold">{invoice.taxAuthorityCode}</span>
@@ -570,7 +573,7 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
 
                 {currentRole === USER_ROLES.CASHIER && invoice.status === E_INVOICE_STATUS.ISSUED && (
                   <span className="text-[10px] text-slate-400 font-semibold italic text-center p-2 border border-dashed rounded-lg">
-                    🔒 Tài khoản thu ngân không được quyền thực hiện điều chỉnh hoặc hủy hóa đơn.
+                    Tài khoản thu ngân không được quyền thực hiện điều chỉnh hoặc hủy hóa đơn.
                   </span>
                 )}
 

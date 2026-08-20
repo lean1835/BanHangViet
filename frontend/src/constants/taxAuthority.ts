@@ -78,7 +78,7 @@ export const TAX_AUTHORITY_LOG_ACTIONS = {
 export const TAX_AUTHORITY_MESSAGES = {
   APPROVE_SUCCESS: "Đã cấp mã hóa đơn thành công!",
   REJECT_SUCCESS: "Đã từ chối cấp mã!",
-  APPROVED_STATE: "🟢 Đã duyệt thành công",
+  APPROVED_STATE: "Đã duyệt thành công",
   NO_ACTION: "Không cần thao tác",
 } as const;
 
@@ -99,6 +99,6 @@ export const TAX_RECEIVING_OPTIONS = [
   {
     id: "tax-strict",
     defaultChecked: true,
-    label: "Bắt buộc hóa đơn phải có ký hiệu và mẫu số hợp lệ (QTN-02)",
+    label: "Bắt buộc hóa đơn phải có ký hiệu và mẫu số hợp lệ",
   },
 ] as const;

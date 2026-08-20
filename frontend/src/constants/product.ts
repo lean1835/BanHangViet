@@ -82,8 +82,8 @@ export const PRODUCT_KEYBOARD_KEY = {
 } as const;
 
 export const PRODUCT_SYMBOLS = {
-  CLOSE: "✕",
-  SUCCESS: "✓",
+  CLOSE: "Đóng",
+  SUCCESS: "Thành công",
 } as const;
 
 export const PRODUCT_FORM_DEFAULTS = {
@@ -187,7 +187,7 @@ export const PRODUCT_FORM_COPY = {
 
 export const PRODUCT_GROUP_COPY = {
   TITLE: "Quản lý nhóm hàng hóa",
-  SECURITY_RULE_TITLE: "Quy tắc bảo mật QTN-17:",
+  SECURITY_RULE_TITLE: "Quy tắc bảo mật:",
   SECURITY_RULE_DESCRIPTION:
     "Chỉ có Chủ hộ kinh doanh mới được phép tạo, chỉnh sửa hoặc xóa nhóm hàng. Nhân viên/Kế toán chỉ có quyền xem danh sách.",
   CREATE_TITLE: "Thêm nhóm hàng mới",
@@ -263,7 +263,7 @@ export const PRODUCT_SECTION_COPY = {
 export const PRODUCT_STOCK_ENTRY_COPY = {
   FORM_TITLE: "Lập phiếu nhập kho",
   ACCOUNTANT_READ_ONLY_MESSAGE:
-    `Tài khoản Kế toán (${USER_ROLES.ACCOUNTANT}) chỉ được xem phiếu nhập kho và đối chiếu tồn, không có quyền lập phiếu nhập kho hoặc thay đổi số lượng kho (QTN-17).`,
+    `Tài khoản Kế toán (${USER_ROLES.ACCOUNTANT}) chỉ được xem phiếu nhập kho và đối chiếu tồn, không có quyền lập phiếu nhập kho hoặc thay đổi số lượng kho.`,
   PRODUCT_LABEL: "Chọn hàng hóa nhập*:",
   QUANTITY_LABEL: "Số lượng nhập*:",
   IMPORT_PRICE_LABEL: "Đơn giá nhập (đ)*:",

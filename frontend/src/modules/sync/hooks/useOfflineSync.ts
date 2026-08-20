@@ -114,7 +114,7 @@ export const useOfflineSync = ({
 
         setUnissuedOrderIds(unissuedIds);
         
-        // Theo tiêu chuẩn NCL-08-CN-006-TC-02: Chỉ xóa khỏi cache các đơn đã xác nhận đồng bộ thành công
+        // Chỉ xóa khỏi cache các đơn đã xác nhận đồng bộ thành công
         if (syncedOrderNumbers.length > 0) {
           clearSyncedOrders(syncedOrderNumbers);
         }

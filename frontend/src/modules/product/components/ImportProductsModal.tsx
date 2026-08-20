@@ -509,7 +509,7 @@ export const ImportProductsModal: React.FC<ImportProductsModalProps> = ({
 
   return createPortal(
     <div
-      className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-2 sm:p-4"
+      className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-2 sm:p-4 animate-backdrop-fade-in"
       onClick={() => {
         onClose();
         resetState();
@@ -518,7 +518,7 @@ export const ImportProductsModal: React.FC<ImportProductsModalProps> = ({
       aria-modal="true"
     >
       <div
-        className="bg-white rounded-xl border border-slate-200 shadow-2xl w-full max-w-6xl overflow-hidden animate-auth-fade-in flex flex-col max-h-[90vh]"
+        className="bg-white rounded-xl border border-slate-200 shadow-2xl w-full max-w-6xl overflow-hidden animate-modal-bounce-in flex flex-col max-h-[90vh]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -828,11 +828,11 @@ export const ImportProductsModal: React.FC<ImportProductsModalProps> = ({
                             <td className="p-2.5">
                               {isError ? (
                                 <span className="font-bold text-rose-700 flex items-center gap-1">
-                                  ⚠️ {row.errorMessage}
+                                  {row.errorMessage}
                                 </span>
                               ) : (
                                 <span className="font-semibold text-emerald-700 flex items-center gap-1">
-                                  ✓ Chuẩn bị import (Sẵn sàng)
+                                  Sẵn sàng import
                                 </span>
                               )}
                             </td>

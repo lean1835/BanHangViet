@@ -328,7 +328,7 @@ export const CustomerPage: React.FC = () => {
         </div>
       ) : isError ? (
         <div className="p-6 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-xs font-semibold flex flex-col gap-3">
-          <p>⚠️ Không thể kết nối với dữ liệu khách hàng từ máy chủ API.</p>
+          <p>Không thể kết nối với dữ liệu khách hàng từ máy chủ API.</p>
           <p className="text-[11px] text-rose-500">
             {getApiErrorMessage(fetchError, "Không thể lấy danh sách khách hàng từ máy chủ.")}
           </p>

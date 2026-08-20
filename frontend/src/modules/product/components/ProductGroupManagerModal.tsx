@@ -8,7 +8,6 @@ import {
   PRODUCT_MESSAGE_BUILDERS,
   PRODUCT_MESSAGES,
   PRODUCT_QUERY_CONFIG,
-  PRODUCT_SYMBOLS,
 } from "@/constants/product";
 import { USER_ROLES } from "@/constants/roles";
 import {
@@ -188,9 +187,12 @@ export const ProductGroupManagerModal: React.FC<ProductGroupManagerModalProps> =
             type="button"
             disabled={isSubmitting}
             aria-label={PRODUCT_GROUP_COPY.CLOSE_ACTION}
-            className="flex min-h-11 min-w-11 items-center justify-center text-lg text-white/80 transition-colors hover:text-white"
+            className="flex min-h-11 min-w-11 items-center justify-center text-white/80 transition-colors hover:text-white"
           >
-            {PRODUCT_SYMBOLS.CLOSE}
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
           </button>
         </div>
 

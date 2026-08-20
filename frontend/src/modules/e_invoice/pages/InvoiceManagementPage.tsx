@@ -262,7 +262,7 @@ export const InvoiceManagementPage = () => {
     }
   };
 
-  // Cancel Invoice (NCL-05)
+  // Cancel Invoice
   const handleCancelInvoice = async (invoiceId: string, reason: string) => {
     if (isOnline) {
       try {
@@ -367,7 +367,7 @@ export const InvoiceManagementPage = () => {
       <div className="grid grid-cols-1 gap-6">
         {isOnline && apiError && (
           <div className="bg-rose-50 border border-rose-200 text-rose-600 p-3 rounded-lg text-xs font-bold">
-            ⚠️ {getApiErrorMessage(apiError, "Không thể đồng bộ danh sách hóa đơn từ máy chủ.")}
+            {getApiErrorMessage(apiError, "Không thể đồng bộ danh sách hóa đơn từ máy chủ.")}
           </div>
         )}
 

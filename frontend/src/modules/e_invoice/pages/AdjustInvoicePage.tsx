@@ -260,7 +260,7 @@ export const AdjustInvoicePage: React.FC = () => {
             placeholder="Nhập lý do chi tiết điều chỉnh hóa đơn (Ví dụ: Điều chỉnh giảm đơn giá do hàng lỗi kỹ thuật, sửa đổi lại mã số thuế người mua bị gõ sai...)"
           />
           {errors.adjustmentReason && (
-            <span className="text-rose-600 text-[10px] font-bold">⚠️ {errors.adjustmentReason.message}</span>
+            <span className="text-rose-600 text-[10px] font-bold">{errors.adjustmentReason.message}</span>
           )}
           <div className="flex justify-between items-center text-[9px] text-slate-400 font-bold uppercase mt-0.5">
             <span>Yêu cầu tối thiểu 10 ký tự</span>
@@ -319,7 +319,7 @@ export const AdjustInvoicePage: React.FC = () => {
                 placeholder="Email để gửi hóa đơn điện tử..."
               />
               {errors.buyerEmail && (
-                <span className="text-rose-600 text-[10px] font-bold">⚠️ {errors.buyerEmail.message}</span>
+                <span className="text-rose-600 text-[10px] font-bold">{errors.buyerEmail.message}</span>
               )}
             </div>
           </div>
@@ -341,7 +341,7 @@ export const AdjustInvoicePage: React.FC = () => {
           </div>
 
           {errors.items?.message && (
-            <span className="text-rose-600 text-[10px] font-bold">⚠️ {errors.items.message}</span>
+            <span className="text-rose-600 text-[10px] font-bold">{errors.items.message}</span>
           )}
 
           <div className="overflow-x-auto">
@@ -439,10 +439,13 @@ export const AdjustInvoicePage: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => handleRemoveItem(idx)}
-                          className="text-rose-500 hover:text-rose-700 font-bold transition-colors text-sm px-1.5 py-1"
+                          className="text-rose-500 hover:text-rose-700 font-bold transition-colors p-1"
                           title="Xóa dòng này"
                         >
-                          ✕
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <line x1="18" y1="6" x2="6" y2="18" />
+                            <line x1="6" y1="6" x2="18" y2="18" />
+                          </svg>
                         </button>
                       </td>
                     </tr>

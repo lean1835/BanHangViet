@@ -60,7 +60,7 @@ export const PrintInvoiceModal: React.FC<PrintInvoiceModalProps> = ({
   return createPortal(
     <div
       onClick={onClose}
-      className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto animate-fadeIn"
+      className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto animate-backdrop-fade-in"
     >
       {/* Printable Area Wrapper with print styles */}
       <style>{`
@@ -117,7 +117,7 @@ export const PrintInvoiceModal: React.FC<PrintInvoiceModalProps> = ({
       <div
         ref={dialogRef}
         onClick={(e) => e.stopPropagation()}
-        className="bg-white border border-slate-200 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[94vh] overflow-hidden flex flex-col my-auto"
+        className="bg-white border border-slate-200 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[94vh] overflow-hidden flex flex-col my-auto animate-modal-bounce-in"
       >
         {/* Modal Header */}
         <div className="px-4 sm:px-6 py-3.5 border-b border-slate-100 bg-slate-50 flex items-center justify-between no-print shrink-0">

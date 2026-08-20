@@ -108,14 +108,14 @@ interface IQuickAccessItem {
 
 export const QUICK_ACCESS_ITEMS: Record<"cashier" | "management", IQuickAccessItem[]> = {
   cashier: [
-    { path: APP_ROUTES.POS, label: "Màn hình bán hàng (POS)", icon: "🛒" },
-    { path: APP_ROUTES.ORDERS, label: "Lịch sử đơn hàng", icon: "📄" },
-    { path: APP_ROUTES.CUSTOMERS, label: "Khách hàng thân thiết", icon: "👥" },
+    { path: APP_ROUTES.POS, label: "Màn hình bán hàng (POS)", icon: "pos" },
+    { path: APP_ROUTES.ORDERS, label: "Lịch sử đơn hàng", icon: "orders" },
+    { path: APP_ROUTES.CUSTOMERS, label: "Khách hàng thân thiết", icon: "customers" },
   ],
   management: [
-    { path: APP_ROUTES.POS, label: "Màn hình bán hàng (POS)", icon: "🛒" },
-    { path: APP_ROUTES.ORDERS, label: "Tra cứu hóa đơn", icon: "📄" },
-    { path: APP_ROUTES.SHIFTS, label: "Quản lý ca bán hàng", icon: "🕒" },
+    { path: APP_ROUTES.POS, label: "Màn hình bán hàng (POS)", icon: "pos" },
+    { path: APP_ROUTES.ORDERS, label: "Tra cứu hóa đơn", icon: "invoices" },
+    { path: APP_ROUTES.SHIFTS, label: "Quản lý ca bán hàng", icon: "shifts" },
   ],
 };
 

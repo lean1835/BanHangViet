@@ -127,9 +127,9 @@ export const getOfflineOrderCount = (): number => {
   return getPendingOfflineOrders().filter((o) => o.syncStatus === "PENDING" || o.syncStatus === "CONFLICT").length;
 };
 
-/* =========================================================================
- * ⚙️ NCL-08-CN-005: QUẢN LÝ CẤU HÌNH VÀ GIỚI HẠN BÁN KHI MẤT MẠNG (OFFLINE)
- * ========================================================================= */
+/**
+ * QUẢN LÝ CẤU HÌNH VÀ GIỚI HẠN BÁN KHI MẤT MẠNG (OFFLINE)
+ */
 
 const OFFLINE_CONFIG_KEY = "bhv_offline_config_v1";
 const OFFLINE_START_TIME_KEY = "bhv_offline_start_time_v1";

@@ -360,8 +360,8 @@ export const InvoiceTemplatePanel: React.FC = () => {
               <span className="text-[7px] text-slate-400 mt-0.5 italic">(Ký, đóng dấu điện tử)</span>
               
               <div className="mt-1.5 px-2 py-1.5 border-2 border-rose-500 rounded bg-rose-50/40 text-[7px] text-rose-700 font-bold flex flex-col items-center gap-0.5 rotate-[-2deg] shadow-sm max-w-[160px] leading-normal select-none">
-                <span className="text-[8px] text-rose-600 flex items-center gap-1 font-black">
-                  🛡️ ĐÃ KÝ SỐ ĐIỆN TỬ
+                <span className="text-[8px] text-rose-600 flex items-center gap-1 font-black uppercase">
+                  ĐÃ KÝ SỐ ĐIỆN TỬ
                 </span>
                 <span className="uppercase tracking-wide text-[6px] text-rose-600">{currentUser?.household?.name || "HỘ KINH DOANH BÁN HÀNG VIỆT"}</span>
                 <span>MST: {currentUser?.household?.taxCode || "0101234567"}</span>
@@ -372,7 +372,6 @@ export const InvoiceTemplatePanel: React.FC = () => {
             {/* Tax Authority Stamp */}
             <div className="col-span-2 flex justify-center mt-1">
               <div className="px-3 py-1.5 border-2 border-emerald-500 rounded bg-emerald-50/40 text-[7px] text-emerald-800 font-bold flex items-center gap-2 rotate-[1deg] shadow-sm max-w-[280px] leading-normal select-none">
-                <span className="text-[10px] text-emerald-600 font-black">✓</span>
                 <div className="flex flex-col text-left">
                   <span className="font-black uppercase tracking-wider text-[8px]">MÃ CƠ QUAN THUẾ CẤP</span>
                   <span className="font-mono text-[8px] tracking-wider text-slate-800 font-extrabold">00E123456789ABCDEF</span>

@@ -229,7 +229,7 @@ export const BusinessInfoPanel: React.FC = () => {
               )}
             </div>
 
-            {/* Cấu hình giới hạn bán Ngoại tuyến (Offline POS - NCL-08-CN-005) */}
+            {/* Cấu hình giới hạn bán Ngoại tuyến (Offline POS) */}
             <div className="md:col-span-2 pt-4 border-t border-slate-100 flex flex-col gap-4">
               <div className="flex items-center gap-2">
                 <div className="p-1.5 bg-amber-50 text-amber-600 rounded-lg">
@@ -237,7 +237,7 @@ export const BusinessInfoPanel: React.FC = () => {
                 </div>
                 <div>
                   <h4 className="font-extrabold text-slate-800 text-sm">
-                    Cấu hình Giới hạn bán hàng khi Mất mạng (Offline Mode - NCL-08-CN-005)
+                    Cấu hình Giới hạn bán hàng khi Mất mạng (Offline Mode)
                   </h4>
                   <p className="text-[11px] text-slate-400 font-semibold">
                     Chỉ Chủ hộ (VT-01) mới có quyền đặt số đơn và số giờ tối đa cho phép bán khi mất kết nối mạng.

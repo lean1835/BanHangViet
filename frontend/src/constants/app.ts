@@ -30,7 +30,7 @@ export const APP_MESSAGES = {
   ROLE_LABEL: "Vai trò:",
   GREETING_PREFIX: "Xin chào,",
   LOGOUT: "Đăng xuất",
-  EXIT_DEMO: "✕ Thoát Demo",
+  EXIT_DEMO: "Thoát Demo",
   NETWORK_TOGGLE_TITLE: "Nhấp để chuyển trạng thái mạng",
   OFFLINE_CONFLICT_LABEL: "Mô phỏng xung đột offline",
 } as const;
