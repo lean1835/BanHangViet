@@ -73,6 +73,12 @@ const productSchema = z.object({
       PRODUCT_FORM_LIMITS.MIN_NON_NEGATIVE_VALUE,
       PRODUCT_VALIDATION_MESSAGES.STOCK_NEGATIVE,
     ),
+  minStockQuantity: z
+    .number()
+    .min(
+      PRODUCT_FORM_LIMITS.MIN_NON_NEGATIVE_VALUE,
+      PRODUCT_VALIDATION_MESSAGES.MIN_STOCK_NEGATIVE,
+    ),
   taxRateId: z
     .string()
     .min(
@@ -142,6 +148,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
       unit: PRODUCT_FORM_DEFAULTS.UNIT,
       price: PRODUCT_FORM_DEFAULTS.PRICE,
       stockQuantity: PRODUCT_FORM_DEFAULTS.STOCK_QUANTITY,
+      minStockQuantity: PRODUCT_FORM_DEFAULTS.MIN_STOCK_QUANTITY,
       taxRateId: PRODUCT_FORM_DEFAULTS.TAX_RATE_ID,
       status: PRODUCT_FORM_DEFAULTS.STATUS,
     },
@@ -174,6 +181,8 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         price: product.price || PRODUCT_FORM_DEFAULTS.PRICE,
         stockQuantity:
           product.stockQuantity || PRODUCT_FORM_DEFAULTS.STOCK_QUANTITY,
+        minStockQuantity:
+          product.minStockQuantity ?? PRODUCT_FORM_DEFAULTS.MIN_STOCK_QUANTITY,
         taxRateId: defaultTaxRateId,
         status: product.status || PRODUCT_FORM_DEFAULTS.STATUS,
       });
@@ -190,6 +199,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         unit: PRODUCT_FORM_DEFAULTS.UNIT,
         price: PRODUCT_FORM_DEFAULTS.PRICE,
         stockQuantity: PRODUCT_FORM_DEFAULTS.STOCK_QUANTITY,
+        minStockQuantity: PRODUCT_FORM_DEFAULTS.MIN_STOCK_QUANTITY,
         taxRateId: defaultTaxRateId,
         status: PRODUCT_FORM_DEFAULTS.STATUS,
       });
@@ -221,6 +231,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
       unit: values.unit.trim(),
       price: values.price,
       stockQuantity: values.stockQuantity,
+      minStockQuantity: values.minStockQuantity ?? 0,
       taxRateId: values.taxRateId,
       status: values.status,
     };
@@ -371,6 +382,23 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
               />
               {errors.stockQuantity && (
                 <span className="text-[10px] text-rose-500 font-bold">{errors.stockQuantity.message}</span>
+              )}
+            </div>
+
+            {/* Ngưỡng tồn tối thiểu */}
+            <div className="flex flex-col gap-1">
+              <label className="text-slate-600">Ngưỡng tồn tối thiểu:</label>
+              <input
+                type="number"
+                min={PRODUCT_FORM_LIMITS.MIN_NON_NEGATIVE_VALUE}
+                placeholder="Ví dụ: 10"
+                {...register(PRODUCT_FORM_FIELD_NAMES.MIN_STOCK_QUANTITY, {
+                  valueAsNumber: true,
+                })}
+                className={`border ${errors.minStockQuantity ? "border-rose-500" : "border-slate-300"} h-9 px-3 rounded-lg focus:outline-none focus:border-kv-blue-primary`}
+              />
+              {errors.minStockQuantity && (
+                <span className="text-[10px] text-rose-500 font-bold">{errors.minStockQuantity.message}</span>
               )}
             </div>
 

@@ -130,7 +130,7 @@ public class ProductController {
             @RequestParam(required = false) Boolean excludeInactive,
             @RequestParam(required = false) String stockFilter,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size) {
+            @RequestParam(defaultValue = "6") int size) {
         PageResponse<ProductResponse> result = productService.getProducts(
                 principal.getName(), search, groupId, status, excludeInactive, stockFilter, page, size);
         ApiResponse<PageResponse<ProductResponse>> response = ApiResponse.<PageResponse<ProductResponse>>builder()

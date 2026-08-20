@@ -94,16 +94,6 @@ export const InventoryAuditSidebar: React.FC<InventoryAuditSidebarProps> = ({
           )}
         </div>
       </div>
-
-      {/* Thông tin quy tắc nghiệp vụ */}
-      <div className="rounded-xl bg-slate-50 border border-slate-200 p-3 text-[11px] text-slate-600 leading-relaxed space-y-1 mt-2">
-        <div className="font-bold text-slate-800">
-          Quy tắc kiểm kê kho
-        </div>
-        <p>
-          Số tồn chỉ thay đổi qua bán hàng, nhập hàng, trả hàng hoặc phiếu kiểm kê. Mọi chênh lệch kiểm kê bắt buộc phải kèm lý do lưu vết.
-        </p>
-      </div>
     </div>
   );
 };

@@ -30,6 +30,8 @@ interface GoodsReceiptModalProps {
   onClose: () => void;
   onSave: (values: ICreateGoodsReceiptPayload) => void | Promise<void>;
   products: IProduct[];
+  initialSupplierId?: string;
+  initialItems?: GoodsReceiptItemRow[];
 }
 
 export const GoodsReceiptModal: React.FC<GoodsReceiptModalProps> = ({
@@ -37,6 +39,8 @@ export const GoodsReceiptModal: React.FC<GoodsReceiptModalProps> = ({
   onClose,
   onSave,
   products,
+  initialSupplierId,
+  initialItems,
 }) => {
   const { data: suppliers = [] } = useGetSuppliersQuery(undefined, {
     skip: !isOpen,
@@ -73,9 +77,9 @@ export const GoodsReceiptModal: React.FC<GoodsReceiptModalProps> = ({
     if (isOpen) {
       setReceiptNumber("");
       setReceivedAt(getLocalDateTimeValue());
-      setSupplierId("");
+      setSupplierId(initialSupplierId || "");
       setNotes("");
-      setItems([]);
+      setItems(initialItems || []);
       setFormErrors({});
       setProductSearch("");
       setIsProductDropdownOpen(false);
@@ -83,7 +87,7 @@ export const GoodsReceiptModal: React.FC<GoodsReceiptModalProps> = ({
       setIsSubmitting(false);
       setShowBelowCostModal(false);
     }
-  }, [isOpen]);
+  }, [isOpen, initialSupplierId, initialItems]);
 
   // Lock scroll & handle Escape key
   useEffect(() => {

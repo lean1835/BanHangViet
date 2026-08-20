@@ -71,6 +71,7 @@ public class ProductSpecification {
             predicates.add(criteriaBuilder.equal(root.get("household").get("id"), householdId));
             predicates.add(criteriaBuilder.isNull(root.get("deletedAt")));
             predicates.add(criteriaBuilder.equal(root.get("status"), "ACTIVE"));
+            // Low stock condition: Đã cài đặt minStockQuantity > 0 và stockQuantity <= minStockQuantity
             predicates.add(criteriaBuilder.greaterThan(
                     criteriaBuilder.coalesce(root.get("minStockQuantity"), BigDecimal.ZERO),
                     BigDecimal.ZERO

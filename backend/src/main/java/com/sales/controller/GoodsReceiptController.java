@@ -40,7 +40,7 @@ public class GoodsReceiptController {
     public ResponseEntity<ApiResponse<PageResponse<GoodsReceiptResponse>>> getGoodsReceipts(
             Principal principal,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size) {
+            @RequestParam(defaultValue = "6") int size) {
         PageResponse<GoodsReceiptResponse> result = goodsReceiptService.getGoodsReceipts(principal.getName(), page, size);
         ApiResponse<PageResponse<GoodsReceiptResponse>> response = ApiResponse.<PageResponse<GoodsReceiptResponse>>builder()
                 .code(1000)

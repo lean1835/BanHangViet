@@ -17,7 +17,7 @@ export const INVENTORY_AUDIT_FILTER_OPTIONS = [
 
 export const INVENTORY_AUDIT_CONFIG = {
   INITIAL_PAGE: 0,
-  PAGE_SIZE: 10,
+  PAGE_SIZE: 6,
   BATCH_SIZE: 1000,
   PRODUCT_QUERY_SIZE: 500,
   SEARCH_DEBOUNCE_MS: 350,
@@ -30,7 +30,7 @@ export const INVENTORY_AUDIT_API_ENDPOINTS = {
 } as const;
 
 export const INVENTORY_AUDIT_COPY = {
-  PAGE_TITLE: "Kiểm kê kho & Điều chỉnh tồn kho",
+  PAGE_TITLE: "Kiểm kê kho",
   PAGE_SUBTITLE:
     "Thực hiện đếm thực tế hàng hóa, đối chiếu tồn máy và ghi nhận bút toán điều chỉnh tồn kho tự động",
   CREATE_BUTTON: "Tạo phiếu kiểm kê kho",
@@ -63,7 +63,7 @@ export const INVENTORY_AUDIT_COPY = {
 } as const;
 
 export const INVENTORY_AUDIT_MODAL_COPY = {
-  TITLE: "Lập Phiếu Kiểm Kê Kho & Điều Chỉnh Tồn Kho",
+  TITLE: "Lập Phiếu Kiểm Kê Kho",
   SUBTITLE: "Nhập số lượng đếm thực tế để hệ thống tự động cân đối và cập nhật tồn kho sản phẩm",
   SEARCH_PRODUCT_PLACEHOLDER: "Tìm kiếm sản phẩm theo tên, mã SKU để kiểm kê...",
   ADD_ALL_PRODUCTS: "Thêm tất cả sản phẩm đang bán",

@@ -7,6 +7,7 @@ import { ProductSectionSidebar } from "@/modules/product/components/ProductSecti
 import type { TStockFilter } from "@/modules/product/types/TStockFilter";
 import type { SupplierFilterState } from "@/modules/supplier/components/SupplierSidebar";
 import type { IInventoryAuditFilterState } from "@/modules/inventory_audit/types/IInventoryAudit";
+import type { IInventoryWarningFilterState } from "@/modules/product/types/IInventoryWarning";
 import { INVENTORY_AUDIT_FILTER_STATUS } from "@/constants/inventoryAudit";
 
 export interface IProductOutletContext {
@@ -17,6 +18,10 @@ export interface IProductOutletContext {
   inventoryAuditFilter: IInventoryAuditFilterState;
   setInventoryAuditFilter: React.Dispatch<
     React.SetStateAction<IInventoryAuditFilterState>
+  >;
+  inventoryWarningFilter: IInventoryWarningFilterState;
+  setInventoryWarningFilter: React.Dispatch<
+    React.SetStateAction<IInventoryWarningFilterState>
   >;
 }
 
@@ -43,6 +48,15 @@ export const ProductsLayout = () => {
       dateTo: "",
     });
 
+  // Inventory Warning & Suggestion filter states
+  const [inventoryWarningFilter, setInventoryWarningFilter] =
+    useState<IInventoryWarningFilterState>({
+      search: "",
+      groupId: PRODUCT_FILTER.ALL,
+      periodDays: 28,
+      activeTab: "warnings",
+    });
+
   return (
     <DashboardWorkspaceLayout
       sidebar={
@@ -56,6 +70,8 @@ export const ProductsLayout = () => {
           onSupplierFilterChange={setSupplierFilter}
           inventoryAuditFilter={inventoryAuditFilter}
           onInventoryAuditFilterChange={setInventoryAuditFilter}
+          inventoryWarningFilter={inventoryWarningFilter}
+          onInventoryWarningFilterChange={setInventoryWarningFilter}
         />
       }
     >
@@ -68,6 +84,8 @@ export const ProductsLayout = () => {
             setSupplierFilter,
             inventoryAuditFilter,
             setInventoryAuditFilter,
+            inventoryWarningFilter,
+            setInventoryWarningFilter,
           } satisfies IProductOutletContext
         }
       />

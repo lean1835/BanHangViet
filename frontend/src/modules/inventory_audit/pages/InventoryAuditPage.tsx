@@ -172,53 +172,25 @@ export const InventoryAuditPage = () => {
   };
 
   return (
-    <div className="flex flex-col gap-6 p-4 sm:p-6 w-full max-w-7xl mx-auto animate-fade-in">
-      {/* Header & Main Actions */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
-            {INVENTORY_AUDIT_COPY.PAGE_TITLE}
-          </h1>
-          <p className="text-xs text-slate-500 mt-1 max-w-2xl">
-            {INVENTORY_AUDIT_COPY.PAGE_SUBTITLE}
-          </p>
-        </div>
-
-        <div className="flex items-center gap-3 shrink-0">
-          {canCreateAudit ? (
-            <button
-              type="button"
-              onClick={() => setIsCreateModalOpen(true)}
-              className="h-10 px-5 rounded-xl bg-kv-blue-primary hover:bg-kv-blue-dark text-white font-bold text-xs flex items-center gap-2 shadow-sm transition-all transform active:scale-95"
-            >
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.5"
-              >
-                <path d="M12 5v14M5 12h14" />
-              </svg>
-              {INVENTORY_AUDIT_COPY.CREATE_BUTTON}
-            </button>
-          ) : isAccountant ? (
-            <div className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-3.5 py-2 font-medium max-w-xs">
-              {INVENTORY_AUDIT_COPY.ACCOUNTANT_READ_ONLY_WARNING}
-            </div>
-          ) : null}
-        </div>
+    <div className="flex flex-col gap-4 w-full animate-auth-fade-in">
+      {/* Page Title Header */}
+      <div className="flex flex-col gap-1">
+        <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+          {INVENTORY_AUDIT_COPY.PAGE_TITLE}
+        </h1>
+        <p className="text-xs text-slate-500 max-w-2xl">
+          {INVENTORY_AUDIT_COPY.PAGE_SUBTITLE}
+        </p>
       </div>
 
       {/* 4 Summary Stats Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         {/* Card 1: Tổng số phiếu */}
-        <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-2xs flex items-center gap-3.5">
-          <div className="p-3 rounded-xl bg-blue-50 text-kv-blue-primary">
+        <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-sm flex items-center gap-3.5">
+          <div className="w-11 h-11 rounded-xl bg-blue-50 text-kv-blue-primary flex items-center justify-center shrink-0">
             <svg
-              width="22"
-              height="22"
+              width="20"
+              height="20"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
@@ -231,21 +203,21 @@ export const InventoryAuditPage = () => {
             </svg>
           </div>
           <div>
-            <div className="text-xs text-slate-500 font-medium">
+            <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
               {INVENTORY_AUDIT_COPY.STATS.TOTAL_AUDITS}
             </div>
-            <div className="text-lg sm:text-xl font-bold text-slate-900 mt-0.5">
-              {formatNumber(stats.totalAudits)}
+            <div className="text-lg font-black text-slate-800 mt-0.5">
+              {formatNumber(stats.totalAudits)} <span className="text-xs font-semibold text-slate-400">phiếu</span>
             </div>
           </div>
         </div>
 
         {/* Card 2: Lượt lệch tồn */}
-        <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-2xs flex items-center gap-3.5">
-          <div className="p-3 rounded-xl bg-amber-50 text-amber-600">
+        <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-sm flex items-center gap-3.5">
+          <div className="w-11 h-11 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
             <svg
-              width="22"
-              height="22"
+              width="20"
+              height="20"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
@@ -257,21 +229,21 @@ export const InventoryAuditPage = () => {
             </svg>
           </div>
           <div>
-            <div className="text-xs text-slate-500 font-medium">
+            <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
               {INVENTORY_AUDIT_COPY.STATS.TOTAL_DIFFERENCE_ITEMS}
             </div>
-            <div className="text-lg sm:text-xl font-bold text-slate-900 mt-0.5">
-              {formatNumber(stats.differenceEvents)} đợt
+            <div className="text-lg font-black text-amber-600 mt-0.5">
+              {formatNumber(stats.differenceEvents)} <span className="text-xs font-semibold text-slate-400">đợt lệch</span>
             </div>
           </div>
         </div>
 
         {/* Card 3: Lệch tăng */}
-        <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-2xs flex items-center gap-3.5">
-          <div className="p-3 rounded-xl bg-emerald-50 text-emerald-600">
+        <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-sm flex items-center gap-3.5">
+          <div className="w-11 h-11 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
             <svg
-              width="22"
-              height="22"
+              width="20"
+              height="20"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
@@ -282,21 +254,21 @@ export const InventoryAuditPage = () => {
             </svg>
           </div>
           <div>
-            <div className="text-xs text-slate-500 font-medium">
+            <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
               {INVENTORY_AUDIT_COPY.STATS.TOTAL_INCREASED_QTY}
             </div>
-            <div className="text-lg sm:text-xl font-bold text-emerald-700 mt-0.5">
-              +{formatNumber(stats.totalIncrease)}
+            <div className="text-lg font-black text-emerald-700 mt-0.5">
+              +{formatNumber(stats.totalIncrease)} <span className="text-xs font-semibold text-slate-400">sản phẩm</span>
             </div>
           </div>
         </div>
 
         {/* Card 4: Lệch giảm */}
-        <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-2xs flex items-center gap-3.5">
-          <div className="p-3 rounded-xl bg-rose-50 text-rose-600">
+        <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-sm flex items-center gap-3.5">
+          <div className="w-11 h-11 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0">
             <svg
-              width="22"
-              height="22"
+              width="20"
+              height="20"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
@@ -307,23 +279,24 @@ export const InventoryAuditPage = () => {
             </svg>
           </div>
           <div>
-            <div className="text-xs text-slate-500 font-medium">
+            <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
               {INVENTORY_AUDIT_COPY.STATS.TOTAL_DECREASED_QTY}
             </div>
-            <div className="text-lg sm:text-xl font-bold text-rose-700 mt-0.5">
-              -{formatNumber(stats.totalDecrease)}
+            <div className="text-lg font-black text-rose-700 mt-0.5">
+              -{formatNumber(stats.totalDecrease)} <span className="text-xs font-semibold text-slate-400">sản phẩm</span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Quick Search Toolbar */}
-      <div className="bg-white rounded-2xl p-3 border border-slate-200 shadow-xs flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+      {/* Action row (Search and Create Button) below statistics */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        {/* Search bar input */}
         <div className="relative flex-1 max-w-md">
-          <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400">
+          <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-400">
             <svg
-              width="15"
-              height="15"
+              width="14"
+              height="14"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
@@ -338,14 +311,35 @@ export const InventoryAuditPage = () => {
             placeholder={INVENTORY_AUDIT_COPY.SEARCH_PLACEHOLDER}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full h-9 pl-9 pr-3 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:border-kv-blue-primary focus:outline-none transition-colors"
+            className="h-11 w-full rounded-lg border border-slate-300 bg-white pl-9 pr-4 text-xs font-semibold text-slate-700 shadow-sm transition-all focus:border-kv-blue-primary focus:outline-none lg:h-9"
           />
         </div>
 
-        <div className="flex items-center gap-2 text-xs text-slate-500 self-end sm:self-center">
-          <span>Tìm thấy:</span>
-          <strong className="text-slate-800">{totalElements}</strong>
-          <span>phiếu</span>
+        {/* Buttons */}
+        <div className="flex items-center gap-2 flex-wrap">
+          {canCreateAudit ? (
+            <button
+              type="button"
+              onClick={() => setIsCreateModalOpen(true)}
+              className="flex h-11 items-center gap-1.5 rounded-lg bg-kv-blue-primary px-4 text-xs font-bold text-white shadow-sm transition-all hover:bg-kv-blue-dark lg:h-9"
+            >
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+              >
+                <path d="M12 5v14M5 12h14" />
+              </svg>
+              {INVENTORY_AUDIT_COPY.CREATE_BUTTON}
+            </button>
+          ) : isAccountant ? (
+            <div className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-1.5 font-medium">
+              {INVENTORY_AUDIT_COPY.ACCOUNTANT_READ_ONLY_WARNING}
+            </div>
+          ) : null}
         </div>
       </div>
 

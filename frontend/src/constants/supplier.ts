@@ -45,7 +45,7 @@ export const SUPPLIER_LOG_ACTIONS = {
 } as const;
 
 export const SUPPLIER_PAGINATION = {
-  PAGE_SIZE: 9,
+  PAGE_SIZE: 6,
   INITIAL_PAGE: 0,
 } as const;
 
