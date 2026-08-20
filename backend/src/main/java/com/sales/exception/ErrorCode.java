@@ -140,7 +140,13 @@ public enum ErrorCode {
     // NCL-14 Nhật ký kiểm toán không sửa xóa được
     AUDIT_LOG_IMMUTABLE(6001, "Nhật ký kiểm toán là dữ liệu bất biến, tuyệt đối không được sửa hoặc xóa", HttpStatus.FORBIDDEN),
     AUDIT_LOG_TAMPERED(6002, "Phát hiện chuỗi kiểm tra Hash Chain bị đứt gãy hoặc bị can thiệp trái phép", HttpStatus.INTERNAL_SERVER_ERROR),
-    AUDIT_LOG_NOT_FOUND(6003, "Không tìm thấy bản ghi nhật ký kiểm toán", HttpStatus.NOT_FOUND);
+    AUDIT_LOG_NOT_FOUND(6003, "Không tìm thấy bản ghi nhật ký kiểm toán", HttpStatus.NOT_FOUND),
+
+    // NCL-14-CN-004 Cảnh báo thao tác bất thường
+    ANOMALY_ALERT_NOT_FOUND(6010, "Cảnh báo thao tác bất thường không tồn tại", HttpStatus.NOT_FOUND),
+    ANOMALY_RULE_NOT_FOUND(6011, "Cấu hình quy tắc cảnh báo không tồn tại", HttpStatus.NOT_FOUND),
+    INVALID_ANOMALY_STATUS(6012, "Trạng thái xử lý cảnh báo không hợp lệ (chỉ chấp nhận REVIEWED hoặc DISMISSED)", HttpStatus.BAD_REQUEST),
+    ANOMALY_ACCESS_DENIED(6013, "Nhân viên không có quyền truy cập trung tâm cảnh báo thao tác bất thường", HttpStatus.FORBIDDEN);
 
     private final int code;
     private final String message;
