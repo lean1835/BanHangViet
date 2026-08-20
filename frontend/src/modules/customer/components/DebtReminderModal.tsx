@@ -64,9 +64,9 @@ export const DebtReminderModal: React.FC<DebtReminderModalProps> = ({
         const isOverdue =
           d.status === "OVERDUE" ||
           (d.dueDate && new Date(d.dueDate).getTime() < Date.now());
-        const statusTag = isOverdue ? "🔴 [ĐÃ QUÁ HẠN]" : "🟢 [CHƯA QUÁ HẠN]";
+        const statusTag = isOverdue ? "[ĐÃ QUÁ HẠN]" : "[CHƯA QUÁ HẠN]";
 
-        const orderHeader = `🛒 Đơn hàng ${orderTitle} ${statusTag}`;
+        const orderHeader = `Đơn hàng ${orderTitle} ${statusTag}`;
         const dueText = d.dueDate ? ` (Hạn trả: ${formatDateOnly(d.dueDate)})` : "";
         const amountText = ` - Dư nợ đơn: ${formatCurrency(d.remainingAmount)}`;
 
@@ -82,7 +82,7 @@ export const DebtReminderModal: React.FC<DebtReminderModalProps> = ({
         return `${orderHeader}${dueText}${amountText}${productListText}`;
       });
 
-      return `Kính gửi ${customer.name},\nCửa hàng Bán Hàng Việt xin thông báo chi tiết danh sách các sản phẩm và trạng thái nợ chưa thanh toán của Quý khách:\n\n${breakdownLines.join("\n\n")}\n\n👉 Tổng dư nợ cần thanh toán: ${formattedTotal}.\n\nRất mong Quý khách sắp xếp thanh toán sớm. Trân trọng cảm ơn!`;
+      return `Kính gửi ${customer.name},\nCửa hàng Bán Hàng Việt xin thông báo chi tiết danh sách các sản phẩm và trạng thái nợ chưa thanh toán của Quý khách:\n\n${breakdownLines.join("\n\n")}\n\nTổng dư nợ cần thanh toán: ${formattedTotal}.\n\nRất mong Quý khách sắp xếp thanh toán sớm. Trân trọng cảm ơn!`;
     }
 
     return CUSTOMER_UI.REMINDER_MODAL.TEMPLATE_BUILDER(customer.name, formattedTotal);
@@ -178,7 +178,7 @@ export const DebtReminderModal: React.FC<DebtReminderModalProps> = ({
                 <span className="font-bold text-blue-900 font-mono">{customer.email}</span>
               </div>
               <p className="text-[11px] text-blue-700 font-medium leading-relaxed border-t border-blue-100/60 pt-2 mt-1">
-                👉 Hệ thống sẽ gửi email tổng hợp đầy đủ chi tiết các đơn hàng nợ & danh sách sản phẩm chưa thanh toán tới khách hàng.
+                Hệ thống sẽ gửi email tổng hợp đầy đủ chi tiết các đơn hàng nợ & danh sách sản phẩm chưa thanh toán tới khách hàng.
               </p>
             </div>
           ) : (

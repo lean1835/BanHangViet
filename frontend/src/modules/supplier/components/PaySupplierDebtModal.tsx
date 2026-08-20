@@ -259,7 +259,7 @@ export const PaySupplierDebtModal: React.FC<PaySupplierDebtModalProps> = ({
                   }
                 >
                   {formatCurrency(remainingDebt)}
-                  {remainingDebt === 0 && " (Hết nợ 🎉)"}
+                  {remainingDebt === 0 && " (Hết nợ)"}
                 </strong>
               </p>
             )}

@@ -33,7 +33,7 @@ export const SETTINGS_UI = {
       PHONE: "Số điện thoại liên lạc:",
       ADDRESS: "Địa chỉ cửa hàng vật lý:",
     },
-    NOTICE_ICON: "ℹ️",
+    NOTICE_ICON: "",
     NOTICE:
       "Thông tin hồ sơ hộ kinh doanh được đồng bộ tự động từ tờ khai hóa đơn thuế điện tử và không được phép chỉnh sửa tự do sau khi cơ quan thuế đã cấp mã số kinh doanh.",
   },

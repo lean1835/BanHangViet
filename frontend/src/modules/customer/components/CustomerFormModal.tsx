@@ -259,7 +259,7 @@ export const CustomerFormModal: React.FC<CustomerFormModalProps> = ({
                       }}
                       className="text-[11px] font-bold text-kv-blue-primary hover:underline text-left"
                     >
-                      👉 Bấm vào đây để mở hồ sơ khách hàng "{duplicateCustomer.name}"
+                      Bấm vào đây để mở hồ sơ khách hàng "{duplicateCustomer.name}"
                     </button>
                   )}
                 </div>

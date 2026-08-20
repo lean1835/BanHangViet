@@ -335,7 +335,7 @@ export const GoodsReceiptModal: React.FC<GoodsReceiptModalProps> = ({
                   Lập phiếu nhập kho từ nhà cung cấp
                 </h2>
                 <p className="text-[11px] text-blue-100 font-normal">
-                  Cộng tồn kho & tự động tính lại giá vốn bình quân (QTN-23)
+                  Cộng tồn kho & tự động tính lại giá vốn bình quân
                 </p>
               </div>
             </div>
@@ -344,9 +344,12 @@ export const GoodsReceiptModal: React.FC<GoodsReceiptModalProps> = ({
               onClick={onClose}
               disabled={isSubmitting}
               aria-label="Đóng modal lập phiếu nhập kho"
-              className="text-white/80 hover:text-white disabled:opacity-50 transition-colors text-xl p-1"
+              className="text-white/80 hover:text-white disabled:opacity-50 transition-colors p-1 rounded-lg hover:bg-blue-600"
             >
-              ✕
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
             </button>
           </div>
 
@@ -491,9 +494,12 @@ export const GoodsReceiptModal: React.FC<GoodsReceiptModalProps> = ({
                       productSearchInputRef.current?.focus();
                     }}
                     aria-label="Xóa từ khóa tìm kiếm"
-                    className="absolute inset-y-0 right-8 px-2 text-slate-400 hover:text-slate-700"
+                    className="absolute inset-y-0 right-8 px-2 flex items-center text-slate-400 hover:text-slate-700"
                   >
-                    ✕
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                      <line x1="18" y1="6" x2="6" y2="18" />
+                      <line x1="6" y1="6" x2="18" y2="18" />
+                    </svg>
                   </button>
                 )}
 
@@ -633,7 +639,7 @@ export const GoodsReceiptModal: React.FC<GoodsReceiptModalProps> = ({
                                     title={`Đơn giá nhập (${formatCurrency(item.purchasePrice)}) cao hơn giá bán (${formatCurrency(item.listedPrice)})`}
                                     className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300/80 flex items-center gap-1"
                                   >
-                                    ⚠️ Bán lỗ
+                                    Bán lỗ
                                   </span>
                                 )}
                               </div>
@@ -852,15 +858,18 @@ export const GoodsReceiptModal: React.FC<GoodsReceiptModalProps> = ({
                   <line x1="12" y1="9" x2="12" y2="13" />
                   <line x1="12" y1="17" x2="12.01" y2="17" />
                 </svg>
-                Xác nhận cảnh báo bán lỗ (NCL-13-CN-002-TC-02)
+                Xác nhận cảnh báo bán lỗ
               </div>
               <button
                 type="button"
                 onClick={() => setShowBelowCostModal(false)}
                 disabled={isSubmitting}
-                className="text-white/80 hover:text-white text-lg"
+                className="text-white/80 hover:text-white p-1 rounded-lg hover:bg-amber-600"
               >
-                ✕
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
               </button>
             </div>
 

@@ -48,7 +48,7 @@ export const PLATFORM_ADMIN_OVERVIEW = {
   HOUSEHOLDS: {
     label: "Hộ kinh doanh",
     value: `${PLATFORM_ADMIN_HOUSEHOLD_COUNT} hộ`,
-    detail: "🟢 11 đang hoạt động / 🔴 1 bị khóa",
+    detail: "11 đang hoạt động / 1 bị khóa",
   },
   ACTIVE_USERS: {
     label: "Tài khoản hoạt động",
@@ -67,7 +67,7 @@ export const PLATFORM_ADMIN_OVERVIEW = {
   },
   CHART_TITLE: "Biểu đồ tải truyền nhận hóa đơn điện tử",
   CHART_PLACEHOLDER:
-    "📊 Biểu đồ trực quan phụ tải Cloud Gateway (Thiết kế giả lập)",
+    "Biểu đồ trực quan phụ tải Cloud Gateway (Thiết kế giả lập)",
 } as const;
 
 export const PLATFORM_ADMIN_PLAN = {

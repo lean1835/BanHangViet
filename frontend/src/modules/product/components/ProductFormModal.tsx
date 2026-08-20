@@ -11,7 +11,6 @@ import {
   PRODUCT_FORM_LIMITS,
   PRODUCT_STATUS_OPTIONS,
   PRODUCT_STATUS_VALUES,
-  PRODUCT_SYMBOLS,
   PRODUCT_VALIDATION_MESSAGES,
 } from "@/constants/product";
 import { useGetProductGroupsQuery } from "@/modules/product/services/productApi";
@@ -262,9 +261,12 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
             type="button"
             disabled={isSubmitting}
             aria-label={PRODUCT_FORM_COPY.CANCEL_ACTION}
-            className="flex min-h-11 min-w-11 items-center justify-center text-lg text-white/80 transition-colors hover:text-white"
+            className="flex min-h-11 min-w-11 items-center justify-center text-white/80 transition-colors hover:text-white"
           >
-            {PRODUCT_SYMBOLS.CLOSE}
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
           </button>
         </div>
 

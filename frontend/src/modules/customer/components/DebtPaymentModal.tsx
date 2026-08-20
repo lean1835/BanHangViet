@@ -216,7 +216,7 @@ export const DebtPaymentModal: React.FC<DebtPaymentModalProps> = ({
                 <span>Dư nợ còn lại sau thu:</span>
                 <strong className={remainingDebt === 0 ? "text-emerald-600" : "text-rose-600"}>
                   {formatCurrency(Math.max(0, remainingDebt))}
-                  {remainingDebt === 0 && " (Hết nợ 🎉)"}
+                  {remainingDebt === 0 && " (Hết nợ)"}
                 </strong>
               </p>
             )}

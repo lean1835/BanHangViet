@@ -8,6 +8,10 @@ import {
   SupplierSidebar,
   type SupplierFilterState,
 } from "@/modules/supplier/components/SupplierSidebar";
+import {
+  InventoryAuditSidebar,
+} from "@/modules/inventory_audit/components/InventoryAuditSidebar";
+import type { IInventoryAuditFilterState } from "@/modules/inventory_audit/types/IInventoryAudit";
 
 interface ProductSectionSidebarProps {
   currentRole: TDemoRole;
@@ -17,6 +21,8 @@ interface ProductSectionSidebarProps {
   onStockFilterChange: (filter: TStockFilter) => void;
   supplierFilter?: SupplierFilterState;
   onSupplierFilterChange?: (filter: SupplierFilterState) => void;
+  inventoryAuditFilter?: IInventoryAuditFilterState;
+  onInventoryAuditFilterChange?: (filter: IInventoryAuditFilterState) => void;
 }
 
 const getNavLinkClass = (isActive: boolean): string =>
@@ -34,9 +40,14 @@ export const ProductSectionSidebar = ({
   onStockFilterChange,
   supplierFilter,
   onSupplierFilterChange,
+  inventoryAuditFilter,
+  onInventoryAuditFilterChange,
 }: ProductSectionSidebarProps) => {
   const location = useLocation();
   const isProductListRoute = location.pathname === APP_ROUTES.PRODUCTS;
+  const isInventoryAuditRoute =
+    location.pathname === APP_ROUTES.PRODUCT_INVENTORY_AUDITS ||
+    location.pathname.startsWith("/products/inventory-audits");
   const isSupplierRoute =
     location.pathname === APP_ROUTES.PRODUCT_SUPPLIERS ||
     location.pathname === APP_ROUTES.SUPPLIERS ||
@@ -66,8 +77,18 @@ export const ProductSectionSidebar = ({
             {PRODUCT_SECTION_COPY.STOCK_ENTRY_ROUTE}
           </NavLink>
           <NavLink
+            to={APP_ROUTES.PRODUCT_INVENTORY_AUDITS}
+            className={({ isActive }) =>
+              getNavLinkClass(isActive || isInventoryAuditRoute)
+            }
+          >
+            Kiểm kê kho & Điều chỉnh
+          </NavLink>
+          <NavLink
             to={APP_ROUTES.PRODUCT_SUPPLIERS}
-            className={({ isActive }) => getNavLinkClass(isActive || isSupplierRoute)}
+            className={({ isActive }) =>
+              getNavLinkClass(isActive || isSupplierRoute)
+            }
           >
             {PRODUCT_SECTION_COPY.SUPPLIER_ROUTE}
           </NavLink>
@@ -85,6 +106,17 @@ export const ProductSectionSidebar = ({
           />
         </div>
       )}
+
+      {isInventoryAuditRoute &&
+        inventoryAuditFilter &&
+        onInventoryAuditFilterChange && (
+          <div className="border-t pt-4">
+            <InventoryAuditSidebar
+              filter={inventoryAuditFilter}
+              onFilterChange={onInventoryAuditFilterChange}
+            />
+          </div>
+        )}
 
       {isSupplierRoute && supplierFilter && onSupplierFilterChange && (
         <div className="border-t pt-4">

@@ -89,7 +89,7 @@ const SHIFT_RECONCILIATION_UI = {
   ACTUAL_CASH_LABEL: "Đếm thực tế:",
   DIFFERENCE_LABEL: "Chênh lệch:",
   ACTUAL_CASH_INPUT_LABEL: "Tiền thực tế đếm tại két (đ):",
-  DIFFERENCE_REASON_LABEL: "⚠️ Nhập lý do chênh lệch bắt buộc:",
+  DIFFERENCE_REASON_LABEL: "Nhập lý do chênh lệch bắt buộc:",
   DIFFERENCE_REASON_PLACEHOLDER: "Nhập lý do...",
 } as const;
 
@@ -98,7 +98,7 @@ export const SHIFT_UI = {
     EMPTY_VALUE: DATE_FORMAT.EMPTY_FULL,
     ZERO_AMOUNT_LABEL: NUMBER_FORMAT.ZERO_CURRENCY,
     POSITIVE_AMOUNT_PREFIX: "+",
-    CLOSE_ICON: "✕",
+    CLOSE_ICON: "Đóng",
     CANCEL_BUTTON: "HỦY BỎ",
     OPEN_SHIFT_BUTTON: "MỞ CA LÀM VIỆC MỚI",
     EMPTY_HISTORY_MESSAGE: "Không tìm thấy ca bán hàng nào phù hợp.",
@@ -147,12 +147,12 @@ export const SHIFT_UI = {
       TITLE: "XÁC NHẬN ĐỐI SOÁT & ĐÓNG CA HỘ",
       DESCRIPTION:
         "Nhập số tiền mặt đếm thực tế để đối soát ca bán hàng của nhân viên.",
-      DIFFERENCE_REASON_LABEL: "⚠️ Lý do chênh lệch bắt buộc:",
+      DIFFERENCE_REASON_LABEL: "Lý do chênh lệch bắt buộc:",
       DIFFERENCE_REASON_PLACEHOLDER: "Nhập lý do chênh lệch...",
       CONFIRM_BUTTON: "ĐỒNG Ý ĐÓNG CA",
     },
     EDIT_MODAL: {
-      TITLE: "✏️ CẬP NHẬT THÔNG TIN CA BÁN HÀNG",
+      TITLE: "CẬP NHẬT THÔNG TIN CA BÁN HÀNG",
       SHIFT_CODE_LABEL: "Mã ca bán hàng:",
       EMPLOYEE_LABEL: "Nhân viên phục vụ:",
       OPENING_CASH_LABEL: "Quỹ đầu ca (đ):",
@@ -165,7 +165,7 @@ export const SHIFT_UI = {
   MANAGEMENT: {
     LOADING_MESSAGE: "Đang tải ca hiện tại...",
     ACCOUNTANT_RESTRICTION:
-      "🔒 Bạn đang truy cập với vai trò Kế toán. Menu thao tác đóng/mở ca bán hàng bị hạn chế (Chỉ xem lịch sử).",
+      "Bạn đang truy cập với vai trò Kế toán. Menu thao tác đóng/mở ca bán hàng bị hạn chế (Chỉ xem lịch sử).",
     TITLE: "Quản lý Ca Hiện Tại",
     NO_ACTIVE_SHIFT_DESCRIPTION:
       "Không có ca bán hàng nào đang hoạt động. Bấm vào nút bên dưới để khai báo mở ca bán hàng mới.",
@@ -175,7 +175,7 @@ export const SHIFT_UI = {
     EXPECTED_CASH_LABEL: "Tiền mặt dự kiến có trong két:",
     ACTUAL_CASH_INPUT_LABEL: "Tiền mặt đếm thực tế cuối ca:",
     DIFFERENCE_LABEL: "Chênh lệch (Thiếu/Thừa):",
-    DIFFERENCE_WARNING_ICON: "⚠️",
+    DIFFERENCE_WARNING_ICON: "",
     DIFFERENCE_WARNING_LABEL: "Phát hiện chênh lệch! Vui lòng nhập lý do:",
     DIFFERENCE_REASON_PLACEHOLDER:
       "Ví dụ: Thối thiếu cho khách hàng, thất lạc tiền lẻ...",

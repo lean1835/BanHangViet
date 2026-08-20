@@ -175,7 +175,7 @@ export const customerApi = baseApi.injectEndpoints({
       ],
     }),
 
-    // --- DEBT ENDPOINTS (NCL-10) ---
+    // --- DEBT ENDPOINTS ---
 
     collectDebt: builder.mutation<ICustomerDebtResponse, ICollectDebtRequest>({
       query: (body) => ({

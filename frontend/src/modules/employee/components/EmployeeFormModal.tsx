@@ -144,7 +144,7 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({
       onClick={() => {
         if (!isSaving) onClose();
       }}
-      className="app-modal-backdrop fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-900/60 p-2 animate-auth-fade-in sm:items-center sm:p-4"
+      className="app-modal-backdrop fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-900/60 p-2 animate-backdrop-fade-in sm:items-center sm:p-4"
     >
       <div
         ref={dialogRef}
@@ -153,7 +153,7 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({
         role="dialog"
         aria-modal="true"
         aria-label={employee ? EMPLOYEE_UI.FORM.UPDATE_TITLE : EMPLOYEE_UI.FORM.CREATE_TITLE}
-        className="app-modal-panel flex w-full max-w-xl flex-col overflow-hidden rounded-xl border border-slate-100 bg-white shadow-2xl"
+        className="app-modal-panel flex w-full max-w-xl flex-col overflow-hidden rounded-xl border border-slate-100 bg-white shadow-2xl animate-modal-bounce-in"
       >
         {/* Header */}
         <div className="app-modal-header flex items-center justify-between bg-kv-blue-primary px-5 py-3 text-white">
@@ -167,9 +167,12 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({
             type="button"
             disabled={isSaving}
             aria-label={EMPLOYEE_UI.FORM.CANCEL_LABEL}
-            className="flex min-h-11 min-w-11 items-center justify-center text-lg text-white/80 transition-colors hover:text-white"
+            className="flex min-h-11 min-w-11 items-center justify-center text-white/80 transition-colors hover:text-white"
           >
-            {EMPLOYEE_UI.FORM.CLOSE_LABEL}
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
           </button>
         </div>
 

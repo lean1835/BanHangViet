@@ -91,9 +91,13 @@ export const CancelInvoiceModal: React.FC<CancelInvoiceModalProps> = ({
               onClose();
             }}
             disabled={isSubmitting}
-            className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-lg text-white/80 transition-colors hover:bg-white/10 hover:text-white disabled:opacity-60"
+            aria-label="Đóng"
+            className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-white/80 transition-colors hover:bg-white/10 hover:text-white disabled:opacity-60"
           >
-            ✕
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
           </button>
         </div>
 
@@ -117,7 +121,7 @@ export const CancelInvoiceModal: React.FC<CancelInvoiceModalProps> = ({
               />
               {errors.cancelReason && (
                 <span className="text-rose-600 text-[10px] font-bold">
-                  ⚠️ {errors.cancelReason.message}
+                  {errors.cancelReason.message}
                 </span>
               )}
             </div>

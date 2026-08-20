@@ -20,6 +20,9 @@ const DashboardOverviewPage = React.lazy(
 const ProductsLayout = React.lazy(() => import("@/modules/product/pages/ProductsLayout"));
 const ProductListPage = React.lazy(() => import("@/modules/product/pages/ProductListPage"));
 const StockEntryPage = React.lazy(() => import("@/modules/product/pages/StockEntryPage"));
+const InventoryAuditPage = React.lazy(
+  () => import("@/modules/inventory_audit/pages/InventoryAuditPage")
+);
 const ShiftHistoryPage = React.lazy(() => import("@/modules/shift/pages/ShiftHistoryPage"));
 const OrderHistoryPage = React.lazy(() => import("@/modules/order/pages/OrderHistoryPage"));
 const InvoiceManagementPage = React.lazy(
@@ -128,6 +131,7 @@ export const AppRouter = () => (
           >
             <Route index element={<ProductListPage />} />
             <Route path={ROUTE_SEGMENTS.STOCK_ENTRY} element={<StockEntryPage />} />
+            <Route path={ROUTE_SEGMENTS.INVENTORY_AUDITS} element={<InventoryAuditPage />} />
             <Route path={ROUTE_SEGMENTS.SUPPLIERS} element={<SupplierPage />} />
           </Route>
 
