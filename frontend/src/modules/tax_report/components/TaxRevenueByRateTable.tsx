@@ -1,5 +1,6 @@
 import React from "react";
 import type { ITaxRateRevenueSummaryItem } from "../types/taxRevenueSummary.types";
+import { formatCurrency } from "@/utils/formatCurrency";
 
 interface ITaxRevenueByRateTableProps {
   items: ITaxRateRevenueSummaryItem[];
@@ -14,9 +15,6 @@ export const TaxRevenueByRateTable: React.FC<ITaxRevenueByRateTableProps> = ({
   grandTotalTax = 0,
   isLoading = false,
 }) => {
-  const formatVnd = (val: number = 0) =>
-    new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(val);
-
   if (isLoading) {
     return (
       <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4">
@@ -60,7 +58,7 @@ export const TaxRevenueByRateTable: React.FC<ITaxRevenueByRateTableProps> = ({
         <div>
           <h2 className="text-sm font-bold text-slate-800 tracking-tight flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-full bg-blue-600"></span>
-            Bảng Tổng hợp Doanh thu chịu thuế & Tiền thuế GTGT theo Thuế suất (NCL-12-CN-002)
+            Bảng Tổng hợp Doanh thu chịu thuế & Tiền thuế GTGT theo Thuế suất
           </h2>
           <p className="text-xs text-slate-500 mt-0.5">
             Dữ liệu phân tách theo từng mức thuế suất áp dụng trong kỳ kê khai
@@ -75,15 +73,15 @@ export const TaxRevenueByRateTable: React.FC<ITaxRevenueByRateTableProps> = ({
       {/* Table Content */}
       <div className="overflow-x-auto">
         <table className="w-full text-xs text-left">
-          <thead className="bg-slate-100/70 text-slate-600 font-extrabold uppercase tracking-wider border-b border-slate-200">
+          <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase tracking-wider">
             <tr>
               <th className="py-3.5 px-4 text-center w-12">STT</th>
               <th className="py-3.5 px-4 min-w-[220px]">Mức thuế suất</th>
-              <th className="py-3.5 px-4 text-right">Doanh thu chịu thuế (VND)</th>
-              <th className="py-3.5 px-4 text-right bg-indigo-50/80 text-indigo-900 border-x border-indigo-100 font-black">
+              <th className="py-3.5 px-4 text-right">Doanh thu chịu thuế</th>
+              <th className="py-3.5 px-4 text-right bg-indigo-50/80 text-indigo-900 border-x border-indigo-100 font-bold">
                 <div className="flex items-center justify-end gap-1.5">
                   <span className="w-2 h-2 rounded-full bg-indigo-600 animate-pulse"></span>
-                  <span>Tiền thuế GTGT (VND)</span>
+                  <span>Tiền thuế GTGT</span>
                 </div>
               </th>
               <th className="py-3.5 px-4 text-center">Tỷ trọng (%)</th>
@@ -107,14 +105,14 @@ export const TaxRevenueByRateTable: React.FC<ITaxRevenueByRateTableProps> = ({
 
                 return (
                   <tr key={idx} className="hover:bg-slate-50/80 transition-colors">
-                    <td className="py-3.5 px-4 text-center text-slate-400 font-mono">
+                    <td className="py-3.5 px-4 text-center text-slate-400 font-mono font-semibold">
                       {idx + 1}
                     </td>
 
                     <td className="py-3.5 px-4">
                       <div className="flex items-center gap-2.5">
                         <span
-                          className={`px-2.5 py-0.5 rounded-md font-mono font-black text-xs border shrink-0 ${getTaxRateBadgeStyle(
+                          className={`px-2.5 py-0.5 rounded-md font-bold text-xs border shrink-0 ${getTaxRateBadgeStyle(
                             item.taxRatePercentage
                           )}`}
                         >
@@ -126,13 +124,13 @@ export const TaxRevenueByRateTable: React.FC<ITaxRevenueByRateTableProps> = ({
                       </div>
                     </td>
 
-                    <td className="py-3.5 px-4 text-right font-bold text-slate-800 font-mono">
-                      {formatVnd(item.revenueAmount)}
+                    <td className="py-3.5 px-4 text-right font-bold text-slate-800">
+                      {formatCurrency(item.revenueAmount)}
                     </td>
 
                     {/* Nổi bật cột Tiền thuế GTGT */}
-                    <td className="py-3.5 px-4 text-right font-mono font-black text-indigo-700 bg-indigo-50/40 border-x border-indigo-100/60 text-[13px]">
-                      {formatVnd(item.taxAmount)}
+                    <td className="py-3.5 px-4 text-right font-bold text-indigo-700 bg-indigo-50/40 border-x border-indigo-100/60 text-xs">
+                      {formatCurrency(item.taxAmount)}
                     </td>
 
                     <td className="py-3.5 px-4 text-center font-semibold">
@@ -143,11 +141,11 @@ export const TaxRevenueByRateTable: React.FC<ITaxRevenueByRateTableProps> = ({
                             style={{ width: `${Math.min(Number(revenueShare), 100)}%` }}
                           ></div>
                         </div>
-                        <span className="font-mono">{revenueShare}%</span>
+                        <span>{revenueShare}%</span>
                       </div>
                     </td>
 
-                    <td className="py-3.5 px-4 text-center font-mono font-semibold">
+                    <td className="py-3.5 px-4 text-center font-bold text-slate-700">
                       {item.invoiceCount}
                     </td>
                   </tr>
@@ -158,22 +156,22 @@ export const TaxRevenueByRateTable: React.FC<ITaxRevenueByRateTableProps> = ({
 
           {/* Footer Total Row */}
           {items.length > 0 && (
-            <tfoot className="bg-slate-100 text-slate-900 font-extrabold border-t-2 border-slate-300">
+            <tfoot className="bg-slate-100 text-slate-900 font-bold border-t-2 border-slate-300">
               <tr>
-                <td colSpan={2} className="py-3.5 px-4 text-right uppercase tracking-wider text-xs font-black text-slate-700">
+                <td colSpan={2} className="py-3.5 px-4 text-right uppercase tracking-wider text-xs font-bold text-slate-700">
                   Tổng cộng kỳ kê khai:
                 </td>
-                <td className="py-3.5 px-4 text-right text-blue-700 font-mono text-sm font-bold">
-                  {formatVnd(totalCalculatedRevenue)}
+                <td className="py-3.5 px-4 text-right text-blue-700 text-xs font-bold">
+                  {formatCurrency(totalCalculatedRevenue)}
                 </td>
                 {/* Nổi bật Tổng tiền thuế GTGT ở chân bảng */}
                 <td className="py-3.5 px-4 text-right bg-indigo-100/80 border-x border-indigo-200">
-                  <span className="inline-block bg-indigo-600 text-white font-mono font-black text-xs px-3 py-1.5 rounded-xl shadow-xs">
-                    {formatVnd(totalCalculatedTax)}
+                  <span className="inline-block bg-indigo-600 text-white font-bold text-xs px-2.5 py-1 rounded-lg shadow-xs">
+                    {formatCurrency(totalCalculatedTax)}
                   </span>
                 </td>
-                <td className="py-3.5 px-4 text-center font-mono text-xs">100%</td>
-                <td className="py-3.5 px-4 text-center font-mono text-xs">{totalInvoices}</td>
+                <td className="py-3.5 px-4 text-center text-xs font-bold">100%</td>
+                <td className="py-3.5 px-4 text-center text-xs font-bold">{totalInvoices}</td>
               </tr>
             </tfoot>
           )}

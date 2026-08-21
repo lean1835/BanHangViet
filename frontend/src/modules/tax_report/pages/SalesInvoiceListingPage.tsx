@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { USER_ROLES } from "@/constants/roles";
 import { useDashboardDemo } from "@/providers/DashboardDemoProvider";
+import { useNotification } from "@/hooks/useNotification";
 import type { ITaxPeriodQueryParams, ITaxPeriodResponse } from "../types/salesInvoiceListing.types";
 import {
   useExportTaxDeclarationMutation,
@@ -21,6 +22,7 @@ import { ForbiddenTaxReportAccess } from "../components/ForbiddenTaxReportAccess
 
 export const SalesInvoiceListingPage: React.FC = () => {
   const { currentRole } = useDashboardDemo();
+  const { showSuccess, showError, showWarning } = useNotification();
 
   const currentDate = new Date();
   const currentYear = currentDate.getFullYear();
@@ -121,20 +123,20 @@ export const SalesInvoiceListingPage: React.FC = () => {
 
       if (res?.result?.id) {
         setActivePeriodId(res.result.id);
+        showSuccess("Lập / Cập nhật bảng kê hóa đơn bán ra theo kỳ thành công!");
       }
     } catch (err: unknown) {
-      console.error("Lập bảng kê thuế thất bại:", err);
       const apiErr = err as { data?: { message?: string; code?: number } };
       setErrorMessage(
         apiErr?.data?.message ||
-          "Không thể lập bảng kê cho kỳ này. Vui lòng kiểm tra lại hóa đơn trong kỳ."
+        "Không thể lập bảng kê cho kỳ này. Vui lòng kiểm tra lại trạng thái cấp mã hóa đơn trong kỳ."
       );
     }
   };
 
   const handleConfirmExport = async () => {
     if (!activePeriodId) {
-      alert("Vui lòng lập bảng kê thuế cho kỳ này trước khi xuất tệp.");
+      showWarning("Vui lòng bấm 'Lập / Cập nhật bảng kê' cho kỳ này trước khi xuất tệp.");
       return;
     }
     try {
@@ -148,9 +150,11 @@ export const SalesInvoiceListingPage: React.FC = () => {
       a.remove();
       window.URL.revokeObjectURL(url);
       setIsExportModalOpen(false);
-    } catch (err) {
-      console.error("Xuất tờ khai thất bại:", err);
-      alert("Không thể xuất tờ khai thuế. Vui lòng kiểm tra thông tin MST và Người đại diện của hộ.");
+      showSuccess("Xuất tờ khai thuế và bảng kê hóa đơn bán ra thành công!");
+    } catch (_err) {
+      showError(
+        "Không thể xuất tờ khai thuế. Vui lòng kiểm tra lại thông tin Mã số thuế và Người đại diện của hộ kinh doanh trong phần Cấu hình."
+      );
       setIsExportModalOpen(false);
     }
   };
@@ -162,12 +166,12 @@ export const SalesInvoiceListingPage: React.FC = () => {
   // Lọc tìm kiếm client-side theo từ khóa nếu có
   const filteredListingItems = filters.search?.trim()
     ? rawItems.filter(
-        (item) =>
-          item.invoiceNumber.toLowerCase().includes(filters.search!.toLowerCase()) ||
-          item.invoiceSymbol.toLowerCase().includes(filters.search!.toLowerCase()) ||
-          (item.buyerName && item.buyerName.toLowerCase().includes(filters.search!.toLowerCase())) ||
-          (item.buyerTaxCode && item.buyerTaxCode.toLowerCase().includes(filters.search!.toLowerCase()))
-      )
+      (item) =>
+        item.invoiceNumber.toLowerCase().includes(filters.search!.toLowerCase()) ||
+        item.invoiceSymbol.toLowerCase().includes(filters.search!.toLowerCase()) ||
+        (item.buyerName && item.buyerName.toLowerCase().includes(filters.search!.toLowerCase())) ||
+        (item.buyerTaxCode && item.buyerTaxCode.toLowerCase().includes(filters.search!.toLowerCase()))
+    )
     : rawItems;
 
   const summaryResult = revenueSummaryData?.result;
@@ -192,15 +196,15 @@ export const SalesInvoiceListingPage: React.FC = () => {
             <span>&rsaquo;</span>
             <span className="text-blue-600 font-bold">
               {activeTab === "SUMMARY"
-                ? "Tổng hợp doanh thu chịu thuế (CN-002)"
-                : "Bảng kê hóa đơn bán ra (CN-001)"}
+                ? "Tổng hợp doanh thu chịu thuế"
+                : "Bảng kê hóa đơn bán ra"}
             </span>
           </div>
-          <h1 className="text-2xl font-extrabold text-slate-800 tracking-tight">
+          <h1 className="text-2xl font-bold text-slate-800 tracking-tight">
             Sổ sách & Hỗ trợ kê khai thuế theo kỳ
           </h1>
           <p className="text-xs text-slate-500 mt-1">
-            Quản lý tập trung Bảng kê hóa đơn bán ra (CN-001) và Tổng hợp doanh thu chịu thuế phân tách theo từng mức thuế suất (CN-002).
+            Quản lý tập trung Bảng kê hóa đơn bán ra và Tổng hợp doanh thu chịu thuế phân tách theo từng mức thuế suất.
           </p>
         </div>
 
@@ -208,9 +212,9 @@ export const SalesInvoiceListingPage: React.FC = () => {
           <button
             onClick={() => setIsExportModalOpen(true)}
             disabled={!activePeriodId || rawItems.length === 0}
-            className="px-4 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow-sm transition flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
+            className="px-4 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 hover:shadow-md hover:shadow-emerald-600/20 active:scale-95 hover:-translate-y-0.5 rounded-xl shadow-sm transition-all duration-200 ease-out flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed disabled:transform-none group"
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-4 h-4 group-hover:scale-110 group-hover:-translate-y-0.5 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -227,13 +231,12 @@ export const SalesInvoiceListingPage: React.FC = () => {
       <div className="flex border-b border-slate-200 gap-2">
         <button
           onClick={() => setActiveTab("SUMMARY")}
-          className={`pb-3 px-4 text-xs font-extrabold transition flex items-center gap-2 border-b-2 ${
-            activeTab === "SUMMARY"
+          className={`pb-3 px-4 text-xs font-bold transition-all duration-200 flex items-center gap-2 border-b-2 hover:-translate-y-0.5 active:scale-98 group ${activeTab === "SUMMARY"
               ? "border-blue-600 text-blue-600"
               : "border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300"
-          }`}
+            }`}
         >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-4 h-4 group-hover:scale-110 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -241,7 +244,7 @@ export const SalesInvoiceListingPage: React.FC = () => {
               d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
             />
           </svg>
-          1. Tổng hợp doanh thu chịu thuế theo kỳ (CN-002)
+          1. Tổng hợp doanh thu chịu thuế theo kỳ
           {hasExpiredRateWarning && (
             <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping"></span>
           )}
@@ -249,13 +252,12 @@ export const SalesInvoiceListingPage: React.FC = () => {
 
         <button
           onClick={() => setActiveTab("LISTING")}
-          className={`pb-3 px-4 text-xs font-extrabold transition flex items-center gap-2 border-b-2 ${
-            activeTab === "LISTING"
+          className={`pb-3 px-4 text-xs font-bold transition-all duration-200 flex items-center gap-2 border-b-2 hover:-translate-y-0.5 active:scale-98 group ${activeTab === "LISTING"
               ? "border-blue-600 text-blue-600"
               : "border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300"
-          }`}
+            }`}
         >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-4 h-4 group-hover:scale-110 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -263,7 +265,7 @@ export const SalesInvoiceListingPage: React.FC = () => {
               d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
             />
           </svg>
-          2. Bảng kê hóa đơn bán ra (CN-001)
+          2. Bảng kê hóa đơn bán ra
         </button>
       </div>
 
