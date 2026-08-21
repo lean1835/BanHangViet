@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { USER_ROLES } from "@/constants/roles";
 import { useDashboardDemo } from "@/providers/DashboardDemoProvider";
+import { useNotification } from "@/hooks/useNotification";
 import type { ITaxPeriodQueryParams, ITaxPeriodResponse } from "../types/salesInvoiceListing.types";
 import {
   useExportTaxDeclarationMutation,
@@ -21,6 +22,7 @@ import { ForbiddenTaxReportAccess } from "../components/ForbiddenTaxReportAccess
 
 export const SalesInvoiceListingPage: React.FC = () => {
   const { currentRole } = useDashboardDemo();
+  const { showSuccess, showError, showWarning } = useNotification();
 
   const currentDate = new Date();
   const currentYear = currentDate.getFullYear();
@@ -121,20 +123,20 @@ export const SalesInvoiceListingPage: React.FC = () => {
 
       if (res?.result?.id) {
         setActivePeriodId(res.result.id);
+        showSuccess("Lập / Cập nhật bảng kê hóa đơn bán ra theo kỳ thành công!");
       }
     } catch (err: unknown) {
-      console.error("Lập bảng kê thuế thất bại:", err);
       const apiErr = err as { data?: { message?: string; code?: number } };
       setErrorMessage(
         apiErr?.data?.message ||
-        "Không thể lập bảng kê cho kỳ này. Vui lòng kiểm tra lại hóa đơn trong kỳ."
+        "Không thể lập bảng kê cho kỳ này. Vui lòng kiểm tra lại trạng thái cấp mã hóa đơn trong kỳ."
       );
     }
   };
 
   const handleConfirmExport = async () => {
     if (!activePeriodId) {
-      alert("Vui lòng lập bảng kê thuế cho kỳ này trước khi xuất tệp.");
+      showWarning("Vui lòng bấm 'Lập / Cập nhật bảng kê' cho kỳ này trước khi xuất tệp.");
       return;
     }
     try {
@@ -148,9 +150,11 @@ export const SalesInvoiceListingPage: React.FC = () => {
       a.remove();
       window.URL.revokeObjectURL(url);
       setIsExportModalOpen(false);
-    } catch (err) {
-      console.error("Xuất tờ khai thất bại:", err);
-      alert("Không thể xuất tờ khai thuế. Vui lòng kiểm tra thông tin MST và Người đại diện của hộ.");
+      showSuccess("Xuất tờ khai thuế và bảng kê hóa đơn bán ra thành công!");
+    } catch (_err) {
+      showError(
+        "Không thể xuất tờ khai thuế. Vui lòng kiểm tra lại thông tin Mã số thuế và Người đại diện của hộ kinh doanh trong phần Cấu hình."
+      );
       setIsExportModalOpen(false);
     }
   };
