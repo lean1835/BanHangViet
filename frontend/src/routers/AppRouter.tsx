@@ -34,6 +34,12 @@ const InvoiceManagementPage = React.lazy(
 const AdjustInvoicePage = React.lazy(
   () => import("@/modules/e_invoice/pages/AdjustInvoicePage")
 );
+const ReturnTicketListPage = React.lazy(
+  () => import("@/modules/return_ticket/pages/ReturnTicketListPage")
+);
+const CreateReturnTicketPage = React.lazy(
+  () => import("@/modules/return_ticket/pages/CreateReturnTicketPage")
+);
 const CustomerPage = React.lazy(() => import("@/modules/customer/pages/CustomerPage"));
 const SupplierPage = React.lazy(() => import("@/modules/supplier/pages/SupplierPage"));
 const EmployeePage = React.lazy(() => import("@/modules/employee/pages/EmployeePage"));
@@ -168,6 +174,22 @@ export const AppRouter = () => (
             element={
               <RoleRoute allowedRoles={ROLE_GROUPS.PRODUCT_MANAGEMENT}>
                 <AdjustInvoicePage />
+              </RoleRoute>
+            }
+          />
+          <Route
+            path={ROUTE_SEGMENTS.RETURN_TICKETS}
+            element={
+              <RoleRoute allowedRoles={ROLE_GROUPS.NORMAL_MANAGEMENT}>
+                <ReturnTicketListPage />
+              </RoleRoute>
+            }
+          />
+          <Route
+            path={`${ROUTE_SEGMENTS.RETURN_TICKETS}/create`}
+            element={
+              <RoleRoute allowedRoles={ROLE_GROUPS.NORMAL_MANAGEMENT}>
+                <CreateReturnTicketPage />
               </RoleRoute>
             }
           />

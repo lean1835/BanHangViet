@@ -643,7 +643,7 @@ export const PosPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-100 flex flex-col font-sans select-none overflow-hidden">
+    <div className="h-full w-full bg-slate-100 flex flex-col font-sans select-none overflow-hidden">
       {/* Toast Notification */}
       {toastMessage && (
         <div className="fixed top-14 right-4 z-50 bg-slate-900/90 text-white text-xs font-bold px-4 py-3 rounded-xl shadow-2xl border border-slate-700 animate-auth-fade-in flex items-center justify-between gap-3 max-w-sm">
@@ -691,7 +691,7 @@ export const PosPage = () => {
       />
 
       {/* POS Main Workspace Body */}
-      <div className="flex-1 flex gap-3 p-3 overflow-hidden">
+      <div className="flex-1 min-h-0 flex gap-3 p-3 overflow-hidden">
         {/* Left Area: Cart Table */}
         <PosCartTable
           items={activeTab.items}

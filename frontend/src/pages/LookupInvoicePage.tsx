@@ -251,7 +251,7 @@ export const LookupInvoicePage: React.FC = () => {
           <div className="flex-1 p-8 md:p-10">
             <h1 className="text-center mb-6 text-base font-bold text-kv-text-dark tracking-wider uppercase flex items-center justify-center gap-2">
               <ShieldCheck className="w-5 h-5 text-kv-blue-primary shrink-0" />
-              <span>Tra Cứu &amp; Tải Hóa Đơn Điện Tử Khách Hàng</span>
+              <span>Tra Cứu Hóa Đơn Điện Tử</span>
             </h1>
             <div className="h-px bg-[#dce3ec] mb-7" />
 

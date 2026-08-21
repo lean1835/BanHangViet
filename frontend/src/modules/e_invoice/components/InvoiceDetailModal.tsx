@@ -11,6 +11,7 @@ import type { IDeliveryLog } from "../types/IInvoiceDelivery";
 import { CancelInvoiceModal } from "./CancelInvoiceModal";
 import { SendInvoiceModal } from "./SendInvoiceModal";
 import { PrintInvoiceModal } from "./PrintInvoiceModal";
+import { CreateReturnTicketModal } from "@/modules/return_ticket/components/CreateReturnTicketModal";
 import { useGetInvoiceLogsQuery } from "../services/eInvoiceApi";
 import {
   getStatusClassName,
@@ -69,6 +70,7 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [showSendModal, setShowSendModal] = useState(false);
   const [showPrintModal, setShowPrintModal] = useState(false);
+  const [showCreateReturnModal, setShowCreateReturnModal] = useState(false);
   const [deliveryLogs, setDeliveryLogs] = useState<IDeliveryLog[]>(invoice.deliveryLogs || []);
   const [isActionPending, setIsActionPending] = useState(false);
 
@@ -571,6 +573,22 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
                   </button>
                 )}
 
+                {/* Return ticket creation (NCL-11-CN-001) */}
+                {invoice.status === E_INVOICE_STATUS.ISSUED &&
+                  (currentRole === USER_ROLES.OWNER || currentRole === USER_ROLES.CASHIER) && (
+                  <button
+                    type="button"
+                    onClick={() => setShowCreateReturnModal(true)}
+                    className="w-full flex min-h-9 py-1.5 items-center justify-center rounded-lg border border-kv-blue-primary/40 bg-kv-blue-primary/10 text-kv-blue-primary text-[11px] font-bold hover:bg-kv-blue-primary hover:text-white transition-all shadow-sm"
+                  >
+                    <svg className="w-3.5 h-3.5 mr-1.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <polyline points="9 14 4 9 9 4" />
+                      <path d="M20 20v-7a4 4 0 0 0-4-4H4" />
+                    </svg>
+                    LẬP PHIẾU TRẢ HÀNG
+                  </button>
+                )}
+
                 {currentRole === USER_ROLES.CASHIER && invoice.status === E_INVOICE_STATUS.ISSUED && (
                   <span className="text-[10px] text-slate-400 font-semibold italic text-center p-2 border border-dashed rounded-lg">
                     Tài khoản thu ngân không được quyền thực hiện điều chỉnh hoặc hủy hóa đơn.
@@ -614,6 +632,21 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
             isOpen={showPrintModal}
             onClose={() => setShowPrintModal(false)}
             invoice={invoice}
+          />
+        )}
+
+        {/* Return Ticket Creation Modal (NCL-11-CN-001) */}
+        {showCreateReturnModal && (
+          <CreateReturnTicketModal
+            isOpen={showCreateReturnModal}
+            onClose={() => setShowCreateReturnModal(false)}
+            initialInvoiceId={invoice.id}
+            currentRole={currentRole}
+            onSuccess={() => {
+              setShowCreateReturnModal(false);
+              onClose();
+              navigate("/return-tickets");
+            }}
           />
         )}
       </div>
