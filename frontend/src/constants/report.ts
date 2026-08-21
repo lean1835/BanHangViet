@@ -11,6 +11,10 @@ export const REPORT_NAVIGATION_ITEMS = [
     label: "So sánh doanh thu kỳ",
   },
   {
+    path: APP_ROUTES.REPORT_TAX_SALES_INVOICES,
+    label: "Bảng kê HĐ bán ra",
+  },
+  {
     path: APP_ROUTES.REPORT_ACTIVITY_LOGS,
     label: "Nhật ký hoạt động",
   },
