@@ -75,10 +75,10 @@ public class Promotion {
     @OneToMany(mappedBy = "promotion", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @Builder.Default
     @ToString.Exclude
-    private List<PromotionProduct> promotionProducts = new ArrayList<>();
+    private java.util.Set<PromotionProduct> promotionProducts = new java.util.HashSet<>();
 
     @OneToMany(mappedBy = "promotion", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @Builder.Default
     @ToString.Exclude
-    private List<PromotionProductGroup> promotionProductGroups = new ArrayList<>();
+    private java.util.Set<PromotionProductGroup> promotionProductGroups = new java.util.HashSet<>();
 }
