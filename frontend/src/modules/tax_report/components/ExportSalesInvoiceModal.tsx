@@ -52,7 +52,7 @@ export const ExportSalesInvoiceModal: React.FC<IExportSalesInvoiceModalProps> = 
           </h3>
           <button
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-600 p-1 rounded-lg transition"
+            className="text-slate-400 hover:text-slate-600 hover:bg-slate-100 hover:rotate-90 active:scale-90 p-1.5 rounded-lg transition-all duration-200"
           >
             ✕
           </button>
@@ -72,9 +72,9 @@ export const ExportSalesInvoiceModal: React.FC<IExportSalesInvoiceModalProps> = 
             </label>
             <div className="grid grid-cols-2 gap-3">
               <label
-                className={`flex items-center justify-between p-3.5 border-2 rounded-2xl cursor-pointer transition ${
+                className={`flex items-center justify-between p-3.5 border-2 rounded-2xl cursor-pointer hover:scale-[1.02] active:scale-98 transition-all duration-200 ${
                   selectedFormat === "excel"
-                    ? "border-emerald-500 bg-emerald-50/40 text-emerald-900"
+                    ? "border-emerald-500 bg-emerald-50/40 text-emerald-900 shadow-xs"
                     : "border-slate-200 hover:border-slate-300"
                 }`}
               >
@@ -96,9 +96,9 @@ export const ExportSalesInvoiceModal: React.FC<IExportSalesInvoiceModalProps> = 
               </label>
 
               <label
-                className={`flex items-center justify-between p-3.5 border-2 rounded-2xl cursor-pointer transition ${
+                className={`flex items-center justify-between p-3.5 border-2 rounded-2xl cursor-pointer hover:scale-[1.02] active:scale-98 transition-all duration-200 ${
                   selectedFormat === "pdf"
-                    ? "border-rose-500 bg-rose-50/40 text-rose-900"
+                    ? "border-rose-500 bg-rose-50/40 text-rose-900 shadow-xs"
                     : "border-slate-200 hover:border-slate-300"
                 }`}
               >
@@ -126,14 +126,14 @@ export const ExportSalesInvoiceModal: React.FC<IExportSalesInvoiceModalProps> = 
           <button
             onClick={onClose}
             disabled={isExporting}
-            className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition"
+            className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 hover:text-slate-800 active:scale-95 rounded-xl transition-all duration-200"
           >
             Hủy bỏ
           </button>
           <button
             onClick={() => onConfirm(selectedFormat)}
             disabled={isExporting}
-            className="px-5 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow-sm transition flex items-center gap-2 disabled:opacity-50"
+            className="px-5 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 hover:shadow-md hover:shadow-emerald-600/25 hover:-translate-y-0.5 active:scale-95 rounded-xl shadow-sm transition-all duration-200 flex items-center gap-2 disabled:opacity-50 disabled:transform-none"
           >
             {isExporting ? (
               <>

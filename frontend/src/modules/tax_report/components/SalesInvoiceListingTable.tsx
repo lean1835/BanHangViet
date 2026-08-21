@@ -3,6 +3,8 @@ import type {
   EInvoiceType,
   ITaxSalesRegisterItem,
 } from "../types/salesInvoiceListing.types";
+import { formatCurrency } from "@/utils/formatCurrency";
+import { formatDate } from "@/utils/dateFormatter";
 
 interface ISalesInvoiceListingTableProps {
   items: ITaxSalesRegisterItem[];
@@ -23,22 +25,6 @@ export const SalesInvoiceListingTable: React.FC<ISalesInvoiceListingTableProps> 
   totalPages = 1,
   onPageChange,
 }) => {
-  const formatVnd = (val: number) =>
-    new Intl.NumberFormat("vi-VN").format(val);
-
-  const formatDate = (isoStr: string) => {
-    try {
-      const d = new Date(isoStr);
-      return d.toLocaleDateString("vi-VN", {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-      });
-    } catch {
-      return isoStr;
-    }
-  };
-
   const getTaxRateBadgeStyle = (percentage: number) => {
     switch (percentage) {
       case 10:
@@ -62,25 +48,25 @@ export const SalesInvoiceListingTable: React.FC<ISalesInvoiceListingTableProps> 
     switch (type) {
       case "ORIGINAL":
         return (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-[11px] font-bold bg-blue-50 text-blue-700 border border-blue-200 shadow-2xs">
+          <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
             HĐ Gốc
           </span>
         );
       case "ADJUSTMENT_DECREASE":
         return (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-[11px] font-bold bg-amber-50 text-amber-800 border border-amber-300 shadow-2xs">
+          <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-amber-50 text-amber-800 border border-amber-300">
             ĐC Giảm (-)
           </span>
         );
       case "ADJUSTMENT_INCREASE":
         return (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-[11px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-300 shadow-2xs">
+          <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-300">
             ĐC Tăng (+)
           </span>
         );
       default:
         return (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-[11px] font-medium bg-slate-100 text-slate-700">
+          <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-slate-100 text-slate-700">
             {type}
           </span>
         );
@@ -133,7 +119,7 @@ export const SalesInvoiceListingTable: React.FC<ISalesInvoiceListingTableProps> 
         <div>
           <h2 className="text-sm font-bold text-slate-800 tracking-tight flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-full bg-blue-600"></span>
-            Bảng kê chi tiết Hóa đơn bán ra theo kỳ (NCL-12-CN-001)
+            Bảng kê chi tiết Hóa đơn bán ra theo kỳ
           </h2>
           <p className="text-xs text-slate-500 mt-0.5">
             Danh sách toàn bộ hóa đơn đã được cấp mã hợp lệ phát sinh trong kỳ kê khai
@@ -149,20 +135,18 @@ export const SalesInvoiceListingTable: React.FC<ISalesInvoiceListingTableProps> 
       <div className="overflow-x-auto">
         <table className="w-full text-left border-collapse text-xs">
           <thead>
-            <tr className="bg-slate-100/70 text-slate-600 font-extrabold uppercase tracking-wider border-b border-slate-200">
+            <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase tracking-wider">
               <th className="py-3.5 px-3 text-center w-12">STT</th>
-              <th className="py-3.5 px-3">Mẫu số</th>
               <th className="py-3.5 px-3">Ký hiệu HĐ</th>
               <th className="py-3.5 px-3">Số HĐ</th>
               <th className="py-3.5 px-3">Ngày lập</th>
               <th className="py-3.5 px-4 min-w-[160px]">Tên người mua</th>
-              <th className="py-3.5 px-3">MST người mua</th>
-              <th className="py-3.5 px-4 text-right">Doanh thu (VND)</th>
+              <th className="py-3.5 px-4 text-right">Doanh thu</th>
               <th className="py-3.5 px-3 text-center">Thuế %</th>
-              <th className="py-3.5 px-4 text-right bg-indigo-50/80 text-indigo-900 border-x border-indigo-100 font-black">
+              <th className="py-3.5 px-4 text-right bg-indigo-50/80 text-indigo-900 border-x border-indigo-100 font-bold">
                 <div className="flex items-center justify-end gap-1.5">
                   <span className="w-2 h-2 rounded-full bg-indigo-600 animate-pulse"></span>
-                  <span>Tiền thuế (VND)</span>
+                  <span>Tiền thuế</span>
                 </div>
               </th>
               <th className="py-3.5 px-3 text-center">Loại HĐ</th>
@@ -184,9 +168,6 @@ export const SalesInvoiceListingTable: React.FC<ISalesInvoiceListingTableProps> 
                   <td className="py-3.5 px-3 text-center font-mono font-bold text-slate-400">
                     {rowStt}
                   </td>
-                  <td className="py-3.5 px-3 font-semibold text-slate-600">
-                    {item.invoicePattern}
-                  </td>
                   <td className="py-3.5 px-3 font-semibold text-slate-800">
                     {item.invoiceSymbol}
                   </td>
@@ -199,19 +180,16 @@ export const SalesInvoiceListingTable: React.FC<ISalesInvoiceListingTableProps> 
                   <td className="py-3.5 px-4 max-w-[200px] truncate font-semibold text-slate-800" title={item.buyerName || "Khách hàng lẻ"}>
                     {item.buyerName || "Khách hàng lẻ"}
                   </td>
-                  <td className="py-3.5 px-3 font-mono text-[11px] text-slate-600">
-                    {item.buyerTaxCode || "-"}
-                  </td>
                   <td
-                    className={`py-3.5 px-4 text-right font-mono font-bold ${
-                      isAdjustmentDecrease ? "text-amber-700 font-extrabold" : "text-slate-800"
+                    className={`py-3.5 px-4 text-right font-bold ${
+                      isAdjustmentDecrease ? "text-amber-700" : "text-slate-800"
                     }`}
                   >
-                    {formatVnd(item.revenueAmount)}
+                    {formatCurrency(item.revenueAmount)}
                   </td>
                   <td className="py-3.5 px-3 text-center">
                     <span
-                      className={`px-2.5 py-0.5 rounded-md font-mono font-black text-xs border shrink-0 ${getTaxRateBadgeStyle(
+                      className={`px-2.5 py-0.5 rounded font-bold text-xs border shrink-0 ${getTaxRateBadgeStyle(
                         item.taxRatePercentage
                       )}`}
                     >
@@ -220,11 +198,11 @@ export const SalesInvoiceListingTable: React.FC<ISalesInvoiceListingTableProps> 
                   </td>
                   {/* Nổi bật cột Tiền thuế */}
                   <td
-                    className={`py-3.5 px-4 text-right font-mono font-black border-x border-indigo-100/60 text-[13px] ${
+                    className={`py-3.5 px-4 text-right font-bold border-x border-indigo-100/60 text-xs ${
                       isAdjustmentDecrease ? "text-amber-700 bg-amber-50/40" : "text-indigo-700 bg-indigo-50/40"
                     }`}
                   >
-                    {formatVnd(item.taxAmount)}
+                    {formatCurrency(item.taxAmount)}
                   </td>
                   <td className="py-3.5 px-3 text-center whitespace-nowrap">
                     {renderInvoiceTypeBadge(item.invoiceType)}
@@ -239,19 +217,19 @@ export const SalesInvoiceListingTable: React.FC<ISalesInvoiceListingTableProps> 
 
           {/* Footer Total Row */}
           {items.length > 0 && (
-            <tfoot className="bg-slate-100 text-slate-900 font-extrabold border-t-2 border-slate-300">
+            <tfoot className="bg-slate-100 text-slate-900 font-bold border-t-2 border-slate-300">
               <tr>
-                <td colSpan={7} className="py-3.5 px-4 text-right uppercase tracking-wider text-xs font-black text-slate-700">
+                <td colSpan={5} className="py-3.5 px-4 text-right uppercase tracking-wider text-xs font-bold text-slate-700">
                   Tổng cộng trang này ({items.length} HĐ):
                 </td>
-                <td className="py-3.5 px-4 text-right text-blue-700 font-mono text-sm font-bold">
-                  {formatVnd(pageTotalRevenue)}
+                <td className="py-3.5 px-4 text-right text-blue-700 text-xs font-bold">
+                  {formatCurrency(pageTotalRevenue)}
                 </td>
-                <td className="py-3.5 px-3 text-center font-mono text-xs text-slate-400">-</td>
+                <td className="py-3.5 px-3 text-center text-xs text-slate-400">-</td>
                 {/* Nổi bật Tổng tiền thuế */}
                 <td className="py-3.5 px-4 text-right bg-indigo-100/80 border-x border-indigo-200">
-                  <span className="inline-block bg-indigo-600 text-white font-mono font-black text-xs px-2.5 py-1 rounded-lg shadow-xs">
-                    {formatVnd(pageTotalTax)}
+                  <span className="inline-block bg-indigo-600 text-white font-bold text-xs px-2.5 py-1 rounded-lg shadow-xs">
+                    {formatCurrency(pageTotalTax)}
                   </span>
                 </td>
                 <td colSpan={2} className="py-3.5 px-4 text-xs text-slate-500 font-normal">
@@ -275,17 +253,17 @@ export const SalesInvoiceListingTable: React.FC<ISalesInvoiceListingTableProps> 
           <button
             onClick={() => onPageChange?.(page - 1)}
             disabled={page <= 0}
-            className="px-3 py-1.5 bg-white border border-slate-300 rounded-xl font-semibold text-slate-600 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition shadow-2xs"
+            className="px-3 py-1.5 bg-white border border-slate-300 rounded-xl font-semibold text-slate-600 hover:bg-slate-100 hover:border-slate-400 hover:text-slate-800 hover:-translate-y-0.5 hover:shadow-xs active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none transition-all duration-200 shadow-2xs"
           >
             Trang trước
           </button>
-          <span className="px-3 py-1 font-bold text-slate-700 font-mono">
+          <span className="px-3 py-1 font-bold text-slate-700">
             {page + 1} / {totalPages || 1}
           </span>
           <button
             onClick={() => onPageChange?.(page + 1)}
             disabled={page >= totalPages - 1}
-            className="px-3 py-1.5 bg-white border border-slate-300 rounded-xl font-semibold text-slate-600 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition shadow-2xs"
+            className="px-3 py-1.5 bg-white border border-slate-300 rounded-xl font-semibold text-slate-600 hover:bg-slate-100 hover:border-slate-400 hover:text-slate-800 hover:-translate-y-0.5 hover:shadow-xs active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none transition-all duration-200 shadow-2xs"
           >
             Trang sau
           </button>

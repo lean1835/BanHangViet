@@ -33,8 +33,8 @@ export const InvalidTaxRateWarningBanner: React.FC<IInvalidTaxRateWarningBannerP
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <span className="px-2 py-0.5 text-[11px] font-extrabold uppercase bg-rose-600 text-white rounded-md tracking-wider">
-                Cảnh báo nghiệp vụ thuế (TC-02)
+              <span className="px-2 py-0.5 text-[11px] font-bold uppercase bg-rose-600 text-white rounded-md tracking-wider">
+                Cảnh báo thuế
               </span>
               <span className="text-xs text-rose-700 font-semibold">
                 Phát sinh mức thuế ngưng hiệu lực trong kỳ kê khai
@@ -51,11 +51,11 @@ export const InvalidTaxRateWarningBanner: React.FC<IInvalidTaxRateWarningBannerP
             <button
               type="button"
               onClick={() => setIsExpanded(!isExpanded)}
-              className="px-3 py-1.5 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-100 border border-slate-300 rounded-lg transition shadow-xs flex items-center gap-1"
+              className="px-3 py-1.5 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-100 hover:border-slate-400 hover:-translate-y-0.5 active:scale-95 border border-slate-300 rounded-lg transition-all duration-200 shadow-xs flex items-center gap-1"
             >
               {isExpanded ? "Ẩn danh sách" : "Xem chi tiết"}
               <svg
-                className={`w-3.5 h-3.5 transform transition-transform ${isExpanded ? "rotate-180" : ""}`}
+                className={`w-3.5 h-3.5 transform transition-transform duration-300 ${isExpanded ? "rotate-180" : ""}`}
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -67,9 +67,9 @@ export const InvalidTaxRateWarningBanner: React.FC<IInvalidTaxRateWarningBannerP
 
           <Link
             to={APP_ROUTES.SETTINGS_TAX_RATES}
-            className="px-3.5 py-1.5 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-lg shadow-sm transition flex items-center gap-1.5"
+            className="px-3.5 py-1.5 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 hover:shadow-md hover:shadow-rose-600/25 hover:-translate-y-0.5 active:scale-95 rounded-lg shadow-sm transition-all duration-200 flex items-center gap-1.5 group"
           >
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-3.5 h-3.5 group-hover:rotate-12 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
