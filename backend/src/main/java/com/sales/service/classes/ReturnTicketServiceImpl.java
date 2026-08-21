@@ -319,9 +319,17 @@ public class ReturnTicketServiceImpl implements ReturnTicketService {
         }
 
         ReturnTicket savedTicket = returnTicketRepository.save(ticket);
-        log.info("Approved return ticket {} for invoice {} by user {}", savedTicket.getTicketNumber(), savedTicket.getOriginalInvoice().getInvoiceNumber(), currentUsername);
+        
+        // 3. Tự động phát hành Hóa đơn điều chỉnh giảm (NCL-11-CN-003)
+        if (savedTicket.getOriginalInvoice() != null) {
+            try {
+                createAdjustmentInvoiceInternal(savedTicket, user);
+            } catch (Exception e) {
+                log.warn("Tự động tạo hóa đơn điều chỉnh giảm: {}", e.getMessage());
+            }
+        }
 
-        // 3. Ghi log hoạt động hệ thống
+        // 4. Ghi log hoạt động hệ thống
         if (activityLogHelper != null) {
             try {
                 activityLogHelper.logActivityInNewTransaction(
@@ -361,9 +369,9 @@ public class ReturnTicketServiceImpl implements ReturnTicketService {
         }
 
         ticket.setStatus("REJECTED");
-        ticket.setApprovedByUser(user);
-        ticket.setRejectedAt(LocalDateTime.now());
         ticket.setRejectReason(request.getRejectReason().trim());
+        ticket.setRejectedAt(LocalDateTime.now());
+        ticket.setApprovedByUser(user); // Người thực hiện từ chối
 
         ReturnTicket savedTicket = returnTicketRepository.save(ticket);
         log.info("Rejected return ticket {} for invoice {} by user {}", savedTicket.getTicketNumber(), savedTicket.getOriginalInvoice().getInvoiceNumber(), currentUsername);
@@ -462,8 +470,22 @@ public class ReturnTicketServiceImpl implements ReturnTicketService {
         }
 
         EInvoice origInvoice = ticket.getOriginalInvoice();
-        if (origInvoice == null || !"ISSUED".equals(origInvoice.getStatus())) {
+        if (origInvoice == null || (!"ISSUED".equals(origInvoice.getStatus()) && !"ADJUSTED".equals(origInvoice.getStatus()))) {
             throw new AppException(ErrorCode.INVOICE_NOT_ISSUED);
+        }
+
+        createAdjustmentInvoiceInternal(ticket, user);
+        return mapToResponse(ticket);
+    }
+
+    private EInvoice createAdjustmentInvoiceInternal(ReturnTicket ticket, User user) {
+        if (eInvoiceRepository.existsByReturnTicketIdAndDeletedAtIsNull(ticket.getId())) {
+            return eInvoiceRepository.findByReturnTicketIdAndDeletedAtIsNull(ticket.getId()).orElse(null);
+        }
+
+        EInvoice origInvoice = ticket.getOriginalInvoice();
+        if (origInvoice == null) {
+            return null;
         }
 
         // Sinh mã tra cứu hóa đơn ngẫu nhiên duy nhất
@@ -471,6 +493,20 @@ public class ReturnTicketServiceImpl implements ReturnTicketService {
         do {
             lookupCode = UUID.randomUUID().toString().replaceAll("-", "").substring(0, 10).toUpperCase();
         } while (eInvoiceRepository.existsByLookupCodeAndDeletedAtIsNull(lookupCode));
+
+        String pattern = origInvoice.getInvoicePattern() != null ? origInvoice.getInvoicePattern() : "1";
+        String symbol = origInvoice.getInvoiceSymbol() != null ? origInvoice.getInvoiceSymbol() : "1C26TAA";
+        Optional<String> maxNumOpt = eInvoiceRepository.findMaxInvoiceNumber(user.getHousehold().getId(), pattern, symbol);
+        int nextNum = 1;
+        if (maxNumOpt.isPresent() && maxNumOpt.get() != null) {
+            try {
+                nextNum = Integer.parseInt(maxNumOpt.get()) + 1;
+            } catch (NumberFormatException e) {
+                nextNum = 1;
+            }
+        }
+        String invoiceNum = String.format("%07d", nextNum);
+        String taxAuthCode = "CQT-" + UUID.randomUUID().toString().substring(0, 15).toUpperCase();
 
         List<EInvoiceItem> adjItems = new ArrayList<>();
         BigDecimal totalBeforeTax = BigDecimal.ZERO;
@@ -505,9 +541,13 @@ public class ReturnTicketServiceImpl implements ReturnTicketService {
                 .originalInvoice(origInvoice)
                 .returnTicket(ticket)
                 .createdByUser(user)
+                .invoiceNumber(invoiceNum)
+                .taxAuthorityCode(taxAuthCode)
+                .sentToTaxAt(LocalDateTime.now())
+                .taxResponseAt(LocalDateTime.now())
                 .title("HÓA ĐƠN ĐIỀU CHỈNH GIẢM")
-                .invoicePattern(origInvoice.getInvoicePattern())
-                .invoiceSymbol(origInvoice.getInvoiceSymbol())
+                .invoicePattern(pattern)
+                .invoiceSymbol(symbol)
                 .buyerName(origInvoice.getBuyerName())
                 .buyerTaxCode(origInvoice.getBuyerTaxCode())
                 .buyerAddress(origInvoice.getBuyerAddress())
@@ -519,6 +559,7 @@ public class ReturnTicketServiceImpl implements ReturnTicketService {
                 .finalAmount(finalAmount)
                 .status("ISSUED")
                 .lookupCode(lookupCode)
+                .footerNote("Hóa đơn điều chỉnh giảm theo phiếu trả hàng: " + ticket.getTicketNumber())
                 .build();
 
         for (EInvoiceItem item : adjItems) {
@@ -526,7 +567,7 @@ public class ReturnTicketServiceImpl implements ReturnTicketService {
         }
         adjInvoice.setItems(adjItems);
 
-        eInvoiceRepository.save(adjInvoice);
+        EInvoice savedAdjInvoice = eInvoiceRepository.save(adjInvoice);
 
         // Cập nhật trạng thái hóa đơn gốc thành ADJUSTED theo QTN-20
         String origOldStatus = origInvoice.getStatus();
@@ -544,15 +585,13 @@ public class ReturnTicketServiceImpl implements ReturnTicketService {
                     .build());
 
             invoiceStatusLogRepository.save(InvoiceStatusLog.builder()
-                    .invoice(adjInvoice)
+                    .invoice(savedAdjInvoice)
                     .fromStatus("DRAFT")
                     .toStatus("ISSUED")
                     .changedByUser(user)
                     .notes("Phát hành hóa đơn điều chỉnh giảm từ phiếu trả hàng: " + ticket.getTicketNumber())
                     .build());
         }
-
-        log.info("Created decrease adjustment invoice {} for return ticket {} by user {}", adjInvoice.getLookupCode(), ticket.getTicketNumber(), currentUsername);
 
         if (activityLogHelper != null) {
             try {
@@ -561,7 +600,7 @@ public class ReturnTicketServiceImpl implements ReturnTicketService {
                         user,
                         "CREATE_ADJUSTMENT_INVOICE",
                         "e_invoices",
-                        adjInvoice.getId(),
+                        savedAdjInvoice.getId(),
                         null,
                         "ISSUED",
                         null,
@@ -572,7 +611,10 @@ public class ReturnTicketServiceImpl implements ReturnTicketService {
             }
         }
 
-        return mapToResponse(ticket);
+        log.info("Created decrease adjustment invoice {} (No: {}) for return ticket {} by user {}",
+                savedAdjInvoice.getLookupCode(), savedAdjInvoice.getInvoiceNumber(), ticket.getTicketNumber(), user.getUsername());
+
+        return savedAdjInvoice;
     }
 
     @Override
@@ -682,14 +724,28 @@ public class ReturnTicketServiceImpl implements ReturnTicketService {
                 householdId, startDateTime, endDateTime
         );
 
+        Map<LocalDate, BigDecimal> dailyQtyMap = new HashMap<>();
+        for (ReturnTicket ticket : approvedTickets) {
+            LocalDateTime dt = ticket.getApprovedAt() != null ? ticket.getApprovedAt() : ticket.getCreatedAt();
+            LocalDate date = dt != null ? dt.toLocalDate() : LocalDate.now();
+            BigDecimal ticketQty = BigDecimal.ZERO;
+            if (ticket.getItems() != null) {
+                for (ReturnTicketItem item : ticket.getItems()) {
+                    ticketQty = ticketQty.add(item.getQuantity() != null ? item.getQuantity() : BigDecimal.ZERO);
+                }
+            }
+            dailyQtyMap.put(date, dailyQtyMap.getOrDefault(date, BigDecimal.ZERO).add(ticketQty));
+        }
+
         List<DailyReturnStatistic> dailyTimeline = new ArrayList<>();
         if (dailyProjections != null) {
             for (DailyReturnProjection proj : dailyProjections) {
+                BigDecimal totalQty = proj.getTotalQuantity() != null ? proj.getTotalQuantity() : dailyQtyMap.getOrDefault(proj.getReportDate(), BigDecimal.ZERO);
                 dailyTimeline.add(DailyReturnStatistic.builder()
                         .date(proj.getReportDate())
                         .ticketCount(proj.getTicketCount() != null ? proj.getTicketCount() : 0L)
                         .totalReturnAmount(proj.getTotalAmount() != null ? proj.getTotalAmount() : BigDecimal.ZERO)
-                        .totalReturnedQuantity(proj.getTotalQuantity() != null ? proj.getTotalQuantity() : BigDecimal.ZERO)
+                        .totalReturnedQuantity(totalQty)
                         .build());
             }
         }
@@ -883,6 +939,7 @@ public class ReturnTicketServiceImpl implements ReturnTicketService {
                 .householdId(ticket.getHousehold().getId())
                 .originalInvoiceId(ticket.getOriginalInvoice().getId())
                 .originalInvoiceNumber(ticket.getOriginalInvoice().getInvoiceNumber())
+                .originalInvoiceLookupCode(ticket.getOriginalInvoice().getLookupCode())
                 .originalOrderId(ticket.getOriginalOrder() != null ? ticket.getOriginalOrder().getId() : null)
                 .customerId(ticket.getCustomer() != null ? ticket.getCustomer().getId() : null)
                 .customerName(ticket.getCustomer() != null ? ticket.getCustomer().getName() : null)

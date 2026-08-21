@@ -47,7 +47,8 @@ public class ReturnTicketSpecification {
                 String searchPattern = "%" + search.trim().toLowerCase() + "%";
                 Predicate ticketNumPred = criteriaBuilder.like(criteriaBuilder.lower(root.get("ticketNumber")), searchPattern);
                 Predicate invoiceNumPred = criteriaBuilder.like(criteriaBuilder.lower(root.get("originalInvoice").get("invoiceNumber")), searchPattern);
-                predicates.add(criteriaBuilder.or(ticketNumPred, invoiceNumPred));
+                Predicate lookupCodePred = criteriaBuilder.like(criteriaBuilder.lower(root.get("originalInvoice").get("lookupCode")), searchPattern);
+                predicates.add(criteriaBuilder.or(ticketNumPred, invoiceNumPred, lookupCodePred));
             }
 
             return criteriaBuilder.and(predicates.toArray(new Predicate[0]));
