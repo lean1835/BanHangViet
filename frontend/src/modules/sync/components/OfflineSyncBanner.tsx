@@ -58,7 +58,7 @@ export const OfflineSyncBanner: React.FC<OfflineSyncBannerProps> = ({
           <div className="bg-rose-700 text-white px-4 py-2.5 text-xs font-bold shadow-md flex items-center justify-between gap-4 animate-fade-in border-b-2 border-rose-900">
             <div className="flex items-center gap-2.5 min-w-0">
               <span className="truncate">
-                <strong>ĐÃ VƯỢT GIỚI HẠN BÁN KHI MẤT MẠNG (NCL-08-CN-005):</strong>{" "}
+                <strong>ĐÃ VƯỢT GIỚI HẠN BÁN KHI MẤT MẠNG:</strong>{" "}
                 {limitStatus.errorMessage || `Đã vượt quá số đơn hoặc số giờ cho phép bán offline (${limitStatus.maxOrders} đơn / ${limitStatus.maxHours}h).`}
               </span>
             </div>
@@ -147,7 +147,7 @@ export const OfflineSyncBanner: React.FC<OfflineSyncBannerProps> = ({
       );
     }
 
-    // 4. Phát hành dồn hóa đơn sau khi phiên đồng bộ kết thúc và còn đơn chưa có hóa đơn (NCL-08-CN-004)
+    // 4. Phát hành dồn hóa đơn sau khi phiên đồng bộ kết thúc và còn đơn chưa có hóa đơn
     if (unissuedOrderIds && unissuedOrderIds.length > 0 && canBulkIssue) {
       return (
         <>
@@ -167,10 +167,14 @@ export const OfflineSyncBanner: React.FC<OfflineSyncBannerProps> = ({
               {onClearUnissuedOrders && (
                 <button
                   onClick={onClearUnissuedOrders}
-                  className="text-indigo-200 hover:text-white px-2 py-0.5 rounded hover:bg-indigo-700 transition-colors text-xs font-bold shrink-0 ml-1"
+                  className="text-indigo-200 hover:text-white p-1 rounded hover:bg-indigo-700 transition-colors shrink-0 ml-1"
                   title="Bỏ qua / Đóng thông báo"
+                  aria-label="Đóng"
                 >
-                  ✕
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                  </svg>
                 </button>
               )}
             </div>
@@ -208,10 +212,14 @@ export const OfflineSyncBanner: React.FC<OfflineSyncBannerProps> = ({
           </div>
           <button
             onClick={() => setVisibleWarnings([])}
-            className="text-amber-600 hover:text-amber-800 p-1 rounded hover:bg-amber-100 transition-colors text-xs font-bold shrink-0"
+            className="text-amber-600 hover:text-amber-800 p-1 rounded hover:bg-amber-100 transition-colors shrink-0"
             title="Đóng thông báo"
+            aria-label="Đóng"
           >
-            ✕
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
           </button>
         </div>
       );

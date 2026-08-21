@@ -146,7 +146,7 @@ export const CustomerDetailModal: React.FC<CustomerDetailModalProps> = ({
                   }`}
                 >
                   {isOverdue
-                    ? "QUÁ HẠN NỢ ⚠️"
+                    ? "QUÁ HẠN NỢ"
                     : isExceeded
                       ? "Vượt hạn mức"
                       : hasDebt

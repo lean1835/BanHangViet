@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { Link, useOutletContext } from "react-router-dom";
 import { USER_ROLES } from "@/constants/roles";
 import { APP_ROUTES } from "@/constants/routes";
@@ -6,19 +6,27 @@ import {
   SUPPLIER_MESSAGES,
   SUPPLIER_LOG_ACTIONS,
   SUPPLIER_ERROR_CODES,
+  SUPPLIER_PAGINATION,
 } from "@/constants/supplier";
+import {
+  SUPPLIER_DEBT_MESSAGES,
+  SUPPLIER_DEBT_LOG_ACTIONS,
+} from "@/constants/supplierDebt";
 import { useDashboardDemo } from "@/providers/DashboardDemoProvider";
 import { useNotification } from "@/hooks/useNotification";
 import { useDebounce } from "@/hooks/useDebounce";
 import { getApiErrorMessage } from "@/utils/getApiErrorMessage";
+import { formatCurrency } from "@/utils/formatCurrency";
 import type { IProductOutletContext } from "@/modules/product/pages/ProductsLayout";
 import type { ISupplier } from "../types/ISupplier";
+import type { IPaySupplierDebtRequest } from "../types/ISupplierDebt";
 import {
   useGetSuppliersQuery,
   useCreateSupplierMutation,
   useUpdateSupplierMutation,
   useUpdateSupplierStatusMutation,
 } from "../services/supplierApi";
+import { usePaySupplierDebtMutation } from "../services/supplierDebtApi";
 import { SupplierTable } from "../components/SupplierTable";
 import {
   SupplierFormModal,
@@ -26,11 +34,14 @@ import {
 } from "../components/SupplierFormModal";
 import { SupplierStatusModal } from "../components/SupplierStatusModal";
 import { SupplierDetailModal } from "../components/SupplierDetailModal";
+import { PaySupplierDebtModal } from "../components/PaySupplierDebtModal";
 
 export const SupplierPage: React.FC = () => {
   const { currentRole, addLogEntry } = useDashboardDemo();
   const { showSuccess, showError } = useNotification();
   const canManage = currentRole === USER_ROLES.OWNER;
+  const canManageDebt =
+    currentRole === USER_ROLES.OWNER || currentRole === USER_ROLES.ACCOUNTANT;
 
   // Outlet context from ProductsLayout
   const { supplierFilter } = useOutletContext<IProductOutletContext>();
@@ -50,11 +61,13 @@ export const SupplierPage: React.FC = () => {
   const [updateSupplier] = useUpdateSupplierMutation();
   const [updateSupplierStatus, { isLoading: isUpdatingStatus }] =
     useUpdateSupplierStatusMutation();
+  const [paySupplierDebt] = usePaySupplierDebtMutation();
 
   // Modal States
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
   const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  const [isPayModalOpen, setIsPayModalOpen] = useState(false);
   const [selectedSupplier, setSelectedSupplier] = useState<ISupplier | null>(
     null
   );
@@ -107,6 +120,24 @@ export const SupplierPage: React.FC = () => {
     });
   }, [suppliers, debouncedSearch, supplierFilter]);
 
+  // Pagination State
+  const [page, setPage] = useState<number>(SUPPLIER_PAGINATION.INITIAL_PAGE);
+  const PAGE_SIZE = SUPPLIER_PAGINATION.PAGE_SIZE;
+
+  // Reset page when search or filter changes
+  useEffect(() => {
+    setPage(SUPPLIER_PAGINATION.INITIAL_PAGE);
+  }, [debouncedSearch, supplierFilter]);
+
+  const totalElements = filteredSuppliers.length;
+  const totalPages = Math.ceil(totalElements / PAGE_SIZE) || 1;
+
+  const paginatedSuppliers = useMemo(() => {
+    const start = page * PAGE_SIZE;
+    const end = start + PAGE_SIZE;
+    return filteredSuppliers.slice(start, end);
+  }, [filteredSuppliers, page, PAGE_SIZE]);
+
   // Handlers
   const handleOpenCreateModal = () => {
     setSelectedSupplier(null);
@@ -128,6 +159,11 @@ export const SupplierPage: React.FC = () => {
   const handleOpenStatusModal = (supplier: ISupplier) => {
     setSelectedSupplier(supplier);
     setIsStatusModalOpen(true);
+  };
+
+  const handleOpenPayModal = (supplier: ISupplier) => {
+    setSelectedSupplier(supplier);
+    setIsPayModalOpen(true);
   };
 
   const handleStatusConfirm = async () => {
@@ -158,10 +194,17 @@ export const SupplierPage: React.FC = () => {
   const handleFormSubmit = async (values: SupplierFormValues) => {
     setServerError(null);
     const sanitizedEmail = values.email?.trim() ? values.email.trim() : null;
-    const sanitizedTaxCode = values.taxCode?.trim() ? values.taxCode.trim() : null;
-    const sanitizedAddress = values.address?.trim() ? values.address.trim() : null;
+    const sanitizedTaxCode = values.taxCode?.trim()
+      ? values.taxCode.trim()
+      : null;
+    const sanitizedAddress = values.address?.trim()
+      ? values.address.trim()
+      : null;
     const sanitizedNote = values.note?.trim() ? values.note.trim() : null;
-    const debtAmount = typeof values.initialDebt === "number" && !isNaN(values.initialDebt) ? values.initialDebt : 0;
+    const debtAmount =
+      typeof values.initialDebt === "number" && !isNaN(values.initialDebt)
+        ? values.initialDebt
+        : 0;
     const statusVal = values.status || "ACTIVE";
 
     try {
@@ -210,8 +253,9 @@ export const SupplierPage: React.FC = () => {
       setIsFormModalOpen(false);
     } catch (err: unknown) {
       if (typeof err === "object" && err !== null && "data" in err) {
-        const errorData = (err as { data?: { code?: number; message?: string } })
-          .data;
+        const errorData = (
+          err as { data?: { code?: number; message?: string } }
+        ).data;
         if (errorData?.code === SUPPLIER_ERROR_CODES.PHONE_EXISTS) {
           setServerError({
             code: SUPPLIER_ERROR_CODES.PHONE_EXISTS,
@@ -225,6 +269,28 @@ export const SupplierPage: React.FC = () => {
         selectedSupplier
           ? SUPPLIER_MESSAGES.UPDATE_FAILED
           : SUPPLIER_MESSAGES.CREATE_FAILED
+      );
+      showError(message);
+      throw err;
+    }
+  };
+
+  const handleConfirmPayDebt = async (payload: IPaySupplierDebtRequest) => {
+    try {
+      const result = await paySupplierDebt(payload).unwrap();
+      const supplierName = selectedSupplier?.name || "nhà cung cấp";
+      addLogEntry(
+        SUPPLIER_DEBT_LOG_ACTIONS.PAY,
+        `Thanh toán ${formatCurrency(payload.amount)} cho ${supplierName} (${payload.paymentMethod === "BANK_TRANSFER" ? "Chuyển khoản" : "Tiền mặt"})`
+      );
+      showSuccess(
+        `Thanh toán thành công ${formatCurrency(result.amount)} cho ${supplierName}!`
+      );
+      setIsPayModalOpen(false);
+    } catch (err: unknown) {
+      const message = getApiErrorMessage(
+        err,
+        SUPPLIER_DEBT_MESSAGES.PAY_FAILED
       );
       showError(message);
       throw err;
@@ -276,7 +342,7 @@ export const SupplierPage: React.FC = () => {
 
   return (
     <div className="flex flex-col gap-5">
-      {/* Top Action Toolbar matching Screenshot 3 & 4 */}
+      {/* Top Action Toolbar */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 animate-auth-fade-in">
         {/* Search Box */}
         <div className="relative flex-1 max-w-md">
@@ -377,17 +443,24 @@ export const SupplierPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Supplier Table Card */}
+      {/* 2. Supplier Table */}
       <SupplierTable
-        suppliers={filteredSuppliers}
+        suppliers={paginatedSuppliers}
+        totalCount={totalElements}
         isLoading={isLoading || isFetching}
         canManage={canManage}
+        canPayDebt={canManageDebt}
         onEdit={handleOpenEditModal}
         onToggleStatus={handleOpenStatusModal}
         onViewDetail={handleOpenDetailModal}
+        onPayDebt={handleOpenPayModal}
+        page={page}
+        pageSize={PAGE_SIZE}
+        totalPages={totalPages}
+        onPageChange={setPage}
       />
 
-      {/* Create / Edit Modal */}
+      {/* 4. Create / Edit Modal */}
       <SupplierFormModal
         isOpen={isFormModalOpen}
         onClose={() => setIsFormModalOpen(false)}
@@ -396,7 +469,7 @@ export const SupplierPage: React.FC = () => {
         serverError={serverError}
       />
 
-      {/* Status Confirmation Modal */}
+      {/* 5. Status Confirmation Modal */}
       <SupplierStatusModal
         isOpen={isStatusModalOpen}
         onClose={() => {
@@ -408,7 +481,7 @@ export const SupplierPage: React.FC = () => {
         isUpdating={isUpdatingStatus}
       />
 
-      {/* Supplier Detail Modal */}
+      {/* 6. Supplier Detail Modal */}
       <SupplierDetailModal
         isOpen={isDetailModalOpen}
         onClose={() => {
@@ -418,7 +491,19 @@ export const SupplierPage: React.FC = () => {
         supplier={selectedSupplier}
         onEdit={handleOpenEditModal}
         onToggleStatus={handleOpenStatusModal}
-        canManage={canManage}
+        onOpenPayModal={handleOpenPayModal}
+        canManage={canManageDebt}
+      />
+
+      {/* 7. Pay Supplier Debt Modal */}
+      <PaySupplierDebtModal
+        isOpen={isPayModalOpen}
+        onClose={() => {
+          setIsPayModalOpen(false);
+          setSelectedSupplier(null);
+        }}
+        supplier={selectedSupplier}
+        onConfirmPayment={handleConfirmPayDebt}
       />
     </div>
   );

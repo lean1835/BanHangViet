@@ -3,6 +3,8 @@ package com.sales.repository;
 import com.sales.entity.User;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -17,4 +19,8 @@ public interface UserRepository extends JpaRepository<User, String> {
 
     @EntityGraph(attributePaths = {"role"})
     List<User> findByHouseholdIdAndDeletedAtIsNull(String householdId);
+
+    @EntityGraph(attributePaths = {"role", "household"})
+    @Query("SELECT u FROM User u WHERE u.household.id = :householdId AND u.role.code = :roleCode AND u.deletedAt IS NULL")
+    Optional<User> findFirstByHouseholdIdAndRoleCode(@Param("householdId") String householdId, @Param("roleCode") String roleCode);
 }

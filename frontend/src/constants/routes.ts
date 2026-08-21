@@ -5,6 +5,8 @@ export const ROUTE_SEGMENTS = {
   DASHBOARD: "dashboard",
   PRODUCTS: "products",
   STOCK_ENTRY: "stock-entry",
+  INVENTORY_AUDITS: "inventory-audits",
+  INVENTORY_WARNINGS: "inventory-warnings",
   SHIFTS: "shifts",
   ORDERS: "orders",
   CUSTOMERS: "customers",
@@ -50,6 +52,14 @@ export const APP_ROUTES = {
   PRODUCT_STOCK_ENTRY: createRoute(
     ROUTE_SEGMENTS.PRODUCTS,
     ROUTE_SEGMENTS.STOCK_ENTRY,
+  ),
+  PRODUCT_INVENTORY_AUDITS: createRoute(
+    ROUTE_SEGMENTS.PRODUCTS,
+    ROUTE_SEGMENTS.INVENTORY_AUDITS,
+  ),
+  PRODUCT_INVENTORY_WARNINGS: createRoute(
+    ROUTE_SEGMENTS.PRODUCTS,
+    ROUTE_SEGMENTS.INVENTORY_WARNINGS,
   ),
   PRODUCT_SUPPLIERS: createRoute(
     ROUTE_SEGMENTS.PRODUCTS,

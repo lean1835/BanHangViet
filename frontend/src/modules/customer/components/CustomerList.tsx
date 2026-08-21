@@ -183,7 +183,7 @@ export const CustomerList: React.FC<CustomerListProps> = ({
                           }`}
                         >
                           {isOverdue
-                            ? "QUÁ HẠN NỢ ⚠️"
+                            ? "QUÁ HẠN NỢ"
                             : isExceeded
                               ? "Vượt hạn mức"
                               : hasDebt
@@ -302,7 +302,7 @@ export const CustomerList: React.FC<CustomerListProps> = ({
             </p>
             {customerToDelete.debt > 0 && (
               <div className="p-3 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold flex flex-col gap-1">
-                <span>⚠️ CẢNH BÁO CÔNG NỢ:</span>
+                <span>CẢNH BÁO CÔNG NỢ:</span>
                 <span>
                   Khách hàng hiện còn dư nợ chưa thanh toán:{" "}
                   <strong className="text-rose-800">{formatCurrency(customerToDelete.debt)}</strong>.

@@ -278,7 +278,7 @@ export const LookupInvoicePage: React.FC = () => {
                   />
                   {codeError ? (
                     <div className="mt-1.5 text-rose-600 text-xs font-semibold flex items-center gap-1">
-                      <span>⚠️ {codeError}</span>
+                      <span>{codeError}</span>
                     </div>
                   ) : (
                     <div className="mt-1">
@@ -335,7 +335,7 @@ export const LookupInvoicePage: React.FC = () => {
 
                   {captchaError && (
                     <div className="mt-1.5 text-rose-600 text-xs font-semibold flex items-center gap-1">
-                      <span>⚠️ {captchaError}</span>
+                      <span>{captchaError}</span>
                     </div>
                   )}
                 </div>
@@ -544,8 +544,8 @@ export const LookupInvoicePage: React.FC = () => {
                   <span className="text-[8px] text-slate-400 mt-0.5 italic">(Ký, đóng dấu điện tử)</span>
                   
                   <div className="mt-2.5 px-3 py-2 border-2 border-rose-500 rounded bg-rose-50/40 text-[8px] text-rose-700 font-bold flex flex-col items-center gap-0.5 rotate-[-2deg] shadow-sm max-w-[180px] leading-normal select-none">
-                    <span className="text-[9px] text-rose-600 flex items-center gap-1 font-black">
-                      🛡️ ĐÃ KÝ SỐ ĐIỆN TỬ
+                    <span className="text-[9px] text-rose-600 flex items-center gap-1 font-black uppercase">
+                      ĐÃ KÝ SỐ ĐIỆN TỬ
                     </span>
                     <span className="uppercase tracking-wide text-[7px] text-rose-600">{searchedInvoice.householdName}</span>
                     <span>MST: {searchedInvoice.householdTaxCode}</span>
@@ -557,7 +557,6 @@ export const LookupInvoicePage: React.FC = () => {
                 {searchedInvoice.taxAuthorityCode && searchedInvoice.taxAuthorityCode !== "-" && (
                   <div className="col-span-1 sm:col-span-2 flex justify-center mt-2">
                     <div className="px-4 py-2 border-2 border-emerald-500 rounded bg-emerald-50/40 text-[8px] text-emerald-800 font-bold flex items-center gap-3 rotate-[1deg] shadow-sm max-w-[320px] leading-normal select-none">
-                      <span className="text-[12px] text-emerald-600 font-black">✓</span>
                       <div className="flex flex-col text-left">
                         <span className="font-black uppercase tracking-wider text-[9px]">MÃ CƠ QUAN THUẾ CẤP</span>
                         <span className="font-mono text-[9px] tracking-wider text-slate-800 font-extrabold">{searchedInvoice.taxAuthorityCode}</span>

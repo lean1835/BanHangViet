@@ -7,13 +7,25 @@ import {
   PRODUCT_QUERY_CONFIG,
   PRODUCT_STATUS,
 } from "@/constants/product";
-import type { IProduct, IGetProductsParams, TProductPayload } from "@/modules/product/types/IProduct";
+import type {
+  IProduct,
+  IGetProductsParams,
+  TProductPayload,
+} from "@/modules/product/types/IProduct";
 import type { IProductGroup } from "@/modules/product/types/IProductGroup";
 import type {
   IGoodsReceipt,
   IGoodsReceiptDetail,
   IGoodsReceiptDetailInfo,
+  ICreateGoodsReceiptPayload,
 } from "@/modules/product/types/IGoodsReceipt";
+import type {
+  ILowStockWarning,
+  ILowStockWarningListResponse,
+  IPurchaseSuggestion,
+  ILowStockWarningParams,
+  IPurchaseSuggestionParams,
+} from "@/modules/product/types/IInventoryWarning";
 import { isRecord } from "@/utils/typeGuards";
 import type { IPageResponse } from "@/types/api";
 
@@ -42,7 +54,12 @@ const toProduct = (value: unknown): IProduct => {
     name: readString(product.name),
     unit: readString(product.unit),
     price: readNumber(product.price),
+    costPrice:
+      product.costPrice !== undefined && product.costPrice !== null
+        ? readNumber(product.costPrice)
+        : undefined,
     stockQuantity: readNumber(product.stockQuantity),
+    minStockQuantity: readNumber(product.minStockQuantity),
     status:
       product.status === PRODUCT_STATUS.INACTIVE
         ? PRODUCT_STATUS.INACTIVE
@@ -104,13 +121,16 @@ const toGoodsReceipt = (value: unknown): IGoodsReceipt => {
 
 const toGoodsReceiptDetail = (value: unknown): IGoodsReceiptDetail => {
   const detail = isRecord(value) ? value : {};
+  const quantity = readNumber(detail.quantity);
+  const purchasePrice = readNumber(detail.purchasePrice);
   return {
     id: readString(detail.id),
     productId: readString(detail.productId),
     productName: readString(detail.productName),
     productSku: readString(detail.productSku),
-    quantity: readNumber(detail.quantity),
-    purchasePrice: readNumber(detail.purchasePrice),
+    quantity,
+    purchasePrice,
+    subtotal: readNumber(detail.subtotal) || quantity * purchasePrice,
   };
 };
 
@@ -140,6 +160,100 @@ const toGoodsReceiptPage = (response: unknown): IPageResponse<IGoodsReceipt> => 
 
   return {
     content: content.map(toGoodsReceipt),
+    pageNumber: readNumber(result.pageNumber),
+    pageSize:
+      readNumber(result.pageSize) || PRODUCT_QUERY_CONFIG.API_FALLBACK_PAGE_SIZE,
+    totalElements: readNumber(result.totalElements),
+    totalPages: readNumber(result.totalPages),
+    last: result.last !== false,
+  };
+};
+
+const toLowStockWarning = (value: unknown): ILowStockWarning => {
+  const item = isRecord(value) ? value : {};
+  return {
+    productId: readString(item.productId),
+    sku: readString(item.sku),
+    productName: readString(item.productName),
+    unit: readString(item.unit),
+    price: readNumber(item.price),
+    costPrice:
+      item.costPrice !== undefined && item.costPrice !== null
+        ? readNumber(item.costPrice)
+        : undefined,
+    stockQuantity: readNumber(item.stockQuantity),
+    minStockQuantity: readNumber(item.minStockQuantity),
+    shortageQuantity: readNumber(item.shortageQuantity),
+    groupId: readNullableString(item.groupId),
+    groupName: readNullableString(item.groupName),
+    lastSupplierId: readNullableString(item.lastSupplierId),
+    lastSupplierName: readNullableString(item.lastSupplierName),
+    lastSupplierPhone: readNullableString(item.lastSupplierPhone),
+  };
+};
+
+const toLowStockWarningListResponse = (
+  response: unknown
+): ILowStockWarningListResponse => {
+  const rawResult = readResult(response);
+  const result = isRecord(rawResult) ? rawResult : {};
+  const rawPage = isRecord(result.page) ? result.page : {};
+  const content = Array.isArray(rawPage.content) ? rawPage.content : [];
+
+  return {
+    page: {
+      content: content.map(toLowStockWarning),
+      pageNumber: readNumber(rawPage.pageNumber),
+      pageSize:
+        readNumber(rawPage.pageSize) ||
+        PRODUCT_QUERY_CONFIG.API_FALLBACK_PAGE_SIZE,
+      totalElements: readNumber(rawPage.totalElements),
+      totalPages: readNumber(rawPage.totalPages),
+      last: rawPage.last !== false,
+    },
+    isStockAdequate: Boolean(result.isStockAdequate),
+    message:
+      readString(result.message) ||
+      (result.isStockAdequate ? "Tồn kho đang đầy đủ" : ""),
+  };
+};
+
+const toPurchaseSuggestion = (value: unknown): IPurchaseSuggestion => {
+  const item = isRecord(value) ? value : {};
+  return {
+    productId: readString(item.productId),
+    sku: readString(item.sku),
+    productName: readString(item.productName),
+    unit: readString(item.unit),
+    costPrice:
+      item.costPrice !== undefined && item.costPrice !== null
+        ? readNumber(item.costPrice)
+        : undefined,
+    stockQuantity: readNumber(item.stockQuantity),
+    minStockQuantity: readNumber(item.minStockQuantity),
+    averageWeeklySales: readNumber(item.averageWeeklySales),
+    totalSoldInPeriod: readNumber(item.totalSoldInPeriod),
+    suggestedQuantity: readNumber(item.suggestedQuantity),
+    calculationRationale: readString(item.calculationRationale),
+    hasPromotion: Boolean(item.hasPromotion),
+    promotionWarning: readNullableString(item.promotionWarning),
+    groupId: readNullableString(item.groupId),
+    groupName: readNullableString(item.groupName),
+    lastSupplierId: readNullableString(item.lastSupplierId),
+    lastSupplierName: readNullableString(item.lastSupplierName),
+    lastSupplierPhone: readNullableString(item.lastSupplierPhone),
+  };
+};
+
+const toPurchaseSuggestionPage = (
+  response: unknown
+): IPageResponse<IPurchaseSuggestion> => {
+  const rawResult = readResult(response);
+  const result = isRecord(rawResult) ? rawResult : {};
+  const content = Array.isArray(result.content) ? result.content : [];
+
+  return {
+    content: content.map(toPurchaseSuggestion),
     pageNumber: readNumber(result.pageNumber),
     pageSize:
       readNumber(result.pageSize) || PRODUCT_QUERY_CONFIG.API_FALLBACK_PAGE_SIZE,
@@ -190,6 +304,7 @@ export const productApi = baseApi.injectEndpoints({
           unit: productData.unit,
           price: productData.price,
           stockQuantity: productData.stockQuantity,
+          minStockQuantity: productData.minStockQuantity,
           status: productData.status || PRODUCT_STATUS.ACTIVE,
           groupId: productData.groupId || undefined,
           taxRateId: productData.taxRateId,
@@ -206,6 +321,14 @@ export const productApi = baseApi.injectEndpoints({
           type: API_TAG_TYPES.PRODUCT_GROUP,
           id: PRODUCT_API_TAG_IDS.LIST,
         },
+        {
+          type: API_TAG_TYPES.INVENTORY_WARNING,
+          id: PRODUCT_API_TAG_IDS.LIST,
+        },
+        {
+          type: API_TAG_TYPES.INVENTORY_WARNING,
+          id: PRODUCT_API_TAG_IDS.SUGGESTIONS,
+        },
       ],
     }),
     updateProduct: builder.mutation<
@@ -221,6 +344,7 @@ export const productApi = baseApi.injectEndpoints({
           unit: data.unit,
           price: data.price,
           stockQuantity: data.stockQuantity,
+          minStockQuantity: data.minStockQuantity,
           status: data.status || PRODUCT_STATUS.ACTIVE,
           groupId: data.groupId || undefined,
           taxRateId: data.taxRateId,
@@ -232,6 +356,11 @@ export const productApi = baseApi.injectEndpoints({
         { type: API_TAG_TYPES.PRODUCT, id: PRODUCT_API_TAG_IDS.LIST },
         { type: API_TAG_TYPES.PRODUCT, id },
         { type: API_TAG_TYPES.PRODUCT_GROUP, id: PRODUCT_API_TAG_IDS.LIST },
+        { type: API_TAG_TYPES.INVENTORY_WARNING, id: PRODUCT_API_TAG_IDS.LIST },
+        {
+          type: API_TAG_TYPES.INVENTORY_WARNING,
+          id: PRODUCT_API_TAG_IDS.SUGGESTIONS,
+        },
       ],
     }),
     deleteProduct: builder.mutation<void, string>({
@@ -242,6 +371,11 @@ export const productApi = baseApi.injectEndpoints({
       invalidatesTags: (_result, _error, id) => [
         { type: API_TAG_TYPES.PRODUCT, id: PRODUCT_API_TAG_IDS.LIST },
         { type: API_TAG_TYPES.PRODUCT, id },
+        { type: API_TAG_TYPES.INVENTORY_WARNING, id: PRODUCT_API_TAG_IDS.LIST },
+        {
+          type: API_TAG_TYPES.INVENTORY_WARNING,
+          id: PRODUCT_API_TAG_IDS.SUGGESTIONS,
+        },
       ],
     }),
     getProductGroups: builder.query<IProductGroup[], void>({
@@ -356,17 +490,7 @@ export const productApi = baseApi.injectEndpoints({
     }),
     createGoodsReceipt: builder.mutation<
       IGoodsReceipt,
-      {
-        supplierId?: string;
-        receiptNumber?: string;
-        receivedAt: string;
-        notes?: string;
-        details: Array<{
-          productId: string;
-          quantity: number;
-          purchasePrice: number;
-        }>;
-      }
+      ICreateGoodsReceiptPayload
     >({
       query: (body) => ({
         url: PRODUCT_API_ENDPOINTS.GOODS_RECEIPTS,
@@ -383,6 +507,14 @@ export const productApi = baseApi.injectEndpoints({
         {
           type: API_TAG_TYPES.SUPPLIER,
           id: "LIST",
+        },
+        {
+          type: API_TAG_TYPES.INVENTORY_WARNING,
+          id: PRODUCT_API_TAG_IDS.LIST,
+        },
+        {
+          type: API_TAG_TYPES.INVENTORY_WARNING,
+          id: PRODUCT_API_TAG_IDS.SUGGESTIONS,
         },
       ],
     }),
@@ -431,6 +563,14 @@ export const productApi = baseApi.injectEndpoints({
       invalidatesTags: [
         { type: API_TAG_TYPES.PRODUCT, id: PRODUCT_API_TAG_IDS.LIST },
         { type: API_TAG_TYPES.PRODUCT_GROUP, id: PRODUCT_API_TAG_IDS.LIST },
+        {
+          type: API_TAG_TYPES.INVENTORY_WARNING,
+          id: PRODUCT_API_TAG_IDS.LIST,
+        },
+        {
+          type: API_TAG_TYPES.INVENTORY_WARNING,
+          id: PRODUCT_API_TAG_IDS.SUGGESTIONS,
+        },
       ],
     }),
     downloadProductImportTemplate: builder.query<Blob, void>({
@@ -439,6 +579,66 @@ export const productApi = baseApi.injectEndpoints({
         method: HTTP_METHODS.GET,
         responseHandler: (response) => response.blob(),
       }),
+    }),
+    getLowStockWarnings: builder.query<
+      ILowStockWarningListResponse,
+      ILowStockWarningParams | void
+    >({
+      query: (params) => ({
+        url: PRODUCT_API_ENDPOINTS.LOW_STOCK_WARNINGS,
+        method: HTTP_METHODS.GET,
+        params: params || {},
+      }),
+      transformResponse: toLowStockWarningListResponse,
+      providesTags: [
+        {
+          type: API_TAG_TYPES.INVENTORY_WARNING,
+          id: PRODUCT_API_TAG_IDS.LIST,
+        },
+      ],
+    }),
+    getPurchaseSuggestions: builder.query<
+      IPageResponse<IPurchaseSuggestion>,
+      IPurchaseSuggestionParams | void
+    >({
+      query: (params) => ({
+        url: PRODUCT_API_ENDPOINTS.PURCHASE_SUGGESTIONS,
+        method: HTTP_METHODS.GET,
+        params: params || {},
+      }),
+      transformResponse: toPurchaseSuggestionPage,
+      providesTags: [
+        {
+          type: API_TAG_TYPES.INVENTORY_WARNING,
+          id: PRODUCT_API_TAG_IDS.SUGGESTIONS,
+        },
+      ],
+    }),
+    updateMinStock: builder.mutation<
+      IProduct,
+      { id: string; minStockQuantity: number }
+    >({
+      query: ({ id, minStockQuantity }) => ({
+        url: PRODUCT_API_ENDPOINTS.PRODUCT_MIN_STOCK(id),
+        method: HTTP_METHODS.PUT,
+        body: {
+          minStockQuantity,
+        },
+      }),
+      transformResponse: (response: unknown): IProduct =>
+        toProduct(readResult(response)),
+      invalidatesTags: (_result, _error, { id }) => [
+        { type: API_TAG_TYPES.PRODUCT, id: PRODUCT_API_TAG_IDS.LIST },
+        { type: API_TAG_TYPES.PRODUCT, id },
+        {
+          type: API_TAG_TYPES.INVENTORY_WARNING,
+          id: PRODUCT_API_TAG_IDS.LIST,
+        },
+        {
+          type: API_TAG_TYPES.INVENTORY_WARNING,
+          id: PRODUCT_API_TAG_IDS.SUGGESTIONS,
+        },
+      ],
     }),
   }),
   overrideExisting: API_CONFIG.OVERRIDE_EXISTING_ENDPOINTS,
@@ -458,4 +658,7 @@ export const {
   useGetGoodsReceiptByIdQuery,
   useImportProductsMutation,
   useLazyDownloadProductImportTemplateQuery,
+  useGetLowStockWarningsQuery,
+  useGetPurchaseSuggestionsQuery,
+  useUpdateMinStockMutation,
 } = productApi;

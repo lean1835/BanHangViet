@@ -362,7 +362,7 @@ export const ImportOrdersModal: React.FC<ImportOrdersModalProps> = ({
 
   return createPortal(
     <div
-      className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-2 sm:p-4"
+      className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-2 sm:p-4 animate-backdrop-fade-in"
       onClick={() => {
         onClose();
         resetState();
@@ -371,7 +371,7 @@ export const ImportOrdersModal: React.FC<ImportOrdersModalProps> = ({
       aria-modal="true"
     >
       <div
-        className="bg-white rounded-xl border border-slate-200 shadow-2xl w-full max-w-6xl overflow-hidden flex flex-col max-h-[92vh] animate-auth-fade-in"
+        className="bg-white rounded-xl border border-slate-200 shadow-2xl w-full max-w-6xl overflow-hidden flex flex-col max-h-[92vh] animate-modal-bounce-in"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Modal Header */}
@@ -644,8 +644,8 @@ export const ImportOrdersModal: React.FC<ImportOrdersModalProps> = ({
                                   title={row.errors.productSku || ""}
                                 />
                                 {row.errors.productSku && (
-                                  <span className="absolute right-2 top-2 text-rose-500" title={row.errors.productSku}>
-                                    ⚠️
+                                  <span className="absolute right-2 top-2 text-rose-500 text-[10px] font-bold" title={row.errors.productSku}>
+                                    !
                                   </span>
                                 )}
                               </div>

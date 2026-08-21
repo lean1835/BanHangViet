@@ -72,36 +72,42 @@ export const AuthenticatedAppLayout = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-100 text-slate-800 text-xs font-sans select-none">
+    <div className="h-screen max-h-screen flex flex-col overflow-hidden bg-slate-100 text-slate-800 text-xs font-sans select-none">
       {/* Top-most Utility Bar is kept across all pages */}
-      <DashboardUtilityBar
-        currentRole={currentRole}
-        isOnline={isOnline}
-        simConflict={simConflict}
-        pendingCount={pendingCount}
-        onRoleChange={handleRoleChange}
-        onConflictChange={setSimConflict}
-        onSync={triggerSync}
-      />
-      {/* Blue Navigation Menu is hidden when on POS screen */}
-      {!isPosScreen &&
-        currentRole !== USER_ROLES.PLATFORM_ADMIN &&
-        currentRole !== USER_ROLES.TAX_AUTHORITY && (
-          <DashboardNavigation currentRole={currentRole} />
-        )}
-      <OfflineSyncBanner
-        isOnline={isOnline}
-        pendingCount={pendingCount}
-        conflictingOrdersCount={conflictingOrders.length}
-        warnings={warnings}
-        isSyncing={isSyncing}
-        unissuedOrderIds={unissuedOrderIds}
-        userRole={currentRole}
-        onSync={triggerSync}
-        onClearUnissuedOrders={clearUnissuedOrderIds}
-        onOpenConflictModal={() => setIsConflictModalOpen(true)}
-      />
-      <Outlet />
+      <div className="shrink-0 z-30">
+        <DashboardUtilityBar
+          currentRole={currentRole}
+          isOnline={isOnline}
+          simConflict={simConflict}
+          pendingCount={pendingCount}
+          onRoleChange={handleRoleChange}
+          onConflictChange={setSimConflict}
+          onSync={triggerSync}
+        />
+        {/* Blue Navigation Menu is hidden when on POS screen */}
+        {!isPosScreen &&
+          currentRole !== USER_ROLES.PLATFORM_ADMIN &&
+          currentRole !== USER_ROLES.TAX_AUTHORITY && (
+            <DashboardNavigation currentRole={currentRole} />
+          )}
+        <OfflineSyncBanner
+          isOnline={isOnline}
+          pendingCount={pendingCount}
+          conflictingOrdersCount={conflictingOrders.length}
+          warnings={warnings}
+          isSyncing={isSyncing}
+          unissuedOrderIds={unissuedOrderIds}
+          userRole={currentRole}
+          onSync={triggerSync}
+          onClearUnissuedOrders={clearUnissuedOrderIds}
+          onOpenConflictModal={() => setIsConflictModalOpen(true)}
+        />
+      </div>
+
+      <div className="flex-1 min-h-0 min-w-0 flex flex-col overflow-hidden">
+        <Outlet />
+      </div>
+
       <ConflictResolutionModal
         isOpen={isConflictModalOpen || conflictingOrders.length > 0}
         conflictingOrders={conflictingOrders}

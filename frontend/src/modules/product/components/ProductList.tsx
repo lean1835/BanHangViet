@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { Search, Plus, Edit, Trash2, FileSpreadsheet } from "lucide-react";
+import { Search, Plus, Edit, Trash2, FileSpreadsheet, AlertTriangle } from "lucide-react";
 import { ImportProductsModal } from "@/modules/product/components/ImportProductsModal";
 import {
   PRODUCT_FILTER,
@@ -219,7 +219,21 @@ export const ProductList: React.FC<ProductListProps> = ({
       </div>
 
       {/* Main product table card */}
-      <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col min-h-[500px] w-full">
+      <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col min-h-[500px] w-full">
+        {/* Block Header matching StockEntryHistoryTable */}
+        <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-4">
+          <div>
+            <h3 className="font-extrabold text-slate-800 text-sm">
+              {PRODUCT_LIST_COPY.CARD_TITLE}
+            </h3>
+            <p className="text-[11px] text-slate-400 font-normal">
+              {PRODUCT_LIST_COPY.CARD_SUBTITLE}
+            </p>
+          </div>
+          <span className="text-xs font-bold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-lg">
+            {totalElements} {PRODUCT_LIST_COPY.PAGINATION_SUFFIX}
+          </span>
+        </div>
         {isLoading ? (
           <div className="flex flex-col justify-center items-center flex-1 py-20 text-slate-400 gap-2">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-kv-blue-primary"></div>
@@ -293,8 +307,30 @@ export const ProductList: React.FC<ProductListProps> = ({
                       <td className="p-3 text-right font-extrabold text-kv-blue-primary">
                         {formatCurrency(prod.price)}
                       </td>
-                      <td className="p-3 text-right font-extrabold text-emerald-600">
-                        {formatNumber(prod.stockQuantity)}
+                      <td className="p-3 text-right font-extrabold">
+                        {prod.minStockQuantity &&
+                        prod.minStockQuantity > 0 &&
+                        prod.stockQuantity <= prod.minStockQuantity ? (
+                          <span
+                            title={`Tồn kho dưới ngưỡng tối thiểu (${formatNumber(prod.minStockQuantity)})`}
+                            className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-black ${
+                              prod.stockQuantity <= 0
+                                ? "text-rose-600 bg-rose-100/80"
+                                : "text-amber-600 bg-amber-100/80"
+                            }`}
+                          >
+                            <AlertTriangle className="w-3 h-3 shrink-0" />
+                            {formatNumber(prod.stockQuantity)}
+                          </span>
+                        ) : prod.stockQuantity <= 0 ? (
+                          <span className="text-rose-600">
+                            {formatNumber(prod.stockQuantity)}
+                          </span>
+                        ) : (
+                          <span className="text-emerald-600">
+                            {formatNumber(prod.stockQuantity)}
+                          </span>
+                        )}
                       </td>
                       <td className="p-3">
                         {prod.groupName && (
@@ -345,14 +381,15 @@ export const ProductList: React.FC<ProductListProps> = ({
 
             {/* Pagination Controls */}
             {totalPages > PRODUCT_QUERY_CONFIG.MIN_PAGINATION_PAGE_COUNT && (
-              <div className="flex items-center justify-between border-t pt-4 mt-4 font-semibold text-slate-500 text-xs">
-                <span>
-                  {PRODUCT_LIST_COPY.PAGINATION_PREFIX} {displayedProducts.length}{" "}
-                  {PRODUCT_LIST_COPY.PAGINATION_TOTAL} {totalElements}{" "}
-                  {PRODUCT_LIST_COPY.PAGINATION_SUFFIX}
-                </span>
+              <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4 mt-4 font-semibold text-slate-600 text-xs">
+                <div>
+                  Hiển thị bản ghi từ <span className="font-bold text-slate-800">{currentPage * PRODUCT_QUERY_CONFIG.PAGE_SIZE + 1}</span> đến{" "}
+                  <span className="font-bold text-slate-800">{Math.min((currentPage + 1) * PRODUCT_QUERY_CONFIG.PAGE_SIZE, totalElements)}</span> trong tổng số{" "}
+                  <span className="font-bold text-slate-800">{totalElements}</span> bản ghi
+                </div>
                 <div className="flex items-center gap-2">
                   <button
+                    type="button"
                     onClick={() =>
                       setCurrentPage((page) =>
                         Math.max(
@@ -362,16 +399,15 @@ export const ProductList: React.FC<ProductListProps> = ({
                       )
                     }
                     disabled={currentPage === PRODUCT_QUERY_CONFIG.INITIAL_PAGE}
-                    className="h-11 rounded-lg border bg-white px-3 text-slate-700 transition-all hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 lg:h-8"
+                    className="px-3 h-8 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center font-bold text-slate-700"
                   >
-                    {PRODUCT_LIST_COPY.PREVIOUS_PAGE_ACTION}
+                    Trang trước
                   </button>
-                  <span className="font-bold text-slate-700">
-                    {PRODUCT_LIST_COPY.PAGE_LABEL}{" "}
-                    {currentPage + PRODUCT_QUERY_CONFIG.DISPLAY_INDEX_OFFSET} /{" "}
-                    {totalPages}
+                  <span className="px-3 h-8 flex items-center justify-center border border-slate-200 rounded-lg bg-slate-50 font-bold text-slate-700">
+                    Trang {currentPage + 1} / {totalPages}
                   </span>
                   <button
+                    type="button"
                     onClick={() =>
                       setCurrentPage((page) =>
                         Math.min(
@@ -383,9 +419,9 @@ export const ProductList: React.FC<ProductListProps> = ({
                     disabled={
                       currentPage === totalPages - PRODUCT_QUERY_CONFIG.PAGE_STEP
                     }
-                    className="h-11 rounded-lg border bg-white px-3 text-slate-700 transition-all hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 lg:h-8"
+                    className="px-3 h-8 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center font-bold text-slate-700"
                   >
-                    {PRODUCT_LIST_COPY.NEXT_PAGE_ACTION}
+                    Trang sau
                   </button>
                 </div>
               </div>

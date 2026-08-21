@@ -60,8 +60,13 @@ export const PRODUCT_QUERY_CONFIG = {
   PAGE_STEP: 1,
   DISPLAY_INDEX_OFFSET: 1,
   MIN_PAGINATION_PAGE_COUNT: 1,
-  PAGE_SIZE: 15,
-  API_FALLBACK_PAGE_SIZE: 10,
+  PAGE_SIZE: 6,
+  API_FALLBACK_PAGE_SIZE: 6,
+} as const;
+
+export const INVENTORY_WARNING_QUERY_CONFIG = {
+  PAGE_SIZE: 6,
+  OVERALL_BATCH_SIZE: 100,
 } as const;
 
 export const PRODUCT_UI_CONFIG = {
@@ -82,8 +87,8 @@ export const PRODUCT_KEYBOARD_KEY = {
 } as const;
 
 export const PRODUCT_SYMBOLS = {
-  CLOSE: "✕",
-  SUCCESS: "✓",
+  CLOSE: "Đóng",
+  SUCCESS: "Thành công",
 } as const;
 
 export const PRODUCT_FORM_DEFAULTS = {
@@ -95,6 +100,7 @@ export const PRODUCT_FORM_DEFAULTS = {
   UNIT: "Lon",
   PRICE: 0,
   STOCK_QUANTITY: 0,
+  MIN_STOCK_QUANTITY: 0,
   DEFAULT_TAX_RATE_INDEX: 0,
   STATUS: PRODUCT_STATUS.ACTIVE,
 } as const;
@@ -106,6 +112,7 @@ export const PRODUCT_FORM_FIELD_NAMES = {
   UNIT: "unit",
   PRICE: "price",
   STOCK_QUANTITY: "stockQuantity",
+  MIN_STOCK_QUANTITY: "minStockQuantity",
   TAX_RATE_ID: "taxRateId",
   STATUS: "status",
 } as const;
@@ -128,7 +135,7 @@ export const PRODUCT_STOCK_ENTRY_CONFIG = {
   PRODUCT_QUERY_SIZE: 100,
   ID_PREFIX: "se",
   START_INDEX: 1,
-  GOODS_RECEIPT_PAGE_SIZE: 10,
+  GOODS_RECEIPT_PAGE_SIZE: 6,
   GOODS_RECEIPT_BATCH_SIZE: 1000,
   INITIAL_PAGE: 0,
 } as const;
@@ -154,6 +161,8 @@ export const PRODUCT_VALIDATION_MESSAGES = {
   UNIT_TOO_LONG: "Đơn vị tính không được vượt quá 50 ký tự",
   PRICE_NEGATIVE: "Giá bán không được nhỏ hơn 0",
   STOCK_NEGATIVE: "Tồn kho không được nhỏ hơn 0",
+  MIN_STOCK_NEGATIVE: "Ngưỡng tồn tối thiểu không được nhỏ hơn 0",
+  MIN_STOCK_REQUIRED: "Vui lòng nhập ngưỡng tồn tối thiểu",
   TAX_RATE_REQUIRED: "Vui lòng chọn thuế suất",
 } as const;
 
@@ -187,7 +196,7 @@ export const PRODUCT_FORM_COPY = {
 
 export const PRODUCT_GROUP_COPY = {
   TITLE: "Quản lý nhóm hàng hóa",
-  SECURITY_RULE_TITLE: "Quy tắc bảo mật QTN-17:",
+  SECURITY_RULE_TITLE: "Quy tắc bảo mật:",
   SECURITY_RULE_DESCRIPTION:
     "Chỉ có Chủ hộ kinh doanh mới được phép tạo, chỉnh sửa hoặc xóa nhóm hàng. Nhân viên/Kế toán chỉ có quyền xem danh sách.",
   CREATE_TITLE: "Thêm nhóm hàng mới",
@@ -211,6 +220,8 @@ export const PRODUCT_GROUP_COPY = {
 } as const;
 
 export const PRODUCT_LIST_COPY = {
+  CARD_TITLE: "Danh mục hàng hóa",
+  CARD_SUBTITLE: "Quản lý thông tin, giá bán và số lượng tồn kho của từng mặt hàng",
   SEARCH_PLACEHOLDER: "Theo mã, tên hàng",
   OWNER_CREATE_TOOLTIP: "Chỉ Chủ hộ kinh doanh mới được thêm hàng hóa",
   LOADING_MESSAGE: "Đang tải danh mục hàng hóa...",
@@ -261,7 +272,7 @@ export const PRODUCT_SECTION_COPY = {
 export const PRODUCT_STOCK_ENTRY_COPY = {
   FORM_TITLE: "Lập phiếu nhập kho",
   ACCOUNTANT_READ_ONLY_MESSAGE:
-    `Tài khoản Kế toán (${USER_ROLES.ACCOUNTANT}) chỉ được xem phiếu nhập kho và đối chiếu tồn, không có quyền lập phiếu nhập kho hoặc thay đổi số lượng kho (QTN-17).`,
+    `Tài khoản Kế toán (${USER_ROLES.ACCOUNTANT}) chỉ được xem phiếu nhập kho và đối chiếu tồn, không có quyền lập phiếu nhập kho hoặc thay đổi số lượng kho.`,
   PRODUCT_LABEL: "Chọn hàng hóa nhập*:",
   QUANTITY_LABEL: "Số lượng nhập*:",
   IMPORT_PRICE_LABEL: "Đơn giá nhập (đ)*:",
@@ -323,21 +334,77 @@ export const PRODUCT_LOG_ACTIONS = {
 const PRODUCT_API_BASE_ENDPOINT = "/products";
 const PRODUCT_GROUP_API_BASE_ENDPOINT = "/product-groups";
 const GOODS_RECEIPT_API_BASE_ENDPOINT = "/goods-receipts";
+const INVENTORY_API_BASE_ENDPOINT = "/inventory";
 
 export const PRODUCT_API_ENDPOINTS = {
   PRODUCTS: PRODUCT_API_BASE_ENDPOINT,
   PRODUCT_BY_ID: (productId: string): string =>
     `${PRODUCT_API_BASE_ENDPOINT}/${productId}`,
+  PRODUCT_MIN_STOCK: (productId: string): string =>
+    `${PRODUCT_API_BASE_ENDPOINT}/${productId}/min-stock`,
   PRODUCT_GROUPS: PRODUCT_GROUP_API_BASE_ENDPOINT,
   PRODUCT_GROUP_BY_ID: (groupId: string): string =>
     `${PRODUCT_GROUP_API_BASE_ENDPOINT}/${groupId}`,
   GOODS_RECEIPTS: GOODS_RECEIPT_API_BASE_ENDPOINT,
   GOODS_RECEIPT_BY_ID: (receiptId: string): string =>
     `${GOODS_RECEIPT_API_BASE_ENDPOINT}/${receiptId}`,
+  LOW_STOCK_WARNINGS: `${INVENTORY_API_BASE_ENDPOINT}/low-stock-warnings`,
+  PURCHASE_SUGGESTIONS: `${INVENTORY_API_BASE_ENDPOINT}/purchase-suggestions`,
 } as const;
+
+export const INVENTORY_WARNING_COPY = {
+  TITLE: "Cảnh báo tồn tối thiểu & Gợi ý nhập hàng",
+  SUBTITLE: "Theo dõi các mặt hàng chạm ngưỡng cảnh báo và nhận gợi ý thông minh theo tốc độ bán",
+  TAB_WARNINGS: "Cảnh báo tồn tối thiểu",
+  TAB_SUGGESTIONS: "Gợi ý nhập hàng (Dự báo)",
+  STOCK_ADEQUATE_TITLE: "Tồn kho đang an toàn và đầy đủ",
+  STOCK_ADEQUATE_DESCRIPTION: "Không có mặt hàng nào có lượng tồn thấp hơn ngưỡng tối thiểu đã thiết lập.",
+  WARNING_LIST_TITLE: "Danh sách mặt hàng dưới ngưỡng tồn tối thiểu",
+  SUGGESTION_LIST_TITLE: "Danh sách đề xuất lượng hàng nên nhập cho kỳ tới",
+  PROMOTION_ALERT_TITLE: "Có đợt khuyến mại",
+  PROMOTION_ALERT_NOTE: "Dữ liệu có đợt khuyến mại trong kỳ, số lượng gợi ý có thể cao hơn nhu cầu thực tế",
+  UPDATE_MIN_STOCK_TITLE: "Cài đặt ngưỡng tồn tối thiểu",
+  UPDATE_MIN_STOCK_ACTION: "Lưu ngưỡng tồn",
+  CREATE_RECEIPT_ACTION: "Nhập hàng ngay",
+  SEARCH_PLACEHOLDER: "Tìm theo tên hàng, mã SKU...",
+  PERIOD_LABEL: "Kỳ phân tích bán hàng",
+  TABLE_HEADERS: {
+    INDEX: "STT",
+    SKU: "Mã SKU",
+    PRODUCT_NAME: "Tên mặt hàng",
+    GROUP: "Nhóm hàng",
+    UNIT: "Đơn vị",
+    CURRENT_STOCK: "Tồn hiện tại",
+    MIN_STOCK: "Ngưỡng tồn",
+    SHORTAGE: "Thiếu hụt",
+    PRICE: "Giá bán",
+    COST_PRICE: "Giá vốn",
+    LAST_SUPPLIER: "NCC gần nhất",
+    AVERAGE_WEEKLY_SALES: "Bán TB / Tuần",
+    TOTAL_SOLD: "Đã bán trong kỳ",
+    SUGGESTED_QTY: "Gợi ý nhập",
+    RATIONALE: "Căn cứ tính toán",
+    ACTION: "Thao tác",
+  },
+  KPI_TOTAL_LOW_STOCK: "Mặt hàng dưới ngưỡng",
+  KPI_OUT_OF_STOCK: "Mặt hàng hết tồn (= 0)",
+  KPI_TOTAL_SHORTAGE: "Tổng số lượng thiếu hụt",
+  KPI_STATUS_ALERT: "Trạng thái kho",
+  KPI_STATUS_ADEQUATE: "Tồn kho an toàn",
+  KPI_STATUS_NEED_RESTOCK: "Cần nhập thêm hàng",
+} as const;
+
+export const PURCHASE_SUGGESTION_PERIODS = [
+  { value: 7, label: "7 ngày gần nhất (1 tuần)" },
+  { value: 14, label: "14 ngày gần nhất (2 tuần)" },
+  { value: 28, label: "28 ngày gần nhất (4 tuần - Khuyên dùng)" },
+  { value: 60, label: "60 ngày gần nhất (2 tháng)" },
+  { value: 90, label: "90 ngày gần nhất (1 quý)" },
+] as const;
 
 export const PRODUCT_API_TAG_IDS = {
   LIST: "LIST",
+  SUGGESTIONS: "SUGGESTIONS",
 } as const;
 
 export const PRODUCT_API_RESPONSE_DEFAULTS = {

@@ -11,7 +11,6 @@ import {
   PRODUCT_FORM_LIMITS,
   PRODUCT_STATUS_OPTIONS,
   PRODUCT_STATUS_VALUES,
-  PRODUCT_SYMBOLS,
   PRODUCT_VALIDATION_MESSAGES,
 } from "@/constants/product";
 import { useGetProductGroupsQuery } from "@/modules/product/services/productApi";
@@ -73,6 +72,12 @@ const productSchema = z.object({
     .min(
       PRODUCT_FORM_LIMITS.MIN_NON_NEGATIVE_VALUE,
       PRODUCT_VALIDATION_MESSAGES.STOCK_NEGATIVE,
+    ),
+  minStockQuantity: z
+    .number()
+    .min(
+      PRODUCT_FORM_LIMITS.MIN_NON_NEGATIVE_VALUE,
+      PRODUCT_VALIDATION_MESSAGES.MIN_STOCK_NEGATIVE,
     ),
   taxRateId: z
     .string()
@@ -143,6 +148,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
       unit: PRODUCT_FORM_DEFAULTS.UNIT,
       price: PRODUCT_FORM_DEFAULTS.PRICE,
       stockQuantity: PRODUCT_FORM_DEFAULTS.STOCK_QUANTITY,
+      minStockQuantity: PRODUCT_FORM_DEFAULTS.MIN_STOCK_QUANTITY,
       taxRateId: PRODUCT_FORM_DEFAULTS.TAX_RATE_ID,
       status: PRODUCT_FORM_DEFAULTS.STATUS,
     },
@@ -175,6 +181,8 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         price: product.price || PRODUCT_FORM_DEFAULTS.PRICE,
         stockQuantity:
           product.stockQuantity || PRODUCT_FORM_DEFAULTS.STOCK_QUANTITY,
+        minStockQuantity:
+          product.minStockQuantity ?? PRODUCT_FORM_DEFAULTS.MIN_STOCK_QUANTITY,
         taxRateId: defaultTaxRateId,
         status: product.status || PRODUCT_FORM_DEFAULTS.STATUS,
       });
@@ -191,6 +199,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         unit: PRODUCT_FORM_DEFAULTS.UNIT,
         price: PRODUCT_FORM_DEFAULTS.PRICE,
         stockQuantity: PRODUCT_FORM_DEFAULTS.STOCK_QUANTITY,
+        minStockQuantity: PRODUCT_FORM_DEFAULTS.MIN_STOCK_QUANTITY,
         taxRateId: defaultTaxRateId,
         status: PRODUCT_FORM_DEFAULTS.STATUS,
       });
@@ -222,6 +231,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
       unit: values.unit.trim(),
       price: values.price,
       stockQuantity: values.stockQuantity,
+      minStockQuantity: values.minStockQuantity ?? 0,
       taxRateId: values.taxRateId,
       status: values.status,
     };
@@ -262,9 +272,12 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
             type="button"
             disabled={isSubmitting}
             aria-label={PRODUCT_FORM_COPY.CANCEL_ACTION}
-            className="flex min-h-11 min-w-11 items-center justify-center text-lg text-white/80 transition-colors hover:text-white"
+            className="flex min-h-11 min-w-11 items-center justify-center text-white/80 transition-colors hover:text-white"
           >
-            {PRODUCT_SYMBOLS.CLOSE}
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
           </button>
         </div>
 
@@ -369,6 +382,23 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
               />
               {errors.stockQuantity && (
                 <span className="text-[10px] text-rose-500 font-bold">{errors.stockQuantity.message}</span>
+              )}
+            </div>
+
+            {/* Ngưỡng tồn tối thiểu */}
+            <div className="flex flex-col gap-1">
+              <label className="text-slate-600">Ngưỡng tồn tối thiểu:</label>
+              <input
+                type="number"
+                min={PRODUCT_FORM_LIMITS.MIN_NON_NEGATIVE_VALUE}
+                placeholder="Ví dụ: 10"
+                {...register(PRODUCT_FORM_FIELD_NAMES.MIN_STOCK_QUANTITY, {
+                  valueAsNumber: true,
+                })}
+                className={`border ${errors.minStockQuantity ? "border-rose-500" : "border-slate-300"} h-9 px-3 rounded-lg focus:outline-none focus:border-kv-blue-primary`}
+              />
+              {errors.minStockQuantity && (
+                <span className="text-[10px] text-rose-500 font-bold">{errors.minStockQuantity.message}</span>
               )}
             </div>
 
