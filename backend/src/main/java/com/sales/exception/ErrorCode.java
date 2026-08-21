@@ -148,7 +148,8 @@ public enum ErrorCode {
     INVALID_PROMOTION_DISCOUNT_VALUE(3052, "Mức giảm giá không hợp lệ", HttpStatus.BAD_REQUEST),
     PROMOTION_TARGET_REQUIRED(3053, "Cần chọn danh sách sản phẩm hoặc nhóm sản phẩm áp dụng", HttpStatus.BAD_REQUEST),
     ONLY_STORE_OWNER_CAN_MANAGE_PROMOTION(3054, "Chỉ chủ hộ kinh doanh mới có quyền tạo và quản lý chương trình khuyến mại", HttpStatus.FORBIDDEN),
-    PROMOTION_NAME_EXISTS(3055, "Tên chương trình khuyến mại đã tồn tại trong hộ kinh doanh", HttpStatus.BAD_REQUEST);
+    PROMOTION_NAME_EXISTS(3055, "Tên chương trình khuyến mại đã tồn tại trong hộ kinh doanh", HttpStatus.BAD_REQUEST),
+
     // NCL-14-CN-004 Cảnh báo thao tác bất thường
     ANOMALY_ALERT_NOT_FOUND(6010, "Cảnh báo thao tác bất thường không tồn tại", HttpStatus.NOT_FOUND),
     ANOMALY_RULE_NOT_FOUND(6011, "Cấu hình quy tắc cảnh báo không tồn tại", HttpStatus.NOT_FOUND),
