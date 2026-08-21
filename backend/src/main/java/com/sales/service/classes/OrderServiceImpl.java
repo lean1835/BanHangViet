@@ -43,6 +43,8 @@ public class OrderServiceImpl implements OrderService {
     private final ActivityLogRepository activityLogRepository;
     private final ObjectMapper objectMapper;
     private final CustomerDebtRepository customerDebtRepository;
+    private final com.sales.service.interfaces.PromotionService promotionService;
+    private final com.sales.repository.PromotionRepository promotionRepository;
 
     private User getAuthenticatedUser(String username) {
         return userRepository.findByUsername(username)
@@ -129,6 +131,8 @@ public class OrderServiceImpl implements OrderService {
                         .quantity(item.getQuantity())
                         .unitPrice(item.getUnitPrice())
                         .discountAmount(item.getDiscountAmount())
+                        .promotionId(item.getPromotion() != null ? item.getPromotion().getId() : null)
+                        .promotionName(item.getPromotionName())
                         .taxRatePercentage(item.getTaxRatePercentage())
                         .taxAmount(item.getTaxAmount())
                         .subtotal(item.getSubtotal())
@@ -299,26 +303,43 @@ public class OrderServiceImpl implements OrderService {
                 .findFirst().orElse(null);
 
         BigDecimal quantityToAdd = request.getQuantity();
-        if (existingItem != null) {
-            existingItem.setQuantity(existingItem.getQuantity().add(quantityToAdd));
-            // Recalculate item line subtotal
-            BigDecimal baseAmount = existingItem.getQuantity().multiply(existingItem.getUnitPrice()).subtract(existingItem.getDiscountAmount());
-            BigDecimal taxAmount = baseAmount.multiply(existingItem.getTaxRatePercentage()).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
-            existingItem.setTaxAmount(taxAmount);
-            existingItem.setSubtotal(baseAmount.add(taxAmount));
-        } else {
-            BigDecimal baseAmount = quantityToAdd.multiply(product.getPrice());
-            BigDecimal taxRate = product.getTaxRate().getRatePercentage();
-            BigDecimal taxAmount = baseAmount.multiply(taxRate).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
-            BigDecimal subtotal = baseAmount.add(taxAmount);
+        BigDecimal targetQuantity = existingItem != null ? existingItem.getQuantity().add(quantityToAdd) : quantityToAdd;
 
+        com.sales.dto.response.PromotionItemResultResponse promoResult = promotionService.calculateItemPromotion(
+                currentUser,
+                product.getId(),
+                targetQuantity,
+                product.getPrice(),
+                request.getBypassPromotion(),
+                request.getPromotionId()
+        );
+
+        Promotion promoEntity = promoResult.getPromotionId() != null
+                ? promotionRepository.findById(promoResult.getPromotionId()).orElse(null)
+                : null;
+
+        BigDecimal taxRate = product.getTaxRate() != null ? product.getTaxRate().getRatePercentage() : BigDecimal.ZERO;
+        BigDecimal baseAmount = targetQuantity.multiply(product.getPrice()).subtract(promoResult.getDiscountAmount());
+        BigDecimal taxAmount = baseAmount.multiply(taxRate).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+        BigDecimal subtotal = baseAmount.add(taxAmount);
+
+        if (existingItem != null) {
+            existingItem.setQuantity(targetQuantity);
+            existingItem.setDiscountAmount(promoResult.getDiscountAmount());
+            existingItem.setPromotion(promoEntity);
+            existingItem.setPromotionName(promoResult.getPromotionName());
+            existingItem.setTaxAmount(taxAmount);
+            existingItem.setSubtotal(subtotal);
+        } else {
             OrderItem newItem = OrderItem.builder()
                     .order(order)
                     .product(product)
                     .productName(product.getName())
-                    .quantity(quantityToAdd)
+                    .quantity(targetQuantity)
                     .unitPrice(product.getPrice())
-                    .discountAmount(BigDecimal.ZERO)
+                    .discountAmount(promoResult.getDiscountAmount())
+                    .promotion(promoEntity)
+                    .promotionName(promoResult.getPromotionName())
                     .taxRatePercentage(taxRate)
                     .taxAmount(taxAmount)
                     .subtotal(subtotal)
