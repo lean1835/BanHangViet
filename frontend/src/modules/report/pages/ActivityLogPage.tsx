@@ -10,7 +10,10 @@ import {
   RotateCw, 
   PlusCircle, 
   AlertTriangle,
-  Lock
+  Lock,
+  Unlock,
+  Layers,
+  FileSpreadsheet
 } from "lucide-react";
 import { useGetActivityLogsQuery } from "../services/reportApi";
 import { useReportFilter } from "../context/ReportFilterContext";
@@ -88,20 +91,68 @@ export const ActivityLogPage = () => {
       case "product_groups": return "Nhóm hàng";
       case "orders": return "Đơn hàng";
       case "shifts": return "Ca làm việc";
-      case "invoices": return "Hóa đơn HĐĐT";
+      case "invoices":
+      case "einvoices": return "Hóa đơn HĐĐT";
       case "goods_receipts": return "Phiếu nhập hàng";
       case "customers": return "Khách hàng";
+      case "suppliers": return "Nhà cung cấp";
       case "debts":
       case "customer_debts": return "Công nợ khách hàng";
       case "users":
       case "employees": return "Nhân viên";
       case "reports": return "Báo cáo / Quỹ";
+      case "tax_declaration_periods": return "Kỳ kê khai thuế";
+      case "tax_sales_registers": return "Bảng kê thuế";
       default: return table.toUpperCase();
     }
   };
 
   const getActionBadge = (action: string) => {
     const actUpper = (action || "").toUpperCase();
+
+    // 1. Thao tác kỳ kê khai thuế & Bảng kê thuế
+    if (actUpper === "SUMMARIZE_TAX_REVENUE") {
+      return {
+        label: "TỔNG HỢP DOANH THU THUẾ",
+        className: "bg-indigo-100 text-indigo-700 border-indigo-200",
+        icon: <Layers className="w-3 h-3 mr-1 shrink-0" />,
+      };
+    }
+    if (actUpper === "GENERATE_TAX_SALES_REGISTER" || actUpper === "GENERATE_TAX_REGISTER") {
+      return {
+        label: "LẬP BẢNG KÊ HÓA ĐƠN",
+        className: "bg-blue-100 text-blue-700 border-blue-200",
+        icon: <FileSpreadsheet className="w-3 h-3 mr-1 shrink-0" />,
+      };
+    }
+    if (actUpper === "RECALCULATE_TAX_REGISTER") {
+      return {
+        label: "TÍNH LẠI BẢNG KÊ THUẾ",
+        className: "bg-emerald-100 text-emerald-700 border-emerald-200",
+        icon: <RotateCw className="w-3 h-3 mr-1 shrink-0" />,
+      };
+    }
+    if (actUpper === "LOCK_TAX_PERIOD") {
+      return {
+        label: "CHỐT KHÓA KỲ THUẾ",
+        className: "bg-rose-100 text-rose-700 border-rose-200",
+        icon: <Lock className="w-3 h-3 mr-1 shrink-0" />,
+      };
+    }
+    if (actUpper === "UNLOCK_TAX_PERIOD") {
+      return {
+        label: "MỞ LẠI KỲ THUẾ",
+        className: "bg-amber-100 text-amber-800 border-amber-200",
+        icon: <Unlock className="w-3 h-3 mr-1 shrink-0" />,
+      };
+    }
+    if (actUpper === "EXPORT_TAX_DECLARATION") {
+      return {
+        label: "XUẤT TỜ KHAI THUẾ",
+        className: "bg-sky-100 text-sky-700 border-sky-200",
+        icon: <FileText className="w-3 h-3 mr-1 shrink-0" />,
+      };
+    }
     if (actUpper.includes("COLLECT_DEBT") || actUpper.includes("THU_NO") || actUpper.includes("PAY_DEBT")) {
       return {
         label: "THU NỢ KHÁCH HÀNG",
