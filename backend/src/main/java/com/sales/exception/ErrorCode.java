@@ -146,7 +146,16 @@ public enum ErrorCode {
     ANOMALY_ALERT_NOT_FOUND(6010, "Cảnh báo thao tác bất thường không tồn tại", HttpStatus.NOT_FOUND),
     ANOMALY_RULE_NOT_FOUND(6011, "Cấu hình quy tắc cảnh báo không tồn tại", HttpStatus.NOT_FOUND),
     INVALID_ANOMALY_STATUS(6012, "Trạng thái xử lý cảnh báo không hợp lệ (chỉ chấp nhận REVIEWED hoặc DISMISSED)", HttpStatus.BAD_REQUEST),
-    ANOMALY_ACCESS_DENIED(6013, "Nhân viên không có quyền truy cập trung tâm cảnh báo thao tác bất thường", HttpStatus.FORBIDDEN);
+    ANOMALY_ACCESS_DENIED(6013, "Nhân viên không có quyền truy cập trung tâm cảnh báo thao tác bất thường", HttpStatus.FORBIDDEN),
+
+    // NCL-17 Nhiều điểm bán trong cùng một hộ kinh doanh (NCL-17-CN-001)
+    POS_NOT_FOUND(7001, "Điểm bán không tồn tại trên hệ thống", HttpStatus.NOT_FOUND),
+    POS_NAME_ALREADY_EXISTS(7002, "Tên điểm bán đã tồn tại trong hộ kinh doanh", HttpStatus.BAD_REQUEST),
+    POS_CODE_ALREADY_EXISTS(7003, "Mã điểm bán đã tồn tại trong hộ kinh doanh", HttpStatus.BAD_REQUEST),
+    POS_INVOICE_SYMBOL_EXISTS(7004, "Ký hiệu hóa đơn của điểm bán mới trùng với điểm bán đã có", HttpStatus.BAD_REQUEST),
+    CANNOT_DELETE_DEFAULT_POS(7005, "Không thể xóa điểm bán đang được thiết lập làm mặc định", HttpStatus.BAD_REQUEST),
+    CANNOT_DEACTIVATE_DEFAULT_POS(7006, "Không thể ngưng hoạt động điểm bán mặc định. Vui lòng chuyển mặc định sang điểm bán khác trước", HttpStatus.BAD_REQUEST),
+    CANNOT_SET_INACTIVE_POS_AS_DEFAULT(7007, "Không thể thiết lập điểm bán đang ngưng hoạt động làm điểm mặc định", HttpStatus.BAD_REQUEST);
 
     private final int code;
     private final String message;
