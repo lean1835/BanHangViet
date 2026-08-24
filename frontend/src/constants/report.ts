@@ -18,6 +18,14 @@ export const REPORT_NAVIGATION_ITEMS = [
     path: APP_ROUTES.REPORT_ACTIVITY_LOGS,
     label: "Nhật ký hoạt động",
   },
+  {
+    path: APP_ROUTES.REPORT_AUDIT_LOGS,
+    label: "Nhật ký kiểm toán",
+  },
+  {
+    path: APP_ROUTES.REPORT_ANOMALY_ALERTS,
+    label: "Cảnh báo bất thường",
+  },
 ] as const;
 
 export const REPORT_UI = {

@@ -16,6 +16,8 @@ export const ROUTE_SEGMENTS = {
   REVENUE: "revenue",
   COMPARISON: "comparison",
   ACTIVITY_LOGS: "activity-logs",
+  AUDIT_LOGS: "audit-logs",
+  ANOMALY_ALERTS: "anomaly-alerts",
   TAX_SALES_INVOICE: "tax-sales-invoices",
   SETTINGS: "settings",
   BUSINESS_INFO: "business-info",
@@ -88,6 +90,14 @@ export const APP_ROUTES = {
   REPORT_ACTIVITY_LOGS: createRoute(
     ROUTE_SEGMENTS.REPORTS,
     ROUTE_SEGMENTS.ACTIVITY_LOGS,
+  ),
+  REPORT_AUDIT_LOGS: createRoute(
+    ROUTE_SEGMENTS.REPORTS,
+    ROUTE_SEGMENTS.AUDIT_LOGS,
+  ),
+  REPORT_ANOMALY_ALERTS: createRoute(
+    ROUTE_SEGMENTS.REPORTS,
+    ROUTE_SEGMENTS.ANOMALY_ALERTS,
   ),
   REPORT_TAX_SALES_INVOICES: createRoute(
     ROUTE_SEGMENTS.REPORTS,

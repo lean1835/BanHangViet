@@ -19,6 +19,7 @@ import { useGetInvoiceTemplateQuery } from "@/modules/settings/services/settings
 import { InvoiceSidebar, type TInvoiceVersionFilter } from "../components/InvoiceSidebar";
 import { InvoiceList } from "../components/InvoiceList";
 import { InvoiceDetailModal } from "../components/InvoiceDetailModal";
+import { recordInvoiceCancellation } from "@/modules/anomaly_alert/utils/anomalyStorage";
 
 export const InvoiceManagementPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -270,6 +271,13 @@ export const InvoiceManagementPage = () => {
         showSuccess("Hủy hóa đơn điện tử thành công.");
         if (response?.result) {
           setSelectedInvoice(response.result);
+          recordInvoiceCancellation({
+            invoiceNumber: response.result.invoiceNumber || response.result.lookupCode,
+            lookupCode: response.result.lookupCode,
+            actorUsername: currentRole || "chuho_viet",
+            reason,
+            amount: response.result.finalAmount ?? response.result.amount,
+          });
         }
       } catch (err: unknown) {
         showError(getApiErrorMessage(err, "Không thể thực hiện hủy hóa đơn điện tử."));
@@ -289,6 +297,13 @@ export const InvoiceManagementPage = () => {
 
       setMockInvoices((prev) => prev.map((x) => (x.id === invoiceId ? updatedInvoice : x)));
       setSelectedInvoice(updatedInvoice);
+      recordInvoiceCancellation({
+        invoiceNumber: targetInvoice.invoiceNumber || targetInvoice.lookupCode,
+        lookupCode: targetInvoice.lookupCode,
+        actorUsername: "chuho_viet",
+        reason,
+        amount: targetInvoice.finalAmount ?? targetInvoice.amount,
+      });
       addLogEntry("HỦY_HÓA_ĐƠN", `Hủy hóa đơn ${targetInvoice.lookupCode}. Lý do: ${reason}`);
       showSuccess("Hủy hóa đơn điện tử thành công.");
     }

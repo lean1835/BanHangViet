@@ -56,6 +56,15 @@ public class RestoreServiceImplTest {
     private RestoreHistoryRepository restoreHistoryRepository;
 
     @Mock
+    private com.sales.repository.CustomerRepository customerRepository;
+
+    @Mock
+    private com.sales.repository.ProductRepository productRepository;
+
+    @Mock
+    private com.sales.repository.SupplierRepository supplierRepository;
+
+    @Mock
     private ActivityLogHelper activityLogHelper;
 
     @Spy
@@ -306,5 +315,100 @@ public class RestoreServiceImplTest {
         assertEquals(1, response.getContent().size());
         assertEquals("SUCCESS", response.getContent().get(0).getStatus());
         assertEquals(validBackup.getFileName(), response.getContent().get(0).getBackupFileName());
+    }
+
+    @Test
+    @DisplayName("Phục hồi CSDL thành công sẽ khôi phục khách hàng đã bị xóa (deletedAt = null)")
+    void testExecuteRestore_RestoresDeletedCustomer_Success() {
+        when(userRepository.findByUsername("chuho_test")).thenReturn(Optional.of(ownerUser));
+        when(backupHistoryRepository.findByIdAndHouseholdId(validBackup.getId(), household.getId()))
+                .thenReturn(Optional.of(validBackup));
+
+        com.sales.entity.Customer deletedCustomer = com.sales.entity.Customer.builder()
+                .id("cust-1")
+                .household(household)
+                .name("Nguyễn Văn A")
+                .phoneNumber("0912345678")
+                .createdAt(validBackup.getBackupTime().minusDays(1))
+                .deletedAt(validBackup.getBackupTime().plusMinutes(5))
+                .build();
+
+        when(customerRepository.findAllByHouseholdId(household.getId())).thenReturn(List.of(deletedCustomer));
+
+        RestoreHistory savedHistory = RestoreHistory.builder()
+                .id(UUID.randomUUID().toString())
+                .household(household)
+                .backupHistory(validBackup)
+                .restoredByUser(ownerUser)
+                .backupFileName(validBackup.getFileName())
+                .backupType(BackupType.FULL)
+                .status("SUCCESS")
+                .restoredAt(LocalDateTime.now())
+                .build();
+
+        when(restoreHistoryRepository.save(any(RestoreHistory.class))).thenReturn(savedHistory);
+
+        RestoreDataRequest request = RestoreDataRequest.builder()
+                .backupHistoryId(validBackup.getId())
+                .confirm(true)
+                .notes("Khôi phục khách hàng bị xóa nhầm")
+                .build();
+
+        RestoreResultResponse response = restoreService.executeRestore("chuho_test", request, "127.0.0.1", "JUnit-Test");
+
+        assertNotNull(response);
+        assertEquals("SUCCESS", response.getStatus());
+
+        // Kiểm tra khách hàng đã được khôi phục deletedAt = null
+        assertNull(deletedCustomer.getDeletedAt());
+        verify(customerRepository, atLeastOnce()).save(deletedCustomer);
+    }
+
+    @Test
+    @DisplayName("Phục hồi CSDL thành công sẽ khôi phục nhân viên bị khóa/xóa (deletedAt = null)")
+    void testExecuteRestore_RestoresDeletedStaff_Success() {
+        when(userRepository.findByUsername("chuho_test")).thenReturn(Optional.of(ownerUser));
+        when(backupHistoryRepository.findByIdAndHouseholdId(validBackup.getId(), household.getId()))
+                .thenReturn(Optional.of(validBackup));
+
+        User deletedStaff = User.builder()
+                .id("staff-del-1")
+                .username("nhanvien_cu")
+                .fullName("Trần Nhân Viên Cũ")
+                .household(household)
+                .role(Role.builder().id(2).code("VT-02").name("Nhân viên").build())
+                .createdAt(validBackup.getBackupTime().minusDays(2))
+                .deletedAt(validBackup.getBackupTime().plusMinutes(10))
+                .build();
+
+        when(userRepository.findByHouseholdId(household.getId())).thenReturn(List.of(deletedStaff));
+
+        RestoreHistory savedHistory = RestoreHistory.builder()
+                .id(UUID.randomUUID().toString())
+                .household(household)
+                .backupHistory(validBackup)
+                .restoredByUser(ownerUser)
+                .backupFileName(validBackup.getFileName())
+                .backupType(BackupType.FULL)
+                .status("SUCCESS")
+                .restoredAt(LocalDateTime.now())
+                .build();
+
+        when(restoreHistoryRepository.save(any(RestoreHistory.class))).thenReturn(savedHistory);
+
+        RestoreDataRequest request = RestoreDataRequest.builder()
+                .backupHistoryId(validBackup.getId())
+                .confirm(true)
+                .notes("Khôi phục tài khoản nhân viên")
+                .build();
+
+        RestoreResultResponse response = restoreService.executeRestore("chuho_test", request, "127.0.0.1", "JUnit-Test");
+
+        assertNotNull(response);
+        assertEquals("SUCCESS", response.getStatus());
+
+        // Kiểm tra nhân viên đã được khôi phục deletedAt = null
+        assertNull(deletedStaff.getDeletedAt());
+        verify(userRepository, atLeastOnce()).save(deletedStaff);
     }
 }

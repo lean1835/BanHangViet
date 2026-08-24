@@ -1,16 +1,15 @@
-import React, { useState, useMemo } from "react";
+import React, { useMemo } from "react";
 import {
   TrendingUp,
   TrendingDown,
-  RefreshCw,
   AlertCircle,
   BarChart3,
   CheckCircle2,
+  RefreshCw,
 } from "lucide-react";
 import { useCompareRevenueQuery } from "../services/reportApi";
+import { useReportFilter } from "../context/ReportFilterContext";
 import { formatCurrency } from "@/utils/formatCurrency";
-import { getLocalDateString } from "@/utils/dateFormatter";
-
 import { z } from "zod";
 
 export const revenueComparisonSchema = z
@@ -34,50 +33,9 @@ export const revenueComparisonSchema = z
     }
   );
 
-const getPresetPeriods = (preset: "monthVsMonth" | "weekVsWeek") => {
-  const now = new Date();
-  const todayStr = getLocalDateString(now);
-
-  if (preset === "weekVsWeek") {
-    // Period 2: last 7 days (today - 6 to today)
-    const p2Start = new Date(now);
-    p2Start.setDate(now.getDate() - 6);
-
-    // Period 1: 7 days before that (today - 13 to today - 7)
-    const p1End = new Date(now);
-    p1End.setDate(now.getDate() - 7);
-    const p1Start = new Date(now);
-    p1Start.setDate(now.getDate() - 13);
-
-    return {
-      period1Start: getLocalDateString(p1Start),
-      period1End: getLocalDateString(p1End),
-      period2Start: getLocalDateString(p2Start),
-      period2End: todayStr,
-    };
-  }
-
-  // monthVsMonth: Last month vs This month
-  const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-  const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-  const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0);
-
-  return {
-    period1Start: getLocalDateString(lastMonthStart),
-    period1End: getLocalDateString(lastMonthEnd),
-    period2Start: getLocalDateString(thisMonthStart),
-    period2End: todayStr,
-  };
-};
-
 export const RevenueComparison: React.FC = () => {
-  const defaultPeriods = useMemo(() => getPresetPeriods("monthVsMonth"), []);
-
-  const [period1Start, setPeriod1Start] = useState<string>(defaultPeriods.period1Start);
-  const [period1End, setPeriod1End] = useState<string>(defaultPeriods.period1End);
-  const [period2Start, setPeriod2Start] = useState<string>(defaultPeriods.period2Start);
-  const [period2End, setPeriod2End] = useState<string>(defaultPeriods.period2End);
-  const [activePreset, setActivePreset] = useState<"monthVsMonth" | "weekVsWeek" | "custom">("monthVsMonth");
+  const { comparisonFilter } = useReportFilter();
+  const { period1Start, period1End, period2Start, period2End } = comparisonFilter;
 
   // Zod validation
   const validationError = useMemo(() => {
@@ -99,26 +57,12 @@ export const RevenueComparison: React.FC = () => {
     data: comparisonRes,
     isLoading,
     isFetching,
-    refetch,
   } = useCompareRevenueQuery(
     { period1Start, period1End, period2Start, period2End },
     { skip: !isValid }
   );
 
   const result = comparisonRes?.result;
-
-  const handlePresetClick = (preset: "monthVsMonth" | "weekVsWeek") => {
-    const p = getPresetPeriods(preset);
-    setPeriod1Start(p.period1Start);
-    setPeriod1End(p.period1End);
-    setPeriod2Start(p.period2Start);
-    setPeriod2End(p.period2End);
-    setActivePreset(preset);
-  };
-
-  const handleReset = () => {
-    handlePresetClick("monthVsMonth");
-  };
 
   const formatDateVN = (dateStr: string) => {
     if (!dateStr) return "";
@@ -133,149 +77,27 @@ export const RevenueComparison: React.FC = () => {
   const isGrowth = (result?.differenceAmount || 0) >= 0;
 
   return (
-    <div className="max-w-7xl mx-auto flex flex-col gap-6">
-      {/* Control Box */}
-      <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col gap-5">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-4">
-          <div>
-            <h3 className="font-extrabold text-slate-800 text-sm flex items-center gap-2">
-              <BarChart3 className="w-4 h-4 text-kv-blue-primary" />
-              <span>So Sánh Doanh Thu Giữa Hai Kỳ</span>
-            </h3>
-            <p className="text-xs text-slate-500 font-medium mt-0.5">
-              So sánh doanh thu thực tế thu được giữa hai khoảng thời gian độc lập.
-            </p>
-          </div>
-
-          <div className="flex items-center gap-2 self-start sm:self-auto">
-            <button
-              onClick={() => handlePresetClick("monthVsMonth")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-extrabold transition-colors ${
-                activePreset === "monthVsMonth"
-                  ? "bg-kv-blue-primary text-white"
-                  : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-              }`}
-            >
-              Tháng này vs Tháng trước
-            </button>
-            <button
-              onClick={() => handlePresetClick("weekVsWeek")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-extrabold transition-colors ${
-                activePreset === "weekVsWeek"
-                  ? "bg-kv-blue-primary text-white"
-                  : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-              }`}
-            >
-              7 ngày qua vs 7 ngày trước
-            </button>
-          </div>
+    <div className="max-w-7xl mx-auto flex flex-col gap-6 w-full">
+      {/* Validation Warning */}
+      {validationError && (
+        <div className="flex items-center gap-2 p-3.5 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-xs font-bold shadow-xs">
+          <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
+          <span>{validationError}</span>
         </div>
+      )}
 
-        {/* Period Selection Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          {/* Period 1 */}
-          <div className="border border-blue-200 p-4 rounded-xl bg-blue-50/40 flex flex-col gap-3">
-            <div className="flex items-center justify-between">
-              <span className="font-extrabold text-xs text-blue-700 uppercase tracking-wide flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-blue-600 inline-block" />
-                Kỳ Gốc (Kỳ 1)
-              </span>
-              <span className="text-[11px] font-bold text-blue-600">
-                {formatDateVN(period1Start)} - {formatDateVN(period1End)}
-              </span>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="flex flex-col gap-1">
-                <label className="text-[11px] font-extrabold text-slate-600">Từ ngày</label>
-                <input
-                  type="date"
-                  value={period1Start}
-                  onChange={(e) => {
-                    setPeriod1Start(e.target.value);
-                    setActivePreset("custom");
-                  }}
-                  className="border border-slate-300 h-9 px-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-kv-blue-primary/20 focus:border-kv-blue-primary text-xs font-bold text-slate-700 bg-white"
-                />
-              </div>
-              <div className="flex flex-col gap-1">
-                <label className="text-[11px] font-extrabold text-slate-600">Đến ngày</label>
-                <input
-                  type="date"
-                  value={period1End}
-                  onChange={(e) => {
-                    setPeriod1End(e.target.value);
-                    setActivePreset("custom");
-                  }}
-                  className="border border-slate-300 h-9 px-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-kv-blue-primary/20 focus:border-kv-blue-primary text-xs font-bold text-slate-700 bg-white"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Period 2 */}
-          <div className="border border-purple-200 p-4 rounded-xl bg-purple-50/40 flex flex-col gap-3">
-            <div className="flex items-center justify-between">
-              <span className="font-extrabold text-xs text-purple-700 uppercase tracking-wide flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-purple-600 inline-block" />
-                Kỳ So Sánh (Kỳ 2)
-              </span>
-              <span className="text-[11px] font-bold text-purple-600">
-                {formatDateVN(period2Start)} - {formatDateVN(period2End)}
-              </span>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="flex flex-col gap-1">
-                <label className="text-[11px] font-extrabold text-slate-600">Từ ngày</label>
-                <input
-                  type="date"
-                  value={period2Start}
-                  onChange={(e) => {
-                    setPeriod2Start(e.target.value);
-                    setActivePreset("custom");
-                  }}
-                  className="border border-slate-300 h-9 px-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-kv-blue-primary/20 focus:border-kv-blue-primary text-xs font-bold text-slate-700 bg-white"
-                />
-              </div>
-              <div className="flex flex-col gap-1">
-                <label className="text-[11px] font-extrabold text-slate-600">Đến ngày</label>
-                <input
-                  type="date"
-                  value={period2End}
-                  onChange={(e) => {
-                    setPeriod2End(e.target.value);
-                    setActivePreset("custom");
-                  }}
-                  className="border border-slate-300 h-9 px-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-kv-blue-primary/20 focus:border-kv-blue-primary text-xs font-bold text-slate-700 bg-white"
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Validation Warning */}
-        {validationError && (
-          <div className="flex items-center gap-2 p-3 bg-rose-50 border border-rose-200 rounded-lg text-rose-700 text-xs font-bold">
-            <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
-            <span>{validationError}</span>
-          </div>
-        )}
-
-        {/* Actions Bar */}
-        <div className="flex items-center justify-end gap-3 pt-2">
-          <button
-            onClick={handleReset}
-            className="px-4 py-2 text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors border border-slate-200"
-          >
-            Đặt lại
-          </button>
-          <button
-            onClick={() => void refetch()}
-            disabled={!isValid || isFetching}
-            className="flex items-center gap-1.5 px-5 py-2 text-xs font-bold text-white bg-kv-blue-primary hover:bg-kv-blue-dark rounded-lg transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${isFetching ? "animate-spin" : ""}`} />
-            <span>{isFetching ? "Đang xử lý..." : "Thực hiện so sánh"}</span>
-          </button>
+      {/* Header Info */}
+      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <h3 className="font-extrabold text-slate-800 text-sm flex items-center gap-2">
+            <BarChart3 className="w-4 h-4 text-kv-blue-primary" />
+            <span>So Sánh Doanh Thu Giữa Hai Kỳ</span>
+          </h3>
+          <p className="text-xs text-slate-500 font-medium mt-0.5">
+            Kỳ 1 (Kỳ gốc): <strong className="text-blue-600 font-bold">{formatDateVN(period1Start)} - {formatDateVN(period1End)}</strong>
+            {" vs "}
+            Kỳ 2 (Kỳ so sánh): <strong className="text-purple-600 font-bold">{formatDateVN(period2Start)} - {formatDateVN(period2End)}</strong>
+          </p>
         </div>
       </div>
 

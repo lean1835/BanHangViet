@@ -20,6 +20,9 @@ public interface UserRepository extends JpaRepository<User, String> {
     @EntityGraph(attributePaths = {"role"})
     List<User> findByHouseholdIdAndDeletedAtIsNull(String householdId);
 
+    @EntityGraph(attributePaths = {"role"})
+    List<User> findByHouseholdId(String householdId);
+
     @EntityGraph(attributePaths = {"role", "household"})
     @Query("SELECT u FROM User u WHERE u.household.id = :householdId AND u.role.code = :roleCode AND u.deletedAt IS NULL")
     Optional<User> findFirstByHouseholdIdAndRoleCode(@Param("householdId") String householdId, @Param("roleCode") String roleCode);
