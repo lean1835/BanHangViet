@@ -51,6 +51,15 @@ public class AutoBackupServiceImplTest {
     private UserRepository userRepository;
 
     @Mock
+    private com.sales.repository.CustomerRepository customerRepository;
+
+    @Mock
+    private com.sales.repository.ProductRepository productRepository;
+
+    @Mock
+    private com.sales.repository.SupplierRepository supplierRepository;
+
+    @Mock
     private ActivityLogHelper activityLogHelper;
 
     @Spy

@@ -51,7 +51,7 @@ interface IDashboardDemoContext {
   refetchOrders: (syncedOrderNumbers?: string[]) => void;
 }
 
-const DashboardDemoContext = createContext<IDashboardDemoContext | null>(null);
+export const DashboardDemoContext = createContext<IDashboardDemoContext | null>(null);
 
 interface DashboardDemoProviderProps {
   children: ReactNode;

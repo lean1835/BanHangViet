@@ -1,5 +1,5 @@
-import { BackupExportPanel } from "../components/BackupExportPanel";
+import { BackupRestorePage } from "@/modules/backup_restore/pages/BackupRestorePage";
 
-export const BackupExportPage = () => <BackupExportPanel />;
+export const BackupExportPage = () => <BackupRestorePage />;
 
 export default BackupExportPage;

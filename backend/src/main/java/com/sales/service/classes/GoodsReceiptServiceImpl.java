@@ -46,7 +46,7 @@ public class GoodsReceiptServiceImpl implements GoodsReceiptService {
     private final GoodsReceiptDetailRepository goodsReceiptDetailRepository;
     private final ProductRepository productRepository;
     private final SupplierRepository supplierRepository;
-    private final ActivityLogRepository activityLogRepository;
+    private final ActivityLogHelper activityLogHelper;
     private final SupplierDebtService supplierDebtService;
     private final ObjectMapper objectMapper;
 
@@ -79,19 +79,7 @@ public class GoodsReceiptServiceImpl implements GoodsReceiptService {
             log.error("Failed to serialize log values for goods receipt", e);
         }
 
-        ActivityLog logRecord = ActivityLog.builder()
-                .household(household)
-                .user(actor)
-                .action(action)
-                .targetTable(LOG_TARGET_TABLE)
-                .targetId(targetId)
-                .oldValue(oldStr)
-                .newValue(newStr)
-                .clientIp(clientIp)
-                .userAgent(userAgent)
-                .build();
-
-        activityLogRepository.save(logRecord);
+        activityLogHelper.logActivityInNewTransaction(household, actor, action, LOG_TARGET_TABLE, targetId, oldStr, newStr, clientIp, userAgent);
     }
 
     private Map<String, Object> buildReceiptLogMap(GoodsReceipt receipt, List<GoodsReceiptDetail> details) {

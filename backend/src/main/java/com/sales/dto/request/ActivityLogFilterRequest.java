@@ -18,10 +18,10 @@ public class ActivityLogFilterRequest {
     private String action;
     private String targetTable;
 
-    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+    @DateTimeFormat(pattern = "yyyy-MM-dd['T'HH:mm:ss]")
     private LocalDateTime startDate;
 
-    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+    @DateTimeFormat(pattern = "yyyy-MM-dd['T'HH:mm:ss]")
     private LocalDateTime endDate;
 
     @Builder.Default

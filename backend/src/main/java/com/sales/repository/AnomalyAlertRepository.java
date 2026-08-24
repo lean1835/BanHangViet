@@ -20,9 +20,30 @@ import java.util.Optional;
 @Repository
 public interface AnomalyAlertRepository extends JpaRepository<AnomalyAlert, String>, JpaSpecificationExecutor<AnomalyAlert> {
 
-    @Override
     @EntityGraph(attributePaths = {"household", "actorUser", "reviewedByUser"})
-    Page<AnomalyAlert> findAll(Specification<AnomalyAlert> spec, Pageable pageable);
+    @Query("SELECT a FROM AnomalyAlert a " +
+            "LEFT JOIN a.household h " +
+            "LEFT JOIN a.actorUser u " +
+            "WHERE (:householdId IS NULL OR h.id = :householdId) " +
+            "AND (:alertType IS NULL OR a.alertType = :alertType) " +
+            "AND (:severity IS NULL OR a.severity = :severity) " +
+            "AND (:status IS NULL OR a.status = :status) " +
+            "AND (:actorUsername IS NULL OR LOWER(u.username) LIKE LOWER(CONCAT('%', :actorUsername, '%'))) " +
+            "AND (:keyword IS NULL OR LOWER(a.title) LIKE LOWER(CONCAT('%', :keyword, '%')) OR LOWER(a.description) LIKE LOWER(CONCAT('%', :keyword, '%'))) " +
+            "AND (:start IS NULL OR a.detectedAt >= :start) " +
+            "AND (:end IS NULL OR a.detectedAt <= :end) " +
+            "ORDER BY a.detectedAt DESC")
+    Page<AnomalyAlert> findFilteredAlerts(
+            @Param("householdId") String householdId,
+            @Param("alertType") com.sales.constant.AnomalyAlertType alertType,
+            @Param("severity") AnomalySeverity severity,
+            @Param("status") AnomalyAlertStatus status,
+            @Param("actorUsername") String actorUsername,
+            @Param("keyword") String keyword,
+            @Param("start") LocalDateTime start,
+            @Param("end") LocalDateTime end,
+            Pageable pageable
+    );
 
     @EntityGraph(attributePaths = {"household", "actorUser", "reviewedByUser"})
     Optional<AnomalyAlert> findByIdAndHouseholdId(String id, String householdId);

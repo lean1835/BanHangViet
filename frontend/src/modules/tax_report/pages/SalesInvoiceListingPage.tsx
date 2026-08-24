@@ -98,13 +98,8 @@ export const SalesInvoiceListingPage: React.FC = () => {
   // 7. Mutation xuất file Excel tờ khai thuế & bảng kê (NCL-12-CN-003)
   const [exportTaxDeclaration, { isLoading: isExporting }] = useExportTaxDeclarationMutation();
 
-  // TC-03 & TC-04: Security Check - Chặn vai trò Nhân viên bán hàng (VT-02)
-  if (currentRole === USER_ROLES.CASHIER) {
-    return <ForbiddenTaxReportAccess />;
-  }
-
   const handleFilterChange = (newFilters: Partial<ITaxPeriodQueryParams>) => {
-    setFilters((prev) => ({ ...prev, ...newFilters }));
+    setFilters((prev) => ({ ...prev, ...newFilters, page: 0 }));
     setErrorMessage(null);
   };
 
@@ -159,34 +154,58 @@ export const SalesInvoiceListingPage: React.FC = () => {
     }
   };
 
+  // TC-03 & TC-04: Security Check - Chặn vai trò Nhân viên bán hàng (VT-02)
+  if (currentRole === USER_ROLES.CASHIER) {
+    return <ForbiddenTaxReportAccess />;
+  }
+
   const currentPeriod = periodDetailData?.result;
   const pageResult = registerItemsData?.result;
   const rawItems = pageResult?.content || [];
 
-  // Lọc tìm kiếm client-side theo từ khóa nếu có
-  const filteredListingItems = filters.search?.trim()
-    ? rawItems.filter(
-      (item) =>
-        item.invoiceNumber.toLowerCase().includes(filters.search!.toLowerCase()) ||
-        item.invoiceSymbol.toLowerCase().includes(filters.search!.toLowerCase()) ||
-        (item.buyerName && item.buyerName.toLowerCase().includes(filters.search!.toLowerCase())) ||
-        (item.buyerTaxCode && item.buyerTaxCode.toLowerCase().includes(filters.search!.toLowerCase()))
-    )
+  // Client-side search by buyer name, tax code or invoice number
+  const filteredListingItems = filters.search
+    ? rawItems.filter((item) => {
+      const s = (filters.search || "").toLowerCase();
+      return (
+        item.buyerName?.toLowerCase().includes(s) ||
+        item.buyerTaxCode?.toLowerCase().includes(s) ||
+        item.invoiceNumber?.toLowerCase().includes(s) ||
+        item.invoiceSymbol?.toLowerCase().includes(s)
+      );
+    })
     : rawItems;
+
+  const isGlobalLoading =
+    isAllPeriodsLoading ||
+    isPeriodDetailLoading ||
+    isRegisterItemsLoading ||
+    isSummaryLoading ||
+    isGenerating;
 
   const summaryResult = revenueSummaryData?.result;
   const taxRateSummaries = summaryResult?.taxRateSummaries || [];
 
-  // Kiểm tra lỗi thuế ngưng hiệu lực (PRODUCT_TAX_RATE_INACTIVE)
-  const summaryApiError = summaryError as { data?: { code?: number; message?: string } };
-  const hasExpiredRateWarning = summaryApiError?.data?.code === 5005;
-  const expiredRateErrorMessage = hasExpiredRateWarning ? summaryApiError.data?.message : null;
+  // Parse 400 error when tax rates are expired or deactivated (NCL-12-CN-002 TC-02)
+  const isExpiredRateError =
+    summaryError &&
+    "status" in summaryError &&
+    (summaryError.status === 400 || summaryError.status === "CUSTOM_ERROR");
 
-  const isGlobalLoading = isAllPeriodsLoading || isGenerating || isPeriodDetailLoading;
+  const expiredRateErrorMessage =
+    isExpiredRateError &&
+      "data" in summaryError &&
+      typeof summaryError.data === "object" &&
+      summaryError.data &&
+      "message" in summaryError.data
+      ? String(summaryError.data.message)
+      : undefined;
+
+  const hasExpiredRateWarning = Boolean(isExpiredRateError);
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-6">
-      {/* Header Bar & Breadcrumb */}
+    <div className="space-y-6">
+      {/* Header & Title */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 mb-1">
@@ -195,26 +214,24 @@ export const SalesInvoiceListingPage: React.FC = () => {
             <span>Sổ sách thuế theo kỳ</span>
             <span>&rsaquo;</span>
             <span className="text-blue-600 font-bold">
-              {activeTab === "SUMMARY"
-                ? "Tổng hợp doanh thu chịu thuế"
-                : "Bảng kê hóa đơn bán ra"}
+              {activeTab === "SUMMARY" ? "Tổng hợp doanh thu chịu thuế" : "Bảng kê hóa đơn bán ra"}
             </span>
           </div>
-          <h1 className="text-2xl font-bold text-slate-800 tracking-tight">
+          <h1 className="text-xl font-black text-slate-800 tracking-tight">
             Sổ sách & Hỗ trợ kê khai thuế theo kỳ
           </h1>
-          <p className="text-xs text-slate-500 mt-1">
+          <p className="text-xs text-slate-500 font-medium">
             Quản lý tập trung Bảng kê hóa đơn bán ra và Tổng hợp doanh thu chịu thuế phân tách theo từng mức thuế suất.
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        {/* Action Button: Xuất Excel (NCL-12-CN-003) */}
+        <div className="flex items-center gap-2">
           <button
             onClick={() => setIsExportModalOpen(true)}
-            disabled={!activePeriodId || rawItems.length === 0}
-            className="px-4 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 hover:shadow-md hover:shadow-emerald-600/20 active:scale-95 hover:-translate-y-0.5 rounded-xl shadow-sm transition-all duration-200 ease-out flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed disabled:transform-none group"
+            className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:scale-98 text-white text-xs font-bold rounded-xl shadow-sm hover:shadow transition-all duration-200 flex items-center gap-2"
           >
-            <svg className="w-4 h-4 group-hover:scale-110 group-hover:-translate-y-0.5 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -222,13 +239,13 @@ export const SalesInvoiceListingPage: React.FC = () => {
                 d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
               />
             </svg>
-            Xuất tờ khai & Bảng kê (.xlsx)
+            <span>Xuất tờ khai & Bảng kê (.xlsx)</span>
           </button>
         </div>
       </div>
 
-      {/* Navigation Tabs Switcher */}
-      <div className="flex border-b border-slate-200 gap-2">
+      {/* Mode Switcher Tabs */}
+      <div className="flex items-center gap-4 border-b border-slate-200">
         <button
           onClick={() => setActiveTab("SUMMARY")}
           className={`pb-3 px-4 text-xs font-bold transition-all duration-200 flex items-center gap-2 border-b-2 hover:-translate-y-0.5 active:scale-98 group ${activeTab === "SUMMARY"
@@ -269,7 +286,7 @@ export const SalesInvoiceListingPage: React.FC = () => {
         </button>
       </div>
 
-      {/* Shared Filter Bar */}
+      {/* Shared Filter Bar (Vị trí gốc ngay trên bảng) */}
       <TaxPeriodFilterBar
         filters={filters}
         onChange={handleFilterChange}

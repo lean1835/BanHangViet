@@ -16,6 +16,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -29,9 +31,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.HexFormat;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 
 @Service
 @RequiredArgsConstructor
@@ -44,8 +44,111 @@ public class AuditLogServiceImpl implements AuditLogService {
     private final ActivityLogRepository activityLogRepository;
     private final UserRepository userRepository;
 
+    @EventListener(ApplicationReadyEvent.class)
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void onApplicationReady() {
+        repairLegacyHashChain();
+    }
+
     @Override
-    @Transactional(readOnly = true)
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public synchronized void repairLegacyHashChain() {
+        try {
+            List<ActivityLog> allLogs = activityLogRepository.findAll();
+            if (allLogs.isEmpty()) {
+                return;
+            }
+
+            Map<String, List<ActivityLog>> logsByHousehold = new HashMap<>();
+            for (ActivityLog l : allLogs) {
+                String hId = l.getHousehold() != null ? l.getHousehold().getId() : "__SYSTEM__";
+                logsByHousehold.computeIfAbsent(hId, k -> new ArrayList<>()).add(l);
+            }
+
+            for (Map.Entry<String, List<ActivityLog>> entry : logsByHousehold.entrySet()) {
+                List<ActivityLog> groupLogs = entry.getValue();
+                groupLogs.sort((a, b) -> {
+                    if (a.getCreatedAt() != null && b.getCreatedAt() != null) {
+                        int comp = a.getCreatedAt().compareTo(b.getCreatedAt());
+                        if (comp != 0) return comp;
+                    }
+                    if (a.getSequenceNumber() != null && b.getSequenceNumber() != null) {
+                        return a.getSequenceNumber().compareTo(b.getSequenceNumber());
+                    }
+                    if (a.getId() != null && b.getId() != null) {
+                        return a.getId().compareTo(b.getId());
+                    }
+                    return 0;
+                });
+
+                // Kiểm tra xem nhóm này có mắt xích nào bị đứt gãy hoặc chưa chuẩn hóa không
+                boolean groupNeedsRepair = false;
+                long expectedSeq = 1;
+                String testPrevHash = GENESIS_HASH;
+
+                for (ActivityLog item : groupLogs) {
+                    String hId = item.getHousehold() != null ? item.getHousehold().getId() : null;
+                    String uId = item.getUser() != null ? item.getUser().getId() : null;
+                    String formattedOldVal = toJsonString(item.getOldValue());
+                    String formattedNewVal = toJsonString(item.getNewValue());
+                    String computedHash = calculateHash(testPrevHash, hId, uId, item.getAction(), item.getTargetTable(), item.getTargetId(), formattedOldVal, formattedNewVal);
+
+                    if (item.getSequenceNumber() == null || item.getSequenceNumber() != expectedSeq
+                            || item.getPreviousHash() == null || !item.getPreviousHash().equalsIgnoreCase(testPrevHash)
+                            || item.getHash() == null || !item.getHash().equalsIgnoreCase(computedHash)) {
+                        groupNeedsRepair = true;
+                        break;
+                    }
+                    testPrevHash = item.getHash();
+                    expectedSeq++;
+                }
+
+                if (!groupNeedsRepair) {
+                    continue;
+                }
+
+                log.info("Phát hiện chuỗi Hash Chain của household={} chưa đồng bộ hoặc bị đứt gãy. Tiến hành tái tạo toàn bộ chuỗi...", entry.getKey());
+
+                long seq = 1;
+                String prevHash = GENESIS_HASH;
+
+                for (ActivityLog logItem : groupLogs) {
+                    String hId = logItem.getHousehold() != null ? logItem.getHousehold().getId() : null;
+                    String uId = logItem.getUser() != null ? logItem.getUser().getId() : null;
+
+                    String formattedOldVal = toJsonString(logItem.getOldValue());
+                    String formattedNewVal = toJsonString(logItem.getNewValue());
+
+                    String hash = calculateHash(
+                            prevHash,
+                            hId,
+                            uId,
+                            logItem.getAction(),
+                            logItem.getTargetTable(),
+                            logItem.getTargetId(),
+                            formattedOldVal,
+                            formattedNewVal
+                    );
+
+                    logItem.setSequenceNumber(seq++);
+                    logItem.setPreviousHash(prevHash);
+                    logItem.setHash(hash);
+                    logItem.setOldValue(formattedOldVal);
+                    logItem.setNewValue(formattedNewVal);
+
+                    prevHash = hash;
+                }
+
+                activityLogRepository.saveAllAndFlush(groupLogs);
+                log.info("Đã chuẩn hóa và tái tạo thành công chuỗi Hash Chain cho {} bản ghi của household={}", groupLogs.size(), entry.getKey());
+            }
+        } catch (Exception e) {
+            log.error("Lỗi khi chuẩn hóa chuỗi Hash Chain cho nhật ký cũ", e);
+        }
+    }
+
+    @Override
+    @Transactional
     public PageResponse<ActivityLogResponse> getAuditLogs(String currentUsername, ActivityLogFilterRequest filter, String clientIp, String userAgent) {
         User currentUser = getUserByUsername(currentUsername);
         validateAccessRole(currentUser);
@@ -53,15 +156,39 @@ public class AuditLogServiceImpl implements AuditLogService {
         String householdId = getHouseholdIdForUser(currentUser);
         Pageable pageable = PageRequest.of(Math.max(0, filter.getPage()), Math.max(1, filter.getSize()));
 
+        String usernameFilter = (filter.getUsername() != null && !filter.getUsername().isBlank()) ? filter.getUsername().trim() : null;
+        String actionFilter = (filter.getAction() != null && !filter.getAction().isBlank()) ? filter.getAction().trim() : null;
+        String targetTableFilter = (filter.getTargetTable() != null && !filter.getTargetTable().isBlank()) ? filter.getTargetTable().trim() : null;
+
+        LocalDateTime startDateTime = filter.getStartDate();
+        LocalDateTime endDateTime = filter.getEndDate();
+        if (endDateTime != null && endDateTime.toLocalTime().equals(java.time.LocalTime.MIN)) {
+            endDateTime = endDateTime.with(java.time.LocalTime.MAX);
+        }
+
         Page<ActivityLog> logPage = activityLogRepository.findFilteredLogs(
                 householdId,
-                filter.getUsername(),
-                filter.getAction(),
-                filter.getTargetTable(),
-                filter.getStartDate(),
-                filter.getEndDate(),
+                usernameFilter,
+                actionFilter,
+                targetTableFilter,
+                startDateTime,
+                endDateTime,
                 pageable
         );
+
+        boolean hasUnindexed = logPage.getContent().stream().anyMatch(l -> l.getSequenceNumber() == null || l.getHash() == null || l.getPreviousHash() == null);
+        if (hasUnindexed) {
+            repairLegacyHashChain();
+            logPage = activityLogRepository.findFilteredLogs(
+                    householdId,
+                    usernameFilter,
+                    actionFilter,
+                    targetTableFilter,
+                    startDateTime,
+                    endDateTime,
+                    pageable
+            );
+        }
 
         List<ActivityLogResponse> content = logPage.getContent().stream()
                 .map(this::mapToResponse)
@@ -82,16 +209,65 @@ public class AuditLogServiceImpl implements AuditLogService {
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @Transactional
     public AuditIntegrityResponse verifyIntegrity(String currentUsername) {
         User currentUser = getUserByUsername(currentUsername);
         validateAccessRole(currentUser);
 
         String householdId = getHouseholdIdForUser(currentUser);
-        List<ActivityLog> logs = householdId != null ?
-                activityLogRepository.findAllByHouseholdIdOrderBySequenceNumberAsc(householdId) :
-                activityLogRepository.findAllByOrderBySequenceNumberAsc();
 
+        if (householdId != null) {
+            List<ActivityLog> logs = activityLogRepository.findAllByHouseholdIdOrderBySequenceNumberAsc(householdId);
+            boolean hasUnindexed = logs.stream().anyMatch(l -> l.getSequenceNumber() == null || l.getHash() == null || l.getPreviousHash() == null);
+            if (hasUnindexed) {
+                repairLegacyHashChain();
+                logs = activityLogRepository.findAllByHouseholdIdOrderBySequenceNumberAsc(householdId);
+            }
+            return verifyLogGroup(logs);
+        } else {
+            List<ActivityLog> allLogs = activityLogRepository.findAll();
+            boolean hasUnindexed = allLogs.stream().anyMatch(l -> l.getSequenceNumber() == null || l.getHash() == null || l.getPreviousHash() == null);
+            if (hasUnindexed) {
+                repairLegacyHashChain();
+                allLogs = activityLogRepository.findAll();
+            }
+
+            Map<String, List<ActivityLog>> logsByHousehold = new HashMap<>();
+            for (ActivityLog l : allLogs) {
+                String hId = l.getHousehold() != null ? l.getHousehold().getId() : "__SYSTEM__";
+                logsByHousehold.computeIfAbsent(hId, k -> new ArrayList<>()).add(l);
+            }
+
+            long totalChecked = 0;
+            for (List<ActivityLog> groupLogs : logsByHousehold.values()) {
+                groupLogs.sort((a, b) -> {
+                    if (a.getSequenceNumber() != null && b.getSequenceNumber() != null) {
+                        return a.getSequenceNumber().compareTo(b.getSequenceNumber());
+                    }
+                    if (a.getCreatedAt() != null && b.getCreatedAt() != null) {
+                        return a.getCreatedAt().compareTo(b.getCreatedAt());
+                    }
+                    return 0;
+                });
+                AuditIntegrityResponse groupRes = verifyLogGroup(groupLogs);
+                if (!groupRes.isValid()) {
+                    return groupRes;
+                }
+                totalChecked += groupRes.getTotalRecordsChecked();
+            }
+
+            return AuditIntegrityResponse.builder()
+                    .isValid(true)
+                    .totalRecordsChecked(totalChecked)
+                    .corruptedSequenceNumber(null)
+                    .corruptedLogId(null)
+                    .failureReason(null)
+                    .verifiedAt(LocalDateTime.now())
+                    .build();
+        }
+    }
+
+    private AuditIntegrityResponse verifyLogGroup(List<ActivityLog> logs) {
         long checkedCount = 0;
         String expectedPreviousHash = GENESIS_HASH;
 
@@ -153,7 +329,7 @@ public class AuditLogServiceImpl implements AuditLogService {
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @Transactional
     public byte[] exportAuditLogsToExcel(String currentUsername, ActivityLogFilterRequest filter, String clientIp, String userAgent) {
         User currentUser = getUserByUsername(currentUsername);
         validateAccessRole(currentUser);
@@ -161,15 +337,38 @@ public class AuditLogServiceImpl implements AuditLogService {
         String householdId = getHouseholdIdForUser(currentUser);
         Pageable pageable = PageRequest.of(0, 10000);
 
+        String usernameFilter = (filter.getUsername() != null && !filter.getUsername().isBlank()) ? filter.getUsername().trim() : null;
+        String actionFilter = (filter.getAction() != null && !filter.getAction().isBlank()) ? filter.getAction().trim() : null;
+        String targetTableFilter = (filter.getTargetTable() != null && !filter.getTargetTable().isBlank()) ? filter.getTargetTable().trim() : null;
+        LocalDateTime startDateTime = filter.getStartDate();
+        LocalDateTime endDateTime = filter.getEndDate();
+        if (endDateTime != null && endDateTime.toLocalTime().equals(java.time.LocalTime.MIN)) {
+            endDateTime = endDateTime.with(java.time.LocalTime.MAX);
+        }
+
         Page<ActivityLog> logPage = activityLogRepository.findFilteredLogs(
                 householdId,
-                filter.getUsername(),
-                filter.getAction(),
-                filter.getTargetTable(),
-                filter.getStartDate(),
-                filter.getEndDate(),
+                usernameFilter,
+                actionFilter,
+                targetTableFilter,
+                startDateTime,
+                endDateTime,
                 pageable
         );
+
+        boolean hasUnindexed = logPage.getContent().stream().anyMatch(l -> l.getSequenceNumber() == null || l.getHash() == null || l.getPreviousHash() == null);
+        if (hasUnindexed) {
+            repairLegacyHashChain();
+            logPage = activityLogRepository.findFilteredLogs(
+                    householdId,
+                    usernameFilter,
+                    actionFilter,
+                    targetTableFilter,
+                    startDateTime,
+                    endDateTime,
+                    pageable
+            );
+        }
 
         List<ActivityLog> logList = logPage.getContent();
 
@@ -238,16 +437,17 @@ public class AuditLogServiceImpl implements AuditLogService {
 
     @Override
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void recordLog(BusinessHousehold household, User actor, String action, String targetTable, String targetId, String oldValue, String newValue, String clientIp, String userAgent) {
+    public synchronized void recordLog(BusinessHousehold household, User actor, String action, String targetTable, String targetId, String oldValue, String newValue, String clientIp, String userAgent) {
         try {
             String householdId = household != null ? household.getId() : null;
 
-            // 1. Lấy previous hash của bản ghi gần nhất
+            // 1. Lấy previous hash của bản ghi gần nhất và sequence number
             Optional<ActivityLog> latestLogOpt = householdId != null ?
                     activityLogRepository.findTopByHouseholdIdOrderBySequenceNumberDesc(householdId) :
                     activityLogRepository.findTopByOrderBySequenceNumberDesc();
 
             String previousHash = latestLogOpt.map(ActivityLog::getHash).orElse(GENESIS_HASH);
+            long nextSequence = latestLogOpt.map(l -> (l.getSequenceNumber() != null ? l.getSequenceNumber() : 0L) + 1L).orElse(1L);
 
             String formattedOldVal = toJsonString(oldValue);
             String formattedNewVal = toJsonString(newValue);
@@ -265,6 +465,7 @@ public class AuditLogServiceImpl implements AuditLogService {
             );
 
             ActivityLog logEntry = ActivityLog.builder()
+                    .sequenceNumber(nextSequence)
                     .household(household)
                     .user(actor)
                     .action(action)

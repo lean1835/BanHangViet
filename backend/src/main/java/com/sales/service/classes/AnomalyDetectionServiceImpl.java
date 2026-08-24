@@ -54,28 +54,33 @@ public class AnomalyDetectionServiceImpl implements AnomalyDetectionService {
     @Override
     @Transactional(readOnly = true)
     public PageResponse<AnomalyAlertResponse> getAnomalyAlerts(String currentUsername, AnomalyAlertFilterRequest filter, String clientIp, String userAgent) {
+        if (filter == null) {
+            filter = new AnomalyAlertFilterRequest();
+        }
         User currentUser = getUserByUsername(currentUsername);
         validateAccessRole(currentUser);
 
         String householdId = getHouseholdIdForUser(currentUser);
         Pageable pageable = PageRequest.of(
                 Math.max(0, filter.getPage()),
-                Math.max(1, filter.getSize()),
+                Math.max(1, filter.getSize() <= 0 ? 15 : filter.getSize()),
                 Sort.by(Sort.Direction.DESC, "detectedAt")
         );
 
-        Specification<AnomalyAlert> spec = AnomalyAlertSpecification.filterAlerts(
+        String keyword = (filter.getKeyword() != null && !filter.getKeyword().isBlank()) ? filter.getKeyword().trim() : null;
+        String actorUsername = (filter.getActorUsername() != null && !filter.getActorUsername().isBlank()) ? filter.getActorUsername().trim() : null;
+
+        Page<AnomalyAlert> alertPage = anomalyAlertRepository.findFilteredAlerts(
                 householdId,
                 filter.getAlertType(),
                 filter.getSeverity(),
                 filter.getStatus(),
-                filter.getActorUsername(),
-                filter.getKeyword(),
+                actorUsername,
+                keyword,
                 filter.getStartDate(),
-                filter.getEndDate()
+                filter.getEndDate(),
+                pageable
         );
-
-        Page<AnomalyAlert> alertPage = anomalyAlertRepository.findAll(spec, pageable);
 
         List<AnomalyAlertResponse> content = alertPage.getContent().stream()
                 .map(this::mapToResponse)

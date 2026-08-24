@@ -14,8 +14,14 @@ import com.sales.entity.BusinessHousehold;
 import com.sales.entity.User;
 import com.sales.exception.AppException;
 import com.sales.exception.ErrorCode;
+import com.sales.entity.Customer;
+import com.sales.entity.Product;
+import com.sales.entity.Supplier;
 import com.sales.repository.BackupConfigRepository;
 import com.sales.repository.BackupHistoryRepository;
+import com.sales.repository.CustomerRepository;
+import com.sales.repository.ProductRepository;
+import com.sales.repository.SupplierRepository;
 import com.sales.repository.UserRepository;
 import com.sales.service.interfaces.AutoBackupService;
 import lombok.RequiredArgsConstructor;
@@ -27,6 +33,10 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -42,6 +52,9 @@ public class AutoBackupServiceImpl implements AutoBackupService {
     private final BackupConfigRepository backupConfigRepository;
     private final BackupHistoryRepository backupHistoryRepository;
     private final UserRepository userRepository;
+    private final CustomerRepository customerRepository;
+    private final ProductRepository productRepository;
+    private final SupplierRepository supplierRepository;
     private final ActivityLogHelper activityLogHelper;
     private final ObjectMapper objectMapper;
 
@@ -189,14 +202,100 @@ public class AutoBackupServiceImpl implements AutoBackupService {
                 timestampStr,
                 ext);
 
-        long simulatedFileSize = 1024L * 256L; // 256KB simulated file size
+        // Lấy dữ liệu snapshot của Hộ kinh doanh
+        Map<String, Object> snapshotData = new HashMap<>();
+        snapshotData.put("householdId", household.getId());
+        snapshotData.put("backupTime", LocalDateTime.now().toString());
+
+        if (customerRepository != null) {
+            List<Customer> customers = customerRepository.findAllByHouseholdIdAndDeletedAtIsNull(household.getId());
+            List<Map<String, Object>> customerList = customers.stream().map(c -> {
+                Map<String, Object> m = new HashMap<>();
+                m.put("id", c.getId());
+                m.put("name", c.getName());
+                m.put("phoneNumber", c.getPhoneNumber());
+                m.put("email", c.getEmail());
+                m.put("address", c.getAddress());
+                m.put("creditLimit", c.getCreditLimit());
+                m.put("currentDebt", c.getCurrentDebt());
+                m.put("reminderDaysBefore", c.getReminderDaysBefore());
+                m.put("reminderDaysAfter", c.getReminderDaysAfter());
+                return m;
+            }).collect(Collectors.toList());
+            snapshotData.put("customers", customerList);
+        }
+
+        if (productRepository != null) {
+            List<Product> products = productRepository.findAllByHouseholdIdAndDeletedAtIsNull(household.getId());
+            List<Map<String, Object>> productList = products.stream().map(p -> {
+                Map<String, Object> m = new HashMap<>();
+                m.put("id", p.getId());
+                m.put("sku", p.getSku());
+                m.put("name", p.getName());
+                m.put("unit", p.getUnit());
+                m.put("costPrice", p.getCostPrice());
+                m.put("price", p.getPrice());
+                m.put("stockQuantity", p.getStockQuantity());
+                m.put("minStockQuantity", p.getMinStockQuantity());
+                m.put("status", p.getStatus());
+                return m;
+            }).collect(Collectors.toList());
+            snapshotData.put("products", productList);
+        }
+
+        if (supplierRepository != null) {
+            List<Supplier> suppliers = supplierRepository.findAllByHouseholdIdAndDeletedAtIsNull(household.getId());
+            List<Map<String, Object>> supplierList = suppliers.stream().map(s -> {
+                Map<String, Object> m = new HashMap<>();
+                m.put("id", s.getId());
+                m.put("name", s.getName());
+                m.put("phoneNumber", s.getPhoneNumber());
+                m.put("email", s.getEmail());
+                m.put("address", s.getAddress());
+                m.put("taxCode", s.getTaxCode());
+                m.put("currentDebt", s.getCurrentDebt());
+                return m;
+            }).collect(Collectors.toList());
+            snapshotData.put("suppliers", supplierList);
+        }
+
+        if (userRepository != null) {
+            List<User> users = userRepository.findByHouseholdIdAndDeletedAtIsNull(household.getId());
+            List<Map<String, Object>> userList = users.stream().map(u -> {
+                Map<String, Object> m = new HashMap<>();
+                m.put("id", u.getId());
+                m.put("username", u.getUsername());
+                m.put("fullName", u.getFullName());
+                m.put("phoneNumber", u.getPhoneNumber());
+                m.put("isActive", u.getIsActive());
+                m.put("roleCode", u.getRole() != null ? u.getRole().getCode() : null);
+                m.put("roleId", u.getRole() != null ? u.getRole().getId() : null);
+                return m;
+            }).collect(Collectors.toList());
+            snapshotData.put("users", userList);
+        }
+
+        long actualFileSize = 1024L * 256L;
+        String filePath = "/backups/" + household.getId() + "/" + fileName;
+
+        try {
+            String jsonStr = objectMapper.writeValueAsString(snapshotData);
+            Path backupDir = Paths.get("backups", household.getId());
+            Files.createDirectories(backupDir);
+            Path diskPath = backupDir.resolve(fileName + ".json");
+            Files.writeString(diskPath, jsonStr, StandardCharsets.UTF_8);
+            actualFileSize = Math.max(Files.size(diskPath), 1024L);
+            filePath = diskPath.toString().replace("\\", "/");
+        } catch (Exception e) {
+            log.warn("Không thể ghi file snapshot JSON xuống ổ đĩa: {}", e.getMessage());
+        }
 
         BackupHistory history = BackupHistory.builder()
                 .household(household)
                 .createdByUser(user)
                 .fileName(fileName)
-                .filePath("/backups/" + household.getId() + "/" + fileName)
-                .fileSize(simulatedFileSize)
+                .filePath(filePath)
+                .fileSize(actualFileSize)
                 .backupType(type)
                 .triggerType(triggerType)
                 .status("SUCCESS")

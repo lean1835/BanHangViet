@@ -16,6 +16,10 @@ import java.util.Optional;
 @Repository
 public interface ActivityLogRepository extends JpaRepository<ActivityLog, String> {
 
+    @Override
+    @EntityGraph(attributePaths = {"user", "household"})
+    List<ActivityLog> findAll();
+
     @EntityGraph(attributePaths = {"user", "household"})
     Optional<ActivityLog> findTopByHouseholdIdOrderBySequenceNumberDesc(String householdId);
 
@@ -44,8 +48,10 @@ public interface ActivityLogRepository extends JpaRepository<ActivityLog, String
 
     @EntityGraph(attributePaths = {"user", "household"})
     @Query("SELECT a FROM ActivityLog a " +
-            "WHERE (:householdId IS NULL OR a.household.id = :householdId) " +
-            "AND (:username IS NULL OR LOWER(a.user.username) LIKE LOWER(CONCAT('%', :username, '%'))) " +
+            "LEFT JOIN a.household h " +
+            "LEFT JOIN a.user u " +
+            "WHERE (:householdId IS NULL OR h.id = :householdId) " +
+            "AND (:username IS NULL OR LOWER(u.username) LIKE LOWER(CONCAT('%', :username, '%'))) " +
             "AND (:action IS NULL OR LOWER(a.action) LIKE LOWER(CONCAT('%', :action, '%'))) " +
             "AND (:targetTable IS NULL OR LOWER(a.targetTable) LIKE LOWER(CONCAT('%', :targetTable, '%'))) " +
             "AND (:start IS NULL OR a.createdAt >= :start) " +
