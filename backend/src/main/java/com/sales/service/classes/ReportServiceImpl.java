@@ -37,6 +37,7 @@ public class ReportServiceImpl implements ReportService {
     private final OrderRepository orderRepository;
     private final EInvoiceRepository eInvoiceRepository;
     private final ActivityLogRepository activityLogRepository;
+    private final ActivityLogHelper activityLogHelper;
     private final ShiftRepository shiftRepository;
     private final CustomerDebtRepository customerDebtRepository;
     private final ObjectMapper objectMapper;
@@ -182,19 +183,17 @@ public class ReportServiceImpl implements ReportService {
             logPayload.put("notes", notes != null ? notes : "");
             String newValueJson = objectMapper.writeValueAsString(logPayload);
 
-            ActivityLog logRecord = ActivityLog.builder()
-                    .household(household)
-                    .user(currentUser)
-                    .action("CHOT_DOI_CHIEU_NGAY")
-                    .targetTable("orders")
-                    .targetId(household.getId())
-                    .oldValue(null)
-                    .newValue(newValueJson)
-                    .clientIp(null)
-                    .userAgent(null)
-                    .build();
-
-            activityLogRepository.save(logRecord);
+            activityLogHelper.logActivityInNewTransaction(
+                    household,
+                    currentUser,
+                    "CHOT_DOI_CHIEU_NGAY",
+                    "orders",
+                    household.getId(),
+                    null,
+                    newValueJson,
+                    null,
+                    null
+            );
             log.info("Chốt đối chiếu ngày thành công. Hộ={}, Ngày={}, Ghi chú={}", household.getId(), date, notes);
         } catch (Exception e) {
             log.error("Lỗi khi serialize kết quả đối chiếu", e);

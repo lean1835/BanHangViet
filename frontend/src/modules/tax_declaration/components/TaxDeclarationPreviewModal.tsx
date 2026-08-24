@@ -5,7 +5,6 @@ import {
   Printer,
   FileText,
   FileSpreadsheet,
-  FileCode,
   ZoomIn,
   ZoomOut,
   RotateCcw,
@@ -247,20 +246,6 @@ export const TaxDeclarationPreviewModal: React.FC<
                     <FileSpreadsheet className="w-3.5 h-3.5 shrink-0 stroke-[2.2]" />
                   )}
                   <span>Tải Excel từ Máy chủ</span>
-                </button>
-
-                <button
-                  type="button"
-                  disabled={isExporting}
-                  onClick={() => onExport("XML")}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 active:scale-95 text-white font-bold text-xs transition-all duration-150 shadow-sm hover:shadow-md hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 cursor-pointer select-none"
-                >
-                  {isExporting ? (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0 stroke-[2.5]" />
-                  ) : (
-                    <FileCode className="w-3.5 h-3.5 shrink-0 stroke-[2.2]" />
-                  )}
-                  <span>Tải XML eTax</span>
                 </button>
               </>
             )}

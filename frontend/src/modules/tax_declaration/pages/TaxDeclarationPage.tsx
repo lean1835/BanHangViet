@@ -8,6 +8,7 @@ import {
   FolderOpen,
 } from "lucide-react";
 import { REPORT_UI } from "@/constants/report";
+import { formatDateOnly } from "@/utils/dateFormatter";
 import type { ITaxPeriodOption } from "../types/ITaxDeclaration";
 import {
   useGetAllTaxPeriodsQuery,
@@ -63,9 +64,11 @@ export const TaxDeclarationPage: React.FC = () => {
           ? `Quý ${p.periodNumber}`
           : `Tháng ${p.periodNumber}`;
       const statusLabel = p.status === "LOCKED" ? " [Đã chốt]" : "";
+      const formattedStartDate = formatDateOnly(p.startDate);
+      const formattedEndDate = formatDateOnly(p.endDate);
       return {
         value: p.id,
-        label: `${typeLabel} / ${p.year} (${p.startDate} - ${p.endDate})${statusLabel}`,
+        label: `${typeLabel}/${p.year} (${formattedStartDate} - ${formattedEndDate})${statusLabel}`,
         type: p.periodType,
         periodNumber: p.periodNumber,
         year: p.year,

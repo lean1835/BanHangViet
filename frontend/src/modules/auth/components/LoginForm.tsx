@@ -13,6 +13,7 @@ import {
 import { z } from "zod";
 import { DemoAccountsPanel } from "./DemoAccountsPanel";
 import { getApiErrorMessage } from "@/utils/getApiErrorMessage";
+import { recordFailedLoginAttempt } from "@/modules/anomaly_alert/utils/anomalyStorage";
 
 const loginSchema = z.object({
   [AUTH_FORM_FIELDS.USERNAME]: z
@@ -41,26 +42,33 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
 
   const handleFinish = async (formValues: unknown) => {
     setErrorMsg(null);
-    try {
-      // Validate with Zod
-      const values = loginSchema.parse(formValues);
+    const rawUsername =
+      (formValues as Record<string, unknown>)?.[AUTH_FORM_FIELDS.USERNAME] as string ||
+      (formValues as Record<string, unknown>)?.username as string ||
+      "nguoidung";
 
-      const response = await login(values).unwrap();
-      dispatch(setCredentials(response));
-      onSuccess();
+    try {
+      const parsedValues = loginSchema.parse(formValues);
+
+      try {
+        const response = await login(parsedValues).unwrap();
+        dispatch(setCredentials(response));
+        onSuccess();
+      } catch (apiError: unknown) {
+        const message = getApiErrorMessage(apiError, AUTH_MESSAGES.LOGIN_FAILED);
+        setErrorMsg(message);
+        // Ghi nhận cảnh báo đăng nhập thất bại bất thường
+        recordFailedLoginAttempt(parsedValues.username, message);
+      }
     } catch (error: unknown) {
       if (error instanceof z.ZodError) {
-        setErrorMsg(
-          error.issues[0]?.message ??
-            AUTH_MESSAGES.LOGIN_INVALID_DATA,
-        );
+        const msg = error.issues[0]?.message ?? AUTH_MESSAGES.LOGIN_INVALID_DATA;
+        setErrorMsg(msg);
+        recordFailedLoginAttempt(rawUsername, msg);
       } else {
-        setErrorMsg(
-          getApiErrorMessage(
-            error,
-            AUTH_MESSAGES.LOGIN_FAILED,
-          ),
-        );
+        const msg = getApiErrorMessage(error, AUTH_MESSAGES.LOGIN_FAILED);
+        setErrorMsg(msg);
+        recordFailedLoginAttempt(rawUsername, msg);
       }
     }
   };

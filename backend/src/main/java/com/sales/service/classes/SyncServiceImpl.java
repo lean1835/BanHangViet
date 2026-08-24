@@ -57,13 +57,14 @@ public class SyncServiceImpl implements SyncService {
     private final CustomerRepository customerRepository;
     private final ShiftRepository shiftRepository;
     private final UserRepository userRepository;
-    private final ActivityLogRepository activityLogRepository;
+    private final ActivityLogHelper activityLogHelper;
     private final EInvoiceRepository eInvoiceRepository;
     private final EInvoiceService eInvoiceService;
     private final SyncSessionRepository syncSessionRepository;
     private final SyncSessionDetailRepository syncSessionDetailRepository;
     private final ObjectMapper objectMapper;
     private final ApplicationEventPublisher eventPublisher;
+    private final CustomerDebtRepository customerDebtRepository;
 
     private User getAuthenticatedUser(String username) {
         return userRepository.findByUsername(username)
@@ -85,19 +86,7 @@ public class SyncServiceImpl implements SyncService {
             String oldStr = oldValue != null ? objectMapper.writeValueAsString(oldValue) : null;
             String newStr = newValue != null ? objectMapper.writeValueAsString(newValue) : null;
 
-            ActivityLog logRecord = ActivityLog.builder()
-                    .household(household)
-                    .user(actor)
-                    .action(action)
-                    .targetTable("orders")
-                    .targetId(targetId)
-                    .oldValue(oldStr)
-                    .newValue(newStr)
-                    .clientIp(clientIp)
-                    .userAgent(userAgent)
-                    .build();
-
-            activityLogRepository.save(logRecord);
+            activityLogHelper.logActivityInNewTransaction(household, actor, action, "orders", targetId, oldStr, newStr, clientIp, userAgent);
         } catch (Exception e) {
             log.error("Failed to write activity log in sync service", e);
         }

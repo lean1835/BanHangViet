@@ -40,7 +40,7 @@ public class OrderServiceImpl implements OrderService {
     private final CustomerRepository customerRepository;
     private final ShiftRepository shiftRepository;
     private final UserRepository userRepository;
-    private final ActivityLogRepository activityLogRepository;
+    private final ActivityLogHelper activityLogHelper;
     private final ObjectMapper objectMapper;
     private final CustomerDebtRepository customerDebtRepository;
 
@@ -60,6 +60,16 @@ public class OrderServiceImpl implements OrderService {
         if (order.getShift() != null && order.getShift().getStatus() == ShiftStatus.CLOSED) {
             throw new AppException(ErrorCode.SHIFT_ALREADY_CLOSED);
         }
+    }
+
+    private String getClientIp() {
+        ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+        return attributes != null ? attributes.getRequest().getRemoteAddr() : null;
+    }
+
+    private String getUserAgent() {
+        ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+        return attributes != null ? attributes.getRequest().getHeader("User-Agent") : null;
     }
 
     private String generateQrCodeUrl(Order order) {
@@ -89,19 +99,7 @@ public class OrderServiceImpl implements OrderService {
             String oldStr = oldValue != null ? objectMapper.writeValueAsString(oldValue) : null;
             String newStr = newValue != null ? objectMapper.writeValueAsString(newValue) : null;
 
-            ActivityLog logRecord = ActivityLog.builder()
-                    .household(household)
-                    .user(actor)
-                    .action(action)
-                    .targetTable("orders")
-                    .targetId(targetId)
-                    .oldValue(oldStr)
-                    .newValue(newStr)
-                    .clientIp(clientIp)
-                    .userAgent(userAgent)
-                    .build();
-
-            activityLogRepository.save(logRecord);
+            activityLogHelper.logActivityInNewTransaction(household, actor, action, "orders", targetId, oldStr, newStr, clientIp, userAgent);
         } catch (Exception e) {
             log.error("Failed to write activity log", e);
         }
@@ -231,10 +229,6 @@ public class OrderServiceImpl implements OrderService {
 
         // QTN-15 / NCL-03-CN-006-TC-02: Check active shift
         Shift activeShift = shiftRepository.findByUserIdAndStatus(currentUser.getId(), ShiftStatus.OPEN)
-                .orElseThrow(() -> new AppException(ErrorCode.ACTIVE_SHIFT_NOT_FOUND));
-
-        // Lock the active shift to prevent concurrency race with closeShift
-        activeShift = shiftRepository.findByIdForUpdate(activeShift.getId())
                 .orElseThrow(() -> new AppException(ErrorCode.ACTIVE_SHIFT_NOT_FOUND));
 
         if (activeShift.getStatus() == ShiftStatus.CLOSED) {

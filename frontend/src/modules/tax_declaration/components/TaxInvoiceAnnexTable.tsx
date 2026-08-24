@@ -2,6 +2,7 @@ import React, { useState, useMemo } from "react";
 import { Search, FileText, CheckCircle2, ArrowDownRight, ArrowUpRight, ChevronLeft, ChevronRight } from "lucide-react";
 import type { ITaxSalesRegisterItemResponse } from "../types/ITaxDeclaration";
 import { formatCurrency } from "@/utils/formatCurrency";
+import { formatDateOnly } from "@/utils/dateFormatter";
 
 interface ITaxInvoiceAnnexTableProps {
   invoices: ITaxSalesRegisterItemResponse[];
@@ -104,9 +105,7 @@ export const TaxInvoiceAnnexTable: React.FC<ITaxInvoiceAnnexTableProps> = ({
             ) : paginatedInvoices.length > 0 ? (
               paginatedInvoices.map((inv, idx) => {
                 const totalAmount = Number(inv.revenueAmount || 0) + Number(inv.taxAmount || 0);
-                const formattedDate = inv.issueDate
-                  ? inv.issueDate.split("T")[0]
-                  : "-";
+                const formattedDate = formatDateOnly(inv.issueDate);
 
                 return (
                   <tr key={inv.id || idx} className="hover:bg-slate-50 transition-colors">

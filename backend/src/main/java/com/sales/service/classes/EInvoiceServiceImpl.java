@@ -48,7 +48,7 @@ public class EInvoiceServiceImpl implements EInvoiceService {
     private final EInvoiceRepository eInvoiceRepository;
     private final EInvoiceItemRepository eInvoiceItemRepository;
     private final InvoiceStatusLogRepository invoiceStatusLogRepository;
-    private final ActivityLogRepository activityLogRepository;
+    private final ActivityLogHelper activityLogHelper;
     private final ProductRepository productRepository;
     private final InvoiceTemplateRepository invoiceTemplateRepository;
     private final OrderRepository orderRepository;
@@ -78,19 +78,7 @@ public class EInvoiceServiceImpl implements EInvoiceService {
             String oldStr = oldValue != null ? objectMapper.writeValueAsString(oldValue) : null;
             String newStr = newValue != null ? objectMapper.writeValueAsString(newValue) : null;
 
-            ActivityLog logRecord = ActivityLog.builder()
-                    .household(household)
-                    .user(actor)
-                    .action(action)
-                    .targetTable("e_invoices")
-                    .targetId(targetId)
-                    .oldValue(oldStr)
-                    .newValue(newStr)
-                    .clientIp(clientIp)
-                    .userAgent(userAgent)
-                    .build();
-
-            activityLogRepository.save(logRecord);
+            activityLogHelper.logActivityInNewTransaction(household, actor, action, "e_invoices", targetId, oldStr, newStr, clientIp, userAgent);
         } catch (Exception e) {
             log.error("Failed to write activity log for invoice", e);
         }

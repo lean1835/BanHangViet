@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { createPortal } from "react-dom";
-import { Search, Plus, Edit, Trash2, Users, ClipboardCheck, LayoutGrid, List } from "lucide-react";
+import { Search, Plus, Edit, Trash2, Users, ClipboardCheck, LayoutGrid, List, RotateCw } from "lucide-react";
 import {
   EMPLOYEE_MESSAGES,
   EMPLOYEE_ROLE_FILTER_ALL,
@@ -29,6 +29,9 @@ interface EmployeeListProps {
   statusFilter: TEmployeeStatusFilter;
   selectedRole: string;
   userRole?: string;
+  isLoading?: boolean;
+  isFetching?: boolean;
+  refetch?: () => void;
 }
 
 export const EmployeeList: React.FC<EmployeeListProps> = ({
@@ -39,6 +42,9 @@ export const EmployeeList: React.FC<EmployeeListProps> = ({
   statusFilter,
   selectedRole,
   userRole,
+  isLoading,
+  isFetching,
+  refetch,
 }) => {
   const isOwner = userRole === USER_ROLES.OWNER;
   const { showSuccess, showError, showInfo } = useNotification();
@@ -70,6 +76,7 @@ export const EmployeeList: React.FC<EmployeeListProps> = ({
         await createEmployee(emp).unwrap();
         showSuccess(EMPLOYEE_MESSAGES.CREATED);
       }
+      refetch?.();
     } catch (error: unknown) {
       showError(
         EMPLOYEE_MESSAGES.ERROR_PREFIX +
@@ -94,6 +101,7 @@ export const EmployeeList: React.FC<EmployeeListProps> = ({
       await deleteEmployee(employeeToDelete.id).unwrap();
       showSuccess(EMPLOYEE_MESSAGES.DELETED);
       setEmployeeToDelete(null);
+      refetch?.();
     } catch (error: unknown) {
       showError(
         EMPLOYEE_MESSAGES.ERROR_PREFIX +
@@ -165,6 +173,16 @@ export const EmployeeList: React.FC<EmployeeListProps> = ({
               {EMPLOYEE_UI.LIST.REVIEW_LABEL}
             </button>
           )}
+          {refetch && (
+            <button
+              onClick={() => refetch()}
+              disabled={isFetching}
+              title="Làm mới dữ liệu nhân viên"
+              className="flex h-11 w-11 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 text-slate-600 transition-all hover:bg-slate-100 disabled:opacity-50 lg:h-9 lg:w-9"
+            >
+              <RotateCw size={14} className={isFetching ? "animate-spin text-kv-blue-primary" : ""} />
+            </button>
+          )}
           <div className="flex items-center border rounded-lg p-0.5 bg-slate-50">
             <button
               type="button"
@@ -199,7 +217,12 @@ export const EmployeeList: React.FC<EmployeeListProps> = ({
       </div>
 
       {/* Table Content */}
-      {filteredEmployees.length > 0 ? (
+      {isLoading ? (
+        <div className="flex-1 flex flex-col justify-center items-center py-16">
+          <div className="w-8 h-8 border-4 border-kv-blue-primary border-t-transparent rounded-full animate-spin mb-3"></div>
+          <span className="text-xs font-semibold text-slate-500">Đang tải danh sách nhân viên...</span>
+        </div>
+      ) : filteredEmployees.length > 0 ? (
         <div className="overflow-x-auto">
           <table className="responsive-data-table responsive-data-table--page w-full text-left border-collapse">
             <thead>

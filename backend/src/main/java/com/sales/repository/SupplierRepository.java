@@ -25,6 +25,8 @@ public interface SupplierRepository extends JpaRepository<Supplier, String> {
     @EntityGraph(attributePaths = {"household"})
     List<Supplier> findAllByHouseholdIdAndDeletedAtIsNull(String householdId);
 
+    List<Supplier> findAllByHouseholdId(String householdId);
+
     @EntityGraph(attributePaths = {"household"})
     @Query("SELECT s FROM Supplier s WHERE s.household.id = :householdId AND s.deletedAt IS NULL " +
            "AND (LOWER(s.name) LIKE LOWER(CONCAT('%', :query, '%')) OR s.phoneNumber LIKE CONCAT('%', :query, '%'))")

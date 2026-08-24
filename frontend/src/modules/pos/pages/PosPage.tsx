@@ -39,6 +39,7 @@ import { PosCartTable } from "../components/PosCartTable";
 import { PosPaymentSidebar } from "../components/PosPaymentSidebar";
 import { CustomerFormModal } from "@/modules/customer/components/CustomerFormModal";
 import { OrderSuccessModal } from "../components/OrderSuccessModal";
+import { recordOrderDiscount } from "@/modules/anomaly_alert/utils/anomalyStorage";
 
 const POS_TABS_STORAGE_KEY = "pos_tabs_state_v1";
 
@@ -602,6 +603,17 @@ export const PosPage = () => {
         amountGiven: effectiveAmountGiven,
       }).unwrap();
 
+      if (discountCash > 0 && totalCart > 0) {
+        const discountPercent = Math.round((discountCash / totalCart) * 100);
+        recordOrderDiscount({
+          orderNumber: activeTab.orderNumber,
+          totalAmount: totalCart,
+          discountPercent,
+          discountAmount: discountCash,
+          actorUsername: "chuho_viet",
+        });
+      }
+
       setCompletedOrderData({
         tab: { ...activeTab, backendOrderId: orderId!, amountGiven: effectiveAmountGiven },
         changeAmount,
@@ -611,6 +623,16 @@ export const PosPage = () => {
       updateActiveTab({ backendOrderId: orderId!, status: "COMPLETED", isSaved: true });
     } catch (err: any) {
       if (!window.navigator.onLine || err?.status === "FETCH_ERROR" || err?.status === 0) {
+        if (discountCash > 0 && totalCart > 0) {
+          const discountPercent = Math.round((discountCash / totalCart) * 100);
+          recordOrderDiscount({
+            orderNumber: activeTab.orderNumber,
+            totalAmount: totalCart,
+            discountPercent,
+            discountAmount: discountCash,
+            actorUsername: "chuho_viet",
+          });
+        }
         completeOrderOffline(
           totalCart,
           discountCash,
