@@ -145,8 +145,8 @@ export const getOfflineConfig = (): IOfflineConfig => {
     if (!raw) return { maxOrders: 50, maxHours: 24 };
     const parsed = JSON.parse(raw);
     return {
-      maxOrders: typeof parsed.maxOrders === "number" && parsed.maxOrders > 0 ? parsed.maxOrders : 50,
-      maxHours: typeof parsed.maxHours === "number" && parsed.maxHours > 0 ? parsed.maxHours : 24,
+      maxOrders: typeof parsed.maxOrders === "number" && parsed.maxOrders >= 0 ? parsed.maxOrders : 50,
+      maxHours: typeof parsed.maxHours === "number" && parsed.maxHours >= 0 ? parsed.maxHours : 24,
     };
   } catch {
     return { maxOrders: 50, maxHours: 24 };
@@ -157,8 +157,8 @@ export const saveOfflineConfig = (config: Partial<IOfflineConfig>): void => {
   try {
     const current = getOfflineConfig();
     const updated: IOfflineConfig = {
-      maxOrders: typeof config.maxOrders === "number" ? config.maxOrders : current.maxOrders,
-      maxHours: typeof config.maxHours === "number" ? config.maxHours : current.maxHours,
+      maxOrders: typeof config.maxOrders === "number" && config.maxOrders >= 0 ? config.maxOrders : current.maxOrders,
+      maxHours: typeof config.maxHours === "number" && config.maxHours >= 0 ? config.maxHours : current.maxHours,
     };
     localStorage.setItem(OFFLINE_CONFIG_KEY, JSON.stringify(updated));
   } catch (error) {
@@ -224,10 +224,11 @@ export const checkOfflineLimitStatus = (): IOfflineLimitStatus => {
   const elapsedMs = offlineStartTime ? Date.now() - offlineStartTime : 0;
   const elapsedHours = elapsedMs / (1000 * 60 * 60);
 
-  const isOrderNearLimit = currentOrdersCount >= Math.ceil(config.maxOrders * 0.9);
-  const isTimeNearLimit = elapsedHours >= config.maxHours * 0.9;
-  const isOrderExceeded = currentOrdersCount >= config.maxOrders;
-  const isTimeExceeded = elapsedHours >= config.maxHours;
+  // 0 đại diện cho "Không giới hạn" (Unlimited)
+  const isOrderNearLimit = config.maxOrders > 0 && currentOrdersCount >= Math.ceil(config.maxOrders * 0.9);
+  const isTimeNearLimit = config.maxHours > 0 && elapsedHours >= config.maxHours * 0.9;
+  const isOrderExceeded = config.maxOrders > 0 && currentOrdersCount >= config.maxOrders;
+  const isTimeExceeded = config.maxHours > 0 && elapsedHours >= config.maxHours;
   const isExceeded = isOrderExceeded || isTimeExceeded;
 
   let warningMessage: string | undefined;

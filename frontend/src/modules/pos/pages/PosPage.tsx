@@ -495,8 +495,11 @@ export const PosPage = () => {
 
     updateActiveTab({ backendOrderId: `local_${offlineOrderNumber}`, status: "COMPLETED", isSaved: true });
     const limitStatus = checkOfflineLimitStatus();
+    const countInfo = limitStatus.maxOrders > 0
+      ? `${limitStatus.currentOrdersCount}/${limitStatus.maxOrders}`
+      : `${limitStatus.currentOrdersCount} (Không giới hạn)`;
     showToast(
-      `Đã lưu đơn hàng ở chế độ Ngoại tuyến (Đã lưu ${limitStatus.currentOrdersCount}/${limitStatus.maxOrders} đơn). Đơn hàng sẽ tự động đồng bộ khi có kết nối mạng.`
+      `Đã lưu đơn hàng ở chế độ Ngoại tuyến (Đã lưu ${countInfo} đơn). Đơn hàng sẽ tự động đồng bộ khi có kết nối mạng.`
     );
   };
 

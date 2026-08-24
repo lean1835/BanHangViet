@@ -253,13 +253,13 @@ export const BusinessInfoPanel: React.FC = () => {
                   </label>
                   <input
                     type="number"
-                    min={1}
+                    min={0}
                     max={1000}
                     {...register("offlineMaxOrders")}
                     className={`border ${
                       errors.offlineMaxOrders ? "border-rose-500" : "border-slate-300"
                     } h-10 px-3 rounded-lg focus:outline-none focus:border-kv-blue-primary text-xs font-bold text-slate-800 bg-white`}
-                    placeholder="Mặc định: 50 đơn..."
+                    placeholder="Nhập 0 để không giới hạn (Mặc định: 50 đơn)..."
                   />
                   {errors.offlineMaxOrders ? (
                     <span className="text-[11px] font-bold text-rose-500 flex items-center gap-1 mt-0.5">
@@ -267,7 +267,7 @@ export const BusinessInfoPanel: React.FC = () => {
                     </span>
                   ) : (
                     <span className="text-[11px] text-slate-400 font-medium">
-                      (Tối đa 1000 đơn. Khi đạt ngưỡng, hệ thống POS sẽ chặn tạo thêm đơn mới).
+                      (Tối đa 1000 đơn. Nhập 0 = Không giới hạn số đơn khi mất mạng).
                     </span>
                   )}
                 </div>
@@ -279,13 +279,13 @@ export const BusinessInfoPanel: React.FC = () => {
                   </label>
                   <input
                     type="number"
-                    min={1}
+                    min={0}
                     max={168}
                     {...register("offlineMaxHours")}
                     className={`border ${
                       errors.offlineMaxHours ? "border-rose-500" : "border-slate-300"
                     } h-10 px-3 rounded-lg focus:outline-none focus:border-kv-blue-primary text-xs font-bold text-slate-800 bg-white`}
-                    placeholder="Mặc định: 24 giờ..."
+                    placeholder="Nhập 0 để không giới hạn (Mặc định: 24 giờ)..."
                   />
                   {errors.offlineMaxHours ? (
                     <span className="text-[11px] font-bold text-rose-500 flex items-center gap-1 mt-0.5">
@@ -293,7 +293,7 @@ export const BusinessInfoPanel: React.FC = () => {
                     </span>
                   ) : (
                     <span className="text-[11px] text-slate-400 font-medium">
-                      (Tối đa 168 giờ. Khi trôi qua số giờ này, POS sẽ yêu cầu kết nối lại mạng).
+                      (Tối đa 168 giờ. Nhập 0 = Không giới hạn thời gian khi mất mạng).
                     </span>
                   )}
                 </div>
