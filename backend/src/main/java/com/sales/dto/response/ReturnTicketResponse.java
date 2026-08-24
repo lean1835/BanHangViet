@@ -19,6 +19,7 @@ public class ReturnTicketResponse {
     private String householdId;
     private String originalInvoiceId;
     private String originalInvoiceNumber;
+    private String originalInvoiceLookupCode;
     private String originalOrderId;
     private String customerId;
     private String customerName;

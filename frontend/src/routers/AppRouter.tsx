@@ -34,6 +34,12 @@ const InvoiceManagementPage = React.lazy(
 const AdjustInvoicePage = React.lazy(
   () => import("@/modules/e_invoice/pages/AdjustInvoicePage")
 );
+const ReturnTicketListPage = React.lazy(
+  () => import("@/modules/return_ticket/pages/ReturnTicketListPage")
+);
+const CreateReturnTicketPage = React.lazy(
+  () => import("@/modules/return_ticket/pages/CreateReturnTicketPage")
+);
 const CustomerPage = React.lazy(() => import("@/modules/customer/pages/CustomerPage"));
 const SupplierPage = React.lazy(() => import("@/modules/supplier/pages/SupplierPage"));
 const EmployeePage = React.lazy(() => import("@/modules/employee/pages/EmployeePage"));
@@ -45,6 +51,16 @@ const RevenueComparisonPage = React.lazy(
   () => import("@/modules/report/pages/RevenueComparisonPage")
 );
 const ActivityLogPage = React.lazy(() => import("@/modules/report/pages/ActivityLogPage"));
+const TaxDeclarationPage = React.lazy(
+  () => import("@/modules/tax_declaration/pages/TaxDeclarationPage")
+);
+const AuditLogPage = React.lazy(() => import("@/modules/audit_log/pages/AuditLogPage"));
+const AnomalyAlertPage = React.lazy(
+  () => import("@/modules/anomaly_alert/pages/AnomalyAlertPage")
+);
+const SalesInvoiceListingPage = React.lazy(
+  () => import("@/modules/tax_report/pages/SalesInvoiceListingPage")
+);
 const SettingsLayout = React.lazy(() => import("@/modules/settings/pages/SettingsLayout"));
 const BusinessInfoPage = React.lazy(
   () => import("@/modules/settings/pages/BusinessInfoPage")
@@ -172,6 +188,22 @@ export const AppRouter = () => (
             }
           />
           <Route
+            path={ROUTE_SEGMENTS.RETURN_TICKETS}
+            element={
+              <RoleRoute allowedRoles={ROLE_GROUPS.NORMAL_MANAGEMENT}>
+                <ReturnTicketListPage />
+              </RoleRoute>
+            }
+          />
+          <Route
+            path={`${ROUTE_SEGMENTS.RETURN_TICKETS}/create`}
+            element={
+              <RoleRoute allowedRoles={ROLE_GROUPS.NORMAL_MANAGEMENT}>
+                <CreateReturnTicketPage />
+              </RoleRoute>
+            }
+          />
+          <Route
             path={ROUTE_SEGMENTS.CUSTOMERS}
             element={
               <RoleRoute allowedRoles={ROLE_GROUPS.NORMAL_MANAGEMENT}>
@@ -211,7 +243,11 @@ export const AppRouter = () => (
             <Route index element={<Navigate to={ROUTE_SEGMENTS.REVENUE} replace />} />
             <Route path={ROUTE_SEGMENTS.REVENUE} element={<RevenueReportPage />} />
             <Route path={ROUTE_SEGMENTS.COMPARISON} element={<RevenueComparisonPage />} />
+            <Route path={ROUTE_SEGMENTS.TAX_DECLARATION} element={<TaxDeclarationPage />} />
+            <Route path={ROUTE_SEGMENTS.TAX_SALES_INVOICE} element={<SalesInvoiceListingPage />} />
             <Route path={ROUTE_SEGMENTS.ACTIVITY_LOGS} element={<ActivityLogPage />} />
+            <Route path={ROUTE_SEGMENTS.AUDIT_LOGS} element={<AuditLogPage />} />
+            <Route path={ROUTE_SEGMENTS.ANOMALY_ALERTS} element={<AnomalyAlertPage />} />
           </Route>
 
           <Route

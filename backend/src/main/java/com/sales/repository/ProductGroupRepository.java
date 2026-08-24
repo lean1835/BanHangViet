@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -14,6 +15,8 @@ public interface ProductGroupRepository extends JpaRepository<ProductGroup, Stri
     
     @EntityGraph(attributePaths = {"household"})
     List<ProductGroup> findByHouseholdIdAndDeletedAtIsNull(String householdId);
+
+    List<ProductGroup> findAllByIdInAndHouseholdIdAndDeletedAtIsNull(Collection<String> ids, String householdId);
 
     boolean existsByHouseholdIdAndNameAndDeletedAtIsNull(String householdId, String name);
 

@@ -1,7 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { 
   Activity, 
-  Calendar, 
   RefreshCw, 
   ChevronLeft, 
   ChevronRight, 
@@ -11,20 +10,28 @@ import {
   RotateCw, 
   PlusCircle, 
   AlertTriangle,
-  Lock
+  Lock,
+  Unlock,
+  Layers,
+  FileSpreadsheet
 } from "lucide-react";
 import { useGetActivityLogsQuery } from "../services/reportApi";
+import { useReportFilter } from "../context/ReportFilterContext";
 import type { IActivityLogResponse } from "../types/IReport";
 
 export const ActivityLogPage = () => {
-  const [fromDate, setFromDate] = useState("");
-  const [toDate, setToDate] = useState("");
+  const { activityLogFilter } = useReportFilter();
+  const { fromDate, toDate } = activityLogFilter;
   const [page, setPage] = useState(0);
   const pageSize = 9;
 
+  useEffect(() => {
+    setPage(0);
+  }, [activityLogFilter]);
+
   const isDateInvalid = Boolean(fromDate && toDate && fromDate > toDate);
 
-  const { data, isLoading, isFetching, refetch } = useGetActivityLogsQuery(
+  const { data, isLoading, isFetching } = useGetActivityLogsQuery(
     {
       fromDate: fromDate || undefined,
       toDate: toDate || undefined,
@@ -84,20 +91,68 @@ export const ActivityLogPage = () => {
       case "product_groups": return "Nhóm hàng";
       case "orders": return "Đơn hàng";
       case "shifts": return "Ca làm việc";
-      case "invoices": return "Hóa đơn HĐĐT";
+      case "invoices":
+      case "einvoices": return "Hóa đơn HĐĐT";
       case "goods_receipts": return "Phiếu nhập hàng";
       case "customers": return "Khách hàng";
+      case "suppliers": return "Nhà cung cấp";
       case "debts":
       case "customer_debts": return "Công nợ khách hàng";
       case "users":
       case "employees": return "Nhân viên";
       case "reports": return "Báo cáo / Quỹ";
+      case "tax_declaration_periods": return "Kỳ kê khai thuế";
+      case "tax_sales_registers": return "Bảng kê thuế";
       default: return table.toUpperCase();
     }
   };
 
   const getActionBadge = (action: string) => {
     const actUpper = (action || "").toUpperCase();
+
+    // 1. Thao tác kỳ kê khai thuế & Bảng kê thuế
+    if (actUpper === "SUMMARIZE_TAX_REVENUE") {
+      return {
+        label: "TỔNG HỢP DOANH THU THUẾ",
+        className: "bg-indigo-100 text-indigo-700 border-indigo-200",
+        icon: <Layers className="w-3 h-3 mr-1 shrink-0" />,
+      };
+    }
+    if (actUpper === "GENERATE_TAX_SALES_REGISTER" || actUpper === "GENERATE_TAX_REGISTER") {
+      return {
+        label: "LẬP BẢNG KÊ HÓA ĐƠN",
+        className: "bg-blue-100 text-blue-700 border-blue-200",
+        icon: <FileSpreadsheet className="w-3 h-3 mr-1 shrink-0" />,
+      };
+    }
+    if (actUpper === "RECALCULATE_TAX_REGISTER") {
+      return {
+        label: "TÍNH LẠI BẢNG KÊ THUẾ",
+        className: "bg-emerald-100 text-emerald-700 border-emerald-200",
+        icon: <RotateCw className="w-3 h-3 mr-1 shrink-0" />,
+      };
+    }
+    if (actUpper === "LOCK_TAX_PERIOD") {
+      return {
+        label: "CHỐT KHÓA KỲ THUẾ",
+        className: "bg-rose-100 text-rose-700 border-rose-200",
+        icon: <Lock className="w-3 h-3 mr-1 shrink-0" />,
+      };
+    }
+    if (actUpper === "UNLOCK_TAX_PERIOD") {
+      return {
+        label: "MỞ LẠI KỲ THUẾ",
+        className: "bg-amber-100 text-amber-800 border-amber-200",
+        icon: <Unlock className="w-3 h-3 mr-1 shrink-0" />,
+      };
+    }
+    if (actUpper === "EXPORT_TAX_DECLARATION") {
+      return {
+        label: "XUẤT TỜ KHAI THUẾ",
+        className: "bg-sky-100 text-sky-700 border-sky-200",
+        icon: <FileText className="w-3 h-3 mr-1 shrink-0" />,
+      };
+    }
     if (actUpper.includes("COLLECT_DEBT") || actUpper.includes("THU_NO") || actUpper.includes("PAY_DEBT")) {
       return {
         label: "THU NỢ KHÁCH HÀNG",
@@ -544,66 +599,13 @@ interface IParsedLogPayload {
   };
 
   return (
-    <div className="max-w-7xl mx-auto flex flex-col gap-6">
-      {/* Filter Bar */}
-      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col gap-2">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-2 text-xs font-semibold text-slate-600">
-            <Calendar className="w-4 h-4 text-slate-400 shrink-0" />
-            <span>Từ:</span>
-            <input
-              type="date"
-              value={fromDate}
-              onChange={(e) => {
-                setFromDate(e.target.value);
-                setPage(0);
-              }}
-              className={`border ${isDateInvalid ? "border-rose-400" : "border-slate-200"} rounded-lg px-2.5 py-1 text-xs font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-kv-blue-primary/20`}
-            />
-            <span>Đến:</span>
-            <input
-              type="date"
-              value={toDate}
-              onChange={(e) => {
-                setToDate(e.target.value);
-                setPage(0);
-              }}
-              className={`border ${isDateInvalid ? "border-rose-400" : "border-slate-200"} rounded-lg px-2.5 py-1 text-xs font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-kv-blue-primary/20`}
-            />
-          </div>
-
-          <div className="flex items-center gap-3">
-            {(fromDate || toDate) && (
-              <button
-                onClick={() => {
-                  setFromDate("");
-                  setToDate("");
-                  setPage(0);
-                }}
-                className="text-xs font-bold text-rose-500 hover:text-rose-600 transition-colors"
-              >
-                Xóa bộ lọc
-              </button>
-            )}
-
-            <button
-              onClick={() => void refetch()}
-              disabled={isFetching || isDateInvalid}
-              className="bg-slate-100 hover:bg-slate-200 text-slate-700 p-2 rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center"
-              title="Làm mới dữ liệu"
-            >
-              <RefreshCw className={`w-4 h-4 ${isFetching ? "animate-spin" : ""}`} />
-            </button>
-          </div>
+    <div className="max-w-7xl mx-auto flex flex-col gap-4 w-full">
+      {isDateInvalid && (
+        <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs font-bold text-rose-600 flex items-center gap-2 shadow-xs">
+          <AlertTriangle className="w-4 h-4 text-rose-500 shrink-0" />
+          <span>Lỗi bộ lọc: Ngày bắt đầu không được lớn hơn ngày kết thúc!</span>
         </div>
-
-        {isDateInvalid && (
-          <div className="text-xs font-bold text-rose-500 flex items-center gap-1 mt-1">
-            <AlertTriangle className="w-3.5 h-3.5" />
-            <span>Ngày bắt đầu không được lớn hơn ngày kết thúc!</span>
-          </div>
-        )}
-      </div>
+      )}
 
       {/* Log Table Container */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col min-h-[420px]">

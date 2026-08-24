@@ -9,10 +9,10 @@ import lombok.*;
 })
 @Getter
 @Setter
-@ToString
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@ToString
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class PromotionProductGroup {
 
@@ -29,5 +29,6 @@ public class PromotionProductGroup {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "product_group_id", nullable = false)
+    @ToString.Exclude
     private ProductGroup productGroup;
 }

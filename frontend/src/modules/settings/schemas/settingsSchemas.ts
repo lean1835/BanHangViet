@@ -29,11 +29,11 @@ export const householdInfoSchema = z.object({
     .or(z.literal("")),
   offlineMaxOrders: z.coerce
     .number({ invalid_type_error: "Số đơn tối đa phải là số hợp lệ" })
-    .min(1, "Số đơn tối đa phải lớn hơn 0")
+    .min(0, "Số đơn tối đa không được nhỏ hơn 0 (0 = Không giới hạn)")
     .max(1000, "Số đơn tối đa không quá 1000 đơn"),
   offlineMaxHours: z.coerce
     .number({ invalid_type_error: "Số giờ tối đa phải là số hợp lệ" })
-    .min(1, "Số giờ tối đa phải lớn hơn 0")
+    .min(0, "Số giờ tối đa không được nhỏ hơn 0 (0 = Không giới hạn)")
     .max(168, "Số giờ tối đa không quá 168 giờ"),
 });
 

@@ -8,6 +8,6 @@ import java.util.List;
 
 @Repository
 public interface PromotionProductGroupRepository extends JpaRepository<PromotionProductGroup, String> {
-    List<PromotionProductGroup> findByPromotionId(String promotionId);
     void deleteByPromotionId(String promotionId);
+    List<PromotionProductGroup> findByPromotionId(String promotionId);
 }

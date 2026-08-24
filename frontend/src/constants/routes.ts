@@ -16,6 +16,10 @@ export const ROUTE_SEGMENTS = {
   REVENUE: "revenue",
   COMPARISON: "comparison",
   ACTIVITY_LOGS: "activity-logs",
+  TAX_DECLARATION: "tax-declaration",
+  AUDIT_LOGS: "audit-logs",
+  ANOMALY_ALERTS: "anomaly-alerts",
+  TAX_SALES_INVOICE: "tax-sales-invoices",
   SETTINGS: "settings",
   BUSINESS_INFO: "business-info",
   TAX_RATES: "tax-rates",
@@ -29,6 +33,7 @@ export const ROUTE_SEGMENTS = {
   CONFIG: "config",
   POS: "pos",
   E_INVOICES: "e-invoices",
+  RETURN_TICKETS: "return-tickets",
   LOOKUP_INVOICE: "lookup-invoice",
   INVOICE_TEMPLATE: "invoice-template",
   BACKUP_EXPORT: "backup-export",
@@ -87,6 +92,22 @@ export const APP_ROUTES = {
     ROUTE_SEGMENTS.REPORTS,
     ROUTE_SEGMENTS.ACTIVITY_LOGS,
   ),
+  REPORT_TAX_DECLARATION: createRoute(
+    ROUTE_SEGMENTS.REPORTS,
+    ROUTE_SEGMENTS.TAX_DECLARATION,
+  ),
+  REPORT_AUDIT_LOGS: createRoute(
+    ROUTE_SEGMENTS.REPORTS,
+    ROUTE_SEGMENTS.AUDIT_LOGS,
+  ),
+  REPORT_ANOMALY_ALERTS: createRoute(
+    ROUTE_SEGMENTS.REPORTS,
+    ROUTE_SEGMENTS.ANOMALY_ALERTS,
+  ),
+  REPORT_TAX_SALES_INVOICES: createRoute(
+    ROUTE_SEGMENTS.REPORTS,
+    ROUTE_SEGMENTS.TAX_SALES_INVOICE,
+  ),
   SETTINGS: createRoute(ROUTE_SEGMENTS.SETTINGS),
   SETTINGS_BUSINESS_INFO: createRoute(
     ROUTE_SEGMENTS.SETTINGS,
@@ -130,5 +151,7 @@ export const APP_ROUTES = {
   POS: createRoute(ROUTE_SEGMENTS.POS),
   E_INVOICES: createRoute(ROUTE_SEGMENTS.E_INVOICES),
   E_INVOICES_ADJUST: (id: string) => `/e-invoices/${id}/adjust`,
+  RETURN_TICKETS: createRoute(ROUTE_SEGMENTS.RETURN_TICKETS),
+  RETURN_TICKET_CREATE: `${createRoute(ROUTE_SEGMENTS.RETURN_TICKETS)}/create`,
   LOOKUP_INVOICE: createRoute(ROUTE_SEGMENTS.LOOKUP_INVOICE),
 } as const;

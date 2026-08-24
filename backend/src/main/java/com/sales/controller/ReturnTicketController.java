@@ -154,7 +154,7 @@ public class ReturnTicketController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate,
             @RequestParam(required = false) String search,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size) {
+            @RequestParam(defaultValue = "8") int size) {
         PageResponse<ReturnTicketResponse> result = returnTicketService.getReturnTickets(
                 principal.getName(), status, fromDate, toDate, search, page, size
         );

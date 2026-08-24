@@ -16,4 +16,6 @@ public interface AuditLogService {
     byte[] exportAuditLogsToExcel(String currentUsername, ActivityLogFilterRequest filter, String clientIp, String userAgent);
 
     void recordLog(BusinessHousehold household, User actor, String action, String targetTable, String targetId, String oldValue, String newValue, String clientIp, String userAgent);
+ 
+    void repairLegacyHashChain();
 }

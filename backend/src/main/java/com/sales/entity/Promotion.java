@@ -1,5 +1,8 @@
 package com.sales.entity;
 
+import com.sales.constant.DiscountType;
+import com.sales.constant.PromotionApplyScope;
+import com.sales.constant.PromotionStatus;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -7,17 +10,17 @@ import org.hibernate.annotations.UpdateTimestamp;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.HashSet;
+import java.util.Set;
 
 @Entity
 @Table(name = "promotions")
 @Getter
 @Setter
-@ToString
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@ToString
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class Promotion {
 
@@ -29,6 +32,7 @@ public class Promotion {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "household_id", nullable = false)
+    @ToString.Exclude
     private BusinessHousehold household;
 
     @Column(nullable = false, length = 255)
@@ -37,15 +41,17 @@ public class Promotion {
     @Column(length = 500)
     private String description;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "discount_type", nullable = false, length = 20)
-    private String discountType; // PERCENTAGE, FIXED_AMOUNT, CASH
+    private DiscountType discountType;
 
     @Column(name = "discount_value", nullable = false, precision = 15, scale = 2)
     @Builder.Default
     private BigDecimal discountValue = BigDecimal.ZERO;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "apply_scope", nullable = false, length = 20)
-    private String applyScope; // ALL, PRODUCT, PRODUCT_GROUP
+    private PromotionApplyScope applyScope;
 
     @Column(name = "start_date", nullable = false)
     private LocalDateTime startDate;
@@ -53,12 +59,14 @@ public class Promotion {
     @Column(name = "end_date", nullable = false)
     private LocalDateTime endDate;
 
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     @Builder.Default
-    private String status = "ACTIVE"; // ACTIVE, INACTIVE
+    private PromotionStatus status = PromotionStatus.ACTIVE;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "created_by_user_id", nullable = false)
+    @ToString.Exclude
     private User createdByUser;
 
     @CreationTimestamp
@@ -72,13 +80,13 @@ public class Promotion {
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
 
-    @OneToMany(mappedBy = "promotion", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @OneToMany(mappedBy = "promotion", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     @ToString.Exclude
-    private java.util.Set<PromotionProduct> promotionProducts = new java.util.HashSet<>();
+    private Set<PromotionProduct> promotionProducts = new HashSet<>();
 
-    @OneToMany(mappedBy = "promotion", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @OneToMany(mappedBy = "promotion", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     @ToString.Exclude
-    private java.util.Set<PromotionProductGroup> promotionProductGroups = new java.util.HashSet<>();
+    private Set<PromotionProductGroup> promotionProductGroups = new HashSet<>();
 }

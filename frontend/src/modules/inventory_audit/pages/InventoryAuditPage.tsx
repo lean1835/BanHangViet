@@ -23,6 +23,7 @@ import { useGetProductsQuery } from "@/modules/product/services/productApi";
 import { InventoryAuditTable } from "../components/InventoryAuditTable";
 import { InventoryAuditModal } from "../components/InventoryAuditModal";
 import { InventoryAuditDetailModal } from "../components/InventoryAuditDetailModal";
+import { recordInventoryAdjustment } from "@/modules/anomaly_alert/utils/anomalyStorage";
 import type { IProductOutletContext } from "@/modules/product/pages/ProductsLayout";
 
 export const InventoryAuditPage = () => {
@@ -154,6 +155,24 @@ export const InventoryAuditPage = () => {
     try {
       const createdAudit = await createInventoryAudit(payload).unwrap();
       showSuccess(INVENTORY_AUDIT_MESSAGES.CREATE_SUCCESS);
+
+      if (createdAudit && payload.details) {
+        for (const d of payload.details) {
+          const product = products.find((p) => p.id === d.productId);
+          const systemQty = product?.stockQuantity ?? 0;
+          const diff = (d.actualQuantity || 0) - systemQty;
+          if (Math.abs(diff) >= 50) {
+            recordInventoryAdjustment({
+              auditNumber: createdAudit.auditNumber || "PKK-DEMO",
+              productName: product?.name || `Sản phẩm #${d.productId}`,
+              systemQty,
+              actualQty: d.actualQuantity || 0,
+              diffQty: diff,
+              actorUsername: currentRole || "chuho_viet",
+            });
+          }
+        }
+      }
 
       addLogEntry(
         "KIỂM_KÊ_KHO",

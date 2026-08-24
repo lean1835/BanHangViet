@@ -42,6 +42,9 @@ public interface EInvoiceRepository extends JpaRepository<EInvoice, String>, Jpa
 
     boolean existsByReturnTicketIdAndDeletedAtIsNull(String returnTicketId);
 
+    @EntityGraph(attributePaths = {"items", "items.product", "createdByUser", "canceledByUser", "household", "order", "originalInvoice"})
+    Optional<EInvoice> findByReturnTicketIdAndDeletedAtIsNull(String returnTicketId);
+
     @EntityGraph(attributePaths = {"originalInvoice", "returnTicket"})
     List<EInvoice> findByHouseholdIdAndDeletedAtIsNullOrderByCreatedAtDesc(String householdId);
 

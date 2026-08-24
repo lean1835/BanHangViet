@@ -1,5 +1,8 @@
 package com.sales.service;
 
+import com.sales.constant.DiscountType;
+import com.sales.constant.PromotionApplyScope;
+import com.sales.constant.PromotionStatus;
 import com.sales.dto.request.AutoApplyPromotionRequest;
 import com.sales.dto.request.OrderItemPromotionCheckRequest;
 import com.sales.dto.response.AutoApplyPromotionResponse;
@@ -87,24 +90,24 @@ class PromotionServiceTest {
         promo10Percent = Promotion.builder()
                 .id("promo-10")
                 .name("Giảm giá 10% Coca-Cola")
-                .discountType("PERCENTAGE")
+                .discountType(DiscountType.PERCENTAGE)
                 .discountValue(new BigDecimal("10.00"))
-                .applyScope("ALL")
+                .applyScope(PromotionApplyScope.ALL)
                 .startDate(LocalDateTime.now().minusDays(1))
                 .endDate(LocalDateTime.now().plusDays(5))
-                .status("ACTIVE")
+                .status(PromotionStatus.ACTIVE)
                 .household(household)
                 .build();
 
         promo20Percent = Promotion.builder()
                 .id("promo-20")
                 .name("Siêu Khuyến Mại Giảm 20%")
-                .discountType("PERCENTAGE")
+                .discountType(DiscountType.PERCENTAGE)
                 .discountValue(new BigDecimal("20.00"))
-                .applyScope("ALL")
+                .applyScope(PromotionApplyScope.ALL)
                 .startDate(LocalDateTime.now().minusDays(1))
                 .endDate(LocalDateTime.now().plusDays(5))
-                .status("ACTIVE")
+                .status(PromotionStatus.ACTIVE)
                 .household(household)
                 .build();
     }

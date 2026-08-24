@@ -121,8 +121,8 @@ export const PosPaymentSidebar: React.FC<IPosPaymentSidebarProps> = ({
   };
 
   return (
-    <div className="w-80 lg:w-[380px] bg-white rounded-xl shadow-md border border-slate-200 flex flex-col justify-between overflow-y-auto select-none p-4 font-sans text-xs">
-      <div className="space-y-4">
+    <div className="w-80 lg:w-[380px] h-full bg-white rounded-xl shadow-md border border-slate-200 flex flex-col select-none overflow-hidden p-4 font-sans text-xs">
+      <div className="flex-1 min-h-0 overflow-y-auto space-y-3.5 pr-1">
         {/* 1. Mode Switcher Header */}
         <div className="bg-slate-100 p-1 rounded-xl flex items-center gap-1 font-bold">
           <button
@@ -495,7 +495,7 @@ export const PosPaymentSidebar: React.FC<IPosPaymentSidebarProps> = ({
       </div>
 
       {/* 7. Main Action Buttons Sticky at Bottom */}
-      <div className="pt-3 mt-4 border-t border-slate-200 flex items-center gap-2.5">
+      <div className="pt-3 mt-2 border-t border-slate-200 flex items-center gap-2.5 shrink-0 bg-white">
         {/* Save Draft Button */}
         <button
           type="button"

@@ -1,61 +1,34 @@
-import React, { useState, useMemo } from "react";
+import React, { useMemo } from "react";
 import {
-  Calendar,
-  RefreshCw,
   TrendingUp,
   ShoppingBag,
   DollarSign,
   Award,
   BarChart2,
   Package,
+  RefreshCw,
 } from "lucide-react";
 import {
   useGetDailyRevenueQuery,
   useGetTopSellingProductsQuery,
 } from "../services/reportApi";
+import { useReportFilter } from "../context/ReportFilterContext";
 import { formatCurrency } from "@/utils/formatCurrency";
-import { getLocalDateString } from "@/utils/dateFormatter";
-
-const getPresetDates = (preset: "today" | "last7days" | "thisMonth") => {
-  const now = new Date();
-  const todayStr = getLocalDateString(now);
-
-  if (preset === "today") {
-    return { fromDate: todayStr, toDate: todayStr };
-  }
-
-  if (preset === "last7days") {
-    const d = new Date();
-    d.setDate(d.getDate() - 6);
-    return { fromDate: getLocalDateString(d), toDate: todayStr };
-  }
-
-  // thisMonth
-  const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
-  return {
-    fromDate: getLocalDateString(firstDay),
-    toDate: todayStr,
-  };
-};
 
 export const RevenueReport: React.FC = () => {
-  const defaultDates = useMemo(() => getPresetDates("thisMonth"), []);
-  const [fromDate, setFromDate] = useState<string>(defaultDates.fromDate);
-  const [toDate, setToDate] = useState<string>(defaultDates.toDate);
-  const [activePreset, setActivePreset] = useState<"today" | "last7days" | "thisMonth" | "custom">("thisMonth");
+  const { revenueFilter } = useReportFilter();
+  const { fromDate, toDate } = revenueFilter;
 
   const {
     data: dailyRes,
     isLoading: isDailyLoading,
     isFetching: isDailyFetching,
-    refetch: refetchDaily,
   } = useGetDailyRevenueQuery({ fromDate, toDate });
 
   const {
     data: topSellingRes,
     isLoading: isTopSellingLoading,
     isFetching: isTopSellingFetching,
-    refetch: refetchTopSelling,
   } = useGetTopSellingProductsQuery({ fromDate, toDate, limit: 10 });
 
   const rawDailyList = dailyRes?.result;
@@ -64,18 +37,6 @@ export const RevenueReport: React.FC = () => {
     return [...rawDailyList].sort((a, b) => (a.salesDate || "").localeCompare(b.salesDate || ""));
   }, [rawDailyList]);
   const topSellingList = topSellingRes?.result || [];
-
-  const handlePresetClick = (preset: "today" | "last7days" | "thisMonth") => {
-    const dates = getPresetDates(preset);
-    setFromDate(dates.fromDate);
-    setToDate(dates.toDate);
-    setActivePreset(preset);
-  };
-
-  const handleRefetch = () => {
-    void refetchDaily();
-    void refetchTopSelling();
-  };
 
   // Aggregated KPIs
   const totalNetRevenue = useMemo(
@@ -98,90 +59,20 @@ export const RevenueReport: React.FC = () => {
 
   // Format date helper for chart labels
   const formatDateLabel = (dateStr: string) => {
-    if (!dateStr) return "";
-    const parts = dateStr.split("-");
-    if (parts.length === 3) {
-      return `${parts[2]}/${parts[1]}`;
+    try {
+      const parts = dateStr.split("-");
+      if (parts.length === 3) return `${parts[2]}/${parts[1]}`;
+      return dateStr;
+    } catch {
+      return dateStr;
     }
-    return dateStr;
   };
 
   const isFetching = isDailyFetching || isTopSellingFetching;
   const isLoading = isDailyLoading || isTopSellingLoading;
 
   return (
-    <div className="max-w-7xl mx-auto flex flex-col gap-6">
-      {/* Filter Bar */}
-      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-wrap items-center justify-between gap-4">
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-2 text-xs font-semibold text-slate-600">
-            <Calendar className="w-4 h-4 text-slate-400 shrink-0" />
-            <span>Từ:</span>
-            <input
-              type="date"
-              value={fromDate}
-              onChange={(e) => {
-                setFromDate(e.target.value);
-                setActivePreset("custom");
-              }}
-              className="border border-slate-200 rounded-lg px-2.5 py-1 text-xs font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-kv-blue-primary/20"
-            />
-            <span>Đến:</span>
-            <input
-              type="date"
-              value={toDate}
-              onChange={(e) => {
-                setToDate(e.target.value);
-                setActivePreset("custom");
-              }}
-              className="border border-slate-200 rounded-lg px-2.5 py-1 text-xs font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-kv-blue-primary/20"
-            />
-          </div>
-
-          <div className="flex items-center gap-1.5 border-l pl-3 border-slate-200">
-            <button
-              onClick={() => handlePresetClick("today")}
-              className={`px-2.5 py-1 rounded-lg text-xs font-extrabold transition-colors ${
-                activePreset === "today"
-                  ? "bg-kv-blue-primary text-white"
-                  : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-              }`}
-            >
-              Hôm nay
-            </button>
-            <button
-              onClick={() => handlePresetClick("last7days")}
-              className={`px-2.5 py-1 rounded-lg text-xs font-extrabold transition-colors ${
-                activePreset === "last7days"
-                  ? "bg-kv-blue-primary text-white"
-                  : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-              }`}
-            >
-              7 ngày qua
-            </button>
-            <button
-              onClick={() => handlePresetClick("thisMonth")}
-              className={`px-2.5 py-1 rounded-lg text-xs font-extrabold transition-colors ${
-                activePreset === "thisMonth"
-                  ? "bg-kv-blue-primary text-white"
-                  : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-              }`}
-            >
-              Tháng này
-            </button>
-          </div>
-        </div>
-
-        <button
-          onClick={handleRefetch}
-          disabled={isFetching}
-          className="flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-colors border border-slate-200"
-        >
-          <RefreshCw className={`w-3.5 h-3.5 ${isFetching ? "animate-spin text-kv-blue-primary" : ""}`} />
-          <span>Làm mới</span>
-        </button>
-      </div>
-
+    <div className="max-w-7xl mx-auto flex flex-col gap-6 w-full">
       {/* KPI Cards Header */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">

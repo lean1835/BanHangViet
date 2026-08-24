@@ -44,7 +44,7 @@ public class EmployeeServiceImpl implements EmployeeService {
 
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
-    private final ActivityLogRepository activityLogRepository;
+    private final ActivityLogHelper activityLogHelper;
     private final PasswordEncoder passwordEncoder;
     private final ObjectMapper objectMapper;
     private final CacheManager cacheManager;
@@ -105,19 +105,7 @@ public class EmployeeServiceImpl implements EmployeeService {
             String oldStr = oldValue != null ? objectMapper.writeValueAsString(oldValue) : null;
             String newStr = newValue != null ? objectMapper.writeValueAsString(newValue) : null;
 
-            ActivityLog logRecord = ActivityLog.builder()
-                    .household(household)
-                    .user(actor)
-                    .action(action)
-                    .targetTable("users")
-                    .targetId(targetId)
-                    .oldValue(oldStr)
-                    .newValue(newStr)
-                    .clientIp(clientIp)
-                    .userAgent(userAgent)
-                    .build();
-
-            activityLogRepository.save(logRecord);
+            activityLogHelper.logActivityInNewTransaction(household, actor, action, "users", targetId, oldStr, newStr, clientIp, userAgent);
         } catch (Exception e) {
             log.error("Failed to write activity log", e);
         }

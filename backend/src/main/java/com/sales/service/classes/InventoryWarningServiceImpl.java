@@ -30,7 +30,7 @@ public class InventoryWarningServiceImpl implements InventoryWarningService {
     private final ProductRepository productRepository;
     private final GoodsReceiptDetailRepository goodsReceiptDetailRepository;
     private final OrderRepository orderRepository;
-    private final ActivityLogRepository activityLogRepository;
+    private final ActivityLogHelper activityLogHelper;
     private final com.fasterxml.jackson.databind.ObjectMapper objectMapper;
 
     private User getAuthenticatedUser(String username) {
@@ -43,17 +43,7 @@ public class InventoryWarningServiceImpl implements InventoryWarningService {
             String oldStr = oldValue != null ? objectMapper.writeValueAsString(oldValue) : null;
             String newStr = newValue != null ? objectMapper.writeValueAsString(newValue) : null;
 
-            ActivityLog logRecord = ActivityLog.builder()
-                    .household(household)
-                    .user(actor)
-                    .action(action)
-                    .targetTable("products")
-                    .targetId(targetId)
-                    .oldValue(oldStr)
-                    .newValue(newStr)
-                    .build();
-
-            activityLogRepository.save(logRecord);
+            activityLogHelper.logActivityInNewTransaction(household, actor, action, "products", targetId, oldStr, newStr, null, null);
         } catch (Exception e) {
             log.error("Lỗi khi ghi activity log cho min stock", e);
         }
