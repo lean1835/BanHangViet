@@ -1,5 +1,6 @@
 package com.sales.specification;
 
+import com.sales.constant.PromotionStatus;
 import com.sales.dto.request.PromotionSearchParam;
 import com.sales.entity.Promotion;
 import jakarta.persistence.criteria.Predicate;
@@ -52,6 +53,7 @@ public class PromotionSpecification {
                 // 7. Active Now filter
                 if (Boolean.TRUE.equals(param.getActiveNowOnly())) {
                     LocalDateTime now = LocalDateTime.now();
+                    predicates.add(criteriaBuilder.equal(root.get("status"), PromotionStatus.ACTIVE));
                     predicates.add(criteriaBuilder.lessThanOrEqualTo(root.get("startDate"), now));
                     predicates.add(criteriaBuilder.greaterThanOrEqualTo(root.get("endDate"), now));
                 }

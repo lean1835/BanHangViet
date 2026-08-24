@@ -10,24 +10,29 @@ import org.hibernate.annotations.UpdateTimestamp;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.HashSet;
+import java.util.Set;
 
 @Entity
 @Table(name = "promotions")
-@Data
+@Getter
+@Setter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@ToString
+@EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class Promotion {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     @Column(length = 36, nullable = false)
+    @EqualsAndHashCode.Include
     private String id;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "household_id", nullable = false)
+    @ToString.Exclude
     private BusinessHousehold household;
 
     @Column(nullable = false, length = 255)
@@ -60,6 +65,7 @@ public class Promotion {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "created_by_user_id", nullable = false)
+    @ToString.Exclude
     private User createdByUser;
 
     @CreationTimestamp
@@ -76,12 +82,10 @@ public class Promotion {
     @OneToMany(mappedBy = "promotion", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     @ToString.Exclude
-    @EqualsAndHashCode.Exclude
-    private List<PromotionProduct> promotionProducts = new ArrayList<>();
+    private Set<PromotionProduct> promotionProducts = new HashSet<>();
 
     @OneToMany(mappedBy = "promotion", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     @ToString.Exclude
-    @EqualsAndHashCode.Exclude
-    private List<PromotionProductGroup> promotionProductGroups = new ArrayList<>();
+    private Set<PromotionProductGroup> promotionProductGroups = new HashSet<>();
 }

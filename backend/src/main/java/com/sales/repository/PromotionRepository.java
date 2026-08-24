@@ -18,10 +18,6 @@ public interface PromotionRepository extends JpaRepository<Promotion, String>, J
 
     Optional<Promotion> findByIdAndHouseholdIdAndDeletedAtIsNull(String id, String householdId);
 
-    @Override
-    @EntityGraph(attributePaths = {"promotionProducts", "promotionProductGroups"})
-    org.springframework.data.domain.Page<Promotion> findAll(org.springframework.data.jpa.domain.Specification<Promotion> spec, org.springframework.data.domain.Pageable pageable);
-
     @EntityGraph(attributePaths = {"promotionProducts", "promotionProducts.product", "promotionProductGroups", "promotionProductGroups.productGroup"})
     @Query("SELECT p FROM Promotion p WHERE p.id = :id AND p.household.id = :householdId AND p.deletedAt IS NULL")
     Optional<Promotion> findDetailByIdAndHouseholdId(@Param("id") String id, @Param("householdId") String householdId);

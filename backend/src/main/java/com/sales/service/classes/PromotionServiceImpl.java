@@ -24,6 +24,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -38,7 +39,7 @@ public class PromotionServiceImpl implements PromotionService {
     private final ProductGroupRepository productGroupRepository;
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public PromotionResponse createPromotion(String currentUsername, PromotionCreateRequest request) {
         User user = getCurrentUser(currentUsername);
         String householdId = user.getHousehold().getId();
@@ -63,15 +64,15 @@ public class PromotionServiceImpl implements PromotionService {
                 .createdByUser(user)
                 .build();
 
-        Promotion savedPromotion = promotionRepository.save(promotion);
+        attachTargets(promotion, householdId, request.getApplyScope(), request.getProductIds(), request.getProductGroupIds());
 
-        attachTargets(savedPromotion, householdId, request.getApplyScope(), request.getProductIds(), request.getProductGroupIds());
+        Promotion savedPromotion = promotionRepository.save(promotion);
 
         return mapToResponse(savedPromotion);
     }
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public PromotionResponse updatePromotion(String currentUsername, String promotionId, PromotionUpdateRequest request) {
         User user = getCurrentUser(currentUsername);
         String householdId = user.getHousehold().getId();
@@ -98,21 +99,19 @@ public class PromotionServiceImpl implements PromotionService {
             promotion.setStatus(request.getStatus());
         }
 
-        // Clear existing mappings
-        promotionProductRepository.deleteByPromotionId(promotionId);
-        promotionProductGroupRepository.deleteByPromotionId(promotionId);
+        // Clear existing mappings (handled cleanly via JPA orphanRemoval)
         promotion.getPromotionProducts().clear();
         promotion.getPromotionProductGroups().clear();
 
-        Promotion updatedPromotion = promotionRepository.save(promotion);
+        attachTargets(promotion, householdId, request.getApplyScope(), request.getProductIds(), request.getProductGroupIds());
 
-        attachTargets(updatedPromotion, householdId, request.getApplyScope(), request.getProductIds(), request.getProductGroupIds());
+        Promotion updatedPromotion = promotionRepository.save(promotion);
 
         return mapToResponse(updatedPromotion);
     }
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void deletePromotion(String currentUsername, String promotionId) {
         User user = getCurrentUser(currentUsername);
         String householdId = user.getHousehold().getId();
@@ -180,7 +179,7 @@ public class PromotionServiceImpl implements PromotionService {
     }
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public PromotionResponse togglePromotionStatus(String currentUsername, String promotionId) {
         User user = getCurrentUser(currentUsername);
         String householdId = user.getHousehold().getId();
@@ -220,7 +219,7 @@ public class PromotionServiceImpl implements PromotionService {
         if (discountType == null || discountValue == null) {
             throw new AppException(ErrorCode.INVALID_INPUT);
         }
-        if (discountValue.compareTo(BigDecimal.ZERO) < 0) {
+        if (discountValue.compareTo(BigDecimal.ZERO) <= 0) {
             throw new AppException(ErrorCode.INVALID_PROMOTION_DISCOUNT_VALUE);
         }
         if (discountType == DiscountType.PERCENTAGE && discountValue.compareTo(BigDecimal.valueOf(100)) > 0) {
@@ -233,32 +232,32 @@ public class PromotionServiceImpl implements PromotionService {
             if (productIds == null || productIds.isEmpty()) {
                 throw new AppException(ErrorCode.PROMOTION_TARGET_REQUIRED);
             }
-            List<PromotionProduct> promoProducts = new ArrayList<>();
-            for (String pid : productIds) {
-                Product product = productRepository.findByIdAndHouseholdIdAndDeletedAtIsNull(pid, householdId)
-                        .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_NOT_FOUND));
-                promoProducts.add(PromotionProduct.builder()
-                        .promotion(promotion)
-                        .product(product)
-                        .build());
+            List<Product> products = productRepository.findAllByIdInAndHouseholdIdAndDeletedAtIsNull(productIds, householdId);
+            if (products.size() != productIds.size()) {
+                throw new AppException(ErrorCode.PRODUCT_NOT_FOUND);
             }
-            promotionProductRepository.saveAll(promoProducts);
-            promotion.setPromotionProducts(promoProducts);
+            Set<PromotionProduct> promoProducts = products.stream()
+                    .map(prod -> PromotionProduct.builder()
+                            .promotion(promotion)
+                            .product(prod)
+                            .build())
+                    .collect(Collectors.toSet());
+            promotion.getPromotionProducts().addAll(promoProducts);
         } else if (applyScope == PromotionApplyScope.PRODUCT_GROUP) {
             if (productGroupIds == null || productGroupIds.isEmpty()) {
                 throw new AppException(ErrorCode.PROMOTION_TARGET_REQUIRED);
             }
-            List<PromotionProductGroup> promoGroups = new ArrayList<>();
-            for (String gid : productGroupIds) {
-                ProductGroup group = productGroupRepository.findByIdAndHouseholdIdAndDeletedAtIsNull(gid, householdId)
-                        .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_GROUP_NOT_FOUND));
-                promoGroups.add(PromotionProductGroup.builder()
-                        .promotion(promotion)
-                        .productGroup(group)
-                        .build());
+            List<ProductGroup> groups = productGroupRepository.findAllByIdInAndHouseholdIdAndDeletedAtIsNull(productGroupIds, householdId);
+            if (groups.size() != productGroupIds.size()) {
+                throw new AppException(ErrorCode.PRODUCT_GROUP_NOT_FOUND);
             }
-            promotionProductGroupRepository.saveAll(promoGroups);
-            promotion.setPromotionProductGroups(promoGroups);
+            Set<PromotionProductGroup> promoGroups = groups.stream()
+                    .map(group -> PromotionProductGroup.builder()
+                            .promotion(promotion)
+                            .productGroup(group)
+                            .build())
+                    .collect(Collectors.toSet());
+            promotion.getPromotionProductGroups().addAll(promoGroups);
         }
     }
 

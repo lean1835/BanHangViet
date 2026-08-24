@@ -70,7 +70,7 @@ public class PromotionController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('VT-01', 'VT-02', 'OWNER', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('VT-01', 'VT-02', 'VT-03', 'OWNER', 'ADMIN')")
     public ResponseEntity<ApiResponse<PromotionDetailResponse>> getPromotionById(
             Principal principal,
             @PathVariable("id") String id) {
@@ -84,7 +84,7 @@ public class PromotionController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('VT-01', 'VT-02', 'OWNER', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('VT-01', 'VT-02', 'VT-03', 'OWNER', 'ADMIN')")
     public ResponseEntity<ApiResponse<PageResponse<PromotionResponse>>> getPromotions(
             Principal principal,
             @ModelAttribute PromotionSearchParam param,
