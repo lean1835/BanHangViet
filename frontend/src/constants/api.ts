@@ -43,6 +43,10 @@ export const API_TAG_TYPES = {
   INVENTORY_AUDIT: "InventoryAudit",
   INVENTORY_WARNING: "InventoryWarning",
   RETURN_TICKET: "ReturnTicket",
+  AUDIT_LOG: "AuditLog",
+  BACKUP: "Backup",
+  RESTORE: "Restore",
+  ANOMALY_ALERT: "AnomalyAlert",
 } as const;
 
 export const API_TAG_TYPE_VALUES = Object.values(API_TAG_TYPES);

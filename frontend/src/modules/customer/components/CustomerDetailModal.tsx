@@ -260,30 +260,50 @@ export const CustomerDetailModal: React.FC<CustomerDetailModalProps> = ({
             </div>
           )}
 
-          {/* Detail Tabs Header */}
-          <div className="border-b border-slate-200 flex items-center gap-4 sm:gap-6 overflow-x-auto no-scrollbar">
-            <button
-              type="button"
-              onClick={() => setActiveTab("DEBT_ORDERS")}
-              className={`pb-2 text-[11px] sm:text-xs font-extrabold transition-all relative shrink-0 ${
-                activeTab === "DEBT_ORDERS"
-                  ? "text-kv-blue-primary border-b-2 border-kv-blue-primary"
-                  : "text-slate-500 hover:text-slate-700"
-              }`}
-            >
-              Đơn hàng nợ ({activeDebtOrders.length})
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab("HISTORY")}
-              className={`pb-2 text-[11px] sm:text-xs font-extrabold transition-all relative shrink-0 ${
-                activeTab === "HISTORY"
-                  ? "text-kv-blue-primary border-b-2 border-kv-blue-primary"
-                  : "text-slate-500 hover:text-slate-700"
-              }`}
-            >
-              Lịch sử phát sinh & Thu nợ ({debtHistory.length})
-            </button>
+          {/* Detail Tabs Header - Spacious, sticky navigation */}
+          <div className="sticky top-0 z-20 bg-white/95 backdrop-blur-xs pt-3 -mt-2 -mx-3.5 sm:-mx-5 px-3.5 sm:px-5 border-b border-slate-200">
+            <div className="flex items-center gap-6 sm:gap-8 overflow-x-auto no-scrollbar">
+              <button
+                type="button"
+                onClick={() => setActiveTab("DEBT_ORDERS")}
+                className={`pb-3 text-xs sm:text-sm font-bold transition-all inline-flex items-center gap-2 relative shrink-0 border-b-2 -mb-[1px] ${
+                  activeTab === "DEBT_ORDERS"
+                    ? "text-kv-blue-primary border-kv-blue-primary font-extrabold"
+                    : "text-slate-500 hover:text-slate-800 border-transparent hover:border-slate-300"
+                }`}
+              >
+                <span>Đơn hàng nợ</span>
+                <span
+                  className={`px-2 py-0.5 rounded-full text-xs font-bold transition-colors ${
+                    activeTab === "DEBT_ORDERS"
+                      ? "bg-blue-100 text-kv-blue-primary"
+                      : "bg-slate-100 text-slate-500"
+                  }`}
+                >
+                  {activeDebtOrders.length}
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab("HISTORY")}
+                className={`pb-3 text-xs sm:text-sm font-bold transition-all inline-flex items-center gap-2 relative shrink-0 border-b-2 -mb-[1px] ${
+                  activeTab === "HISTORY"
+                    ? "text-kv-blue-primary border-kv-blue-primary font-extrabold"
+                    : "text-slate-500 hover:text-slate-800 border-transparent hover:border-slate-300"
+                }`}
+              >
+                <span>Lịch sử thu nợ & phát sinh</span>
+                <span
+                  className={`px-2 py-0.5 rounded-full text-xs font-bold transition-colors ${
+                    activeTab === "HISTORY"
+                      ? "bg-blue-100 text-kv-blue-primary"
+                      : "bg-slate-100 text-slate-500"
+                  }`}
+                >
+                  {debtHistory.length}
+                </span>
+              </button>
+            </div>
           </div>
 
           {/* Tab 1: Active Debt Orders with Product Details */}

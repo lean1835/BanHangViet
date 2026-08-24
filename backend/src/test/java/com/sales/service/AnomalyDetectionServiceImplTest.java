@@ -211,6 +211,33 @@ public class AnomalyDetectionServiceImplTest {
     }
 
     @Test
+    @DisplayName("Lấy danh sách cảnh báo bất thường thành công (findFilteredAlerts)")
+    void testGetAnomalyAlerts_Success() {
+        when(userRepository.findByUsername("owner_test")).thenReturn(Optional.of(ownerUser));
+
+        AnomalyAlert alert = AnomalyAlert.builder()
+                .id("alert-1")
+                .household(household)
+                .alertType(AnomalyAlertType.MASS_INVOICE_CANCEL)
+                .severity(AnomalySeverity.CRITICAL)
+                .title("Hủy hóa đơn hàng loạt")
+                .status(AnomalyAlertStatus.PENDING)
+                .detectedAt(LocalDateTime.now())
+                .build();
+
+        Page<AnomalyAlert> page = new PageImpl<>(List.of(alert));
+        when(anomalyAlertRepository.findFilteredAlerts(any(), any(), any(), any(), any(), any(), any(), any(), any(Pageable.class)))
+                .thenReturn(page);
+
+        PageResponse<AnomalyAlertResponse> result = anomalyDetectionService.getAnomalyAlerts(
+                "owner_test", new AnomalyAlertFilterRequest(), "127.0.0.1", "Mozilla/5.0");
+
+        assertNotNull(result);
+        assertEquals(1, result.getContent().size());
+        assertEquals("alert-1", result.getContent().get(0).getId());
+    }
+
+    @Test
     @DisplayName("Phát hiện đơn hàng có tỷ lệ giảm giá bất thường (UNUSUAL_HIGH_DISCOUNT >= 30%)")
     void testDetectUnusualHighDiscount_Success() {
         when(userRepository.findByUsername("owner_test")).thenReturn(Optional.of(ownerUser));

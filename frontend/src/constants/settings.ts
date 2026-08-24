@@ -16,7 +16,7 @@ export const SETTINGS_NAVIGATION_ITEMS = [
   },
   {
     path: APP_ROUTES.SETTINGS_BACKUP_EXPORT,
-    label: "Sao lưu dữ liệu",
+    label: "Sao lưu & Phục hồi dữ liệu",
   },
 ] as const;
 

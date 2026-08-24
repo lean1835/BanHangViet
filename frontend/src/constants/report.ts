@@ -11,12 +11,20 @@ export const REPORT_NAVIGATION_ITEMS = [
     label: "So sánh doanh thu kỳ",
   },
   {
-    path: APP_ROUTES.REPORT_TAX_SALES_INVOICES,
-    label: "Bảng kê HĐ bán ra",
+    path: APP_ROUTES.REPORT_TAX_DECLARATION,
+    label: "Tờ khai thuế & Bảng kê",
   },
   {
     path: APP_ROUTES.REPORT_ACTIVITY_LOGS,
     label: "Nhật ký hoạt động",
+  },
+  {
+    path: APP_ROUTES.REPORT_AUDIT_LOGS,
+    label: "Nhật ký kiểm toán",
+  },
+  {
+    path: APP_ROUTES.REPORT_ANOMALY_ALERTS,
+    label: "Cảnh báo bất thường",
   },
 ] as const;
 
@@ -24,6 +32,35 @@ export const REPORT_UI = {
   SIDEBAR: {
     TITLE: "Báo cáo",
     SECTION_LABEL: "Chức năng báo cáo",
+  },
+  TAX_DECLARATION: {
+    TITLE: "Tờ khai thuế & Phụ lục bảng kê bán ra (Mẫu 01/CNKD)",
+    DESCRIPTION:
+      "Tổng hợp doanh thu thực tế từ hóa đơn điện tử đã phát hành, lập phụ lục bảng kê và xuất tờ khai thuế mô phỏng Mẫu 01/CNKD theo quy định 2026.",
+    PERIOD_LABEL: "Kỳ kê khai thuế:",
+    YEAR_LABEL: "Năm tính thuế:",
+    BTN_PREVIEW: "Xem trước tờ khai",
+    BTN_EXPORT: "Xuất tờ khai thuế",
+    BTN_EXPORT_PDF: "Xuất tệp PDF (Mẫu chuẩn A4)",
+    BTN_EXPORT_EXCEL: "Xuất tệp Excel (Tờ khai + Bảng kê)",
+    BTN_EXPORT_XML: "Xuất tệp XML (eTax mô phỏng)",
+    STATUS_OPEN: "Đang mở (Dự thảo)",
+    STATUS_LOCKED: "Đã chốt sổ (Khóa số liệu)",
+    TAB_SIMULATED_FORM: "Mẫu tờ khai 01/CNKD",
+    TAB_ANNEX_INVOICES: "Phụ lục bảng kê HĐ bán ra (01-2/BK-HĐKD)",
+    TAB_TAX_GROUPS: "Tổng hợp theo thuế suất",
+    KPI: {
+      TOTAL_REVENUE: "Doanh thu chịu thuế",
+      VAT_AMOUNT: "Thuế GTGT mô phỏng",
+      PIT_AMOUNT: "Thuế TNCN mô phỏng",
+      TOTAL_PAYABLE: "Tổng thuế phải nộp",
+    },
+    WARNING_MISSING_INFO_TITLE: "Chưa đủ điều kiện xuất tờ khai thuế",
+    WARNING_MISSING_INFO_DESC:
+      "Hồ sơ hộ kinh doanh chưa khai báo đầy đủ các thông tin bắt buộc theo quy định quản lý thuế. Vui lòng cập nhật trước khi xuất tờ khai.",
+    BTN_UPDATE_SETTINGS: "Cập nhật thông tin hộ ngay",
+    ROLE_RESTRICTION_TOOLTIP:
+      "Chỉ Kế toán (VT-03) và Chủ hộ (VT-01) mới có quyền xuất tờ khai thuế.",
   },
   COMPARISON: {
     TITLE: "Đối chiếu & So sánh doanh thu hai kỳ liên tiếp",

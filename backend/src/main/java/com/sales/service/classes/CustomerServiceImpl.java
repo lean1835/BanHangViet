@@ -38,7 +38,7 @@ public class CustomerServiceImpl implements CustomerService {
     private final UserRepository userRepository;
     private final CustomerRepository customerRepository;
     private final CustomerDebtRepository customerDebtRepository;
-    private final ActivityLogRepository activityLogRepository;
+    private final ActivityLogHelper activityLogHelper;
     private final ObjectMapper objectMapper;
 
     private User getAuthenticatedUser(String username) {
@@ -57,19 +57,7 @@ public class CustomerServiceImpl implements CustomerService {
             String oldStr = oldValue != null ? objectMapper.writeValueAsString(oldValue) : null;
             String newStr = newValue != null ? objectMapper.writeValueAsString(newValue) : null;
 
-            ActivityLog logRecord = ActivityLog.builder()
-                    .household(household)
-                    .user(actor)
-                    .action(action)
-                    .targetTable("customers")
-                    .targetId(targetId)
-                    .oldValue(oldStr)
-                    .newValue(newStr)
-                    .clientIp(clientIp)
-                    .userAgent(userAgent)
-                    .build();
-
-            activityLogRepository.save(logRecord);
+            activityLogHelper.logActivityInNewTransaction(household, actor, action, "customers", targetId, oldStr, newStr, clientIp, userAgent);
         } catch (Exception e) {
             log.error("Failed to write activity log for customer", e);
         }
