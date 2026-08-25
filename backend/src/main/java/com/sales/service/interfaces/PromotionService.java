@@ -35,7 +35,14 @@ public interface PromotionService {
             String productId,
             BigDecimal quantity,
             BigDecimal unitPrice,
-            Boolean bypassPromotion,
-            String requestedPromotionId
+            Boolean bypassPromotion
+    );
+
+    PromotionItemResultResponse calculateItemPromotion(
+            User user,
+            com.sales.entity.Product product,
+            BigDecimal quantity,
+            BigDecimal unitPrice,
+            Boolean bypassPromotion
     );
 }

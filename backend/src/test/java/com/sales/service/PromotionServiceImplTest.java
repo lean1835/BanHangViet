@@ -378,4 +378,168 @@ class PromotionServiceImplTest {
         assertNotNull(existingPromo.getDeletedAt());
         verify(promotionRepository, times(1)).save(existingPromo);
     }
+
+    // ==========================================
+    // AUTO APPLY PROMOTION TESTS (NCL-15-CN-002)
+    // ==========================================
+
+    @Test
+    @DisplayName("NCL-15-CN-002-TC-01: Luồng thành công - Áp dụng tự động đợt khuyến mại đang hiệu lực")
+    void testTC01_AutoApplySingleActivePromotion_Success() {
+        Role staffRole = Role.builder().id(2).code("VT-02").name("Nhân viên bán hàng").build();
+        User staffUser = User.builder().id("user-staff").username("nhanvien").role(staffRole).household(mockHousehold).build();
+        Product product = Product.builder().id("prod-1").name("Nước ngọt Coca-Cola 320ml").price(new BigDecimal("10000.00")).household(mockHousehold).build();
+        Promotion promo10 = Promotion.builder().id("promo-10").name("Giảm giá 10% Coca-Cola").discountType(DiscountType.PERCENTAGE).discountValue(new BigDecimal("10.00")).applyScope(PromotionApplyScope.ALL).startDate(LocalDateTime.now().minusDays(1)).endDate(LocalDateTime.now().plusDays(5)).status(PromotionStatus.ACTIVE).household(mockHousehold).build();
+
+        when(userRepository.findByUsername("nhanvien")).thenReturn(Optional.of(staffUser));
+        when(promotionRepository.findActivePromotionsAtTime(eq("household-123"), any(LocalDateTime.class)))
+                .thenReturn(List.of(promo10));
+        when(productRepository.findAllByIdInAndHouseholdIdAndDeletedAtIsNull(any(), eq("household-123")))
+                .thenReturn(List.of(product));
+
+        com.sales.dto.request.AutoApplyPromotionRequest request = com.sales.dto.request.AutoApplyPromotionRequest.builder()
+                .items(List.of(com.sales.dto.request.OrderItemPromotionCheckRequest.builder()
+                        .productId("prod-1")
+                        .quantity(new BigDecimal("5"))
+                        .build()))
+                .build();
+
+        com.sales.dto.response.AutoApplyPromotionResponse response = promotionService.autoApplyPromotions("nhanvien", request);
+
+        assertNotNull(response);
+        assertEquals(1, response.getItems().size());
+        com.sales.dto.response.PromotionItemResultResponse itemResult = response.getItems().get(0);
+
+        assertTrue(itemResult.isHasPromotion());
+        assertEquals("promo-10", itemResult.getPromotionId());
+        assertEquals("Giảm giá 10% Coca-Cola", itemResult.getPromotionName());
+        assertEquals(new BigDecimal("50000.00"), itemResult.getOriginalSubtotal());
+        assertEquals(new BigDecimal("5000.00"), itemResult.getDiscountAmount());
+        assertEquals(new BigDecimal("45000.00"), itemResult.getFinalSubtotal());
+    }
+
+    @Test
+    @DisplayName("NCL-15-CN-002-TC-02: Sai trạng thái - Không có khuyến mại hiệu lực, bán theo giá gốc")
+    void testTC02_ExpiredOrInactivePromotion_Ignored() {
+        Role staffRole = Role.builder().id(2).code("VT-02").name("Nhân viên bán hàng").build();
+        User staffUser = User.builder().id("user-staff").username("nhanvien").role(staffRole).household(mockHousehold).build();
+        Product product = Product.builder().id("prod-1").name("Nước ngọt Coca-Cola 320ml").price(new BigDecimal("10000.00")).household(mockHousehold).build();
+
+        when(userRepository.findByUsername("nhanvien")).thenReturn(Optional.of(staffUser));
+        when(promotionRepository.findActivePromotionsAtTime(eq("household-123"), any(LocalDateTime.class)))
+                .thenReturn(Collections.emptyList());
+        when(productRepository.findAllByIdInAndHouseholdIdAndDeletedAtIsNull(any(), eq("household-123")))
+                .thenReturn(List.of(product));
+
+        com.sales.dto.request.AutoApplyPromotionRequest request = com.sales.dto.request.AutoApplyPromotionRequest.builder()
+                .items(List.of(com.sales.dto.request.OrderItemPromotionCheckRequest.builder()
+                        .productId("prod-1")
+                        .quantity(new BigDecimal("2"))
+                        .build()))
+                .build();
+
+        com.sales.dto.response.AutoApplyPromotionResponse response = promotionService.autoApplyPromotions("nhanvien", request);
+
+        assertNotNull(response);
+        com.sales.dto.response.PromotionItemResultResponse itemResult = response.getItems().get(0);
+
+        assertFalse(itemResult.isHasPromotion());
+        assertNull(itemResult.getPromotionId());
+        assertEquals(new BigDecimal("0.00"), itemResult.getDiscountAmount());
+        assertEquals(new BigDecimal("20000.00"), itemResult.getFinalSubtotal());
+    }
+
+    @Test
+    @DisplayName("NCL-15-CN-002-TC-03 & QTN-26: Trùng nhiều khuyến mại - Áp dụng đúng 1 đợt có lợi nhất cho khách (20%)")
+    void testTC03_MultipleActivePromotions_ResolvesBestDiscountForCustomer_QTN26() {
+        Role staffRole = Role.builder().id(2).code("VT-02").name("Nhân viên bán hàng").build();
+        User staffUser = User.builder().id("user-staff").username("nhanvien").role(staffRole).household(mockHousehold).build();
+        Product product = Product.builder().id("prod-1").name("Nước ngọt Coca-Cola 320ml").price(new BigDecimal("10000.00")).household(mockHousehold).build();
+        Promotion promo10 = Promotion.builder().id("promo-10").name("Giảm giá 10% Coca-Cola").discountType(DiscountType.PERCENTAGE).discountValue(new BigDecimal("10.00")).applyScope(PromotionApplyScope.ALL).startDate(LocalDateTime.now().minusDays(1)).endDate(LocalDateTime.now().plusDays(5)).status(PromotionStatus.ACTIVE).household(mockHousehold).build();
+        Promotion promo20 = Promotion.builder().id("promo-20").name("Siêu Khuyến Mại Giảm 20%").discountType(DiscountType.PERCENTAGE).discountValue(new BigDecimal("20.00")).applyScope(PromotionApplyScope.ALL).startDate(LocalDateTime.now().minusDays(1)).endDate(LocalDateTime.now().plusDays(5)).status(PromotionStatus.ACTIVE).household(mockHousehold).build();
+
+        when(userRepository.findByUsername("nhanvien")).thenReturn(Optional.of(staffUser));
+        when(promotionRepository.findActivePromotionsAtTime(eq("household-123"), any(LocalDateTime.class)))
+                .thenReturn(List.of(promo10, promo20));
+        when(productRepository.findAllByIdInAndHouseholdIdAndDeletedAtIsNull(any(), eq("household-123")))
+                .thenReturn(List.of(product));
+
+        com.sales.dto.request.AutoApplyPromotionRequest request = com.sales.dto.request.AutoApplyPromotionRequest.builder()
+                .items(List.of(com.sales.dto.request.OrderItemPromotionCheckRequest.builder()
+                        .productId("prod-1")
+                        .quantity(new BigDecimal("10"))
+                        .build()))
+                .build();
+
+        com.sales.dto.response.AutoApplyPromotionResponse response = promotionService.autoApplyPromotions("nhanvien", request);
+
+        assertNotNull(response);
+        com.sales.dto.response.PromotionItemResultResponse itemResult = response.getItems().get(0);
+
+        assertTrue(itemResult.isHasPromotion());
+        assertEquals("promo-20", itemResult.getPromotionId());
+        assertEquals("Siêu Khuyến Mại Giảm 20%", itemResult.getPromotionName());
+        assertEquals(new BigDecimal("20000.00"), itemResult.getDiscountAmount());
+        assertEquals(new BigDecimal("80000.00"), itemResult.getFinalSubtotal());
+    }
+
+    @Test
+    @DisplayName("NCL-15-CN-002-TC-04: Nhân viên muốn bỏ khuyến mại -> Chặn và báo lỗi FORBIDDEN")
+    void testTC04_SalespersonBypassPromotion_ThrowsException() {
+        Role staffRole = Role.builder().id(2).code("VT-02").name("Nhân viên bán hàng").build();
+        User staffUser = User.builder().id("user-staff").username("nhanvien").role(staffRole).household(mockHousehold).build();
+        Product product = Product.builder().id("prod-1").name("Nước ngọt Coca-Cola 320ml").price(new BigDecimal("10000.00")).household(mockHousehold).build();
+        Promotion promo10 = Promotion.builder().id("promo-10").name("Giảm giá 10% Coca-Cola").discountType(DiscountType.PERCENTAGE).discountValue(new BigDecimal("10.00")).applyScope(PromotionApplyScope.ALL).startDate(LocalDateTime.now().minusDays(1)).endDate(LocalDateTime.now().plusDays(5)).status(PromotionStatus.ACTIVE).household(mockHousehold).build();
+
+        when(userRepository.findByUsername("nhanvien")).thenReturn(Optional.of(staffUser));
+        when(promotionRepository.findActivePromotionsAtTime(eq("household-123"), any(LocalDateTime.class)))
+                .thenReturn(List.of(promo10));
+        when(productRepository.findAllByIdInAndHouseholdIdAndDeletedAtIsNull(any(), eq("household-123")))
+                .thenReturn(List.of(product));
+
+        com.sales.dto.request.AutoApplyPromotionRequest request = com.sales.dto.request.AutoApplyPromotionRequest.builder()
+                .items(List.of(com.sales.dto.request.OrderItemPromotionCheckRequest.builder()
+                        .productId("prod-1")
+                        .quantity(new BigDecimal("1"))
+                        .bypassPromotion(true)
+                        .build()))
+                .build();
+
+        AppException ex = assertThrows(AppException.class, () -> promotionService.autoApplyPromotions("nhanvien", request));
+        assertEquals(ErrorCode.PROMOTION_REMOVE_REQUIRES_OWNER, ex.getErrorCode());
+    }
+
+    @Test
+    @DisplayName("NCL-15-CN-002-TC-04: Chủ hộ có quyền bỏ khuyến mại tự động")
+    void testTC04_OwnerBypassPromotion_Success() {
+        Role ownerRole = Role.builder().id(1).code("VT-01").name("Chủ hộ kinh doanh").build();
+        User ownerUser = User.builder().id("user-owner").username("chuho").role(ownerRole).household(mockHousehold).build();
+        Product product = Product.builder().id("prod-1").name("Nước ngọt Coca-Cola 320ml").price(new BigDecimal("10000.00")).household(mockHousehold).build();
+        Promotion promo10 = Promotion.builder().id("promo-10").name("Giảm giá 10% Coca-Cola").discountType(DiscountType.PERCENTAGE).discountValue(new BigDecimal("10.00")).applyScope(PromotionApplyScope.ALL).startDate(LocalDateTime.now().minusDays(1)).endDate(LocalDateTime.now().plusDays(5)).status(PromotionStatus.ACTIVE).household(mockHousehold).build();
+
+        when(userRepository.findByUsername("chuho")).thenReturn(Optional.of(ownerUser));
+        when(promotionRepository.findActivePromotionsAtTime(eq("household-123"), any(LocalDateTime.class)))
+                .thenReturn(List.of(promo10));
+        when(productRepository.findAllByIdInAndHouseholdIdAndDeletedAtIsNull(any(), eq("household-123")))
+                .thenReturn(List.of(product));
+
+        com.sales.dto.request.AutoApplyPromotionRequest request = com.sales.dto.request.AutoApplyPromotionRequest.builder()
+                .items(List.of(com.sales.dto.request.OrderItemPromotionCheckRequest.builder()
+                        .productId("prod-1")
+                        .quantity(new BigDecimal("1"))
+                        .bypassPromotion(true)
+                        .build()))
+                .build();
+
+        com.sales.dto.response.AutoApplyPromotionResponse response = promotionService.autoApplyPromotions("chuho", request);
+
+        assertNotNull(response);
+        com.sales.dto.response.PromotionItemResultResponse itemResult = response.getItems().get(0);
+
+        assertTrue(itemResult.isBypassPromotion());
+        assertFalse(itemResult.isHasPromotion());
+        assertNull(itemResult.getPromotionId());
+        assertEquals(new BigDecimal("0.00"), itemResult.getDiscountAmount());
+        assertEquals(new BigDecimal("10000.00"), itemResult.getFinalSubtotal());
+    }
 }

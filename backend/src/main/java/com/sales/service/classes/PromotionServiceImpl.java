@@ -29,8 +29,10 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -214,15 +216,35 @@ public class PromotionServiceImpl implements PromotionService {
 
         List<Promotion> activePromotions = promotionRepository.findActivePromotionsAtTime(householdId, now);
 
+        List<String> productIds = request.getItems() != null
+                ? request.getItems().stream()
+                        .map(OrderItemPromotionCheckRequest::getProductId)
+                        .filter(id -> id != null && !id.trim().isEmpty())
+                        .distinct()
+                        .collect(Collectors.toList())
+                : Collections.emptyList();
+
+        Map<String, Product> productMap = productIds.isEmpty()
+                ? Collections.emptyMap()
+                : productRepository.findAllByIdInAndHouseholdIdAndDeletedAtIsNull(productIds, householdId)
+                        .stream()
+                        .collect(Collectors.toMap(Product::getId, java.util.function.Function.identity(), (p1, p2) -> p1));
+
         List<PromotionItemResultResponse> itemResults = new ArrayList<>();
         BigDecimal totalOriginalAmount = BigDecimal.ZERO;
         BigDecimal totalDiscountAmount = BigDecimal.ZERO;
         BigDecimal totalFinalAmount = BigDecimal.ZERO;
 
         for (OrderItemPromotionCheckRequest itemReq : request.getItems()) {
-            PromotionItemResultResponse result = calculateItemWithPromotions(
+            Product product = productMap.get(itemReq.getProductId());
+            if (product == null) {
+                product = productRepository.findById(itemReq.getProductId())
+                        .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_NOT_FOUND));
+            }
+
+            PromotionItemResultResponse result = calculateItemWithProduct(
                     currentUser,
-                    itemReq.getProductId(),
+                    product,
                     itemReq.getQuantity(),
                     itemReq.getUnitPrice(),
                     itemReq.getBypassPromotion(),
@@ -250,26 +272,37 @@ public class PromotionServiceImpl implements PromotionService {
             String productId,
             BigDecimal quantity,
             BigDecimal unitPrice,
-            Boolean bypassPromotion,
-            String requestedPromotionId
+            Boolean bypassPromotion
+    ) {
+        Product product = productRepository.findById(productId)
+                .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_NOT_FOUND));
+        return calculateItemPromotion(user, product, quantity, unitPrice, bypassPromotion);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PromotionItemResultResponse calculateItemPromotion(
+            User user,
+            Product product,
+            BigDecimal quantity,
+            BigDecimal unitPrice,
+            Boolean bypassPromotion
     ) {
         String householdId = user.getHousehold().getId();
         LocalDateTime now = LocalDateTime.now();
         List<Promotion> activePromotions = promotionRepository.findActivePromotionsAtTime(householdId, now);
 
-        return calculateItemWithPromotions(user, productId, quantity, unitPrice, bypassPromotion, activePromotions);
+        return calculateItemWithProduct(user, product, quantity, unitPrice, bypassPromotion, activePromotions);
     }
 
-    private PromotionItemResultResponse calculateItemWithPromotions(
+    private PromotionItemResultResponse calculateItemWithProduct(
             User user,
-            String productId,
+            Product product,
             BigDecimal quantity,
             BigDecimal requestedUnitPrice,
             Boolean bypassPromotion,
             List<Promotion> activePromotions
     ) {
-        Product product = productRepository.findById(productId)
-                .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_NOT_FOUND));
 
         BigDecimal effectiveUnitPrice = requestedUnitPrice != null && requestedUnitPrice.compareTo(BigDecimal.ZERO) >= 0
                 ? requestedUnitPrice
