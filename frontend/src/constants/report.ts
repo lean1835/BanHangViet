@@ -34,7 +34,7 @@ export const REPORT_UI = {
     SECTION_LABEL: "Chức năng báo cáo",
   },
   TAX_DECLARATION: {
-    TITLE: "Tờ khai thuế & Phụ lục bảng kê bán ra (Mẫu 01/CNKD)",
+    TITLE: "Tờ khai thuế & Phụ lục bảng kê bán ra",
     DESCRIPTION:
       "Tổng hợp doanh thu thực tế từ hóa đơn điện tử đã phát hành, lập phụ lục bảng kê và xuất tờ khai thuế mô phỏng Mẫu 01/CNKD theo quy định 2026.",
     PERIOD_LABEL: "Kỳ kê khai thuế:",

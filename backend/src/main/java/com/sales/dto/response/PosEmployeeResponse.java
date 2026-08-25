@@ -1,13 +1,14 @@
 package com.sales.dto.response;
 
 import lombok.*;
+
 import java.time.LocalDateTime;
 
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class EmployeeResponse {
+public class PosEmployeeResponse {
     private String id;
     private String username;
     private String fullName;

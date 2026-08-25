@@ -1,13 +1,39 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { SimulatedTaxForm01 } from "../components/SimulatedTaxForm01";
-import { exportTaxDeclarationToXml } from "../utils/taxExportHelper";
+import { exportTaxDeclarationToXml, exportTaxDeclarationToPdf } from "../utils/taxExportHelper";
 import type {
   ITaxDeclarationPeriodResponse,
   ITaxRevenueSummaryResponse,
   ITaxSalesRegisterItemResponse,
 } from "../types/ITaxDeclaration";
 import { numberToVietnameseWords } from "@/utils/numberToVietnameseWords";
+
+vi.mock("html2canvas", () => ({
+  default: vi.fn().mockImplementation(() =>
+    Promise.resolve({
+      width: 800,
+      height: 1100,
+      toDataURL: () => "data:image/png;base64,mockImageData",
+    })
+  ),
+}));
+
+vi.mock("jspdf", () => {
+  return {
+    default: vi.fn().mockImplementation(() => ({
+      internal: {
+        pageSize: {
+          getWidth: () => 210,
+          getHeight: () => 297,
+        },
+      },
+      addImage: vi.fn(),
+      addPage: vi.fn(),
+      save: vi.fn(),
+    })),
+  };
+});
 
 const mockPeriod: ITaxDeclarationPeriodResponse = {
   id: "period-123",
@@ -150,5 +176,29 @@ describe("NCL-12-CN-003: Xuất tờ khai thuế theo mẫu mô phỏng", () => 
     );
     expect(success).toBe(true);
     clickSpy.mockRestore();
+  });
+
+  // Test Case TC-05 & Export: Xuất PDF A4 mô phỏng
+  it("NCL-12-CN-003-TC-01-PDF: Xuất PDF chuẩn A4 khi phần tử tờ khai tồn tại trong DOM", async () => {
+    render(
+      <SimulatedTaxForm01
+        period={mockPeriod}
+        revenueSummary={mockSummary}
+        householdData={mockHousehold}
+      />
+    );
+
+    const result = await exportTaxDeclarationToPdf(
+      "tax-declaration-form-simulation",
+      mockPeriod.periodName,
+      mockPeriod.year
+    );
+    expect(result).toBe(true);
+  });
+
+  it("NCL-12-CN-003-TC-01-PDF-ERROR: Ném lỗi thông báo rõ ràng khi không tìm thấy element trong DOM", async () => {
+    await expect(
+      exportTaxDeclarationToPdf("non-existent-id", "Quý 3 / 2026", 2026)
+    ).rejects.toThrow("Không tìm thấy khung nội dung tờ khai thuế để xuất PDF.");
   });
 });
