@@ -171,7 +171,17 @@ public enum ErrorCode {
     POS_INSUFFICIENT_STOCK(7013, "Số lượng tồn kho tại điểm bán không đủ để bán", HttpStatus.BAD_REQUEST),
     POS_EMPLOYEE_NOT_ASSIGNED(7014, "Nhân viên chưa được gán vào điểm bán nào", HttpStatus.FORBIDDEN),
     CANNOT_ASSIGN_OWNER_TO_POS(7015, "Chủ hộ có quyền quản trị toàn bộ điểm bán, không thể gán điểm bán cố định", HttpStatus.BAD_REQUEST),
-    INVALID_POS_INVENTORY_QTY(7016, "Số lượng tồn kho khai báo không được nhỏ hơn 0", HttpStatus.BAD_REQUEST);
+    INVALID_POS_INVENTORY_QTY(7016, "Số lượng tồn kho khai báo không được nhỏ hơn 0", HttpStatus.BAD_REQUEST),
+    
+    // NCL-17-CN-003 Chuyển hàng giữa các điểm bán
+    TRANSFER_NOT_FOUND(7020, "Phiếu chuyển hàng không tồn tại", HttpStatus.NOT_FOUND),
+    TRANSFER_SAME_POS(7021, "Điểm bán gửi và điểm bán nhận không được trùng nhau", HttpStatus.BAD_REQUEST),
+    TRANSFER_INVALID_STATUS(7022, "Trạng thái phiếu chuyển không hợp lệ để thực hiện thao tác", HttpStatus.BAD_REQUEST),
+    TRANSFER_ITEMS_EMPTY(7023, "Phiếu chuyển hàng phải có ít nhất một mặt hàng", HttpStatus.BAD_REQUEST),
+    TRANSFER_QUANTITY_INVALID(7024, "Số lượng chuyển phải lớn hơn 0", HttpStatus.BAD_REQUEST),
+    TRANSFER_EXCEED_STOCK(7025, "Số lượng chuyển vượt quá tồn kho hiện có tại điểm gửi", HttpStatus.BAD_REQUEST),
+    TRANSFER_RECEIVER_PERMISSION_DENIED(7026, "Chỉ nhân viên thuộc điểm nhận, kế toán hoặc chủ hộ mới có quyền xác nhận nhận hàng", HttpStatus.FORBIDDEN),
+    TRANSFER_CANCEL_REASON_REQUIRED(7027, "Cần nhập lý do khi hủy phiếu chuyển hàng", HttpStatus.BAD_REQUEST);
 
     private final int code;
     private final String message;
