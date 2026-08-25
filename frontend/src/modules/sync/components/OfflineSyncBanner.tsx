@@ -88,11 +88,11 @@ export const OfflineSyncBanner: React.FC<OfflineSyncBannerProps> = ({
               <span>
                 <strong>Chế độ Ngoại tuyến (Offline):</strong> Mọi đơn hàng mới sẽ được lưu tạm tại thiết bị.
               </span>
-              <span className="font-extrabold px-2.5 py-0.5 bg-white/20 text-yellow-200 rounded-full border border-white/30 text-[11px]">
-                {limitStatus.maxOrders > 0
-                  ? `Đã lưu: ${pendingCount}/${limitStatus.maxOrders} đơn`
-                  : `Đã lưu: ${pendingCount} đơn (Không giới hạn)`}
-              </span>
+              {limitStatus.maxOrders > 0 && (
+                <span className="font-extrabold px-2.5 py-0.5 bg-white/20 text-yellow-200 rounded-full border border-white/30 text-[11px]">
+                  Đã lưu: {pendingCount}/{limitStatus.maxOrders} đơn
+                </span>
+              )}
             </span>
           </div>
         </div>

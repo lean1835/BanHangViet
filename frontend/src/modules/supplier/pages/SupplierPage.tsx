@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from "react";
-import { Link, useOutletContext } from "react-router-dom";
+import { Link, useOutletContext, useNavigate } from "react-router-dom";
 import { USER_ROLES } from "@/constants/roles";
 import { APP_ROUTES } from "@/constants/routes";
 import {
@@ -37,6 +37,7 @@ import { SupplierDetailModal } from "../components/SupplierDetailModal";
 import { PaySupplierDebtModal } from "../components/PaySupplierDebtModal";
 
 export const SupplierPage: React.FC = () => {
+  const navigate = useNavigate();
   const { currentRole, addLogEntry } = useDashboardDemo();
   const { showSuccess, showError } = useNotification();
   const canManage = currentRole === USER_ROLES.OWNER;
@@ -152,8 +153,7 @@ export const SupplierPage: React.FC = () => {
   };
 
   const handleOpenDetailModal = (supplier: ISupplier) => {
-    setSelectedSupplier(supplier);
-    setIsDetailModalOpen(true);
+    navigate(APP_ROUTES.SUPPLIER_DETAIL(supplier.id));
   };
 
   const handleOpenStatusModal = (supplier: ISupplier) => {
@@ -341,7 +341,7 @@ export const SupplierPage: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-5 animate-page-fade">
       {/* Top Action Toolbar */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 animate-auth-fade-in">
         {/* Search Box */}

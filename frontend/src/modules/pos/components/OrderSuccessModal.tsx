@@ -372,7 +372,11 @@ export const OrderSuccessModal: React.FC<IOrderSuccessModalProps> = ({
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto animate-fadeIn select-none"
-      onClick={handleSafeClose}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          handleSafeClose();
+        }
+      }}
     >
       {/* Printable Area Wrapper with thermal print styles */}
       <style>{`

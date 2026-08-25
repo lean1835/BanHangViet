@@ -56,21 +56,21 @@ export const ANOMALY_SEVERITY_STYLES: Record<
     text: "text-rose-700",
     border: "border-rose-200",
     badgeBg: "bg-rose-600 text-white",
-    label: "Nghiêm trọng (Critical)",
+    label: "Nghiêm trọng",
   },
   [ANOMALY_SEVERITIES.WARNING]: {
     bg: "bg-amber-50 text-amber-700 border-amber-200",
     text: "text-amber-700",
     border: "border-amber-200",
     badgeBg: "bg-amber-500 text-white",
-    label: "Cảnh báo (Warning)",
+    label: "Cảnh báo",
   },
   [ANOMALY_SEVERITIES.INFO]: {
     bg: "bg-blue-50 text-blue-700 border-blue-200",
     text: "text-blue-700",
     border: "border-blue-200",
     badgeBg: "bg-blue-500 text-white",
-    label: "Thông tin (Info)",
+    label: "Thông tin",
   },
 };
 
@@ -120,7 +120,7 @@ export const ANOMALY_UI = {
     PENDING_ALERTS: "Cảnh báo chờ xử lý",
     CRITICAL_ALERTS: "Mức độ nghiêm trọng",
     WARNING_ALERTS: "Mức độ cảnh báo",
-    CLEAN_DAY_TITLE: "Ngày làm việc an toàn (Clean Day)",
+    CLEAN_DAY_TITLE: "Ngày làm việc an toàn",
     CLEAN_DAY_DESC:
       "Hệ thống đã rà soát toàn bộ dữ liệu nhật ký và không phát hiện bất kỳ thao tác vượt ngưỡng bất thường nào trong ngày.",
     SCAN_NOW_BTN: "Quét kiểm tra ngay",
@@ -153,7 +153,7 @@ export const ANOMALY_UI = {
     SUBTITLE: "Xem dữ liệu bằng chứng và xác nhận xử lý hoặc bỏ qua cảnh báo",
     ACTOR_INFO: "Thông tin người thực hiện:",
     DETECTED_TIME: "Thời điểm phát hiện:",
-    EVIDENCE_TITLE: "Dữ liệu bằng chứng vi phạm (Evidence Data):",
+    EVIDENCE_TITLE: "Dữ liệu bằng chứng vi phạm:",
     STATUS_SELECT_LABEL: "Hành động xử lý cảnh báo:",
     REVIEW_NOTES_LABEL: "Ghi chú xử lý / giải trình:",
     REVIEW_NOTES_PLACEHOLDER: "Nhập ghi chú giải thích phương án xử lý hoặc lý do bỏ qua cảnh báo...",

@@ -1,37 +1,26 @@
 import { useState, useEffect, useMemo } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { DashboardWorkspaceLayout } from "@/components/layouts/DashboardWorkspaceLayout";
 import { useDashboardDemo } from "@/providers/DashboardDemoProvider";
-import { E_INVOICE_STATUS } from "@/constants/eInvoice";
+import { APP_ROUTES } from "@/constants/routes";
 import { STORAGE_KEYS } from "@/constants/app";
-import { useNotification } from "@/hooks/useNotification";
 import { getApiErrorMessage } from "@/utils/getApiErrorMessage";
 import { normalizeDateToYYYYMMDD } from "@/utils/dateFormatter";
 import type { IInvoice, TInvoiceStatus } from "../types/IInvoice";
-import {
-  useGetInvoicesQuery,
-  useSubmitToTaxMutation,
-  useResendInvoiceMutation,
-  useCancelInvoiceMutation,
-  useUpdateInvoiceMutation,
-} from "../services/eInvoiceApi";
+import { useGetInvoicesQuery } from "../services/eInvoiceApi";
 import { useGetInvoiceTemplateQuery } from "@/modules/settings/services/settingsApi";
 import { InvoiceSidebar, type TInvoiceVersionFilter } from "../components/InvoiceSidebar";
 import { InvoiceList } from "../components/InvoiceList";
-import { InvoiceDetailModal } from "../components/InvoiceDetailModal";
-import { recordInvoiceCancellation } from "@/modules/anomaly_alert/utils/anomalyStorage";
 
 export const InvoiceManagementPage = () => {
-  const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const highlightedId = searchParams.get("id");
-  const { showSuccess, showError, showInfo } = useNotification();
 
   const {
     isOnline,
     invoices: mockInvoices,
     setInvoices: setMockInvoices,
-    addLogEntry,
-    currentRole,
   } = useDashboardDemo();
 
   // Filters State
@@ -41,15 +30,11 @@ export const InvoiceManagementPage = () => {
   const [toDate, setToDate] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Selected Invoice Modal State
-  const [selectedInvoice, setSelectedInvoice] = useState<IInvoice | null>(null);
-  const [isDetailOpen, setIsDetailOpen] = useState(false);
-
   // Invoice Template Query to get template updatedAt
   const { data: templateResponse } = useGetInvoiceTemplateQuery(undefined, { skip: !isOnline });
   const templateUpdatedAt = templateResponse?.result?.updatedAt;
 
-  // Online RTK Query & Mutations
+  // Online RTK Query
   const {
     data: apiInvoicesData,
     isLoading: isApiLoading,
@@ -65,11 +50,6 @@ export const InvoiceManagementPage = () => {
     },
     { skip: !isOnline }
   );
-
-  const [submitToTaxApi] = useSubmitToTaxMutation();
-  const [resendInvoiceApi] = useResendInvoiceMutation();
-  const [cancelInvoiceApi] = useCancelInvoiceMutation();
-  const [updateInvoiceApi] = useUpdateInvoiceMutation();
 
   // Synchronize API fetched invoices to local state and localStorage cache
   useEffect(() => {
@@ -164,202 +144,12 @@ export const InvoiceManagementPage = () => {
   // Handle URL ID query param for highlighted invoice
   useEffect(() => {
     if (highlightedId) {
-      const found = displayedInvoices.find((inv) => inv.id === highlightedId);
-      if (found) {
-        setSelectedInvoice(found);
-        setIsDetailOpen(true);
-      }
+      navigate(APP_ROUTES.E_INVOICE_DETAIL(highlightedId), { replace: true });
     }
-  }, [highlightedId, displayedInvoices]);
+  }, [highlightedId, navigate]);
 
   const handleSelectInvoice = (invoice: IInvoice) => {
-    setSelectedInvoice(invoice);
-    setIsDetailOpen(true);
-    // Sync highlighted ID to URL
-    setSearchParams({ id: invoice.id });
-  };
-
-  const handleCloseDetail = () => {
-    setIsDetailOpen(false);
-    setSelectedInvoice(null);
-    // Remove query param from URL
-    const params = new URLSearchParams(searchParams);
-    params.delete("id");
-    setSearchParams(params);
-  };
-
-  // Submit Invoice to Tax Authority
-  const handleSendToTax = async (invoiceId: string) => {
-    if (isOnline) {
-      try {
-        const response = await submitToTaxApi(invoiceId).unwrap();
-        showSuccess("Đã gửi hóa đơn điện tử chờ cơ quan thuế cấp mã.");
-        if (response?.result) {
-          setSelectedInvoice(response.result);
-        }
-      } catch (err: unknown) {
-        showError(getApiErrorMessage(err, "Không thể gửi hóa đơn điện tử lên Cơ quan Thuế."));
-      }
-    } else {
-      // Offline Simulation
-      const targetInvoice = mockInvoices.find((x) => x.id === invoiceId);
-      if (!targetInvoice) return;
-
-      const updatedInvoice: IInvoice = {
-        ...targetInvoice,
-        status: E_INVOICE_STATUS.WAITING_TAX_CODE,
-        sentToTaxAt: new Date().toISOString(),
-      };
-
-      setMockInvoices((prev) => prev.map((x) => (x.id === invoiceId ? updatedInvoice : x)));
-      setSelectedInvoice(updatedInvoice);
-      addLogEntry("GỬI_THUẾ", `Nhân viên gửi hóa đơn ${targetInvoice.lookupCode} chờ cấp mã`);
-      showSuccess("Đã gửi hóa đơn điện tử chờ cơ quan thuế cấp mã.");
-
-      // Simulate automatic tax approval after 2.5 seconds (representing asynchronous tax system webhook)
-      setTimeout(() => {
-        setMockInvoices((prev) =>
-          prev.map((item) => {
-            if (item.id === invoiceId && item.status === E_INVOICE_STATUS.WAITING_TAX_CODE) {
-              const approvedInvoice: IInvoice = {
-                ...item,
-                status: E_INVOICE_STATUS.ISSUED,
-                invoiceNumber: String(prev.filter((x) => x.status === E_INVOICE_STATUS.ISSUED).length + 1).padStart(7, "0"),
-                invoicePattern: "1",
-                invoiceSymbol: "C26TAA",
-                taxAuthorityCode: "CQT-20260715-" + Math.floor(100000 + Math.random() * 900000),
-                taxResponseAt: new Date().toISOString(),
-              };
-              // Update selected invoice details in real-time if it's currently open
-              if (selectedInvoice && selectedInvoice.id === invoiceId) {
-                setSelectedInvoice(approvedInvoice);
-              }
-              showInfo(`Hóa đơn ${item.lookupCode} đã được cơ quan thuế cấp mã thành công!`);
-              return approvedInvoice;
-            }
-            return item;
-          })
-        );
-        addLogEntry("THUẾ_CẤP_MÃ", `Cơ quan thuế cấp mã thành công cho hóa đơn ${targetInvoice.lookupCode}`);
-      }, 2500);
-    }
-  };
-
-  // Resend Invoice after rejection / errors
-  const handleResendToTax = async (invoiceId: string) => {
-    if (isOnline) {
-      try {
-        const response = await resendInvoiceApi(invoiceId).unwrap();
-        showSuccess("Đã gửi lại hóa đơn điện tử lên cơ quan thuế.");
-        if (response?.result) {
-          setSelectedInvoice(response.result);
-        }
-      } catch (err: unknown) {
-        showError(getApiErrorMessage(err, "Không thể gửi lại hóa đơn điện tử."));
-      }
-    } else {
-      // Offline Simulation
-      handleSendToTax(invoiceId);
-    }
-  };
-
-  // Cancel Invoice
-  const handleCancelInvoice = async (invoiceId: string, reason: string) => {
-    if (isOnline) {
-      try {
-        const response = await cancelInvoiceApi({ invoiceId, cancelReason: reason }).unwrap();
-        showSuccess("Hủy hóa đơn điện tử thành công.");
-        if (response?.result) {
-          setSelectedInvoice(response.result);
-          recordInvoiceCancellation({
-            invoiceNumber: response.result.invoiceNumber || response.result.lookupCode,
-            lookupCode: response.result.lookupCode,
-            actorUsername: currentRole || "chuho_viet",
-            reason,
-            amount: response.result.finalAmount ?? response.result.amount,
-          });
-        }
-      } catch (err: unknown) {
-        showError(getApiErrorMessage(err, "Không thể thực hiện hủy hóa đơn điện tử."));
-      }
-    } else {
-      // Offline Simulation
-      const targetInvoice = mockInvoices.find((x) => x.id === invoiceId);
-      if (!targetInvoice) return;
-
-      const updatedInvoice: IInvoice = {
-        ...targetInvoice,
-        status: E_INVOICE_STATUS.CANCELED,
-        cancelReason: reason,
-        canceledAt: new Date().toISOString(),
-        canceledByUsername: "chuho_viet", // Simulated logged in user
-      };
-
-      setMockInvoices((prev) => prev.map((x) => (x.id === invoiceId ? updatedInvoice : x)));
-      setSelectedInvoice(updatedInvoice);
-      recordInvoiceCancellation({
-        invoiceNumber: targetInvoice.invoiceNumber || targetInvoice.lookupCode,
-        lookupCode: targetInvoice.lookupCode,
-        actorUsername: "chuho_viet",
-        reason,
-        amount: targetInvoice.finalAmount ?? targetInvoice.amount,
-      });
-      addLogEntry("HỦY_HÓA_ĐƠN", `Hủy hóa đơn ${targetInvoice.lookupCode}. Lý do: ${reason}`);
-      showSuccess("Hủy hóa đơn điện tử thành công.");
-    }
-  };
-
-  // Update Invoice Buyer Info
-  const handleUpdateInvoice = async (
-    invoiceId: string,
-    buyerInfo: {
-      buyerName: string;
-      buyerTaxCode: string;
-      buyerAddress: string;
-      buyerPhone: string;
-      buyerEmail: string;
-    }
-  ) => {
-    if (isOnline) {
-      try {
-        const response = await updateInvoiceApi({ invoiceId, ...buyerInfo }).unwrap();
-        if (response?.result) {
-          setSelectedInvoice(response.result);
-        }
-      } catch (err: unknown) {
-        showError(getApiErrorMessage(err, "Không thể cập nhật thông tin hóa đơn."));
-        throw err;
-      }
-    } else {
-      // Offline Simulation
-      setMockInvoices((prev) =>
-        prev.map((x) =>
-          x.id === invoiceId
-            ? {
-                ...x,
-                buyerName: buyerInfo.buyerName,
-                buyerTaxCode: buyerInfo.buyerTaxCode,
-                buyerAddress: buyerInfo.buyerAddress,
-                buyerPhone: buyerInfo.buyerPhone,
-                buyerEmail: buyerInfo.buyerEmail,
-                customer: buyerInfo.buyerName || x.customer,
-              }
-            : x
-        )
-      );
-      const current = mockInvoices.find((x) => x.id === invoiceId);
-      if (current) {
-        setSelectedInvoice({
-          ...current,
-          buyerName: buyerInfo.buyerName,
-          buyerTaxCode: buyerInfo.buyerTaxCode,
-          buyerAddress: buyerInfo.buyerAddress,
-          buyerPhone: buyerInfo.buyerPhone,
-          buyerEmail: buyerInfo.buyerEmail,
-          customer: buyerInfo.buyerName || current.customer,
-        });
-      }
-    }
+    navigate(APP_ROUTES.E_INVOICE_DETAIL(invoice.id));
   };
 
   return (
@@ -379,7 +169,7 @@ export const InvoiceManagementPage = () => {
         />
       }
     >
-      <div className="grid grid-cols-1 gap-6">
+      <div className="grid grid-cols-1 gap-6 animate-page-fade">
         {isOnline && apiError && (
           <div className="bg-rose-50 border border-rose-200 text-rose-600 p-3 rounded-lg text-xs font-bold">
             {getApiErrorMessage(apiError, "Không thể đồng bộ danh sách hóa đơn từ máy chủ.")}
@@ -394,19 +184,6 @@ export const InvoiceManagementPage = () => {
           <InvoiceList invoices={displayedInvoices} onSelectInvoice={handleSelectInvoice} />
         )}
       </div>
-
-      {isDetailOpen && selectedInvoice && (
-        <InvoiceDetailModal
-          isOpen={isDetailOpen}
-          onClose={handleCloseDetail}
-          invoice={selectedInvoice}
-          currentRole={currentRole}
-          onSendToTax={handleSendToTax}
-          onResendToTax={handleResendToTax}
-          onCancelInvoice={handleCancelInvoice}
-          onUpdateInvoice={handleUpdateInvoice}
-        />
-      )}
     </DashboardWorkspaceLayout>
   );
 };

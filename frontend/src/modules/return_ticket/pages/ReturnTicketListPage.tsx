@@ -1,9 +1,10 @@
 import React, { useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { Plus } from "lucide-react";
 import { DashboardWorkspaceLayout } from "@/components/layouts/DashboardWorkspaceLayout";
 import { useDashboardDemo } from "@/providers/DashboardDemoProvider";
 import { USER_ROLES } from "@/constants/roles";
+import { APP_ROUTES } from "@/constants/routes";
 import {
   RETURN_TICKET_CONFIG,
   type TReturnTicketStatus,
@@ -17,16 +18,13 @@ import { ReturnTicketTable } from "../components/ReturnTicketTable";
 import { ReturnTicketDetailModal } from "../components/ReturnTicketDetailModal";
 import { ReturnTicketRejectModal } from "../components/ReturnTicketRejectModal";
 import { ReturnTicketPrintModal } from "../components/ReturnTicketPrintModal";
-import { CreateReturnTicketModal } from "../components/CreateReturnTicketModal";
 import { ReturnTicketStatistics } from "../components/ReturnTicketStatistics";
 import { useNotification } from "@/hooks/useNotification";
 import { getApiErrorMessage } from "@/utils/getApiErrorMessage";
 import type { IReturnTicket } from "../types/IReturnTicket";
 
 export const ReturnTicketListPage: React.FC = () => {
-  const [searchParams] = useSearchParams();
-  const initialInvoiceId = searchParams.get("invoiceId") || undefined;
-
+  const navigate = useNavigate();
   const { currentRole } = useDashboardDemo();
   const { showSuccess, showError } = useNotification();
 
@@ -42,7 +40,6 @@ export const ReturnTicketListPage: React.FC = () => {
   const pageSize = RETURN_TICKET_CONFIG.DEFAULT_PAGE_SIZE;
 
   // Modals
-  const [isCreateOpen, setIsCreateOpen] = useState<boolean>(Boolean(initialInvoiceId));
   const [selectedTicket, setSelectedTicket] = useState<IReturnTicket | null>(null);
   const [rejectingTicket, setRejectingTicket] = useState<IReturnTicket | null>(null);
   const [printingTicket, setPrintingTicket] = useState<IReturnTicket | null>(null);
@@ -111,7 +108,7 @@ export const ReturnTicketListPage: React.FC = () => {
         ) : undefined
       }
     >
-      <div className="flex flex-col gap-4 w-full flex-1 animate-fade-in">
+      <div className="flex flex-col gap-4 w-full flex-1 animate-page-fade">
         {/* Top Actions & Tabs Row */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           {/* Tabs */}
@@ -146,7 +143,7 @@ export const ReturnTicketListPage: React.FC = () => {
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={() => setIsCreateOpen(true)}
+              onClick={() => navigate(APP_ROUTES.RETURN_TICKET_CREATE)}
               className="flex h-11 lg:h-9 items-center gap-1.5 rounded-lg bg-kv-blue-primary px-4 text-xs font-bold text-white shadow-sm transition-all hover:bg-kv-blue-dark active:scale-95"
             >
               <Plus size={15} />
@@ -171,26 +168,12 @@ export const ReturnTicketListPage: React.FC = () => {
             onApproveTicket={handleApprove}
             onRejectTicket={(ticket) => setRejectingTicket(ticket)}
             onPrintTicket={(ticket) => setPrintingTicket(ticket)}
-            onOpenCreate={() => setIsCreateOpen(true)}
+            onOpenCreate={() => navigate(APP_ROUTES.RETURN_TICKET_CREATE)}
           />
         ) : (
           <ReturnTicketStatistics />
         )}
       </div>
-
-      {/* Create Modal */}
-      {isCreateOpen && (
-        <CreateReturnTicketModal
-          isOpen={isCreateOpen}
-          onClose={() => setIsCreateOpen(false)}
-          initialInvoiceId={initialInvoiceId}
-          currentRole={currentRole}
-          onSuccess={(created) => {
-            setSelectedTicket(created);
-            refetch();
-          }}
-        />
-      )}
 
       {/* Detail Modal */}
       {selectedTicket && (

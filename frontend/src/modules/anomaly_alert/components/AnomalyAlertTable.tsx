@@ -39,12 +39,12 @@ export const AnomalyAlertTable: React.FC<AnomalyAlertTableProps> = ({
         <table className="w-full text-left text-xs border-collapse">
           <thead>
             <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider text-[11px]">
-              <th className="py-3 px-3 w-28">{ANOMALY_UI.TABLE.COLUMNS.SEVERITY}</th>
-              <th className="py-3 px-3">{ANOMALY_UI.TABLE.COLUMNS.TYPE}</th>
-              <th className="py-3 px-4">{ANOMALY_UI.TABLE.COLUMNS.TITLE}</th>
-              <th className="py-3 px-3">{ANOMALY_UI.TABLE.COLUMNS.ACTOR}</th>
-              <th className="py-3 px-3">{ANOMALY_UI.TABLE.COLUMNS.TIME}</th>
-              <th className="py-3 px-3">{ANOMALY_UI.TABLE.COLUMNS.STATUS}</th>
+              <th className="py-3 px-3 w-32 whitespace-nowrap">{ANOMALY_UI.TABLE.COLUMNS.SEVERITY}</th>
+              <th className="py-3 px-3 whitespace-nowrap">{ANOMALY_UI.TABLE.COLUMNS.TYPE}</th>
+              <th className="py-3 px-4 min-w-[240px]">{ANOMALY_UI.TABLE.COLUMNS.TITLE}</th>
+              <th className="py-3 px-3 whitespace-nowrap">{ANOMALY_UI.TABLE.COLUMNS.ACTOR}</th>
+              <th className="py-3 px-3 whitespace-nowrap">{ANOMALY_UI.TABLE.COLUMNS.TIME}</th>
+              <th className="py-3 px-3 whitespace-nowrap">{ANOMALY_UI.TABLE.COLUMNS.STATUS}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 text-slate-700">
@@ -83,14 +83,14 @@ export const AnomalyAlertTable: React.FC<AnomalyAlertTableProps> = ({
                     className="hover:bg-blue-50/70 active:bg-blue-100/60 transition-colors font-semibold cursor-pointer select-none group"
                     title="Nhấn để xem chi tiết & đánh giá cảnh báo"
                   >
-                    <td className="py-3 px-3">
+                    <td className="py-3 px-3 whitespace-nowrap">
                       <span
-                        className={`text-[10px] font-black px-2.5 py-0.5 rounded-full border ${severityStyle.bg}`}
+                        className={`text-[10px] font-black px-2.5 py-1 rounded-full border whitespace-nowrap inline-flex items-center justify-center leading-none ${severityStyle.bg}`}
                       >
                         {a.severity}
                       </span>
                     </td>
-                    <td className="py-3 px-3">
+                    <td className="py-3 px-3 whitespace-nowrap">
                       <span className="font-bold text-slate-800 group-hover:text-kv-blue-primary transition-colors">
                         {typeInfo.label}
                       </span>
@@ -111,7 +111,7 @@ export const AnomalyAlertTable: React.FC<AnomalyAlertTableProps> = ({
                         </span>
                       </div>
                     </td>
-                    <td className="py-3 px-3">
+                    <td className="py-3 px-3 whitespace-nowrap">
                       <div className="flex items-center gap-1.5">
                         <User className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                         <div>
@@ -129,9 +129,9 @@ export const AnomalyAlertTable: React.FC<AnomalyAlertTableProps> = ({
                     <td className="py-3 px-3 text-slate-500 font-medium whitespace-nowrap">
                       {formatDate(a.detectedAt || a.createdAt)}
                     </td>
-                    <td className="py-3 px-3">
+                    <td className="py-3 px-3 whitespace-nowrap">
                       <span
-                        className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${statusStyle.bg}`}
+                        className={`text-[10px] font-bold px-2 py-0.5 rounded-full border whitespace-nowrap inline-flex items-center justify-center leading-none ${statusStyle.bg}`}
                       >
                         {statusStyle.label}
                       </span>

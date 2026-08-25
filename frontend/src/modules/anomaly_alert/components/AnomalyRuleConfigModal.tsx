@@ -148,12 +148,12 @@ export const AnomalyRuleConfigModal: React.FC<AnomalyRuleConfigModalProps> = ({
                         <div className="flex items-center gap-2">
                           <h4 className="font-bold text-slate-900 text-xs">{typeInfo.label}</h4>
                           <span
-                            className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${severityStyle?.bg}`}
+                            className={`text-[10px] font-bold px-2 py-0.5 rounded-full border whitespace-nowrap inline-flex items-center justify-center leading-none ${severityStyle?.bg}`}
                           >
-                            {r.severity}
+                            {severityStyle?.label || r.severity}
                           </span>
                           {!r.isEnabled && (
-                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-200 text-slate-600">
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-200 text-slate-600 whitespace-nowrap inline-flex items-center justify-center leading-none">
                               Đang tắt
                             </span>
                           )}

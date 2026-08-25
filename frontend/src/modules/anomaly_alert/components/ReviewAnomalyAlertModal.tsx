@@ -116,7 +116,7 @@ export const ReviewAnomalyAlertModal: React.FC<ReviewAnomalyAlertModalProps> = (
             <div className="flex items-center justify-between flex-wrap gap-2">
               <h4 className="font-extrabold text-sm text-slate-900">{alert.title}</h4>
               <span
-                className={`text-[10px] font-black px-2.5 py-0.5 rounded-full border ${severityStyle.bg}`}
+                className={`text-[10px] font-black px-2.5 py-1 rounded-full border whitespace-nowrap inline-flex items-center justify-center leading-none ${severityStyle.bg}`}
               >
                 {severityStyle.label}
               </span>
@@ -178,7 +178,7 @@ export const ReviewAnomalyAlertModal: React.FC<ReviewAnomalyAlertModalProps> = (
                     onChange={() => setSelectedStatus(ANOMALY_ALERT_STATUSES.REVIEWED)}
                     className="text-emerald-600 focus:ring-emerald-500"
                   />
-                  <span>Đã xác nhận & Xử lý (Reviewed)</span>
+                  <span>Đã xác nhận & Xử lý</span>
                 </label>
 
                 <label
@@ -196,7 +196,7 @@ export const ReviewAnomalyAlertModal: React.FC<ReviewAnomalyAlertModalProps> = (
                     onChange={() => setSelectedStatus(ANOMALY_ALERT_STATUSES.DISMISSED)}
                     className="text-slate-600 focus:ring-slate-500"
                   />
-                  <span>Bỏ qua cảnh báo (Dismissed)</span>
+                  <span>Bỏ qua cảnh báo</span>
                 </label>
               </div>
             </div>
