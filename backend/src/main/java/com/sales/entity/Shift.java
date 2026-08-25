@@ -32,6 +32,10 @@ public class Shift {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "point_of_sale_id")
+    private PointOfSale pointOfSale;
+
     @Column(name = "opened_at", nullable = false)
     private LocalDateTime openedAt;
 

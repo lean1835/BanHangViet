@@ -12,6 +12,7 @@ import com.sales.exception.AppException;
 import com.sales.exception.ErrorCode;
 import com.sales.repository.*;
 import com.sales.service.interfaces.OrderService;
+import com.sales.service.interfaces.PosInventoryService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -43,6 +44,8 @@ public class OrderServiceImpl implements OrderService {
     private final ActivityLogHelper activityLogHelper;
     private final ObjectMapper objectMapper;
     private final CustomerDebtRepository customerDebtRepository;
+    private final PosInventoryRepository posInventoryRepository;
+    private final PosInventoryService posInventoryService;
 
     private User getAuthenticatedUser(String username) {
         return userRepository.findByUsername(username)
@@ -51,8 +54,14 @@ public class OrderServiceImpl implements OrderService {
 
     private void checkOrderOwnership(Order order, User currentUser) {
         boolean isSalesperson = "VT-02".equals(currentUser.getRole().getCode());
-        if (isSalesperson && !order.getCreatedByUser().getId().equals(currentUser.getId())) {
-            throw new AppException(ErrorCode.FORBIDDEN);
+        if (isSalesperson) {
+            if (currentUser.getPointOfSale() != null && order.getPointOfSale() != null
+                    && !currentUser.getPointOfSale().getId().equals(order.getPointOfSale().getId())) {
+                throw new AppException(ErrorCode.POS_EMPLOYEE_ACCESS_DENIED);
+            }
+            if (!order.getCreatedByUser().getId().equals(currentUser.getId())) {
+                throw new AppException(ErrorCode.FORBIDDEN);
+            }
         }
     }
 
@@ -243,9 +252,14 @@ public class OrderServiceImpl implements OrderService {
 
         String orderNumber = "OD-" + System.currentTimeMillis() + "-" + (int) (Math.random() * 900 + 100);
 
+        PointOfSale pointOfSale = currentUser.getPointOfSale() != null 
+                ? currentUser.getPointOfSale() 
+                : (activeShift != null ? activeShift.getPointOfSale() : null);
+
         Order order = Order.builder()
                 .household(household)
                 .shift(activeShift)
+                .pointOfSale(pointOfSale)
                 .createdByUser(currentUser)
                 .customer(customer)
                 .orderNumber(orderNumber)
@@ -287,6 +301,13 @@ public class OrderServiceImpl implements OrderService {
 
         Product product = productRepository.findByIdAndHouseholdIdAndDeletedAtIsNull(request.getProductId(), household.getId())
                 .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_NOT_FOUND));
+
+        // NCL-17-CN-002-TC-03: Kiểm tra sản phẩm đã được khai tồn tại điểm bán chưa
+        if (order.getPointOfSale() != null) {
+            if (!posInventoryRepository.existsByPointOfSaleIdAndProductId(order.getPointOfSale().getId(), product.getId())) {
+                throw new AppException(ErrorCode.POS_PRODUCT_NOT_INITIALIZED);
+            }
+        }
 
         OrderItem existingItem = order.getItems().stream()
                 .filter(item -> item.getProduct() != null && item.getProduct().getId().equals(product.getId()))
@@ -608,15 +629,27 @@ public class OrderServiceImpl implements OrderService {
 
         // Logic fix: Subtract physical stock quantity
         List<Product> productsToSave = new ArrayList<>();
+        Map<String, BigDecimal> posStockDeductions = new HashMap<>();
+
         for (OrderItem item : order.getItems()) {
             if (item.getProduct() != null) {
                 Product product = item.getProduct();
                 product.setStockQuantity(product.getStockQuantity().subtract(item.getQuantity()));
                 productsToSave.add(product);
+
+                if (order.getPointOfSale() != null) {
+                    posStockDeductions.merge(product.getId(), item.getQuantity(), BigDecimal::add);
+                }
             }
         }
         if (!productsToSave.isEmpty()) {
             productRepository.saveAll(productsToSave);
+        }
+
+        // NCL-17-CN-002-TC-01: Trừ tồn kho theo điểm bán hàng loạt (tránh N+1 query)
+        if (order.getPointOfSale() != null && !posStockDeductions.isEmpty()) {
+            posInventoryService.batchDeductPosStock(
+                    household.getId(), order.getPointOfSale().getId(), posStockDeductions);
         }
 
         order.setStatus("COMPLETED");

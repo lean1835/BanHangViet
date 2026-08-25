@@ -27,4 +27,6 @@ public class CreateEmployeeRequest {
 
     @NotBlank(message = "Mã vai trò không được để trống")
     private String roleCode;
+
+    private String pointOfSaleId;
 }

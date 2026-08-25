@@ -23,4 +23,6 @@ public class UpdateEmployeeRequest {
 
     @NotNull(message = "Trạng thái hoạt động không được để trống")
     private Boolean isActive;
+
+    private String pointOfSaleId;
 }

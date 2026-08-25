@@ -11,6 +11,7 @@ import com.sales.entity.Role;
 import com.sales.entity.User;
 import com.sales.entity.Shift;
 import com.sales.entity.Order;
+import com.sales.entity.PointOfSale;
 import com.sales.exception.AppException;
 import com.sales.exception.ErrorCode;
 import com.sales.repository.ActivityLogRepository;
@@ -18,6 +19,7 @@ import com.sales.repository.RoleRepository;
 import com.sales.repository.UserRepository;
 import com.sales.repository.ShiftRepository;
 import com.sales.repository.OrderRepository;
+import com.sales.repository.PointOfSaleRepository;
 import com.sales.service.interfaces.EmployeeService;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.web.context.request.RequestContextHolder;
@@ -50,6 +52,7 @@ public class EmployeeServiceImpl implements EmployeeService {
     private final CacheManager cacheManager;
     private final ShiftRepository shiftRepository;
     private final OrderRepository orderRepository;
+    private final PointOfSaleRepository pointOfSaleRepository;
 
     private void closeActiveShiftOfUser(User employee) {
         Optional<Shift> activeShiftOpt = shiftRepository.findByUserIdAndStatus(employee.getId(), ShiftStatus.OPEN);
@@ -118,12 +121,14 @@ public class EmployeeServiceImpl implements EmployeeService {
         map.put("fullName", user.getFullName());
         map.put("phoneNumber", user.getPhoneNumber());
         map.put("roleCode", user.getRole() != null ? user.getRole().getCode() : null);
+        map.put("pointOfSaleId", user.getPointOfSale() != null ? user.getPointOfSale().getId() : null);
         map.put("isActive", user.getIsActive());
         map.put("deletedAt", user.getDeletedAt());
         return map;
     }
 
     private EmployeeResponse mapToResponse(User user) {
+        PointOfSale pos = user.getPointOfSale();
         return EmployeeResponse.builder()
                 .id(user.getId())
                 .username(user.getUsername())
@@ -131,6 +136,9 @@ public class EmployeeServiceImpl implements EmployeeService {
                 .phoneNumber(user.getPhoneNumber())
                 .roleCode(user.getRole().getCode())
                 .roleName(user.getRole().getName())
+                .pointOfSaleId(pos != null ? pos.getId() : null)
+                .pointOfSaleName(pos != null ? pos.getName() : null)
+                .posCode(pos != null ? pos.getPosCode() : null)
                 .isActive(user.getIsActive())
                 .createdAt(user.getCreatedAt())
                 .updatedAt(user.getUpdatedAt())
@@ -175,6 +183,12 @@ public class EmployeeServiceImpl implements EmployeeService {
         Role role = roleRepository.findByCode(request.getRoleCode())
                 .orElseThrow(() -> new AppException(ErrorCode.ROLE_NOT_FOUND));
 
+        PointOfSale pointOfSale = null;
+        if (request.getPointOfSaleId() != null && !request.getPointOfSaleId().trim().isEmpty()) {
+            pointOfSale = pointOfSaleRepository.findByIdAndHouseholdIdAndDeletedAtIsNull(request.getPointOfSaleId(), household.getId())
+                    .orElseThrow(() -> new AppException(ErrorCode.POS_NOT_FOUND));
+        }
+
         User newEmployee = User.builder()
                 .username(request.getUsername())
                 .passwordHash(passwordEncoder.encode(request.getPassword()))
@@ -182,6 +196,7 @@ public class EmployeeServiceImpl implements EmployeeService {
                 .phoneNumber(request.getPhoneNumber())
                 .role(role)
                 .household(household)
+                .pointOfSale(pointOfSale)
                 .isActive(true)
                 .build();
 
@@ -222,6 +237,16 @@ public class EmployeeServiceImpl implements EmployeeService {
 
         Role role = roleRepository.findByCode(request.getRoleCode())
                 .orElseThrow(() -> new AppException(ErrorCode.ROLE_NOT_FOUND));
+
+        if (request.getPointOfSaleId() != null) {
+            if (!request.getPointOfSaleId().trim().isEmpty()) {
+                PointOfSale pos = pointOfSaleRepository.findByIdAndHouseholdIdAndDeletedAtIsNull(request.getPointOfSaleId(), household.getId())
+                        .orElseThrow(() -> new AppException(ErrorCode.POS_NOT_FOUND));
+                employee.setPointOfSale(pos);
+            } else {
+                employee.setPointOfSale(null);
+            }
+        }
 
         Map<String, Object> oldValueMap = buildUserLogMap(employee);
 

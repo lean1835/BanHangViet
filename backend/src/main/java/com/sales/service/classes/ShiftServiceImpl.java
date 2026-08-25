@@ -13,6 +13,7 @@ import com.sales.exception.AppException;
 import com.sales.exception.ErrorCode;
 import com.sales.repository.ActivityLogRepository;
 import com.sales.repository.OrderRepository;
+import com.sales.repository.PointOfSaleRepository;
 import com.sales.repository.ShiftRepository;
 import com.sales.repository.UserRepository;
 import com.sales.service.interfaces.ShiftService;
@@ -40,6 +41,7 @@ public class ShiftServiceImpl implements ShiftService {
     private final UserRepository userRepository;
     private final ActivityLogHelper activityLogHelper;
     private final OrderRepository orderRepository;
+    private final PointOfSaleRepository pointOfSaleRepository;
     private final ObjectMapper objectMapper;
 
     private User getAuthenticatedUser(String username) {
@@ -142,9 +144,17 @@ public class ShiftServiceImpl implements ShiftService {
             throw new AppException(ErrorCode.SHIFT_ALREADY_OPEN);
         }
 
+        // QTN-28 / NCL-17-CN-002: Check POS assignment for sales employee (VT-02)
+        if (targetUser.getRole() != null && "VT-02".equals(targetUser.getRole().getCode())) {
+            if (targetUser.getPointOfSale() == null && pointOfSaleRepository.countByHouseholdIdAndDeletedAtIsNull(household.getId()) > 0) {
+                throw new AppException(ErrorCode.POS_EMPLOYEE_NOT_ASSIGNED);
+            }
+        }
+
         Shift shift = Shift.builder()
                 .household(household)
                 .user(targetUser)
+                .pointOfSale(targetUser.getPointOfSale())
                 .openedAt(LocalDateTime.now())
                 .openingCash(request.getOpeningCash())
                 .status(ShiftStatus.OPEN)
