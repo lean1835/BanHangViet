@@ -1,6 +1,5 @@
 import React, { useState, useMemo } from "react";
 import {
-  FileText,
   FileSpreadsheet,
   Layers,
   History,
@@ -112,7 +111,7 @@ export const TaxDeclarationPage: React.FC = () => {
     revenueSummary,
     registerItems: salesRegisterItems,
     householdData,
-    previewElementId: "tax-declaration-page-preview-form",
+    previewElementId: "tax-declaration-form-simulation",
     onMissingInfoAlert: () => setIsMissingInfoModalOpen(true),
     isMissingInfo,
     roleAllowed,
@@ -139,28 +138,13 @@ export const TaxDeclarationPage: React.FC = () => {
   return (
     <div className="max-w-7xl mx-auto flex flex-col gap-6 pb-12">
       {/* 1. Tiêu đề trang & Mô tả */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-lg sm:text-xl font-black text-slate-800 flex items-center gap-2.5">
-            <span className="p-2 bg-blue-50 text-blue-600 rounded-xl shadow-2xs inline-flex items-center justify-center">
-              <FileText className="w-5 h-5 shrink-0 stroke-[2.2]" />
-            </span>
-            <span>{REPORT_UI.TAX_DECLARATION.TITLE}</span>
-          </h1>
-          <p className="text-xs text-slate-500 mt-1 max-w-3xl leading-relaxed">
-            {REPORT_UI.TAX_DECLARATION.DESCRIPTION}
-          </p>
-        </div>
-
-        {/* Nút Lập bảng kê kỳ mới trên Header */}
-        <button
-          type="button"
-          onClick={() => setIsGenerateModalOpen(true)}
-          className="group inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 active:scale-95 text-white font-bold text-xs transition-all duration-200 ease-out shadow-sm hover:shadow-md hover:-translate-y-0.5 active:translate-y-0 cursor-pointer shrink-0 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
-        >
-          <Plus className="w-4 h-4 shrink-0 stroke-[2.5] transition-transform duration-200 group-hover:rotate-90" />
-          <span>Lập bảng kê kỳ mới</span>
-        </button>
+      <div className="flex flex-col gap-1">
+        <h1 className="text-xl font-black text-slate-800">
+          {REPORT_UI.TAX_DECLARATION.TITLE}
+        </h1>
+        <p className="text-xs text-slate-500 leading-relaxed">
+          {REPORT_UI.TAX_DECLARATION.DESCRIPTION}
+        </p>
       </div>
 
       {/* 2. Thanh lọc kỳ tính thuế, Nút Xuất tệp & Nút Chốt/Mở lại kỳ */}

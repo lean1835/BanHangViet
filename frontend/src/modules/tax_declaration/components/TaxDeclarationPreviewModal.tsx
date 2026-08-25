@@ -57,7 +57,96 @@ export const TaxDeclarationPreviewModal: React.FC<
   if (!isOpen || !period) return null;
 
   const handlePrint = () => {
-    window.print();
+    const formElement = document.getElementById("tax-declaration-form-simulation");
+    if (!formElement) {
+      window.print();
+      return;
+    }
+
+    const iframe = document.createElement("iframe");
+    iframe.style.position = "fixed";
+    iframe.style.right = "0";
+    iframe.style.bottom = "0";
+    iframe.style.width = "0";
+    iframe.style.height = "0";
+    iframe.style.border = "0";
+    document.body.appendChild(iframe);
+
+    const doc = iframe.contentWindow?.document;
+    if (!doc) {
+      window.print();
+      return;
+    }
+
+    const styleTags = Array.from(
+      document.querySelectorAll("link[rel='stylesheet'], style")
+    )
+      .map((el) => el.outerHTML)
+      .join("\n");
+
+    doc.open();
+    doc.write(`
+      <!DOCTYPE html>
+      <html lang="vi">
+        <head>
+          <meta charset="utf-8" />
+          <title>ToKhaiThue_01_CNKD_${period.periodName}</title>
+          ${styleTags}
+          <style>
+            @page {
+              size: A4 portrait;
+              margin: 8mm 10mm 8mm 10mm;
+            }
+            html, body {
+              margin: 0 !important;
+              padding: 0 !important;
+              background: white !important;
+              color: black !important;
+              width: 100% !important;
+              height: auto !important;
+              overflow: visible !important;
+            }
+            * {
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+            }
+            .print-wrapper {
+              width: 100% !important;
+              max-width: 100% !important;
+              margin: 0 auto !important;
+              padding: 0 !important;
+              border: none !important;
+              box-shadow: none !important;
+            }
+            #tax-declaration-form-simulation {
+              border: none !important;
+              box-shadow: none !important;
+              border-radius: 0 !important;
+              padding: 0 !important;
+              margin: 0 !important;
+              max-width: 100% !important;
+              min-height: auto !important;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="print-wrapper">
+            ${formElement.outerHTML}
+          </div>
+        </body>
+      </html>
+    `);
+    doc.close();
+
+    setTimeout(() => {
+      iframe.contentWindow?.focus();
+      iframe.contentWindow?.print();
+      setTimeout(() => {
+        if (document.body.contains(iframe)) {
+          document.body.removeChild(iframe);
+        }
+      }, 2000);
+    }, 250);
   };
 
   const handleZoomIn = () => setZoomLevel((prev) => Math.min(prev + 10, 140));
@@ -68,6 +157,47 @@ export const TaxDeclarationPreviewModal: React.FC<
 
   return createPortal(
     <div className="fixed inset-0 z-[1000] flex items-center justify-center p-2 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-modal-backdrop">
+      {/* Fallback print stylesheet */}
+      <style>{`
+        @media print {
+          @page {
+            size: A4 portrait;
+            margin: 8mm 10mm 8mm 10mm;
+          }
+          html, body {
+            margin: 0 !important;
+            padding: 0 !important;
+            background: white !important;
+            width: 100% !important;
+            height: auto !important;
+            overflow: visible !important;
+          }
+          body * {
+            visibility: hidden !important;
+          }
+          #tax-declaration-form-simulation, #tax-declaration-form-simulation * {
+            visibility: visible !important;
+          }
+          #tax-declaration-form-simulation {
+            position: relative !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            border: none !important;
+            box-shadow: none !important;
+            border-radius: 0 !important;
+            min-height: auto !important;
+            background: white !important;
+            color: black !important;
+            transform: none !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+        }
+      `}</style>
       <div className="bg-slate-100 rounded-2xl border border-slate-200 shadow-2xl max-w-5xl w-full h-[92vh] flex flex-col overflow-hidden animate-modal-scale">
         {/* Modal Top Header */}
         <div className="bg-white px-5 py-3.5 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3 shrink-0">
@@ -85,7 +215,7 @@ export const TaxDeclarationPreviewModal: React.FC<
             </div>
           </div>
 
-          {/* Controls: Zoom, Print, Actions */}
+          {/* Controls: Zoom, Actions */}
           <div className="flex items-center gap-2">
             {/* Zoom Controls */}
             {activeTab === "FORM" && (
@@ -119,17 +249,6 @@ export const TaxDeclarationPreviewModal: React.FC<
                 </button>
               </div>
             )}
-
-            {/* Print Button */}
-            <button
-              type="button"
-              onClick={handlePrint}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-700 font-bold text-xs transition border border-slate-200 cursor-pointer select-none"
-              title="In bản xem trước"
-            >
-              <Printer className="w-3.5 h-3.5 shrink-0 stroke-[2.2]" />
-              <span className="hidden sm:inline">In trang</span>
-            </button>
 
             {/* Close Button */}
             <button
@@ -175,22 +294,24 @@ export const TaxDeclarationPreviewModal: React.FC<
 
         {/* Scrollable Preview Area */}
         <div className="flex-1 overflow-auto p-4 md:p-6 flex justify-center items-start">
-          {activeTab === "FORM" ? (
-            <div
-              style={{
-                transform: `scale(${zoomLevel / 100})`,
-                transformOrigin: "top center",
-                transition: "transform 0.15s ease",
-              }}
-              className="w-full flex justify-center"
-            >
-              <SimulatedTaxForm01
-                period={period}
-                revenueSummary={revenueSummary}
-                householdData={householdData}
-              />
-            </div>
-          ) : (
+          <div
+            style={{
+              transform: `scale(${zoomLevel / 100})`,
+              transformOrigin: "top center",
+              transition: "transform 0.15s ease",
+            }}
+            className={`w-full justify-center ${
+              activeTab === "FORM" ? "flex" : "hidden"
+            }`}
+          >
+            <SimulatedTaxForm01
+              period={period}
+              revenueSummary={revenueSummary}
+              householdData={householdData}
+            />
+          </div>
+
+          {activeTab === "ANNEX" && (
             <div className="w-full max-w-5xl">
               <TaxInvoiceAnnexTable
                 invoices={registerItems}
@@ -231,21 +352,17 @@ export const TaxDeclarationPreviewModal: React.FC<
                   ) : (
                     <FileText className="w-3.5 h-3.5 shrink-0 stroke-[2.2]" />
                   )}
-                  <span>Tải PDF A4</span>
+                  <span>Tải tờ khai</span>
                 </button>
 
                 <button
                   type="button"
-                  disabled={isExporting}
-                  onClick={() => onExport("EXCEL")}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 active:scale-95 text-white font-bold text-xs transition-all duration-150 shadow-sm hover:shadow-md hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 cursor-pointer select-none"
+                  onClick={handlePrint}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gray-500 hover:bg-gray-600 active:bg-gray-700 active:scale-95 text-white font-bold text-xs transition-all duration-150 shadow-sm hover:shadow-md hover:-translate-y-0.5 active:translate-y-0 cursor-pointer select-none"
+                  title="In tờ khai thuế"
                 >
-                  {isExporting ? (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0 stroke-[2.5]" />
-                  ) : (
-                    <FileSpreadsheet className="w-3.5 h-3.5 shrink-0 stroke-[2.2]" />
-                  )}
-                  <span>Tải Excel từ Máy chủ</span>
+                  <Printer className="w-3.5 h-3.5 shrink-0 stroke-[2.2]" />
+                  <span>In tờ khai</span>
                 </button>
               </>
             )}
