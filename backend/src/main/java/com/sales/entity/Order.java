@@ -35,6 +35,10 @@ public class Order {
     private Shift shift;
 
     @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "point_of_sale_id")
+    private PointOfSale pointOfSale;
+
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "created_by_user_id", nullable = false)
     private User createdByUser;
 

@@ -163,7 +163,15 @@ public enum ErrorCode {
     POS_INVOICE_SYMBOL_EXISTS(7004, "Ký hiệu hóa đơn của điểm bán mới trùng với điểm bán đã có", HttpStatus.BAD_REQUEST),
     CANNOT_DELETE_DEFAULT_POS(7005, "Không thể xóa điểm bán đang được thiết lập làm mặc định", HttpStatus.BAD_REQUEST),
     CANNOT_DEACTIVATE_DEFAULT_POS(7006, "Không thể ngưng hoạt động điểm bán mặc định. Vui lòng chuyển mặc định sang điểm bán khác trước", HttpStatus.BAD_REQUEST),
-    CANNOT_SET_INACTIVE_POS_AS_DEFAULT(7007, "Không thể thiết lập điểm bán đang ngưng hoạt động làm điểm mặc định", HttpStatus.BAD_REQUEST);
+    CANNOT_SET_INACTIVE_POS_AS_DEFAULT(7007, "Không thể thiết lập điểm bán đang ngưng hoạt động làm điểm mặc định", HttpStatus.BAD_REQUEST),
+    
+    // NCL-17-CN-002 Gán nhân viên và tồn kho theo từng điểm bán
+    POS_EMPLOYEE_ACCESS_DENIED(7011, "Nhân viên chỉ được phép thao tác tại điểm bán được gán", HttpStatus.FORBIDDEN),
+    POS_PRODUCT_NOT_INITIALIZED(7012, "Mặt hàng chưa được khai báo tồn kho tại điểm bán này. Vui lòng chuyển hàng hoặc khởi tạo tồn kho", HttpStatus.BAD_REQUEST),
+    POS_INSUFFICIENT_STOCK(7013, "Số lượng tồn kho tại điểm bán không đủ để bán", HttpStatus.BAD_REQUEST),
+    POS_EMPLOYEE_NOT_ASSIGNED(7014, "Nhân viên chưa được gán vào điểm bán nào", HttpStatus.FORBIDDEN),
+    CANNOT_ASSIGN_OWNER_TO_POS(7015, "Chủ hộ có quyền quản trị toàn bộ điểm bán, không thể gán điểm bán cố định", HttpStatus.BAD_REQUEST),
+    INVALID_POS_INVENTORY_QTY(7016, "Số lượng tồn kho khai báo không được nhỏ hơn 0", HttpStatus.BAD_REQUEST);
 
     private final int code;
     private final String message;

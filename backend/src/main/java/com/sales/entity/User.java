@@ -28,6 +28,10 @@ public class User {
     @JoinColumn(name = "role_id", nullable = false)
     private Role role;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "point_of_sale_id")
+    private PointOfSale pointOfSale;
+
     @Column(nullable = false, unique = true, length = 50)
     private String username;
 
