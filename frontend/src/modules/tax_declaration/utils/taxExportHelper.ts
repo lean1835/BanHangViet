@@ -24,6 +24,22 @@ export const exportTaxDeclarationToPdf = async (
     useCORS: true,
     logging: false,
     backgroundColor: "#ffffff",
+    onclone: (clonedDoc) => {
+      const clonedEl = clonedDoc.getElementById(elementId);
+      if (clonedEl) {
+        // Đảm bảo phần tử và toàn bộ cha của nó trong bản sao hiển thị đầy đủ và không bị scale biến dạng
+        let current: HTMLElement | null = clonedEl;
+        while (current && current !== clonedDoc.body) {
+          if (current.classList.contains("hidden") || current.style.display === "none") {
+            current.classList.remove("hidden");
+            current.style.display = "block";
+          }
+          current.style.visibility = "visible";
+          current.style.transform = "none";
+          current = current.parentElement;
+        }
+      }
+    },
   });
 
   const imgData = canvas.toDataURL("image/png");
@@ -33,10 +49,25 @@ export const exportTaxDeclarationToPdf = async (
     format: "a4",
   });
 
-  const pdfWidth = pdf.internal.pageSize.getWidth();
-  const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+  const pageWidth = pdf.internal.pageSize.getWidth();
+  const pageHeight = pdf.internal.pageSize.getHeight();
+  const imgWidth = pageWidth;
+  const imgHeight = (canvas.height * imgWidth) / canvas.width;
 
-  pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
+  let heightLeft = imgHeight;
+  let position = 0;
+
+  // Trang 1
+  pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight, undefined, "FAST");
+  heightLeft -= pageHeight;
+
+  // Các trang tiếp theo nếu nội dung vượt quá 1 trang A4
+  while (heightLeft > 5) {
+    position -= pageHeight;
+    pdf.addPage();
+    pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight, undefined, "FAST");
+    heightLeft -= pageHeight;
+  }
 
   const safePeriod = periodName.replace(/[^a-zA-Z0-9_-]/g, "_");
   const fileName = `ToKhaiThue_01_CNKD_${safePeriod}_${year}.pdf`;
