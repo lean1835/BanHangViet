@@ -31,6 +31,9 @@ const OrderHistoryPage = React.lazy(() => import("@/modules/order/pages/OrderHis
 const InvoiceManagementPage = React.lazy(
   () => import("@/modules/e_invoice/pages/InvoiceManagementPage")
 );
+const InvoiceDetailPage = React.lazy(
+  () => import("@/modules/e_invoice/pages/InvoiceDetailPage")
+);
 const AdjustInvoicePage = React.lazy(
   () => import("@/modules/e_invoice/pages/AdjustInvoicePage")
 );
@@ -42,6 +45,9 @@ const CreateReturnTicketPage = React.lazy(
 );
 const CustomerPage = React.lazy(() => import("@/modules/customer/pages/CustomerPage"));
 const SupplierPage = React.lazy(() => import("@/modules/supplier/pages/SupplierPage"));
+const SupplierDetailPage = React.lazy(
+  () => import("@/modules/supplier/pages/SupplierDetailPage")
+);
 const EmployeePage = React.lazy(() => import("@/modules/employee/pages/EmployeePage"));
 const ReportsLayout = React.lazy(() => import("@/modules/report/pages/ReportsLayout"));
 const RevenueReportPage = React.lazy(
@@ -153,6 +159,7 @@ export const AppRouter = () => (
             <Route path={ROUTE_SEGMENTS.INVENTORY_AUDITS} element={<InventoryAuditPage />} />
             <Route path={ROUTE_SEGMENTS.INVENTORY_WARNINGS} element={<InventoryWarningPage />} />
             <Route path={ROUTE_SEGMENTS.SUPPLIERS} element={<SupplierPage />} />
+            <Route path={`${ROUTE_SEGMENTS.SUPPLIERS}/:id`} element={<SupplierDetailPage />} />
           </Route>
 
           <Route
@@ -176,6 +183,14 @@ export const AppRouter = () => (
             element={
               <RoleRoute allowedRoles={ROLE_GROUPS.NORMAL_MANAGEMENT}>
                 <InvoiceManagementPage />
+              </RoleRoute>
+            }
+          />
+          <Route
+            path={`${ROUTE_SEGMENTS.E_INVOICES}/:id`}
+            element={
+              <RoleRoute allowedRoles={ROLE_GROUPS.NORMAL_MANAGEMENT}>
+                <InvoiceDetailPage />
               </RoleRoute>
             }
           />

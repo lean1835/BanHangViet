@@ -5,6 +5,8 @@ import {
   ANOMALY_SEVERITIES,
   type TAnomalyAlertStatus,
 } from "@/constants/anomalyAlert";
+import { ROLE_LABELS, USER_ROLES } from "@/constants/roles";
+import { DEMO_ACCOUNTS } from "@/constants/demoAccounts";
 import type { IAnomalyAlert } from "../types/IAnomalyAlert";
 
 export interface IFailedLoginAttempt {
@@ -17,10 +19,11 @@ export interface IFailedLoginAttempt {
 export interface ICancelledInvoiceRecord {
   invoiceNumber: string;
   lookupCode?: string;
-  actorUsername: string;
+  actorUsername?: string;
+  actorFullName?: string;
   reason: string;
   amount?: number;
-  timestamp: string;
+  timestamp?: string;
 }
 
 export interface IDiscountOrderRecord {
@@ -28,7 +31,8 @@ export interface IDiscountOrderRecord {
   totalAmount: number;
   discountPercent: number;
   discountAmount: number;
-  actorUsername: string;
+  actorUsername?: string;
+  actorFullName?: string;
   timestamp: string;
 }
 
@@ -38,7 +42,8 @@ export interface IInventoryAdjustmentRecord {
   systemQty: number;
   actualQty: number;
   diffQty: number;
-  actorUsername: string;
+  actorUsername?: string;
+  actorFullName?: string;
   timestamp: string;
 }
 
@@ -50,6 +55,49 @@ const DEFAULT_MASS_CANCEL_WINDOW_MINUTES = 10;
 
 const DEFAULT_DISCOUNT_THRESHOLD_PERCENT = 30;
 const DEFAULT_INVENTORY_DIFF_THRESHOLD = 50;
+
+/**
+ * Helper to resolve username and role label properly from current input or role ID
+ */
+export const resolveActorInfo = (
+  rawUsername?: string | null,
+  rawFullName?: string | null
+): { username: string; fullName: string } => {
+  let cleanUsername = (rawUsername && rawUsername.trim()) ? rawUsername.trim() : "chuho_viet";
+  let cleanFullName = (rawFullName && rawFullName.trim()) ? rawFullName.trim() : "";
+
+  // If rawUsername was passed as a role code like "VT-01", "VT-02", etc.
+  if (cleanUsername === USER_ROLES.OWNER || cleanUsername === "VT-01") {
+    cleanUsername = "chuho_viet";
+    cleanFullName = cleanFullName || ROLE_LABELS[USER_ROLES.OWNER]; // "Chủ hộ kinh doanh"
+  } else if (cleanUsername === USER_ROLES.CASHIER || cleanUsername === "VT-02") {
+    cleanUsername = "nhanvien_viet";
+    cleanFullName = cleanFullName || ROLE_LABELS[USER_ROLES.CASHIER]; // "Nhân viên bán hàng"
+  } else if (cleanUsername === USER_ROLES.ACCOUNTANT || cleanUsername === "VT-03") {
+    cleanUsername = "ketoan_viet";
+    cleanFullName = cleanFullName || ROLE_LABELS[USER_ROLES.ACCOUNTANT]; // "Kế toán"
+  } else if (cleanUsername === USER_ROLES.PLATFORM_ADMIN || cleanUsername === "VT-04") {
+    cleanUsername = "quantri_viet";
+    cleanFullName = cleanFullName || ROLE_LABELS[USER_ROLES.PLATFORM_ADMIN]; // "Quản trị nền tảng"
+  } else if (cleanUsername === USER_ROLES.TAX_AUTHORITY || cleanUsername === "VT-05") {
+    cleanUsername = "thue_viet";
+    cleanFullName = cleanFullName || ROLE_LABELS[USER_ROLES.TAX_AUTHORITY]; // "Cơ quan thuế mô phỏng"
+  }
+
+  // If fullName is still empty, look up demo accounts or default
+  if (!cleanFullName) {
+    const demo = DEMO_ACCOUNTS.find(
+      (d) => d.username.toLowerCase() === cleanUsername.toLowerCase()
+    );
+    if (demo) {
+      cleanFullName = demo.roleName;
+    } else {
+      cleanFullName = "Người dùng thao tác";
+    }
+  }
+
+  return { username: cleanUsername, fullName: cleanFullName };
+};
 
 /**
  * Dispatch notification event to window
@@ -181,7 +229,7 @@ export const recordInvoiceCancellation = (
   const updatedList = [...list, { ...record, timestamp: nowIso }];
   const cutoffTime = now.getTime() - DEFAULT_MASS_CANCEL_WINDOW_MINUTES * 60 * 1000;
   const validList = updatedList.filter(
-    (x) => new Date(x.timestamp).getTime() >= cutoffTime
+    (x) => new Date(x.timestamp || 0).getTime() >= cutoffTime
   );
 
   try {
@@ -190,16 +238,20 @@ export const recordInvoiceCancellation = (
     /* ignore */
   }
 
+  const { username: cleanActorUsername, fullName: cleanActorFullName } =
+    resolveActorInfo(record.actorUsername, record.actorFullName);
+
   const userCancels = validList.filter(
     (x) =>
-      x.actorUsername.toLowerCase() ===
-      (record.actorUsername || "chuho_viet").toLowerCase()
+      (x.actorUsername || "").toLowerCase() === cleanActorUsername.toLowerCase() ||
+      (x.actorUsername || "").toLowerCase() === (record.actorUsername || "").toLowerCase()
   );
 
   if (userCancels.length >= DEFAULT_MASS_CANCEL_THRESHOLD) {
-    const alertId = `alt-mass-cancel-${(record.actorUsername || "user").toLowerCase()}`;
+    const alertId = `alt-mass-cancel-${cleanActorUsername.toLowerCase()}`;
     const evidence = {
-      actorUsername: record.actorUsername,
+      actorUsername: cleanActorUsername,
+      actorFullName: cleanActorFullName,
       cancelledCount: userCancels.length,
       timeWindowMinutes: DEFAULT_MASS_CANCEL_WINDOW_MINUTES,
       threshold: DEFAULT_MASS_CANCEL_THRESHOLD,
@@ -213,9 +265,9 @@ export const recordInvoiceCancellation = (
       alertType: ANOMALY_ALERT_TYPES.MASS_INVOICE_CANCEL,
       severity: ANOMALY_SEVERITIES.CRITICAL,
       title: `Phát hiện tài khoản hủy ${userCancels.length} hóa đơn trong ${DEFAULT_MASS_CANCEL_WINDOW_MINUTES} phút`,
-      description: `Tài khoản "${record.actorUsername || "chuho_viet"}" đã thực hiện hủy ${userCancels.length} hóa đơn điện tử liên tiếp trong khoảng thời gian ngắn nghi vấn gian lận doanh thu.`,
-      actorUsername: record.actorUsername || "chuho_viet",
-      actorFullName: "Nhân viên bán hàng",
+      description: `Tài khoản "${cleanActorUsername}" đã thực hiện hủy ${userCancels.length} hóa đơn điện tử liên tiếp trong khoảng thời gian ngắn nghi vấn gian lận doanh thu.`,
+      actorUsername: cleanActorUsername,
+      actorFullName: cleanActorFullName,
       status: ANOMALY_ALERT_STATUSES.PENDING,
       evidenceData: JSON.stringify(evidence, null, 2),
       detectedAt: nowIso,
@@ -237,6 +289,9 @@ export const recordOrderDiscount = (
 ): IAnomalyAlert | null => {
   if (record.discountPercent < DEFAULT_DISCOUNT_THRESHOLD_PERCENT) return null;
 
+  const { username: cleanActorUsername, fullName: cleanActorFullName } =
+    resolveActorInfo(record.actorUsername, record.actorFullName);
+
   const now = new Date();
   const nowIso = now.toISOString();
   const alertId = `alt-high-discount-${record.orderNumber.toLowerCase()}`;
@@ -247,7 +302,8 @@ export const recordOrderDiscount = (
     discountPercent: record.discountPercent,
     discountAmount: record.discountAmount,
     thresholdPercent: DEFAULT_DISCOUNT_THRESHOLD_PERCENT,
-    actorUsername: record.actorUsername,
+    actorUsername: cleanActorUsername,
+    actorFullName: cleanActorFullName,
     detectedAt: nowIso,
   };
 
@@ -258,8 +314,8 @@ export const recordOrderDiscount = (
     severity: ANOMALY_SEVERITIES.WARNING,
     title: `Chiết khấu đơn hàng ${record.orderNumber} vượt mức (${record.discountPercent}%)`,
     description: `Đơn hàng ${record.orderNumber} được áp dụng mức giảm giá ${record.discountPercent}% (trị giá ${record.discountAmount?.toLocaleString("vi-VN")}đ), vượt ngưỡng an toàn ${DEFAULT_DISCOUNT_THRESHOLD_PERCENT}%.`,
-    actorUsername: record.actorUsername || "chuho_viet",
-    actorFullName: "Người lập đơn",
+    actorUsername: cleanActorUsername,
+    actorFullName: cleanActorFullName,
     status: ANOMALY_ALERT_STATUSES.PENDING,
     evidenceData: JSON.stringify(evidence, null, 2),
     detectedAt: nowIso,
@@ -278,6 +334,9 @@ export const recordInventoryAdjustment = (
 ): IAnomalyAlert | null => {
   if (Math.abs(record.diffQty) < DEFAULT_INVENTORY_DIFF_THRESHOLD) return null;
 
+  const { username: cleanActorUsername, fullName: cleanActorFullName } =
+    resolveActorInfo(record.actorUsername, record.actorFullName);
+
   const now = new Date();
   const nowIso = now.toISOString();
   const alertId = `alt-inventory-diff-${record.auditNumber.toLowerCase()}`;
@@ -289,7 +348,8 @@ export const recordInventoryAdjustment = (
     actualQty: record.actualQty,
     differenceQty: record.diffQty,
     threshold: DEFAULT_INVENTORY_DIFF_THRESHOLD,
-    actorUsername: record.actorUsername,
+    actorUsername: cleanActorUsername,
+    actorFullName: cleanActorFullName,
     detectedAt: nowIso,
   };
 
@@ -300,8 +360,8 @@ export const recordInventoryAdjustment = (
     severity: ANOMALY_SEVERITIES.WARNING,
     title: `Chênh lệch kiểm kê kho lớn tại phiếu ${record.auditNumber} (${record.diffQty > 0 ? "+" : ""}${record.diffQty} sản phẩm)`,
     description: `Phiếu kiểm kê ${record.auditNumber} ghi nhận điều chỉnh chênh lệch ${record.diffQty} sản phẩm đối với mặt hàng "${record.productName}", vượt ngưỡng kiểm soát ${DEFAULT_INVENTORY_DIFF_THRESHOLD} sản phẩm.`,
-    actorUsername: record.actorUsername || "chuho_viet",
-    actorFullName: "Thủ kho / Kế toán",
+    actorUsername: cleanActorUsername,
+    actorFullName: cleanActorFullName,
     status: ANOMALY_ALERT_STATUSES.PENDING,
     evidenceData: JSON.stringify(evidence, null, 2),
     detectedAt: nowIso,
@@ -318,7 +378,26 @@ export const recordInventoryAdjustment = (
 export const getLocalAnomalyAlerts = (): IAnomalyAlert[] => {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.LOCAL_ANOMALY_ALERTS);
-    if (raw) return JSON.parse(raw);
+    if (raw) {
+      const parsed: IAnomalyAlert[] = JSON.parse(raw);
+      return parsed.map((a) => {
+        const { username, fullName } = resolveActorInfo(a.actorUsername, a.actorFullName);
+        const originalUsername = a.actorUsername || "";
+        let title = a.title || "";
+        let description = a.description || "";
+        if (originalUsername.startsWith("VT-")) {
+          title = title.replace(new RegExp(`"${originalUsername}"`, "g"), `"${username}"`);
+          description = description.replace(new RegExp(`"${originalUsername}"`, "g"), `"${username}"`);
+        }
+        return {
+          ...a,
+          actorUsername: username,
+          actorFullName: fullName,
+          title,
+          description,
+        };
+      });
+    }
   } catch {
     /* ignore parse error */
   }

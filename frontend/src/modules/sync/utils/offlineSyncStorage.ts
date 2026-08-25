@@ -224,7 +224,7 @@ export const checkOfflineLimitStatus = (): IOfflineLimitStatus => {
   const elapsedMs = offlineStartTime ? Date.now() - offlineStartTime : 0;
   const elapsedHours = elapsedMs / (1000 * 60 * 60);
 
-  // 0 đại diện cho "Không giới hạn" (Unlimited)
+  // 0 đại diện cho "Không giới hạn" (khi tắt nút gạt giới hạn)
   const isOrderNearLimit = config.maxOrders > 0 && currentOrdersCount >= Math.ceil(config.maxOrders * 0.9);
   const isTimeNearLimit = config.maxHours > 0 && elapsedHours >= config.maxHours * 0.9;
   const isOrderExceeded = config.maxOrders > 0 && currentOrdersCount >= config.maxOrders;

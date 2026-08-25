@@ -70,6 +70,8 @@ export const APP_ROUTES = {
     ROUTE_SEGMENTS.PRODUCTS,
     ROUTE_SEGMENTS.SUPPLIERS,
   ),
+  SUPPLIER_DETAIL: (id: string) =>
+    `${createRoute(ROUTE_SEGMENTS.PRODUCTS, ROUTE_SEGMENTS.SUPPLIERS)}/${id}`,
   SHIFTS: createRoute(ROUTE_SEGMENTS.SHIFTS),
   ORDERS: createRoute(ROUTE_SEGMENTS.ORDERS),
   CUSTOMERS: createRoute(ROUTE_SEGMENTS.CUSTOMERS),
@@ -150,6 +152,7 @@ export const APP_ROUTES = {
   ),
   POS: createRoute(ROUTE_SEGMENTS.POS),
   E_INVOICES: createRoute(ROUTE_SEGMENTS.E_INVOICES),
+  E_INVOICE_DETAIL: (id: string) => `${createRoute(ROUTE_SEGMENTS.E_INVOICES)}/${id}`,
   E_INVOICES_ADJUST: (id: string) => `/e-invoices/${id}/adjust`,
   RETURN_TICKETS: createRoute(ROUTE_SEGMENTS.RETURN_TICKETS),
   RETURN_TICKET_CREATE: `${createRoute(ROUTE_SEGMENTS.RETURN_TICKETS)}/create`,

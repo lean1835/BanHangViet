@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import { USER_ROLES } from "@/constants/roles";
 import { useDashboardDemo } from "@/providers/DashboardDemoProvider";
+import { useAppSelector } from "@/hooks/useRedux";
 import { useNotification } from "@/hooks/useNotification";
 import { getApiErrorMessage } from "@/utils/getApiErrorMessage";
 import { formatNumber } from "@/utils/formatCurrency";
@@ -23,7 +24,10 @@ import { useGetProductsQuery } from "@/modules/product/services/productApi";
 import { InventoryAuditTable } from "../components/InventoryAuditTable";
 import { InventoryAuditModal } from "../components/InventoryAuditModal";
 import { InventoryAuditDetailModal } from "../components/InventoryAuditDetailModal";
-import { recordInventoryAdjustment } from "@/modules/anomaly_alert/utils/anomalyStorage";
+import {
+  recordInventoryAdjustment,
+  resolveActorInfo,
+} from "@/modules/anomaly_alert/utils/anomalyStorage";
 import type { IProductOutletContext } from "@/modules/product/pages/ProductsLayout";
 
 export const InventoryAuditPage = () => {
@@ -151,7 +155,14 @@ export const InventoryAuditPage = () => {
     };
   }, [allAudits]);
 
+  const authUser = useAppSelector((state) => state.auth.user);
+
   const handleSaveAudit = async (payload: ICreateInventoryAuditPayload) => {
+    const { username: actorUsername, fullName: actorFullName } = resolveActorInfo(
+      authUser?.username || currentRole,
+      authUser?.fullName
+    );
+
     try {
       const createdAudit = await createInventoryAudit(payload).unwrap();
       showSuccess(INVENTORY_AUDIT_MESSAGES.CREATE_SUCCESS);
@@ -168,7 +179,8 @@ export const InventoryAuditPage = () => {
               systemQty,
               actualQty: d.actualQuantity || 0,
               diffQty: diff,
-              actorUsername: currentRole || "chuho_viet",
+              actorUsername,
+              actorFullName,
             });
           }
         }
