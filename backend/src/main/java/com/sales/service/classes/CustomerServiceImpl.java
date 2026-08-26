@@ -183,7 +183,8 @@ public class CustomerServiceImpl implements CustomerService {
         if (request.getCreditLimit() != null) {
             customer.setCreditLimit(request.getCreditLimit());
         }
-        if (request.getDiscountRate() != null && request.getDiscountRate().compareTo(customer.getDiscountRate()) != 0) {
+        BigDecimal currentDiscountRate = customer.getDiscountRate() != null ? customer.getDiscountRate() : BigDecimal.ZERO;
+        if (request.getDiscountRate() != null && request.getDiscountRate().compareTo(currentDiscountRate) != 0) {
             if (!isStoreOwner(currentUser)) {
                 throw new AppException(ErrorCode.FORBIDDEN);
             }

@@ -549,8 +549,7 @@ public class OrderServiceImpl implements OrderService {
 
         order.setDiscountType(request.getDiscountType());
         order.setDiscountRateOrValue(request.getDiscountValue());
-        order.setDiscountAmount(discountAmount);
-        order.setFinalAmount(order.getTotalAmount().subtract(discountAmount));
+        recalculateOrderTotals(order);
 
         order = orderRepository.save(order);
 

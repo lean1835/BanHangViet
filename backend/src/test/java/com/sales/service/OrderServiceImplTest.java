@@ -224,4 +224,45 @@ class OrderServiceImplTest {
         assertEquals(new BigDecimal("671000.00"), vipCustomer.getTotalSpent());
         verify(customerRepository).save(vipCustomer);
     }
+
+    @Test
+    @DisplayName("P1-01 Fix: applyDiscount gõ giảm giá thủ công (F3) -> tự động recalculate totals và bảo toàn chiết khấu VIP")
+    void applyDiscount_PreservesVipDiscountAndRecalculatesTotals() {
+        Order order = Order.builder()
+                .id("order-003")
+                .household(household)
+                .shift(activeShift)
+                .createdByUser(currentUser)
+                .customer(vipCustomer)
+                .status("CREATING")
+                .totalAmount(new BigDecimal("100000.00"))
+                .items(new ArrayList<>())
+                .build();
+
+        OrderItem item = OrderItem.builder()
+                .id("item-003")
+                .order(order)
+                .unitPrice(new BigDecimal("100000.00"))
+                .quantity(new BigDecimal("1"))
+                .subtotal(new BigDecimal("100000.00"))
+                .build();
+        order.getItems().add(item);
+
+        when(userRepository.findByUsername("chuho")).thenReturn(Optional.of(currentUser));
+        when(orderRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("order-003", "house-001"))
+                .thenReturn(Optional.of(order));
+        when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        com.sales.dto.request.ApplyDiscountRequest discountRequest = com.sales.dto.request.ApplyDiscountRequest.builder()
+                .discountType("CASH")
+                .discountValue(new BigDecimal("10000.00"))
+                .build();
+
+        OrderResponse response = orderService.applyDiscount("chuho", "order-003", discountRequest);
+
+        assertNotNull(response);
+        assertEquals(new BigDecimal("5000.00"), order.getCustomerDiscountAmount());
+        assertEquals(new BigDecimal("15000.00"), order.getDiscountAmount());
+        assertEquals(new BigDecimal("85000.00"), order.getFinalAmount());
+    }
 }

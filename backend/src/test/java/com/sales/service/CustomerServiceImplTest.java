@@ -10,10 +10,10 @@ import com.sales.entity.Role;
 import com.sales.entity.User;
 import com.sales.exception.AppException;
 import com.sales.exception.ErrorCode;
-import com.sales.repository.ActivityLogRepository;
 import com.sales.repository.CustomerDebtRepository;
 import com.sales.repository.CustomerRepository;
 import com.sales.repository.UserRepository;
+import com.sales.service.classes.ActivityLogHelper;
 import com.sales.service.classes.CustomerServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -39,7 +39,7 @@ class CustomerServiceImplTest {
     private CustomerRepository customerRepository;
 
     @Mock
-    private ActivityLogRepository activityLogRepository;
+    private ActivityLogHelper activityLogHelper;
 
     @Mock
     private ObjectMapper objectMapper;
