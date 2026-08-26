@@ -34,6 +34,7 @@ public class CreateCustomerRequest {
     @DecimalMax(value = "100.0", message = "Mức chiết khấu không được vượt quá 100%")
     private BigDecimal discountRate;
 
+    @Pattern(regexp = "^(PERCENTAGE|CASH)$", message = "Loại chiết khấu không hợp lệ (PERCENTAGE hoặc CASH)")
     private String discountType;
 
     private Boolean isVip;

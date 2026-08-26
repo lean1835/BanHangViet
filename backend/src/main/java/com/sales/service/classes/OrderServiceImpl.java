@@ -249,15 +249,17 @@ public class OrderServiceImpl implements OrderService {
             }
         }
 
-        BigDecimal totalDiscount = promotionDiscountAmount.add(customerDiscountAmount);
-        if (totalDiscount.compareTo(total) > 0) {
-            totalDiscount = total;
+        BigDecimal orderLevelDiscounts = manualDiscount.add(customerDiscountAmount);
+        if (orderLevelDiscounts.compareTo(total) > 0) {
+            orderLevelDiscounts = total;
         }
+
+        BigDecimal totalDiscount = itemPromoDiscountSum.add(orderLevelDiscounts);
 
         order.setPromotionDiscountAmount(promotionDiscountAmount);
         order.setCustomerDiscountAmount(customerDiscountAmount);
         order.setDiscountAmount(totalDiscount);
-        order.setFinalAmount(total.subtract(totalDiscount).max(BigDecimal.ZERO));
+        order.setFinalAmount(total.subtract(orderLevelDiscounts).max(BigDecimal.ZERO));
     }
 
     @Override

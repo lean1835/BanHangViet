@@ -189,7 +189,10 @@ public class CustomerServiceImpl implements CustomerService {
             }
             customer.setDiscountRate(request.getDiscountRate());
         }
-        if (request.getDiscountType() != null) {
+        if (request.getDiscountType() != null && !request.getDiscountType().equalsIgnoreCase(customer.getDiscountType())) {
+            if (!isStoreOwner(currentUser)) {
+                throw new AppException(ErrorCode.FORBIDDEN);
+            }
             customer.setDiscountType(request.getDiscountType());
         }
         if (request.getIsVip() != null && !request.getIsVip().equals(customer.getIsVip())) {

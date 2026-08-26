@@ -328,4 +328,41 @@ class CustomerServiceImplTest {
 
         assertEquals(ErrorCode.FORBIDDEN, exception.getErrorCode());
     }
+
+    @Test
+    @DisplayName("NCL-15-CN-003 (SEC-01): Nhân viên cố sửa loại chiết khấu (discountType) cho khách bị hệ thống chặn FORBIDDEN")
+    void updateCustomer_WithDiscountType_ByStaff_ThrowsForbidden() {
+        Role staffRole = Role.builder().code("VT-02").name("Nhân viên").build();
+        User staffUser = User.builder()
+                .id("user-002")
+                .username("nhanvien")
+                .role(staffRole)
+                .household(household)
+                .build();
+
+        Customer customer = Customer.builder()
+                .id("cust-002")
+                .household(household)
+                .name("Trần Thị B")
+                .phoneNumber("0987654321")
+                .discountType("PERCENTAGE")
+                .currentDebt(BigDecimal.ZERO)
+                .build();
+
+        UpdateCustomerRequest request = UpdateCustomerRequest.builder()
+                .name("Trần Thị B")
+                .phoneNumber("0987654321")
+                .discountType("CASH")
+                .build();
+
+        when(userRepository.findByUsername("nhanvien")).thenReturn(Optional.of(staffUser));
+        when(customerRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("cust-002", "house-001"))
+                .thenReturn(Optional.of(customer));
+
+        AppException exception = assertThrows(AppException.class, () ->
+                customerService.updateCustomer("nhanvien", "cust-002", request)
+        );
+
+        assertEquals(ErrorCode.FORBIDDEN, exception.getErrorCode());
+    }
 }
