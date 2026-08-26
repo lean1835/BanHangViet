@@ -15,6 +15,9 @@ public class CreateProductRequest {
     @Size(max = 50, message = "Mã hàng (SKU) không vượt quá 50 ký tự")
     private String sku;
 
+    @Size(max = 100, message = "Mã vạch (Barcode) không vượt quá 100 ký tự")
+    private String barcode;
+
     @NotBlank(message = "Tên hàng hóa không được để trống")
     @Size(max = 255, message = "Tên hàng hóa không vượt quá 255 ký tự")
     private String name;

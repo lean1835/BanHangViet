@@ -40,12 +40,13 @@ public class ProductSpecification {
                 predicates.add(criteriaBuilder.equal(root.get("status"), status));
             }
 
-            // 5. Tìm kiếm theo tên hoặc SKU
+            // 5. Tìm kiếm theo tên, SKU hoặc mã vạch (barcode)
             if (StringUtils.hasText(search)) {
                 String searchPattern = "%" + search.trim().toLowerCase() + "%";
                 Predicate namePredicate = criteriaBuilder.like(criteriaBuilder.lower(root.get("name")), searchPattern);
                 Predicate skuPredicate = criteriaBuilder.like(criteriaBuilder.lower(root.get("sku")), searchPattern);
-                predicates.add(criteriaBuilder.or(namePredicate, skuPredicate));
+                Predicate barcodePredicate = criteriaBuilder.like(criteriaBuilder.lower(root.get("barcode")), searchPattern);
+                predicates.add(criteriaBuilder.or(namePredicate, skuPredicate, barcodePredicate));
             }
 
             // 6. Lọc theo trạng thái tồn kho (IN_STOCK / OUT_OF_STOCK)
@@ -89,7 +90,8 @@ public class ProductSpecification {
                 String searchPattern = "%" + search.trim().toLowerCase() + "%";
                 Predicate namePredicate = criteriaBuilder.like(criteriaBuilder.lower(root.get("name")), searchPattern);
                 Predicate skuPredicate = criteriaBuilder.like(criteriaBuilder.lower(root.get("sku")), searchPattern);
-                predicates.add(criteriaBuilder.or(namePredicate, skuPredicate));
+                Predicate barcodePredicate = criteriaBuilder.like(criteriaBuilder.lower(root.get("barcode")), searchPattern);
+                predicates.add(criteriaBuilder.or(namePredicate, skuPredicate, barcodePredicate));
             }
 
             return criteriaBuilder.and(predicates.toArray(new Predicate[0]));
