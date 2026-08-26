@@ -1,6 +1,9 @@
 package com.sales.repository;
 
 import com.sales.dto.response.DailyRevenueProjection;
+import com.sales.dto.response.PeakDayOfWeekProjection;
+import com.sales.dto.response.PeakHeatmapProjection;
+import com.sales.dto.response.PeakHourlyProjection;
 import com.sales.dto.response.PosDailyRevenueProjection;
 import com.sales.dto.response.PosRevenueProjection;
 import com.sales.dto.response.ProductRevenueProjection;
@@ -241,6 +244,68 @@ public interface OrderRepository extends JpaRepository<Order, String> {
             "GROUP BY DATE(o.created_at), o.point_of_sale_id, p.name " +
             "ORDER BY salesDate ASC, netRevenue DESC", nativeQuery = true)
     List<PosDailyRevenueProjection> getPosDailyRevenue(
+            @Param("householdId") String householdId,
+            @Param("startDateTime") LocalDateTime startDateTime,
+            @Param("endDateTime") LocalDateTime endDateTime,
+            @Param("posId") String posId
+    );
+
+    @Query(value = "SELECT " +
+            "HOUR(o.created_at) AS hourOfDay, " +
+            "COUNT(o.id) AS orderCount, " +
+            "COALESCE(SUM(o.final_amount), 0) AS totalRevenue, " +
+            "COALESCE(SUM(o.total_amount), 0) AS grossRevenue, " +
+            "COALESCE(SUM(o.discount_amount), 0) AS totalDiscount " +
+            "FROM orders o " +
+            "WHERE o.household_id = :householdId " +
+            "AND o.status = 'COMPLETED' " +
+            "AND o.deleted_at IS NULL " +
+            "AND o.created_at >= :startDateTime AND o.created_at <= :endDateTime " +
+            "AND (:posId IS NULL OR :posId = '' OR o.point_of_sale_id = :posId) " +
+            "GROUP BY HOUR(o.created_at) " +
+            "ORDER BY hourOfDay ASC", nativeQuery = true)
+    List<PeakHourlyProjection> getPeakHourlyAnalysis(
+            @Param("householdId") String householdId,
+            @Param("startDateTime") LocalDateTime startDateTime,
+            @Param("endDateTime") LocalDateTime endDateTime,
+            @Param("posId") String posId
+    );
+
+    @Query(value = "SELECT " +
+            "DAYOFWEEK(o.created_at) AS dayOfWeek, " +
+            "COUNT(o.id) AS orderCount, " +
+            "COALESCE(SUM(o.final_amount), 0) AS totalRevenue, " +
+            "COALESCE(SUM(o.total_amount), 0) AS grossRevenue, " +
+            "COALESCE(SUM(o.discount_amount), 0) AS totalDiscount " +
+            "FROM orders o " +
+            "WHERE o.household_id = :householdId " +
+            "AND o.status = 'COMPLETED' " +
+            "AND o.deleted_at IS NULL " +
+            "AND o.created_at >= :startDateTime AND o.created_at <= :endDateTime " +
+            "AND (:posId IS NULL OR :posId = '' OR o.point_of_sale_id = :posId) " +
+            "GROUP BY DAYOFWEEK(o.created_at) " +
+            "ORDER BY dayOfWeek ASC", nativeQuery = true)
+    List<PeakDayOfWeekProjection> getPeakDayOfWeekAnalysis(
+            @Param("householdId") String householdId,
+            @Param("startDateTime") LocalDateTime startDateTime,
+            @Param("endDateTime") LocalDateTime endDateTime,
+            @Param("posId") String posId
+    );
+
+    @Query(value = "SELECT " +
+            "DAYOFWEEK(o.created_at) AS dayOfWeek, " +
+            "HOUR(o.created_at) AS hourOfDay, " +
+            "COUNT(o.id) AS orderCount, " +
+            "COALESCE(SUM(o.final_amount), 0) AS totalRevenue " +
+            "FROM orders o " +
+            "WHERE o.household_id = :householdId " +
+            "AND o.status = 'COMPLETED' " +
+            "AND o.deleted_at IS NULL " +
+            "AND o.created_at >= :startDateTime AND o.created_at <= :endDateTime " +
+            "AND (:posId IS NULL OR :posId = '' OR o.point_of_sale_id = :posId) " +
+            "GROUP BY DAYOFWEEK(o.created_at), HOUR(o.created_at) " +
+            "ORDER BY dayOfWeek ASC, hourOfDay ASC", nativeQuery = true)
+    List<PeakHeatmapProjection> getPeakHeatmapAnalysis(
             @Param("householdId") String householdId,
             @Param("startDateTime") LocalDateTime startDateTime,
             @Param("endDateTime") LocalDateTime endDateTime,
