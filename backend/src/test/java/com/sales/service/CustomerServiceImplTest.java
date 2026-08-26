@@ -248,4 +248,84 @@ class CustomerServiceImplTest {
         assertEquals(1, response.getReminderDaysBefore());
         assertEquals(5, response.getReminderDaysAfter());
     }
+
+    @Test
+    @DisplayName("NCL-15-CN-003: Chủ hộ cài đặt mức chiết khấu riêng cho khách hàng thân thiết thành công")
+    void createCustomer_WithVipDiscount_ByOwner_Success() {
+        CreateCustomerRequest request = CreateCustomerRequest.builder()
+                .name("Khách quen VIP")
+                .phoneNumber("0999888777")
+                .discountRate(new BigDecimal("10.00"))
+                .discountType("PERCENTAGE")
+                .isVip(true)
+                .build();
+
+        when(userRepository.findByUsername("chuho")).thenReturn(Optional.of(currentUser));
+        when(customerRepository.findByPhoneNumberAndHouseholdIdAndDeletedAtIsNull("0999888777", "house-001"))
+                .thenReturn(Optional.empty());
+        when(customerRepository.save(any(Customer.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        CustomerResponse response = customerService.createCustomer("chuho", request);
+
+        assertNotNull(response);
+        assertEquals(new BigDecimal("10.00"), response.getDiscountRate());
+        assertTrue(response.getIsVip());
+    }
+
+    @Test
+    @DisplayName("NCL-15-CN-003 (TC-03): Nhân viên cố đặt mức chiết khấu riêng cho khách bị chặn (FORBIDDEN)")
+    void createCustomer_WithVipDiscount_ByStaff_ThrowsForbidden() {
+        Role staffRole = Role.builder().code("VT-02").name("Nhân viên").build();
+        User staffUser = User.builder()
+                .id("user-002")
+                .username("nhanvien")
+                .role(staffRole)
+                .household(household)
+                .build();
+
+        CreateCustomerRequest request = CreateCustomerRequest.builder()
+                .name("Khách hàng")
+                .phoneNumber("0999888777")
+                .discountRate(new BigDecimal("10.00"))
+                .isVip(true)
+                .build();
+
+        when(userRepository.findByUsername("nhanvien")).thenReturn(Optional.of(staffUser));
+        when(customerRepository.findByPhoneNumberAndHouseholdIdAndDeletedAtIsNull("0999888777", "house-001"))
+                .thenReturn(Optional.empty());
+
+        AppException exception = assertThrows(AppException.class, () ->
+                customerService.createCustomer("nhanvien", request)
+        );
+
+        assertEquals(ErrorCode.FORBIDDEN, exception.getErrorCode());
+    }
+
+    @Test
+    @DisplayName("NCL-15-CN-003 (TC-03): Nhân viên cố sửa mức chiết khấu riêng cho khách bị hệ thống chặn")
+    void updateCustomer_WithVipDiscount_ByStaff_ThrowsForbidden() {
+        Role staffRole = Role.builder().code("VT-02").name("Nhân viên").build();
+        User staffUser = User.builder()
+                .id("user-002")
+                .username("nhanvien")
+                .role(staffRole)
+                .household(household)
+                .build();
+
+        UpdateCustomerRequest request = UpdateCustomerRequest.builder()
+                .name("Trần Thị B Mod")
+                .phoneNumber("0987654321")
+                .discountRate(new BigDecimal("15.00"))
+                .build();
+
+        when(userRepository.findByUsername("nhanvien")).thenReturn(Optional.of(staffUser));
+        when(customerRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("cust-002", "house-001"))
+                .thenReturn(Optional.of(customerNoDebt));
+
+        AppException exception = assertThrows(AppException.class, () ->
+                customerService.updateCustomer("nhanvien", "cust-002", request)
+        );
+
+        assertEquals(ErrorCode.FORBIDDEN, exception.getErrorCode());
+    }
 }

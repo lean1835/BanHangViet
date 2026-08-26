@@ -45,6 +45,22 @@ public class Customer {
     @Builder.Default
     private BigDecimal currentDebt = BigDecimal.ZERO;
 
+    @Column(name = "discount_rate", nullable = false, precision = 5, scale = 2)
+    @Builder.Default
+    private BigDecimal discountRate = BigDecimal.ZERO;
+
+    @Column(name = "discount_type", nullable = false, length = 20)
+    @Builder.Default
+    private String discountType = "PERCENTAGE";
+
+    @Column(name = "total_spent", nullable = false, precision = 15, scale = 2)
+    @Builder.Default
+    private BigDecimal totalSpent = BigDecimal.ZERO;
+
+    @Column(name = "is_vip", nullable = false)
+    @Builder.Default
+    private Boolean isVip = false;
+
     @Column(name = "reminder_days_before", nullable = false, columnDefinition = "int default 3")
     @Builder.Default
     private Integer reminderDaysBefore = 3;

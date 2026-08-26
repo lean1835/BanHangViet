@@ -122,6 +122,8 @@ public class OrderServiceImpl implements OrderService {
         map.put("orderNumber", order.getOrderNumber());
         map.put("totalAmount", order.getTotalAmount());
         map.put("discountAmount", order.getDiscountAmount());
+        map.put("customerDiscountAmount", order.getCustomerDiscountAmount());
+        map.put("promotionDiscountAmount", order.getPromotionDiscountAmount());
         map.put("finalAmount", order.getFinalAmount());
         map.put("paymentMethod", order.getPaymentMethod());
         map.put("paymentStatus", order.getPaymentStatus());
@@ -176,6 +178,8 @@ public class OrderServiceImpl implements OrderService {
                 .customerName(order.getCustomer() != null ? order.getCustomer().getName() : null)
                 .totalAmount(order.getTotalAmount())
                 .discountAmount(order.getDiscountAmount())
+                .customerDiscountAmount(order.getCustomerDiscountAmount())
+                .promotionDiscountAmount(order.getPromotionDiscountAmount())
                 .finalAmount(order.getFinalAmount())
                 .paymentMethod(order.getPaymentMethod())
                 .paymentStatus(order.getPaymentStatus())
@@ -210,25 +214,50 @@ public class OrderServiceImpl implements OrderService {
 
     private void recalculateOrderTotals(Order order) {
         BigDecimal total = BigDecimal.ZERO;
+        BigDecimal itemPromoDiscountSum = BigDecimal.ZERO;
+
         for (OrderItem item : order.getItems()) {
             total = total.add(item.getSubtotal());
+            if (item.getDiscountAmount() != null) {
+                itemPromoDiscountSum = itemPromoDiscountSum.add(item.getDiscountAmount());
+            }
         }
         order.setTotalAmount(total);
 
-        BigDecimal discountAmount = order.getDiscountAmount();
+        BigDecimal manualDiscount = BigDecimal.ZERO;
         if (order.getDiscountType() != null) {
             if ("PERCENTAGE".equals(order.getDiscountType())) {
                 BigDecimal rate = order.getDiscountRateOrValue() != null ? order.getDiscountRateOrValue() : BigDecimal.ZERO;
-                discountAmount = total.multiply(rate).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+                manualDiscount = total.multiply(rate).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
             } else if ("CASH".equals(order.getDiscountType())) {
-                discountAmount = order.getDiscountRateOrValue() != null ? order.getDiscountRateOrValue() : BigDecimal.ZERO;
+                manualDiscount = order.getDiscountRateOrValue() != null ? order.getDiscountRateOrValue() : BigDecimal.ZERO;
             }
         }
-        if (discountAmount.compareTo(total) > 0) {
-            discountAmount = total;
+
+        BigDecimal promotionDiscountAmount = itemPromoDiscountSum.add(manualDiscount);
+
+        // Chiết khấu riêng cho khách hàng thân thiết (NCL-15-CN-003)
+        BigDecimal customerDiscountAmount = BigDecimal.ZERO;
+        if (order.getCustomer() != null && order.getCustomer().getDiscountRate() != null
+                && order.getCustomer().getDiscountRate().compareTo(BigDecimal.ZERO) > 0) {
+            Customer cust = order.getCustomer();
+            if ("PERCENTAGE".equalsIgnoreCase(cust.getDiscountType())) {
+                customerDiscountAmount = total.multiply(cust.getDiscountRate())
+                        .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+            } else {
+                customerDiscountAmount = total.min(cust.getDiscountRate());
+            }
         }
-        order.setDiscountAmount(discountAmount);
-        order.setFinalAmount(total.subtract(discountAmount).max(BigDecimal.ZERO));
+
+        BigDecimal totalDiscount = promotionDiscountAmount.add(customerDiscountAmount);
+        if (totalDiscount.compareTo(total) > 0) {
+            totalDiscount = total;
+        }
+
+        order.setPromotionDiscountAmount(promotionDiscountAmount);
+        order.setCustomerDiscountAmount(customerDiscountAmount);
+        order.setDiscountAmount(totalDiscount);
+        order.setFinalAmount(total.subtract(totalDiscount).max(BigDecimal.ZERO));
     }
 
     @Override
@@ -700,6 +729,13 @@ public class OrderServiceImpl implements OrderService {
 
         order.setStatus("COMPLETED");
         order.setSyncedAt(LocalDateTime.now());
+
+        if (order.getCustomer() != null) {
+            Customer customer = order.getCustomer();
+            BigDecimal currentTotalSpent = customer.getTotalSpent() != null ? customer.getTotalSpent() : BigDecimal.ZERO;
+            customer.setTotalSpent(currentTotalSpent.add(order.getFinalAmount()));
+            customerRepository.save(customer);
+        }
 
         order = orderRepository.save(order);
 
