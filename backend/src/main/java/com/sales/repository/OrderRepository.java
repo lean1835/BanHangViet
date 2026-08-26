@@ -8,6 +8,8 @@ import com.sales.dto.response.PosDailyRevenueProjection;
 import com.sales.dto.response.PosRevenueProjection;
 import com.sales.dto.response.ProductRevenueProjection;
 import com.sales.dto.response.PurchaseSuggestionProjection;
+import com.sales.dto.response.SlowMovingProductProjection;
+import com.sales.dto.response.SlowMovingSummaryProjection;
 import com.sales.entity.Order;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -310,5 +312,107 @@ public interface OrderRepository extends JpaRepository<Order, String> {
             @Param("startDateTime") LocalDateTime startDateTime,
             @Param("endDateTime") LocalDateTime endDateTime,
             @Param("posId") String posId
+    );
+
+    @Query(value = "SELECT " +
+            "p.id AS productId, " +
+            "p.sku AS sku, " +
+            "p.name AS productName, " +
+            "p.unit AS unit, " +
+            "p.price AS price, " +
+            "p.cost_price AS costPrice, " +
+            "COALESCE(p.stock_quantity, 0) AS stockQuantity, " +
+            "g.id AS groupId, " +
+            "g.name AS groupName, " +
+            "sales.last_sale_date AS lastSaleDate, " +
+            "p.created_at AS createdAt, " +
+            "(COALESCE(p.stock_quantity, 0) * (CASE WHEN COALESCE(p.cost_price, 0) > 0 THEN p.cost_price ELSE p.price END)) AS stagnantCapital, " +
+            "(COALESCE(p.stock_quantity, 0) * p.price) AS retailInventoryValue " +
+            "FROM products p " +
+            "LEFT JOIN product_groups g ON g.id = p.group_id AND g.deleted_at IS NULL " +
+            "LEFT JOIN (" +
+            "  SELECT oi.product_id, MAX(o.created_at) AS last_sale_date " +
+            "  FROM order_items oi " +
+            "  JOIN orders o ON o.id = oi.order_id " +
+            "  WHERE o.household_id = :householdId " +
+            "    AND o.status = 'COMPLETED' " +
+            "    AND o.deleted_at IS NULL " +
+            "  GROUP BY oi.product_id" +
+            ") sales ON sales.product_id = p.id " +
+            "WHERE p.household_id = :householdId " +
+            "  AND p.deleted_at IS NULL " +
+            "  AND p.status = 'ACTIVE' " +
+            "  AND p.stock_quantity > 0 " +
+            "  AND (" +
+            "    (sales.last_sale_date IS NOT NULL AND sales.last_sale_date <= :cutoffDateTime) " +
+            "    OR " +
+            "    (sales.last_sale_date IS NULL AND p.created_at <= :cutoffDateTime)" +
+            "  ) " +
+            "  AND (:groupId IS NULL OR :groupId = '' OR p.group_id = :groupId) " +
+            "  AND (:search IS NULL OR :search = '' OR LOWER(p.name) LIKE LOWER(CONCAT('%', :search, '%')) OR LOWER(p.sku) LIKE LOWER(CONCAT('%', :search, '%'))) " +
+            "ORDER BY COALESCE(sales.last_sale_date, p.created_at) ASC, stockQuantity DESC, p.id ASC",
+            countQuery = "SELECT COUNT(p.id) " +
+            "FROM products p " +
+            "LEFT JOIN (" +
+            "  SELECT oi.product_id, MAX(o.created_at) AS last_sale_date " +
+            "  FROM order_items oi " +
+            "  JOIN orders o ON o.id = oi.order_id " +
+            "  WHERE o.household_id = :householdId " +
+            "    AND o.status = 'COMPLETED' " +
+            "    AND o.deleted_at IS NULL " +
+            "  GROUP BY oi.product_id" +
+            ") sales ON sales.product_id = p.id " +
+            "WHERE p.household_id = :householdId " +
+            "  AND p.deleted_at IS NULL " +
+            "  AND p.status = 'ACTIVE' " +
+            "  AND p.stock_quantity > 0 " +
+            "  AND (" +
+            "    (sales.last_sale_date IS NOT NULL AND sales.last_sale_date <= :cutoffDateTime) " +
+            "    OR " +
+            "    (sales.last_sale_date IS NULL AND p.created_at <= :cutoffDateTime)" +
+            "  ) " +
+            "  AND (:groupId IS NULL OR :groupId = '' OR p.group_id = :groupId) " +
+            "  AND (:search IS NULL OR :search = '' OR LOWER(p.name) LIKE LOWER(CONCAT('%', :search, '%')) OR LOWER(p.sku) LIKE LOWER(CONCAT('%', :search, '%')))",
+            nativeQuery = true)
+    Page<SlowMovingProductProjection> getSlowMovingProducts(
+            @Param("householdId") String householdId,
+            @Param("cutoffDateTime") LocalDateTime cutoffDateTime,
+            @Param("groupId") String groupId,
+            @Param("search") String search,
+            Pageable pageable
+    );
+
+    @Query(value = "SELECT " +
+            "COUNT(p.id) AS totalStagnantProducts, " +
+            "COALESCE(SUM(p.stock_quantity), 0) AS totalStagnantStockQuantity, " +
+            "COALESCE(SUM(p.stock_quantity * (CASE WHEN COALESCE(p.cost_price, 0) > 0 THEN p.cost_price ELSE p.price END)), 0) AS totalStagnantCapital, " +
+            "COALESCE(SUM(p.stock_quantity * p.price), 0) AS totalRetailValue " +
+            "FROM products p " +
+            "LEFT JOIN (" +
+            "  SELECT oi.product_id, MAX(o.created_at) AS last_sale_date " +
+            "  FROM order_items oi " +
+            "  JOIN orders o ON o.id = oi.order_id " +
+            "  WHERE o.household_id = :householdId " +
+            "    AND o.status = 'COMPLETED' " +
+            "    AND o.deleted_at IS NULL " +
+            "  GROUP BY oi.product_id" +
+            ") sales ON sales.product_id = p.id " +
+            "WHERE p.household_id = :householdId " +
+            "  AND p.deleted_at IS NULL " +
+            "  AND p.status = 'ACTIVE' " +
+            "  AND p.stock_quantity > 0 " +
+            "  AND (" +
+            "    (sales.last_sale_date IS NOT NULL AND sales.last_sale_date <= :cutoffDateTime) " +
+            "    OR " +
+            "    (sales.last_sale_date IS NULL AND p.created_at <= :cutoffDateTime)" +
+            "  ) " +
+            "  AND (:groupId IS NULL OR :groupId = '' OR p.group_id = :groupId) " +
+            "  AND (:search IS NULL OR :search = '' OR LOWER(p.name) LIKE LOWER(CONCAT('%', :search, '%')) OR LOWER(p.sku) LIKE LOWER(CONCAT('%', :search, '%')))",
+            nativeQuery = true)
+    SlowMovingSummaryProjection getSlowMovingSummary(
+            @Param("householdId") String householdId,
+            @Param("cutoffDateTime") LocalDateTime cutoffDateTime,
+            @Param("groupId") String groupId,
+            @Param("search") String search
     );
 }

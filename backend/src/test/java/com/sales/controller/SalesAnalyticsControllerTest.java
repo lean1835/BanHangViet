@@ -575,6 +575,311 @@ public class SalesAnalyticsControllerTest {
                 .andExpect(jsonPath("$.result.content[?(@.productId == '" + p.getId() + "')].hasPromotion").value(contains(false)))
                 .andExpect(jsonPath("$.result.content[?(@.productId == '" + p.getId() + "')].promotionWarning").value(contains((Object) null)));
     }
+
+    // =========================================================================
+    // TESTS FOR NCL-18-CN-003: CẢNH BÁO MẶT HÀNG BÁN CHẬM VÀ TỒN LÂU
+    // =========================================================================
+
+    @Test
+    @WithMockUser(username = "test_owner_analytics", roles = {"VT-01"})
+    public void testNCL18CN003_TC01_OwnerGetSlowMovingProductsSuccess() throws Exception {
+        ProductGroup group = productGroupRepository.save(ProductGroup.builder()
+                .household(testHousehold)
+                .name("Nhóm Bán Chậm TC01 " + System.currentTimeMillis())
+                .build());
+
+        // Tạo 7 mặt hàng tồn lâu với đơn hàng hoàn tất cách đây > 60 ngày (70-90 ngày)
+        for (int i = 1; i <= 7; i++) {
+            Product p = productRepository.save(Product.builder()
+                    .household(testHousehold)
+                    .group(group)
+                    .taxRate(testTaxRate)
+                    .sku("SKU-SLOW-TC01-" + i + "-" + System.currentTimeMillis())
+                    .name("Sản phẩm Bán Chậm TC01 Món " + i)
+                    .unit("hộp")
+                    .price(new BigDecimal("25000.00"))
+                    .costPrice(new BigDecimal("20000.00"))
+                    .stockQuantity(new BigDecimal("12.000"))
+                    .status("ACTIVE")
+                    .build());
+
+            Order oldOrder = orderRepository.save(Order.builder()
+                    .household(testHousehold)
+                    .createdByUser(userRepository.findByUsername("test_owner_analytics").orElseThrow())
+                    .orderNumber("ORD-SLOW-TC01-" + i + "-" + System.currentTimeMillis())
+                    .totalAmount(new BigDecimal("25000.00"))
+                    .finalAmount(new BigDecimal("25000.00"))
+                    .discountAmount(BigDecimal.ZERO)
+                    .paymentMethod("CASH")
+                    .paymentStatus("PAID")
+                    .status("COMPLETED")
+                    .createdAt(LocalDateTime.now().minusDays(65 + i * 2))
+                    .build());
+
+            orderItemRepository.save(OrderItem.builder()
+                    .order(oldOrder)
+                    .product(p)
+                    .productName(p.getName())
+                    .quantity(new BigDecimal("1.000"))
+                    .unitPrice(p.getPrice())
+                    .discountAmount(BigDecimal.ZERO)
+                    .subtotal(p.getPrice())
+                    .createdAt(oldOrder.getCreatedAt())
+                    .build());
+        }
+
+        mockMvc.perform(get("/api/v1/sales-analytics/slow-moving-products")
+                        .param("thresholdDays", "60")
+                        .param("groupId", group.getId())
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(1000))
+                .andExpect(jsonPath("$.message").value("Lấy danh sách cảnh báo hàng bán chậm và tồn lâu thành công"))
+                .andExpect(jsonPath("$.result.summary.thresholdDays").value(60))
+                .andExpect(jsonPath("$.result.summary.totalStagnantProducts").value(7))
+                .andExpect(jsonPath("$.result.summary.totalStagnantStockQuantity").value(84.0))
+                .andExpect(jsonPath("$.result.summary.totalStagnantCapital").value(1680000.0)) // 84 * 20000
+                .andExpect(jsonPath("$.result.pageData.totalElements").value(7))
+                .andExpect(jsonPath("$.result.pageData.content", hasSize(7)))
+                .andExpect(jsonPath("$.result.pageData.content[0].stockQuantity").value(12.0))
+                .andExpect(jsonPath("$.result.pageData.content[0].costPrice").value(20000.0))
+                .andExpect(jsonPath("$.result.pageData.content[0].price").value(25000.0))
+                .andExpect(jsonPath("$.result.pageData.content[0].stagnantCapital").value(240000.0)) // 12 * 20000
+                .andExpect(jsonPath("$.result.pageData.content[0].retailInventoryValue").value(300000.0)) // 12 * 25000
+                .andExpect(jsonPath("$.result.pageData.content[0].daysWithoutSale", greaterThanOrEqualTo(65)));
+    }
+
+    @Test
+    @WithMockUser(username = "test_owner_analytics", roles = {"VT-01"})
+    public void testNCL18CN003_TC02_EmptyDataWhenAllProductsSoldRecently() throws Exception {
+        ProductGroup group = productGroupRepository.save(ProductGroup.builder()
+                .household(testHousehold)
+                .name("Nhóm Bán Chạy TC02 " + System.currentTimeMillis())
+                .build());
+
+        Product p = productRepository.save(Product.builder()
+                .household(testHousehold)
+                .group(group)
+                .taxRate(testTaxRate)
+                .sku("SKU-FAST-TC02-" + System.currentTimeMillis())
+                .name("Sản phẩm Bán Chạy Vừa Bán Hôm Qua")
+                .unit("chai")
+                .price(new BigDecimal("50000.00"))
+                .costPrice(new BigDecimal("40000.00"))
+                .stockQuantity(new BigDecimal("10.000"))
+                .status("ACTIVE")
+                .build());
+
+        Order recentOrder = orderRepository.save(Order.builder()
+                .household(testHousehold)
+                .createdByUser(userRepository.findByUsername("test_owner_analytics").orElseThrow())
+                .orderNumber("ORD-FAST-TC02-" + System.currentTimeMillis())
+                .totalAmount(new BigDecimal("50000.00"))
+                .finalAmount(new BigDecimal("50000.00"))
+                .discountAmount(BigDecimal.ZERO)
+                .paymentMethod("CASH")
+                .paymentStatus("PAID")
+                .status("COMPLETED")
+                .createdAt(LocalDateTime.now().minusDays(2))
+                .build());
+
+        orderItemRepository.save(OrderItem.builder()
+                .order(recentOrder)
+                .product(p)
+                .productName(p.getName())
+                .quantity(new BigDecimal("1.000"))
+                .unitPrice(p.getPrice())
+                .discountAmount(BigDecimal.ZERO)
+                .subtotal(p.getPrice())
+                .createdAt(recentOrder.getCreatedAt())
+                .build());
+
+        mockMvc.perform(get("/api/v1/sales-analytics/slow-moving-products")
+                        .param("thresholdDays", "60")
+                        .param("groupId", group.getId())
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(1000))
+                .andExpect(jsonPath("$.result.summary.totalStagnantProducts").value(0))
+                .andExpect(jsonPath("$.result.summary.totalStagnantStockQuantity").value(0.0))
+                .andExpect(jsonPath("$.result.summary.totalStagnantCapital").value(0.0))
+                .andExpect(jsonPath("$.result.pageData.totalElements").value(0))
+                .andExpect(jsonPath("$.result.pageData.content", hasSize(0)));
+    }
+
+    @Test
+    @WithMockUser(username = "test_employee_analytics", roles = {"VT-02"})
+    public void testNCL18CN003_TC03_EmployeeForbidden() throws Exception {
+        mockMvc.perform(get("/api/v1/sales-analytics/slow-moving-products")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(username = "test_accountant_analytics", roles = {"VT-03"})
+    public void testNCL18CN003_TC04_AccountantSuccess() throws Exception {
+        mockMvc.perform(get("/api/v1/sales-analytics/slow-moving-products")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(1000))
+                .andExpect(jsonPath("$.result.summary").exists())
+                .andExpect(jsonPath("$.result.pageData").exists());
+    }
+
+    @Test
+    @WithMockUser(username = "test_owner_analytics", roles = {"VT-01"})
+    public void testNCL18CN003_TC05_CustomThresholdDays() throws Exception {
+        ProductGroup group = productGroupRepository.save(ProductGroup.builder()
+                .household(testHousehold)
+                .name("Nhóm Threshold TC05 " + System.currentTimeMillis())
+                .build());
+
+        // Sản phẩm A bán cách đây 45 ngày
+        Product pA = productRepository.save(Product.builder()
+                .household(testHousehold)
+                .group(group)
+                .taxRate(testTaxRate)
+                .sku("SKU-TC05-A-" + System.currentTimeMillis())
+                .name("Mặt hàng A 45 ngày")
+                .unit("gói")
+                .price(new BigDecimal("30000.00"))
+                .costPrice(new BigDecimal("20000.00"))
+                .stockQuantity(new BigDecimal("5.000"))
+                .status("ACTIVE")
+                .build());
+
+        Order orderA = orderRepository.save(Order.builder()
+                .household(testHousehold)
+                .createdByUser(userRepository.findByUsername("test_owner_analytics").orElseThrow())
+                .orderNumber("ORD-TC05-A-" + System.currentTimeMillis())
+                .totalAmount(new BigDecimal("30000.00"))
+                .finalAmount(new BigDecimal("30000.00"))
+                .discountAmount(BigDecimal.ZERO)
+                .paymentMethod("CASH")
+                .paymentStatus("PAID")
+                .status("COMPLETED")
+                .createdAt(LocalDateTime.now().minusDays(45))
+                .build());
+
+        orderItemRepository.save(OrderItem.builder()
+                .order(orderA)
+                .product(pA)
+                .productName(pA.getName())
+                .quantity(new BigDecimal("1.000"))
+                .unitPrice(pA.getPrice())
+                .discountAmount(BigDecimal.ZERO)
+                .subtotal(pA.getPrice())
+                .createdAt(orderA.getCreatedAt())
+                .build());
+
+        // Với thresholdDays = 30 -> pA bán chậm vì 45 > 30
+        mockMvc.perform(get("/api/v1/sales-analytics/slow-moving-products")
+                        .param("thresholdDays", "30")
+                        .param("groupId", group.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(1000))
+                .andExpect(jsonPath("$.result.summary.totalStagnantProducts").value(1));
+
+        // Với thresholdDays = 60 -> pA KHÔNG bán chậm vì 45 < 60
+        mockMvc.perform(get("/api/v1/sales-analytics/slow-moving-products")
+                        .param("thresholdDays", "60")
+                        .param("groupId", group.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(1000))
+                .andExpect(jsonPath("$.result.summary.totalStagnantProducts").value(0));
+    }
+
+    @Test
+    @WithMockUser(username = "test_owner_analytics", roles = {"VT-01"})
+    public void testNCL18CN003_TC06_FilterByGroupAndSearch() throws Exception {
+        ProductGroup group1 = productGroupRepository.save(ProductGroup.builder()
+                .household(testHousehold)
+                .name("Nhóm Gia Vị TC06 " + System.currentTimeMillis())
+                .build());
+
+        ProductGroup group2 = productGroupRepository.save(ProductGroup.builder()
+                .household(testHousehold)
+                .name("Nhóm Bánh Kẹo TC06 " + System.currentTimeMillis())
+                .build());
+
+        Product p1 = productRepository.save(Product.builder()
+                .household(testHousehold)
+                .group(group1)
+                .taxRate(testTaxRate)
+                .sku("SKU-GV-NAMNGU-" + System.currentTimeMillis())
+                .name("Nước Mắm Nam Ngư Chai 500ml")
+                .unit("chai")
+                .price(new BigDecimal("25000.00"))
+                .costPrice(new BigDecimal("20000.00"))
+                .stockQuantity(new BigDecimal("8.000"))
+                .status("ACTIVE")
+                .build());
+
+        Order order1 = orderRepository.save(Order.builder()
+                .household(testHousehold)
+                .createdByUser(userRepository.findByUsername("test_owner_analytics").orElseThrow())
+                .orderNumber("ORD-TC06-1-" + System.currentTimeMillis())
+                .totalAmount(new BigDecimal("25000.00"))
+                .finalAmount(new BigDecimal("25000.00"))
+                .discountAmount(BigDecimal.ZERO)
+                .paymentMethod("CASH")
+                .paymentStatus("PAID")
+                .status("COMPLETED")
+                .createdAt(LocalDateTime.now().minusDays(80))
+                .build());
+
+        orderItemRepository.save(OrderItem.builder()
+                .order(order1)
+                .product(p1)
+                .productName(p1.getName())
+                .quantity(new BigDecimal("1.000"))
+                .unitPrice(p1.getPrice())
+                .discountAmount(BigDecimal.ZERO)
+                .subtotal(p1.getPrice())
+                .createdAt(order1.getCreatedAt())
+                .build());
+
+        // Lọc theo group1 và search "Nam Ngư" -> Tìm thấy
+        mockMvc.perform(get("/api/v1/sales-analytics/slow-moving-products")
+                        .param("thresholdDays", "60")
+                        .param("groupId", group1.getId())
+                        .param("search", "Nam Ngư"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(1000))
+                .andExpect(jsonPath("$.result.pageData.totalElements").value(1))
+                .andExpect(jsonPath("$.result.pageData.content[0].productId").value(p1.getId()));
+
+        // Lọc theo group2 -> Không tìm thấy
+        mockMvc.perform(get("/api/v1/sales-analytics/slow-moving-products")
+                        .param("thresholdDays", "60")
+                        .param("groupId", group2.getId())
+                        .param("search", "Nam Ngư"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(1000))
+                .andExpect(jsonPath("$.result.pageData.totalElements").value(0));
+    }
+
+    @Test
+    @WithMockUser(username = "test_owner_analytics", roles = {"VT-01"})
+    public void testNCL18CN003_TC07_InvalidThresholdBadRequest() throws Exception {
+        mockMvc.perform(get("/api/v1/sales-analytics/slow-moving-products")
+                        .param("thresholdDays", "0"))
+                .andExpect(status().isBadRequest());
+
+        mockMvc.perform(get("/api/v1/sales-analytics/slow-moving-products")
+                        .param("thresholdDays", "-10"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @WithMockUser(username = "test_owner_analytics", roles = {"VT-01"})
+    public void testNCL18CN003_TC08_InventoryAliasEndpoint() throws Exception {
+        mockMvc.perform(get("/api/v1/inventory/slow-moving-products")
+                        .param("thresholdDays", "60"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(1000))
+                .andExpect(jsonPath("$.message").value("Lấy danh sách cảnh báo hàng bán chậm và tồn lâu thành công"));
+    }
 }
 
 

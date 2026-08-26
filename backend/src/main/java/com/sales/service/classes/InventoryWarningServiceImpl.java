@@ -263,4 +263,80 @@ public class InventoryWarningServiceImpl implements InventoryWarningService {
                 .last(projectionPage.isLast())
                 .build();
     }
+
+    @Override
+    @Transactional(readOnly = true)
+    public SlowMovingProductListResponse getSlowMovingProducts(
+            String username, Integer thresholdDays, String groupId, String search, int page, int size) {
+        User currentUser = getAuthenticatedUser(username);
+        BusinessHousehold household = currentUser.getHousehold();
+        if (household == null) {
+            throw new AppException(ErrorCode.FORBIDDEN);
+        }
+
+        if (thresholdDays != null && thresholdDays <= 0) {
+            throw new AppException(ErrorCode.INVALID_INPUT);
+        }
+        int days = (thresholdDays != null && thresholdDays > 0) ? thresholdDays : 60;
+
+        LocalDateTime cutoffDateTime = LocalDateTime.now().minusDays(days);
+
+        String trimmedGroupId = (groupId != null && !groupId.trim().isEmpty()) ? groupId.trim() : null;
+        String trimmedSearch = (search != null && !search.trim().isEmpty()) ? search.trim() : null;
+
+        Pageable pageable = PageRequest.of(page, size);
+
+        Page<SlowMovingProductProjection> projectionPage = orderRepository.getSlowMovingProducts(
+                household.getId(), cutoffDateTime, trimmedGroupId, trimmedSearch, pageable
+        );
+
+        SlowMovingSummaryProjection summaryProj = orderRepository.getSlowMovingSummary(
+                household.getId(), cutoffDateTime, trimmedGroupId, trimmedSearch
+        );
+
+        SlowMovingSummaryResponse summary = SlowMovingSummaryResponse.builder()
+                .thresholdDays(days)
+                .totalStagnantProducts(summaryProj != null && summaryProj.getTotalStagnantProducts() != null ? summaryProj.getTotalStagnantProducts() : 0L)
+                .totalStagnantStockQuantity(summaryProj != null && summaryProj.getTotalStagnantStockQuantity() != null ? summaryProj.getTotalStagnantStockQuantity() : BigDecimal.ZERO)
+                .totalStagnantCapital(summaryProj != null && summaryProj.getTotalStagnantCapital() != null ? summaryProj.getTotalStagnantCapital() : BigDecimal.ZERO)
+                .totalRetailValue(summaryProj != null && summaryProj.getTotalRetailValue() != null ? summaryProj.getTotalRetailValue() : BigDecimal.ZERO)
+                .build();
+
+        List<SlowMovingProductResponse> content = projectionPage.getContent().stream()
+                .map(p -> {
+                    LocalDateTime refDate = p.getLastSaleDate() != null ? p.getLastSaleDate() : p.getCreatedAt();
+                    long daysWithoutSale = refDate != null ? Math.max(0, java.time.temporal.ChronoUnit.DAYS.between(refDate, LocalDateTime.now())) : 0L;
+
+                    return SlowMovingProductResponse.builder()
+                            .productId(p.getProductId())
+                            .sku(p.getSku())
+                            .productName(p.getProductName())
+                            .unit(p.getUnit())
+                            .groupId(p.getGroupId())
+                            .groupName(p.getGroupName())
+                            .stockQuantity(p.getStockQuantity())
+                            .costPrice(p.getCostPrice())
+                            .price(p.getPrice())
+                            .stagnantCapital(p.getStagnantCapital())
+                            .retailInventoryValue(p.getRetailInventoryValue())
+                            .lastSaleDate(p.getLastSaleDate())
+                            .daysWithoutSale(daysWithoutSale)
+                            .build();
+                })
+                .collect(Collectors.toList());
+
+        PageResponse<SlowMovingProductResponse> pageData = PageResponse.<SlowMovingProductResponse>builder()
+                .pageNumber(projectionPage.getNumber())
+                .pageSize(projectionPage.getSize())
+                .totalElements(projectionPage.getTotalElements())
+                .totalPages(projectionPage.getTotalPages())
+                .last(projectionPage.isLast())
+                .content(content)
+                .build();
+
+        return SlowMovingProductListResponse.builder()
+                .summary(summary)
+                .pageData(pageData)
+                .build();
+    }
 }
