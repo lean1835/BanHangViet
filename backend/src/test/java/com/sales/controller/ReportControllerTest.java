@@ -200,4 +200,50 @@ public class ReportControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(1000));
     }
+
+    @Test
+    @WithMockUser(username = "test_owner_report", roles = {"VT-01"})
+    public void getPosRevenueReport_asOwner_success() throws Exception {
+        mockMvc.perform(get("/api/v1/reports/points-of-sale")
+                        .param("fromDate", "2026-07-01")
+                        .param("toDate", "2026-07-31")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(1000))
+                .andExpect(jsonPath("$.result.householdSummary").exists())
+                .andExpect(jsonPath("$.result.posSummaries").isArray())
+                .andExpect(jsonPath("$.result.dailyBreakdown").isArray());
+    }
+
+    @Test
+    @WithMockUser(username = "test_accountant_report", roles = {"VT-03"})
+    public void getPosRevenueReport_asAccountant_success() throws Exception {
+        mockMvc.perform(get("/api/v1/reports/points-of-sale")
+                        .param("fromDate", "2026-07-01")
+                        .param("toDate", "2026-07-31")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(1000))
+                .andExpect(jsonPath("$.result.householdSummary").exists());
+    }
+
+    @Test
+    @WithMockUser(username = "test_employee_report", roles = {"VT-02"})
+    public void getPosRevenueReport_asEmployee_forbidden() throws Exception {
+        mockMvc.perform(get("/api/v1/reports/points-of-sale")
+                        .param("fromDate", "2026-07-01")
+                        .param("toDate", "2026-07-31")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(username = "test_owner_report", roles = {"VT-01"})
+    public void getPosRevenueReport_invalidDateRange_badRequest() throws Exception {
+        mockMvc.perform(get("/api/v1/reports/points-of-sale")
+                        .param("fromDate", "2026-07-31")
+                        .param("toDate", "2026-07-01")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isBadRequest());
+    }
 }

@@ -21,6 +21,7 @@ import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -36,6 +37,7 @@ public class ReportServiceImpl implements ReportService {
     private final UserRepository userRepository;
     private final OrderRepository orderRepository;
     private final EInvoiceRepository eInvoiceRepository;
+    private final PointOfSaleRepository pointOfSaleRepository;
     private final ActivityLogRepository activityLogRepository;
     private final ActivityLogHelper activityLogHelper;
     private final ShiftRepository shiftRepository;
@@ -360,6 +362,146 @@ public class ReportServiceImpl implements ReportService {
                 .canceledAt(invoice.getCanceledAt())
                 .createdAt(invoice.getCreatedAt())
                 .updatedAt(invoice.getUpdatedAt())
+                .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PosRevenueReportResponse getPosRevenueReport(String currentUsername, LocalDate fromDate, LocalDate toDate, String posId) {
+        BusinessHousehold household = getHouseholdAndValidate(currentUsername);
+
+        LocalDate startLocalDate = fromDate != null ? fromDate : LocalDate.now().minusDays(30);
+        LocalDate endLocalDate = toDate != null ? toDate : LocalDate.now();
+        if (startLocalDate.isAfter(endLocalDate)) {
+            throw new AppException(ErrorCode.INVALID_INPUT);
+        }
+
+        LocalDateTime startDateTime = startLocalDate.atStartOfDay();
+        LocalDateTime endDateTime = endLocalDate.atTime(LocalTime.MAX);
+
+        List<PointOfSale> posList;
+        String filterPosId = (posId != null && !posId.trim().isEmpty()) ? posId.trim() : null;
+        if (filterPosId != null) {
+            PointOfSale pos = pointOfSaleRepository.findByIdAndHouseholdIdAndDeletedAtIsNull(filterPosId, household.getId())
+                    .orElseThrow(() -> new AppException(ErrorCode.POS_NOT_FOUND));
+            posList = List.of(pos);
+        } else {
+            posList = pointOfSaleRepository.findAllByHouseholdIdAndDeletedAtIsNull(household.getId());
+        }
+
+        List<PosRevenueProjection> orderMetrics = orderRepository.getPosRevenueSummary(
+                household.getId(), startDateTime, endDateTime, filterPosId
+        );
+        Map<String, PosRevenueProjection> orderMetricsMap = orderMetrics.stream()
+                .filter(m -> m.getPosId() != null)
+                .collect(Collectors.toMap(PosRevenueProjection::getPosId, m -> m, (m1, m2) -> m1));
+
+        List<PosInvoiceCountProjection> invoiceMetrics = eInvoiceRepository.getPosInvoiceCounts(
+                household.getId(), startDateTime, endDateTime, filterPosId
+        );
+        Map<String, Long> invoiceCountMap = invoiceMetrics.stream()
+                .filter(m -> m.getPosId() != null)
+                .collect(Collectors.toMap(PosInvoiceCountProjection::getPosId, PosInvoiceCountProjection::getInvoiceCount, (c1, c2) -> c1));
+
+        List<PosDailyRevenueProjection> dailyMetrics = orderRepository.getPosDailyRevenue(
+                household.getId(), startDateTime, endDateTime, filterPosId
+        );
+        List<PosDailyRevenueResponse> dailyBreakdown = dailyMetrics.stream()
+                .map(d -> PosDailyRevenueResponse.builder()
+                        .salesDate(d.getSalesDate() != null ? d.getSalesDate().toLocalDate() : null)
+                        .posId(d.getPosId())
+                        .posName(d.getPosName())
+                        .orderCount(d.getOrderCount() != null ? d.getOrderCount() : 0L)
+                        .netRevenue(d.getNetRevenue() != null ? d.getNetRevenue() : BigDecimal.ZERO)
+                        .build())
+                .collect(Collectors.toList());
+
+        long totalOrders = 0L;
+        long totalInvoices = 0L;
+        BigDecimal totalGrossSales = BigDecimal.ZERO;
+        BigDecimal totalDiscount = BigDecimal.ZERO;
+        BigDecimal totalNetRevenue = BigDecimal.ZERO;
+        BigDecimal totalCashRevenue = BigDecimal.ZERO;
+        BigDecimal totalBankRevenue = BigDecimal.ZERO;
+        BigDecimal totalDebtRevenue = BigDecimal.ZERO;
+        int activePosCount = 0;
+
+        List<PosRevenueSummaryResponse> posSummaries = new ArrayList<>();
+        for (PointOfSale pos : posList) {
+            if (Boolean.TRUE.equals(pos.getIsActive())) {
+                activePosCount++;
+            }
+            PosRevenueProjection metric = orderMetricsMap.get(pos.getId());
+            Long invCount = invoiceCountMap.getOrDefault(pos.getId(), 0L);
+
+            Long orders = (metric != null && metric.getOrderCount() != null) ? metric.getOrderCount() : 0L;
+            BigDecimal gross = (metric != null && metric.getGrossSales() != null) ? metric.getGrossSales() : BigDecimal.ZERO;
+            BigDecimal discount = (metric != null && metric.getTotalDiscount() != null) ? metric.getTotalDiscount() : BigDecimal.ZERO;
+            BigDecimal net = (metric != null && metric.getNetRevenue() != null) ? metric.getNetRevenue() : BigDecimal.ZERO;
+            BigDecimal cash = (metric != null && metric.getCashRevenue() != null) ? metric.getCashRevenue() : BigDecimal.ZERO;
+            BigDecimal bank = (metric != null && metric.getBankRevenue() != null) ? metric.getBankRevenue() : BigDecimal.ZERO;
+            BigDecimal debt = (metric != null && metric.getDebtRevenue() != null) ? metric.getDebtRevenue() : BigDecimal.ZERO;
+
+            totalOrders += orders;
+            totalInvoices += invCount;
+            totalGrossSales = totalGrossSales.add(gross);
+            totalDiscount = totalDiscount.add(discount);
+            totalNetRevenue = totalNetRevenue.add(net);
+            totalCashRevenue = totalCashRevenue.add(cash);
+            totalBankRevenue = totalBankRevenue.add(bank);
+            totalDebtRevenue = totalDebtRevenue.add(debt);
+
+            posSummaries.add(PosRevenueSummaryResponse.builder()
+                    .posId(pos.getId())
+                    .posCode(pos.getPosCode())
+                    .posName(pos.getName())
+                    .address(pos.getAddress())
+                    .phoneNumber(pos.getPhoneNumber())
+                    .invoiceSymbol(pos.getInvoiceSymbol())
+                    .isDefault(pos.getIsDefault())
+                    .isActive(pos.getIsActive())
+                    .orderCount(orders)
+                    .invoiceCount(invCount)
+                    .grossSales(gross)
+                    .totalDiscount(discount)
+                    .netRevenue(net)
+                    .cashRevenue(cash)
+                    .bankRevenue(bank)
+                    .debtRevenue(debt)
+                    .revenuePercentage(BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP))
+                    .build());
+        }
+
+        for (PosRevenueSummaryResponse summary : posSummaries) {
+            if (totalNetRevenue.compareTo(BigDecimal.ZERO) > 0) {
+                BigDecimal percentage = summary.getNetRevenue()
+                        .multiply(BigDecimal.valueOf(100))
+                        .divide(totalNetRevenue, 2, RoundingMode.HALF_UP);
+                summary.setRevenuePercentage(percentage);
+            } else {
+                summary.setRevenuePercentage(BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP));
+            }
+        }
+
+        PosHouseholdTotalResponse householdSummary = PosHouseholdTotalResponse.builder()
+                .totalPosCount(posList.size())
+                .activePosCount(activePosCount)
+                .totalOrders(totalOrders)
+                .totalInvoices(totalInvoices)
+                .totalGrossSales(totalGrossSales)
+                .totalDiscount(totalDiscount)
+                .totalNetRevenue(totalNetRevenue)
+                .totalCashRevenue(totalCashRevenue)
+                .totalBankRevenue(totalBankRevenue)
+                .totalDebtRevenue(totalDebtRevenue)
+                .build();
+
+        return PosRevenueReportResponse.builder()
+                .fromDate(startLocalDate)
+                .toDate(endLocalDate)
+                .householdSummary(householdSummary)
+                .posSummaries(posSummaries)
+                .dailyBreakdown(dailyBreakdown)
                 .build();
     }
 }

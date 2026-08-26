@@ -75,4 +75,22 @@ public interface EInvoiceRepository extends JpaRepository<EInvoice, String>, Jpa
     List<EInvoice> findByHouseholdIdAndStatusAndDeletedAtIsNullAndCreatedAtBetween(
             String householdId, String status, LocalDateTime start, LocalDateTime end
     );
+
+    @Query(value = "SELECT " +
+            "o.point_of_sale_id AS posId, " +
+            "COUNT(e.id) AS invoiceCount " +
+            "FROM e_invoices e " +
+            "JOIN orders o ON o.id = e.order_id " +
+            "WHERE e.household_id = :householdId " +
+            "AND e.deleted_at IS NULL " +
+            "AND e.status NOT IN ('CANCELED', 'DRAFT') " +
+            "AND e.created_at >= :startDateTime AND e.created_at <= :endDateTime " +
+            "AND (:posId IS NULL OR :posId = '' OR o.point_of_sale_id = :posId) " +
+            "GROUP BY o.point_of_sale_id", nativeQuery = true)
+    List<com.sales.dto.response.PosInvoiceCountProjection> getPosInvoiceCounts(
+            @Param("householdId") String householdId,
+            @Param("startDateTime") LocalDateTime startDateTime,
+            @Param("endDateTime") LocalDateTime endDateTime,
+            @Param("posId") String posId
+    );
 }
