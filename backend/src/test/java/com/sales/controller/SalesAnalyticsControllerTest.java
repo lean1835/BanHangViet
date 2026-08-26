@@ -369,6 +369,7 @@ public class SalesAnalyticsControllerTest {
                 .orderNumber("ORD-FORECAST-PROMO")
                 .totalAmount(new BigDecimal("3800000.00"))
                 .discountAmount(new BigDecimal("380000.00")) // Đợt khuyến mại giảm 10%
+                .promotionDiscountAmount(new BigDecimal("380000.00"))
                 .finalAmount(new BigDecimal("3420000.00"))
                 .paymentMethod("CASH")
                 .paymentStatus("PAID")
@@ -510,5 +511,70 @@ public class SalesAnalyticsControllerTest {
                 .andExpect(jsonPath("$.result.content[0].productId").value(pA.getId()))
                 .andExpect(jsonPath("$.result.content[0].groupId").value(groupA.getId()));
     }
+
+    @Test
+    @WithMockUser(username = "test_owner_analytics", roles = {"VT-01"})
+    public void getPurchaseForecast_invalidPeriodDays_badRequest() throws Exception {
+        mockMvc.perform(get("/api/v1/sales-analytics/purchase-forecast")
+                        .param("periodDays", "0"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    public void getPurchaseForecast_unauthenticated_unauthorized() throws Exception {
+        mockMvc.perform(get("/api/v1/sales-analytics/purchase-forecast"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @WithMockUser(username = "test_owner_analytics", roles = {"VT-01"})
+    public void getPurchaseForecast_withVipDiscountOnly_hasNoPromotionWarning() throws Exception {
+        Product p = productRepository.save(Product.builder()
+                .household(testHousehold)
+                .taxRate(testTaxRate)
+                .sku("SP-FORECAST-VIP-ONLY")
+                .name("Dầu đậu nành Simply 1L")
+                .unit("Chai")
+                .price(new BigDecimal("60000.00"))
+                .costPrice(new BigDecimal("45000.00"))
+                .stockQuantity(new BigDecimal("2.000"))
+                .minStockQuantity(new BigDecimal("10.000"))
+                .status("ACTIVE")
+                .build());
+
+        // Đơn hàng chỉ có chiết khấu VIP của khách hàng, không có khuyến mại
+        Order vipOrder = orderRepository.save(Order.builder()
+                .household(testHousehold)
+                .createdByUser(userRepository.findByUsername("test_owner_analytics").orElseThrow())
+                .orderNumber("ORD-FORECAST-VIP-ONLY")
+                .totalAmount(new BigDecimal("1680000.00"))
+                .discountAmount(new BigDecimal("84000.00")) // Tổng chiết khấu
+                .customerDiscountAmount(new BigDecimal("84000.00")) // 100% là chiết khấu VIP
+                .promotionDiscountAmount(BigDecimal.ZERO) // 0đ khuyến mại
+                .finalAmount(new BigDecimal("1596000.00"))
+                .paymentMethod("CASH")
+                .paymentStatus("PAID")
+                .status("COMPLETED")
+                .createdAt(LocalDateTime.now().minusDays(3))
+                .build());
+
+        orderItemRepository.save(OrderItem.builder()
+                .order(vipOrder)
+                .product(p)
+                .productName(p.getName())
+                .quantity(new BigDecimal("28.000"))
+                .unitPrice(new BigDecimal("60000.00"))
+                .discountAmount(BigDecimal.ZERO)
+                .subtotal(new BigDecimal("1680000.00"))
+                .build());
+
+        mockMvc.perform(get("/api/v1/sales-analytics/purchase-forecast?periodDays=28"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(1000))
+                .andExpect(jsonPath("$.result.content", hasSize(greaterThanOrEqualTo(1))))
+                .andExpect(jsonPath("$.result.content[?(@.productId == '" + p.getId() + "')].hasPromotion").value(contains(false)))
+                .andExpect(jsonPath("$.result.content[?(@.productId == '" + p.getId() + "')].promotionWarning").value(contains((Object) null)));
+    }
 }
+
 

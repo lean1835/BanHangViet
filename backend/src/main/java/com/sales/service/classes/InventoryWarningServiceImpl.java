@@ -14,6 +14,7 @@ import org.springframework.data.domain.*;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -219,14 +220,14 @@ public class InventoryWarningServiceImpl implements InventoryWarningService {
                     boolean hasPromotion = proj.getPromotionCount() != null && proj.getPromotionCount() > 0;
                     String promotionWarning = hasPromotion ? "Dữ liệu có đợt khuyến mại trong kỳ, số lượng gợi ý có thể cao hơn nhu cầu thực tế" : null;
 
-                    String unitStr = proj.getUnit() != null ? proj.getUnit() : "";
-                    String rationale = String.format("Bán trung bình %s %s/tuần, tồn hiện có %s %s -> Gợi ý nhập %s %s",
+                    String unitDisplay = StringUtils.hasText(proj.getUnit()) ? " " + proj.getUnit().trim() : "";
+                    String rationale = String.format("Bán trung bình %s%s/tuần, tồn hiện có %s%s -> Gợi ý nhập %s%s",
                             averageWeeklySales.stripTrailingZeros().toPlainString(),
-                            unitStr,
+                            unitDisplay,
                             currentStock.stripTrailingZeros().toPlainString(),
-                            unitStr,
+                            unitDisplay,
                             suggestedQty.stripTrailingZeros().toPlainString(),
-                            unitStr);
+                            unitDisplay);
 
                     LatestSupplierProjection lastSupplier = supplierMap.get(proj.getProductId());
 

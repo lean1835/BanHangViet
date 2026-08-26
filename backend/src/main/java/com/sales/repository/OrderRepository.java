@@ -142,7 +142,7 @@ public interface OrderRepository extends JpaRepository<Order, String> {
     @Query(value = "SELECT " +
             "oi.product_id as productId, " +
             "SUM(oi.quantity) as totalQuantitySold, " +
-            "SUM(CASE WHEN (o.discount_amount > 0 OR oi.discount_amount > 0) THEN 1 ELSE 0 END) as promotionCount " +
+            "SUM(CASE WHEN (COALESCE(o.promotion_discount_amount, 0) > 0 OR COALESCE(oi.discount_amount, 0) > 0) THEN 1 ELSE 0 END) as promotionCount " +
             "FROM order_items oi " +
             "JOIN orders o ON o.id = oi.order_id " +
             "WHERE o.household_id = :householdId " +
@@ -166,7 +166,7 @@ public interface OrderRepository extends JpaRepository<Order, String> {
             "g.id AS groupId, " +
             "g.name AS groupName, " +
             "SUM(oi.quantity) AS totalSoldInPeriod, " +
-            "SUM(CASE WHEN (o.discount_amount > 0 OR oi.discount_amount > 0) THEN 1 ELSE 0 END) AS promotionCount, " +
+            "SUM(CASE WHEN (COALESCE(o.promotion_discount_amount, 0) > 0 OR COALESCE(oi.discount_amount, 0) > 0) THEN 1 ELSE 0 END) AS promotionCount, " +
             "ROUND(SUM(oi.quantity) / (:periodWeeks), 2) AS averageWeeklySales, " +
             "CEIL(ROUND(SUM(oi.quantity) / (:periodWeeks), 2) - COALESCE(p.stock_quantity, 0)) AS suggestedQuantity " +
             "FROM order_items oi " +
