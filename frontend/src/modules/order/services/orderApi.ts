@@ -32,11 +32,14 @@ export const orderApi = baseApi.injectEndpoints({
         body,
       }),
     }),
-    addOrderItem: builder.mutation<IApiResponse<IOrderResponse>, { orderId: string; productId: string; quantity: number }>({
-      query: ({ orderId, productId, quantity }) => ({
+    addOrderItem: builder.mutation<
+      IApiResponse<IOrderResponse>,
+      { orderId: string; productId: string; quantity: number; bypassPromotion?: boolean }
+    >({
+      query: ({ orderId, productId, quantity, bypassPromotion }) => ({
         url: `/orders/${orderId}/items`,
         method: HTTP_METHODS.POST,
-        body: { productId, quantity },
+        body: { productId, quantity, bypassPromotion },
       }),
     }),
     updateOrderItem: builder.mutation<

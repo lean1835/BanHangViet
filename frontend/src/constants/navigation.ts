@@ -17,6 +17,7 @@ export const NAVIGATION_ITEM_IDS = {
   E_INVOICES: "e-invoices",
   RETURN_TICKETS: "return-tickets",
   CUSTOMERS: "customers",
+  PROMOTIONS: "promotions",
   SUPPLIERS: "suppliers",
   EMPLOYEES: "employees",
   REPORTS: "reports",
@@ -31,6 +32,7 @@ export const PRIMARY_NAVIGATION_ACTION = {
 export const HIDDEN_NAVIGATION_BY_ROLE: Partial<Record<TDemoRole, readonly string[]>> = {
   [USER_ROLES.CASHIER]: [
     NAVIGATION_ITEM_IDS.PRODUCTS,
+    NAVIGATION_ITEM_IDS.PROMOTIONS,
     NAVIGATION_ITEM_IDS.REPORTS,
     NAVIGATION_ITEM_IDS.SETTINGS,
     NAVIGATION_ITEM_IDS.EMPLOYEES,
@@ -82,6 +84,12 @@ export const PRIMARY_NAVIGATION_ITEMS: IPrimaryNavigationItem[] = [
     label: "Khách hàng",
     path: APP_ROUTES.CUSTOMERS,
     allowedRoles: ROLE_GROUPS.NORMAL_MANAGEMENT,
+  },
+  {
+    id: NAVIGATION_ITEM_IDS.PROMOTIONS,
+    label: "Khuyến mại",
+    path: APP_ROUTES.PROMOTIONS,
+    allowedRoles: ROLE_GROUPS.PRODUCT_MANAGEMENT,
   },
   {
     id: NAVIGATION_ITEM_IDS.EMPLOYEES,

@@ -91,6 +91,14 @@ export const OrderSuccessModal: React.FC<IOrderSuccessModalProps> = ({
   };
 
   // Price calculations
+  const originalItemsSum = tab.items.reduce(
+    (sum, item) => sum + item.quantity * item.price,
+    0
+  );
+  const totalPromoDiscount = tab.items.reduce(
+    (sum, item) => sum + (!item.bypassPromotion ? (item.lineDiscount || 0) : 0),
+    0
+  );
   const itemsSum = tab.items.reduce((sum, item) => sum + item.lineTotal, 0);
   const discountCash =
     tab.discountType === "PERCENTAGE"
@@ -811,9 +819,26 @@ export const OrderSuccessModal: React.FC<IOrderSuccessModalProps> = ({
                       tab.items.map((item, idx) => (
                         <tr key={idx} className="align-top">
                           <td className="p-1 sm:p-1.5 text-center font-bold text-slate-600">{idx + 1}</td>
-                          <td className="p-1 sm:p-1.5 font-semibold text-slate-900 break-words">{item.product.name}</td>
+                          <td className="p-1 sm:p-1.5 font-semibold text-slate-900 break-words">
+                            <div>{item.product.name}</div>
+                            {item.promotionName && !item.bypassPromotion && (
+                              <div className="text-[8.5px] text-emerald-700 italic font-semibold">
+                                KM: {item.promotionName}
+                                {item.lineDiscount > 0 ? ` (-${formatCurrency(item.lineDiscount)})` : ""}
+                              </div>
+                            )}
+                          </td>
                           <td className="p-1 sm:p-1.5 text-center font-bold">{item.quantity}</td>
-                          <td className="p-1 sm:p-1.5 text-right whitespace-nowrap">{formatCurrency(item.price)}</td>
+                          <td className="p-1 sm:p-1.5 text-right whitespace-nowrap">
+                            {item.promotionName && item.lineDiscount > 0 && !item.bypassPromotion ? (
+                              <div>
+                                <span className="line-through text-slate-400 text-[8.5px] block">{formatCurrency(item.price)}</span>
+                                <span>{formatCurrency((item.quantity * item.price - item.lineDiscount) / item.quantity)}</span>
+                              </div>
+                            ) : (
+                              formatCurrency(item.price)
+                            )}
+                          </td>
                           <td className="p-1 sm:p-1.5 text-right font-black text-slate-900 whitespace-nowrap">
                             {formatCurrency(item.lineTotal)}
                           </td>
@@ -833,9 +858,16 @@ export const OrderSuccessModal: React.FC<IOrderSuccessModalProps> = ({
               {/* ─── SUMMARY BLOCK ─── */}
               <div className="border-t-2 border-slate-900 pt-2 space-y-1.5 text-[10px]">
                 <div className="flex justify-between font-semibold text-slate-700">
-                  <span>Cộng tiền hàng:</span>
-                  <span className="font-bold text-slate-900">{formatCurrency(itemsSum)}</span>
+                  <span>Cộng tiền hàng (gốc):</span>
+                  <span className="font-bold text-slate-900">{formatCurrency(originalItemsSum)}</span>
                 </div>
+
+                {totalPromoDiscount > 0 && (
+                  <div className="flex justify-between text-emerald-700 font-bold">
+                    <span>Khuyến mại tự động:</span>
+                    <span>-{formatCurrency(totalPromoDiscount)}</span>
+                  </div>
+                )}
 
                 {taxAmount > 0 && (
                   <div className="flex justify-between font-semibold text-slate-700">
@@ -846,7 +878,7 @@ export const OrderSuccessModal: React.FC<IOrderSuccessModalProps> = ({
 
                 {discountCash > 0 && (
                   <div className="flex justify-between text-emerald-700">
-                    <span>Chiết khấu / Giảm giá:</span>
+                    <span>Chiết khấu thêm:</span>
                     <span className="font-bold">-{formatCurrency(discountCash)}</span>
                   </div>
                 )}
