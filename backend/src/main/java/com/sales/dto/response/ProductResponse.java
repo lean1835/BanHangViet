@@ -12,6 +12,7 @@ import java.time.LocalDateTime;
 public class ProductResponse {
     private String id;
     private String sku;
+    private String barcode;
     private String name;
     private String unit;
     private BigDecimal price;

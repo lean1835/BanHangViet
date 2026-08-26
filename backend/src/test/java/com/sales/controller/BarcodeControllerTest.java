@@ -1,14 +1,17 @@
 package com.sales.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.sales.dto.request.AssignBarcodeRequest;
 import com.sales.dto.request.BarcodeScanRequest;
 import com.sales.entity.BusinessHousehold;
 import com.sales.entity.Product;
 import com.sales.entity.Role;
+import com.sales.entity.TaxRate;
 import com.sales.entity.User;
 import com.sales.repository.BusinessHouseholdRepository;
 import com.sales.repository.ProductRepository;
 import com.sales.repository.RoleRepository;
+import com.sales.repository.TaxRateRepository;
 import com.sales.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -17,6 +20,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,6 +28,7 @@ import java.math.BigDecimal;
 import java.util.UUID;
 
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -49,63 +54,82 @@ public class BarcodeControllerTest {
     private UserRepository userRepository;
 
     @Autowired
-    private ProductRepository productRepository;
+    private TaxRateRepository taxRateRepository;
 
     @Autowired
-    private com.sales.repository.TaxRateRepository taxRateRepository;
+    private ProductRepository productRepository;
 
-    private BusinessHousehold household;
-    private User sellerUser;
+    private BusinessHousehold testHousehold;
+    private User testOwner;
+    private User testStaff;
     private User accountantUser;
-    private Product product;
+    private Product testProduct;
 
     @BeforeEach
     void setUp() {
-        household = businessHouseholdRepository.save(BusinessHousehold.builder()
+        testHousehold = businessHouseholdRepository.save(BusinessHousehold.builder()
                 .taxCode("MST-" + UUID.randomUUID().toString().substring(0, 8))
-                .name("Hộ Kinh Doanh Barcode Test")
-                .address("123 Phố Quét Mã Vạch")
-                .phoneNumber("0987654321")
+                .name("Cửa Hàng Thử Nghiệm Mã Vạch")
+                .phoneNumber("0912345678")
+                .address("79 Đường 3/2")
                 .build());
 
-        Role sellerRole = roleRepository.findByCode("VT-02").orElseThrow();
-        Role accountantRole = roleRepository.findByCode("VT-03").orElseThrow();
+        Role ownerRole = roleRepository.findByCode("VT-01")
+                .orElseGet(() -> roleRepository.save(Role.builder().code("VT-01").name("Chủ hộ").build()));
+        Role staffRole = roleRepository.findByCode("VT-02")
+                .orElseGet(() -> roleRepository.save(Role.builder().code("VT-02").name("Nhân viên").build()));
+        Role accountantRole = roleRepository.findByCode("VT-03")
+                .orElseGet(() -> roleRepository.save(Role.builder().code("VT-03").name("Kế toán").build()));
 
-        sellerUser = userRepository.save(User.builder()
-                .username("seller_barcode_" + UUID.randomUUID().toString().substring(0, 6))
-                .passwordHash("password_hash")
-                .fullName("Nhân Viên Bán Hàng Mã Vạch")
-                .household(household)
-                .role(sellerRole)
+        testOwner = userRepository.save(User.builder()
+                .username("barcode_owner_" + UUID.randomUUID().toString().substring(0, 6))
+                .passwordHash("$2a$10$xyz")
+                .fullName("Chủ Hộ Barcode")
+                .phoneNumber("0901112233")
                 .isActive(true)
+                .role(ownerRole)
+                .household(testHousehold)
+                .build());
+
+        testStaff = userRepository.save(User.builder()
+                .username("barcode_staff_" + UUID.randomUUID().toString().substring(0, 6))
+                .passwordHash("$2a$10$xyz")
+                .fullName("Nhân Viên Barcode")
+                .phoneNumber("0901112244")
+                .isActive(true)
+                .role(staffRole)
+                .household(testHousehold)
                 .build());
 
         accountantUser = userRepository.save(User.builder()
                 .username("accountant_barcode_" + UUID.randomUUID().toString().substring(0, 6))
-                .passwordHash("password_hash")
+                .passwordHash("$2a$10$xyz")
                 .fullName("Kế Toán Viên")
-                .household(household)
+                .phoneNumber("0901112255")
+                .isActive(true)
                 .role(accountantRole)
+                .household(testHousehold)
+                .build());
+
+        TaxRate taxRate = taxRateRepository.save(TaxRate.builder()
+                .name("Thuế 8%")
+                .ratePercentage(new BigDecimal("8.00"))
+                .household(testHousehold)
                 .isActive(true)
                 .build());
 
-        var taxRate = taxRateRepository.save(com.sales.entity.TaxRate.builder()
-                .household(household)
-                .name("VAT 10%")
-                .ratePercentage(new BigDecimal("10.00"))
-                .isActive(true)
-                .build());
-
-        product = productRepository.save(Product.builder()
-                .household(household)
-                .taxRate(taxRate)
+        testProduct = productRepository.save(Product.builder()
                 .sku("8934567899999")
                 .barcode("8934567899999")
-                .name("Mì Hảo Hảo Tôm Chua Cay")
-                .unit("Gói")
-                .price(new BigDecimal("4500.00"))
-                .stockQuantity(new BigDecimal("100.000"))
+                .name("Rau muống hữu cơ 500g")
+                .unit("Bó")
+                .price(new BigDecimal("15000.00"))
+                .costPrice(new BigDecimal("10000.00"))
+                .stockQuantity(new BigDecimal("20.000"))
+                .minStockQuantity(new BigDecimal("5.000"))
                 .status("ACTIVE")
+                .household(testHousehold)
+                .taxRate(taxRate)
                 .build());
     }
 
@@ -117,13 +141,13 @@ public class BarcodeControllerTest {
                 .build();
 
         mockMvc.perform(post("/api/v1/barcodes/scan")
-                        .with(user(sellerUser.getUsername()).roles("VT-02"))
+                        .with(user(testStaff.getUsername()).roles("VT-02"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(1000))
                 .andExpect(jsonPath("$.result.found").value(true))
-                .andExpect(jsonPath("$.result.productName").value("Mì Hảo Hảo Tôm Chua Cay"));
+                .andExpect(jsonPath("$.result.productName").value("Rau muống hữu cơ 500g"));
     }
 
     @Test
@@ -134,7 +158,7 @@ public class BarcodeControllerTest {
                 .build();
 
         mockMvc.perform(post("/api/v1/barcodes/scan")
-                        .with(user(sellerUser.getUsername()).roles("VT-02"))
+                        .with(user(testStaff.getUsername()).roles("VT-02"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
@@ -168,5 +192,71 @@ public class BarcodeControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void testGenerateInternalBarcode_Owner_Success() throws Exception {
+        mockMvc.perform(post("/api/v1/barcodes/products/" + testProduct.getId() + "/generate")
+                        .with(user(testOwner.getUsername()).roles("VT-01"))
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(1000))
+                .andExpect(jsonPath("$.result.productId").value(testProduct.getId()))
+                .andExpect(jsonPath("$.result.barcode").exists())
+                .andExpect(jsonPath("$.result.barcodeBase64Image").exists());
+    }
+
+    @Test
+    void testGenerateInternalBarcode_Staff_Forbidden() throws Exception {
+        mockMvc.perform(post("/api/v1/barcodes/products/" + testProduct.getId() + "/generate")
+                        .with(user(testStaff.getUsername()).roles("VT-02"))
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void testAssignBarcode_Owner_Success() throws Exception {
+        AssignBarcodeRequest request = AssignBarcodeRequest.builder()
+                .barcode("8930001112223")
+                .build();
+
+        mockMvc.perform(post("/api/v1/barcodes/products/" + testProduct.getId() + "/assign")
+                        .with(user(testOwner.getUsername()).roles("VT-01"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(1000))
+                .andExpect(jsonPath("$.result.barcode").value("8930001112223"));
+    }
+
+    @Test
+    void testGetBarcodePrintData_Success() throws Exception {
+        mockMvc.perform(get("/api/v1/barcodes/products/" + testProduct.getId() + "/print")
+                        .with(user(testOwner.getUsername()).roles("VT-01"))
+                        .param("paperSize", "58mm")
+                        .param("quantity", "3"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(1000))
+                .andExpect(jsonPath("$.result.paperSize").value("58mm"))
+                .andExpect(jsonPath("$.result.quantity").value(3))
+                .andExpect(jsonPath("$.result.barcodeBase64Image").exists());
+    }
+
+    @Test
+    void testGetBarcodePrintData_InvalidPaperSize_BadRequest() throws Exception {
+        mockMvc.perform(get("/api/v1/barcodes/products/" + testProduct.getId() + "/print")
+                        .with(user(testOwner.getUsername()).roles("VT-01"))
+                        .param("paperSize", "invalid_size")
+                        .param("quantity", "1"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void testGetBarcodePrintData_InvalidQuantity_BadRequest() throws Exception {
+        mockMvc.perform(get("/api/v1/barcodes/products/" + testProduct.getId() + "/print")
+                        .with(user(testOwner.getUsername()).roles("VT-01"))
+                        .param("paperSize", "58mm")
+                        .param("quantity", "0"))
+                .andExpect(status().isBadRequest());
     }
 }

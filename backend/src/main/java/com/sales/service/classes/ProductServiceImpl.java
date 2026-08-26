@@ -69,6 +69,7 @@ public class ProductServiceImpl implements ProductService {
         Map<String, Object> map = new HashMap<>();
         map.put("id", product.getId());
         map.put("sku", product.getSku());
+        map.put("barcode", product.getBarcode());
         map.put("name", product.getName());
         map.put("unit", product.getUnit());
         map.put("price", product.getPrice());
@@ -84,6 +85,7 @@ public class ProductServiceImpl implements ProductService {
         return ProductResponse.builder()
                 .id(product.getId())
                 .sku(product.getSku())
+                .barcode(product.getBarcode())
                 .name(product.getName())
                 .unit(product.getUnit())
                 .price(product.getPrice())
@@ -114,6 +116,10 @@ public class ProductServiceImpl implements ProductService {
             throw new AppException(ErrorCode.PRODUCT_SKU_EXISTS);
         }
 
+        if (StringUtils.hasText(request.getBarcode()) && productRepository.existsByHouseholdIdAndBarcodeAndDeletedAtIsNull(household.getId(), request.getBarcode().trim())) {
+            throw new AppException(ErrorCode.BARCODE_ALREADY_EXISTS);
+        }
+
         // Xác thực thuế suất đang hoạt động thuộc hộ kinh doanh
         TaxRate taxRate = taxRateRepository.findByIdAndHouseholdIdAndIsActiveTrue(request.getTaxRateId(), household.getId())
                 .orElseThrow(() -> new AppException(ErrorCode.TAX_RATE_NOT_FOUND));
@@ -130,6 +136,7 @@ public class ProductServiceImpl implements ProductService {
                 .group(group)
                 .taxRate(taxRate)
                 .sku(request.getSku())
+                .barcode(StringUtils.hasText(request.getBarcode()) ? request.getBarcode().trim() : null)
                 .name(request.getName())
                 .unit(request.getUnit())
                 .price(request.getPrice())
@@ -162,6 +169,10 @@ public class ProductServiceImpl implements ProductService {
             throw new AppException(ErrorCode.PRODUCT_SKU_EXISTS);
         }
 
+        if (StringUtils.hasText(request.getBarcode()) && productRepository.existsByHouseholdIdAndBarcodeAndIdNotAndDeletedAtIsNull(household.getId(), request.getBarcode().trim(), productId)) {
+            throw new AppException(ErrorCode.BARCODE_ALREADY_EXISTS);
+        }
+
         // Xác thực thuế suất đang hoạt động thuộc hộ kinh doanh
         TaxRate taxRate = taxRateRepository.findByIdAndHouseholdIdAndIsActiveTrue(request.getTaxRateId(), household.getId())
                 .orElseThrow(() -> new AppException(ErrorCode.TAX_RATE_NOT_FOUND));
@@ -176,6 +187,13 @@ public class ProductServiceImpl implements ProductService {
         Map<String, Object> oldValue = buildProductLogMap(product);
 
         product.setSku(request.getSku());
+        if (request.getBarcode() != null) {
+            if (StringUtils.hasText(request.getBarcode())) {
+                product.setBarcode(request.getBarcode().trim());
+            } else {
+                product.setBarcode(null);
+            }
+        }
         product.setName(request.getName());
         product.setUnit(request.getUnit());
         product.setPrice(request.getPrice());

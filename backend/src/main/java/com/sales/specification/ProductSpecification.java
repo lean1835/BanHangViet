@@ -40,7 +40,7 @@ public class ProductSpecification {
                 predicates.add(criteriaBuilder.equal(root.get("status"), status));
             }
 
-            // 5. Tìm kiếm theo tên, SKU hoặc mã vạch
+            // 5. Tìm kiếm theo tên, SKU hoặc mã vạch (barcode)
             if (StringUtils.hasText(search)) {
                 String searchPattern = "%" + search.trim().toLowerCase() + "%";
                 Predicate namePredicate = criteriaBuilder.like(criteriaBuilder.lower(root.get("name")), searchPattern);
