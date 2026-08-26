@@ -10,6 +10,7 @@ import com.sales.exception.AppException;
 import com.sales.exception.ErrorCode;
 import com.sales.repository.OrderItemRepository;
 import com.sales.repository.OrderRepository;
+import com.sales.repository.PosInventoryRepository;
 import com.sales.repository.ProductRepository;
 import com.sales.repository.UserRepository;
 import com.sales.service.interfaces.BarcodeService;
@@ -35,6 +36,7 @@ public class BarcodeServiceImpl implements BarcodeService {
     private final OrderItemRepository orderItemRepository;
     private final PromotionService promotionService;
     private final OrderService orderService;
+    private final PosInventoryRepository posInventoryRepository;
 
     private void checkOrderOwnership(Order order, User currentUser) {
         boolean isSalesperson = currentUser.getRole() != null && "VT-02".equals(currentUser.getRole().getCode());
@@ -101,6 +103,13 @@ public class BarcodeServiceImpl implements BarcodeService {
             // [P1-02 Fix] Kiểm tra quyền sở hữu đơn hàng và trạng thái ca làm việc
             checkOrderOwnership(order, user);
             validateShiftIsOpen(order);
+
+            // [P2-02 Fix] Kiểm tra sản phẩm đã khai báo tồn tại điểm bán chưa
+            if (order.getPointOfSale() != null) {
+                if (!posInventoryRepository.existsByPointOfSaleIdAndProductId(order.getPointOfSale().getId(), product.getId())) {
+                    throw new AppException(ErrorCode.POS_PRODUCT_NOT_INITIALIZED);
+                }
+            }
 
             if (!"CREATING".equals(order.getStatus())) {
                 throw new AppException(ErrorCode.ORDER_ALREADY_PAID);
@@ -194,11 +203,9 @@ public class BarcodeServiceImpl implements BarcodeService {
 
     private void recalculateOrderTotals(Order order) {
         BigDecimal total = BigDecimal.ZERO;
-
         for (OrderItem item : order.getItems()) {
             total = total.add(item.getSubtotal());
         }
-
         order.setTotalAmount(total);
 
         BigDecimal discountAmount = order.getDiscountAmount();
@@ -213,7 +220,6 @@ public class BarcodeServiceImpl implements BarcodeService {
         if (discountAmount.compareTo(total) > 0) {
             discountAmount = total;
         }
-
         order.setDiscountAmount(discountAmount);
         order.setFinalAmount(total.subtract(discountAmount).max(BigDecimal.ZERO));
     }

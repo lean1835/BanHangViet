@@ -9,6 +9,7 @@ import com.sales.exception.AppException;
 import com.sales.exception.ErrorCode;
 import com.sales.repository.OrderItemRepository;
 import com.sales.repository.OrderRepository;
+import com.sales.repository.PosInventoryRepository;
 import com.sales.repository.ProductRepository;
 import com.sales.repository.UserRepository;
 import com.sales.service.classes.BarcodeServiceImpl;
@@ -52,6 +53,9 @@ class BarcodeServiceImplTest {
 
     @Mock
     private OrderService orderService;
+
+    @Mock
+    private PosInventoryRepository posInventoryRepository;
 
     @InjectMocks
     private BarcodeServiceImpl barcodeService;
