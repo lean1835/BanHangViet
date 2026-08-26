@@ -33,6 +33,16 @@ public interface ProductRepository extends JpaRepository<Product, String>, JpaSp
     Optional<Product> findByIdAndHouseholdIdAndDeletedAtIsNull(String id, String householdId);
 
     @EntityGraph(attributePaths = {"group", "taxRate", "household"})
+    @Query("""
+        SELECT p FROM Product p 
+        WHERE p.household.id = :householdId 
+          AND (p.barcode = :code OR p.sku = :code) 
+          AND p.deletedAt IS NULL 
+          AND p.status = 'ACTIVE'
+    """)
+    Optional<Product> findByHouseholdIdAndBarcodeOrSku(@Param("householdId") String householdId, @Param("code") String code);
+
+    @EntityGraph(attributePaths = {"group", "taxRate", "household"})
     List<Product> findByGroupIdAndDeletedAtIsNull(String groupId);
 
     @EntityGraph(attributePaths = {"group", "taxRate", "household"})

@@ -36,6 +36,9 @@ public class Product {
     @Column(nullable = false, length = 50)
     private String sku;
 
+    @Column(length = 100)
+    private String barcode;
+
     @Column(nullable = false, length = 255)
     private String name;
 
