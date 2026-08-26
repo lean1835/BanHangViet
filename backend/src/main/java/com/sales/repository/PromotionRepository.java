@@ -26,6 +26,14 @@ public interface PromotionRepository extends JpaRepository<Promotion, String>, J
 
     boolean existsByHouseholdIdAndNameAndIdNotAndDeletedAtIsNull(String householdId, String name, String id);
 
+    @EntityGraph(attributePaths = {"promotionProducts", "promotionProducts.product", "promotionProductGroups", "promotionProductGroups.productGroup"})
+    @Query("SELECT p FROM Promotion p WHERE p.household.id = :householdId AND p.status = 'ACTIVE' AND p.deletedAt IS NULL AND p.startDate <= :atTime AND p.endDate >= :atTime ORDER BY p.createdAt DESC")
+    List<Promotion> findActivePromotionsAtTime(
+            @Param("householdId") String householdId,
+            @Param("atTime") LocalDateTime atTime
+    );
+
+    @EntityGraph(attributePaths = {"promotionProducts", "promotionProducts.product", "promotionProductGroups", "promotionProductGroups.productGroup"})
     @Query("SELECT p FROM Promotion p WHERE p.household.id = :householdId AND p.status = :status AND p.deletedAt IS NULL AND p.startDate <= :now AND p.endDate >= :now")
     List<Promotion> findActivePromotionsAtNow(
             @Param("householdId") String householdId,

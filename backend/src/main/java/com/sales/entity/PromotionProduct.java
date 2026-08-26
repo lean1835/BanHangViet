@@ -4,7 +4,9 @@ import jakarta.persistence.*;
 import lombok.*;
 
 @Entity
-@Table(name = "promotion_products")
+@Table(name = "promotion_products", uniqueConstraints = {
+    @UniqueConstraint(name = "uq_promo_product", columnNames = {"promotion_id", "product_id"})
+})
 @Getter
 @Setter
 @Builder
@@ -17,7 +19,6 @@ public class PromotionProduct {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     @Column(length = 36, nullable = false)
-    @EqualsAndHashCode.Include
     private String id;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -28,5 +29,6 @@ public class PromotionProduct {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "product_id", nullable = false)
     @ToString.Exclude
+    @EqualsAndHashCode.Include
     private Product product;
 }

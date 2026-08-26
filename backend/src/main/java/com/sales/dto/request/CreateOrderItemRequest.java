@@ -18,4 +18,9 @@ public class CreateOrderItemRequest {
     @NotNull(message = "Số lượng không được để trống")
     @DecimalMin(value = "0.001", message = "Số lượng bán phải lớn hơn 0")
     private BigDecimal quantity;
+
+    private String promotionId;
+
+    @Builder.Default
+    private Boolean bypassPromotion = false;
 }

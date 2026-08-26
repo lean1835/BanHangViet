@@ -28,6 +28,8 @@ services:
       start_period: 90s
     restart: always
     logging: *default-logging
+    volumes:
+      - ./backups:/app/backups
     env_file: ./backend/.env
     networks:
       - shared_network

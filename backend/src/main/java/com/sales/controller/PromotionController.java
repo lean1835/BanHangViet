@@ -1,9 +1,11 @@
 package com.sales.controller;
 
 import com.sales.dto.ApiResponse;
+import com.sales.dto.request.AutoApplyPromotionRequest;
 import com.sales.dto.request.PromotionCreateRequest;
 import com.sales.dto.request.PromotionSearchParam;
 import com.sales.dto.request.PromotionUpdateRequest;
+import com.sales.dto.response.AutoApplyPromotionResponse;
 import com.sales.dto.response.PageResponse;
 import com.sales.dto.response.PromotionDetailResponse;
 import com.sales.dto.response.PromotionResponse;
@@ -26,6 +28,20 @@ import java.security.Principal;
 public class PromotionController {
 
     private final PromotionService promotionService;
+
+    @PostMapping("/auto-apply")
+    @PreAuthorize("hasAnyRole('VT-01', 'VT-02', 'OWNER', 'ADMIN')")
+    public ResponseEntity<ApiResponse<AutoApplyPromotionResponse>> autoApplyPromotions(
+            @Valid @RequestBody AutoApplyPromotionRequest request,
+            Principal principal
+    ) {
+        AutoApplyPromotionResponse response = promotionService.autoApplyPromotions(principal.getName(), request);
+        return ResponseEntity.ok(ApiResponse.<AutoApplyPromotionResponse>builder()
+                .code(1000)
+                .message("Tính toán khuyến mại tự động thành công")
+                .result(response)
+                .build());
+    }
 
     @PostMapping
     @PreAuthorize("hasAnyRole('VT-01', 'OWNER', 'ADMIN')")

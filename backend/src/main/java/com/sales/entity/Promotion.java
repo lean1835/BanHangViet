@@ -46,7 +46,8 @@ public class Promotion {
     private DiscountType discountType;
 
     @Column(name = "discount_value", nullable = false, precision = 15, scale = 2)
-    private BigDecimal discountValue;
+    @Builder.Default
+    private BigDecimal discountValue = BigDecimal.ZERO;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "apply_scope", nullable = false, length = 20)

@@ -515,6 +515,8 @@ public class EInvoiceServiceImpl implements EInvoiceService {
                     .taxRatePercentage(taxRate)
                     .taxAmount(taxAmt)
                     .discountAmount(disc)
+                    .promotion(orderItem.getPromotion())
+                    .promotionName(orderItem.getPromotionName())
                     .subtotal(orderItem.getSubtotal())
                     .build();
 
