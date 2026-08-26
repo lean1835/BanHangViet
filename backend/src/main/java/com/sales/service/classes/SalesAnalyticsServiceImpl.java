@@ -6,12 +6,16 @@ import com.sales.entity.PointOfSale;
 import com.sales.entity.User;
 import com.sales.exception.AppException;
 import com.sales.exception.ErrorCode;
+import com.sales.repository.GoodsReceiptDetailRepository;
 import com.sales.repository.OrderRepository;
 import com.sales.repository.PointOfSaleRepository;
 import com.sales.repository.UserRepository;
 import com.sales.service.interfaces.SalesAnalyticsService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -31,6 +35,8 @@ public class SalesAnalyticsServiceImpl implements SalesAnalyticsService {
     private final UserRepository userRepository;
     private final OrderRepository orderRepository;
     private final PointOfSaleRepository pointOfSaleRepository;
+    private final GoodsReceiptDetailRepository goodsReceiptDetailRepository;
+
 
     private static final String[] DAY_NAMES = {
             "Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy", "Chủ Nhật"
@@ -336,4 +342,96 @@ public class SalesAnalyticsServiceImpl implements SalesAnalyticsService {
 
         return recommendations;
     }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PageResponse<PurchaseSuggestionResponse> getPurchaseForecast(
+            String currentUsername, Integer periodDays, String groupId, int page, int size) {
+        User currentUser = userRepository.findByUsername(currentUsername)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+        BusinessHousehold household = currentUser.getHousehold();
+        if (household == null) {
+            throw new AppException(ErrorCode.FORBIDDEN);
+        }
+
+        // Quyết định nhập hàng thuộc Chủ hộ (VT-01). Nhân viên (VT-02) / Kế toán (VT-03) bị chặn (NCL-18-CN-002-TC-04)
+        if (currentUser.getRole() == null || !"VT-01".equals(currentUser.getRole().getCode())) {
+            throw new AppException(ErrorCode.FORBIDDEN);
+        }
+
+        int days = (periodDays != null && periodDays > 0) ? periodDays : 28;
+        double periodWeeks = BigDecimal.valueOf(days).divide(BigDecimal.valueOf(7), 4, RoundingMode.HALF_UP).doubleValue();
+        LocalDateTime startDateTime = LocalDateTime.now().minusDays(days);
+
+        Pageable pageable = PageRequest.of(page, size);
+        Page<PurchaseSuggestionProjection> projectionPage = orderRepository.getPurchaseSuggestions(
+                household.getId(), startDateTime, periodWeeks, groupId, pageable);
+
+        List<String> productIds = projectionPage.getContent().stream()
+                .map(PurchaseSuggestionProjection::getProductId)
+                .collect(Collectors.toList());
+
+        Map<String, LatestSupplierProjection> supplierMap = new HashMap<>();
+        if (!productIds.isEmpty()) {
+            List<LatestSupplierProjection> suppliers = goodsReceiptDetailRepository.findLatestSuppliersByProductIds(productIds);
+            for (LatestSupplierProjection s : suppliers) {
+                supplierMap.put(s.getProductId(), s);
+            }
+        }
+
+        List<PurchaseSuggestionResponse> suggestions = projectionPage.getContent().stream()
+                .map(proj -> {
+                    BigDecimal averageWeeklySales = proj.getAverageWeeklySales() != null ? proj.getAverageWeeklySales() : BigDecimal.ZERO;
+                    BigDecimal currentStock = proj.getStockQuantity() != null ? proj.getStockQuantity() : BigDecimal.ZERO;
+                    BigDecimal minStock = proj.getMinStockQuantity() != null ? proj.getMinStockQuantity() : BigDecimal.ZERO;
+                    BigDecimal totalSold = proj.getTotalSoldInPeriod() != null ? proj.getTotalSoldInPeriod() : BigDecimal.ZERO;
+                    BigDecimal suggestedQty = proj.getSuggestedQuantity() != null ? proj.getSuggestedQuantity() : BigDecimal.ZERO;
+
+                    boolean hasPromotion = proj.getPromotionCount() != null && proj.getPromotionCount() > 0;
+                    String promotionWarning = hasPromotion ? "Dữ liệu có đợt khuyến mại trong kỳ, số lượng gợi ý có thể cao hơn nhu cầu thực tế" : null;
+
+                    String unitStr = proj.getUnit() != null ? proj.getUnit() : "";
+                    String rationale = String.format("Bán trung bình %s %s/tuần, tồn hiện có %s %s -> Gợi ý nhập %s %s",
+                            averageWeeklySales.stripTrailingZeros().toPlainString(),
+                            unitStr,
+                            currentStock.stripTrailingZeros().toPlainString(),
+                            unitStr,
+                            suggestedQty.stripTrailingZeros().toPlainString(),
+                            unitStr);
+
+                    LatestSupplierProjection lastSupplier = supplierMap.get(proj.getProductId());
+
+                    return PurchaseSuggestionResponse.builder()
+                            .productId(proj.getProductId())
+                            .sku(proj.getSku())
+                            .productName(proj.getProductName())
+                            .unit(proj.getUnit())
+                            .costPrice(proj.getCostPrice())
+                            .stockQuantity(currentStock)
+                            .minStockQuantity(minStock)
+                            .averageWeeklySales(averageWeeklySales)
+                            .totalSoldInPeriod(totalSold)
+                            .suggestedQuantity(suggestedQty)
+                            .calculationRationale(rationale)
+                            .hasPromotion(hasPromotion)
+                            .promotionWarning(promotionWarning)
+                            .groupId(proj.getGroupId())
+                            .groupName(proj.getGroupName())
+                            .lastSupplierId(lastSupplier != null ? lastSupplier.getSupplierId() : null)
+                            .lastSupplierName(lastSupplier != null ? lastSupplier.getSupplierName() : null)
+                            .lastSupplierPhone(lastSupplier != null ? lastSupplier.getSupplierPhone() : null)
+                            .build();
+                })
+                .collect(Collectors.toList());
+
+        return PageResponse.<PurchaseSuggestionResponse>builder()
+                .content(suggestions)
+                .pageNumber(projectionPage.getNumber())
+                .pageSize(projectionPage.getSize())
+                .totalElements(projectionPage.getTotalElements())
+                .totalPages(projectionPage.getTotalPages())
+                .last(projectionPage.isLast())
+                .build();
+    }
 }
+
