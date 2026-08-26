@@ -195,9 +195,9 @@ public class BarcodeControllerTest {
     }
 
     @Test
-    @WithMockUser(username = "barcode_owner", roles = {"VT-01"})
     void testGenerateInternalBarcode_Owner_Success() throws Exception {
         mockMvc.perform(post("/api/v1/barcodes/products/" + testProduct.getId() + "/generate")
+                        .with(user(testOwner.getUsername()).roles("VT-01"))
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(1000))
@@ -207,21 +207,21 @@ public class BarcodeControllerTest {
     }
 
     @Test
-    @WithMockUser(username = "barcode_staff", roles = {"VT-02"})
     void testGenerateInternalBarcode_Staff_Forbidden() throws Exception {
         mockMvc.perform(post("/api/v1/barcodes/products/" + testProduct.getId() + "/generate")
+                        .with(user(testStaff.getUsername()).roles("VT-02"))
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isForbidden());
     }
 
     @Test
-    @WithMockUser(username = "barcode_owner", roles = {"VT-01"})
     void testAssignBarcode_Owner_Success() throws Exception {
         AssignBarcodeRequest request = AssignBarcodeRequest.builder()
                 .barcode("8930001112223")
                 .build();
 
         mockMvc.perform(post("/api/v1/barcodes/products/" + testProduct.getId() + "/assign")
+                        .with(user(testOwner.getUsername()).roles("VT-01"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
@@ -230,9 +230,9 @@ public class BarcodeControllerTest {
     }
 
     @Test
-    @WithMockUser(username = "barcode_owner", roles = {"VT-01"})
     void testGetBarcodePrintData_Success() throws Exception {
         mockMvc.perform(get("/api/v1/barcodes/products/" + testProduct.getId() + "/print")
+                        .with(user(testOwner.getUsername()).roles("VT-01"))
                         .param("paperSize", "58mm")
                         .param("quantity", "3"))
                 .andExpect(status().isOk())
