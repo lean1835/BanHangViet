@@ -187,8 +187,12 @@ public class ProductServiceImpl implements ProductService {
         Map<String, Object> oldValue = buildProductLogMap(product);
 
         product.setSku(request.getSku());
-        if (StringUtils.hasText(request.getBarcode())) {
-            product.setBarcode(request.getBarcode().trim());
+        if (request.getBarcode() != null) {
+            if (StringUtils.hasText(request.getBarcode())) {
+                product.setBarcode(request.getBarcode().trim());
+            } else {
+                product.setBarcode(null);
+            }
         }
         product.setName(request.getName());
         product.setUnit(request.getUnit());

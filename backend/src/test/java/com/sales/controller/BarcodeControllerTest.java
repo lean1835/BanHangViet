@@ -241,4 +241,22 @@ public class BarcodeControllerTest {
                 .andExpect(jsonPath("$.result.quantity").value(3))
                 .andExpect(jsonPath("$.result.barcodeBase64Image").exists());
     }
+
+    @Test
+    void testGetBarcodePrintData_InvalidPaperSize_BadRequest() throws Exception {
+        mockMvc.perform(get("/api/v1/barcodes/products/" + testProduct.getId() + "/print")
+                        .with(user(testOwner.getUsername()).roles("VT-01"))
+                        .param("paperSize", "invalid_size")
+                        .param("quantity", "1"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void testGetBarcodePrintData_InvalidQuantity_BadRequest() throws Exception {
+        mockMvc.perform(get("/api/v1/barcodes/products/" + testProduct.getId() + "/print")
+                        .with(user(testOwner.getUsername()).roles("VT-01"))
+                        .param("paperSize", "58mm")
+                        .param("quantity", "0"))
+                .andExpect(status().isBadRequest());
+    }
 }

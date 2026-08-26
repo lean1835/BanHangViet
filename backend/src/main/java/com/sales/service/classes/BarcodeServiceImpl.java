@@ -43,7 +43,7 @@ public class BarcodeServiceImpl implements BarcodeService {
     private final PromotionService promotionService;
     private final OrderService orderService;
 
-    private final Random random = new SecureRandom();
+    private final Random random = new Random();
 
     private User validateAndGetStoreOwner(String currentUsername) {
         User user = userRepository.findByUsername(currentUsername)
@@ -53,10 +53,13 @@ public class BarcodeServiceImpl implements BarcodeService {
             throw new AppException(ErrorCode.FORBIDDEN);
         }
 
-        // TC-03: Only Store Owner (VT-01 or STORE_OWNER/OWNER) is allowed to manage/generate barcodes
+        // TC-03: Only Store Owner (VT-01, STORE_OWNER, or OWNER) is allowed to manage/generate barcodes
         String roleCode = user.getRole() != null ? user.getRole().getCode() : "";
         String roleName = user.getRole() != null ? user.getRole().getName() : "";
-        boolean isOwner = "VT-01".equals(roleCode) || "STORE_OWNER".equalsIgnoreCase(roleCode) || "OWNER".equalsIgnoreCase(roleCode) || "OWNER".equalsIgnoreCase(roleName);
+        boolean isOwner = "VT-01".equals(roleCode) 
+                || "STORE_OWNER".equalsIgnoreCase(roleCode) 
+                || "OWNER".equalsIgnoreCase(roleCode) 
+                || "OWNER".equalsIgnoreCase(roleName);
 
         if (!isOwner) {
             throw new AppException(ErrorCode.FORBIDDEN_BARCODE_MANAGEMENT);
@@ -139,7 +142,7 @@ public class BarcodeServiceImpl implements BarcodeService {
     }
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public BarcodeResponse generateInternalBarcode(String currentUsername, String productId) {
         User currentUser = validateAndGetStoreOwner(currentUsername);
         String householdId = currentUser.getHousehold().getId();
@@ -155,7 +158,7 @@ public class BarcodeServiceImpl implements BarcodeService {
     }
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public BarcodeResponse assignBarcode(String currentUsername, String productId, AssignBarcodeRequest request) {
         User currentUser = validateAndGetStoreOwner(currentUsername);
         String householdId = currentUser.getHousehold().getId();
@@ -179,13 +182,18 @@ public class BarcodeServiceImpl implements BarcodeService {
     }
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public BarcodeResponse getBarcodePrintData(String currentUsername, String productId, String paperSize, Integer quantity) {
         User currentUser = validateAndGetStoreOwner(currentUsername);
         String householdId = currentUser.getHousehold().getId();
 
         Product product = productRepository.findByIdAndHouseholdIdAndDeletedAtIsNull(productId, householdId)
                 .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_NOT_FOUND));
+
+        String actualPaperSize = (paperSize == null || paperSize.isBlank()) ? "58mm" : paperSize.trim();
+        if (!actualPaperSize.matches("^(58mm|80mm|standard)$")) {
+            throw new AppException(ErrorCode.INVALID_INPUT);
+        }
 
         // If product has no barcode yet, auto-generate one per TC-01
         if (product.getBarcode() == null || product.getBarcode().isBlank()) {
@@ -194,7 +202,6 @@ public class BarcodeServiceImpl implements BarcodeService {
             product = productRepository.save(product);
         }
 
-        String actualPaperSize = (paperSize == null || paperSize.isBlank()) ? "58mm" : paperSize;
         int actualQuantity = (quantity == null || quantity < 1) ? 1 : quantity;
 
         return buildBarcodeResponse(product, actualPaperSize, actualQuantity);
@@ -204,7 +211,7 @@ public class BarcodeServiceImpl implements BarcodeService {
         int maxAttempts = 50;
         for (int i = 0; i < maxAttempts; i++) {
             // Internal barcode format: "200" prefix + 9 random digits = 12 digits
-            long number = 100000000L + (long) (random.nextDouble() * 900000000L);
+            long number = 100000000L + random.nextLong(900000000L);
             String candidate = "200" + number;
 
             boolean exists = productRepository.existsByHouseholdIdAndBarcodeAndDeletedAtIsNull(householdId, candidate);

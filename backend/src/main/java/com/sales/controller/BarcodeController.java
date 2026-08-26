@@ -7,9 +7,12 @@ import com.sales.dto.response.BarcodeResponse;
 import com.sales.dto.response.BarcodeScanResponse;
 import com.sales.service.interfaces.BarcodeService;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.Pattern;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.security.Principal;
@@ -17,6 +20,7 @@ import java.security.Principal;
 @RestController
 @RequestMapping("/api/v1/barcodes")
 @RequiredArgsConstructor
+@Validated
 public class BarcodeController {
 
     private final BarcodeService barcodeService;
@@ -36,7 +40,7 @@ public class BarcodeController {
     }
 
     @PostMapping("/products/{productId}/generate")
-    @PreAuthorize("hasRole('VT-01') or hasRole('STORE_OWNER')")
+    @PreAuthorize("hasAnyRole('VT-01', 'STORE_OWNER', 'OWNER')")
     public ResponseEntity<ApiResponse<BarcodeResponse>> generateInternalBarcode(
             Principal principal,
             @PathVariable String productId) {
@@ -50,7 +54,7 @@ public class BarcodeController {
     }
 
     @PostMapping("/products/{productId}/assign")
-    @PreAuthorize("hasRole('VT-01') or hasRole('STORE_OWNER')")
+    @PreAuthorize("hasAnyRole('VT-01', 'STORE_OWNER', 'OWNER')")
     public ResponseEntity<ApiResponse<BarcodeResponse>> assignBarcode(
             Principal principal,
             @PathVariable String productId,
@@ -65,12 +69,12 @@ public class BarcodeController {
     }
 
     @GetMapping("/products/{productId}/print")
-    @PreAuthorize("hasRole('VT-01') or hasRole('STORE_OWNER')")
+    @PreAuthorize("hasAnyRole('VT-01', 'STORE_OWNER', 'OWNER')")
     public ResponseEntity<ApiResponse<BarcodeResponse>> getBarcodePrintData(
             Principal principal,
             @PathVariable String productId,
-            @RequestParam(defaultValue = "58mm") String paperSize,
-            @RequestParam(defaultValue = "1") Integer quantity) {
+            @RequestParam(defaultValue = "58mm") @Pattern(regexp = "^(58mm|80mm|standard)$", message = "Khổ giấy in chỉ hỗ trợ: 58mm, 80mm, standard") String paperSize,
+            @RequestParam(defaultValue = "1") @Min(value = 1, message = "Số lượng tem in tối thiểu là 1") Integer quantity) {
         BarcodeResponse result = barcodeService.getBarcodePrintData(principal.getName(), productId, paperSize, quantity);
         ApiResponse<BarcodeResponse> response = ApiResponse.<BarcodeResponse>builder()
                 .code(1000)
@@ -80,3 +84,4 @@ public class BarcodeController {
         return ResponseEntity.ok(response);
     }
 }
+
