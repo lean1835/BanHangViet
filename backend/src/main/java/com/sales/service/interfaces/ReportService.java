@@ -20,4 +20,6 @@ public interface ReportService {
     CompareRevenueResponse compareRevenue(String currentUsername, LocalDate period1Start, LocalDate period1End, LocalDate period2Start, LocalDate period2End);
     
     PageResponse<ActivityLogResponse> getActivityLogs(String currentUsername, String targetUsername, LocalDate fromDate, LocalDate toDate, int page, int size);
+
+    PosRevenueReportResponse getPosRevenueReport(String currentUsername, LocalDate fromDate, LocalDate toDate, String posId);
 }

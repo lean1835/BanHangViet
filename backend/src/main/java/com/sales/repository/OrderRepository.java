@@ -1,6 +1,8 @@
 package com.sales.repository;
 
 import com.sales.dto.response.DailyRevenueProjection;
+import com.sales.dto.response.PosDailyRevenueProjection;
+import com.sales.dto.response.PosRevenueProjection;
 import com.sales.dto.response.ProductRevenueProjection;
 import com.sales.dto.response.PurchaseSuggestionProjection;
 import com.sales.entity.Order;
@@ -199,4 +201,49 @@ public interface OrderRepository extends JpaRepository<Order, String> {
             @Param("periodWeeks") double periodWeeks,
             @Param("groupId") String groupId,
             Pageable pageable);
+
+    @Query(value = "SELECT " +
+            "o.point_of_sale_id AS posId, " +
+            "COUNT(o.id) AS orderCount, " +
+            "COALESCE(SUM(o.total_amount), 0) AS grossSales, " +
+            "COALESCE(SUM(o.discount_amount), 0) AS totalDiscount, " +
+            "COALESCE(SUM(o.final_amount), 0) AS netRevenue, " +
+            "COALESCE(SUM(CASE WHEN o.payment_method = 'CASH' THEN o.final_amount ELSE 0 END), 0) AS cashRevenue, " +
+            "COALESCE(SUM(CASE WHEN o.payment_method = 'BANK_TRANSFER' THEN o.final_amount ELSE 0 END), 0) AS bankRevenue, " +
+            "COALESCE(SUM(CASE WHEN o.payment_method = 'DEBT' THEN o.final_amount ELSE 0 END), 0) AS debtRevenue " +
+            "FROM orders o " +
+            "WHERE o.household_id = :householdId " +
+            "AND o.status = 'COMPLETED' " +
+            "AND o.deleted_at IS NULL " +
+            "AND o.created_at >= :startDateTime AND o.created_at <= :endDateTime " +
+            "AND (:posId IS NULL OR :posId = '' OR o.point_of_sale_id = :posId) " +
+            "GROUP BY o.point_of_sale_id", nativeQuery = true)
+    List<PosRevenueProjection> getPosRevenueSummary(
+            @Param("householdId") String householdId,
+            @Param("startDateTime") LocalDateTime startDateTime,
+            @Param("endDateTime") LocalDateTime endDateTime,
+            @Param("posId") String posId
+    );
+
+    @Query(value = "SELECT " +
+            "DATE(o.created_at) AS salesDate, " +
+            "o.point_of_sale_id AS posId, " +
+            "p.name AS posName, " +
+            "COUNT(o.id) AS orderCount, " +
+            "COALESCE(SUM(o.final_amount), 0) AS netRevenue " +
+            "FROM orders o " +
+            "LEFT JOIN points_of_sale p ON p.id = o.point_of_sale_id " +
+            "WHERE o.household_id = :householdId " +
+            "AND o.status = 'COMPLETED' " +
+            "AND o.deleted_at IS NULL " +
+            "AND o.created_at >= :startDateTime AND o.created_at <= :endDateTime " +
+            "AND (:posId IS NULL OR :posId = '' OR o.point_of_sale_id = :posId) " +
+            "GROUP BY DATE(o.created_at), o.point_of_sale_id, p.name " +
+            "ORDER BY salesDate ASC, netRevenue DESC", nativeQuery = true)
+    List<PosDailyRevenueProjection> getPosDailyRevenue(
+            @Param("householdId") String householdId,
+            @Param("startDateTime") LocalDateTime startDateTime,
+            @Param("endDateTime") LocalDateTime endDateTime,
+            @Param("posId") String posId
+    );
 }

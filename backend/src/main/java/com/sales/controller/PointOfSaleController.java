@@ -3,18 +3,22 @@ package com.sales.controller;
 import com.sales.dto.ApiResponse;
 import com.sales.dto.request.PointOfSaleRequest;
 import com.sales.dto.response.PointOfSaleResponse;
+import com.sales.dto.response.PosRevenueReportResponse;
 import com.sales.service.interfaces.PointOfSaleService;
+import com.sales.service.interfaces.ReportService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.security.Principal;
+import java.time.LocalDate;
 import java.util.List;
 
 @RestController
@@ -23,6 +27,7 @@ import java.util.List;
 public class PointOfSaleController {
 
     private final PointOfSaleService pointOfSaleService;
+    private final ReportService reportService;
 
     @PostMapping
     @PreAuthorize("hasRole('VT-01')")
@@ -129,6 +134,22 @@ public class PointOfSaleController {
         ApiResponse<Void> response = ApiResponse.<Void>builder()
                 .code(1000)
                 .message("Xóa điểm bán thành công")
+                .build();
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/reports/revenue")
+    @PreAuthorize("hasAnyRole('VT-01', 'VT-03')")
+    public ResponseEntity<ApiResponse<PosRevenueReportResponse>> getRevenueReport(
+            Principal principal,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate,
+            @RequestParam(required = false) String posId) {
+        PosRevenueReportResponse result = reportService.getPosRevenueReport(principal.getName(), fromDate, toDate, posId);
+        ApiResponse<PosRevenueReportResponse> response = ApiResponse.<PosRevenueReportResponse>builder()
+                .code(1000)
+                .message("Lấy báo cáo doanh thu theo điểm bán thành công")
+                .result(result)
                 .build();
         return ResponseEntity.ok(response);
     }
