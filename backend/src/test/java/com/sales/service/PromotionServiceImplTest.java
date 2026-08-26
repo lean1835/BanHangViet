@@ -51,6 +51,9 @@ class PromotionServiceImplTest {
     @Mock
     private ProductGroupRepository productGroupRepository;
 
+    @Mock
+    private OrderItemRepository orderItemRepository;
+
     @InjectMocks
     private PromotionServiceImpl promotionService;
 
@@ -614,5 +617,100 @@ class PromotionServiceImplTest {
 
         AppException ex = assertThrows(AppException.class, () -> promotionService.autoApplyPromotions("nhanvien", request));
         assertEquals(ErrorCode.PRODUCT_NOT_FOUND, ex.getErrorCode());
+    }
+
+    @Test
+    @DisplayName("NCL-15-CN-004: Lấy báo cáo hiệu quả khuyến mại thành công - tính toán đúng các chỉ số")
+    void getPromotionReport_Success_CalculatesCorrectMetrics() {
+        Promotion promo = Promotion.builder()
+                .id("promo-report-1")
+                .household(mockHousehold)
+                .name("Khuyến mại Tết 2026")
+                .description("Giảm giá 10% các mặt hàng")
+                .discountType(DiscountType.PERCENTAGE)
+                .discountValue(new BigDecimal("10.00"))
+                .applyScope(PromotionApplyScope.ALL)
+                .startDate(LocalDateTime.now().minusDays(5))
+                .endDate(LocalDateTime.now().plusDays(5))
+                .status(PromotionStatus.ACTIVE)
+                .build();
+
+        OrderItemRepository.PromotionMetricsProjection metrics = mock(OrderItemRepository.PromotionMetricsProjection.class);
+        when(metrics.getTotalOrdersCount()).thenReturn(5L);
+        when(metrics.getTotalQuantitySold()).thenReturn(new BigDecimal("20.000"));
+        when(metrics.getPromotionRevenue()).thenReturn(new BigDecimal("200000.00"));
+        when(metrics.getTotalDiscountAmount()).thenReturn(new BigDecimal("20000.00"));
+
+        OrderItemRepository.PromotionProductStatProjection stat1 = mock(OrderItemRepository.PromotionProductStatProjection.class);
+        when(stat1.getProductId()).thenReturn("prod-1");
+        when(stat1.getProductName()).thenReturn("Nước ngọt Coca");
+        when(stat1.getQuantitySold()).thenReturn(new BigDecimal("20.000"));
+        when(stat1.getRevenue()).thenReturn(new BigDecimal("200000.00"));
+        when(stat1.getDiscountAmount()).thenReturn(new BigDecimal("20000.00"));
+
+        when(userRepository.findByUsername("owner")).thenReturn(Optional.of(mockUser));
+        when(promotionRepository.findDetailByIdAndHouseholdId("promo-report-1", "household-123")).thenReturn(Optional.of(promo));
+        when(orderItemRepository.getPromotionMetrics("promo-report-1")).thenReturn(metrics);
+        when(orderItemRepository.getPromotionProductStats("promo-report-1")).thenReturn(List.of(stat1));
+        when(orderItemRepository.getBaselineRevenueForAll(eq("household-123"), any(), any()))
+                .thenReturn(new BigDecimal("150000.00"));
+
+        com.sales.dto.response.PromotionReportResponse report = promotionService.getPromotionReport("owner", "promo-report-1");
+
+        assertNotNull(report);
+        assertTrue(report.getHasData());
+        assertEquals("promo-report-1", report.getPromotionId());
+        assertEquals("Khuyến mại Tết 2026", report.getPromotionName());
+        assertEquals(5L, report.getTotalOrdersCount());
+        assertEquals(new BigDecimal("20.000"), report.getTotalQuantitySold());
+        assertEquals(new BigDecimal("200000.00"), report.getPromotionRevenue());
+        assertEquals(new BigDecimal("20000.00"), report.getTotalDiscountAmount());
+        assertEquals(new BigDecimal("150000.00"), report.getBaselineRevenue());
+        assertEquals(new BigDecimal("50000.00"), report.getIncrementalRevenue());
+        assertEquals(new BigDecimal("30000.00"), report.getNetResult());
+        assertEquals(1, report.getProductStats().size());
+    }
+
+    @Test
+    @DisplayName("NCL-15-CN-004-TC-02: Lấy báo cáo hiệu quả khuyến mại khi chưa có đơn hàng nào (Dữ liệu rỗng)")
+    void getPromotionReport_EmptyData_ReturnsHasDataFalse() {
+        Promotion promo = Promotion.builder()
+                .id("promo-report-empty")
+                .household(mockHousehold)
+                .name("Khuyến mại mới chưa có đơn")
+                .discountType(DiscountType.FIXED_AMOUNT)
+                .discountValue(new BigDecimal("5000.00"))
+                .applyScope(PromotionApplyScope.ALL)
+                .startDate(LocalDateTime.now().minusDays(2))
+                .endDate(LocalDateTime.now().plusDays(2))
+                .status(PromotionStatus.ACTIVE)
+                .build();
+
+        OrderItemRepository.PromotionMetricsProjection metrics = mock(OrderItemRepository.PromotionMetricsProjection.class);
+        when(metrics.getTotalOrdersCount()).thenReturn(0L);
+        when(metrics.getPromotionRevenue()).thenReturn(BigDecimal.ZERO);
+
+        when(userRepository.findByUsername("owner")).thenReturn(Optional.of(mockUser));
+        when(promotionRepository.findDetailByIdAndHouseholdId("promo-report-empty", "household-123")).thenReturn(Optional.of(promo));
+        when(orderItemRepository.getPromotionMetrics("promo-report-empty")).thenReturn(metrics);
+
+        com.sales.dto.response.PromotionReportResponse report = promotionService.getPromotionReport("owner", "promo-report-empty");
+
+        assertNotNull(report);
+        assertFalse(report.getHasData());
+        assertEquals("Chưa có giao dịch trong đợt khuyến mại này", report.getMessage());
+        assertEquals(0L, report.getTotalOrdersCount());
+        assertEquals(BigDecimal.ZERO, report.getPromotionRevenue());
+        assertEquals(BigDecimal.ZERO, report.getNetResult());
+    }
+
+    @Test
+    @DisplayName("NCL-15-CN-004: Khuyến mại không tồn tại ném lỗi PROMOTION_NOT_FOUND")
+    void getPromotionReport_NotFound_ThrowsException() {
+        when(userRepository.findByUsername("owner")).thenReturn(Optional.of(mockUser));
+        when(promotionRepository.findDetailByIdAndHouseholdId("invalid-id", "household-123")).thenReturn(Optional.empty());
+
+        AppException ex = assertThrows(AppException.class, () -> promotionService.getPromotionReport("owner", "invalid-id"));
+        assertEquals(ErrorCode.PROMOTION_NOT_FOUND, ex.getErrorCode());
     }
 }

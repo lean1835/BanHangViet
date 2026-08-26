@@ -189,4 +189,31 @@ public class PromotionControllerTest {
                 .andExpect(jsonPath("$.code").value(1000))
                 .andExpect(jsonPath("$.result.id").value(existingPromotion.getId()));
     }
+
+    @Test
+    @DisplayName("NCL-15-CN-004: Chủ hộ VT-01 xem báo cáo hiệu quả khuyến mại -> Thành công 200 OK")
+    void getPromotionReport_OwnerRole_Success() throws Exception {
+        mockMvc.perform(get("/api/v1/promotions/{id}/report", existingPromotion.getId())
+                        .with(user(ownerUser.getUsername()).roles("VT-01")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(1000))
+                .andExpect(jsonPath("$.result.promotionId").value(existingPromotion.getId()));
+    }
+
+    @Test
+    @DisplayName("NCL-15-CN-004: Kế toán VT-03 xem báo cáo hiệu quả khuyến mại -> Thành công 200 OK")
+    void getPromotionReport_AccountantRole_Success() throws Exception {
+        mockMvc.perform(get("/api/v1/promotions/{id}/report", existingPromotion.getId())
+                        .with(user(accountantUser.getUsername()).roles("VT-03")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(1000));
+    }
+
+    @Test
+    @DisplayName("NCL-15-CN-004-TC-03: Nhân viên bán hàng VT-02 xem báo cáo hiệu quả khuyến mại -> Bị chặn 403 Forbidden")
+    void getPromotionReport_SellerRole_Returns403Forbidden() throws Exception {
+        mockMvc.perform(get("/api/v1/promotions/{id}/report", existingPromotion.getId())
+                        .with(user(sellerUser.getUsername()).roles("VT-02")))
+                .andExpect(status().isForbidden());
+    }
 }
