@@ -2,7 +2,9 @@ package com.sales.controller;
 
 import com.sales.dto.ApiResponse;
 import com.sales.dto.request.AssignBarcodeRequest;
+import com.sales.dto.request.BarcodeScanRequest;
 import com.sales.dto.response.BarcodeResponse;
+import com.sales.dto.response.BarcodeScanResponse;
 import com.sales.service.interfaces.BarcodeService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -13,13 +15,27 @@ import org.springframework.web.bind.annotation.*;
 import java.security.Principal;
 
 @RestController
-@RequestMapping("/api/v1/products")
+@RequestMapping("/api/v1/barcodes")
 @RequiredArgsConstructor
 public class BarcodeController {
 
     private final BarcodeService barcodeService;
 
-    @PostMapping("/{productId}/barcode/generate")
+    @PostMapping("/scan")
+    @PreAuthorize("hasAnyRole('VT-01', 'VT-02')")
+    public ResponseEntity<ApiResponse<BarcodeScanResponse>> scanBarcode(
+            Principal principal,
+            @Valid @RequestBody BarcodeScanRequest request
+    ) {
+        BarcodeScanResponse response = barcodeService.scanBarcode(principal.getName(), request);
+        return ResponseEntity.ok(ApiResponse.<BarcodeScanResponse>builder()
+                .code(1000)
+                .message(response.getMessage())
+                .result(response)
+                .build());
+    }
+
+    @PostMapping("/products/{productId}/generate")
     @PreAuthorize("hasRole('VT-01') or hasRole('STORE_OWNER')")
     public ResponseEntity<ApiResponse<BarcodeResponse>> generateInternalBarcode(
             Principal principal,
@@ -33,7 +49,7 @@ public class BarcodeController {
         return ResponseEntity.ok(response);
     }
 
-    @PostMapping("/{productId}/barcode/assign")
+    @PostMapping("/products/{productId}/assign")
     @PreAuthorize("hasRole('VT-01') or hasRole('STORE_OWNER')")
     public ResponseEntity<ApiResponse<BarcodeResponse>> assignBarcode(
             Principal principal,
@@ -48,7 +64,7 @@ public class BarcodeController {
         return ResponseEntity.ok(response);
     }
 
-    @GetMapping("/{productId}/barcode/print")
+    @GetMapping("/products/{productId}/print")
     @PreAuthorize("hasRole('VT-01') or hasRole('STORE_OWNER')")
     public ResponseEntity<ApiResponse<BarcodeResponse>> getBarcodePrintData(
             Principal principal,
