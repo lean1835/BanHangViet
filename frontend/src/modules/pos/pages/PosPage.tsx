@@ -16,6 +16,8 @@ import {
 } from "@/modules/order/services/orderApi";
 import { useGetActiveShiftQuery } from "@/modules/shift/services/shiftApi";
 import { useGetMyHouseholdQuery } from "@/modules/settings/services/settingsApi";
+import { useAutoApplyPromotionsMutation } from "@/modules/promotion/services/promotionApi";
+import { USER_ROLES } from "@/constants/roles";
 
 import { useDashboardDemo } from "@/providers/DashboardDemoProvider";
 import { saveOfflineOrder, checkOfflineLimitStatus, saveOfflineConfig } from "@/modules/sync/utils/offlineSyncStorage";
@@ -59,7 +61,13 @@ const createInitialTab = (index: number): IPosTab => ({
 export const PosPage = () => {
   const navigate = useNavigate();
   const authenticatedUser = useAppSelector((state) => state.auth.user);
-  const { isOnline, setOrders, addLogEntry, setCustomers } = useDashboardDemo();
+  const { isOnline, setOrders, addLogEntry, setCustomers, currentRole } = useDashboardDemo();
+
+  const canManage =
+    currentRole === USER_ROLES.OWNER ||
+    currentRole === USER_ROLES.PLATFORM_ADMIN ||
+    authenticatedUser?.roleId === USER_ROLES.OWNER ||
+    authenticatedUser?.roleId === USER_ROLES.PLATFORM_ADMIN;
 
   // 1. Fetch products, customers & active shift
   const { data: productsData } = useGetProductsQuery({ page: 0, size: 200 });
@@ -92,6 +100,52 @@ export const PosPage = () => {
   const [setPaymentMethod] = useSetPaymentMethodMutation();
   const [completeOrder] = useCompleteOrderMutation();
   const [createCustomer] = useCreateCustomerMutation();
+  const [autoApplyPromotions] = useAutoApplyPromotionsMutation();
+
+  // Helper: Đồng bộ khuyến mại tự động từ server (QTN-26, NCL-15-CN-002)
+  const syncPromotionsForItems = async (
+    items: IPosCartItem[]
+  ): Promise<IPosCartItem[]> => {
+    if (items.length === 0) return [];
+    if (isOnline === false) {
+      return items.map((item) => ({
+        ...item,
+        lineTotal: item.quantity * item.price - (item.lineDiscount || 0),
+      }));
+    }
+    try {
+      const payload = {
+        items: items.map((item) => ({
+          productId: item.product.id,
+          quantity: item.quantity,
+          unitPrice: item.price,
+          bypassPromotion: Boolean(item.bypassPromotion),
+        })),
+      };
+      const res = await autoApplyPromotions(payload).unwrap();
+      if (res?.items && Array.isArray(res.items)) {
+        return items.map((item) => {
+          const promoRes = res.items.find((r) => r.productId === item.product.id);
+          if (promoRes) {
+            return {
+              ...item,
+              lineDiscount: promoRes.discountAmount ?? 0,
+              lineTotal: promoRes.finalSubtotal ?? item.quantity * item.price,
+              promotionId: promoRes.promotionId,
+              promotionName: promoRes.promotionName,
+              hasPromotion: promoRes.hasPromotion,
+              bypassPromotion: promoRes.bypassPromotion,
+              originalSubtotal: promoRes.originalSubtotal,
+            };
+          }
+          return item;
+        });
+      }
+    } catch (err) {
+      console.warn("Failed to auto apply promotions from server", err);
+    }
+    return items;
+  };
 
   // 3. Multi-order Tabs State with localStorage persistence
   const [tabs, setTabs] = useState<IPosTab[]>(() => {
@@ -221,8 +275,8 @@ export const PosPage = () => {
     }
   };
 
-  // Product selection & cart manipulation
-  const handleSelectProduct = (product: IProduct) => {
+  // Product selection & cart manipulation with auto promotion sync
+  const handleSelectProduct = async (product: IProduct) => {
     if (isOnline === false) {
       const limitStatus = checkOfflineLimitStatus();
       if (limitStatus.isExceeded) {
@@ -233,78 +287,134 @@ export const PosPage = () => {
         return;
       }
     }
+
+    const currentTab = tabs.find((t) => t.id === activeTabId) || tabs[0];
+    const existingItemIndex = currentTab.items.findIndex(
+      (item) => item.product.id === product.id
+    );
+
+    let newItems: IPosCartItem[];
+
+    if (existingItemIndex > -1) {
+      newItems = [...currentTab.items];
+      const existingItem = newItems[existingItemIndex];
+      const updatedQty = existingItem.quantity + 1;
+      newItems[existingItemIndex] = {
+        ...existingItem,
+        quantity: updatedQty,
+        lineTotal:
+          updatedQty * existingItem.price - (existingItem.lineDiscount || 0),
+      };
+    } else {
+      newItems = [
+        ...currentTab.items,
+        {
+          id: product.id,
+          product,
+          quantity: 1,
+          price: product.price,
+          lineDiscount: 0,
+          lineTotal: product.price,
+        },
+      ];
+    }
+
+    // Immediate optimistic UI update
     setTabs((prevTabs) =>
-      prevTabs.map((t) => {
-        if (t.id !== activeTabId) return t;
+      prevTabs.map((t) =>
+        t.id === activeTabId ? { ...t, items: newItems, isSaved: false } : t
+      )
+    );
 
-        const existingItemIndex = t.items.findIndex(
-          (item) => item.product.id === product.id
-        );
-
-        let newItems: IPosCartItem[];
-
-        if (existingItemIndex > -1) {
-          newItems = [...t.items];
-          const existingItem = newItems[existingItemIndex];
-          const updatedQty = existingItem.quantity + 1;
-          newItems[existingItemIndex] = {
-            ...existingItem,
-            quantity: updatedQty,
-            lineTotal:
-              updatedQty * existingItem.price - existingItem.lineDiscount,
-          };
-        } else {
-          newItems = [
-            ...t.items,
-            {
-              id: product.id,
-              product,
-              quantity: 1,
-              price: product.price,
-              lineDiscount: 0,
-              lineTotal: product.price,
-            },
-          ];
-        }
-
-        return { ...t, items: newItems, isSaved: false };
-      })
+    // Sync authoritative promotion discount from backend (QTN-26)
+    const syncedItems = await syncPromotionsForItems(newItems);
+    setTabs((prevTabs) =>
+      prevTabs.map((t) =>
+        t.id === activeTabId ? { ...t, items: syncedItems, isSaved: false } : t
+      )
     );
   };
 
-  const handleUpdateQuantity = (itemId: string, newQuantity: number) => {
+  const handleUpdateQuantity = async (itemId: string, newQuantity: number) => {
     if (newQuantity <= 0) {
       handleRemoveItem(itemId);
       return;
     }
+    const currentTab = tabs.find((t) => t.id === activeTabId) || tabs[0];
+    const newItems = currentTab.items.map((item) => {
+      if (item.id !== itemId && item.product.id !== itemId) return item;
+      return {
+        ...item,
+        quantity: newQuantity,
+        lineTotal: newQuantity * item.price - (item.lineDiscount || 0),
+      };
+    });
+
     setTabs((prevTabs) =>
-      prevTabs.map((t) => {
-        if (t.id !== activeTabId) return t;
-        const newItems = t.items.map((item) => {
-          if (item.id !== itemId && item.product.id !== itemId) return item;
-          return {
-            ...item,
-            quantity: newQuantity,
-            lineTotal: newQuantity * item.price - item.lineDiscount,
-          };
-        });
-        return { ...t, items: newItems, isSaved: false };
-      })
+      prevTabs.map((t) =>
+        t.id === activeTabId ? { ...t, items: newItems, isSaved: false } : t
+      )
+    );
+
+    const syncedItems = await syncPromotionsForItems(newItems);
+    setTabs((prevTabs) =>
+      prevTabs.map((t) =>
+        t.id === activeTabId ? { ...t, items: syncedItems, isSaved: false } : t
+      )
     );
   };
 
-  const handleRemoveItem = (itemId: string) => {
+  const handleRemoveItem = async (itemId: string) => {
+    const currentTab = tabs.find((t) => t.id === activeTabId) || tabs[0];
+    const newItems = currentTab.items.filter(
+      (item) => item.id !== itemId && item.product.id !== itemId
+    );
+
     setTabs((prevTabs) =>
-      prevTabs.map((t) => {
-        if (t.id !== activeTabId) return t;
-        return {
-          ...t,
-          items: t.items.filter(
-            (item) => item.id !== itemId && item.product.id !== itemId
-          ),
-          isSaved: false,
-        };
-      })
+      prevTabs.map((t) =>
+        t.id === activeTabId ? { ...t, items: newItems, isSaved: false } : t
+      )
+    );
+
+    if (newItems.length > 0) {
+      const syncedItems = await syncPromotionsForItems(newItems);
+      setTabs((prevTabs) =>
+        prevTabs.map((t) =>
+          t.id === activeTabId ? { ...t, items: syncedItems, isSaved: false } : t
+        )
+      );
+    }
+  };
+
+  // Toggle bypass promotion (TC-04: Owner permission check)
+  const handleToggleBypassPromotion = async (itemId: string) => {
+    if (!canManage) {
+      showToast(
+        "Nhân viên không có quyền bỏ khuyến mại tự động. Cần có sự đồng ý của chủ hộ kinh doanh."
+      );
+      return;
+    }
+
+    const currentTab = tabs.find((t) => t.id === activeTabId);
+    if (!currentTab) return;
+
+    const targetItem = currentTab.items.find(
+      (i) => i.id === itemId || i.product.id === itemId
+    );
+    if (!targetItem) return;
+
+    const newBypass = !targetItem.bypassPromotion;
+    const updatedItems = currentTab.items.map((i) =>
+      i.id === itemId || i.product.id === itemId
+        ? { ...i, bypassPromotion: newBypass }
+        : i
+    );
+
+    const finalItems = await syncPromotionsForItems(updatedItems);
+    setTabs((prev) =>
+      prev.map((t) =>
+        t.id === activeTabId ? { ...t, items: finalItems, isSaved: false } : t
+      )
     );
   };
 
@@ -352,6 +462,7 @@ export const PosPage = () => {
             orderId,
             productId: item.product.id,
             quantity: item.quantity,
+            bypassPromotion: item.bypassPromotion,
           }).unwrap();
         }
 
@@ -723,6 +834,8 @@ export const PosPage = () => {
           onUpdateQuantity={handleUpdateQuantity}
           onRemoveItem={handleRemoveItem}
           onClearCart={handleClearCart}
+          canManage={canManage}
+          onToggleBypass={handleToggleBypassPromotion}
         />
 
         {/* Right Area: Payment Sidebar */}

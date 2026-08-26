@@ -32,10 +32,15 @@ export interface IPosCartItem {
   id: string; // unique item line id or product id
   product: IProduct;
   quantity: number;
-  price: number;
-  lineDiscount: number;
-  lineTotal: number;
+  price: number; // unit price (original or effective)
+  lineDiscount: number; // discount amount for this line (total discount)
+  lineTotal: number; // final amount after promotion discount: (quantity * price) - lineDiscount
   backendItemId?: string;
+  promotionId?: string | null;
+  promotionName?: string | null;
+  hasPromotion?: boolean;
+  bypassPromotion?: boolean;
+  originalSubtotal?: number;
 }
 
 export interface IPosTab {

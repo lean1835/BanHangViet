@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import { Tag } from "lucide-react";
 import type { ICustomer } from "@/modules/customer/types/ICustomer";
 import type { IPosTab } from "../types/IPos";
 import { formatCurrency } from "@/utils/formatCurrency";
@@ -73,7 +74,15 @@ export const PosPaymentSidebar: React.FC<IPosPaymentSidebarProps> = ({
     );
   }, [customers, customerSearchTerm]);
 
-  // 1. Calculate subtotal before discount
+  // 1. Calculate subtotal before discount and promotions
+  const totalOriginalAmount = tab.items.reduce(
+    (sum, item) => sum + item.quantity * item.price,
+    0
+  );
+  const totalPromotionDiscount = tab.items.reduce(
+    (sum, item) => sum + (item.lineDiscount || 0),
+    0
+  );
   const totalCartAmount = tab.items.reduce(
     (sum, item) => sum + item.lineTotal,
     0
@@ -292,21 +301,34 @@ export const PosPaymentSidebar: React.FC<IPosPaymentSidebarProps> = ({
           {/* Item count & Subtotal */}
           <div className="flex items-center justify-between text-slate-600 font-semibold text-xs">
             <span className="flex items-center gap-1.5">
-              <span>Tổng tiền hàng</span>
+              <span>Tổng tiền hàng (gốc):</span>
               <span className="text-[10px] bg-blue-100 text-[#0070f4] px-1.5 py-0.2 rounded-full font-bold">
                 {tab.items.length} món ({totalItemCount} SL)
               </span>
             </span>
             <span className="font-bold text-slate-800 text-xs">
-              {formatCurrency(totalCartAmount)}
+              {formatCurrency(totalOriginalAmount)}
             </span>
           </div>
 
-          {/* Discount */}
+          {/* Promotion Discount (NCL-15-CN-002) */}
+          {totalPromotionDiscount > 0 && (
+            <div className="flex items-center justify-between text-emerald-700 font-bold text-xs bg-emerald-50/80 px-2 py-1.5 rounded-lg border border-emerald-200">
+              <span className="flex items-center gap-1">
+                <Tag size={13} className="text-emerald-600" />
+                <span>Khuyến mại tự động:</span>
+              </span>
+              <span className="font-extrabold text-emerald-800">
+                -{formatCurrency(totalPromotionDiscount)}
+              </span>
+            </div>
+          )}
+
+          {/* Additional Discount */}
           <div className="space-y-1">
             <div className="flex items-center justify-between text-slate-600 font-semibold text-xs">
               <span className="flex items-center gap-1">
-                <span>Giảm giá:</span>
+                <span>Chiết khấu thêm:</span>
                 <div className="inline-flex bg-slate-200/70 rounded p-0.5 border border-slate-200">
                   <button
                     type="button"

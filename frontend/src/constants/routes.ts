@@ -37,6 +37,7 @@ export const ROUTE_SEGMENTS = {
   LOOKUP_INVOICE: "lookup-invoice",
   INVOICE_TEMPLATE: "invoice-template",
   BACKUP_EXPORT: "backup-export",
+  PROMOTIONS: "promotions",
   WILDCARD: "*",
 } as const;
 
@@ -157,4 +158,5 @@ export const APP_ROUTES = {
   RETURN_TICKETS: createRoute(ROUTE_SEGMENTS.RETURN_TICKETS),
   RETURN_TICKET_CREATE: `${createRoute(ROUTE_SEGMENTS.RETURN_TICKETS)}/create`,
   LOOKUP_INVOICE: createRoute(ROUTE_SEGMENTS.LOOKUP_INVOICE),
+  PROMOTIONS: createRoute(ROUTE_SEGMENTS.PROMOTIONS),
 } as const;

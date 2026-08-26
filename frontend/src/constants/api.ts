@@ -47,6 +47,7 @@ export const API_TAG_TYPES = {
   BACKUP: "Backup",
   RESTORE: "Restore",
   ANOMALY_ALERT: "AnomalyAlert",
+  PROMOTION: "Promotion",
 } as const;
 
 export const API_TAG_TYPE_VALUES = Object.values(API_TAG_TYPES);

@@ -44,6 +44,9 @@ const CreateReturnTicketPage = React.lazy(
   () => import("@/modules/return_ticket/pages/CreateReturnTicketPage")
 );
 const CustomerPage = React.lazy(() => import("@/modules/customer/pages/CustomerPage"));
+const PromotionListPage = React.lazy(
+  () => import("@/modules/promotion/pages/PromotionListPage")
+);
 const SupplierPage = React.lazy(() => import("@/modules/supplier/pages/SupplierPage"));
 const SupplierDetailPage = React.lazy(
   () => import("@/modules/supplier/pages/SupplierDetailPage")
@@ -235,8 +238,12 @@ export const AppRouter = () => (
             }
           />
           <Route
-            path="suppliers"
-            element={<Navigate to={APP_ROUTES.PRODUCT_SUPPLIERS} replace />}
+            path={ROUTE_SEGMENTS.PROMOTIONS}
+            element={
+              <RoleRoute allowedRoles={ROLE_GROUPS.PRODUCT_MANAGEMENT}>
+                <PromotionListPage />
+              </RoleRoute>
+            }
           />
           <Route
             path={ROUTE_SEGMENTS.EMPLOYEES}
