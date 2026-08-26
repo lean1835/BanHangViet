@@ -1,5 +1,6 @@
 package com.sales.service.classes;
 
+import com.sales.constant.ShiftStatus;
 import com.sales.dto.request.BarcodeScanRequest;
 import com.sales.dto.response.BarcodeScanResponse;
 import com.sales.dto.response.OrderResponse;
@@ -34,6 +35,25 @@ public class BarcodeServiceImpl implements BarcodeService {
     private final OrderItemRepository orderItemRepository;
     private final PromotionService promotionService;
     private final OrderService orderService;
+
+    private void checkOrderOwnership(Order order, User currentUser) {
+        boolean isSalesperson = currentUser.getRole() != null && "VT-02".equals(currentUser.getRole().getCode());
+        if (isSalesperson) {
+            if (currentUser.getPointOfSale() != null && order.getPointOfSale() != null
+                    && !currentUser.getPointOfSale().getId().equals(order.getPointOfSale().getId())) {
+                throw new AppException(ErrorCode.POS_EMPLOYEE_ACCESS_DENIED);
+            }
+            if (order.getCreatedByUser() != null && !order.getCreatedByUser().getId().equals(currentUser.getId())) {
+                throw new AppException(ErrorCode.FORBIDDEN);
+            }
+        }
+    }
+
+    private void validateShiftIsOpen(Order order) {
+        if (order.getShift() != null && order.getShift().getStatus() == ShiftStatus.CLOSED) {
+            throw new AppException(ErrorCode.SHIFT_ALREADY_CLOSED);
+        }
+    }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -78,6 +98,10 @@ public class BarcodeServiceImpl implements BarcodeService {
             Order order = orderRepository.findByIdAndHouseholdIdAndDeletedAtIsNull(request.getOrderId().trim(), householdId)
                     .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));
 
+            // [P1-02 Fix] Kiểm tra quyền sở hữu đơn hàng và trạng thái ca làm việc
+            checkOrderOwnership(order, user);
+            validateShiftIsOpen(order);
+
             if (!"CREATING".equals(order.getStatus())) {
                 throw new AppException(ErrorCode.ORDER_ALREADY_PAID);
             }
@@ -96,9 +120,17 @@ public class BarcodeServiceImpl implements BarcodeService {
                         user, product, newQty, product.getPrice(), false
                 );
 
+                // [P1-01 Fix] Tính toán thuế VAT và cộng vào subtotal dòng hàng
+                BigDecimal taxRate = product.getTaxRate() != null ? product.getTaxRate().getRatePercentage() : BigDecimal.ZERO;
+                BigDecimal baseAmount = newPromoResult.getFinalSubtotal();
+                BigDecimal taxAmount = baseAmount.multiply(taxRate).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+                BigDecimal lineSubtotal = baseAmount.add(taxAmount);
+
                 existingItem.setQuantity(newQty);
                 existingItem.setDiscountAmount(newPromoResult.getDiscountAmount());
-                existingItem.setSubtotal(newPromoResult.getFinalSubtotal());
+                existingItem.setSubtotal(lineSubtotal);
+                existingItem.setTaxRatePercentage(taxRate);
+                existingItem.setTaxAmount(taxAmount);
 
                 if (newPromoResult.getPromotionId() != null) {
                     existingItem.setPromotion(Promotion.builder().id(newPromoResult.getPromotionId()).build());
@@ -108,17 +140,14 @@ public class BarcodeServiceImpl implements BarcodeService {
                     existingItem.setPromotionName(null);
                 }
 
-                // Tính toán thuế VAT nếu có
-                BigDecimal taxRate = product.getTaxRate() != null ? product.getTaxRate().getRatePercentage() : BigDecimal.ZERO;
-                BigDecimal taxAmount = existingItem.getSubtotal().multiply(taxRate).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
-                existingItem.setTaxRatePercentage(taxRate);
-                existingItem.setTaxAmount(taxAmount);
-
                 orderItemRepository.save(existingItem);
             } else {
                 // Thêm mới dòng sản phẩm vào đơn hàng
+                // [P1-01 Fix] Tính toán thuế VAT và cộng vào subtotal dòng hàng
                 BigDecimal taxRate = product.getTaxRate() != null ? product.getTaxRate().getRatePercentage() : BigDecimal.ZERO;
-                BigDecimal taxAmount = promoResult.getFinalSubtotal().multiply(taxRate).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+                BigDecimal baseAmount = promoResult.getFinalSubtotal();
+                BigDecimal taxAmount = baseAmount.multiply(taxRate).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+                BigDecimal lineSubtotal = baseAmount.add(taxAmount);
 
                 OrderItem newItem = OrderItem.builder()
                         .order(order)
@@ -131,7 +160,7 @@ public class BarcodeServiceImpl implements BarcodeService {
                         .promotionName(promoResult.getPromotionName())
                         .taxRatePercentage(taxRate)
                         .taxAmount(taxAmount)
-                        .subtotal(promoResult.getFinalSubtotal())
+                        .subtotal(lineSubtotal)
                         .build();
 
                 order.getItems().add(newItem);
@@ -165,13 +194,9 @@ public class BarcodeServiceImpl implements BarcodeService {
 
     private void recalculateOrderTotals(Order order) {
         BigDecimal total = BigDecimal.ZERO;
-        BigDecimal promoDiscount = BigDecimal.ZERO;
 
         for (OrderItem item : order.getItems()) {
             total = total.add(item.getSubtotal());
-            if (item.getDiscountAmount() != null) {
-                promoDiscount = promoDiscount.add(item.getDiscountAmount());
-            }
         }
 
         order.setTotalAmount(total);
