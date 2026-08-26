@@ -5,6 +5,7 @@ import com.sales.dto.response.LowStockWarningListResponse;
 import com.sales.dto.response.PageResponse;
 import com.sales.dto.response.ProductResponse;
 import com.sales.dto.response.PurchaseSuggestionResponse;
+import com.sales.dto.response.SlowMovingProductListResponse;
 
 public interface InventoryWarningService {
 
@@ -13,4 +14,6 @@ public interface InventoryWarningService {
     LowStockWarningListResponse getLowStockWarnings(String username, String search, String groupId, int page, int size);
 
     PageResponse<PurchaseSuggestionResponse> getPurchaseSuggestions(String username, Integer periodDays, String groupId, int page, int size);
+
+    SlowMovingProductListResponse getSlowMovingProducts(String username, Integer thresholdDays, String groupId, String search, int page, int size);
 }

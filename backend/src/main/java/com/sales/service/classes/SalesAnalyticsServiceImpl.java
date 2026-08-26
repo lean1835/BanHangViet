@@ -349,5 +349,14 @@ public class SalesAnalyticsServiceImpl implements SalesAnalyticsService {
             String currentUsername, Integer periodDays, String groupId, int page, int size) {
         return inventoryWarningService.getPurchaseSuggestions(currentUsername, periodDays, groupId, page, size);
     }
+
+    @Override
+    @Transactional(readOnly = true)
+    public SlowMovingProductListResponse getSlowMovingProducts(
+            String currentUsername, Integer thresholdDays, String groupId, String search, int page, int size) {
+        return inventoryWarningService.getSlowMovingProducts(
+                currentUsername, thresholdDays, groupId, search, page, size
+        );
+    }
 }
 

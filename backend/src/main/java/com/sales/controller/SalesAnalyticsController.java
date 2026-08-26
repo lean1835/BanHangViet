@@ -4,6 +4,7 @@ import com.sales.dto.ApiResponse;
 import com.sales.dto.response.PageResponse;
 import com.sales.dto.response.PeakHoursAndDaysResponse;
 import com.sales.dto.response.PurchaseSuggestionResponse;
+import com.sales.dto.response.SlowMovingProductListResponse;
 import com.sales.service.interfaces.SalesAnalyticsService;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -65,6 +66,29 @@ public class SalesAnalyticsController {
         ApiResponse<PageResponse<PurchaseSuggestionResponse>> response = ApiResponse.<PageResponse<PurchaseSuggestionResponse>>builder()
                 .code(1000)
                 .message("Lấy danh sách gợi ý nhập hàng thành công")
+                .result(result)
+                .build();
+
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping({"/slow-moving-products", "/stagnant-inventory"})
+    @PreAuthorize("hasAnyRole('VT-01', 'VT-03')")
+    public ResponseEntity<ApiResponse<SlowMovingProductListResponse>> getSlowMovingProducts(
+            Principal principal,
+            @RequestParam(required = false, defaultValue = "60") @Min(1) @Max(3650) Integer thresholdDays,
+            @RequestParam(required = false) String groupId,
+            @RequestParam(required = false) String search,
+            @RequestParam(defaultValue = "0") @Min(0) int page,
+            @RequestParam(defaultValue = "10") @Min(1) @Max(500) int size) {
+
+        SlowMovingProductListResponse result = salesAnalyticsService.getSlowMovingProducts(
+                principal.getName(), thresholdDays, groupId, search, page, size
+        );
+
+        ApiResponse<SlowMovingProductListResponse> response = ApiResponse.<SlowMovingProductListResponse>builder()
+                .code(1000)
+                .message("Lấy danh sách cảnh báo hàng bán chậm và tồn lâu thành công")
                 .result(result)
                 .build();
 
