@@ -15,6 +15,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -273,6 +274,55 @@ class PromotionServiceImplTest {
         assertEquals("promo-prod-1", response.getId());
         assertEquals(PromotionApplyScope.PRODUCT, response.getApplyScope());
         verify(productRepository, times(1)).findAllByIdInAndHouseholdIdAndDeletedAtIsNull(List.of("prod-1", "prod-2"), "household-123");
+
+        ArgumentCaptor<Promotion> promoCaptor = ArgumentCaptor.forClass(Promotion.class);
+        verify(promotionRepository, times(1)).save(promoCaptor.capture());
+        assertEquals(2, promoCaptor.getValue().getPromotionProducts().size(), "Phải lưu đủ 2 sản phẩm khuyến mại, không bị nuốt phần tử");
+    }
+
+    @Test
+    @DisplayName("RISK-01 / P1 Fix: Tạo khuyến mại nhiều nhóm sản phẩm giữ nguyên toàn bộ targets trong Set")
+    void createPromotion_Success_MultipleProductGroups_RetainsAllTargets() {
+        PromotionCreateRequest request = PromotionCreateRequest.builder()
+                .name("Khuyến mại Đồ uống và Bánh kẹo")
+                .discountType(DiscountType.PERCENTAGE)
+                .discountValue(BigDecimal.valueOf(15))
+                .applyScope(PromotionApplyScope.PRODUCT_GROUP)
+                .startDate(LocalDateTime.now().plusDays(1))
+                .endDate(LocalDateTime.now().plusDays(30))
+                .productGroupIds(List.of("group-1", "group-2", "group-3"))
+                .build();
+
+        when(userRepository.findByUsername("owner")).thenReturn(Optional.of(mockUser));
+        when(promotionRepository.existsByHouseholdIdAndNameAndDeletedAtIsNull("household-123", "Khuyến mại Đồ uống và Bánh kẹo"))
+                .thenReturn(false);
+
+        ProductGroup g1 = ProductGroup.builder().id("group-1").name("Đồ uống").household(mockHousehold).build();
+        ProductGroup g2 = ProductGroup.builder().id("group-2").name("Bánh kẹo").household(mockHousehold).build();
+        ProductGroup g3 = ProductGroup.builder().id("group-3").name("Gia vị").household(mockHousehold).build();
+        when(productGroupRepository.findAllByIdInAndHouseholdIdAndDeletedAtIsNull(List.of("group-1", "group-2", "group-3"), "household-123"))
+                .thenReturn(List.of(g1, g2, g3));
+
+        Promotion savedPromo = Promotion.builder()
+                .id("promo-groups")
+                .household(mockHousehold)
+                .name("Khuyến mại Đồ uống và Bánh kẹo")
+                .discountType(DiscountType.PERCENTAGE)
+                .discountValue(BigDecimal.valueOf(15))
+                .applyScope(PromotionApplyScope.PRODUCT_GROUP)
+                .startDate(request.getStartDate())
+                .endDate(request.getEndDate())
+                .status(PromotionStatus.ACTIVE)
+                .createdByUser(mockUser)
+                .build();
+        when(promotionRepository.save(any(Promotion.class))).thenReturn(savedPromo);
+
+        PromotionResponse response = promotionService.createPromotion("owner", request);
+
+        assertNotNull(response);
+        ArgumentCaptor<Promotion> promoCaptor = ArgumentCaptor.forClass(Promotion.class);
+        verify(promotionRepository, times(1)).save(promoCaptor.capture());
+        assertEquals(3, promoCaptor.getValue().getPromotionProductGroups().size(), "Phải lưu đủ 3 nhóm sản phẩm khuyến mại");
     }
 
     @Test
@@ -541,5 +591,28 @@ class PromotionServiceImplTest {
         assertNull(itemResult.getPromotionId());
         assertEquals(new BigDecimal("0.00"), itemResult.getDiscountAmount());
         assertEquals(new BigDecimal("10000.00"), itemResult.getFinalSubtotal());
+    }
+
+    @Test
+    @DisplayName("P2 Fix: autoApplyPromotions báo lỗi PRODUCT_NOT_FOUND khi sản phẩm không thuộc hộ")
+    void autoApplyPromotions_ProductNotFound_ThrowsException() {
+        Role staffRole = Role.builder().id(2).code("VT-02").name("Nhân viên bán hàng").build();
+        User staffUser = User.builder().id("user-staff").username("nhanvien").role(staffRole).household(mockHousehold).build();
+
+        when(userRepository.findByUsername("nhanvien")).thenReturn(Optional.of(staffUser));
+        when(promotionRepository.findActivePromotionsAtTime(eq("household-123"), any(LocalDateTime.class)))
+                .thenReturn(Collections.emptyList());
+        when(productRepository.findAllByIdInAndHouseholdIdAndDeletedAtIsNull(any(), eq("household-123")))
+                .thenReturn(Collections.emptyList());
+
+        com.sales.dto.request.AutoApplyPromotionRequest request = com.sales.dto.request.AutoApplyPromotionRequest.builder()
+                .items(List.of(com.sales.dto.request.OrderItemPromotionCheckRequest.builder()
+                        .productId("prod-not-found")
+                        .quantity(new BigDecimal("1"))
+                        .build()))
+                .build();
+
+        AppException ex = assertThrows(AppException.class, () -> promotionService.autoApplyPromotions("nhanvien", request));
+        assertEquals(ErrorCode.PRODUCT_NOT_FOUND, ex.getErrorCode());
     }
 }

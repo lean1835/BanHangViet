@@ -238,8 +238,7 @@ public class PromotionServiceImpl implements PromotionService {
         for (OrderItemPromotionCheckRequest itemReq : request.getItems()) {
             Product product = productMap.get(itemReq.getProductId());
             if (product == null) {
-                product = productRepository.findById(itemReq.getProductId())
-                        .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_NOT_FOUND));
+                throw new AppException(ErrorCode.PRODUCT_NOT_FOUND);
             }
 
             PromotionItemResultResponse result = calculateItemWithProduct(

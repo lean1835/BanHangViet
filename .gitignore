@@ -31,3 +31,8 @@ backend/run.log
 *.log
 backend/*.log
 
+# Backups (runtime generated data)
+backups/
+backend/backups/
+*.zip.json
+

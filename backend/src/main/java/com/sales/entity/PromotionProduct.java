@@ -19,7 +19,6 @@ public class PromotionProduct {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     @Column(length = 36, nullable = false)
-    @EqualsAndHashCode.Include
     private String id;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -30,5 +29,6 @@ public class PromotionProduct {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "product_id", nullable = false)
     @ToString.Exclude
+    @EqualsAndHashCode.Include
     private Product product;
 }
