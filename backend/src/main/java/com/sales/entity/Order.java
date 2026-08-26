@@ -57,6 +57,14 @@ public class Order {
     @Builder.Default
     private BigDecimal discountAmount = BigDecimal.ZERO;
 
+    @Column(name = "customer_discount_amount", nullable = false, precision = 15, scale = 2)
+    @Builder.Default
+    private BigDecimal customerDiscountAmount = BigDecimal.ZERO;
+
+    @Column(name = "promotion_discount_amount", nullable = false, precision = 15, scale = 2)
+    @Builder.Default
+    private BigDecimal promotionDiscountAmount = BigDecimal.ZERO;
+
     @Column(name = "final_amount", nullable = false, precision = 15, scale = 2)
     @Builder.Default
     private BigDecimal finalAmount = BigDecimal.ZERO;

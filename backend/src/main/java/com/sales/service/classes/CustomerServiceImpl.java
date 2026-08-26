@@ -72,6 +72,10 @@ public class CustomerServiceImpl implements CustomerService {
         map.put("address", customer.getAddress());
         map.put("creditLimit", customer.getCreditLimit());
         map.put("currentDebt", customer.getCurrentDebt());
+        map.put("discountRate", customer.getDiscountRate());
+        map.put("discountType", customer.getDiscountType());
+        map.put("totalSpent", customer.getTotalSpent());
+        map.put("isVip", customer.getIsVip());
         map.put("reminderDaysBefore", customer.getReminderDaysBefore());
         map.put("reminderDaysAfter", customer.getReminderDaysAfter());
         return map;
@@ -87,11 +91,20 @@ public class CustomerServiceImpl implements CustomerService {
                 .address(customer.getAddress())
                 .creditLimit(customer.getCreditLimit())
                 .currentDebt(customer.getCurrentDebt())
+                .discountRate(customer.getDiscountRate())
+                .discountType(customer.getDiscountType())
+                .totalSpent(customer.getTotalSpent())
+                .isVip(customer.getIsVip())
                 .reminderDaysBefore(customer.getReminderDaysBefore())
                 .reminderDaysAfter(customer.getReminderDaysAfter())
                 .createdAt(customer.getCreatedAt())
                 .updatedAt(customer.getUpdatedAt())
                 .build();
+    }
+
+    private boolean isStoreOwner(User user) {
+        return user != null && user.getRole() != null &&
+                ("VT-01".equals(user.getRole().getCode()) || "OWNER".equalsIgnoreCase(user.getRole().getCode()));
     }
 
     @Override
@@ -109,8 +122,15 @@ public class CustomerServiceImpl implements CustomerService {
         }
 
         BigDecimal creditLimit = request.getCreditLimit() != null ? request.getCreditLimit() : BigDecimal.ZERO;
+        BigDecimal discountRate = request.getDiscountRate() != null ? request.getDiscountRate() : BigDecimal.ZERO;
+        String discountType = request.getDiscountType() != null ? request.getDiscountType() : "PERCENTAGE";
+        Boolean isVip = request.getIsVip() != null ? request.getIsVip() : false;
         Integer reminderDaysBefore = request.getReminderDaysBefore() != null ? request.getReminderDaysBefore() : 3;
         Integer reminderDaysAfter = request.getReminderDaysAfter() != null ? request.getReminderDaysAfter() : 3;
+
+        if (!isStoreOwner(currentUser) && (discountRate.compareTo(BigDecimal.ZERO) > 0 || Boolean.TRUE.equals(isVip))) {
+            throw new AppException(ErrorCode.FORBIDDEN);
+        }
 
         Customer customer = Customer.builder()
                 .household(household)
@@ -120,6 +140,10 @@ public class CustomerServiceImpl implements CustomerService {
                 .address(request.getAddress())
                 .creditLimit(creditLimit)
                 .currentDebt(BigDecimal.ZERO)
+                .discountRate(discountRate)
+                .discountType(discountType)
+                .totalSpent(BigDecimal.ZERO)
+                .isVip(isVip)
                 .reminderDaysBefore(reminderDaysBefore)
                 .reminderDaysAfter(reminderDaysAfter)
                 .build();
@@ -158,6 +182,25 @@ public class CustomerServiceImpl implements CustomerService {
         customer.setAddress(request.getAddress());
         if (request.getCreditLimit() != null) {
             customer.setCreditLimit(request.getCreditLimit());
+        }
+        BigDecimal currentDiscountRate = customer.getDiscountRate() != null ? customer.getDiscountRate() : BigDecimal.ZERO;
+        if (request.getDiscountRate() != null && request.getDiscountRate().compareTo(currentDiscountRate) != 0) {
+            if (!isStoreOwner(currentUser)) {
+                throw new AppException(ErrorCode.FORBIDDEN);
+            }
+            customer.setDiscountRate(request.getDiscountRate());
+        }
+        if (request.getDiscountType() != null && !request.getDiscountType().equalsIgnoreCase(customer.getDiscountType())) {
+            if (!isStoreOwner(currentUser)) {
+                throw new AppException(ErrorCode.FORBIDDEN);
+            }
+            customer.setDiscountType(request.getDiscountType());
+        }
+        if (request.getIsVip() != null && !request.getIsVip().equals(customer.getIsVip())) {
+            if (!isStoreOwner(currentUser)) {
+                throw new AppException(ErrorCode.FORBIDDEN);
+            }
+            customer.setIsVip(request.getIsVip());
         }
         if (request.getReminderDaysBefore() != null) {
             customer.setReminderDaysBefore(request.getReminderDaysBefore());
