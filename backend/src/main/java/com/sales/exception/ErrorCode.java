@@ -119,6 +119,11 @@ public enum ErrorCode {
     PROMOTION_NAME_EXISTS(3055, "Tên chương trình khuyến mại đã tồn tại trong hộ kinh doanh", HttpStatus.BAD_REQUEST),
     PROMOTION_REMOVE_REQUIRES_OWNER(3056, "Nhân viên không có quyền bỏ khuyến mại tự động, cần có sự phê duyệt của chủ hộ kinh doanh", HttpStatus.FORBIDDEN),
 
+    // NCL-16 Mã vạch (NCL-16-CN-002)
+    BARCODE_ALREADY_EXISTS(3057, "Mã vạch đã tồn tại trong hộ kinh doanh", HttpStatus.BAD_REQUEST),
+    FORBIDDEN_BARCODE_MANAGEMENT(3058, "Chỉ chủ hộ kinh doanh mới có quyền thao tác mã vạch", HttpStatus.FORBIDDEN),
+    BARCODE_GENERATION_FAILED(3059, "Không thể sinh mã vạch nội bộ", HttpStatus.INTERNAL_SERVER_ERROR),
+
     // NCL-12 Sổ sách & Hỗ trợ kê khai thuế theo kỳ
     NO_VALID_INVOICES_IN_PERIOD(5001, "Kỳ kê khai chưa có hóa đơn hợp lệ được cấp mã", HttpStatus.BAD_REQUEST),
     TAX_PERIOD_NOT_FOUND(5002, "Kỳ kê khai thuế không tồn tại", HttpStatus.NOT_FOUND),

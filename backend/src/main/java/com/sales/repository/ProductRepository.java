@@ -27,6 +27,12 @@ public interface ProductRepository extends JpaRepository<Product, String>, JpaSp
 
     boolean existsBySkuAndHouseholdIdAndIdNotAndDeletedAtIsNull(String sku, String householdId, String id);
 
+    boolean existsByHouseholdIdAndBarcodeAndDeletedAtIsNull(String householdId, String barcode);
+
+    boolean existsByHouseholdIdAndBarcodeAndIdNotAndDeletedAtIsNull(String householdId, String barcode, String id);
+
+    Optional<Product> findByHouseholdIdAndBarcodeAndDeletedAtIsNull(String householdId, String barcode);
+
     boolean existsByHouseholdIdAndTaxRateIdAndDeletedAtIsNull(String householdId, String taxRateId);
 
     @EntityGraph(attributePaths = {"group", "taxRate", "household"})
