@@ -9,9 +9,13 @@ import com.sales.exception.ErrorCode;
 import com.sales.repository.OrderRepository;
 import com.sales.repository.PointOfSaleRepository;
 import com.sales.repository.UserRepository;
+import com.sales.service.interfaces.InventoryWarningService;
 import com.sales.service.interfaces.SalesAnalyticsService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -31,6 +35,8 @@ public class SalesAnalyticsServiceImpl implements SalesAnalyticsService {
     private final UserRepository userRepository;
     private final OrderRepository orderRepository;
     private final PointOfSaleRepository pointOfSaleRepository;
+    private final InventoryWarningService inventoryWarningService;
+
 
     private static final String[] DAY_NAMES = {
             "Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy", "Chủ Nhật"
@@ -336,4 +342,12 @@ public class SalesAnalyticsServiceImpl implements SalesAnalyticsService {
 
         return recommendations;
     }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PageResponse<PurchaseSuggestionResponse> getPurchaseForecast(
+            String currentUsername, Integer periodDays, String groupId, int page, int size) {
+        return inventoryWarningService.getPurchaseSuggestions(currentUsername, periodDays, groupId, page, size);
+    }
 }
+
