@@ -11,6 +11,8 @@ import com.sales.dto.request.PromotionUpdateRequest;
 import com.sales.dto.response.AutoApplyPromotionResponse;
 import com.sales.dto.response.PromotionDetailResponse;
 import com.sales.dto.response.PromotionItemResultResponse;
+import com.sales.dto.response.PromotionProductStatResponse;
+import com.sales.dto.response.PromotionReportResponse;
 import com.sales.dto.response.PromotionResponse;
 import com.sales.entity.*;
 import com.sales.exception.AppException;
@@ -47,6 +49,7 @@ public class PromotionServiceImpl implements PromotionService {
     private final UserRepository userRepository;
     private final ProductRepository productRepository;
     private final ProductGroupRepository productGroupRepository;
+    private final OrderItemRepository orderItemRepository;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -175,6 +178,127 @@ public class PromotionServiceImpl implements PromotionService {
                 .updatedAt(promotion.getUpdatedAt())
                 .products(products)
                 .productGroups(productGroups)
+                .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PromotionReportResponse getPromotionReport(String currentUsername, String promotionId) {
+        User user = getCurrentUser(currentUsername);
+        String householdId = user.getHousehold().getId();
+
+        Promotion promotion = promotionRepository.findDetailByIdAndHouseholdId(promotionId, householdId)
+                .orElseThrow(() -> new AppException(ErrorCode.PROMOTION_NOT_FOUND));
+
+        OrderItemRepository.PromotionMetricsProjection metrics = orderItemRepository.getPromotionMetrics(promotionId);
+        Long totalOrdersCount = (metrics != null && metrics.getTotalOrdersCount() != null) ? metrics.getTotalOrdersCount() : 0L;
+        BigDecimal totalQuantitySold = (metrics != null && metrics.getTotalQuantitySold() != null) ? metrics.getTotalQuantitySold() : BigDecimal.ZERO;
+        BigDecimal promotionRevenue = (metrics != null && metrics.getPromotionRevenue() != null) ? metrics.getPromotionRevenue() : BigDecimal.ZERO;
+        BigDecimal totalDiscountAmount = (metrics != null && metrics.getTotalDiscountAmount() != null) ? metrics.getTotalDiscountAmount() : BigDecimal.ZERO;
+
+        if (totalOrdersCount == 0 || promotionRevenue.compareTo(BigDecimal.ZERO) == 0) {
+            return PromotionReportResponse.builder()
+                    .promotionId(promotion.getId())
+                    .promotionName(promotion.getName())
+                    .description(promotion.getDescription())
+                    .discountType(promotion.getDiscountType())
+                    .discountValue(promotion.getDiscountValue())
+                    .applyScope(promotion.getApplyScope())
+                    .startDate(promotion.getStartDate())
+                    .endDate(promotion.getEndDate())
+                    .status(promotion.getStatus())
+                    .hasData(false)
+                    .message("Chưa có giao dịch trong đợt khuyến mại này")
+                    .totalOrdersCount(0L)
+                    .totalQuantitySold(BigDecimal.ZERO)
+                    .promotionRevenue(BigDecimal.ZERO)
+                    .totalDiscountAmount(BigDecimal.ZERO)
+                    .baselineRevenue(BigDecimal.ZERO)
+                    .incrementalRevenue(BigDecimal.ZERO)
+                    .netResult(BigDecimal.ZERO)
+                    .productStats(Collections.emptyList())
+                    .build();
+        }
+
+        List<OrderItemRepository.PromotionProductStatProjection> rawStats = orderItemRepository.getPromotionProductStats(promotionId);
+        List<PromotionProductStatResponse> productStats = rawStats.stream()
+                .map(s -> PromotionProductStatResponse.builder()
+                        .productId(s.getProductId())
+                        .productName(s.getProductName())
+                        .quantitySold(s.getQuantitySold())
+                        .revenue(s.getRevenue())
+                        .discountAmount(s.getDiscountAmount())
+                        .build())
+                .collect(Collectors.toList());
+
+        LocalDateTime promoStart = promotion.getStartDate();
+        LocalDateTime promoEnd = promotion.getEndDate();
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime effectiveEnd = promoEnd.isAfter(now) ? now : promoEnd;
+        long durationInSeconds = java.time.Duration.between(promoStart, effectiveEnd).getSeconds();
+        if (durationInSeconds <= 0) {
+            durationInSeconds = 86400;
+        }
+
+        LocalDateTime baselineStart = promoStart.minusSeconds(durationInSeconds);
+        LocalDateTime baselineEnd = promoStart;
+
+        BigDecimal baselineRevenue = BigDecimal.ZERO;
+        if (promotion.getApplyScope() == PromotionApplyScope.ALL) {
+            baselineRevenue = orderItemRepository.getBaselineRevenueForAll(householdId, baselineStart, baselineEnd);
+        } else {
+            List<String> productIds = new ArrayList<>();
+            if (promotion.getPromotionProducts() != null && !promotion.getPromotionProducts().isEmpty()) {
+                productIds.addAll(promotion.getPromotionProducts().stream()
+                        .map(pp -> pp.getProduct().getId())
+                        .collect(Collectors.toList()));
+            }
+            if (promotion.getPromotionProductGroups() != null && !promotion.getPromotionProductGroups().isEmpty()) {
+                List<String> groupIds = promotion.getPromotionProductGroups().stream()
+                        .map(pg -> pg.getProductGroup().getId())
+                        .collect(Collectors.toList());
+                if (!groupIds.isEmpty()) {
+                    List<String> groupProductIds = productRepository.findProductIdsByGroupIdInAndDeletedAtIsNull(groupIds);
+                    for (String gpid : groupProductIds) {
+                        if (!productIds.contains(gpid)) {
+                            productIds.add(gpid);
+                        }
+                    }
+                }
+            }
+            if (!productIds.isEmpty()) {
+                baselineRevenue = orderItemRepository.getBaselineRevenueForProducts(householdId, productIds, baselineStart, baselineEnd);
+            }
+        }
+        if (baselineRevenue == null) {
+            baselineRevenue = BigDecimal.ZERO;
+        }
+
+        BigDecimal incrementalRevenue = promotionRevenue.subtract(baselineRevenue);
+        BigDecimal netResult = incrementalRevenue.subtract(totalDiscountAmount);
+
+        return PromotionReportResponse.builder()
+                .promotionId(promotion.getId())
+                .promotionName(promotion.getName())
+                .description(promotion.getDescription())
+                .discountType(promotion.getDiscountType())
+                .discountValue(promotion.getDiscountValue())
+                .applyScope(promotion.getApplyScope())
+                .startDate(promotion.getStartDate())
+                .endDate(promotion.getEndDate())
+                .status(promotion.getStatus())
+                .hasData(true)
+                .message("Lấy báo cáo hiệu quả khuyến mại thành công")
+                .totalOrdersCount(totalOrdersCount)
+                .totalQuantitySold(totalQuantitySold)
+                .promotionRevenue(promotionRevenue)
+                .totalDiscountAmount(totalDiscountAmount)
+                .baselineStartDate(baselineStart)
+                .baselineEndDate(baselineEnd)
+                .baselineRevenue(baselineRevenue)
+                .incrementalRevenue(incrementalRevenue)
+                .netResult(netResult)
+                .productStats(productStats)
                 .build();
     }
 

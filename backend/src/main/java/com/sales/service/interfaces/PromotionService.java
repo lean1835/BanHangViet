@@ -7,6 +7,7 @@ import com.sales.dto.request.PromotionUpdateRequest;
 import com.sales.dto.response.AutoApplyPromotionResponse;
 import com.sales.dto.response.PromotionDetailResponse;
 import com.sales.dto.response.PromotionItemResultResponse;
+import com.sales.dto.response.PromotionReportResponse;
 import com.sales.dto.response.PromotionResponse;
 import com.sales.entity.User;
 import org.springframework.data.domain.Page;
@@ -23,6 +24,8 @@ public interface PromotionService {
     void deletePromotion(String currentUsername, String promotionId);
 
     PromotionDetailResponse getPromotionById(String currentUsername, String promotionId);
+
+    PromotionReportResponse getPromotionReport(String currentUsername, String promotionId);
 
     Page<PromotionResponse> getPromotions(String currentUsername, PromotionSearchParam param, Pageable pageable);
 

@@ -55,6 +55,9 @@ public interface ProductRepository extends JpaRepository<Product, String>, JpaSp
     @Query("SELECT p.id FROM Product p WHERE p.group.id = :groupId AND p.deletedAt IS NULL")
     List<String> findProductIdsByGroupIdAndDeletedAtIsNull(@Param("groupId") String groupId);
 
+    @Query("SELECT p.id FROM Product p WHERE p.group.id IN :groupIds AND p.deletedAt IS NULL")
+    List<String> findProductIdsByGroupIdInAndDeletedAtIsNull(@Param("groupIds") Collection<String> groupIds);
+
     @Modifying(clearAutomatically = true)
     @Query("UPDATE Product p SET p.group = null, p.updatedAt = :updatedAt WHERE p.group.id = :groupId AND p.deletedAt IS NULL")
     void clearGroupId(@Param("groupId") String groupId, @Param("updatedAt") LocalDateTime updatedAt);

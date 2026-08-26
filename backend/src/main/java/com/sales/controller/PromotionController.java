@@ -8,6 +8,7 @@ import com.sales.dto.request.PromotionUpdateRequest;
 import com.sales.dto.response.AutoApplyPromotionResponse;
 import com.sales.dto.response.PageResponse;
 import com.sales.dto.response.PromotionDetailResponse;
+import com.sales.dto.response.PromotionReportResponse;
 import com.sales.dto.response.PromotionResponse;
 import com.sales.service.interfaces.PromotionService;
 import jakarta.validation.Valid;
@@ -94,6 +95,20 @@ public class PromotionController {
         ApiResponse<PromotionDetailResponse> response = ApiResponse.<PromotionDetailResponse>builder()
                 .code(1000)
                 .message("Lấy chi tiết chương trình khuyến mại thành công")
+                .result(result)
+                .build();
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/{id}/report")
+    @PreAuthorize("hasAnyRole('VT-01', 'VT-03', 'OWNER', 'ADMIN')")
+    public ResponseEntity<ApiResponse<PromotionReportResponse>> getPromotionReport(
+            Principal principal,
+            @PathVariable("id") String id) {
+        PromotionReportResponse result = promotionService.getPromotionReport(principal.getName(), id);
+        ApiResponse<PromotionReportResponse> response = ApiResponse.<PromotionReportResponse>builder()
+                .code(1000)
+                .message("Lấy báo cáo hiệu quả khuyến mại thành công")
                 .result(result)
                 .build();
         return ResponseEntity.ok(response);
