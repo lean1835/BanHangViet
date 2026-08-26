@@ -40,7 +40,7 @@ public interface ProductRepository extends JpaRepository<Product, String>, JpaSp
           AND p.deletedAt IS NULL 
           AND p.status = 'ACTIVE'
     """)
-    Optional<Product> findByHouseholdIdAndBarcodeOrSku(@Param("householdId") String householdId, @Param("code") String code);
+    List<Product> findByHouseholdIdAndBarcodeOrSku(@Param("householdId") String householdId, @Param("code") String code);
 
     @EntityGraph(attributePaths = {"group", "taxRate", "household"})
     List<Product> findByGroupIdAndDeletedAtIsNull(String groupId);

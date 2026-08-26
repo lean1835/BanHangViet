@@ -1,16 +1,14 @@
 package com.sales.service.classes;
 
-import com.sales.constant.ShiftStatus;
 import com.sales.dto.request.BarcodeScanRequest;
+import com.sales.dto.request.CreateOrderItemRequest;
 import com.sales.dto.response.BarcodeScanResponse;
 import com.sales.dto.response.OrderResponse;
 import com.sales.dto.response.PromotionItemResultResponse;
-import com.sales.entity.*;
+import com.sales.entity.Product;
+import com.sales.entity.User;
 import com.sales.exception.AppException;
 import com.sales.exception.ErrorCode;
-import com.sales.repository.OrderItemRepository;
-import com.sales.repository.OrderRepository;
-import com.sales.repository.PosInventoryRepository;
 import com.sales.repository.ProductRepository;
 import com.sales.repository.UserRepository;
 import com.sales.service.interfaces.BarcodeService;
@@ -22,8 +20,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
-import java.util.Optional;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -32,30 +29,8 @@ public class BarcodeServiceImpl implements BarcodeService {
 
     private final UserRepository userRepository;
     private final ProductRepository productRepository;
-    private final OrderRepository orderRepository;
-    private final OrderItemRepository orderItemRepository;
     private final PromotionService promotionService;
     private final OrderService orderService;
-    private final PosInventoryRepository posInventoryRepository;
-
-    private void checkOrderOwnership(Order order, User currentUser) {
-        boolean isSalesperson = currentUser.getRole() != null && "VT-02".equals(currentUser.getRole().getCode());
-        if (isSalesperson) {
-            if (currentUser.getPointOfSale() != null && order.getPointOfSale() != null
-                    && !currentUser.getPointOfSale().getId().equals(order.getPointOfSale().getId())) {
-                throw new AppException(ErrorCode.POS_EMPLOYEE_ACCESS_DENIED);
-            }
-            if (order.getCreatedByUser() != null && !order.getCreatedByUser().getId().equals(currentUser.getId())) {
-                throw new AppException(ErrorCode.FORBIDDEN);
-            }
-        }
-    }
-
-    private void validateShiftIsOpen(Order order) {
-        if (order.getShift() != null && order.getShift().getStatus() == ShiftStatus.CLOSED) {
-            throw new AppException(ErrorCode.SHIFT_ALREADY_CLOSED);
-        }
-    }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -70,11 +45,11 @@ public class BarcodeServiceImpl implements BarcodeService {
         String householdId = user.getHousehold().getId();
         String scannedCode = request.getBarcode() != null ? request.getBarcode().trim() : "";
 
-        // 1. Tra cứu sản phẩm theo mã vạch (barcode) hoặc SKU trong Hộ kinh doanh
-        Optional<Product> productOpt = productRepository.findByHouseholdIdAndBarcodeOrSku(householdId, scannedCode);
+        // 1. Tra cứu sản phẩm theo mã vạch (barcode) hoặc SKU trong Hộ kinh doanh (Lấy danh sách tránh lỗi NonUniqueResultException)
+        List<Product> products = productRepository.findByHouseholdIdAndBarcodeOrSku(householdId, scannedCode);
 
         // 2. Trường hợp không tìm thấy sản phẩm (NCL-16-CN-001-TC-02)
-        if (productOpt.isEmpty()) {
+        if (products.isEmpty()) {
             log.info("Barcode scan failed: code '{}' not found in household '{}'", scannedCode, householdId);
             return BarcodeScanResponse.builder()
                     .found(false)
@@ -84,102 +59,31 @@ public class BarcodeServiceImpl implements BarcodeService {
                     .build();
         }
 
-        Product product = productOpt.get();
+        // Lựa chọn sản phẩm khớp ưu tiên barcode trước SKU
+        Product product = products.stream()
+                .filter(p -> scannedCode.equalsIgnoreCase(p.getBarcode()))
+                .findFirst()
+                .orElse(products.get(0));
+
         BigDecimal scanQty = (request.getQuantity() != null && request.getQuantity().compareTo(BigDecimal.ZERO) > 0)
                 ? request.getQuantity() : BigDecimal.ONE;
 
-        // 3. Tính toán khuyến mại tự động áp dụng cho mặt hàng
+        // 3. Tính toán khuyến mại tự động áp dụng cho mặt hàng để xem trước thông tin
         PromotionItemResultResponse promoResult = promotionService.calculateItemPromotion(
                 user, product, scanQty, product.getPrice(), false
         );
 
         OrderResponse updatedOrderResponse = null;
 
-        // 4. Nếu có truyền orderId -> Thêm hoặc cộng dồn số lượng vào đơn bán hàng đang tạo (NCL-16-CN-001-TC-03)
+        // 4. Nếu có truyền orderId -> Ủy quyền cho OrderService thực hiện thêm/cộng dồn số lượng, tính lại tổng đơn hàng (bao gồm chiết khấu VIP & VAT) và ghi Nhật ký kiểm toán (ActivityLog per QTN-25)
         if (request.getOrderId() != null && !request.getOrderId().trim().isEmpty()) {
-            Order order = orderRepository.findByIdAndHouseholdIdAndDeletedAtIsNull(request.getOrderId().trim(), householdId)
-                    .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));
+            CreateOrderItemRequest itemRequest = CreateOrderItemRequest.builder()
+                    .productId(product.getId())
+                    .quantity(scanQty)
+                    .bypassPromotion(false)
+                    .build();
 
-            // [P1-02 Fix] Kiểm tra quyền sở hữu đơn hàng và trạng thái ca làm việc
-            checkOrderOwnership(order, user);
-            validateShiftIsOpen(order);
-
-            // [P2-02 Fix] Kiểm tra sản phẩm đã khai báo tồn tại điểm bán chưa
-            if (order.getPointOfSale() != null) {
-                if (!posInventoryRepository.existsByPointOfSaleIdAndProductId(order.getPointOfSale().getId(), product.getId())) {
-                    throw new AppException(ErrorCode.POS_PRODUCT_NOT_INITIALIZED);
-                }
-            }
-
-            if (!"CREATING".equals(order.getStatus())) {
-                throw new AppException(ErrorCode.ORDER_ALREADY_PAID);
-            }
-
-            // Tìm dòng sản phẩm đã có trong đơn hàng
-            Optional<OrderItem> existingItemOpt = order.getItems().stream()
-                    .filter(item -> item.getProduct() != null && item.getProduct().getId().equals(product.getId()))
-                    .findFirst();
-
-            if (existingItemOpt.isPresent()) {
-                // Cộng dồn số lượng khi quét cùng một mã vạch nhiều lần (NCL-16-CN-001-TC-03)
-                OrderItem existingItem = existingItemOpt.get();
-                BigDecimal newQty = existingItem.getQuantity().add(scanQty);
-
-                PromotionItemResultResponse newPromoResult = promotionService.calculateItemPromotion(
-                        user, product, newQty, product.getPrice(), false
-                );
-
-                // [P1-01 Fix] Tính toán thuế VAT và cộng vào subtotal dòng hàng
-                BigDecimal taxRate = product.getTaxRate() != null ? product.getTaxRate().getRatePercentage() : BigDecimal.ZERO;
-                BigDecimal baseAmount = newPromoResult.getFinalSubtotal();
-                BigDecimal taxAmount = baseAmount.multiply(taxRate).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
-                BigDecimal lineSubtotal = baseAmount.add(taxAmount);
-
-                existingItem.setQuantity(newQty);
-                existingItem.setDiscountAmount(newPromoResult.getDiscountAmount());
-                existingItem.setSubtotal(lineSubtotal);
-                existingItem.setTaxRatePercentage(taxRate);
-                existingItem.setTaxAmount(taxAmount);
-
-                if (newPromoResult.getPromotionId() != null) {
-                    existingItem.setPromotion(Promotion.builder().id(newPromoResult.getPromotionId()).build());
-                    existingItem.setPromotionName(newPromoResult.getPromotionName());
-                } else {
-                    existingItem.setPromotion(null);
-                    existingItem.setPromotionName(null);
-                }
-
-                orderItemRepository.save(existingItem);
-            } else {
-                // Thêm mới dòng sản phẩm vào đơn hàng
-                // [P1-01 Fix] Tính toán thuế VAT và cộng vào subtotal dòng hàng
-                BigDecimal taxRate = product.getTaxRate() != null ? product.getTaxRate().getRatePercentage() : BigDecimal.ZERO;
-                BigDecimal baseAmount = promoResult.getFinalSubtotal();
-                BigDecimal taxAmount = baseAmount.multiply(taxRate).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
-                BigDecimal lineSubtotal = baseAmount.add(taxAmount);
-
-                OrderItem newItem = OrderItem.builder()
-                        .order(order)
-                        .product(product)
-                        .productName(product.getName())
-                        .quantity(scanQty)
-                        .unitPrice(product.getPrice())
-                        .discountAmount(promoResult.getDiscountAmount())
-                        .promotion(promoResult.getPromotionId() != null ? Promotion.builder().id(promoResult.getPromotionId()).build() : null)
-                        .promotionName(promoResult.getPromotionName())
-                        .taxRatePercentage(taxRate)
-                        .taxAmount(taxAmount)
-                        .subtotal(lineSubtotal)
-                        .build();
-
-                order.getItems().add(newItem);
-                orderItemRepository.save(newItem);
-            }
-
-            recalculateOrderTotals(order);
-            orderRepository.save(order);
-
-            updatedOrderResponse = orderService.getOrder(currentUsername, order.getId());
+            updatedOrderResponse = orderService.addOrderItem(currentUsername, request.getOrderId().trim(), itemRequest);
         }
 
         return BarcodeScanResponse.builder()
@@ -199,28 +103,5 @@ public class BarcodeServiceImpl implements BarcodeService {
                 .promotionName(promoResult.getPromotionName())
                 .order(updatedOrderResponse)
                 .build();
-    }
-
-    private void recalculateOrderTotals(Order order) {
-        BigDecimal total = BigDecimal.ZERO;
-        for (OrderItem item : order.getItems()) {
-            total = total.add(item.getSubtotal());
-        }
-        order.setTotalAmount(total);
-
-        BigDecimal discountAmount = order.getDiscountAmount();
-        if (order.getDiscountType() != null) {
-            if ("PERCENTAGE".equals(order.getDiscountType())) {
-                BigDecimal rate = order.getDiscountRateOrValue() != null ? order.getDiscountRateOrValue() : BigDecimal.ZERO;
-                discountAmount = total.multiply(rate).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
-            } else if ("CASH".equals(order.getDiscountType())) {
-                discountAmount = order.getDiscountRateOrValue() != null ? order.getDiscountRateOrValue() : BigDecimal.ZERO;
-            }
-        }
-        if (discountAmount.compareTo(total) > 0) {
-            discountAmount = total;
-        }
-        order.setDiscountAmount(discountAmount);
-        order.setFinalAmount(total.subtract(discountAmount).max(BigDecimal.ZERO));
     }
 }

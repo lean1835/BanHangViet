@@ -20,7 +20,7 @@ public class BarcodeController {
     private final BarcodeService barcodeService;
 
     @PostMapping("/scan")
-    @PreAuthorize("hasAnyRole('VT-01', 'VT-02', 'VT-03', 'OWNER', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('VT-01', 'VT-02')")
     public ResponseEntity<ApiResponse<BarcodeScanResponse>> scanBarcode(
             Principal principal,
             @Valid @RequestBody BarcodeScanRequest request

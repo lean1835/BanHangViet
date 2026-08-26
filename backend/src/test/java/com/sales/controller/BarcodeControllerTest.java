@@ -56,6 +56,7 @@ public class BarcodeControllerTest {
 
     private BusinessHousehold household;
     private User sellerUser;
+    private User accountantUser;
     private Product product;
 
     @BeforeEach
@@ -68,6 +69,7 @@ public class BarcodeControllerTest {
                 .build());
 
         Role sellerRole = roleRepository.findByCode("VT-02").orElseThrow();
+        Role accountantRole = roleRepository.findByCode("VT-03").orElseThrow();
 
         sellerUser = userRepository.save(User.builder()
                 .username("seller_barcode_" + UUID.randomUUID().toString().substring(0, 6))
@@ -75,6 +77,15 @@ public class BarcodeControllerTest {
                 .fullName("Nhân Viên Bán Hàng Mã Vạch")
                 .household(household)
                 .role(sellerRole)
+                .isActive(true)
+                .build());
+
+        accountantUser = userRepository.save(User.builder()
+                .username("accountant_barcode_" + UUID.randomUUID().toString().substring(0, 6))
+                .passwordHash("password_hash")
+                .fullName("Kế Toán Viên")
+                .household(household)
+                .role(accountantRole)
                 .isActive(true)
                 .build());
 
@@ -143,5 +154,19 @@ public class BarcodeControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("RBAC: Vai trò VT-03 (Kế toán) bị cấm quét mã vạch sửa đơn hàng -> Trả về 403 Forbidden")
+    void scanBarcode_AccountantRole_Returns403Forbidden() throws Exception {
+        BarcodeScanRequest request = BarcodeScanRequest.builder()
+                .barcode("8934567899999")
+                .build();
+
+        mockMvc.perform(post("/api/v1/barcodes/scan")
+                        .with(user(accountantUser.getUsername()).roles("VT-03"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isForbidden());
     }
 }
