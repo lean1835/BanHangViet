@@ -258,4 +258,24 @@ public class ProductServiceImpl implements ProductService {
                 .last(productPage.isLast())
                 .build();
     }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ProductResponse> voiceSearchProducts(String currentUsername, String query, String groupId, int limit) {
+        User currentUser = getAuthenticatedUser(currentUsername);
+        BusinessHousehold household = currentUser.getHousehold();
+        if (household == null) {
+            throw new AppException(ErrorCode.FORBIDDEN);
+        }
+
+        int effectiveLimit = limit > 0 ? Math.min(limit, 50) : 10;
+        Specification<Product> spec = ProductSpecification.filterVoiceSearch(household.getId(), query, groupId);
+        Pageable pageable = PageRequest.of(0, effectiveLimit, Sort.by(Sort.Direction.ASC, "name"));
+
+        Page<Product> productPage = productRepository.findAll(spec, pageable);
+
+        return productPage.getContent().stream()
+                .map(this::mapToResponse)
+                .collect(Collectors.toList());
+    }
 }

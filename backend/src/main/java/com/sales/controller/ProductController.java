@@ -140,4 +140,20 @@ public class ProductController {
                 .build();
         return ResponseEntity.ok(response);
     }
+
+    @GetMapping("/voice-search")
+    @PreAuthorize("hasAnyRole('VT-01', 'VT-02', 'VT-03')")
+    public ResponseEntity<ApiResponse<java.util.List<ProductResponse>>> voiceSearchProducts(
+            Principal principal,
+            @RequestParam(required = false) String query,
+            @RequestParam(required = false) String groupId,
+            @RequestParam(defaultValue = "10") int limit) {
+        java.util.List<ProductResponse> result = productService.voiceSearchProducts(principal.getName(), query, groupId, limit);
+        ApiResponse<java.util.List<ProductResponse>> response = ApiResponse.<java.util.List<ProductResponse>>builder()
+                .code(1000)
+                .message("Tìm kiếm hàng hóa bằng giọng nói thành công")
+                .result(result)
+                .build();
+        return ResponseEntity.ok(response);
+    }
 }
