@@ -10,6 +10,7 @@ import {
 import type {
   IProduct,
   IGetProductsParams,
+  IVoiceSearchParams,
   TProductPayload,
 } from "@/modules/product/types/IProduct";
 import type { IProductGroup } from "@/modules/product/types/IProductGroup";
@@ -51,6 +52,7 @@ const toProduct = (value: unknown): IProduct => {
   return {
     id: readString(product.id),
     sku: readString(product.sku),
+    barcode: readNullableString(product.barcode),
     name: readString(product.name),
     unit: readString(product.unit),
     price: readNumber(product.price),
@@ -300,6 +302,7 @@ export const productApi = baseApi.injectEndpoints({
         method: HTTP_METHODS.POST,
         body: {
           sku: productData.sku,
+          barcode: productData.barcode || undefined,
           name: productData.name,
           unit: productData.unit,
           price: productData.price,
@@ -340,6 +343,7 @@ export const productApi = baseApi.injectEndpoints({
         method: HTTP_METHODS.PUT,
         body: {
           sku: data.sku,
+          barcode: data.barcode || undefined,
           name: data.name,
           unit: data.unit,
           price: data.price,
@@ -640,6 +644,27 @@ export const productApi = baseApi.injectEndpoints({
         },
       ],
     }),
+    voiceSearchProducts: builder.query<IProduct[], IVoiceSearchParams | void>({
+      query: (params) => ({
+        url: PRODUCT_API_ENDPOINTS.VOICE_SEARCH,
+        method: HTTP_METHODS.GET,
+        params: params || {},
+      }),
+      transformResponse: (response: unknown): IProduct[] => {
+        const result = readResult(response);
+        return Array.isArray(result) ? result.map(toProduct) : [];
+      },
+      providesTags: (result) =>
+        result && result.length > 0
+          ? [
+              ...result.map(({ id }) => ({
+                type: API_TAG_TYPES.PRODUCT,
+                id,
+              })),
+              { type: API_TAG_TYPES.PRODUCT, id: PRODUCT_API_TAG_IDS.LIST },
+            ]
+          : [{ type: API_TAG_TYPES.PRODUCT, id: PRODUCT_API_TAG_IDS.LIST }],
+    }),
   }),
   overrideExisting: API_CONFIG.OVERRIDE_EXISTING_ENDPOINTS,
 });
@@ -661,4 +686,6 @@ export const {
   useGetLowStockWarningsQuery,
   useGetPurchaseSuggestionsQuery,
   useUpdateMinStockMutation,
+  useVoiceSearchProductsQuery,
+  useLazyVoiceSearchProductsQuery,
 } = productApi;

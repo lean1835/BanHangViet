@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { Search, Plus, Edit, Trash2, FileSpreadsheet, AlertTriangle } from "lucide-react";
+import { Search, Plus, Edit, Trash2, FileSpreadsheet, AlertTriangle, Printer, Barcode, Mic } from "lucide-react";
 import { ImportProductsModal } from "@/modules/product/components/ImportProductsModal";
+import { BarcodePrintModal } from "@/modules/barcode/components/BarcodePrintModal";
+import { VoiceSearchModal } from "@/modules/product/components/VoiceSearchModal";
 import {
   PRODUCT_FILTER,
   PRODUCT_API_RESPONSE_DEFAULTS,
@@ -66,6 +68,12 @@ export const ProductList: React.FC<ProductListProps> = ({
   // Delete modal controls
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [productToDelete, setProductToDelete] = useState<{ id: string; name: string } | null>(null);
+
+  // Barcode print modal controls
+  const [barcodePrintProduct, setBarcodePrintProduct] = useState<{ id: string; name: string } | null>(null);
+
+  // Voice search modal controls
+  const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
 
   // Reset page to 0 on filter changes
   useEffect(() => {
@@ -168,7 +176,7 @@ export const ProductList: React.FC<ProductListProps> = ({
     <div className="flex flex-col gap-4 w-full animate-auth-fade-in">
       {/* Top action row */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        {/* Search bar input */}
+        {/* Search bar input with Voice Search */}
         <div className="relative flex-1 max-w-md">
           <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-400">
             <Search size={14} />
@@ -178,8 +186,16 @@ export const ProductList: React.FC<ProductListProps> = ({
             placeholder={PRODUCT_LIST_COPY.SEARCH_PLACEHOLDER}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="h-11 w-full rounded-lg border border-slate-300 bg-white pl-9 pr-4 text-xs font-semibold text-slate-700 shadow-sm transition-all focus:border-kv-blue-primary focus:outline-none lg:h-9"
+            className="h-11 w-full rounded-lg border border-slate-300 bg-white pl-9 pr-10 text-xs font-semibold text-slate-700 shadow-sm transition-all focus:border-kv-blue-primary focus:outline-none lg:h-9"
           />
+          <button
+            type="button"
+            onClick={() => setIsVoiceModalOpen(true)}
+            className="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 hover:text-blue-600 transition-colors"
+            title="Tìm hàng bằng giọng nói"
+          >
+            <Mic size={15} />
+          </button>
         </div>
 
         {/* Buttons */}
@@ -299,7 +315,15 @@ export const ProductList: React.FC<ProductListProps> = ({
                           index +
                           PRODUCT_QUERY_CONFIG.DISPLAY_INDEX_OFFSET}
                       </td>
-                      <td className="p-3 font-mono font-bold text-slate-800">{prod.sku}</td>
+                      <td className="p-3 font-mono font-bold text-slate-800">
+                        <div>{prod.sku}</div>
+                        {prod.barcode && (
+                          <div className="text-[10px] text-[#0070f4] flex items-center gap-1 font-semibold tracking-normal mt-0.5">
+                            <Barcode size={11} className="shrink-0" />
+                            <span>{prod.barcode}</span>
+                          </div>
+                        )}
+                      </td>
                       <td className="p-3 font-bold text-slate-800 break-words max-w-[220px]">
                         {prod.name}
                       </td>
@@ -354,6 +378,14 @@ export const ProductList: React.FC<ProductListProps> = ({
                       {isOwner && (
                         <td className="p-3">
                           <div className="flex items-center justify-center gap-1.5 opacity-100 transition-opacity lg:opacity-0 lg:group-hover:opacity-100 lg:group-focus-within:opacity-100">
+                            <button
+                              onClick={() => setBarcodePrintProduct({ id: prod.id, name: prod.name })}
+                              title="In tem mã vạch"
+                              aria-label="In tem mã vạch"
+                              className="flex min-h-11 min-w-11 items-center justify-center rounded p-1 text-slate-500 transition-colors hover:bg-slate-100 hover:text-amber-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500 lg:min-h-0 lg:min-w-0"
+                            >
+                              <Printer size={14} />
+                            </button>
                             <button
                               onClick={() => handleEditProduct(prod)}
                               title={PRODUCT_LIST_COPY.EDIT_TOOLTIP}
@@ -501,6 +533,31 @@ export const ProductList: React.FC<ProductListProps> = ({
           refetch();
         }}
       />
+
+      {/* Barcode Print Modal */}
+      {barcodePrintProduct && (
+        <BarcodePrintModal
+          isOpen={Boolean(barcodePrintProduct)}
+          onClose={() => {
+            setBarcodePrintProduct(null);
+            refetch();
+          }}
+          productId={barcodePrintProduct.id}
+          productName={barcodePrintProduct.name}
+        />
+      )}
+
+      {/* Voice Search Modal */}
+      {isVoiceModalOpen && (
+        <VoiceSearchModal
+          isOpen={isVoiceModalOpen}
+          onClose={() => setIsVoiceModalOpen(false)}
+          onSelectProduct={(product) => {
+            setSearchQuery(product.name);
+          }}
+          groupId={selectedGroup === PRODUCT_FILTER.ALL ? undefined : selectedGroup}
+        />
+      )}
     </div>
   );
 };

@@ -30,7 +30,7 @@ export const PosCartTable: React.FC<IPosCartTableProps> = ({
           Đơn hàng chưa có sản phẩm nào
         </h3>
         <p className="text-slate-400 text-xs max-w-xs font-medium">
-          Sử dụng thanh tìm kiếm phía trên <span className="font-bold text-kv-blue-primary">(F3)</span> để chọn sản phẩm vào đơn hàng.
+          Sử dụng thanh tìm kiếm phía trên <span className="font-bold text-kv-blue-primary">(/)</span> để chọn sản phẩm vào đơn hàng.
         </p>
       </div>
     );
@@ -113,16 +113,6 @@ export const PosCartTable: React.FC<IPosCartTableProps> = ({
                             </span>
                           )}
                         </span>
-                        {canManage && onToggleBypass && (
-                          <button
-                            type="button"
-                            onClick={() => onToggleBypass(item.id)}
-                            title="Bỏ áp dụng khuyến mại (bán giá gốc)"
-                            className="text-[10px] text-slate-400 hover:text-rose-600 hover:underline transition-colors"
-                          >
-                            Bỏ KM
-                          </button>
-                        )}
                       </div>
                     )}
 

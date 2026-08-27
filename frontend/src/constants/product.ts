@@ -342,6 +342,7 @@ export const PRODUCT_API_ENDPOINTS = {
     `${PRODUCT_API_BASE_ENDPOINT}/${productId}`,
   PRODUCT_MIN_STOCK: (productId: string): string =>
     `${PRODUCT_API_BASE_ENDPOINT}/${productId}/min-stock`,
+  VOICE_SEARCH: `${PRODUCT_API_BASE_ENDPOINT}/voice-search`,
   PRODUCT_GROUPS: PRODUCT_GROUP_API_BASE_ENDPOINT,
   PRODUCT_GROUP_BY_ID: (groupId: string): string =>
     `${PRODUCT_GROUP_API_BASE_ENDPOINT}/${groupId}`,
@@ -350,6 +351,27 @@ export const PRODUCT_API_ENDPOINTS = {
     `${GOODS_RECEIPT_API_BASE_ENDPOINT}/${receiptId}`,
   LOW_STOCK_WARNINGS: `${INVENTORY_API_BASE_ENDPOINT}/low-stock-warnings`,
   PURCHASE_SUGGESTIONS: `${INVENTORY_API_BASE_ENDPOINT}/purchase-suggestions`,
+} as const;
+
+export const VOICE_SEARCH_CONFIG = {
+  LANGUAGE: "vi-VN",
+  DEFAULT_LIMIT: 10,
+  HOTKEY: "F4",
+  NO_SPEECH_TIMEOUT_MS: 6000,
+} as const;
+
+export const VOICE_SEARCH_MESSAGES = {
+  LISTENING: "Đang lắng nghe giọng nói của bạn...",
+  PROCESSING: "Đang tìm kiếm mặt hàng phù hợp...",
+  NOT_RECOGNIZED: "Chưa nghe rõ tên hàng. Vui lòng đọc lại hoặc gõ từ khóa để tìm.",
+  NO_RESULTS: "Không tìm thấy mặt hàng nào khớp với tên vừa đọc.",
+  PERMISSION_DENIED: "Trình duyệt chưa được cấp quyền sử dụng Microphone. Vui lòng cho phép quyền micro trên thanh địa chỉ trình duyệt.",
+  NOT_SUPPORTED: "Trình duyệt hiện tại không hỗ trợ nhận diện giọng nói (Web Speech API). Bạn có thể gõ tìm kiếm thủ công.",
+  TRY_AGAIN: "Đọc lại",
+  SEARCH_MANUAL_HINT: "Hoặc nhập tên mặt hàng cần tìm:",
+  MODAL_TITLE: "Tìm hàng bằng giọng nói",
+  MODAL_SUBTITLE: "Đọc rõ tên mặt hàng (ví dụ: 'Nước mắm', 'Nam Ngư', 'Coca') để tìm nhanh",
+  PRODUCT_FOUND_COUNT: (count: number): string => `Tìm thấy ${count} mặt hàng phù hợp:`,
 } as const;
 
 export const INVENTORY_WARNING_COPY = {

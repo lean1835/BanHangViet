@@ -15,10 +15,13 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@ericblade/quagga2": "^1.12.1",
     "@hookform/resolvers": "^5.4.0",
     "@reduxjs/toolkit": "^2.2.6",
+    "@zxing/library": "^0.21.3",
     "antd": "^5.19.1",
     "html2canvas": "^1.4.1",
+    "html5-qrcode": "^2.3.8",
     "jspdf": "^4.2.1",
     "lucide-react": "^0.400.0",
     "react": "^19.0.0",

@@ -81,13 +81,16 @@ public class ProductSpecification {
                 predicates.add(criteriaBuilder.equal(root.get("group").get("id"), groupId));
             }
 
-            // 4. Tìm kiếm từ khóa nhận dạng giọng nói theo Tên, SKU hoặc Mã vạch
+            // 4. Tìm kiếm từ khóa nhận dạng giọng nói theo Tên, SKU hoặc Mã vạch (loại bỏ dấu chấm câu thừa từ Speech Engine)
             if (StringUtils.hasText(queryKeyword)) {
-                String searchPattern = "%" + queryKeyword.trim().toLowerCase() + "%";
-                Predicate namePredicate = criteriaBuilder.like(criteriaBuilder.lower(root.get("name")), searchPattern);
-                Predicate skuPredicate = criteriaBuilder.like(criteriaBuilder.lower(root.get("sku")), searchPattern);
-                Predicate barcodePredicate = criteriaBuilder.like(criteriaBuilder.lower(root.get("barcode")), searchPattern);
-                predicates.add(criteriaBuilder.or(namePredicate, skuPredicate, barcodePredicate));
+                String cleanedKeyword = queryKeyword.trim().replaceAll("^[.,?!;:…\\s]+|[.,?!;:…\\s]+$", "").trim();
+                if (StringUtils.hasText(cleanedKeyword)) {
+                    String searchPattern = "%" + cleanedKeyword.toLowerCase() + "%";
+                    Predicate namePredicate = criteriaBuilder.like(criteriaBuilder.lower(root.get("name")), searchPattern);
+                    Predicate skuPredicate = criteriaBuilder.like(criteriaBuilder.lower(root.get("sku")), searchPattern);
+                    Predicate barcodePredicate = criteriaBuilder.like(criteriaBuilder.lower(root.get("barcode")), searchPattern);
+                    predicates.add(criteriaBuilder.or(namePredicate, skuPredicate, barcodePredicate));
+                }
             }
 
             return criteriaBuilder.and(predicates.toArray(new Predicate[0]));
