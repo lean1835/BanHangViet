@@ -527,6 +527,7 @@ export const InvoiceDetailPage: React.FC = () => {
                     <th className="p-2 border-r border-slate-200 text-center w-12">ĐVT</th>
                     <th className="p-2 border-r border-slate-200 text-center w-12">SL</th>
                     <th className="p-2 border-r border-slate-200 text-right w-20">Đơn giá</th>
+                    <th className="p-2 border-r border-slate-200 text-right w-20">Chiết khấu</th>
                     <th className="p-2 border-r border-slate-200 text-center w-14">Thuế (%)</th>
                     <th className="p-2 text-right w-24">Thành tiền</th>
                   </tr>
@@ -537,7 +538,14 @@ export const InvoiceDetailPage: React.FC = () => {
                       <tr key={item.id || idx}>
                         <td className="p-2 border-r border-slate-200 text-center">{idx + 1}</td>
                         <td className="p-2 border-r border-slate-200 font-bold text-slate-800">
-                          {item.productName}
+                          <div>{item.productName}</div>
+                          {((item.discountAmount && item.discountAmount > 0) || item.promotionName) && (
+                            <div className="text-[9px] text-emerald-700 font-semibold flex items-center gap-1 mt-0.5">
+                              <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 py-0.5 rounded text-[8.5px] inline-flex items-center gap-0.5 font-bold">
+                                {item.promotionName || "Giảm giá"}: -{formatCurrency(item.discountAmount || 0)}
+                              </span>
+                            </div>
+                          )}
                         </td>
                         <td className="p-2 border-r border-slate-200 text-center text-slate-500">
                           {item.unit || "Lon"}
@@ -545,14 +553,32 @@ export const InvoiceDetailPage: React.FC = () => {
                         <td className="p-2 border-r border-slate-200 text-center font-bold">
                           {item.quantity}
                         </td>
-                        <td className="p-2 border-r border-slate-200 text-right">
-                          {formatCurrency(item.unitPrice)}
+                        <td className="p-2 border-r border-slate-200 text-right whitespace-nowrap">
+                          {item.discountAmount && item.discountAmount > 0 ? (
+                            <div>
+                              <span className="line-through text-slate-400 text-[9px] block font-normal">
+                                {formatCurrency(item.unitPrice)}
+                              </span>
+                              <span className="font-bold text-emerald-700">
+                                {formatCurrency(Math.max(0, (item.quantity * item.unitPrice - item.discountAmount) / (item.quantity || 1)))}
+                              </span>
+                            </div>
+                          ) : (
+                            formatCurrency(item.unitPrice)
+                          )}
+                        </td>
+                        <td className="p-2 border-r border-slate-200 text-right font-semibold whitespace-nowrap">
+                          {item.discountAmount && item.discountAmount > 0 ? (
+                            <span className="text-rose-600 font-bold">-{formatCurrency(item.discountAmount)}</span>
+                          ) : (
+                            <span className="text-slate-400 font-normal">0 đ</span>
+                          )}
                         </td>
                         <td className="p-2 border-r border-slate-200 text-center text-slate-500">
                           {item.taxRatePercentage}%
                         </td>
                         <td className="p-2 text-right font-bold text-slate-800">
-                          {formatCurrency(item.subtotal || item.quantity * item.unitPrice)}
+                          {formatCurrency((item.quantity * item.unitPrice) - (item.discountAmount || 0))}
                         </td>
                       </tr>
                     ))
@@ -566,6 +592,9 @@ export const InvoiceDetailPage: React.FC = () => {
                       <td className="p-2 border-r border-slate-200 text-center font-bold">1</td>
                       <td className="p-2 border-r border-slate-200 text-right">
                         {formatCurrency(invoice.amount)}
+                      </td>
+                      <td className="p-2 border-r border-slate-200 text-right text-slate-400 font-normal">
+                        0 đ
                       </td>
                       <td className="p-2 border-r border-slate-200 text-center text-slate-500">8%</td>
                       <td className="p-2 text-right font-bold text-slate-800">

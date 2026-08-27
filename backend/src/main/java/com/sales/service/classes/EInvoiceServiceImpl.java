@@ -184,6 +184,7 @@ public class EInvoiceServiceImpl implements EInvoiceService {
                         .taxRatePercentage(item.getTaxRatePercentage())
                         .taxAmount(item.getTaxAmount())
                         .discountAmount(item.getDiscountAmount())
+                        .promotionName(item.getPromotionName())
                         .subtotal(item.getSubtotal())
                         .createdAt(item.getCreatedAt())
                         .build())
@@ -517,7 +518,7 @@ public class EInvoiceServiceImpl implements EInvoiceService {
                     .discountAmount(disc)
                     .promotion(orderItem.getPromotion())
                     .promotionName(orderItem.getPromotionName())
-                    .subtotal(orderItem.getSubtotal())
+                    .subtotal(lineBeforeTax)
                     .build();
 
             invoiceItems.add(invItem);

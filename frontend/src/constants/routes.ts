@@ -159,4 +159,5 @@ export const APP_ROUTES = {
   RETURN_TICKET_CREATE: `${createRoute(ROUTE_SEGMENTS.RETURN_TICKETS)}/create`,
   LOOKUP_INVOICE: createRoute(ROUTE_SEGMENTS.LOOKUP_INVOICE),
   PROMOTIONS: createRoute(ROUTE_SEGMENTS.PROMOTIONS),
+  PROMOTION_REPORT: (id: string) => `${createRoute(ROUTE_SEGMENTS.PROMOTIONS)}/${id}/report`,
 } as const;

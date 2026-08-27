@@ -1,6 +1,8 @@
 import React, { useState, useMemo, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Search, Plus, Tag } from "lucide-react";
 import { USER_ROLES } from "@/constants/roles";
+import { APP_ROUTES } from "@/constants/routes";
 import {
   PROMOTION_CALCULATED_STATE,
   PROMOTION_CONFIG,
@@ -33,13 +35,19 @@ import {
 import { PromotionFormModal } from "../components/PromotionFormModal";
 import { PromotionDetailModal } from "../components/PromotionDetailModal";
 import { PromotionDeleteModal } from "../components/PromotionDeleteModal";
+import { PromotionReportModal } from "../components/PromotionReportModal";
 
 export const PromotionListPage: React.FC = () => {
+  const navigate = useNavigate();
   const { currentRole, addLogEntry } = useDashboardDemo();
   const { showSuccess, showError } = useNotification();
 
   const isOwner = currentRole === USER_ROLES.OWNER;
   const canManage = isOwner;
+  const canViewReport =
+    currentRole === USER_ROLES.OWNER ||
+    currentRole === USER_ROLES.ACCOUNTANT ||
+    !currentRole;
 
   // Search and Filter state
   const [searchTerm, setSearchTerm] = useState("");
@@ -59,6 +67,8 @@ export const PromotionListPage: React.FC = () => {
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+  const [reportPromoId, setReportPromoId] = useState<string | null>(null);
   const [selectedPromo, setSelectedPromo] = useState<IPromotion | null>(null);
   const [editingPromoDetail, setEditingPromoDetail] =
     useState<IPromotionDetail | null>(null);
@@ -162,6 +172,11 @@ export const PromotionListPage: React.FC = () => {
   const handleOpenDeleteModal = (promo: IPromotion) => {
     setSelectedPromo(promo);
     setIsDeleteModalOpen(true);
+  };
+
+  const handleOpenReportModal = (promoOrId: IPromotion | string) => {
+    const id = typeof promoOrId === "string" ? promoOrId : promoOrId.id;
+    navigate(APP_ROUTES.PROMOTION_REPORT(id));
   };
 
   const handleFormSubmit = async (
@@ -333,12 +348,14 @@ export const PromotionListPage: React.FC = () => {
               promotions={filteredPromotions}
               isLoading={isLoading}
               canManage={canManage}
+              canViewReport={canViewReport}
               page={page}
               pageSize={PROMOTION_CONFIG.PAGE_SIZE}
               totalPages={totalPages}
               totalElements={totalElements}
               onPageChange={setPage}
               onViewDetail={handleOpenDetailModal}
+              onViewReport={handleOpenReportModal}
               onEdit={handleOpenEditModal}
               onDelete={handleOpenDeleteModal}
               onToggleStatus={handleToggleStatus}
@@ -366,6 +383,7 @@ export const PromotionListPage: React.FC = () => {
             setSelectedPromo(null);
           }}
           promotionId={selectedPromo?.id || null}
+          onOpenReport={handleOpenReportModal}
           onEdit={(promo) => {
             setIsDetailModalOpen(false);
             handleOpenEditModal(promo);
@@ -387,9 +405,19 @@ export const PromotionListPage: React.FC = () => {
           promo={selectedPromo}
           isLoading={isDeleting}
         />
+
+        <PromotionReportModal
+          isOpen={isReportModalOpen}
+          onClose={() => {
+            setIsReportModalOpen(false);
+            setReportPromoId(null);
+          }}
+          promotionId={reportPromoId}
+        />
       </div>
     </DashboardWorkspaceLayout>
   );
 };
 
 export default PromotionListPage;
+

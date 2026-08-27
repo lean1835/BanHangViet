@@ -1,5 +1,5 @@
 import React from "react";
-import { Eye, Edit, Trash2, Tag, ChevronLeft, ChevronRight } from "lucide-react";
+import { Edit, Trash2, Tag, ChevronLeft, ChevronRight, BarChart3 } from "lucide-react";
 import { formatCurrency } from "@/utils/formatCurrency";
 import {
   DISCOUNT_TYPE,
@@ -15,12 +15,14 @@ interface PromotionTableProps {
   promotions: IPromotion[];
   isLoading: boolean;
   canManage: boolean;
+  canViewReport?: boolean;
   page: number;
   pageSize: number;
   totalPages: number;
   totalElements: number;
   onPageChange: (newPage: number) => void;
   onViewDetail: (promo: IPromotion) => void;
+  onViewReport?: (promo: IPromotion) => void;
   onEdit: (promo: IPromotion) => void;
   onDelete: (promo: IPromotion) => void;
   onToggleStatus: (promo: IPromotion) => void;
@@ -46,12 +48,14 @@ export const PromotionTable: React.FC<PromotionTableProps> = ({
   promotions,
   isLoading,
   canManage,
+  canViewReport,
   page,
   pageSize: _pageSize,
   totalPages,
   totalElements,
   onPageChange,
   onViewDetail,
+  onViewReport,
   onEdit,
   onDelete,
   onToggleStatus,
@@ -202,14 +206,17 @@ export const PromotionTable: React.FC<PromotionTableProps> = ({
                     onClick={(e) => e.stopPropagation()}
                   >
                     <div className="inline-flex items-center justify-end gap-1">
-                      <button
-                        type="button"
-                        onClick={() => onViewDetail(promo)}
-                        title="Xem chi tiết"
-                        className="p-1.5 text-slate-500 hover:text-kv-blue-primary hover:bg-slate-100 rounded-lg transition-colors"
-                      >
-                        <Eye size={15} />
-                      </button>
+                      {onViewReport && canViewReport !== false && (
+                        <button
+                          type="button"
+                          onClick={() => onViewReport(promo)}
+                          title="Báo cáo hiệu quả khuyến mại (NCL-15-CN-004)"
+                          className="p-1.5 text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 rounded-lg transition-colors"
+                          aria-label="Báo cáo hiệu quả"
+                        >
+                          <BarChart3 size={15} />
+                        </button>
+                      )}
 
                       {canManage && (
                         <>

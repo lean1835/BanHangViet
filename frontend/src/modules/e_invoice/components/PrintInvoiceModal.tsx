@@ -241,11 +241,31 @@ export const PrintInvoiceModal: React.FC<PrintInvoiceModalProps> = ({
                     itemsList.map((item, idx) => (
                       <tr key={idx} className="align-top">
                         <td className="p-1 sm:p-1.5 text-center font-bold text-slate-600">{idx + 1}</td>
-                        <td className="p-1 sm:p-1.5 font-semibold text-slate-900 break-words">{item.productName}</td>
+                        <td className="p-1 sm:p-1.5 font-semibold text-slate-900 break-words">
+                          <div>{item.productName}</div>
+                          {((item.discountAmount && item.discountAmount > 0) || item.promotionName) && (
+                            <div className="text-[8.5px] text-emerald-700 italic font-semibold">
+                              Sale: {item.promotionName ? `${item.promotionName} ` : ""}(-{formatCurrency(item.discountAmount || 0)})
+                            </div>
+                          )}
+                        </td>
                         <td className="p-1 sm:p-1.5 text-center font-bold">{item.quantity}</td>
-                        <td className="p-1 sm:p-1.5 text-right whitespace-nowrap">{formatCurrency(item.unitPrice)}</td>
+                        <td className="p-1 sm:p-1.5 text-right whitespace-nowrap">
+                          {item.discountAmount && item.discountAmount > 0 ? (
+                            <div>
+                              <span className="line-through text-slate-400 text-[8.5px] block">
+                                {formatCurrency(item.unitPrice)}
+                              </span>
+                              <span>
+                                {formatCurrency(Math.max(0, (item.quantity * item.unitPrice - item.discountAmount) / (item.quantity || 1)))}
+                              </span>
+                            </div>
+                          ) : (
+                            formatCurrency(item.unitPrice)
+                          )}
+                        </td>
                         <td className="p-1 sm:p-1.5 text-right font-black text-slate-900 whitespace-nowrap">
-                          {formatCurrency(item.subtotal || item.unitPrice * item.quantity)}
+                          {formatCurrency((item.quantity * item.unitPrice) - (item.discountAmount || 0))}
                         </td>
                       </tr>
                     ))
