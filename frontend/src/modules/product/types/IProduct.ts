@@ -17,6 +17,15 @@ export interface IProduct {
   taxRateId: string;
   taxRateName: string;
   taxRatePercentage: number;
+  warehouseStock?: number;
+  allocatedStock?: number;
+  posStocks?: Array<{
+    posId: string;
+    posCode: string;
+    posName: string;
+    stockQuantity: number;
+    minStockQuantity: number;
+  }>;
   createdAt: string;
   updatedAt: string;
 }

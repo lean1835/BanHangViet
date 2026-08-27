@@ -104,6 +104,22 @@ export const ProductSectionSidebar = ({
             <span className="truncate">Cảnh báo tồn kho</span>
           </NavLink>
           <NavLink
+            to={APP_ROUTES.PRODUCT_POS_INVENTORIES}
+            className={({ isActive }) =>
+              getNavLinkClass(isActive || location.pathname.startsWith("/products/pos-inventories"))
+            }
+          >
+            <span>Tồn kho điểm bán</span>
+          </NavLink>
+          <NavLink
+            to={APP_ROUTES.PRODUCT_POS_TRANSFERS}
+            className={({ isActive }) =>
+              getNavLinkClass(isActive || location.pathname.startsWith("/products/pos-transfers"))
+            }
+          >
+            <span>Chuyển hàng điểm bán</span>
+          </NavLink>
+          <NavLink
             to={APP_ROUTES.PRODUCT_SUPPLIERS}
             className={({ isActive }) =>
               getNavLinkClass(isActive || isSupplierRoute)

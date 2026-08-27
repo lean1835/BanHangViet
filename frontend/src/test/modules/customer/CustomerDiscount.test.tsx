@@ -159,9 +159,9 @@ describe("NCL-15-CN-003: Chiết khấu riêng cho khách hàng thân thiết", 
     expect(screen.getByText(/Tổng tiền hàng \(gốc\):/i)).toBeInTheDocument();
     expect(screen.getByText(/70\.000/)).toBeInTheDocument();
 
-    // 3. Customer VIP discount 5% of 70,000 = 3,500 đ
+    // 3. Customer VIP discount 5% of 65,000 (after promo) = 3,250 đ
     expect(screen.getByText(/Chiết khấu khách VIP \(5%\):/i)).toBeInTheDocument();
-    expect(screen.getByText(/-3\.500/)).toBeInTheDocument();
+    expect(screen.getByText(/-3\.250/)).toBeInTheDocument();
   });
 
   it("NCL-15-CN-003-TC-02: Đơn vừa có khuyến mại sản phẩm vừa có chiết khấu khách VIP hiển thị tách bạch từng dòng", () => {
@@ -182,12 +182,12 @@ describe("NCL-15-CN-003: Chiết khấu riêng cho khách hàng thân thiết", 
     expect(screen.getByText(/Khuyến mại tự động SP:/i)).toBeInTheDocument();
     expect(screen.getByText(/-5\.000/)).toBeInTheDocument();
 
-    // Dòng 2: Chiết khấu khách VIP (-3.500 đ)
+    // Dòng 2: Chiết khấu khách VIP (-3.250 đ)
     expect(screen.getByText(/Chiết khấu khách VIP \(5%\):/i)).toBeInTheDocument();
-    expect(screen.getByText(/-3\.500/)).toBeInTheDocument();
+    expect(screen.getByText(/-3\.250/)).toBeInTheDocument();
 
-    // Khách cần trả: 70,000 - 5,000 (KM SP) - 3,500 (VIP) = 61,500 đ
-    expect(screen.getByText(/61\.500/)).toBeInTheDocument();
+    // Khách cần trả: 70,000 - 5,000 (KM SP) - 3,250 (VIP) = 61,750 đ
+    expect(screen.getByText(/61\.750/)).toBeInTheDocument();
   });
 
   it("NCL-15-CN-003-TC-03: Nhân viên bán hàng (VT-02) không có quyền sửa mức chiết khấu riêng (RBAC / Disabled inputs)", () => {
@@ -307,7 +307,7 @@ describe("NCL-15-CN-003: Chiết khấu riêng cho khách hàng thân thiết", 
         discountRate: 30,
         discountType: "PERCENTAGE",
       },
-      amountGiven: 446250,
+      amountGiven: 437325,
       paymentMethod: "CASH",
     };
 
@@ -317,12 +317,12 @@ describe("NCL-15-CN-003: Chiết khấu riêng cho khách hàng thân thiết", 
     expect(totals.totalOriginalAmount).toBe(595000);
     // 2. Chiết khấu khách VIP 30% = 178,500 đ
     expect(totals.customerDiscountCash).toBe(178500);
-    // 3. Thuế GTGT 5% = 29,750 đ
-    expect(totals.totalTaxAmount).toBe(29750);
-    // 4. Khách cần trả = 595,000 - 178,500 + 29,750 = 446,250 đ
-    expect(totals.finalTotal).toBe(446250);
-    // 5. Khách đưa đủ 446,250 đ -> không kích hoạt validation lỗi (effectiveAmountGiven < finalTotal)
-    expect(totals.effectiveAmountGiven).toBe(446250);
+    // 3. Thuế GTGT 5% tính trên giá sau chiết khấu (416,500 đ) = 20,825 đ
+    expect(totals.totalTaxAmount).toBe(20825);
+    // 4. Khách cần trả = 595,000 - 178,500 + 20,825 = 437,325 đ
+    expect(totals.finalTotal).toBe(437325);
+    // 5. Khách đưa đủ 437,325 đ -> không kích hoạt validation lỗi (effectiveAmountGiven < finalTotal)
+    expect(totals.effectiveAmountGiven).toBe(437325);
     expect(totals.effectiveAmountGiven < totals.finalTotal).toBe(false);
     expect(totals.changeAmount).toBe(0);
   });

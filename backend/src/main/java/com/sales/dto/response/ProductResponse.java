@@ -27,6 +27,10 @@ public class ProductResponse {
     private String taxRateName;
     private BigDecimal taxRatePercentage;
 
+    private BigDecimal warehouseStock;
+    private BigDecimal allocatedStock;
+    private java.util.List<PosStockBreakdownResponse> posStocks;
+
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

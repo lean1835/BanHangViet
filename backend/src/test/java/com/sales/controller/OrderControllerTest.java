@@ -331,7 +331,7 @@ public class OrderControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(discountReq)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.result.discountAmount").value(55000.00))
+                .andExpect(jsonPath("$.result.discountAmount").value(50000.00))
                 .andExpect(jsonPath("$.result.finalAmount").value(55000.00));
     }
 
@@ -781,11 +781,11 @@ public class OrderControllerTest {
                         .content(objectMapper.writeValueAsString(discountReq)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.result.totalAmount").value(44000.00))
-                .andExpect(jsonPath("$.result.discountAmount").value(4400.00))
+                .andExpect(jsonPath("$.result.discountAmount").value(4000.00))
                 .andExpect(jsonPath("$.result.finalAmount").value(39600.00));
 
         // 4. Thêm 3 mặt hàng nữa -> tổng quantity = 5 (total 100k, subtotal 110k)
-        // Chiết khấu 10% phải tự động tính lại thành 11k
+        // Chiết khấu 10% phải tự động tính lại thành 10k
         CreateOrderItemRequest addMoreReq = CreateOrderItemRequest.builder()
                 .productId(testProduct.getId())
                 .quantity(new BigDecimal("3.000"))
@@ -795,7 +795,7 @@ public class OrderControllerTest {
                         .content(objectMapper.writeValueAsString(addMoreReq)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.result.totalAmount").value(110000.00))
-                .andExpect(jsonPath("$.result.discountAmount").value(11000.00))
+                .andExpect(jsonPath("$.result.discountAmount").value(10000.00))
                 .andExpect(jsonPath("$.result.finalAmount").value(99000.00));
 
         // 5. Cập nhật quantity về 1 (total 20k, subtotal 22k)
@@ -813,7 +813,7 @@ public class OrderControllerTest {
                         .content(objectMapper.writeValueAsString(updateReq)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.result.totalAmount").value(22000.00))
-                .andExpect(jsonPath("$.result.discountAmount").value(2200.00))
+                .andExpect(jsonPath("$.result.discountAmount").value(2000.00))
                 .andExpect(jsonPath("$.result.finalAmount").value(19800.00));
 
         // 6. Xóa item (total 0) -> chiết khấu tự động tính lại thành 0

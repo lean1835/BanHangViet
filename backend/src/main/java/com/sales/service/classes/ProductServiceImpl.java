@@ -25,10 +25,9 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -40,6 +39,8 @@ public class ProductServiceImpl implements ProductService {
     private final ProductRepository productRepository;
     private final ProductGroupRepository productGroupRepository;
     private final TaxRateRepository taxRateRepository;
+    private final PosInventoryRepository posInventoryRepository;
+    private final PosTransferItemRepository posTransferItemRepository;
     private final ActivityLogHelper activityLogHelper;
     private final ObjectMapper objectMapper;
 
@@ -82,6 +83,41 @@ public class ProductServiceImpl implements ProductService {
     }
 
     private ProductResponse mapToResponse(Product product) {
+        String householdId = product.getHousehold() != null ? product.getHousehold().getId() : null;
+        List<PosInventory> posInvs = (householdId != null && posInventoryRepository != null)
+                ? posInventoryRepository.findByHouseholdIdAndProductId(householdId, product.getId())
+                : Collections.emptyList();
+
+        BigDecimal inTransit = (householdId != null && posTransferItemRepository != null)
+                ? posTransferItemRepository.sumInTransitFromWarehouseByProductId(householdId, product.getId())
+                : BigDecimal.ZERO;
+
+        return mapToResponse(product, posInvs, inTransit);
+    }
+
+    private ProductResponse mapToResponse(Product product, List<PosInventory> posInvs, BigDecimal inTransit) {
+        BigDecimal totalStock = product.getStockQuantity() != null ? product.getStockQuantity() : BigDecimal.ZERO;
+        BigDecimal allocatedStock = posInvs != null
+                ? posInvs.stream()
+                        .map(pi -> pi.getStockQuantity() != null ? pi.getStockQuantity() : BigDecimal.ZERO)
+                        .reduce(BigDecimal.ZERO, BigDecimal::add)
+                : BigDecimal.ZERO;
+
+        BigDecimal safeInTransit = inTransit != null ? inTransit : BigDecimal.ZERO;
+        BigDecimal warehouseStock = totalStock.subtract(allocatedStock).subtract(safeInTransit).max(BigDecimal.ZERO);
+
+        List<com.sales.dto.response.PosStockBreakdownResponse> posStocks = posInvs != null
+                ? posInvs.stream()
+                        .map(pi -> com.sales.dto.response.PosStockBreakdownResponse.builder()
+                                .posId(pi.getPointOfSale() != null ? pi.getPointOfSale().getId() : null)
+                                .posCode(pi.getPointOfSale() != null ? pi.getPointOfSale().getPosCode() : null)
+                                .posName(pi.getPointOfSale() != null ? pi.getPointOfSale().getName() : null)
+                                .stockQuantity(pi.getStockQuantity())
+                                .minStockQuantity(pi.getMinStockQuantity())
+                                .build())
+                        .collect(Collectors.toList())
+                : Collections.emptyList();
+
         return ProductResponse.builder()
                 .id(product.getId())
                 .sku(product.getSku())
@@ -97,6 +133,9 @@ public class ProductServiceImpl implements ProductService {
                 .taxRateId(product.getTaxRate().getId())
                 .taxRateName(product.getTaxRate().getName())
                 .taxRatePercentage(product.getTaxRate().getRatePercentage())
+                .warehouseStock(warehouseStock)
+                .allocatedStock(allocatedStock)
+                .posStocks(posStocks)
                 .createdAt(product.getCreatedAt())
                 .updatedAt(product.getUpdatedAt())
                 .build();
@@ -262,9 +301,28 @@ public class ProductServiceImpl implements ProductService {
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
 
         Page<Product> productPage = productRepository.findAll(spec, pageable);
+        List<Product> products = productPage.getContent();
 
-        List<ProductResponse> content = productPage.getContent().stream()
-                .map(this::mapToResponse)
+        List<String> productIds = products.stream().map(Product::getId).collect(Collectors.toList());
+        Map<String, List<PosInventory>> posInvsByProduct = new HashMap<>();
+        Map<String, BigDecimal> inTransitByProduct = new HashMap<>();
+
+        if (!productIds.isEmpty()) {
+            List<PosInventory> allPosInvs = posInventoryRepository.findByHouseholdIdAndProductIdIn(household.getId(), productIds);
+            for (PosInventory pi : allPosInvs) {
+                if (pi.getProduct() != null) {
+                    posInvsByProduct.computeIfAbsent(pi.getProduct().getId(), k -> new ArrayList<>()).add(pi);
+                }
+            }
+
+            List<Object[]> inTransitRows = posTransferItemRepository.sumInTransitFromWarehouseByProductIds(household.getId(), productIds);
+            for (Object[] row : inTransitRows) {
+                inTransitByProduct.put((String) row[0], (BigDecimal) row[1]);
+            }
+        }
+
+        List<ProductResponse> content = products.stream()
+                .map(p -> mapToResponse(p, posInvsByProduct.getOrDefault(p.getId(), Collections.emptyList()), inTransitByProduct.getOrDefault(p.getId(), BigDecimal.ZERO)))
                 .collect(Collectors.toList());
 
         return PageResponse.<ProductResponse>builder()
@@ -291,9 +349,28 @@ public class ProductServiceImpl implements ProductService {
         Pageable pageable = PageRequest.of(0, effectiveLimit, Sort.by(Sort.Direction.ASC, "name"));
 
         Page<Product> productPage = productRepository.findAll(spec, pageable);
+        List<Product> products = productPage.getContent();
 
-        return productPage.getContent().stream()
-                .map(this::mapToResponse)
+        List<String> productIds = products.stream().map(Product::getId).collect(Collectors.toList());
+        Map<String, List<PosInventory>> posInvsByProduct = new HashMap<>();
+        Map<String, BigDecimal> inTransitByProduct = new HashMap<>();
+
+        if (!productIds.isEmpty()) {
+            List<PosInventory> allPosInvs = posInventoryRepository.findByHouseholdIdAndProductIdIn(household.getId(), productIds);
+            for (PosInventory pi : allPosInvs) {
+                if (pi.getProduct() != null) {
+                    posInvsByProduct.computeIfAbsent(pi.getProduct().getId(), k -> new ArrayList<>()).add(pi);
+                }
+            }
+
+            List<Object[]> inTransitRows = posTransferItemRepository.sumInTransitFromWarehouseByProductIds(household.getId(), productIds);
+            for (Object[] row : inTransitRows) {
+                inTransitByProduct.put((String) row[0], (BigDecimal) row[1]);
+            }
+        }
+
+        return products.stream()
+                .map(p -> mapToResponse(p, posInvsByProduct.getOrDefault(p.getId(), Collections.emptyList()), inTransitByProduct.getOrDefault(p.getId(), BigDecimal.ZERO)))
                 .collect(Collectors.toList());
     }
 }

@@ -347,13 +347,20 @@ export const ProductList: React.FC<ProductListProps> = ({
                             {formatNumber(prod.stockQuantity)}
                           </span>
                         ) : prod.stockQuantity <= 0 ? (
-                          <span className="text-rose-600">
+                          <span className="text-rose-600 font-bold">
                             {formatNumber(prod.stockQuantity)}
                           </span>
                         ) : (
-                          <span className="text-emerald-600">
-                            {formatNumber(prod.stockQuantity)}
-                          </span>
+                          <div>
+                            <span className="text-slate-800 font-bold">
+                              {formatNumber(prod.stockQuantity)}
+                            </span>
+                            {prod.posStocks && prod.posStocks.length > 0 && (
+                              <div className="text-[10px] text-slate-400 font-normal mt-0.5 leading-tight">
+                                <div>Điểm bán: <span className="font-semibold text-kv-blue-primary">{formatNumber(prod.allocatedStock ?? 0)}</span></div>
+                              </div>
+                            )}
+                          </div>
                         )}
                       </td>
                       <td className="p-3">

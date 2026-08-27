@@ -140,6 +140,7 @@ class PosTransferServiceImplTest {
                 .name("Coca-Cola 320ml")
                 .unit("Lon")
                 .price(BigDecimal.valueOf(10000))
+                .stockQuantity(BigDecimal.valueOf(100))
                 .status("ACTIVE")
                 .build();
 
@@ -446,5 +447,99 @@ class PosTransferServiceImplTest {
         assertNotNull(response);
         assertEquals("trans-001", response.getId());
         assertEquals("CK-20260825-0001", response.getTransferNumber());
+    }
+
+    @Test
+    @DisplayName("Lập phiếu chuyển từ Kho gốc sang Điểm bán thành công")
+    void createTransfer_fromWarehouseToPos_success() {
+        CreatePosTransferRequest request = CreatePosTransferRequest.builder()
+                .fromPointOfSaleId(null) // Kho gốc
+                .toPointOfSaleId("pos-002")
+                .items(List.of(
+                        PosTransferItemRequest.builder()
+                                .productId("prod-001")
+                                .quantity(BigDecimal.valueOf(5))
+                                .build()
+                ))
+                .build();
+
+        when(userRepository.findByUsername("chuho")).thenReturn(Optional.of(ownerUser));
+        when(pointOfSaleRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("pos-002", "house-001"))
+                .thenReturn(Optional.of(pos2));
+        when(productRepository.findAllById(List.of("prod-001"))).thenReturn(List.of(product1));
+        when(posInventoryRepository.findByHouseholdIdAndProductIdIn(eq("house-001"), any()))
+                .thenReturn(List.of(inventoryPos1)); // inventoryPos1 = 12, product1 total = 150 -> warehouse stock = 138
+        when(posTransferItemRepository.sumInTransitFromWarehouseByProductIds(eq("house-001"), any()))
+                .thenReturn(List.of());
+        when(posTransferRepository.countByHouseholdIdAndTransferNumberStartingWith(eq("house-001"), anyString()))
+                .thenReturn(0L);
+        when(posTransferRepository.save(any(PosTransfer.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        PosTransferResponse response = posTransferService.createTransfer("chuho", request);
+
+        assertNotNull(response);
+        assertEquals("Kho gốc (Kho trung tâm)", response.getFromPointOfSaleName());
+        assertEquals("Điểm bán Quận 2", response.getToPointOfSaleName());
+        assertEquals(PosTransferStatus.IN_TRANSIT, response.getStatus());
+    }
+
+    @Test
+    @DisplayName("Lập phiếu chuyển từ Kho gốc thất bại khi vượt quá tồn kho khả dụng")
+    void createTransfer_fromWarehouseToPos_exceedWarehouseStock_throwsException() {
+        Product camProduct = Product.builder()
+                .id("prod-cam")
+                .household(household)
+                .name("Cam sành")
+                .stockQuantity(BigDecimal.valueOf(10))
+                .build();
+
+        PosInventory cs1Inv = PosInventory.builder()
+                .product(camProduct)
+                .pointOfSale(pos1)
+                .stockQuantity(BigDecimal.valueOf(3))
+                .build();
+
+        CreatePosTransferRequest request = CreatePosTransferRequest.builder()
+                .fromPointOfSaleId("WAREHOUSE")
+                .toPointOfSaleId("pos-002")
+                .items(List.of(
+                        PosTransferItemRequest.builder()
+                                .productId("prod-cam")
+                                .quantity(BigDecimal.valueOf(8)) // 8 > (10 - 3 = 7)
+                                .build()
+                ))
+                .build();
+
+        when(userRepository.findByUsername("chuho")).thenReturn(Optional.of(ownerUser));
+        when(pointOfSaleRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("pos-002", "house-001"))
+                .thenReturn(Optional.of(pos2));
+        when(productRepository.findAllById(List.of("prod-cam"))).thenReturn(List.of(camProduct));
+        when(posInventoryRepository.findByHouseholdIdAndProductIdIn(eq("house-001"), any()))
+                .thenReturn(List.of(cs1Inv));
+        when(posTransferItemRepository.sumInTransitFromWarehouseByProductIds(eq("house-001"), any()))
+                .thenReturn(List.of());
+
+        AppException ex = assertThrows(AppException.class, () -> posTransferService.createTransfer("chuho", request));
+        assertEquals(ErrorCode.TRANSFER_EXCEED_WAREHOUSE_STOCK, ex.getErrorCode());
+    }
+
+    @Test
+    @DisplayName("Lập phiếu chuyển khi cả điểm gửi và nhận đều là Kho gốc -> Báo lỗi TRANSFER_SOURCE_AND_DEST_EMPTY")
+    void createTransfer_bothWarehouse_throwsException() {
+        CreatePosTransferRequest request = CreatePosTransferRequest.builder()
+                .fromPointOfSaleId(null)
+                .toPointOfSaleId(null)
+                .items(List.of(
+                        PosTransferItemRequest.builder()
+                                .productId("prod-001")
+                                .quantity(BigDecimal.valueOf(5))
+                                .build()
+                ))
+                .build();
+
+        when(userRepository.findByUsername("chuho")).thenReturn(Optional.of(ownerUser));
+
+        AppException ex = assertThrows(AppException.class, () -> posTransferService.createTransfer("chuho", request));
+        assertEquals(ErrorCode.TRANSFER_SOURCE_AND_DEST_EMPTY, ex.getErrorCode());
     }
 }

@@ -24,6 +24,9 @@ public class PosInventoryResponse {
     private String productStatus;
     private String groupName;
     private Boolean isLowStock;
+    private BigDecimal totalProductStock;
+    private BigDecimal warehouseStock;
+    private BigDecimal maxAvailableQuantity;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

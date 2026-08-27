@@ -213,53 +213,82 @@ public class OrderServiceImpl implements OrderService {
     }
 
     private void recalculateOrderTotals(Order order) {
-        BigDecimal total = BigDecimal.ZERO;
+        BigDecimal totalSubtotal = BigDecimal.ZERO;
+        BigDecimal totalCartAmount = BigDecimal.ZERO;
         BigDecimal itemPromoDiscountSum = BigDecimal.ZERO;
 
         for (OrderItem item : order.getItems()) {
-            total = total.add(item.getSubtotal());
-            if (item.getDiscountAmount() != null) {
-                itemPromoDiscountSum = itemPromoDiscountSum.add(item.getDiscountAmount());
+            BigDecimal qty = item.getQuantity() != null ? item.getQuantity() : BigDecimal.ZERO;
+            BigDecimal price = item.getUnitPrice() != null ? item.getUnitPrice() : BigDecimal.ZERO;
+            BigDecimal lineDiscount = item.getDiscountAmount() != null ? item.getDiscountAmount() : BigDecimal.ZERO;
+            BigDecimal lineBase = qty.multiply(price).subtract(lineDiscount);
+
+            totalCartAmount = totalCartAmount.add(lineBase);
+            itemPromoDiscountSum = itemPromoDiscountSum.add(lineDiscount);
+
+            if (item.getSubtotal() != null) {
+                totalSubtotal = totalSubtotal.add(item.getSubtotal());
             }
         }
-        order.setTotalAmount(total);
+        order.setTotalAmount(totalSubtotal);
 
-        BigDecimal manualDiscount = BigDecimal.ZERO;
-        if (order.getDiscountType() != null) {
-            if ("PERCENTAGE".equals(order.getDiscountType())) {
-                BigDecimal rate = order.getDiscountRateOrValue() != null ? order.getDiscountRateOrValue() : BigDecimal.ZERO;
-                manualDiscount = total.multiply(rate).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
-            } else if ("CASH".equals(order.getDiscountType())) {
-                manualDiscount = order.getDiscountRateOrValue() != null ? order.getDiscountRateOrValue() : BigDecimal.ZERO;
-            }
-        }
+        // Bước 1: Khuyến mại tự động SP -> itemPromoDiscountSum (đã trừ trong totalCartAmount)
 
-        BigDecimal promotionDiscountAmount = itemPromoDiscountSum.add(manualDiscount);
-
-        // Chiết khấu riêng cho khách hàng thân thiết (NCL-15-CN-003)
+        // Bước 2: Chiết khấu khách VIP (áp dụng trên số tiền sau KM tự động: totalCartAmount)
         BigDecimal customerDiscountAmount = BigDecimal.ZERO;
         if (order.getCustomer() != null && order.getCustomer().getDiscountRate() != null
                 && order.getCustomer().getDiscountRate().compareTo(BigDecimal.ZERO) > 0) {
             Customer cust = order.getCustomer();
             if ("PERCENTAGE".equalsIgnoreCase(cust.getDiscountType())) {
-                customerDiscountAmount = total.multiply(cust.getDiscountRate())
+                customerDiscountAmount = totalCartAmount.multiply(cust.getDiscountRate())
                         .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
             } else {
-                customerDiscountAmount = total.min(cust.getDiscountRate());
+                customerDiscountAmount = totalCartAmount.min(cust.getDiscountRate());
             }
         }
 
-        BigDecimal orderLevelDiscounts = manualDiscount.add(customerDiscountAmount);
-        if (orderLevelDiscounts.compareTo(total) > 0) {
-            orderLevelDiscounts = total;
+        // Số tiền còn lại sau Bước 2 (sau chiết khấu VIP)
+        BigDecimal afterVipAmount = totalCartAmount.subtract(customerDiscountAmount).max(BigDecimal.ZERO);
+
+        // Bước 3: Chiết khấu thêm (áp dụng trên số tiền sau chiết khấu VIP: afterVipAmount)
+        BigDecimal manualDiscount = BigDecimal.ZERO;
+        if (order.getDiscountType() != null) {
+            if ("PERCENTAGE".equals(order.getDiscountType())) {
+                BigDecimal rate = order.getDiscountRateOrValue() != null ? order.getDiscountRateOrValue() : BigDecimal.ZERO;
+                manualDiscount = afterVipAmount.multiply(rate).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+            } else if ("CASH".equals(order.getDiscountType())) {
+                manualDiscount = order.getDiscountRateOrValue() != null ? afterVipAmount.min(order.getDiscountRateOrValue()) : BigDecimal.ZERO;
+            }
         }
 
-        BigDecimal totalDiscount = itemPromoDiscountSum.add(orderLevelDiscounts);
+        BigDecimal afterDiscountAmount = afterVipAmount.subtract(manualDiscount).max(BigDecimal.ZERO);
+
+        // Bước 4: Thuế GTGT (VAT) được tính trên giá sau khi chiết khấu thêm (afterDiscountAmount)
+        BigDecimal finalTaxAmount = BigDecimal.ZERO;
+        if (totalCartAmount.compareTo(BigDecimal.ZERO) > 0) {
+            BigDecimal discountRatio = afterDiscountAmount.divide(totalCartAmount, 6, RoundingMode.HALF_UP);
+            for (OrderItem item : order.getItems()) {
+                BigDecimal qty = item.getQuantity() != null ? item.getQuantity() : BigDecimal.ZERO;
+                BigDecimal price = item.getUnitPrice() != null ? item.getUnitPrice() : BigDecimal.ZERO;
+                BigDecimal lineDiscount = item.getDiscountAmount() != null ? item.getDiscountAmount() : BigDecimal.ZERO;
+                BigDecimal lineBase = qty.multiply(price).subtract(lineDiscount);
+                BigDecimal discountedLineBase = lineBase.multiply(discountRatio);
+                BigDecimal taxRate = item.getTaxRatePercentage() != null ? item.getTaxRatePercentage() : BigDecimal.ZERO;
+                BigDecimal lineTax = discountedLineBase.multiply(taxRate).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+                finalTaxAmount = finalTaxAmount.add(lineTax);
+            }
+        }
+
+        // Bước 5: Khách cần trả (finalAmount = afterDiscountAmount + finalTaxAmount)
+        BigDecimal finalAmount = afterDiscountAmount.add(finalTaxAmount).max(BigDecimal.ZERO);
+
+        BigDecimal promotionDiscountAmount = itemPromoDiscountSum.add(manualDiscount);
+        BigDecimal totalDiscount = itemPromoDiscountSum.add(customerDiscountAmount).add(manualDiscount);
 
         order.setPromotionDiscountAmount(promotionDiscountAmount);
         order.setCustomerDiscountAmount(customerDiscountAmount);
         order.setDiscountAmount(totalDiscount);
-        order.setFinalAmount(total.subtract(orderLevelDiscounts).max(BigDecimal.ZERO));
+        order.setFinalAmount(finalAmount);
     }
 
     @Override

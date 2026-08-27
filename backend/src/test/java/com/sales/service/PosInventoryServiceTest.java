@@ -10,6 +10,7 @@ import com.sales.exception.AppException;
 import com.sales.exception.ErrorCode;
 import com.sales.repository.PointOfSaleRepository;
 import com.sales.repository.PosInventoryRepository;
+import com.sales.repository.PosTransferItemRepository;
 import com.sales.repository.ProductRepository;
 import com.sales.repository.UserRepository;
 import com.sales.service.classes.ActivityLogHelper;
@@ -56,6 +57,9 @@ class PosInventoryServiceTest {
 
     @Mock
     private ObjectMapper objectMapper;
+
+    @Mock
+    private PosTransferItemRepository posTransferItemRepository;
 
     @InjectMocks
     private PosInventoryServiceImpl posInventoryService;
@@ -239,5 +243,85 @@ class PosInventoryServiceTest {
         assertNotNull(list);
         assertEquals(1, list.size());
         assertTrue(list.get(0).getIsLowStock());
+    }
+
+    @Test
+    @DisplayName("Khởi tạo tồn kho thất bại khi vượt quá tồn kho khả dụng (Cam: tổng 10, CS1: 3, CS2 yêu cầu 8)")
+    void testInitOrUpdatePosInventories_ExceedAvailableStock() {
+        Product camProduct = Product.builder()
+                .id("prod-cam")
+                .household(household)
+                .name("Cam sành")
+                .stockQuantity(BigDecimal.valueOf(10))
+                .build();
+
+        PointOfSale cs1 = PointOfSale.builder().id("pos-cs1").name("Cơ sở 1").build();
+        PosInventory cs1Inv = PosInventory.builder()
+                .product(camProduct)
+                .pointOfSale(cs1)
+                .stockQuantity(BigDecimal.valueOf(3))
+                .build();
+
+        when(userRepository.findByUsername("chuho")).thenReturn(Optional.of(ownerUser));
+        when(pointOfSaleRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("pos-002", "house-001"))
+                .thenReturn(Optional.of(branchPos));
+        when(productRepository.findAllById(List.of("prod-cam"))).thenReturn(List.of(camProduct));
+        when(posInventoryRepository.findByHouseholdIdAndPointOfSaleIdAndProductIdIn(eq("house-001"), eq("pos-002"), any()))
+                .thenReturn(List.of());
+        when(posInventoryRepository.findByHouseholdIdAndProductIdInAndPointOfSaleIdNot(eq("house-001"), any(), eq("pos-002")))
+                .thenReturn(List.of(cs1Inv));
+        when(posTransferItemRepository.sumInTransitFromWarehouseByProductIds(eq("house-001"), any()))
+                .thenReturn(List.of());
+
+        InitPosInventoryRequest request = InitPosInventoryRequest.builder()
+                .items(List.of(
+                        PosInventoryItemRequest.builder()
+                                .productId("prod-cam")
+                                .stockQuantity(BigDecimal.valueOf(8)) // 8 > (10 - 3 = 7)
+                                .build()
+                ))
+                .build();
+
+        AppException ex = assertThrows(AppException.class, () ->
+                posInventoryService.initOrUpdatePosInventories("chuho", "pos-002", request));
+
+        assertEquals(ErrorCode.POS_INVENTORY_EXCEED_PRODUCT_STOCK, ex.getErrorCode());
+    }
+
+    @Test
+    @DisplayName("Cập nhật tồn kho thất bại khi vượt quá tồn kho khả dụng")
+    void testUpdatePosInventory_ExceedAvailableStock() {
+        Product camProduct = Product.builder()
+                .id("prod-cam")
+                .household(household)
+                .name("Cam sành")
+                .stockQuantity(BigDecimal.valueOf(10))
+                .build();
+
+        PointOfSale cs1 = PointOfSale.builder().id("pos-cs1").name("Cơ sở 1").build();
+        PosInventory cs1Inv = PosInventory.builder()
+                .product(camProduct)
+                .pointOfSale(cs1)
+                .stockQuantity(BigDecimal.valueOf(3))
+                .build();
+
+        when(userRepository.findByUsername("chuho")).thenReturn(Optional.of(ownerUser));
+        when(pointOfSaleRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("pos-002", "house-001"))
+                .thenReturn(Optional.of(branchPos));
+        when(productRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("prod-cam", "house-001"))
+                .thenReturn(Optional.of(camProduct));
+        when(posInventoryRepository.findByHouseholdIdAndProductIdAndPointOfSaleIdNot("house-001", "prod-cam", "pos-002"))
+                .thenReturn(List.of(cs1Inv));
+        when(posTransferItemRepository.sumInTransitFromWarehouseByProductId("house-001", "prod-cam"))
+                .thenReturn(BigDecimal.ZERO);
+
+        UpdatePosInventoryRequest request = UpdatePosInventoryRequest.builder()
+                .stockQuantity(BigDecimal.valueOf(8))
+                .build();
+
+        AppException ex = assertThrows(AppException.class, () ->
+                posInventoryService.updatePosInventory("chuho", "pos-002", "prod-cam", request));
+
+        assertEquals(ErrorCode.POS_INVENTORY_EXCEED_PRODUCT_STOCK, ex.getErrorCode());
     }
 }

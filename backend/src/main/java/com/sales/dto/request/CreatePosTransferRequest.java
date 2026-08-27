@@ -13,10 +13,8 @@ import java.util.List;
 @AllArgsConstructor
 public class CreatePosTransferRequest {
 
-    @NotBlank(message = "Điểm bán gửi không được để trống")
     private String fromPointOfSaleId;
 
-    @NotBlank(message = "Điểm bán nhận không được để trống")
     private String toPointOfSaleId;
 
     private String notes;

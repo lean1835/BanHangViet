@@ -19,7 +19,7 @@ export interface IPosCalculatedTotals {
 }
 
 export function calculatePosTotals(tab: IPosTab): IPosCalculatedTotals {
-  // 1. Calculate subtotal before discount and promotions
+  // 1. Bước 1: Tính tiền hàng và giảm giá khuyến mại tự động mặt hàng
   const totalOriginalAmount = tab.items.reduce(
     (sum, item) => sum + item.quantity * item.price,
     0
@@ -34,36 +34,36 @@ export function calculatePosTotals(tab: IPosTab): IPosCalculatedTotals {
   );
   const totalItemCount = tab.items.reduce((sum, item) => sum + item.quantity, 0);
 
-  // 2. Calculate Customer VIP discount (NCL-15-CN-003)
+  // 2. Bước 2: Chiết khấu khách VIP (áp dụng trên số tiền sau khuyến mại tự động SP: totalCartAmount)
   const customerDiscountRate = tab.customer?.discountRate || 0;
   const isCustomerPercentage = tab.customer?.discountType !== "CASH";
   const customerDiscountCash = Math.round(
     customerDiscountRate > 0
       ? isCustomerPercentage
-        ? (totalOriginalAmount * customerDiscountRate) / 100
-        : Math.min(totalOriginalAmount, customerDiscountRate)
+        ? (totalCartAmount * customerDiscountRate) / 100
+        : Math.min(totalCartAmount, customerDiscountRate)
       : 0
   );
 
-  // 3. Calculate manual discount cash amount
+  const afterVipDiscountAmount = Math.max(0, totalCartAmount - customerDiscountCash);
+
+  // 3. Bước 3: Chiết khấu thêm (áp dụng trên số tiền sau chiết khấu VIP: afterVipDiscountAmount)
   const manualDiscountCash = Math.round(
     tab.discountType === "PERCENTAGE"
-      ? (totalOriginalAmount * (tab.discountValue || 0)) / 100
-      : tab.discountValue || 0
+      ? (afterVipDiscountAmount * (tab.discountValue || 0)) / 100
+      : Math.min(afterVipDiscountAmount, tab.discountValue || 0)
   );
 
-  const totalOrderLevelDiscounts = Math.min(
-    totalOriginalAmount,
-    customerDiscountCash + manualDiscountCash
-  );
+  const totalOrderLevelDiscounts = customerDiscountCash + manualDiscountCash;
+  const afterDiscountAmount = Math.max(0, afterVipDiscountAmount - manualDiscountCash);
 
-  const afterDiscountAmount = Math.max(0, totalCartAmount - totalOrderLevelDiscounts);
-
-  // 4. Calculate Tax (Thuế GTGT / VAT)
+  // 4. Bước 4: Tính Thuế GTGT (VAT) trên giá sau khi đã chiết khấu thêm (afterDiscountAmount)
+  const discountRatio = totalCartAmount > 0 ? afterDiscountAmount / totalCartAmount : 1;
   const itemTaxTotal = Math.round(
     tab.items.reduce((sum, item) => {
       const itemTax = (item.product?.taxRatePercentage || 0) / 100;
-      return sum + item.lineTotal * itemTax;
+      const discountedItemBase = item.lineTotal * discountRatio;
+      return sum + discountedItemBase * itemTax;
     }, 0)
   );
 
@@ -73,7 +73,7 @@ export function calculatePosTotals(tab: IPosTab): IPosCalculatedTotals {
       : itemTaxTotal
   );
 
-  // 5. Calculate final total to pay (Khách cần trả)
+  // 5. Bước 5: Khách cần trả (finalTotal = Giá sau chiết khấu + Thuế VAT)
   const finalTotal = Math.round(Math.max(0, afterDiscountAmount + totalTaxAmount));
 
   // 6. Calculate effective amount given & change
