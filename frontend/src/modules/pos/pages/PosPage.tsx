@@ -42,6 +42,7 @@ import { PosPaymentSidebar } from "../components/PosPaymentSidebar";
 import { CustomerFormModal } from "@/modules/customer/components/CustomerFormModal";
 import { OrderSuccessModal } from "../components/OrderSuccessModal";
 import { recordOrderDiscount } from "@/modules/anomaly_alert/utils/anomalyStorage";
+import { calculatePosTotals } from "../utils/posCalculations";
 
 const POS_TABS_STORAGE_KEY = "pos_tabs_state_v1";
 
@@ -432,6 +433,7 @@ export const PosPage = () => {
       updateActiveTab({
         customer: newCust,
         customerId: newCust.id,
+        backendOrderId: undefined,
         isSaved: false,
       });
       setIsAddCustomerModalOpen(false);
@@ -455,6 +457,9 @@ export const PosPage = () => {
           customerId: activeTab.customerId,
         }).unwrap();
         orderId = createRes.result.id;
+
+        // Persist backendOrderId immediately to prevent duplicate order creation on retry
+        updateActiveTab({ backendOrderId: orderId });
 
         // 2. Add Items
         for (const item of activeTab.items) {
@@ -619,38 +624,24 @@ export const PosPage = () => {
     if (activeTab.items.length === 0) return;
     setIsCompletingOrder(true);
 
-    // Calculate totals first
-    const totalCart = activeTab.items.reduce(
-      (sum, i) => sum + i.lineTotal,
-      0
-    );
-    const discountCash =
-      activeTab.discountType === "PERCENTAGE"
-        ? (totalCart * (activeTab.discountValue || 0)) / 100
-        : activeTab.discountValue || 0;
-    const afterDiscount = Math.max(0, totalCart - discountCash);
+    // Calculate totals via centralized utility (including Customer VIP discount)
+    const totals = calculatePosTotals(activeTab);
+    const {
+      totalCartAmount: totalCart,
+      totalOrderLevelDiscounts: discountCash,
+      finalTotal,
+      effectiveAmountGiven,
+      changeAmount,
+    } = totals;
 
-    const itemTaxTotal = activeTab.items.reduce((sum, item) => {
-      const itemTax = (item.product.taxRatePercentage || 0) / 100;
-      return sum + item.lineTotal * itemTax;
-    }, 0);
-
-    const totalTaxAmount =
-      activeTab.vatRate !== undefined
-        ? afterDiscount * (activeTab.vatRate / 100)
-        : itemTaxTotal;
-    const finalTotal = Math.max(0, afterDiscount + totalTaxAmount);
-
-    const effectiveAmountGiven =
-      activeTab.saleMode === "FAST"
-        ? finalTotal
-        : typeof activeTab.amountGiven === "number"
-        ? activeTab.amountGiven
-        : activeTab.paymentMethod === "DEBT"
-        ? 0
-        : finalTotal;
-
-    const changeAmount = effectiveAmountGiven - finalTotal;
+    // Client-side validation: check payment amount before calling backend
+    if (activeTab.paymentMethod === "CASH" && effectiveAmountGiven < finalTotal) {
+      showToast(
+        `Số tiền khách đưa (${effectiveAmountGiven.toLocaleString("vi-VN")} đ) chưa đủ để thanh toán (${finalTotal.toLocaleString("vi-VN")} đ). Vui lòng nhập lại!`
+      );
+      setIsCompletingOrder(false);
+      return;
+    }
 
     // Check if system is offline
     if (isOnline === false) {
@@ -685,12 +676,16 @@ export const PosPage = () => {
         }).unwrap();
         orderId = createRes.result.id;
 
+        // Persist backendOrderId immediately to prevent duplicate order creation on retry
+        updateActiveTab({ backendOrderId: orderId });
+
         // 2. Add Items
         for (const item of activeTab.items) {
           await addOrderItem({
             orderId: orderId!,
             productId: item.product.id,
             quantity: item.quantity,
+            bypassPromotion: item.bypassPromotion,
           }).unwrap();
         }
 

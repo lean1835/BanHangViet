@@ -53,3 +53,37 @@ export interface IPromotionDetail {
   products: IProductSummary[];
   productGroups: IProductGroupSummary[];
 }
+
+export interface IPromotionProductStat {
+  productId: string;
+  productName: string;
+  quantitySold: number;
+  revenue: number;
+  discountAmount: number;
+}
+
+export interface IPromotionReport {
+  promotionId: string;
+  promotionName: string;
+  description?: string | null;
+  discountType: TDiscountType;
+  discountValue: number;
+  applyScope: TPromotionApplyScope;
+  startDate: string;
+  endDate: string;
+  status: TPromotionStatus;
+  calculatedState?: TPromotionCalculatedState;
+  hasData: boolean;
+  message?: string;
+  totalOrdersCount?: number;
+  totalQuantitySold?: number;
+  promotionRevenue?: number;
+  totalDiscountAmount?: number;
+  baselineStartDate?: string;
+  baselineEndDate?: string;
+  baselineRevenue?: number;
+  incrementalRevenue?: number;
+  netResult?: number;
+  productStats?: IPromotionProductStat[];
+}
+

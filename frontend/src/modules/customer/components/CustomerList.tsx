@@ -125,9 +125,25 @@ export const CustomerList: React.FC<CustomerListProps> = ({
                       title="Nhấn để xem chi tiết danh sách đơn hàng nợ & thông tin khách hàng"
                     >
                       <td className="p-3 font-bold text-slate-800 group-hover:text-kv-blue-primary transition-colors">
-                        <div className="flex items-center gap-1.5">
-                          <span>{customer.name}</span>
-                          <Eye size={12} className="text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity" />
+                        <div className="flex flex-col gap-0.5">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span>{customer.name}</span>
+                            {(customer.isVip || (customer.discountRate && customer.discountRate > 0)) && (
+                              <span className="px-1.5 py-0.2 rounded text-[10px] font-extrabold bg-amber-100 text-amber-800 border border-amber-300 inline-flex items-center gap-0.5">
+                                VIP {customer.discountRate && customer.discountRate > 0
+                                  ? (customer.discountType === "CASH"
+                                    ? `-${formatCurrency(customer.discountRate)}`
+                                    : `-${customer.discountRate}%`)
+                                  : ""}
+                              </span>
+                            )}
+                            <Eye size={12} className="text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity" />
+                          </div>
+                          {customer.totalSpent && customer.totalSpent > 0 ? (
+                            <span className="text-[10px] text-slate-400 font-normal">
+                              Tích lũy: {formatCurrency(customer.totalSpent)}
+                            </span>
+                          ) : null}
                         </div>
                       </td>
                       <td className="p-3 font-mono font-semibold text-slate-800">

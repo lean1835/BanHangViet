@@ -1,8 +1,9 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Tag } from "lucide-react";
+import { Tag, Crown } from "lucide-react";
 import type { ICustomer } from "@/modules/customer/types/ICustomer";
 import type { IPosTab } from "../types/IPos";
 import { formatCurrency } from "@/utils/formatCurrency";
+import { calculatePosTotals } from "../utils/posCalculations";
 
 interface IPosPaymentSidebarProps {
   tab: IPosTab;
@@ -70,59 +71,56 @@ export const PosPaymentSidebar: React.FC<IPosPaymentSidebarProps> = ({
     return customers.filter(
       (c) =>
         c.name.toLowerCase().includes(term) ||
-        (c.phone && c.phone.toLowerCase().includes(term))
+        (c.phone && c.phone.toLowerCase().includes(term)) ||
+        (c.phoneNumber && c.phoneNumber.toLowerCase().includes(term))
     );
   }, [customers, customerSearchTerm]);
 
-  // 1. Calculate subtotal before discount and promotions
-  const totalOriginalAmount = tab.items.reduce(
-    (sum, item) => sum + item.quantity * item.price,
-    0
+  // 1. Calculate financial summary via centralized posCalculations utility
+  const {
+    totalOriginalAmount,
+    totalPromotionDiscount,
+    totalItemCount,
+    customerDiscountRate,
+    isCustomerPercentage,
+    customerDiscountCash,
+    manualDiscountCash,
+    totalTaxAmount,
+    finalTotal,
+    changeAmount,
+  } = calculatePosTotals(tab);
+
+  // Track previous final total & discount configuration to detect discount changes
+  const prevFinalTotalRef = useRef<number>(finalTotal);
+  const prevDiscountSignatureRef = useRef<string>(
+    `${tab.customer?.id || ""}_${tab.discountType}_${tab.discountValue}_${tab.vatRate}_${totalPromotionDiscount}`
   );
-  const totalPromotionDiscount = tab.items.reduce(
-    (sum, item) => sum + (item.lineDiscount || 0),
-    0
-  );
-  const totalCartAmount = tab.items.reduce(
-    (sum, item) => sum + item.lineTotal,
-    0
-  );
-  const totalItemCount = tab.items.reduce((sum, item) => sum + item.quantity, 0);
 
-  // 2. Calculate discount cash amount
-  const discountCash =
-    tab.discountType === "PERCENTAGE"
-      ? (totalCartAmount * (tab.discountValue || 0)) / 100
-      : tab.discountValue || 0;
-
-  const afterDiscountAmount = Math.max(0, totalCartAmount - discountCash);
-
-  // 3. Calculate Tax (Thuế GTGT / VAT)
-  const itemTaxTotal = tab.items.reduce((sum, item) => {
-    const itemTax = (item.product.taxRatePercentage || 0) / 100;
-    return sum + item.lineTotal * itemTax;
-  }, 0);
-
-  const totalTaxAmount =
-    tab.vatRate !== undefined
-      ? afterDiscountAmount * (tab.vatRate / 100)
-      : itemTaxTotal;
-
-  // 4. Calculate final total to pay (Khách cần trả)
-  const finalTotal = Math.max(0, afterDiscountAmount + totalTaxAmount);
-
-  // Auto-sync amountGiven in FAST sale mode to default to paying in full
+  // Auto-sync amountGiven when applying discounts, in FAST mode, or when paying in full
   useEffect(() => {
-    if (tab.saleMode === "FAST") {
+    const currentDiscountSignature = `${tab.customer?.id || ""}_${tab.discountType}_${tab.discountValue}_${tab.vatRate}_${totalPromotionDiscount}`;
+    const discountChanged = prevDiscountSignatureRef.current !== currentDiscountSignature;
+    const wasPayingInFull = tab.amountGiven === prevFinalTotalRef.current || !tab.amountGiven;
+
+    if (tab.saleMode === "FAST" || discountChanged || wasPayingInFull) {
       if (tab.amountGiven !== finalTotal) {
         onUpdateTab({ amountGiven: finalTotal });
       }
     }
-  }, [tab.saleMode, finalTotal, tab.amountGiven, onUpdateTab]);
 
-  // 5. Calculate change (Tiền thừa)
-  const effectiveAmountGiven = tab.saleMode === "FAST" ? finalTotal : tab.amountGiven || 0;
-  const changeAmount = effectiveAmountGiven - finalTotal;
+    prevDiscountSignatureRef.current = currentDiscountSignature;
+    prevFinalTotalRef.current = finalTotal;
+  }, [
+    tab.saleMode,
+    finalTotal,
+    tab.customer?.id,
+    tab.discountType,
+    tab.discountValue,
+    tab.vatRate,
+    totalPromotionDiscount,
+    tab.amountGiven,
+    onUpdateTab,
+  ]);
 
   // Fast cash options
   const handleQuickCash = (amount: number) => {
@@ -181,12 +179,20 @@ export const PosPaymentSidebar: React.FC<IPosPaymentSidebarProps> = ({
 
             {tab.customer ? (
               <div className="flex items-center justify-between bg-white border border-blue-200 rounded-lg p-2.5 shadow-xs">
-                <div>
-                  <div className="font-bold text-slate-800 text-xs">
-                    {tab.customer.name}
+                <div className="flex-1 min-w-0 pr-2">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="font-bold text-slate-800 text-xs">
+                      {tab.customer.name}
+                    </span>
+                    {(tab.customer.isVip || customerDiscountRate > 0) && (
+                      <span className="px-1.5 py-0.2 rounded text-[10px] font-black bg-amber-100 text-amber-800 border border-amber-300 inline-flex items-center gap-0.5 shadow-2xs">
+                        <Crown size={10} className="text-amber-600" />
+                        VIP {customerDiscountRate > 0 ? (isCustomerPercentage ? `-${customerDiscountRate}%` : `-${formatCurrency(customerDiscountRate)}`) : ""}
+                      </span>
+                    )}
                   </div>
-                  <div className="text-[10px] text-slate-500 font-medium">
-                    SĐT: {tab.customer.phone || "Không có"}
+                  <div className="text-[10px] text-slate-500 font-medium pt-0.5">
+                    SĐT: {tab.customer.phone || tab.customer.phoneNumber || "Không có"}
                     {tab.customer.debt ? (
                       <span className="ml-2 text-red-600 font-bold">
                         Nợ: {formatCurrency(tab.customer.debt)}
@@ -197,7 +203,7 @@ export const PosPaymentSidebar: React.FC<IPosPaymentSidebarProps> = ({
                 <button
                   type="button"
                   onClick={() =>
-                    onUpdateTab({ customer: null, customerId: undefined })
+                    onUpdateTab({ customer: null, customerId: undefined, backendOrderId: undefined })
                   }
                   className="text-slate-400 hover:text-rose-600 p-1 rounded-full hover:bg-slate-100 transition-colors"
                   title="Bỏ chọn khách hàng"
@@ -238,7 +244,7 @@ export const PosPaymentSidebar: React.FC<IPosPaymentSidebarProps> = ({
 
                     <div
                       onClick={() => {
-                        onUpdateTab({ customer: null, customerId: undefined });
+                        onUpdateTab({ customer: null, customerId: undefined, backendOrderId: undefined });
                         setIsCustomerDropdownOpen(false);
                         setCustomerSearchTerm("");
                       }}
@@ -260,6 +266,7 @@ export const PosPaymentSidebar: React.FC<IPosPaymentSidebarProps> = ({
                             onUpdateTab({
                               customer: cust,
                               customerId: cust.id,
+                              backendOrderId: undefined,
                             });
                             setIsCustomerDropdownOpen(false);
                             setCustomerSearchTerm("");
@@ -267,11 +274,18 @@ export const PosPaymentSidebar: React.FC<IPosPaymentSidebarProps> = ({
                           className="p-2.5 hover:bg-blue-50 cursor-pointer border-b border-slate-50 last:border-none flex items-center justify-between"
                         >
                           <div>
-                            <div className="font-bold text-slate-800 text-xs">
-                              {cust.name}
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-bold text-slate-800 text-xs">
+                                {cust.name}
+                              </span>
+                              {(cust.isVip || (cust.discountRate && cust.discountRate > 0)) && (
+                                <span className="px-1 py-0.1 rounded text-[9px] font-extrabold bg-amber-100 text-amber-800 border border-amber-200">
+                                  VIP {cust.discountRate && cust.discountRate > 0 ? (cust.discountType === "CASH" ? `-${formatCurrency(cust.discountRate)}` : `-${cust.discountRate}%`) : ""}
+                                </span>
+                              )}
                             </div>
                             <div className="text-[10px] text-slate-400">
-                              SĐT: {cust.phone || "N/A"}
+                              SĐT: {cust.phone || cust.phoneNumber || "N/A"}
                             </div>
                           </div>
                           {cust.debt ? (
@@ -316,10 +330,23 @@ export const PosPaymentSidebar: React.FC<IPosPaymentSidebarProps> = ({
             <div className="flex items-center justify-between text-emerald-700 font-bold text-xs bg-emerald-50/80 px-2 py-1.5 rounded-lg border border-emerald-200">
               <span className="flex items-center gap-1">
                 <Tag size={13} className="text-emerald-600" />
-                <span>Khuyến mại tự động:</span>
+                <span>Khuyến mại tự động SP:</span>
               </span>
               <span className="font-extrabold text-emerald-800">
                 -{formatCurrency(totalPromotionDiscount)}
+              </span>
+            </div>
+          )}
+
+          {/* Customer VIP Discount (NCL-15-CN-003) */}
+          {customerDiscountCash > 0 && (
+            <div className="flex items-center justify-between text-amber-800 font-bold text-xs bg-amber-50/80 px-2 py-1.5 rounded-lg border border-amber-200">
+              <span className="flex items-center gap-1">
+                <Crown size={13} className="text-amber-600" />
+                <span>Chiết khấu khách VIP ({isCustomerPercentage ? `${customerDiscountRate}%` : "₫"}):</span>
+              </span>
+              <span className="font-black text-amber-800">
+                -{formatCurrency(customerDiscountCash)}
               </span>
             </div>
           )}
@@ -366,9 +393,9 @@ export const PosPaymentSidebar: React.FC<IPosPaymentSidebarProps> = ({
                 />
               </div>
             </div>
-            {discountCash > 0 && (
+            {manualDiscountCash > 0 && (
               <div className="text-right text-[10px] font-bold text-amber-600">
-                Giảm: -{formatCurrency(discountCash)}
+                Giảm: -{formatCurrency(manualDiscountCash)}
               </div>
             )}
           </div>

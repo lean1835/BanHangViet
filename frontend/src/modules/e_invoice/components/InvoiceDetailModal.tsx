@@ -211,7 +211,7 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
         role="dialog"
         aria-modal="true"
         aria-label={`Chi tiết hóa đơn ${invoice.lookupCode}`}
-        className="app-modal-panel flex w-full max-w-4xl flex-col overflow-hidden rounded-xl border border-slate-100 bg-slate-50 text-left text-xs font-semibold text-slate-700 shadow-2xl animate-modal-bounce-in lg:h-[90vh]"
+        className="app-modal-panel flex w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-slate-100 bg-slate-50 text-left text-xs font-semibold text-slate-700 shadow-2xl animate-modal-bounce-in max-h-[92vh]"
       >
         {/* Header */}
         <div className="app-modal-header flex items-center justify-between bg-slate-800 px-5 py-3 text-white">
@@ -231,8 +231,8 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 flex flex-col lg:flex-row lg:items-stretch gap-6">
-          <div className="flex-1 shrink-0 min-h-0 bg-white border border-slate-200 rounded-xl p-6 shadow-sm flex flex-col gap-6 text-[10px] text-slate-800 font-medium relative overflow-x-hidden overflow-y-auto">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 flex flex-col lg:flex-row lg:items-start gap-6">
+          <div className="flex-1 w-full bg-white border border-slate-200 rounded-xl p-6 shadow-sm flex flex-col gap-5 text-[10px] text-slate-800 font-medium relative overflow-hidden">
             {/* Watermark */}
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none opacity-[0.03] text-slate-800 text-[3.5rem] font-extrabold rotate-[30deg] uppercase whitespace-nowrap">
               Hóa đơn điện tử
@@ -255,6 +255,9 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
                 </p>
               </div>
               <div className="text-right flex flex-col gap-0.5 font-bold text-slate-600 text-[10px]">
+                {invoice.orderNumber && (
+                  <p>Mã đơn hàng: <span className="text-blue-600 font-mono font-bold">{invoice.orderNumber}</span></p>
+                )}
                 <p>Mẫu số: <span className="text-slate-800 font-extrabold">{invoice.invoicePattern || "1"}</span></p>
                 <p>Ký hiệu: <span className="text-slate-800 font-extrabold">{invoice.invoiceSymbol || invoice.symbol}</span></p>
                 <p>Số HĐ: <span className="text-kv-blue-primary font-mono font-extrabold">{invoice.invoiceNumber || "Chưa cấp số"}</span></p>
@@ -340,7 +343,7 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
             </div>
 
             {/* Items Table */}
-            <div className="flex-1">
+            <div className="flex-1 overflow-x-auto">
               <table className="w-full text-left border-collapse border border-slate-200">
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold text-[9px] uppercase">
@@ -349,6 +352,7 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
                     <th className="p-2 border-r border-slate-200 text-center w-12">ĐVT</th>
                     <th className="p-2 border-r border-slate-200 text-center w-12">SL</th>
                     <th className="p-2 border-r border-slate-200 text-right w-20">Đơn giá</th>
+                    <th className="p-2 border-r border-slate-200 text-right w-20">Chiết khấu</th>
                     <th className="p-2 border-r border-slate-200 text-center w-14">Thuế (%)</th>
                     <th className="p-2 text-right w-24">Thành tiền</th>
                   </tr>
@@ -358,12 +362,43 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
                     invoice.items.map((item, idx) => (
                       <tr key={item.id}>
                         <td className="p-2 border-r border-slate-200 text-center">{idx + 1}</td>
-                        <td className="p-2 border-r border-slate-200 font-bold text-slate-800">{item.productName}</td>
+                        <td className="p-2 border-r border-slate-200 font-bold text-slate-800">
+                          <div>{item.productName}</div>
+                          {((item.discountAmount && item.discountAmount > 0) || item.promotionName) && (
+                            <div className="text-[9px] text-emerald-700 font-semibold flex items-center gap-1 mt-0.5">
+                              <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 py-0.5 rounded text-[8.5px] inline-flex items-center gap-0.5 font-bold">
+                                {item.promotionName || "Giảm giá"}: -{formatCurrency(item.discountAmount || 0)}
+                              </span>
+                            </div>
+                          )}
+                        </td>
                         <td className="p-2 border-r border-slate-200 text-center text-slate-500">{item.unit || "Lon"}</td>
                         <td className="p-2 border-r border-slate-200 text-center font-bold">{item.quantity}</td>
-                        <td className="p-2 border-r border-slate-200 text-right">{formatCurrency(item.unitPrice)}</td>
+                        <td className="p-2 border-r border-slate-200 text-right whitespace-nowrap">
+                          {item.discountAmount && item.discountAmount > 0 ? (
+                            <div>
+                              <span className="line-through text-slate-400 text-[9px] block font-normal">
+                                {formatCurrency(item.unitPrice)}
+                              </span>
+                              <span className="font-bold text-emerald-700">
+                                {formatCurrency(Math.max(0, (item.quantity * item.unitPrice - item.discountAmount) / (item.quantity || 1)))}
+                              </span>
+                            </div>
+                          ) : (
+                            formatCurrency(item.unitPrice)
+                          )}
+                        </td>
+                        <td className="p-2 border-r border-slate-200 text-right font-semibold whitespace-nowrap">
+                          {item.discountAmount && item.discountAmount > 0 ? (
+                            <span className="text-rose-600 font-bold">-{formatCurrency(item.discountAmount)}</span>
+                          ) : (
+                            <span className="text-slate-400 font-normal">0 đ</span>
+                          )}
+                        </td>
                         <td className="p-2 border-r border-slate-200 text-center text-slate-500">{item.taxRatePercentage}%</td>
-                        <td className="p-2 text-right font-bold text-slate-800">{formatCurrency(item.subtotal)}</td>
+                        <td className="p-2 text-right font-bold text-slate-800">
+                          {formatCurrency((item.quantity * item.unitPrice) - (item.discountAmount || 0))}
+                        </td>
                       </tr>
                     ))
                   ) : (
@@ -373,6 +408,7 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
                       <td className="p-2 border-r border-slate-200 text-center text-slate-500">Lần</td>
                       <td className="p-2 border-r border-slate-200 text-center font-bold">1</td>
                       <td className="p-2 border-r border-slate-200 text-right">{formatCurrency(invoice.amount)}</td>
+                      <td className="p-2 border-r border-slate-200 text-right text-slate-400 font-normal">0 đ</td>
                       <td className="p-2 border-r border-slate-200 text-center text-slate-500">8%</td>
                       <td className="p-2 text-right font-bold text-slate-800">{formatCurrency(invoice.amount)}</td>
                     </tr>

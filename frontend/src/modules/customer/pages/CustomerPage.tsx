@@ -177,6 +177,11 @@ export const CustomerPage: React.FC = () => {
           email: data.email,
           address: data.address,
           creditLimit: data.creditLimit,
+          discountRate: data.discountRate,
+          discountType: data.discountType,
+          isVip: data.isVip,
+          reminderDaysBefore: data.reminderDaysBefore,
+          reminderDaysAfter: data.reminderDaysAfter,
         }).unwrap();
 
         addLogEntry(
@@ -202,6 +207,11 @@ export const CustomerPage: React.FC = () => {
           email: data.email,
           address: data.address,
           creditLimit: data.creditLimit,
+          discountRate: data.discountRate,
+          discountType: data.discountType,
+          isVip: data.isVip,
+          reminderDaysBefore: data.reminderDaysBefore,
+          reminderDaysAfter: data.reminderDaysAfter,
         }).unwrap();
 
         addLogEntry(

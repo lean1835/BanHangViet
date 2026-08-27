@@ -61,6 +61,38 @@ export const PROMOTION_STATE_BADGE_CLASSES: Record<TPromotionCalculatedState, st
     "bg-amber-50 text-amber-700 border-amber-200 ring-amber-600/20",
 };
 
+export const getPromotionCalculatedState = (promo?: {
+  status?: string;
+  startDate?: string;
+  endDate?: string;
+  calculatedState?: TPromotionCalculatedState | string;
+} | null): TPromotionCalculatedState => {
+  if (!promo) return PROMOTION_CALCULATED_STATE.INACTIVE;
+  if (
+    promo.calculatedState &&
+    Object.values(PROMOTION_CALCULATED_STATE).includes(
+      promo.calculatedState as TPromotionCalculatedState
+    )
+  ) {
+    return promo.calculatedState as TPromotionCalculatedState;
+  }
+  if (promo.status === PROMOTION_STATUS.INACTIVE) {
+    return PROMOTION_CALCULATED_STATE.INACTIVE;
+  }
+  if (promo.startDate && promo.endDate) {
+    const now = new Date().getTime();
+    const start = new Date(promo.startDate).getTime();
+    const end = new Date(promo.endDate).getTime();
+    if (now < start) return PROMOTION_CALCULATED_STATE.UPCOMING;
+    if (now > end) return PROMOTION_CALCULATED_STATE.EXPIRED;
+    return PROMOTION_CALCULATED_STATE.ACTIVE;
+  }
+  return promo.status === PROMOTION_STATUS.ACTIVE
+    ? PROMOTION_CALCULATED_STATE.ACTIVE
+    : PROMOTION_CALCULATED_STATE.INACTIVE;
+};
+
+
 export const PROMOTION_CONFIG = {
   PAGE_SIZE: 10,
   INITIAL_PAGE: 0,

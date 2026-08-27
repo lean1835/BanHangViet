@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import type { IPosTab } from "../types/IPos";
 import type { IInvoice } from "@/modules/e_invoice/types/IInvoice";
+import { calculatePosTotals } from "../utils/posCalculations";
 import { USER_ROLES } from "@/constants/roles";
 import { STORAGE_KEYS } from "@/constants/app";
 import { formatCurrency } from "@/utils/formatCurrency";
@@ -90,31 +91,16 @@ export const OrderSuccessModal: React.FC<IOrderSuccessModalProps> = ({
     window.print();
   };
 
-  // Price calculations
-  const originalItemsSum = tab.items.reduce(
-    (sum, item) => sum + item.quantity * item.price,
-    0
-  );
-  const totalPromoDiscount = tab.items.reduce(
-    (sum, item) => sum + (!item.bypassPromotion ? (item.lineDiscount || 0) : 0),
-    0
-  );
-  const itemsSum = tab.items.reduce((sum, item) => sum + item.lineTotal, 0);
-  const discountCash =
-    tab.discountType === "PERCENTAGE"
-      ? (itemsSum * (tab.discountValue || 0)) / 100
-      : tab.discountValue || 0;
-  const afterDiscount = Math.max(0, itemsSum - discountCash);
-
-  const itemTaxTotal = tab.items.reduce((sum, item) => {
-    const itemTax = (item.product?.taxRatePercentage || 0) / 100;
-    return sum + item.lineTotal * itemTax;
-  }, 0);
-
-  const taxAmount =
-    tab.vatRate !== undefined
-      ? afterDiscount * (tab.vatRate / 100)
-      : itemTaxTotal;
+  // Price calculations via centralized posCalculations utility
+  const {
+    totalOriginalAmount: originalItemsSum,
+    totalPromotionDiscount: totalPromoDiscount,
+    totalCartAmount: itemsSum,
+    customerDiscountCash,
+    manualDiscountCash,
+    totalOrderLevelDiscounts: discountCash,
+    totalTaxAmount: taxAmount,
+  } = calculatePosTotals(tab);
 
   // Handle Real Invoice Issuance (POST /invoices/draft)
   const handleIssueInvoice = async () => {
@@ -147,6 +133,7 @@ export const OrderSuccessModal: React.FC<IOrderSuccessModalProps> = ({
         buyerTaxCode: (tab.customer as any)?.taxCode || "",
         taxAuthorityCode: "",
         symbol: "1M26SOP",
+        orderNumber: tab.orderNumber,
         customer: tab.customer?.name || "Khách mua lẻ",
         amount: finalTotal,
         time: new Date().toISOString(),
@@ -159,12 +146,13 @@ export const OrderSuccessModal: React.FC<IOrderSuccessModalProps> = ({
           id: item.id || `item_${idx}`,
           productId: item.product?.id || `p_${idx}`,
           productName: item.product?.name || "Sản phẩm",
-          unit: "Cái",
+          unit: item.product?.unit || "Cái",
           quantity: item.quantity,
           unitPrice: item.price,
           taxRatePercentage: item.product?.taxRatePercentage || 0,
           taxAmount: Math.round((item.lineTotal * (item.product?.taxRatePercentage || 0)) / 100),
           discountAmount: item.lineDiscount || 0,
+          promotionName: item.promotionName || undefined,
           subtotal: item.lineTotal,
         })),
       };
@@ -200,6 +188,7 @@ export const OrderSuccessModal: React.FC<IOrderSuccessModalProps> = ({
         buyerTaxCode: (tab.customer as any)?.taxCode || "",
         taxAuthorityCode: "",
         symbol: "1M26SOP",
+        orderNumber: tab.orderNumber,
         customer: tab.customer?.name || "Khách mua lẻ",
         amount: finalTotal,
         time: new Date().toISOString(),
@@ -212,12 +201,13 @@ export const OrderSuccessModal: React.FC<IOrderSuccessModalProps> = ({
           id: item.id || `item_${idx}`,
           productId: item.product?.id || `p_${idx}`,
           productName: item.product?.name || "Sản phẩm",
-          unit: "Cái",
+          unit: item.product?.unit || "Cái",
           quantity: item.quantity,
           unitPrice: item.price,
           taxRatePercentage: item.product?.taxRatePercentage || 0,
           taxAmount: Math.round((item.lineTotal * (item.product?.taxRatePercentage || 0)) / 100),
           discountAmount: item.lineDiscount || 0,
+          promotionName: item.promotionName || undefined,
           subtotal: item.lineTotal,
         })),
       };
@@ -533,10 +523,17 @@ export const OrderSuccessModal: React.FC<IOrderSuccessModalProps> = ({
                 </div>
               )}
 
-              {discountCash > 0 && (
+              {customerDiscountCash > 0 && (
+                <div className="flex justify-between text-amber-800 font-semibold">
+                  <span>Chiết khấu khách VIP:</span>
+                  <span className="font-bold">-{formatCurrency(customerDiscountCash)}</span>
+                </div>
+              )}
+
+              {manualDiscountCash > 0 && (
                 <div className="flex justify-between text-emerald-700">
-                  <span>Chiết khấu / Giảm giá:</span>
-                  <span className="font-bold">-{formatCurrency(discountCash)}</span>
+                  <span>Chiết khấu thêm:</span>
+                  <span className="font-bold">-{formatCurrency(manualDiscountCash)}</span>
                 </div>
               )}
 
@@ -611,18 +608,16 @@ export const OrderSuccessModal: React.FC<IOrderSuccessModalProps> = ({
 
       {/* ─── VIEW 2: INHERITED E-INVOICE DETAIL MODAL FROM E_INVOICE MODULE ─── */}
       {modalView === "ISSUE_INVOICE_VIEW" && realInvoice && (
-        <div className="relative w-full max-w-4xl" onClick={(e) => e.stopPropagation()}>
-          <InvoiceDetailModal
-            isOpen={true}
-            onClose={() => setModalView("SUCCESS")}
-            invoice={realInvoice}
-            currentRole={USER_ROLES.OWNER}
-            onSendToTax={handleSendToTax}
-            onResendToTax={handleResendToTax}
-            onCancelInvoice={handleCancelInvoice}
-            onUpdateInvoice={handleUpdateInvoice}
-          />
-        </div>
+        <InvoiceDetailModal
+          isOpen={true}
+          onClose={() => setModalView("SUCCESS")}
+          invoice={realInvoice}
+          currentRole={USER_ROLES.OWNER}
+          onSendToTax={handleSendToTax}
+          onResendToTax={handleResendToTax}
+          onCancelInvoice={handleCancelInvoice}
+          onUpdateInvoice={handleUpdateInvoice}
+        />
       )}
 
       {/* Foreground Success Alert Dialog via Portal (renders on top of InvoiceDetailModal) */}
@@ -876,10 +871,17 @@ export const OrderSuccessModal: React.FC<IOrderSuccessModalProps> = ({
                   </div>
                 )}
 
-                {discountCash > 0 && (
+                {customerDiscountCash > 0 && (
+                  <div className="flex justify-between text-amber-800 font-semibold">
+                    <span>Chiết khấu khách VIP:</span>
+                    <span className="font-bold">-{formatCurrency(customerDiscountCash)}</span>
+                  </div>
+                )}
+
+                {manualDiscountCash > 0 && (
                   <div className="flex justify-between text-emerald-700">
                     <span>Chiết khấu thêm:</span>
-                    <span className="font-bold">-{formatCurrency(discountCash)}</span>
+                    <span className="font-bold">-{formatCurrency(manualDiscountCash)}</span>
                   </div>
                 )}
 

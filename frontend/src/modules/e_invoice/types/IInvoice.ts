@@ -13,6 +13,7 @@ export interface IInvoiceItem {
   taxRatePercentage: number;
   taxAmount: number;
   discountAmount: number;
+  promotionName?: string;
   subtotal: number;
 }
 

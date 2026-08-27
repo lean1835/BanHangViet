@@ -1,6 +1,6 @@
 import { baseApi } from "@/stores/baseApi";
 import { API_CONFIG, API_TAG_TYPES, HTTP_METHODS } from "@/constants/api";
-import type { IPromotion, IPromotionDetail } from "../types/IPromotion";
+import type { IPromotion, IPromotionDetail, IPromotionReport } from "../types/IPromotion";
 import type {
   ICreatePromotionPayload,
   IUpdatePromotionPayload,
@@ -117,6 +117,17 @@ export const promotionApi = baseApi.injectEndpoints({
           import("../types/IPromotionPayload").IAutoApplyPromotionResponse
         >(response),
     }),
+    getPromotionReport: builder.query<IPromotionReport, string>({
+      query: (id) => ({
+        url: `/promotions/${id}/report`,
+        method: HTTP_METHODS.GET,
+      }),
+      transformResponse: (response: unknown) =>
+        getResponseResult<IPromotionReport>(response),
+      providesTags: (_result, _error, id) => [
+        { type: API_TAG_TYPES.PROMOTION, id: `REPORT_${id}` },
+      ],
+    }),
   }),
   overrideExisting: API_CONFIG.OVERRIDE_EXISTING_ENDPOINTS,
 });
@@ -125,9 +136,12 @@ export const {
   useGetPromotionsQuery,
   useGetPromotionByIdQuery,
   useLazyGetPromotionByIdQuery,
+  useGetPromotionReportQuery,
+  useLazyGetPromotionReportQuery,
   useCreatePromotionMutation,
   useUpdatePromotionMutation,
   useDeletePromotionMutation,
   useTogglePromotionStatusMutation,
   useAutoApplyPromotionsMutation,
 } = promotionApi;
+

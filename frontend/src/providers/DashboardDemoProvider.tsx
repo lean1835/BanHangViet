@@ -28,7 +28,7 @@ import { formatActivityTimestamp } from "@/utils/dateFormatter";
 
 import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 
-interface IDashboardDemoContext {
+export interface IDashboardDemoContext {
   currentRole: TDemoRole;
   setCurrentRole: Dispatch<SetStateAction<TDemoRole>>;
   isOnline: boolean;

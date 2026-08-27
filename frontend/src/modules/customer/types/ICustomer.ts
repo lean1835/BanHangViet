@@ -9,8 +9,15 @@ export interface ICustomer {
   creditLimit: number;
   debt: number;
   currentDebt?: number;
+  discountRate?: number;
+  discountType?: "PERCENTAGE" | "CASH";
+  totalSpent?: number;
+  isVip?: boolean;
+  reminderDaysBefore?: number;
+  reminderDaysAfter?: number;
   dueDate?: string;
   debtCreatedAt?: string;
   createdAt?: string;
   updatedAt?: string;
 }
+

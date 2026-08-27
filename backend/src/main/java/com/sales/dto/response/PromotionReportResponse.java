@@ -26,6 +26,7 @@ public class PromotionReportResponse {
     private LocalDateTime startDate;
     private LocalDateTime endDate;
     private PromotionStatus status;
+    private String calculatedState;
 
     private Boolean hasData;
     private String message;
