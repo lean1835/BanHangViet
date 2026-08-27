@@ -121,17 +121,17 @@ export const PosHeader: React.FC<IPosHeaderProps> = ({
   return (
     <header className="bg-[#0070f4] text-white shadow-md select-none sticky top-0 z-40">
       <div className="flex items-center justify-start px-3 py-1.5 gap-3">
-        {/* Left: Product Search Bar & Barcode Scanner Button */}
+        {/* Left: Product Search Bar with Camera Scanner & Voice Search */}
         <div className="flex items-center gap-1.5 shrink-0">
-          <div className="w-64 lg:w-72 relative" ref={searchContainerRef}>
+          <div className="w-72 sm:w-80 lg:w-96 relative" ref={searchContainerRef}>
             <div className="relative flex items-center">
-              <span className="absolute left-3 text-slate-400 text-sm pointer-events-none">
-                <Search size={14} />
+              <span className="absolute left-3.5 text-slate-400 pointer-events-none flex items-center">
+                <Search size={16} />
               </span>
               <input
                 ref={searchInputRef}
                 type="text"
-                className="w-full bg-white text-slate-800 text-xs rounded-full pl-9 pr-14 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-300 placeholder-slate-400 font-medium shadow-inner"
+                className="w-full h-10 bg-white text-slate-800 text-xs sm:text-[13px] rounded-full pl-10 pr-20 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300 placeholder-slate-400 font-medium shadow-inner transition-all"
                 placeholder="Tìm hàng hóa (/)..."
                 value={searchTerm}
                 onChange={(e) => {
@@ -141,11 +141,19 @@ export const PosHeader: React.FC<IPosHeaderProps> = ({
                 onFocus={() => setIsDropdownOpen(true)}
                 onKeyDown={handleKeyDownInput}
               />
-              <div className="absolute right-1.5 flex items-center gap-1">
-                {!searchTerm && (
-                  <span className="text-[10px] bg-slate-100 text-slate-400 font-bold px-1.5 py-0.5 rounded border border-slate-200 pointer-events-none font-mono">
-                    /
-                  </span>
+              <div className="absolute right-2 flex items-center gap-1">
+                {onOpenScannerModal && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onOpenScannerModal();
+                    }}
+                    className="p-1.5 rounded-full text-slate-400 hover:text-blue-600 hover:bg-blue-50 active:bg-blue-100 transition-colors"
+                    title="Mở máy quét Camera (F2)"
+                  >
+                    <Camera size={16} />
+                  </button>
                 )}
                 {onOpenVoiceModal && (
                   <button
@@ -154,10 +162,10 @@ export const PosHeader: React.FC<IPosHeaderProps> = ({
                       e.stopPropagation();
                       onOpenVoiceModal();
                     }}
-                    className="p-1 rounded-full text-slate-400 hover:text-blue-600 hover:bg-blue-50 active:bg-blue-100 transition-colors"
+                    className="p-1.5 rounded-full text-slate-400 hover:text-blue-600 hover:bg-blue-50 active:bg-blue-100 transition-colors"
                     title="Tìm hàng bằng giọng nói (F4)"
                   >
-                    <Mic size={14} />
+                    <Mic size={16} />
                   </button>
                 )}
               </div>
@@ -218,21 +226,6 @@ export const PosHeader: React.FC<IPosHeaderProps> = ({
               </div>
             )}
           </div>
-
-          {onOpenScannerModal && (
-            <button
-              type="button"
-              onClick={onOpenScannerModal}
-              className="flex items-center gap-1.5 bg-blue-600/90 hover:bg-blue-700 active:scale-95 text-white px-2.5 py-1.5 rounded-full text-xs font-bold transition-all shadow-sm border border-blue-400/30 shrink-0"
-              title="Mở máy quét Camera (F2)"
-            >
-              <Camera size={14} className="text-white" />
-              <span className="hidden sm:inline text-[11px]">Quét mã</span>
-              <span className="text-[9px] bg-blue-500 text-blue-100 px-1 py-0.2 rounded font-mono font-bold">
-                F2
-              </span>
-            </button>
-          )}
         </div>
 
         {/* Multi-Order Tabs Bar - ALIGNED FROM LEFT TO RIGHT */}
