@@ -72,6 +72,8 @@ export const returnTicketApi = baseApi.injectEndpoints({
         { type: API_TAG_TYPES.RETURN_TICKET, id: "STATISTICS" },
         { type: API_TAG_TYPES.RETURN_TICKET, id: "TOP_PRODUCTS" },
         { type: API_TAG_TYPES.INVOICE, id: "LIST" },
+        { type: API_TAG_TYPES.PRODUCT, id: "LIST" },
+        { type: API_TAG_TYPES.POS_INVENTORY, id: "LIST" },
       ],
     }),
 
@@ -89,6 +91,7 @@ export const returnTicketApi = baseApi.injectEndpoints({
         { type: API_TAG_TYPES.RETURN_TICKET, id: "STATISTICS" },
         { type: API_TAG_TYPES.RETURN_TICKET, id: "TOP_PRODUCTS" },
         { type: API_TAG_TYPES.PRODUCT, id: "LIST" },
+        { type: API_TAG_TYPES.POS_INVENTORY, id: "LIST" },
         { type: API_TAG_TYPES.DEBT, id: "LIST" },
       ],
     }),

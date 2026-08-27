@@ -71,6 +71,26 @@ const toProduct = (value: unknown): IProduct => {
     taxRateId: readString(product.taxRateId),
     taxRateName: readString(product.taxRateName),
     taxRatePercentage: readNumber(product.taxRatePercentage),
+    warehouseStock:
+      product.warehouseStock !== undefined && product.warehouseStock !== null
+        ? readNumber(product.warehouseStock)
+        : undefined,
+    allocatedStock:
+      product.allocatedStock !== undefined && product.allocatedStock !== null
+        ? readNumber(product.allocatedStock)
+        : undefined,
+    posStocks: Array.isArray(product.posStocks)
+      ? product.posStocks.map((ps: unknown) => {
+          const item = isRecord(ps) ? ps : {};
+          return {
+            posId: readString(item.posId),
+            posCode: readString(item.posCode),
+            posName: readString(item.posName),
+            stockQuantity: readNumber(item.stockQuantity),
+            minStockQuantity: readNumber(item.minStockQuantity),
+          };
+        })
+      : undefined,
     createdAt: readString(product.createdAt),
     updatedAt: readString(product.updatedAt),
   };
@@ -332,6 +352,10 @@ export const productApi = baseApi.injectEndpoints({
           type: API_TAG_TYPES.INVENTORY_WARNING,
           id: PRODUCT_API_TAG_IDS.SUGGESTIONS,
         },
+        {
+          type: API_TAG_TYPES.POS_INVENTORY,
+          id: "LIST",
+        },
       ],
     }),
     updateProduct: builder.mutation<
@@ -365,6 +389,7 @@ export const productApi = baseApi.injectEndpoints({
           type: API_TAG_TYPES.INVENTORY_WARNING,
           id: PRODUCT_API_TAG_IDS.SUGGESTIONS,
         },
+        { type: API_TAG_TYPES.POS_INVENTORY, id: "LIST" },
       ],
     }),
     deleteProduct: builder.mutation<void, string>({
@@ -380,6 +405,7 @@ export const productApi = baseApi.injectEndpoints({
           type: API_TAG_TYPES.INVENTORY_WARNING,
           id: PRODUCT_API_TAG_IDS.SUGGESTIONS,
         },
+        { type: API_TAG_TYPES.POS_INVENTORY, id: "LIST" },
       ],
     }),
     getProductGroups: builder.query<IProductGroup[], void>({
@@ -520,6 +546,10 @@ export const productApi = baseApi.injectEndpoints({
           type: API_TAG_TYPES.INVENTORY_WARNING,
           id: PRODUCT_API_TAG_IDS.SUGGESTIONS,
         },
+        {
+          type: API_TAG_TYPES.POS_INVENTORY,
+          id: "LIST",
+        },
       ],
     }),
     getGoodsReceiptById: builder.query<IGoodsReceiptDetailInfo, string>({
@@ -574,6 +604,10 @@ export const productApi = baseApi.injectEndpoints({
         {
           type: API_TAG_TYPES.INVENTORY_WARNING,
           id: PRODUCT_API_TAG_IDS.SUGGESTIONS,
+        },
+        {
+          type: API_TAG_TYPES.POS_INVENTORY,
+          id: "LIST",
         },
       ],
     }),

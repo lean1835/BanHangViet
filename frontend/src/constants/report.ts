@@ -7,6 +7,10 @@ export const REPORT_NAVIGATION_ITEMS = [
     label: "Doanh thu & Bán chạy",
   },
   {
+    path: APP_ROUTES.REPORT_POS_REVENUE,
+    label: "Doanh thu theo điểm bán",
+  },
+  {
     path: APP_ROUTES.REPORT_COMPARISON,
     label: "So sánh doanh thu kỳ",
   },

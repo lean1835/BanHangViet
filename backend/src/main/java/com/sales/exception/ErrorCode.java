@@ -188,7 +188,11 @@ public enum ErrorCode {
     TRANSFER_QUANTITY_INVALID(7024, "Số lượng chuyển phải lớn hơn 0", HttpStatus.BAD_REQUEST),
     TRANSFER_EXCEED_STOCK(7025, "Số lượng chuyển vượt quá tồn kho hiện có tại điểm gửi", HttpStatus.BAD_REQUEST),
     TRANSFER_RECEIVER_PERMISSION_DENIED(7026, "Chỉ nhân viên thuộc điểm nhận, kế toán hoặc chủ hộ mới có quyền xác nhận nhận hàng", HttpStatus.FORBIDDEN),
-    TRANSFER_CANCEL_REASON_REQUIRED(7027, "Cần nhập lý do khi hủy phiếu chuyển hàng", HttpStatus.BAD_REQUEST);
+    TRANSFER_CANCEL_REASON_REQUIRED(7027, "Cần nhập lý do khi hủy phiếu chuyển hàng", HttpStatus.BAD_REQUEST),
+    TRANSFER_EXCEED_WAREHOUSE_STOCK(7028, "Số lượng chuyển vượt quá tồn kho khả dụng tại Kho gốc", HttpStatus.BAD_REQUEST),
+    POS_INVENTORY_EXCEED_PRODUCT_STOCK(7029, "Số lượng tồn kho phân bổ vượt quá tồn kho khả dụng trong danh mục hàng hóa", HttpStatus.BAD_REQUEST),
+    TRANSFER_SAME_SOURCE_DEST(7030, "Điểm gửi và điểm nhận không được trùng nhau", HttpStatus.BAD_REQUEST),
+    TRANSFER_SOURCE_AND_DEST_EMPTY(7031, "Cần chọn điểm gửi hoặc điểm nhận hợp lệ", HttpStatus.BAD_REQUEST);
 
     private final int code;
     private final String message;

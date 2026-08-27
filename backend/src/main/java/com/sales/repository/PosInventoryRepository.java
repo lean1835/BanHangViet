@@ -43,6 +43,18 @@ public interface PosInventoryRepository extends JpaRepository<PosInventory, Stri
            "AND (pi.stockQuantity <= pi.minStockQuantity OR pi.stockQuantity <= 0)")
     List<PosInventory> findLowStockInventoriesByPos(@Param("householdId") String householdId, @Param("posId") String posId);
 
+    @EntityGraph(attributePaths = {"product", "pointOfSale", "product.group", "product.taxRate"})
+    List<PosInventory> findByHouseholdIdAndProductId(String householdId, String productId);
+
+    @EntityGraph(attributePaths = {"product", "pointOfSale", "product.group", "product.taxRate"})
+    List<PosInventory> findByHouseholdIdAndProductIdIn(String householdId, java.util.Collection<String> productIds);
+
+    @EntityGraph(attributePaths = {"product", "pointOfSale", "product.group", "product.taxRate"})
+    List<PosInventory> findByHouseholdIdAndProductIdAndPointOfSaleIdNot(String householdId, String productId, String excludePosId);
+
+    @EntityGraph(attributePaths = {"product", "pointOfSale", "product.group", "product.taxRate"})
+    List<PosInventory> findByHouseholdIdAndProductIdInAndPointOfSaleIdNot(String householdId, java.util.Collection<String> productIds, String excludePosId);
+
     @Query("SELECT COALESCE(SUM(pi.stockQuantity), 0) FROM PosInventory pi WHERE pi.pointOfSale.id = :posId")
     BigDecimal sumTotalStockByPosId(@Param("posId") String posId);
 }

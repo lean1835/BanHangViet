@@ -77,6 +77,18 @@ const SettingsLayout = React.lazy(() => import("@/modules/settings/pages/Setting
 const BusinessInfoPage = React.lazy(
   () => import("@/modules/settings/pages/BusinessInfoPage")
 );
+const PointOfSalePage = React.lazy(
+  () => import("@/modules/point_of_sale/pages/PointOfSalePage")
+);
+const PosInventoryPage = React.lazy(
+  () => import("@/modules/point_of_sale/pages/PosInventoryPage")
+);
+const PosTransferPage = React.lazy(
+  () => import("@/modules/pos_transfer/pages/PosTransferPage")
+);
+const PosRevenueReportPage = React.lazy(
+  () => import("@/modules/report/pages/PosRevenueReportPage")
+);
 const TaxRateSettingsPage = React.lazy(
   () => import("@/modules/settings/pages/TaxRateSettingsPage")
 );
@@ -164,6 +176,8 @@ export const AppRouter = () => (
             <Route path={ROUTE_SEGMENTS.STOCK_ENTRY} element={<StockEntryPage />} />
             <Route path={ROUTE_SEGMENTS.INVENTORY_AUDITS} element={<InventoryAuditPage />} />
             <Route path={ROUTE_SEGMENTS.INVENTORY_WARNINGS} element={<InventoryWarningPage />} />
+            <Route path={ROUTE_SEGMENTS.POS_INVENTORIES} element={<PosInventoryPage />} />
+            <Route path={ROUTE_SEGMENTS.POS_TRANSFERS} element={<PosTransferPage />} />
             <Route path={ROUTE_SEGMENTS.SUPPLIERS} element={<SupplierPage />} />
             <Route path={`${ROUTE_SEGMENTS.SUPPLIERS}/:id`} element={<SupplierDetailPage />} />
           </Route>
@@ -275,6 +289,7 @@ export const AppRouter = () => (
           >
             <Route index element={<Navigate to={ROUTE_SEGMENTS.REVENUE} replace />} />
             <Route path={ROUTE_SEGMENTS.REVENUE} element={<RevenueReportPage />} />
+            <Route path={ROUTE_SEGMENTS.POS_REVENUE} element={<PosRevenueReportPage />} />
             <Route path={ROUTE_SEGMENTS.COMPARISON} element={<RevenueComparisonPage />} />
             <Route path={ROUTE_SEGMENTS.TAX_DECLARATION} element={<TaxDeclarationPage />} />
             <Route path={ROUTE_SEGMENTS.TAX_SALES_INVOICE} element={<SalesInvoiceListingPage />} />
@@ -291,7 +306,8 @@ export const AppRouter = () => (
               </RoleRoute>
             }
           >
-            <Route index element={<Navigate to={ROUTE_SEGMENTS.BUSINESS_INFO} replace />} />
+            <Route index element={<Navigate to={ROUTE_SEGMENTS.POINTS_OF_SALE} replace />} />
+            <Route path={ROUTE_SEGMENTS.POINTS_OF_SALE} element={<PointOfSalePage />} />
             <Route path={ROUTE_SEGMENTS.BUSINESS_INFO} element={<BusinessInfoPage />} />
             <Route path={ROUTE_SEGMENTS.INVOICE_TEMPLATE} element={<InvoiceTemplatePage />} />
             <Route path={ROUTE_SEGMENTS.TAX_RATES} element={<TaxRateSettingsPage />} />

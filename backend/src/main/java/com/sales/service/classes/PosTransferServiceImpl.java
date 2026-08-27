@@ -115,11 +115,11 @@ public class PosTransferServiceImpl implements PosTransferService {
                 .id(transfer.getId())
                 .transferNumber(transfer.getTransferNumber())
                 .fromPointOfSaleId(transfer.getFromPointOfSale() != null ? transfer.getFromPointOfSale().getId() : null)
-                .fromPointOfSaleName(transfer.getFromPointOfSale() != null ? transfer.getFromPointOfSale().getName() : null)
-                .fromPosCode(transfer.getFromPointOfSale() != null ? transfer.getFromPointOfSale().getPosCode() : null)
+                .fromPointOfSaleName(transfer.getFromPointOfSale() != null ? transfer.getFromPointOfSale().getName() : "Kho gốc (Kho trung tâm)")
+                .fromPosCode(transfer.getFromPointOfSale() != null ? transfer.getFromPointOfSale().getPosCode() : "KHO-GOC")
                 .toPointOfSaleId(transfer.getToPointOfSale() != null ? transfer.getToPointOfSale().getId() : null)
-                .toPointOfSaleName(transfer.getToPointOfSale() != null ? transfer.getToPointOfSale().getName() : null)
-                .toPosCode(transfer.getToPointOfSale() != null ? transfer.getToPointOfSale().getPosCode() : null)
+                .toPointOfSaleName(transfer.getToPointOfSale() != null ? transfer.getToPointOfSale().getName() : "Kho gốc (Kho trung tâm)")
+                .toPosCode(transfer.getToPointOfSale() != null ? transfer.getToPointOfSale().getPosCode() : "KHO-GOC")
                 .createdByUserId(transfer.getCreatedByUser() != null ? transfer.getCreatedByUser().getId() : null)
                 .createdByFullName(transfer.getCreatedByUser() != null ? transfer.getCreatedByUser().getFullName() : null)
                 .receivedByUserId(transfer.getReceivedByUser() != null ? transfer.getReceivedByUser().getId() : null)
@@ -149,11 +149,11 @@ public class PosTransferServiceImpl implements PosTransferService {
                 .id(transfer.getId())
                 .transferNumber(transfer.getTransferNumber())
                 .fromPointOfSaleId(transfer.getFromPointOfSale() != null ? transfer.getFromPointOfSale().getId() : null)
-                .fromPointOfSaleName(transfer.getFromPointOfSale() != null ? transfer.getFromPointOfSale().getName() : null)
-                .fromPosCode(transfer.getFromPointOfSale() != null ? transfer.getFromPointOfSale().getPosCode() : null)
+                .fromPointOfSaleName(transfer.getFromPointOfSale() != null ? transfer.getFromPointOfSale().getName() : "Kho gốc (Kho trung tâm)")
+                .fromPosCode(transfer.getFromPointOfSale() != null ? transfer.getFromPointOfSale().getPosCode() : "KHO-GOC")
                 .toPointOfSaleId(transfer.getToPointOfSale() != null ? transfer.getToPointOfSale().getId() : null)
-                .toPointOfSaleName(transfer.getToPointOfSale() != null ? transfer.getToPointOfSale().getName() : null)
-                .toPosCode(transfer.getToPointOfSale() != null ? transfer.getToPointOfSale().getPosCode() : null)
+                .toPointOfSaleName(transfer.getToPointOfSale() != null ? transfer.getToPointOfSale().getName() : "Kho gốc (Kho trung tâm)")
+                .toPosCode(transfer.getToPointOfSale() != null ? transfer.getToPointOfSale().getPosCode() : "KHO-GOC")
                 .createdByUserId(transfer.getCreatedByUser() != null ? transfer.getCreatedByUser().getId() : null)
                 .createdByFullName(transfer.getCreatedByUser() != null ? transfer.getCreatedByUser().getFullName() : null)
                 .receivedByUserId(transfer.getReceivedByUser() != null ? transfer.getReceivedByUser().getId() : null)
@@ -192,6 +192,13 @@ public class PosTransferServiceImpl implements PosTransferService {
         }
     }
 
+    private String normalizePosId(String posId) {
+        if (!StringUtils.hasText(posId) || "WAREHOUSE".equalsIgnoreCase(posId.trim())) {
+            return null;
+        }
+        return posId.trim();
+    }
+
     @Override
     @Transactional(rollbackFor = Exception.class)
     public PosTransferResponse createTransfer(String currentUsername, CreatePosTransferRequest request) {
@@ -199,12 +206,19 @@ public class PosTransferServiceImpl implements PosTransferService {
         checkOwnerRole(currentUser);
         BusinessHousehold household = getValidHousehold(currentUser);
 
-        if (request.getFromPointOfSaleId().equals(request.getToPointOfSaleId())) {
+        String fromPosId = normalizePosId(request.getFromPointOfSaleId());
+        String toPosId = normalizePosId(request.getToPointOfSaleId());
+
+        if (fromPosId == null && toPosId == null) {
+            throw new AppException(ErrorCode.TRANSFER_SOURCE_AND_DEST_EMPTY);
+        }
+
+        if (fromPosId != null && fromPosId.equals(toPosId)) {
             throw new AppException(ErrorCode.TRANSFER_SAME_POS);
         }
 
-        PointOfSale fromPos = getValidPointOfSale(request.getFromPointOfSaleId(), household.getId());
-        PointOfSale toPos = getValidPointOfSale(request.getToPointOfSaleId(), household.getId());
+        PointOfSale fromPos = (fromPosId != null) ? getValidPointOfSale(fromPosId, household.getId()) : null;
+        PointOfSale toPos = (toPosId != null) ? getValidPointOfSale(toPosId, household.getId()) : null;
 
         if (request.getItems() == null || request.getItems().isEmpty()) {
             throw new AppException(ErrorCode.TRANSFER_ITEMS_EMPTY);
@@ -229,22 +243,58 @@ public class PosTransferServiceImpl implements PosTransferService {
             throw new AppException(ErrorCode.PRODUCT_NOT_FOUND);
         }
 
-        // Lấy tồn kho của điểm gửi
-        List<PosInventory> fromInventories = posInventoryRepository.findByHouseholdIdAndPointOfSaleIdAndProductIdIn(
-                household.getId(), fromPos.getId(), productIds);
-        Map<String, PosInventory> fromInventoryMap = fromInventories.stream()
-                .collect(Collectors.toMap(inv -> inv.getProduct().getId(), inv -> inv));
+        List<PosInventory> fromInventoriesToSave = new ArrayList<>();
 
-        // Kiểm tra số lượng tồn kho từng sản phẩm tại điểm gửi
-        for (Map.Entry<String, BigDecimal> entry : productQuantityMap.entrySet()) {
-            String productId = entry.getKey();
-            BigDecimal transferQty = entry.getValue();
-            PosInventory posInv = fromInventoryMap.get(productId);
+        if (fromPos == null) {
+            // Chuyển từ Kho gốc: Kiểm tra tồn kho khả dụng tại Kho gốc
+            List<PosInventory> allPosInvs = posInventoryRepository.findByHouseholdIdAndProductIdIn(household.getId(), productIds);
+            Map<String, BigDecimal> totalAllocatedMap = new HashMap<>();
+            for (PosInventory pi : allPosInvs) {
+                totalAllocatedMap.merge(pi.getProduct().getId(), pi.getStockQuantity() != null ? pi.getStockQuantity() : BigDecimal.ZERO, BigDecimal::add);
+            }
 
-            if (posInv == null || posInv.getStockQuantity() == null || posInv.getStockQuantity().compareTo(transferQty) < 0) {
-                log.warn("Sản phẩm {} tại điểm gửi {} không đủ tồn kho (cần: {}, hiện có: {})",
-                        productId, fromPos.getName(), transferQty, posInv != null ? posInv.getStockQuantity() : 0);
-                throw new AppException(ErrorCode.TRANSFER_EXCEED_STOCK);
+            List<Object[]> inTransitList = posTransferItemRepository.sumInTransitFromWarehouseByProductIds(household.getId(), productIds);
+            Map<String, BigDecimal> inTransitMap = new HashMap<>();
+            for (Object[] row : inTransitList) {
+                inTransitMap.put((String) row[0], (BigDecimal) row[1]);
+            }
+
+            for (Map.Entry<String, BigDecimal> entry : productQuantityMap.entrySet()) {
+                String productId = entry.getKey();
+                BigDecimal transferQty = entry.getValue();
+                Product product = productMap.get(productId);
+
+                BigDecimal totalStock = product.getStockQuantity() != null ? product.getStockQuantity() : BigDecimal.ZERO;
+                BigDecimal allocatedStock = totalAllocatedMap.getOrDefault(productId, BigDecimal.ZERO);
+                BigDecimal inTransit = inTransitMap.getOrDefault(productId, BigDecimal.ZERO);
+                BigDecimal warehouseAvailableStock = totalStock.subtract(allocatedStock).subtract(inTransit).max(BigDecimal.ZERO);
+
+                if (warehouseAvailableStock.compareTo(transferQty) < 0) {
+                    log.warn("Sản phẩm {} tại Kho gốc không đủ tồn kho (cần: {}, khả dụng: {}, tổng: {}, đã phân bổ: {})",
+                            product.getName(), transferQty, warehouseAvailableStock, totalStock, allocatedStock);
+                    throw new AppException(ErrorCode.TRANSFER_EXCEED_WAREHOUSE_STOCK);
+                }
+            }
+        } else {
+            // Chuyển từ một Điểm bán (POS)
+            List<PosInventory> fromInventories = posInventoryRepository.findByHouseholdIdAndPointOfSaleIdAndProductIdIn(
+                    household.getId(), fromPos.getId(), productIds);
+            Map<String, PosInventory> fromInventoryMap = fromInventories.stream()
+                    .collect(Collectors.toMap(inv -> inv.getProduct().getId(), inv -> inv));
+
+            for (Map.Entry<String, BigDecimal> entry : productQuantityMap.entrySet()) {
+                String productId = entry.getKey();
+                BigDecimal transferQty = entry.getValue();
+                PosInventory posInv = fromInventoryMap.get(productId);
+
+                if (posInv == null || posInv.getStockQuantity() == null || posInv.getStockQuantity().compareTo(transferQty) < 0) {
+                    log.warn("Sản phẩm {} tại điểm gửi {} không đủ tồn kho (cần: {}, hiện có: {})",
+                            productId, fromPos.getName(), transferQty, posInv != null ? posInv.getStockQuantity() : 0);
+                    throw new AppException(ErrorCode.TRANSFER_EXCEED_STOCK);
+                }
+
+                posInv.setStockQuantity(posInv.getStockQuantity().subtract(transferQty));
+                fromInventoriesToSave.add(posInv);
             }
         }
 
@@ -271,10 +321,6 @@ public class PosTransferServiceImpl implements PosTransferService {
             BigDecimal transferQty = entry.getValue();
             Product product = productMap.get(productId);
 
-            // Trừ tồn kho tại điểm gửi
-            PosInventory fromInv = fromInventoryMap.get(productId);
-            fromInv.setStockQuantity(fromInv.getStockQuantity().subtract(transferQty));
-
             PosTransferItem item = PosTransferItem.builder()
                     .transfer(transfer)
                     .product(product)
@@ -288,7 +334,9 @@ public class PosTransferServiceImpl implements PosTransferService {
             totalQuantity = totalQuantity.add(transferQty);
         }
 
-        posInventoryRepository.saveAll(fromInventories);
+        if (!fromInventoriesToSave.isEmpty()) {
+            posInventoryRepository.saveAll(fromInventoriesToSave);
+        }
 
         transfer.setTotalQuantity(totalQuantity);
         transfer.setItems(transferItems);
@@ -296,15 +344,17 @@ public class PosTransferServiceImpl implements PosTransferService {
 
         Map<String, Object> logData = new HashMap<>();
         logData.put("transferNumber", savedTransfer.getTransferNumber());
-        logData.put("fromPos", fromPos.getName());
-        logData.put("toPos", toPos.getName());
+        logData.put("fromPos", fromPos != null ? fromPos.getName() : "Kho gốc");
+        logData.put("toPos", toPos != null ? toPos.getName() : "Kho gốc");
         logData.put("totalItems", savedTransfer.getTotalItems());
         logData.put("totalQuantity", savedTransfer.getTotalQuantity());
 
         logActivity(household, currentUser, "CREATE_POS_TRANSFER", savedTransfer.getId(), null, logData);
 
-        log.info("Lập phiếu chuyển hàng {} thành công từ điểm {} sang điểm {}",
-                savedTransfer.getTransferNumber(), fromPos.getName(), toPos.getName());
+        log.info("Lập phiếu chuyển hàng {} thành công từ {} sang {}",
+                savedTransfer.getTransferNumber(),
+                fromPos != null ? fromPos.getName() : "Kho gốc",
+                toPos != null ? toPos.getName() : "Kho gốc");
 
         return mapToResponse(savedTransfer);
     }
@@ -343,11 +393,19 @@ public class PosTransferServiceImpl implements PosTransferService {
             }
 
             if (StringUtils.hasText(fromPosId)) {
-                predicates.add(cb.equal(root.get("fromPointOfSale").get("id"), fromPosId));
+                if ("WAREHOUSE".equalsIgnoreCase(fromPosId.trim())) {
+                    predicates.add(cb.isNull(root.get("fromPointOfSale")));
+                } else {
+                    predicates.add(cb.equal(root.get("fromPointOfSale").get("id"), fromPosId.trim()));
+                }
             }
 
             if (StringUtils.hasText(toPosId)) {
-                predicates.add(cb.equal(root.get("toPointOfSale").get("id"), toPosId));
+                if ("WAREHOUSE".equalsIgnoreCase(toPosId.trim())) {
+                    predicates.add(cb.isNull(root.get("toPointOfSale")));
+                } else {
+                    predicates.add(cb.equal(root.get("toPointOfSale").get("id"), toPosId.trim()));
+                }
             }
 
             if (status != null) {
@@ -415,12 +473,13 @@ public class PosTransferServiceImpl implements PosTransferService {
             throw new AppException(ErrorCode.TRANSFER_INVALID_STATUS);
         }
 
-        // Kiểm tra phân quyền xác nhận nhận hàng:
-        // Chủ hộ (VT-01) hoặc Kế toán (VT-03) có quyền xác nhận bất kỳ điểm nào.
-        // Nhân viên bán hàng (VT-02) chỉ có quyền xác nhận nếu điểm nhận là điểm bán mà nhân viên được gán.
+        // Phân quyền xác nhận nhận hàng
         if (currentUser.getRole() != null && "VT-02".equals(currentUser.getRole().getCode())) {
+            if (transfer.getToPointOfSale() == null) {
+                // Nhận về Kho gốc chỉ dành cho chủ hộ hoặc kế toán
+                throw new AppException(ErrorCode.TRANSFER_RECEIVER_PERMISSION_DENIED);
+            }
             if (currentUser.getPointOfSale() == null
-                    || transfer.getToPointOfSale() == null
                     || !currentUser.getPointOfSale().getId().equals(transfer.getToPointOfSale().getId())) {
                 throw new AppException(ErrorCode.TRANSFER_RECEIVER_PERMISSION_DENIED);
             }
@@ -429,39 +488,40 @@ public class PosTransferServiceImpl implements PosTransferService {
         PointOfSale toPos = transfer.getToPointOfSale();
         List<PosTransferItem> items = transfer.getItems();
 
-        List<String> productIds = items.stream()
-                .map(item -> item.getProduct().getId())
-                .collect(Collectors.toList());
+        if (toPos != null) {
+            List<String> productIds = items.stream()
+                    .map(item -> item.getProduct().getId())
+                    .collect(Collectors.toList());
 
-        List<PosInventory> toInventories = posInventoryRepository.findByHouseholdIdAndPointOfSaleIdAndProductIdIn(
-                household.getId(), toPos.getId(), productIds);
-        Map<String, PosInventory> toInventoryMap = toInventories.stream()
-                .collect(Collectors.toMap(inv -> inv.getProduct().getId(), inv -> inv));
+            List<PosInventory> toInventories = posInventoryRepository.findByHouseholdIdAndPointOfSaleIdAndProductIdIn(
+                    household.getId(), toPos.getId(), productIds);
+            Map<String, PosInventory> toInventoryMap = toInventories.stream()
+                    .collect(Collectors.toMap(inv -> inv.getProduct().getId(), inv -> inv));
 
-        List<PosInventory> toSaveInventories = new ArrayList<>();
+            List<PosInventory> toSaveInventories = new ArrayList<>();
 
-        for (PosTransferItem item : items) {
-            Product product = item.getProduct();
-            PosInventory posInv = toInventoryMap.get(product.getId());
+            for (PosTransferItem item : items) {
+                Product product = item.getProduct();
+                PosInventory posInv = toInventoryMap.get(product.getId());
 
-            if (posInv == null) {
-                // Tự động khởi tạo tồn kho tại điểm nhận nếu chưa từng có
-                posInv = PosInventory.builder()
-                        .household(household)
-                        .pointOfSale(toPos)
-                        .product(product)
-                        .stockQuantity(item.getQuantity())
-                        .minStockQuantity(BigDecimal.ZERO)
-                        .build();
-            } else {
-                BigDecimal currentStock = posInv.getStockQuantity() != null ? posInv.getStockQuantity() : BigDecimal.ZERO;
-                posInv.setStockQuantity(currentStock.add(item.getQuantity()));
+                if (posInv == null) {
+                    posInv = PosInventory.builder()
+                            .household(household)
+                            .pointOfSale(toPos)
+                            .product(product)
+                            .stockQuantity(item.getQuantity())
+                            .minStockQuantity(BigDecimal.ZERO)
+                            .build();
+                } else {
+                    BigDecimal currentStock = posInv.getStockQuantity() != null ? posInv.getStockQuantity() : BigDecimal.ZERO;
+                    posInv.setStockQuantity(currentStock.add(item.getQuantity()));
+                }
+
+                toSaveInventories.add(posInv);
             }
 
-            toSaveInventories.add(posInv);
+            posInventoryRepository.saveAll(toSaveInventories);
         }
-
-        posInventoryRepository.saveAll(toSaveInventories);
 
         transfer.setStatus(PosTransferStatus.COMPLETED);
         transfer.setReceivedByUser(currentUser);
@@ -503,25 +563,26 @@ public class PosTransferServiceImpl implements PosTransferService {
         PointOfSale fromPos = transfer.getFromPointOfSale();
         List<PosTransferItem> items = transfer.getItems();
 
-        List<String> productIds = items.stream()
-                .map(item -> item.getProduct().getId())
-                .collect(Collectors.toList());
+        if (fromPos != null) {
+            List<String> productIds = items.stream()
+                    .map(item -> item.getProduct().getId())
+                    .collect(Collectors.toList());
 
-        List<PosInventory> fromInventories = posInventoryRepository.findByHouseholdIdAndPointOfSaleIdAndProductIdIn(
-                household.getId(), fromPos.getId(), productIds);
-        Map<String, PosInventory> fromInventoryMap = fromInventories.stream()
-                .collect(Collectors.toMap(inv -> inv.getProduct().getId(), inv -> inv));
+            List<PosInventory> fromInventories = posInventoryRepository.findByHouseholdIdAndPointOfSaleIdAndProductIdIn(
+                    household.getId(), fromPos.getId(), productIds);
+            Map<String, PosInventory> fromInventoryMap = fromInventories.stream()
+                    .collect(Collectors.toMap(inv -> inv.getProduct().getId(), inv -> inv));
 
-        // Hoàn trả lại số lượng đã trừ về điểm gửi
-        for (PosTransferItem item : items) {
-            PosInventory fromInv = fromInventoryMap.get(item.getProduct().getId());
-            if (fromInv != null) {
-                BigDecimal currentStock = fromInv.getStockQuantity() != null ? fromInv.getStockQuantity() : BigDecimal.ZERO;
-                fromInv.setStockQuantity(currentStock.add(item.getQuantity()));
+            for (PosTransferItem item : items) {
+                PosInventory fromInv = fromInventoryMap.get(item.getProduct().getId());
+                if (fromInv != null) {
+                    BigDecimal currentStock = fromInv.getStockQuantity() != null ? fromInv.getStockQuantity() : BigDecimal.ZERO;
+                    fromInv.setStockQuantity(currentStock.add(item.getQuantity()));
+                }
             }
-        }
 
-        posInventoryRepository.saveAll(fromInventories);
+            posInventoryRepository.saveAll(fromInventories);
+        }
 
         transfer.setStatus(PosTransferStatus.CANCELED);
         transfer.setCanceledByUser(currentUser);

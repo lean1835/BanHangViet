@@ -183,7 +183,7 @@ public class ShiftServiceImpl implements ShiftService {
 
         User currentUser = getAuthenticatedUser(currentUsername);
 
-        Shift shift = shiftRepository.findByIdForUpdate(shiftId)
+        Shift shift = shiftRepository.findById(shiftId)
                 .orElseThrow(() -> new AppException(ErrorCode.ACTIVE_SHIFT_NOT_FOUND));
 
         if (shift.getStatus() == ShiftStatus.CLOSED) {

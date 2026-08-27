@@ -14,6 +14,7 @@ import com.sales.exception.AppException;
 import com.sales.exception.ErrorCode;
 import com.sales.repository.PointOfSaleRepository;
 import com.sales.repository.PosInventoryRepository;
+import com.sales.repository.PosTransferItemRepository;
 import com.sales.repository.ProductRepository;
 import com.sales.repository.UserRepository;
 import com.sales.service.interfaces.PosInventoryService;
@@ -31,10 +32,7 @@ import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
 import java.math.BigDecimal;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -46,6 +44,7 @@ public class PosInventoryServiceImpl implements PosInventoryService {
     private final PointOfSaleRepository pointOfSaleRepository;
     private final ProductRepository productRepository;
     private final UserRepository userRepository;
+    private final PosTransferItemRepository posTransferItemRepository;
     private final ActivityLogHelper activityLogHelper;
     private final ObjectMapper objectMapper;
 
@@ -83,7 +82,11 @@ public class PosInventoryServiceImpl implements PosInventoryService {
                 .orElseThrow(() -> new AppException(ErrorCode.POS_NOT_FOUND));
     }
 
-    private PosInventoryResponse mapToResponse(PosInventory inventory) {
+    private PosInventoryResponse mapToResponse(
+            PosInventory inventory,
+            Map<String, List<PosInventory>> allPosInvsByProduct,
+            Map<String, BigDecimal> inTransitByProduct) {
+
         Product p = inventory.getProduct();
         PointOfSale pos = inventory.getPointOfSale();
 
@@ -92,6 +95,29 @@ public class PosInventoryServiceImpl implements PosInventoryService {
             isLowStock = inventory.getStockQuantity().compareTo(inventory.getMinStockQuantity()) <= 0
                     || inventory.getStockQuantity().compareTo(BigDecimal.ZERO) <= 0;
         }
+
+        BigDecimal totalProductStock = p != null && p.getStockQuantity() != null ? p.getStockQuantity() : BigDecimal.ZERO;
+        String productId = p != null ? p.getId() : null;
+
+        BigDecimal allPosSum = BigDecimal.ZERO;
+        BigDecimal otherPosSum = BigDecimal.ZERO;
+        BigDecimal inTransit = inTransitByProduct != null && productId != null
+                ? inTransitByProduct.getOrDefault(productId, BigDecimal.ZERO)
+                : BigDecimal.ZERO;
+
+        if (productId != null && allPosInvsByProduct != null) {
+            List<PosInventory> allPosInvs = allPosInvsByProduct.getOrDefault(productId, Collections.emptyList());
+            for (PosInventory pi : allPosInvs) {
+                BigDecimal qty = pi.getStockQuantity() != null ? pi.getStockQuantity() : BigDecimal.ZERO;
+                allPosSum = allPosSum.add(qty);
+                if (pos != null && pi.getPointOfSale() != null && !pos.getId().equals(pi.getPointOfSale().getId())) {
+                    otherPosSum = otherPosSum.add(qty);
+                }
+            }
+        }
+
+        BigDecimal warehouseStock = totalProductStock.subtract(allPosSum).subtract(inTransit).max(BigDecimal.ZERO);
+        BigDecimal maxAvailableQuantity = totalProductStock.subtract(otherPosSum).subtract(inTransit).max(BigDecimal.ZERO);
 
         return PosInventoryResponse.builder()
                 .id(inventory.getId())
@@ -108,9 +134,34 @@ public class PosInventoryServiceImpl implements PosInventoryService {
                 .productStatus(p != null ? p.getStatus() : null)
                 .groupName(p != null && p.getGroup() != null ? p.getGroup().getName() : null)
                 .isLowStock(isLowStock)
+                .totalProductStock(totalProductStock)
+                .warehouseStock(warehouseStock)
+                .maxAvailableQuantity(maxAvailableQuantity)
                 .createdAt(inventory.getCreatedAt())
                 .updatedAt(inventory.getUpdatedAt())
                 .build();
+    }
+
+    private PosInventoryResponse mapToResponse(PosInventory inventory) {
+        String householdId = inventory.getHousehold() != null ? inventory.getHousehold().getId() : null;
+        String productId = inventory.getProduct() != null ? inventory.getProduct().getId() : null;
+
+        Map<String, List<PosInventory>> allPosInvsByProduct = new HashMap<>();
+        Map<String, BigDecimal> inTransitByProduct = new HashMap<>();
+
+        if (householdId != null && productId != null) {
+            List<PosInventory> allPosInvs = posInventoryRepository.findByHouseholdIdAndProductId(householdId, productId);
+            allPosInvsByProduct.put(productId, allPosInvs);
+
+            if (posTransferItemRepository != null) {
+                BigDecimal transitSum = posTransferItemRepository.sumInTransitFromWarehouseByProductId(householdId, productId);
+                if (transitSum != null) {
+                    inTransitByProduct.put(productId, transitSum);
+                }
+            }
+        }
+
+        return mapToResponse(inventory, allPosInvsByProduct, inTransitByProduct);
     }
 
     private void logActivity(BusinessHousehold household, User actor, String action, String targetId, Object oldValue, Object newValue) {
@@ -169,7 +220,35 @@ public class PosInventoryServiceImpl implements PosInventoryService {
             return cb.and(predicates.toArray(new Predicate[0]));
         };
 
-        return posInventoryRepository.findAll(spec, pageable).map(this::mapToResponse);
+        Page<PosInventory> posInventoryPage = posInventoryRepository.findAll(spec, pageable);
+        List<PosInventory> content = posInventoryPage.getContent();
+
+        List<String> productIds = content.stream()
+                .filter(i -> i.getProduct() != null && i.getProduct().getId() != null)
+                .map(i -> i.getProduct().getId())
+                .distinct()
+                .collect(Collectors.toList());
+
+        Map<String, List<PosInventory>> allPosInvsByProduct = new HashMap<>();
+        Map<String, BigDecimal> inTransitByProduct = new HashMap<>();
+
+        if (!productIds.isEmpty()) {
+            List<PosInventory> allPosInvs = posInventoryRepository.findByHouseholdIdAndProductIdIn(household.getId(), productIds);
+            for (PosInventory pi : allPosInvs) {
+                if (pi.getProduct() != null && pi.getProduct().getId() != null) {
+                    allPosInvsByProduct.computeIfAbsent(pi.getProduct().getId(), k -> new ArrayList<>()).add(pi);
+                }
+            }
+
+            if (posTransferItemRepository != null) {
+                List<Object[]> inTransitList = posTransferItemRepository.sumInTransitFromWarehouseByProductIds(household.getId(), productIds);
+                for (Object[] row : inTransitList) {
+                    inTransitByProduct.put((String) row[0], (BigDecimal) row[1]);
+                }
+            }
+        }
+
+        return posInventoryPage.map(inv -> mapToResponse(inv, allPosInvsByProduct, inTransitByProduct));
     }
 
     @Override
@@ -214,6 +293,24 @@ public class PosInventoryServiceImpl implements PosInventoryService {
         Map<String, PosInventory> existingInvMap = existingInventories.stream()
                 .collect(Collectors.toMap(inv -> inv.getProduct().getId(), inv -> inv, (i1, i2) -> i1));
 
+        // Group other POS stocks
+        List<PosInventory> otherPosInventories = posInventoryRepository.findByHouseholdIdAndProductIdInAndPointOfSaleIdNot(
+                household.getId(), productIds, pos.getId());
+        Map<String, BigDecimal> otherPosStockMap = new HashMap<>();
+        for (PosInventory pi : otherPosInventories) {
+            otherPosStockMap.merge(pi.getProduct().getId(), pi.getStockQuantity() != null ? pi.getStockQuantity() : BigDecimal.ZERO, BigDecimal::add);
+        }
+
+        Map<String, BigDecimal> inTransitMap = new HashMap<>();
+        if (posTransferItemRepository != null) {
+            List<Object[]> inTransitList = posTransferItemRepository.sumInTransitFromWarehouseByProductIds(household.getId(), productIds);
+            if (inTransitList != null) {
+                for (Object[] row : inTransitList) {
+                    inTransitMap.put((String) row[0], (BigDecimal) row[1]);
+                }
+            }
+        }
+
         List<PosInventory> toSaveList = new ArrayList<>();
 
         for (PosInventoryItemRequest itemReq : request.getItems()) {
@@ -224,6 +321,17 @@ public class PosInventoryServiceImpl implements PosInventoryService {
             Product product = productMap.get(itemReq.getProductId());
             if (product == null) {
                 throw new AppException(ErrorCode.PRODUCT_NOT_FOUND);
+            }
+
+            BigDecimal totalProductStock = product.getStockQuantity() != null ? product.getStockQuantity() : BigDecimal.ZERO;
+            BigDecimal otherPosStock = otherPosStockMap.getOrDefault(product.getId(), BigDecimal.ZERO);
+            BigDecimal inTransit = inTransitMap.getOrDefault(product.getId(), BigDecimal.ZERO);
+            BigDecimal maxAvailableForThisPos = totalProductStock.subtract(otherPosStock).subtract(inTransit).max(BigDecimal.ZERO);
+
+            if (itemReq.getStockQuantity().compareTo(maxAvailableForThisPos) > 0) {
+                log.warn("Khởi tạo tồn kho cho SP {} tại điểm {} vượt quá khả dụng (yêu cầu: {}, tối đa: {}, tổng: {}, CS khác: {})",
+                        product.getName(), pos.getName(), itemReq.getStockQuantity(), maxAvailableForThisPos, totalProductStock, otherPosStock);
+                throw new AppException(ErrorCode.POS_INVENTORY_EXCEED_PRODUCT_STOCK);
             }
 
             PosInventory posInv = existingInvMap.get(product.getId());
@@ -283,6 +391,35 @@ public class PosInventoryServiceImpl implements PosInventoryService {
 
         Product product = productRepository.findByIdAndHouseholdIdAndDeletedAtIsNull(productId, household.getId())
                 .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_NOT_FOUND));
+
+        if (request.getStockQuantity() == null || request.getStockQuantity().compareTo(BigDecimal.ZERO) < 0) {
+            throw new AppException(ErrorCode.INVALID_POS_INVENTORY_QTY);
+        }
+
+        BigDecimal totalProductStock = product.getStockQuantity() != null ? product.getStockQuantity() : BigDecimal.ZERO;
+        List<PosInventory> otherPosInvs = posInventoryRepository.findByHouseholdIdAndProductIdAndPointOfSaleIdNot(
+                household.getId(), product.getId(), pos.getId());
+        BigDecimal otherPosStock = otherPosInvs != null
+                ? otherPosInvs.stream()
+                        .map(pi -> pi.getStockQuantity() != null ? pi.getStockQuantity() : BigDecimal.ZERO)
+                        .reduce(BigDecimal.ZERO, BigDecimal::add)
+                : BigDecimal.ZERO;
+
+        BigDecimal inTransit = BigDecimal.ZERO;
+        if (posTransferItemRepository != null) {
+            BigDecimal transitSum = posTransferItemRepository.sumInTransitFromWarehouseByProductId(household.getId(), product.getId());
+            if (transitSum != null) {
+                inTransit = transitSum;
+            }
+        }
+
+        BigDecimal maxAvailableForThisPos = totalProductStock.subtract(otherPosStock).subtract(inTransit).max(BigDecimal.ZERO);
+
+        if (request.getStockQuantity().compareTo(maxAvailableForThisPos) > 0) {
+            log.warn("Cập nhật tồn kho cho SP {} tại điểm {} vượt quá khả dụng (yêu cầu: {}, tối đa: {}, tổng: {}, CS khác: {})",
+                    product.getName(), pos.getName(), request.getStockQuantity(), maxAvailableForThisPos, totalProductStock, otherPosStock);
+            throw new AppException(ErrorCode.POS_INVENTORY_EXCEED_PRODUCT_STOCK);
+        }
 
         PosInventory posInv = posInventoryRepository.findByPointOfSaleIdAndProductId(pos.getId(), product.getId())
                 .orElse(PosInventory.builder()

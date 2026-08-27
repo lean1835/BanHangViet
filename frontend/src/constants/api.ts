@@ -49,6 +49,11 @@ export const API_TAG_TYPES = {
   ANOMALY_ALERT: "AnomalyAlert",
   PROMOTION: "Promotion",
   BARCODE: "Barcode",
+  POINT_OF_SALE: "PointOfSale",
+  POS_EMPLOYEE: "PosEmployee",
+  POS_INVENTORY: "PosInventory",
+  POS_TRANSFER: "PosTransfer",
+  POS_REVENUE: "PosRevenue",
 } as const;
 
 export const API_TAG_TYPE_VALUES = Object.values(API_TAG_TYPES);

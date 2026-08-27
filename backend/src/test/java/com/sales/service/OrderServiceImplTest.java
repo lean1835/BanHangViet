@@ -173,9 +173,9 @@ class OrderServiceImplTest {
         OrderResponse response = orderService.addOrderItem("chuho", "order-001", request);
 
         assertNotNull(response);
-        // Total subtotal = 180,000
+        // Total subtotal after promo = 180,000 (2 * 100,000 - 20,000)
         // Item promo discount = 20,000
-        // VIP discount (5% of 180,000) = 9,000
+        // VIP discount (5% of 180,000 after promo) = 9,000
         // Total discount recorded = 29,000
         // Final amount = 180,000 - 9,000 = 171,000
         assertEquals(new BigDecimal("20000.00"), order.getPromotionDiscountAmount());

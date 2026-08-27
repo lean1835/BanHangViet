@@ -3,6 +3,10 @@ import { APP_FALLBACKS } from "./app";
 
 export const SETTINGS_NAVIGATION_ITEMS = [
   {
+    path: APP_ROUTES.SETTINGS_POINTS_OF_SALE,
+    label: "Điểm bán (Chi nhánh)",
+  },
+  {
     path: APP_ROUTES.SETTINGS_BUSINESS_INFO,
     label: "Thông tin cửa hàng",
   },

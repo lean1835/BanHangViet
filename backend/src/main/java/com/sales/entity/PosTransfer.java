@@ -42,12 +42,12 @@ public class PosTransfer {
     private String transferNumber;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "from_point_of_sale_id", nullable = false)
+    @JoinColumn(name = "from_point_of_sale_id", nullable = true)
     @ToString.Exclude
     private PointOfSale fromPointOfSale;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "to_point_of_sale_id", nullable = false)
+    @JoinColumn(name = "to_point_of_sale_id", nullable = true)
     @ToString.Exclude
     private PointOfSale toPointOfSale;
 
