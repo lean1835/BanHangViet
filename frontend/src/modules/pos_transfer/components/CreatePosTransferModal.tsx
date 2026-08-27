@@ -82,7 +82,7 @@ export const CreatePosTransferModal: React.FC<CreatePosTransferModalProps> = ({
   useEffect(() => {
     if (isOpen) {
       setFromPosId("WAREHOUSE");
-      setToPosId(posList.length > 0 ? posList[0].id : "");
+      setToPosId((prev) => (prev ? prev : posList.length > 0 ? posList[0].id : ""));
       setNotes("");
       setItems([]);
       setErrors({});
@@ -90,7 +90,7 @@ export const CreatePosTransferModal: React.FC<CreatePosTransferModalProps> = ({
       setIsDropdownOpen(false);
       setActiveProductIndex(-1);
     }
-  }, [isOpen]);
+  }, [isOpen, posList]);
 
   // Set default toPosId once posList is loaded
   useEffect(() => {
@@ -112,11 +112,11 @@ export const CreatePosTransferModal: React.FC<CreatePosTransferModalProps> = ({
       { skip: isFromWarehouse || !isOpen }
     );
 
-  const productList: IProduct[] = productsData?.content || [];
-  const availablePosInventories: IPosInventory[] = fromInventoryData?.content || [];
-
   // Unified available items depending on sender
   const availableItems: AvailableTransferItem[] = useMemo(() => {
+    const productList: IProduct[] = productsData?.content || [];
+    const availablePosInventories: IPosInventory[] = fromInventoryData?.content || [];
+
     if (isFromWarehouse) {
       return productList.map((p: IProduct) => ({
         productId: p.id,
@@ -136,7 +136,7 @@ export const CreatePosTransferModal: React.FC<CreatePosTransferModalProps> = ({
         stockQuantity: pi.stockQuantity ?? 0,
       }));
     }
-  }, [isFromWarehouse, productList, availablePosInventories]);
+  }, [isFromWarehouse, productsData?.content, fromInventoryData?.content]);
 
   // Map for fast stock lookups
   const productStockMap = useMemo(() => {

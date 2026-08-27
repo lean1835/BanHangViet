@@ -8,6 +8,32 @@ export interface IGetPosRevenueReportParams {
   posId?: string;
 }
 
+export interface IRawBackendPosSummary {
+  posId: string;
+  posName: string;
+  posCode: string;
+  address?: string;
+  orderCount?: number;
+  invoiceCount?: number;
+  grossSales?: number;
+  totalDiscount?: number;
+  netRevenue?: number;
+  revenuePercentage?: number;
+  isDefault?: boolean;
+  isActive?: boolean;
+}
+
+export interface IRawBackendPosRevenueResponse {
+  fromDate?: string;
+  toDate?: string;
+  householdSummary?: {
+    totalNetRevenue?: number;
+    totalOrders?: number;
+    totalInvoices?: number;
+  };
+  posSummaries?: IRawBackendPosSummary[];
+}
+
 export const posRevenueReportApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
     getPosRevenueReport: builder.query<
@@ -19,10 +45,10 @@ export const posRevenueReportApi = baseApi.injectEndpoints({
         method: HTTP_METHODS.GET,
         params: params || {},
       }),
-      transformResponse: (response: { result: any }) => {
+      transformResponse: (response: { result: IRawBackendPosRevenueResponse }) => {
         const data = response?.result;
-        if (!data) return data;
-        const items = (data.posSummaries || []).map((s: any) => ({
+        if (!data) return {} as IPosRevenueSummary;
+        const items = (data.posSummaries || []).map((s: IRawBackendPosSummary) => ({
           posId: s.posId,
           posName: s.posName,
           posCode: s.posCode,
