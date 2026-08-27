@@ -4,6 +4,7 @@ import type { TStockFilter } from "@/modules/product/types/TStockFilter";
 export interface IProduct {
   id: string;
   sku: string;
+  barcode?: string | null;
   name: string;
   unit: string;
   price: number;
@@ -27,6 +28,12 @@ export interface IGetProductsParams {
   stockFilter?: TStockFilter;
   page?: number;
   size?: number;
+}
+
+export interface IVoiceSearchParams {
+  query?: string;
+  groupId?: string;
+  limit?: number;
 }
 
 export type TProductPayload = Partial<IProduct> & { taxRateId: string };

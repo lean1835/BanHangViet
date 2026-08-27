@@ -5,6 +5,7 @@ import { APP_FALLBACKS } from "@/constants/app";
 import { useGetProductsQuery } from "@/modules/product/services/productApi";
 import type { IProduct } from "@/modules/product/types/IProduct";
 import type { IPosTab } from "../types/IPos";
+import { Camera, Mic, Search } from "lucide-react";
 import { formatCurrency } from "@/utils/formatCurrency";
 
 interface IPosHeaderProps {
@@ -15,6 +16,9 @@ interface IPosHeaderProps {
   onAddTab: () => void;
   onCloseTab: (tabId: string) => void;
   onSelectProduct: (product: IProduct) => void;
+  onOpenScannerModal?: () => void;
+  onOpenVoiceModal?: () => void;
+  onScanBarcode?: (barcode: string) => void;
   userName?: string;
   isOnline?: boolean;
 }
@@ -27,6 +31,9 @@ export const PosHeader: React.FC<IPosHeaderProps> = ({
   onAddTab,
   onCloseTab,
   onSelectProduct,
+  onOpenScannerModal,
+  onOpenVoiceModal,
+  onScanBarcode,
   userName = APP_FALLBACKS.CASHIER_NAME,
   isOnline = true,
 }) => {
@@ -45,17 +52,29 @@ export const PosHeader: React.FC<IPosHeaderProps> = ({
   const searchedProducts = searchResultData?.content || [];
   const displayProducts = searchTerm.trim() ? searchedProducts : (initialProducts.length > 0 ? initialProducts : searchedProducts);
 
-  // F3 keyboard shortcut listener
+  // F2 (Camera Scan), / or F3 (Search focus), F4 (Voice Search) keyboard shortcut listeners
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "F3") {
+      const activeTag = document.activeElement?.tagName;
+      const isTyping = activeTag === "INPUT" || activeTag === "TEXTAREA";
+
+      if (e.key === "F2") {
+        e.preventDefault();
+        onOpenScannerModal?.();
+      } else if (e.key === "/" && !isTyping) {
         e.preventDefault();
         searchInputRef.current?.focus();
+      } else if (e.key === "F3") {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+      } else if (e.key === "F4") {
+        e.preventDefault();
+        onOpenVoiceModal?.();
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
+  }, [onOpenScannerModal, onOpenVoiceModal]);
 
   // Reset search term when active tab changes (e.g. after order completion or tab switch)
   useEffect(() => {
@@ -84,105 +103,135 @@ export const PosHeader: React.FC<IPosHeaderProps> = ({
   };
 
   const handleKeyDownInput = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter" && displayProducts.length > 0) {
+    if (e.key === "Enter") {
       e.preventDefault();
-      handleProductClick(displayProducts[0]);
+      const query = searchTerm.trim();
+      if (!query) return;
+
+      if (onScanBarcode) {
+        onScanBarcode(query);
+        setSearchTerm("");
+        setIsDropdownOpen(false);
+      } else if (displayProducts.length > 0) {
+        handleProductClick(displayProducts[0]);
+      }
     }
   };
 
   return (
     <header className="bg-[#0070f4] text-white shadow-md select-none sticky top-0 z-40">
       <div className="flex items-center justify-start px-3 py-1.5 gap-3">
-        {/* Left: Product Search Bar */}
-        <div className="w-72 lg:w-80 shrink-0 relative" ref={searchContainerRef}>
-          <div className="relative flex items-center">
-            <span className="absolute left-3 text-slate-400 text-sm pointer-events-none">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-4 w-4"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                />
-              </svg>
-            </span>
-            <input
-              ref={searchInputRef}
-              type="text"
-              className="w-full bg-white text-slate-800 text-xs rounded-full pl-9 pr-12 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-300 placeholder-slate-400 font-medium"
-              placeholder="Tìm hàng hóa (F3)..."
-              value={searchTerm}
-              onChange={(e) => {
-                setSearchTerm(e.target.value);
-                setIsDropdownOpen(true);
-              }}
-              onFocus={() => setIsDropdownOpen(true)}
-              onKeyDown={handleKeyDownInput}
-            />
-            <span className="absolute right-3 text-[10px] bg-slate-100 text-slate-500 font-bold px-1.5 py-0.5 rounded border border-slate-300 pointer-events-none">
-              F3
-            </span>
+        {/* Left: Product Search Bar & Barcode Scanner Button */}
+        <div className="flex items-center gap-1.5 shrink-0">
+          <div className="w-64 lg:w-72 relative" ref={searchContainerRef}>
+            <div className="relative flex items-center">
+              <span className="absolute left-3 text-slate-400 text-sm pointer-events-none">
+                <Search size={14} />
+              </span>
+              <input
+                ref={searchInputRef}
+                type="text"
+                className="w-full bg-white text-slate-800 text-xs rounded-full pl-9 pr-14 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-300 placeholder-slate-400 font-medium shadow-inner"
+                placeholder="Tìm hàng hóa (/)..."
+                value={searchTerm}
+                onChange={(e) => {
+                  setSearchTerm(e.target.value);
+                  setIsDropdownOpen(true);
+                }}
+                onFocus={() => setIsDropdownOpen(true)}
+                onKeyDown={handleKeyDownInput}
+              />
+              <div className="absolute right-1.5 flex items-center gap-1">
+                {!searchTerm && (
+                  <span className="text-[10px] bg-slate-100 text-slate-400 font-bold px-1.5 py-0.5 rounded border border-slate-200 pointer-events-none font-mono">
+                    /
+                  </span>
+                )}
+                {onOpenVoiceModal && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onOpenVoiceModal();
+                    }}
+                    className="p-1 rounded-full text-slate-400 hover:text-blue-600 hover:bg-blue-50 active:bg-blue-100 transition-colors"
+                    title="Tìm hàng bằng giọng nói (F4)"
+                  >
+                    <Mic size={14} />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Product Autocomplete Dropdown */}
+            {isDropdownOpen && (
+              <div className="absolute top-full left-0 right-0 mt-1 bg-white text-slate-800 rounded-lg shadow-xl border border-slate-200 z-50 max-h-80 overflow-y-auto">
+                {isLoading ? (
+                  <div className="p-3 text-center text-xs text-slate-400 font-medium">
+                    Đang tìm kiếm...
+                  </div>
+                ) : displayProducts.length === 0 ? (
+                  <div className="p-3 text-center text-xs text-slate-400 font-medium">
+                    Không tìm thấy sản phẩm nào
+                  </div>
+                ) : (
+                  <div className="divide-y divide-slate-100">
+                    {displayProducts.map((product) => (
+                      <div
+                        key={product.id}
+                        onClick={() => handleProductClick(product)}
+                        className="flex items-center justify-between p-2.5 hover:bg-blue-50 cursor-pointer transition-colors"
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <div>
+                            <div className="font-bold text-xs text-slate-800">
+                              {product.name}
+                            </div>
+                            <div className="text-[10px] text-slate-400 font-medium flex items-center gap-2">
+                              <span>Mã: {product.sku || "N/A"}</span>
+                              <span>•</span>
+                              <span>ĐVT: {product.unit || "Cái"}</span>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="font-extrabold text-xs text-[#0070f4]">
+                            {formatCurrency(product.price)}
+                          </div>
+                          <div className="text-[10px] text-slate-500">
+                            Tồn:{" "}
+                            <span
+                              className={
+                                product.stockQuantity <= 0
+                                  ? "text-red-500 font-bold"
+                                  : "font-semibold"
+                              }
+                            >
+                              {product.stockQuantity}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
-          {/* Product Autocomplete Dropdown */}
-          {isDropdownOpen && (
-            <div className="absolute top-full left-0 right-0 mt-1 bg-white text-slate-800 rounded-lg shadow-xl border border-slate-200 z-50 max-h-80 overflow-y-auto">
-              {isLoading ? (
-                <div className="p-3 text-center text-xs text-slate-400 font-medium">
-                  Đang tìm kiếm...
-                </div>
-              ) : displayProducts.length === 0 ? (
-                <div className="p-3 text-center text-xs text-slate-400 font-medium">
-                  Không tìm thấy sản phẩm nào
-                </div>
-              ) : (
-                <div className="divide-y divide-slate-100">
-                  {displayProducts.map((product) => (
-                    <div
-                      key={product.id}
-                      onClick={() => handleProductClick(product)}
-                      className="flex items-center justify-between p-2.5 hover:bg-blue-50 cursor-pointer transition-colors"
-                    >
-                      <div className="flex items-center gap-2.5">
-                        <div>
-                          <div className="font-bold text-xs text-slate-800">
-                            {product.name}
-                          </div>
-                          <div className="text-[10px] text-slate-400 font-medium flex items-center gap-2">
-                            <span>Mã: {product.sku || "N/A"}</span>
-                            <span>•</span>
-                            <span>ĐVT: {product.unit || "Cái"}</span>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <div className="font-extrabold text-xs text-[#0070f4]">
-                          {formatCurrency(product.price)}
-                        </div>
-                        <div className="text-[10px] text-slate-500">
-                          Tồn:{" "}
-                          <span
-                            className={
-                              product.stockQuantity <= 0
-                                ? "text-red-500 font-bold"
-                                : "font-semibold"
-                            }
-                          >
-                            {product.stockQuantity}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+          {onOpenScannerModal && (
+            <button
+              type="button"
+              onClick={onOpenScannerModal}
+              className="flex items-center gap-1.5 bg-blue-600/90 hover:bg-blue-700 active:scale-95 text-white px-2.5 py-1.5 rounded-full text-xs font-bold transition-all shadow-sm border border-blue-400/30 shrink-0"
+              title="Mở máy quét Camera (F2)"
+            >
+              <Camera size={14} className="text-white" />
+              <span className="hidden sm:inline text-[11px]">Quét mã</span>
+              <span className="text-[9px] bg-blue-500 text-blue-100 px-1 py-0.2 rounded font-mono font-bold">
+                F2
+              </span>
+            </button>
           )}
         </div>
 

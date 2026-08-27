@@ -18,6 +18,7 @@ import com.sales.service.interfaces.BarcodeService;
 import com.sales.service.interfaces.OrderService;
 import com.sales.service.interfaces.PromotionService;
 import com.google.zxing.BarcodeFormat;
+import com.google.zxing.EncodeHintType;
 import com.google.zxing.client.j2se.MatrixToImageWriter;
 import com.google.zxing.common.BitMatrix;
 import com.google.zxing.oned.Code128Writer;
@@ -30,7 +31,9 @@ import java.io.ByteArrayOutputStream;
 import java.math.BigDecimal;
 import java.security.SecureRandom;
 import java.util.Base64;
+import java.util.EnumMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 
 @Service
@@ -210,9 +213,11 @@ public class BarcodeServiceImpl implements BarcodeService {
     private String generateUniqueInternalBarcode(String householdId) {
         int maxAttempts = 50;
         for (int i = 0; i < maxAttempts; i++) {
-            // Internal barcode format: "200" prefix + 9 random digits = 12 digits
+            // Internal barcode format: "200" prefix + 9 random digits = 12 digits base + 1 EAN-13 check digit = 13 digits
             long number = 100000000L + random.nextLong(900000000L);
-            String candidate = "200" + number;
+            String base12 = "200" + number;
+            int checkDigit = calculateEan13CheckDigit(base12);
+            String candidate = base12 + checkDigit;
 
             boolean exists = productRepository.existsByHouseholdIdAndBarcodeAndDeletedAtIsNull(householdId, candidate);
             if (!exists) {
@@ -221,6 +226,22 @@ public class BarcodeServiceImpl implements BarcodeService {
         }
         log.error("Failed to generate unique internal barcode after {} attempts for household {}", maxAttempts, householdId);
         throw new AppException(ErrorCode.BARCODE_GENERATION_FAILED);
+    }
+
+    private int calculateEan13CheckDigit(String base12) {
+        int sumOdd = 0;
+        int sumEven = 0;
+        for (int i = 0; i < 12; i++) {
+            int digit = Character.getNumericValue(base12.charAt(i));
+            if (i % 2 == 0) {
+                sumOdd += digit;
+            } else {
+                sumEven += digit * 3;
+            }
+        }
+        int total = sumOdd + sumEven;
+        int remainder = total % 10;
+        return (remainder == 0) ? 0 : (10 - remainder);
     }
 
     private BarcodeResponse buildBarcodeResponse(Product product, String paperSize, int quantity) {
@@ -246,10 +267,25 @@ public class BarcodeServiceImpl implements BarcodeService {
             return null;
         }
         try {
-            int width = 300;
-            int height = 100;
-            Code128Writer writer = new Code128Writer();
-            BitMatrix bitMatrix = writer.encode(barcodeText, BarcodeFormat.CODE_128, width, height);
+            int width = 600;
+            int height = 150;
+            Map<EncodeHintType, Object> hints = new EnumMap<>(EncodeHintType.class);
+            hints.put(EncodeHintType.MARGIN, 2);
+
+            BitMatrix bitMatrix;
+            String trimmed = barcodeText.trim();
+            if (trimmed.length() == 13 && trimmed.matches("\\d{13}")) {
+                try {
+                    com.google.zxing.oned.EAN13Writer eanWriter = new com.google.zxing.oned.EAN13Writer();
+                    bitMatrix = eanWriter.encode(trimmed, BarcodeFormat.EAN_13, width, height, hints);
+                } catch (Exception e) {
+                    Code128Writer writer = new Code128Writer();
+                    bitMatrix = writer.encode(trimmed, BarcodeFormat.CODE_128, width, height, hints);
+                }
+            } else {
+                Code128Writer writer = new Code128Writer();
+                bitMatrix = writer.encode(trimmed, BarcodeFormat.CODE_128, width, height, hints);
+            }
 
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
             MatrixToImageWriter.writeToStream(bitMatrix, "png", baos);

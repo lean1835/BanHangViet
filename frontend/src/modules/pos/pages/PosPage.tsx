@@ -17,6 +17,13 @@ import {
 import { useGetActiveShiftQuery } from "@/modules/shift/services/shiftApi";
 import { useGetMyHouseholdQuery } from "@/modules/settings/services/settingsApi";
 import { useAutoApplyPromotionsMutation } from "@/modules/promotion/services/promotionApi";
+import { useScanBarcodeMutation } from "@/modules/barcode/services/barcodeApi";
+import { useBarcodeScanner } from "@/modules/barcode/hooks/useBarcodeScanner";
+import { BarcodeScannerModal } from "@/modules/barcode/components/BarcodeScannerModal";
+import { UnrecognizedBarcodeModal } from "@/modules/barcode/components/UnrecognizedBarcodeModal";
+import { VoiceSearchModal } from "@/modules/product/components/VoiceSearchModal";
+import { playBarcodeBeepSound } from "@/modules/barcode/utils/barcodeAudio";
+import { BARCODE_MESSAGES } from "@/constants/barcode";
 import { USER_ROLES } from "@/constants/roles";
 
 import { useDashboardDemo } from "@/providers/DashboardDemoProvider";
@@ -102,6 +109,7 @@ export const PosPage = () => {
   const [completeOrder] = useCompleteOrderMutation();
   const [createCustomer] = useCreateCustomerMutation();
   const [autoApplyPromotions] = useAutoApplyPromotionsMutation();
+  const [scanBarcode] = useScanBarcodeMutation();
 
   // Helper: Đồng bộ khuyến mại tự động từ server (QTN-26, NCL-15-CN-002)
   const syncPromotionsForItems = async (
@@ -219,6 +227,9 @@ export const PosPage = () => {
   // Modals state
   const [isAddCustomerModalOpen, setIsAddCustomerModalOpen] =
     useState<boolean>(false);
+  const [isScannerModalOpen, setIsScannerModalOpen] = useState<boolean>(false);
+  const [isVoiceModalOpen, setIsVoiceModalOpen] = useState<boolean>(false);
+  const [unrecognizedBarcode, setUnrecognizedBarcode] = useState<string | null>(null);
   const [completedOrderData, setCompletedOrderData] = useState<{
     tab: IPosTab;
     changeAmount: number;
@@ -335,6 +346,82 @@ export const PosPage = () => {
       )
     );
   };
+
+  // Handle Barcode Scan from Hardware Scanner, Camera, or Quick Search
+  const handleBarcodeScanned = async (scannedCode: string) => {
+    const cleanCode = scannedCode.trim();
+    if (!cleanCode) return;
+
+    if (isOnline === false) {
+      const limitStatus = checkOfflineLimitStatus();
+      if (limitStatus.isExceeded) {
+        showToast(
+          limitStatus.errorMessage ||
+            `Không thể quét thêm hàng! Đã vượt quá giới hạn bán khi mất mạng.`
+        );
+        return;
+      }
+    }
+
+    try {
+      const response = await scanBarcode({
+        barcode: cleanCode,
+        orderId: activeTab.backendOrderId,
+        quantity: 1,
+      }).unwrap();
+
+      if (response.found) {
+        playBarcodeBeepSound("success");
+
+        let targetProduct = productsList.find(
+          (p) =>
+            p.id === response.productId ||
+            p.sku === response.productSku ||
+            (response.barcode && p.barcode === response.barcode)
+        );
+
+        if (!targetProduct && response.productId) {
+          targetProduct = {
+            id: response.productId,
+            sku: response.productSku || cleanCode,
+            barcode: response.barcode,
+            name: response.productName || "Sản phẩm",
+            unit: response.unit || "Cái",
+            price: response.unitPrice ?? 0,
+            stockQuantity: response.stockQuantity ?? 999,
+            status: "ACTIVE",
+            groupId: null,
+            groupName: null,
+            taxRateId: "",
+            taxRateName: "",
+            taxRatePercentage: 0,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          };
+        }
+
+        if (targetProduct) {
+          await handleSelectProduct(targetProduct);
+          showToast(`Đã quét: ${response.productName || targetProduct.name} (+1)`);
+        }
+      } else {
+        // TC-02: Unrecognized barcode -> trigger resolution modal
+        playBarcodeBeepSound("error");
+        setUnrecognizedBarcode(response.suggestedBarcode || cleanCode);
+      }
+    } catch (err: any) {
+      playBarcodeBeepSound("error");
+      const errorMsg =
+        err?.data?.message || err?.message || BARCODE_MESSAGES.SCAN_ERROR;
+      showToast(errorMsg);
+    }
+  };
+
+  // Global Hardware USB/Bluetooth Barcode Scanner listener
+  useBarcodeScanner({
+    onScan: handleBarcodeScanned,
+    enabled: isShiftOpen && !isScannerModalOpen && !unrecognizedBarcode,
+  });
 
   const handleUpdateQuantity = async (itemId: string, newQuantity: number) => {
     if (newQuantity <= 0) {
@@ -817,6 +904,9 @@ export const PosPage = () => {
         onAddTab={handleAddTab}
         onCloseTab={handleCloseTab}
         onSelectProduct={handleSelectProduct}
+        onOpenScannerModal={() => setIsScannerModalOpen(true)}
+        onOpenVoiceModal={() => setIsVoiceModalOpen(true)}
+        onScanBarcode={handleBarcodeScanned}
         isOnline={isOnline}
         userName={authenticatedUser?.fullName || authenticatedUser?.username}
       />
@@ -863,6 +953,41 @@ export const PosPage = () => {
           isOpen={Boolean(completedOrderData)}
           onClose={handleCloseSuccessModal}
           completedOrder={completedOrderData}
+        />
+      )}
+
+      {/* Camera Barcode Scanner Modal */}
+      {isScannerModalOpen && (
+        <BarcodeScannerModal
+          isOpen={isScannerModalOpen}
+          onClose={() => setIsScannerModalOpen(false)}
+          onScan={handleBarcodeScanned}
+        />
+      )}
+
+      {/* Voice Search Modal (NCL-16-CN-003) */}
+      {isVoiceModalOpen && (
+        <VoiceSearchModal
+          isOpen={isVoiceModalOpen}
+          onClose={() => setIsVoiceModalOpen(false)}
+          onSelectProduct={async (selectedProduct) => {
+            await handleSelectProduct(selectedProduct);
+            showToast(`Đã thêm "${selectedProduct.name}" vào đơn hàng!`);
+          }}
+        />
+      )}
+
+      {/* Unrecognized Barcode Modal (TC-02) */}
+      {unrecognizedBarcode && (
+        <UnrecognizedBarcodeModal
+          isOpen={Boolean(unrecognizedBarcode)}
+          onClose={() => setUnrecognizedBarcode(null)}
+          unrecognizedBarcode={unrecognizedBarcode}
+          onAssignAndAddToCart={async (assignedProduct) => {
+            await handleSelectProduct(assignedProduct);
+            showToast(`Đã gán mã và thêm "${assignedProduct.name}" vào đơn!`);
+          }}
+          canManage={canManage}
         />
       )}
 

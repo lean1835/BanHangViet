@@ -17,6 +17,8 @@ import { useGetProductGroupsQuery } from "@/modules/product/services/productApi"
 import { useGetTaxRatesQuery } from "@/modules/settings/services/taxRateApi";
 import type { IProduct } from "@/modules/product/types/IProduct";
 import { useAccessibleDialog } from "@/hooks/useAccessibleDialog";
+import { Sparkles, Barcode } from "lucide-react";
+import { useGenerateInternalBarcodeMutation } from "@/modules/barcode/services/barcodeApi";
 
 interface ProductFormModalProps {
   isOpen: boolean;
@@ -38,6 +40,12 @@ const productSchema = z.object({
       PRODUCT_FORM_LIMITS.SKU_MAX_LENGTH,
       PRODUCT_VALIDATION_MESSAGES.SKU_TOO_LONG,
     ),
+  barcode: z
+    .string()
+    .trim()
+    .max(100, "Mã vạch không vượt quá 100 ký tự")
+    .optional()
+    .or(z.literal("")),
   name: z
     .string()
     .trim()
@@ -99,6 +107,9 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
   const [priceInput, setPriceInput] = useState<string>(
     PRODUCT_FORM_DEFAULTS.EMPTY_TEXT,
   );
+  const [generateInternalBarcode, { isLoading: isGeneratingBarcode }] =
+    useGenerateInternalBarcodeMutation();
+
   const { data: groups = [] } = useGetProductGroupsQuery();
   const { data: dbTaxRates = [] } = useGetTaxRatesQuery(undefined, {
     refetchOnMountOrArgChange: true,
@@ -143,6 +154,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
     resolver: zodResolver(productSchema),
     defaultValues: {
       sku: PRODUCT_FORM_DEFAULTS.SKU,
+      barcode: "",
       name: PRODUCT_FORM_DEFAULTS.NAME,
       groupId: PRODUCT_FORM_DEFAULTS.GROUP_ID,
       unit: PRODUCT_FORM_DEFAULTS.UNIT,
@@ -175,6 +187,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
     if (product) {
       reset({
         sku: product.sku || PRODUCT_FORM_DEFAULTS.SKU,
+        barcode: product.barcode || "",
         name: product.name || PRODUCT_FORM_DEFAULTS.NAME,
         groupId: product.groupId || PRODUCT_FORM_DEFAULTS.GROUP_ID,
         unit: product.unit || PRODUCT_FORM_DEFAULTS.EMPTY_TEXT,
@@ -194,6 +207,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
     } else {
       reset({
         sku: PRODUCT_FORM_DEFAULTS.SKU,
+        barcode: "",
         name: PRODUCT_FORM_DEFAULTS.NAME,
         groupId: PRODUCT_FORM_DEFAULTS.GROUP_ID,
         unit: PRODUCT_FORM_DEFAULTS.UNIT,
@@ -206,6 +220,39 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
       setPriceInput(PRODUCT_FORM_DEFAULTS.EMPTY_TEXT);
     }
   }, [product, isOpen, reset, availableTaxRates]);
+
+  const calculateEan13CheckDigit = (base12: string): number => {
+    let sumOdd = 0;
+    let sumEven = 0;
+    for (let i = 0; i < 12; i++) {
+      const digit = parseInt(base12[i], 10);
+      if (i % 2 === 0) {
+        sumOdd += digit;
+      } else {
+        sumEven += digit * 3;
+      }
+    }
+    const remainder = (sumOdd + sumEven) % 10;
+    return remainder === 0 ? 0 : 10 - remainder;
+  };
+
+  const handleGenerateBarcode = async () => {
+    if (product?.id) {
+      try {
+        const res = await generateInternalBarcode(product.id).unwrap();
+        if (res?.barcode) {
+          setValue("barcode", res.barcode, { shouldValidate: true });
+        }
+      } catch (e) {
+        console.warn("Failed to generate internal barcode from server", e);
+      }
+    } else {
+      const base12 =
+        "200" + Math.floor(100000000 + Math.random() * 900000000).toString();
+      const checkDigit = calculateEan13CheckDigit(base12);
+      setValue("barcode", base12 + checkDigit, { shouldValidate: true });
+    }
+  };
 
   const handlePriceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const rawVal = e.target.value.replace(/\D/g, "");
@@ -295,9 +342,36 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                 type="text"
                 placeholder={PRODUCT_FORM_COPY.SKU_PLACEHOLDER}
                 {...register(PRODUCT_FORM_FIELD_NAMES.SKU)}
-                className={`border ${errors.sku ? "border-rose-500" : "border-slate-300"} h-9 px-3 rounded-lg focus:outline-none focus:border-kv-blue-primary`}
+                className={`border ${errors.sku ? "border-rose-500" : "border-slate-300"} h-9 px-3 rounded-lg focus:outline-none focus:border-kv-blue-primary font-mono text-xs`}
               />
               {errors.sku && <span className="text-[10px] text-rose-500 font-bold">{errors.sku.message}</span>}
+            </div>
+
+            {/* Mã vạch (Barcode) */}
+            <div className="flex flex-col gap-1">
+              <div className="flex items-center justify-between">
+                <label className="text-slate-600 flex items-center gap-1">
+                  <Barcode size={13} className="text-slate-500" />
+                  <span>Mã vạch (Barcode)</span>
+                </label>
+                <button
+                  type="button"
+                  onClick={handleGenerateBarcode}
+                  disabled={isGeneratingBarcode}
+                  className="text-[10px] font-bold text-[#0070f4] hover:underline flex items-center gap-0.5"
+                  title="Tự động sinh mã vạch nội bộ (200...)"
+                >
+                  <Sparkles size={11} />
+                  <span>{isGeneratingBarcode ? "Đang sinh..." : "Sinh mã"}</span>
+                </button>
+              </div>
+              <input
+                type="text"
+                placeholder="Nhập hoặc quét mã vạch..."
+                {...register("barcode")}
+                className="border border-slate-300 h-9 px-3 rounded-lg focus:outline-none focus:border-kv-blue-primary font-mono text-xs"
+              />
+              {errors.barcode && <span className="text-[10px] text-rose-500 font-bold">{errors.barcode.message}</span>}
             </div>
 
             {/* Đơn vị tính */}
