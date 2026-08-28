@@ -11,6 +11,9 @@ export interface IUser {
   username: string;
   fullName: string;
   roleId: string;
+  pointOfSaleId?: string | null;
+  pointOfSaleName?: string | null;
+  posCode?: string | null;
   household: IHousehold | null;
 }
 

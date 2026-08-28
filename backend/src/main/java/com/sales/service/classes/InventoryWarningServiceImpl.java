@@ -108,7 +108,7 @@ public class InventoryWarningServiceImpl implements InventoryWarningService {
         }
 
         Specification<Product> spec = ProductSpecification.filterLowStockProducts(household.getId(), search, groupId);
-        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.ASC, "stockQuantity").and(Sort.by(Sort.Direction.DESC, "createdAt")));
 
         Page<Product> productPage = productRepository.findAll(spec, pageable);
 
@@ -128,9 +128,11 @@ public class InventoryWarningServiceImpl implements InventoryWarningService {
                 .map(product -> {
                     BigDecimal minStock = product.getMinStockQuantity() != null ? product.getMinStockQuantity() : BigDecimal.ZERO;
                     BigDecimal currentStock = product.getStockQuantity() != null ? product.getStockQuantity() : BigDecimal.ZERO;
-                    BigDecimal shortage = minStock.subtract(currentStock);
-                    if (shortage.compareTo(BigDecimal.ZERO) < 0) {
-                        shortage = BigDecimal.ZERO;
+                    BigDecimal shortage;
+                    if (minStock.compareTo(BigDecimal.ZERO) > 0) {
+                        shortage = minStock.subtract(currentStock).max(BigDecimal.ZERO);
+                    } else {
+                        shortage = currentStock.compareTo(BigDecimal.ZERO) < 0 ? currentStock.abs() : BigDecimal.ZERO;
                     }
 
                     LatestSupplierProjection lastSupplier = supplierMap.get(product.getId());
@@ -236,6 +238,7 @@ public class InventoryWarningServiceImpl implements InventoryWarningService {
                             .sku(proj.getSku())
                             .productName(proj.getProductName())
                             .unit(proj.getUnit())
+                            .price(proj.getPrice())
                             .costPrice(proj.getCostPrice())
                             .stockQuantity(currentStock)
                             .minStockQuantity(minStock)

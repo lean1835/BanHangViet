@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { Search, Plus, Tag } from "lucide-react";
 import { USER_ROLES } from "@/constants/roles";
 import { APP_ROUTES } from "@/constants/routes";
@@ -39,6 +39,7 @@ import { PromotionReportModal } from "../components/PromotionReportModal";
 
 export const PromotionListPage: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { currentRole, addLogEntry } = useDashboardDemo();
   const { showSuccess, showError } = useNotification();
 
@@ -72,6 +73,28 @@ export const PromotionListPage: React.FC = () => {
   const [selectedPromo, setSelectedPromo] = useState<IPromotion | null>(null);
   const [editingPromoDetail, setEditingPromoDetail] =
     useState<IPromotionDetail | null>(null);
+  const [navInitialProductIds, setNavInitialProductIds] = useState<string[]>([]);
+  const [navInitialName, setNavInitialName] = useState<string>("");
+
+  // Handle automatic modal opening from navigation state (e.g. from Slow Moving Products clearance)
+  useEffect(() => {
+    const state = location.state as {
+      openCreateModal?: boolean;
+      initialProductIds?: string[];
+      initialName?: string;
+    } | null;
+
+    if (state?.openCreateModal) {
+      setSelectedPromo(null);
+      setEditingPromoDetail(null);
+      setNavInitialProductIds(state.initialProductIds || []);
+      setNavInitialName(state.initialName || "");
+      setIsFormModalOpen(true);
+
+      // Clean location state to avoid re-triggering on subsequent actions
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
 
   // Queries & Mutations
   const {
@@ -150,6 +173,8 @@ export const PromotionListPage: React.FC = () => {
   const handleOpenCreateModal = () => {
     setSelectedPromo(null);
     setEditingPromoDetail(null);
+    setNavInitialProductIds([]);
+    setNavInitialName("");
     setIsFormModalOpen(true);
   };
 
@@ -370,9 +395,13 @@ export const PromotionListPage: React.FC = () => {
             setIsFormModalOpen(false);
             setSelectedPromo(null);
             setEditingPromoDetail(null);
+            setNavInitialProductIds([]);
+            setNavInitialName("");
           }}
           onSubmit={handleFormSubmit}
           initialData={editingPromoDetail || selectedPromo}
+          initialProductIds={navInitialProductIds}
+          initialName={navInitialName}
           isLoading={isCreating || isUpdating}
         />
 

@@ -379,6 +379,7 @@ export const INVENTORY_WARNING_COPY = {
   SUBTITLE: "Theo dõi các mặt hàng chạm ngưỡng cảnh báo và nhận gợi ý thông minh theo tốc độ bán",
   TAB_WARNINGS: "Cảnh báo tồn tối thiểu",
   TAB_SUGGESTIONS: "Gợi ý nhập hàng (Dự báo)",
+  TAB_SLOW_MOVING: "Hàng bán chậm & tồn lâu",
   STOCK_ADEQUATE_TITLE: "Tồn kho đang an toàn và đầy đủ",
   STOCK_ADEQUATE_DESCRIPTION: "Không có mặt hàng nào có lượng tồn thấp hơn ngưỡng tối thiểu đã thiết lập.",
   WARNING_LIST_TITLE: "Danh sách mặt hàng dưới ngưỡng tồn tối thiểu",

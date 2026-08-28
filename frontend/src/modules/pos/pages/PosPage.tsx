@@ -334,7 +334,9 @@ export const PosPage = () => {
     // Immediate optimistic UI update
     setTabs((prevTabs) =>
       prevTabs.map((t) =>
-        t.id === activeTabId ? { ...t, items: newItems, isSaved: false } : t
+        t.id === activeTabId
+          ? { ...t, items: newItems, isSaved: false, backendOrderId: undefined }
+          : t
       )
     );
 
@@ -342,7 +344,9 @@ export const PosPage = () => {
     const syncedItems = await syncPromotionsForItems(newItems);
     setTabs((prevTabs) =>
       prevTabs.map((t) =>
-        t.id === activeTabId ? { ...t, items: syncedItems, isSaved: false } : t
+        t.id === activeTabId
+          ? { ...t, items: syncedItems, isSaved: false, backendOrderId: undefined }
+          : t
       )
     );
   };
@@ -440,14 +444,18 @@ export const PosPage = () => {
 
     setTabs((prevTabs) =>
       prevTabs.map((t) =>
-        t.id === activeTabId ? { ...t, items: newItems, isSaved: false } : t
+        t.id === activeTabId
+          ? { ...t, items: newItems, isSaved: false, backendOrderId: undefined }
+          : t
       )
     );
 
     const syncedItems = await syncPromotionsForItems(newItems);
     setTabs((prevTabs) =>
       prevTabs.map((t) =>
-        t.id === activeTabId ? { ...t, items: syncedItems, isSaved: false } : t
+        t.id === activeTabId
+          ? { ...t, items: syncedItems, isSaved: false, backendOrderId: undefined }
+          : t
       )
     );
   };
@@ -460,7 +468,9 @@ export const PosPage = () => {
 
     setTabs((prevTabs) =>
       prevTabs.map((t) =>
-        t.id === activeTabId ? { ...t, items: newItems, isSaved: false } : t
+        t.id === activeTabId
+          ? { ...t, items: newItems, isSaved: false, backendOrderId: undefined }
+          : t
       )
     );
 
@@ -468,7 +478,9 @@ export const PosPage = () => {
       const syncedItems = await syncPromotionsForItems(newItems);
       setTabs((prevTabs) =>
         prevTabs.map((t) =>
-          t.id === activeTabId ? { ...t, items: syncedItems, isSaved: false } : t
+          t.id === activeTabId
+            ? { ...t, items: syncedItems, isSaved: false, backendOrderId: undefined }
+            : t
         )
       );
     }
@@ -501,13 +513,15 @@ export const PosPage = () => {
     const finalItems = await syncPromotionsForItems(updatedItems);
     setTabs((prev) =>
       prev.map((t) =>
-        t.id === activeTabId ? { ...t, items: finalItems, isSaved: false } : t
+        t.id === activeTabId
+          ? { ...t, items: finalItems, isSaved: false, backendOrderId: undefined }
+          : t
       )
     );
   };
 
   const handleClearCart = () => {
-    updateActiveTab({ items: [], isSaved: false });
+    updateActiveTab({ items: [], isSaved: false, backendOrderId: undefined });
   };
 
   // Add customer callback
@@ -538,8 +552,8 @@ export const PosPage = () => {
     try {
       let orderId = activeTab.backendOrderId;
 
-      // 1. Create Order Draft, add items & apply discount if not existing on server
-      if (!orderId) {
+      // 1. Create Order Draft, add items & apply discount if not existing or modified
+      if (!orderId || !activeTab.isSaved) {
         const createRes = await createOrder({
           customerId: activeTab.customerId,
         }).unwrap();
@@ -576,6 +590,7 @@ export const PosPage = () => {
 
       showToast(`Đã lưu nháp ${activeTab.orderNumber} thành công!`);
     } catch (err: any) {
+      updateActiveTab({ backendOrderId: undefined, isSaved: false });
       showToast(
         err?.data?.message || "Lưu đơn nháp thất bại. Vui lòng thử lại!"
       );
@@ -756,14 +771,14 @@ export const PosPage = () => {
     try {
       let orderId = activeTab.backendOrderId;
 
-      // 1. Create order, add items & apply discount if not created yet on server
-      if (!orderId) {
+      // 1. Create order, add items & apply discount if not created or if cart was modified
+      if (!orderId || !activeTab.isSaved) {
         const createRes = await createOrder({
           customerId: activeTab.customerId,
         }).unwrap();
         orderId = createRes.result.id;
 
-        // Persist backendOrderId immediately to prevent duplicate order creation on retry
+        // Persist backendOrderId immediately
         updateActiveTab({ backendOrderId: orderId });
 
         // 2. Add Items
@@ -806,7 +821,7 @@ export const PosPage = () => {
           totalAmount: totalCart,
           discountPercent,
           discountAmount: discountCash,
-          actorUsername: "chuho_viet",
+          actorUsername: authenticatedUser?.username || "nhanvien",
         });
       }
 
@@ -826,7 +841,7 @@ export const PosPage = () => {
             totalAmount: totalCart,
             discountPercent,
             discountAmount: discountCash,
-            actorUsername: "chuho_viet",
+            actorUsername: authenticatedUser?.username || "nhanvien",
           });
         }
         completeOrderOffline(
@@ -837,6 +852,7 @@ export const PosPage = () => {
           changeAmount
         );
       } else {
+        updateActiveTab({ backendOrderId: undefined, isSaved: false });
         showToast(
           err?.data?.message || "Thanh toán thất bại. Vui lòng thử lại!"
         );
@@ -909,6 +925,8 @@ export const PosPage = () => {
         onScanBarcode={handleBarcodeScanned}
         isOnline={isOnline}
         userName={authenticatedUser?.fullName || authenticatedUser?.username}
+        branchName={activeShift?.pointOfSaleName || authenticatedUser?.pointOfSaleName}
+        posId={activeShift?.pointOfSaleId || authenticatedUser?.pointOfSaleId}
       />
 
       {/* POS Main Workspace Body */}

@@ -237,7 +237,7 @@ describe("NCL-18-CN-002: PurchaseSuggestionTable Component", () => {
     ).toBeInTheDocument();
 
     // Click quick reorder button
-    const reorderButtons = screen.getAllByRole("button", { name: /Nhập hàng/i });
+    const reorderButtons = screen.getAllByRole("button", { name: /Nhập/i });
     fireEvent.click(reorderButtons[0]);
     expect(onQuickReorder).toHaveBeenCalledWith(mockSuggestions[0]);
   });
@@ -315,6 +315,29 @@ describe("InventoryWarningSidebar Component", () => {
 
     expect(onFilterChange).toHaveBeenCalledWith(
       expect.objectContaining({ periodDays: 14 })
+    );
+  });
+
+  it("triggers filter callback when changing thresholdDays on slow_moving tab", () => {
+    const onFilterChange = vi.fn();
+    const filter: IInventoryWarningFilterState = {
+      search: "",
+      groupId: "ALL",
+      periodDays: 28,
+      thresholdDays: 60,
+      activeTab: "slow_moving",
+    };
+
+    renderWithReduxAndToast(
+      <InventoryWarningSidebar filter={filter} onFilterChange={onFilterChange} />
+    );
+
+    const selects = screen.getAllByRole("combobox");
+    const thresholdSelect = selects[1];
+    fireEvent.change(thresholdSelect, { target: { value: "90" } });
+
+    expect(onFilterChange).toHaveBeenCalledWith(
+      expect.objectContaining({ thresholdDays: 90 })
     );
   });
 });

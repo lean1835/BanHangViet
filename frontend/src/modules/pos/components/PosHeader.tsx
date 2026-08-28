@@ -20,6 +20,8 @@ interface IPosHeaderProps {
   onOpenVoiceModal?: () => void;
   onScanBarcode?: (barcode: string) => void;
   userName?: string;
+  branchName?: string | null;
+  posId?: string | null;
   isOnline?: boolean;
 }
 
@@ -35,6 +37,8 @@ export const PosHeader: React.FC<IPosHeaderProps> = ({
   onOpenVoiceModal,
   onScanBarcode,
   userName = APP_FALLBACKS.CASHIER_NAME,
+  branchName,
+  posId,
   isOnline = true,
 }) => {
   const [searchTerm, setSearchTerm] = useState<string>("");
@@ -51,6 +55,16 @@ export const PosHeader: React.FC<IPosHeaderProps> = ({
 
   const searchedProducts = searchResultData?.content || [];
   const displayProducts = searchTerm.trim() ? searchedProducts : (initialProducts.length > 0 ? initialProducts : searchedProducts);
+
+  // Helper to compute stock for current POS
+  const getProductStock = (product: IProduct) => {
+    if (posId && product.posStocks && product.posStocks.length > 0) {
+      const ps = product.posStocks.find((s) => s.posId === posId);
+      if (ps) return ps.stockQuantity;
+      return 0;
+    }
+    return product.stockQuantity;
+  };
 
   // F2 (Camera Scan), / or F3 (Search focus), F4 (Voice Search) keyboard shortcut listeners
   useEffect(() => {
@@ -97,7 +111,8 @@ export const PosHeader: React.FC<IPosHeaderProps> = ({
   }, []);
 
   const handleProductClick = (product: IProduct) => {
-    onSelectProduct(product);
+    const stock = getProductStock(product);
+    onSelectProduct({ ...product, stockQuantity: stock });
     setSearchTerm("");
     setIsDropdownOpen(false);
   };
@@ -108,13 +123,15 @@ export const PosHeader: React.FC<IPosHeaderProps> = ({
       const query = searchTerm.trim();
       if (!query) return;
 
-      if (onScanBarcode) {
+      if (onScanBarcode && /^\d{8,14}$/.test(query)) {
         onScanBarcode(query);
         setSearchTerm("");
         setIsDropdownOpen(false);
       } else if (displayProducts.length > 0) {
         handleProductClick(displayProducts[0]);
       }
+    } else if (e.key === "Escape") {
+      setIsDropdownOpen(false);
     }
   };
 
@@ -174,7 +191,7 @@ export const PosHeader: React.FC<IPosHeaderProps> = ({
             {/* Product Autocomplete Dropdown */}
             {isDropdownOpen && (
               <div className="absolute top-full left-0 right-0 mt-1 bg-white text-slate-800 rounded-lg shadow-xl border border-slate-200 z-50 max-h-80 overflow-y-auto">
-                {isLoading ? (
+                {isLoading && searchTerm.trim() ? (
                   <div className="p-3 text-center text-xs text-slate-400 font-medium">
                     Đang tìm kiếm...
                   </div>
@@ -184,43 +201,48 @@ export const PosHeader: React.FC<IPosHeaderProps> = ({
                   </div>
                 ) : (
                   <div className="divide-y divide-slate-100">
-                    {displayProducts.map((product) => (
-                      <div
-                        key={product.id}
-                        onClick={() => handleProductClick(product)}
-                        className="flex items-center justify-between p-2.5 hover:bg-blue-50 cursor-pointer transition-colors"
-                      >
-                        <div className="flex items-center gap-2.5">
-                          <div>
-                            <div className="font-bold text-xs text-slate-800">
-                              {product.name}
+                    {displayProducts.map((product) => {
+                      const stock = getProductStock(product);
+                      const isOutOfStock = stock <= 0;
+
+                      return (
+                        <div
+                          key={product.id}
+                          onClick={() => handleProductClick(product)}
+                          className="flex items-center justify-between p-2.5 hover:bg-blue-50 cursor-pointer transition-colors"
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <div>
+                              <div className="font-bold text-xs text-slate-800">
+                                {product.name}
+                              </div>
+                              <div className="text-[10px] text-slate-400 font-medium flex items-center gap-2">
+                                <span>Mã: {product.sku || "N/A"}</span>
+                                <span>•</span>
+                                <span>ĐVT: {product.unit || "Cái"}</span>
+                              </div>
                             </div>
-                            <div className="text-[10px] text-slate-400 font-medium flex items-center gap-2">
-                              <span>Mã: {product.sku || "N/A"}</span>
-                              <span>•</span>
-                              <span>ĐVT: {product.unit || "Cái"}</span>
+                          </div>
+                          <div className="text-right">
+                            <div className="font-extrabold text-xs text-[#0070f4]">
+                              {formatCurrency(product.price)}
+                            </div>
+                            <div className="text-[10px] text-slate-500">
+                              Tồn:{" "}
+                              <span
+                                className={
+                                  isOutOfStock
+                                    ? "text-red-500 font-bold"
+                                    : "font-semibold text-slate-700"
+                                }
+                              >
+                                {stock}
+                              </span>
                             </div>
                           </div>
                         </div>
-                        <div className="text-right">
-                          <div className="font-extrabold text-xs text-[#0070f4]">
-                            {formatCurrency(product.price)}
-                          </div>
-                          <div className="text-[10px] text-slate-500">
-                            Tồn:{" "}
-                            <span
-                              className={
-                                product.stockQuantity <= 0
-                                  ? "text-red-500 font-bold"
-                                  : "font-semibold"
-                              }
-                            >
-                              {product.stockQuantity}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -338,7 +360,9 @@ export const PosHeader: React.FC<IPosHeaderProps> = ({
 
           <div className="text-right hidden lg:block">
             <div className="font-bold text-xs">{userName}</div>
-            <div className="text-[10px] text-blue-200">{APP_FALLBACKS.CENTER_BRANCH_NAME}</div>
+            <div className="text-[10px] text-blue-200">
+              {branchName || APP_FALLBACKS.CENTER_BRANCH_NAME}
+            </div>
           </div>
         </div>
       </div>

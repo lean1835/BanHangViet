@@ -11,6 +11,10 @@ export const REPORT_NAVIGATION_ITEMS = [
     label: "Doanh thu theo điểm bán",
   },
   {
+    path: APP_ROUTES.REPORT_PEAK_HOURS,
+    label: "Giờ cao điểm & Ngày bán chạy",
+  },
+  {
     path: APP_ROUTES.REPORT_COMPARISON,
     label: "So sánh doanh thu kỳ",
   },

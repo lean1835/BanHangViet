@@ -107,15 +107,27 @@ public class ProductSpecification {
             predicates.add(criteriaBuilder.equal(root.get("household").get("id"), householdId));
             predicates.add(criteriaBuilder.isNull(root.get("deletedAt")));
             predicates.add(criteriaBuilder.equal(root.get("status"), "ACTIVE"));
-            // Low stock condition: Đã cài đặt minStockQuantity > 0 và stockQuantity <= minStockQuantity
-            predicates.add(criteriaBuilder.greaterThan(
-                    criteriaBuilder.coalesce(root.get("minStockQuantity"), BigDecimal.ZERO),
-                    BigDecimal.ZERO
-            ));
-            predicates.add(criteriaBuilder.lessThanOrEqualTo(
+
+            // Low stock condition:
+            // 1. Hàng bị âm kho (stockQuantity < 0) - bắt buộc cảnh báo bất kể minStockQuantity
+            // 2. Chạm/dưới ngưỡng tồn tối thiểu (minStockQuantity > 0 AND stockQuantity <= minStockQuantity)
+            Predicate isNegativeStock = criteriaBuilder.lessThan(
                     criteriaBuilder.coalesce(root.get("stockQuantity"), BigDecimal.ZERO),
-                    criteriaBuilder.coalesce(root.get("minStockQuantity"), BigDecimal.ZERO)
-            ));
+                    BigDecimal.ZERO
+            );
+
+            Predicate isUnderMinStock = criteriaBuilder.and(
+                    criteriaBuilder.greaterThan(
+                            criteriaBuilder.coalesce(root.get("minStockQuantity"), BigDecimal.ZERO),
+                            BigDecimal.ZERO
+                    ),
+                    criteriaBuilder.lessThanOrEqualTo(
+                            criteriaBuilder.coalesce(root.get("stockQuantity"), BigDecimal.ZERO),
+                            criteriaBuilder.coalesce(root.get("minStockQuantity"), BigDecimal.ZERO)
+                    )
+            );
+
+            predicates.add(criteriaBuilder.or(isNegativeStock, isUnderMinStock));
 
             if (StringUtils.hasText(groupId)) {
                 predicates.add(criteriaBuilder.equal(root.get("group").get("id"), groupId));
