@@ -7,6 +7,7 @@ public interface PurchaseSuggestionProjection {
     String getSku();
     String getProductName();
     String getUnit();
+    BigDecimal getPrice();
     BigDecimal getCostPrice();
     BigDecimal getStockQuantity();
     BigDecimal getMinStockQuantity();

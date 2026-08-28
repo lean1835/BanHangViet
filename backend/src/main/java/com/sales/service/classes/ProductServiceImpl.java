@@ -96,6 +96,10 @@ public class ProductServiceImpl implements ProductService {
     }
 
     private ProductResponse mapToResponse(Product product, List<PosInventory> posInvs, BigDecimal inTransit) {
+        return mapToResponse(product, posInvs, inTransit, null);
+    }
+
+    private ProductResponse mapToResponse(Product product, List<PosInventory> posInvs, BigDecimal inTransit, User currentUser) {
         BigDecimal totalStock = product.getStockQuantity() != null ? product.getStockQuantity() : BigDecimal.ZERO;
         BigDecimal allocatedStock = posInvs != null
                 ? posInvs.stream()
@@ -118,6 +122,18 @@ public class ProductServiceImpl implements ProductService {
                         .collect(Collectors.toList())
                 : Collections.emptyList();
 
+        BigDecimal displayedStock = totalStock;
+        if (currentUser != null && currentUser.getPointOfSale() != null && "VT-02".equals(currentUser.getRole().getCode())) {
+            String userPosId = currentUser.getPointOfSale().getId();
+            displayedStock = posInvs != null
+                    ? posInvs.stream()
+                            .filter(pi -> pi.getPointOfSale() != null && userPosId.equals(pi.getPointOfSale().getId()))
+                            .map(pi -> pi.getStockQuantity() != null ? pi.getStockQuantity() : BigDecimal.ZERO)
+                            .findFirst()
+                            .orElse(BigDecimal.ZERO)
+                    : BigDecimal.ZERO;
+        }
+
         return ProductResponse.builder()
                 .id(product.getId())
                 .sku(product.getSku())
@@ -125,7 +141,7 @@ public class ProductServiceImpl implements ProductService {
                 .name(product.getName())
                 .unit(product.getUnit())
                 .price(product.getPrice())
-                .stockQuantity(product.getStockQuantity())
+                .stockQuantity(displayedStock)
                 .minStockQuantity(product.getMinStockQuantity())
                 .status(product.getStatus())
                 .groupId(product.getGroup() != null ? product.getGroup().getId() : null)
@@ -285,7 +301,15 @@ public class ProductServiceImpl implements ProductService {
         Product product = productRepository.findByIdAndHouseholdIdAndDeletedAtIsNull(productId, household.getId())
                 .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_NOT_FOUND));
 
-        return mapToResponse(product);
+        List<PosInventory> posInvs = (household.getId() != null && posInventoryRepository != null)
+                ? posInventoryRepository.findByHouseholdIdAndProductId(household.getId(), product.getId())
+                : Collections.emptyList();
+
+        BigDecimal inTransit = (household.getId() != null && posTransferItemRepository != null)
+                ? posTransferItemRepository.sumInTransitFromWarehouseByProductId(household.getId(), product.getId())
+                : BigDecimal.ZERO;
+
+        return mapToResponse(product, posInvs, inTransit, currentUser);
     }
 
     @Override
@@ -322,7 +346,7 @@ public class ProductServiceImpl implements ProductService {
         }
 
         List<ProductResponse> content = products.stream()
-                .map(p -> mapToResponse(p, posInvsByProduct.getOrDefault(p.getId(), Collections.emptyList()), inTransitByProduct.getOrDefault(p.getId(), BigDecimal.ZERO)))
+                .map(p -> mapToResponse(p, posInvsByProduct.getOrDefault(p.getId(), Collections.emptyList()), inTransitByProduct.getOrDefault(p.getId(), BigDecimal.ZERO), currentUser))
                 .collect(Collectors.toList());
 
         return PageResponse.<ProductResponse>builder()
@@ -370,7 +394,7 @@ public class ProductServiceImpl implements ProductService {
         }
 
         return products.stream()
-                .map(p -> mapToResponse(p, posInvsByProduct.getOrDefault(p.getId(), Collections.emptyList()), inTransitByProduct.getOrDefault(p.getId(), BigDecimal.ZERO)))
+                .map(p -> mapToResponse(p, posInvsByProduct.getOrDefault(p.getId(), Collections.emptyList()), inTransitByProduct.getOrDefault(p.getId(), BigDecimal.ZERO), currentUser))
                 .collect(Collectors.toList());
     }
 }

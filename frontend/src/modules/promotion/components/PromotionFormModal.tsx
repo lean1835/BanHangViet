@@ -31,6 +31,8 @@ interface PromotionFormModalProps {
     payload: ICreatePromotionPayload | IUpdatePromotionPayload
   ) => Promise<void>;
   initialData?: IPromotion | IPromotionDetail | null;
+  initialProductIds?: string[];
+  initialName?: string;
   isLoading?: boolean;
 }
 
@@ -56,6 +58,8 @@ export const PromotionFormModal: React.FC<PromotionFormModalProps> = ({
   onClose,
   onSubmit,
   initialData,
+  initialProductIds,
+  initialName,
   isLoading = false,
 }) => {
   const isEdit = Boolean(initialData?.id);
@@ -131,22 +135,26 @@ export const PromotionFormModal: React.FC<PromotionFormModalProps> = ({
         // Defaults for Create: Start today, End in 7 days
         const now = new Date();
         const nextWeek = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-        setName("");
+        setName(initialName || "");
         setDescription("");
         setDiscountType(DISCOUNT_TYPE.PERCENTAGE);
         setDiscountValue(10);
-        setApplyScope(PROMOTION_APPLY_SCOPE.ALL);
+        setApplyScope(
+          initialProductIds && initialProductIds.length > 0
+            ? PROMOTION_APPLY_SCOPE.PRODUCT
+            : PROMOTION_APPLY_SCOPE.ALL
+        );
         setStartDate(toDatetimeLocal(now.toISOString()));
         setEndDate(toDatetimeLocal(nextWeek.toISOString()));
         setStatus(PROMOTION_STATUS.ACTIVE);
-        setSelectedProductIds([]);
+        setSelectedProductIds(initialProductIds ? [...initialProductIds] : []);
         setSelectedGroupIds([]);
       }
       setProductSearch("");
       setGroupSearch("");
       setErrors({});
     }
-  }, [isOpen, initialData]);
+  }, [isOpen, initialData, initialProductIds, initialName]);
 
   // Filtered lists for picker
   const filteredProducts = useMemo(() => {
@@ -590,11 +598,6 @@ export const PromotionFormModal: React.FC<PromotionFormModalProps> = ({
                                 <span className="font-bold text-slate-800">
                                   {p.name}
                                 </span>
-                                {p.sku && (
-                                  <span className="ml-1.5 text-[10px] text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded font-mono">
-                                    {p.sku}
-                                  </span>
-                                )}
                               </div>
                             </div>
                             <span className="font-bold text-slate-700">

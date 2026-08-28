@@ -149,11 +149,25 @@ export const PurchaseSuggestionTable: React.FC<PurchaseSuggestionTableProps> = (
                       {item.sku}
                     </td>
 
-                    {/* Name */}
+                    {/* Name & Promotion Alert */}
                     <td className="py-3 px-3">
-                      <span className="font-bold text-slate-900 line-clamp-2">
-                        {item.productName}
-                      </span>
+                      <div className="flex flex-col gap-1">
+                        <span className="font-bold text-slate-900 line-clamp-2">
+                          {item.productName}
+                        </span>
+                        {item.hasPromotion && (
+                          <div
+                            title={
+                              item.promotionWarning ||
+                              INVENTORY_WARNING_COPY.PROMOTION_ALERT_NOTE
+                            }
+                            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-50 border border-amber-200 text-amber-800 text-[10px] font-bold w-fit"
+                          >
+                            <Sparkles className="w-2.5 h-2.5 text-amber-600 shrink-0" />
+                            <span>Có đợt khuyến mại</span>
+                          </div>
+                        )}
+                      </div>
                     </td>
 
                     {/* Unit */}
@@ -210,15 +224,17 @@ export const PurchaseSuggestionTable: React.FC<PurchaseSuggestionTableProps> = (
 
                     {/* Actions */}
                     <td className="py-3 px-3 text-center sticky right-0 bg-white shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.05)]">
-                      <button
-                        type="button"
-                        onClick={() => onQuickReorder(item)}
-                        title="Tạo phiếu nhập hàng theo số lượng gợi ý"
-                        className="flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg bg-kv-blue-primary text-white hover:bg-kv-blue-dark font-bold text-[11px] transition-colors shadow-sm w-full"
-                      >
-                        <PackagePlus className="w-3.5 h-3.5" />
-                        <span>Nhập hàng</span>
-                      </button>
+                      <div className="flex items-center justify-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => onQuickReorder(item)}
+                          title="Tạo phiếu nhập hàng theo số lượng gợi ý"
+                          className="flex items-center gap-1 px-2 py-1 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 font-bold text-[11px] border border-emerald-200 transition-colors"
+                        >
+                          <PackagePlus className="w-3.5 h-3.5" />
+                          <span>Nhập</span>
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );

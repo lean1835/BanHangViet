@@ -7,6 +7,7 @@ import com.sales.dto.response.PeakHourlyProjection;
 import com.sales.dto.response.PosDailyRevenueProjection;
 import com.sales.dto.response.PosRevenueProjection;
 import com.sales.dto.response.ProductRevenueProjection;
+import com.sales.dto.response.ProductSalesSummaryProjection;
 import com.sales.dto.response.PurchaseSuggestionProjection;
 import com.sales.dto.response.SlowMovingProductProjection;
 import com.sales.dto.response.SlowMovingSummaryProjection;
@@ -152,7 +153,7 @@ public interface OrderRepository extends JpaRepository<Order, String> {
             "AND o.deleted_at IS NULL " +
             "AND o.created_at >= :startDateTime " +
             "GROUP BY oi.product_id", nativeQuery = true)
-    List<com.sales.dto.response.ProductSalesSummaryProjection> getProductSalesSummary(
+    List<ProductSalesSummaryProjection> getProductSalesSummary(
             @Param("householdId") String householdId,
             @Param("startDateTime") LocalDateTime startDateTime
     );
@@ -162,6 +163,7 @@ public interface OrderRepository extends JpaRepository<Order, String> {
             "p.sku AS sku, " +
             "p.name AS productName, " +
             "p.unit AS unit, " +
+            "p.price AS price, " +
             "p.cost_price AS costPrice, " +
             "COALESCE(p.stock_quantity, 0) AS stockQuantity, " +
             "COALESCE(p.min_stock_quantity, 0) AS minStockQuantity, " +
@@ -182,7 +184,7 @@ public interface OrderRepository extends JpaRepository<Order, String> {
             "AND p.deleted_at IS NULL " +
             "AND p.status = 'ACTIVE' " +
             "AND (:groupId IS NULL OR :groupId = '' OR p.group_id = :groupId) " +
-            "GROUP BY p.id, p.sku, p.name, p.unit, p.cost_price, p.stock_quantity, p.min_stock_quantity, g.id, g.name " +
+            "GROUP BY p.id, p.sku, p.name, p.unit, p.price, p.cost_price, p.stock_quantity, p.min_stock_quantity, g.id, g.name " +
             "HAVING CEIL(ROUND(SUM(oi.quantity) / (:periodWeeks), 2) - COALESCE(p.stock_quantity, 0)) > 0 " +
             "ORDER BY suggestedQuantity DESC, p.id ASC",
             countQuery = "SELECT COUNT(*) FROM (" +

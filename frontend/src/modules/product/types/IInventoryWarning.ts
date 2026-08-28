@@ -28,6 +28,7 @@ export interface IPurchaseSuggestion {
   sku: string;
   productName: string;
   unit: string;
+  price?: number;
   costPrice?: number;
   stockQuantity: number;
   minStockQuantity: number;
@@ -66,5 +67,6 @@ export interface IInventoryWarningFilterState {
   search: string;
   groupId: string;
   periodDays: number;
-  activeTab: "warnings" | "suggestions";
+  thresholdDays?: number;
+  activeTab: "warnings" | "suggestions" | "slow_moving";
 }

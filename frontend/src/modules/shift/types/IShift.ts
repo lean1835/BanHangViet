@@ -10,6 +10,9 @@ export interface IShiftResponse {
   username: string;
   fullName: string;
   householdId: string;
+  pointOfSaleId?: string | null;
+  pointOfSaleName?: string | null;
+  posCode?: string | null;
   openedAt: string;
   closedAt: string | null;
   openingCash: number;

@@ -359,7 +359,7 @@ export const PosPaymentSidebar: React.FC<IPosPaymentSidebarProps> = ({
                 <div className="inline-flex bg-slate-200/70 rounded p-0.5 border border-slate-200">
                   <button
                     type="button"
-                    onClick={() => onUpdateTab({ discountType: "CASH" })}
+                    onClick={() => onUpdateTab({ discountType: "CASH", isSaved: false, backendOrderId: undefined })}
                     className={`px-1.5 py-0.2 rounded text-[10px] font-bold transition-all ${
                       tab.discountType === "CASH"
                         ? "bg-white text-blue-600 shadow-xs"
@@ -370,7 +370,7 @@ export const PosPaymentSidebar: React.FC<IPosPaymentSidebarProps> = ({
                   </button>
                   <button
                     type="button"
-                    onClick={() => onUpdateTab({ discountType: "PERCENTAGE" })}
+                    onClick={() => onUpdateTab({ discountType: "PERCENTAGE", isSaved: false, backendOrderId: undefined })}
                     className={`px-1.5 py-0.2 rounded text-[10px] font-bold transition-all ${
                       tab.discountType === "PERCENTAGE"
                         ? "bg-white text-blue-600 shadow-xs"
@@ -387,7 +387,11 @@ export const PosPaymentSidebar: React.FC<IPosPaymentSidebarProps> = ({
                   min={0}
                   value={tab.discountValue || 0}
                   onChange={(e) =>
-                    onUpdateTab({ discountValue: Math.max(0, Number(e.target.value)) })
+                    onUpdateTab({
+                      discountValue: Math.max(0, Number(e.target.value)),
+                      isSaved: false,
+                      backendOrderId: undefined,
+                    })
                   }
                   className="w-full text-right bg-white border border-slate-300 rounded px-2 py-1 font-bold text-slate-800 text-xs focus:outline-none focus:ring-1 focus:ring-blue-400"
                 />

@@ -13,6 +13,7 @@ public class PurchaseSuggestionResponse {
     private String sku;
     private String productName;
     private String unit;
+    private BigDecimal price;
     private BigDecimal costPrice;
     private BigDecimal stockQuantity;
     private BigDecimal minStockQuantity;

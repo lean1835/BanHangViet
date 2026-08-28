@@ -54,6 +54,7 @@ export const API_TAG_TYPES = {
   POS_INVENTORY: "PosInventory",
   POS_TRANSFER: "PosTransfer",
   POS_REVENUE: "PosRevenue",
+  SALES_ANALYTICS: "SalesAnalytics",
 } as const;
 
 export const API_TAG_TYPE_VALUES = Object.values(API_TAG_TYPES);

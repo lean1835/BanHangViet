@@ -9,7 +9,7 @@ spring:
   application:
     name: sales-service
   datasource:
-    url: ${DB_URL:jdbc:mysql://localhost:3306/ban_hang_viet?createDatabaseIfNotExist=true&useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true&useUnicode=true&characterEncoding=UTF-8&characterSetResults=UTF-8}
+    url: ${DB_URL:jdbc:mysql://localhost:3306/ban_hang_viet?createDatabaseIfNotExist=true&useSSL=false&serverTimezone=Asia/Ho_Chi_Minh&allowPublicKeyRetrieval=true&useUnicode=true&characterEncoding=UTF-8&characterSetResults=UTF-8}
     username: ${DB_USER:root}
     password: ${DB_PASSWORD:root}
     driver-class-name: com.mysql.cj.jdbc.Driver

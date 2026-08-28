@@ -79,7 +79,20 @@ export const GoodsReceiptModal: React.FC<GoodsReceiptModalProps> = ({
       setReceivedAt(getLocalDateTimeValue());
       setSupplierId(initialSupplierId || "");
       setNotes("");
-      setItems(initialItems || []);
+
+      const resolvedItems: GoodsReceiptItemRow[] = (initialItems || []).map((item) => {
+        const matchingProduct = products.find((p) => p.id === item.productId);
+        const resolvedListedPrice =
+          item.listedPrice && item.listedPrice > 0
+            ? item.listedPrice
+            : matchingProduct?.price || 0;
+        return {
+          ...item,
+          listedPrice: resolvedListedPrice,
+        };
+      });
+
+      setItems(resolvedItems);
       setFormErrors({});
       setProductSearch("");
       setIsProductDropdownOpen(false);
@@ -87,7 +100,7 @@ export const GoodsReceiptModal: React.FC<GoodsReceiptModalProps> = ({
       setIsSubmitting(false);
       setShowBelowCostModal(false);
     }
-  }, [isOpen, initialSupplierId, initialItems]);
+  }, [isOpen, initialSupplierId, initialItems, products]);
 
   // Lock scroll & handle Escape key
   useEffect(() => {
@@ -151,11 +164,13 @@ export const GoodsReceiptModal: React.FC<GoodsReceiptModalProps> = ({
     [items]
   );
 
-  // Detect items selling below cost (purchasePrice > listedPrice)
+  // Detect items selling below cost (purchasePrice > 0 and purchasePrice > listedPrice)
   const belowCostItems = useMemo(
     () =>
       items.filter(
-        (item) => Number(item.purchasePrice) > Number(item.listedPrice || 0)
+        (item) =>
+          Number(item.purchasePrice) > 0 &&
+          Number(item.purchasePrice) > Number(item.listedPrice || 0)
       ),
     [items]
   );
@@ -608,7 +623,7 @@ export const GoodsReceiptModal: React.FC<GoodsReceiptModalProps> = ({
                   <thead>
                     <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold">
                       <th className="p-3 w-10 text-center">#</th>
-                      <th className="p-3 min-w-[200px]">Tên hàng hóa & SKU</th>
+                      <th className="p-3 min-w-[220px]">Tên hàng hóa & SKU</th>
                       <th className="p-3 text-center w-20">Tồn kho</th>
                       <th className="p-3 text-right w-28">Giá niêm yết</th>
                       <th className="p-3 text-center w-36">Số lượng nhập</th>
@@ -621,7 +636,9 @@ export const GoodsReceiptModal: React.FC<GoodsReceiptModalProps> = ({
                     {items.length > 0 ? (
                       items.map((item, index) => {
                         const itemSubtotal = item.quantity * item.purchasePrice;
-                        const isBelowCost = Number(item.purchasePrice) > Number(item.listedPrice || 0);
+                        const isBelowCost =
+                          Number(item.purchasePrice) > 0 &&
+                          Number(item.purchasePrice) > Number(item.listedPrice || 0);
 
                         return (
                           <tr key={item.productId} className={`hover:bg-slate-50/60 transition-colors ${isBelowCost ? "bg-amber-50/40" : ""}`}>
@@ -633,15 +650,15 @@ export const GoodsReceiptModal: React.FC<GoodsReceiptModalProps> = ({
                             {/* 2. Tên hàng & SKU */}
                             <td className="p-3">
                               <span className="font-bold text-slate-800 block">{item.productName}</span>
-                              <div className="flex items-center gap-2 mt-0.5">
-                                <span className="font-mono text-[10px] text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
+                              <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                                <span className="font-mono text-[10px] text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded whitespace-nowrap">
                                   {item.productSku}
                                 </span>
-                                <span className="text-[10px] text-slate-400">ĐVT: {item.unit}</span>
+                                <span className="text-[10px] text-slate-400 whitespace-nowrap">ĐVT: {item.unit}</span>
                                 {isBelowCost && (
                                   <span
                                     title={`Đơn giá nhập (${formatCurrency(item.purchasePrice)}) cao hơn giá bán (${formatCurrency(item.listedPrice)})`}
-                                    className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300/80 flex items-center gap-1"
+                                    className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300/80 inline-flex items-center whitespace-nowrap shrink-0"
                                   >
                                     Bán lỗ
                                   </span>
@@ -694,6 +711,7 @@ export const GoodsReceiptModal: React.FC<GoodsReceiptModalProps> = ({
                             <td className="p-3 text-right">
                               <input
                                 type="text"
+                                placeholder="0"
                                 disabled={isSubmitting}
                                 value={item.purchasePriceDisplay}
                                 onChange={(e) => handlePriceChange(index, e.target.value)}

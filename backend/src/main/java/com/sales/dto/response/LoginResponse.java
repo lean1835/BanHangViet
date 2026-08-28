@@ -13,4 +13,7 @@ public class LoginResponse {
     private String fullName;
     private String roleCode;
     private String householdId;
+    private String pointOfSaleId;
+    private String pointOfSaleName;
+    private String posCode;
 }

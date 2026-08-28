@@ -79,6 +79,36 @@ export const InventoryWarningSidebar: React.FC<InventoryWarningSidebarProps> = (
           </div>
         </div>
       )}
+
+      {/* Ngưỡng ngày (Hàng bán chậm & tồn lâu) */}
+      {filter.activeTab === "slow_moving" && (
+        <div className="flex flex-col gap-2">
+          <span className="font-bold text-slate-700 text-xs">
+            Ngưỡng không bán quá:
+          </span>
+          <div className="flex flex-col gap-1 text-[11px] font-semibold text-slate-500">
+            <select
+              value={filter.thresholdDays || 60}
+              onChange={(e) =>
+                onFilterChange({
+                  ...filter,
+                  thresholdDays: Number(e.target.value),
+                })
+              }
+              className="w-full bg-white border border-slate-300 rounded-lg p-2 font-semibold text-slate-700 text-xs focus:outline-none focus:border-kv-blue-primary transition-all cursor-pointer"
+            >
+              <option value={30}>30 ngày (1 tháng)</option>
+              <option value={60}>60 ngày (2 tháng - Khuyên dùng)</option>
+              <option value={90}>90 ngày (1 quý)</option>
+              <option value={180}>180 ngày (6 tháng)</option>
+              <option value={365}>365 ngày (1 năm)</option>
+            </select>
+            <span className="text-[10px] text-slate-400 mt-1 leading-relaxed">
+              * Lọc các mặt hàng không phát sinh giao dịch bán trong khoảng thời gian đã chọn để hỗ trợ quyết định xả hàng.
+            </span>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
