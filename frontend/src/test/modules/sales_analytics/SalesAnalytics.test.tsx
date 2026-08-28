@@ -233,7 +233,7 @@ describe("NCL-18-CN-002: PurchaseSuggestionTable Component", () => {
     expect(screen.getByText("Có đợt khuyến mại")).toBeInTheDocument();
 
     // Trigger reorder action
-    const reorderButtons = screen.getAllByRole("button", { name: /Nhập hàng/i });
+    const reorderButtons = screen.getAllByRole("button", { name: /Nhập/i });
     fireEvent.click(reorderButtons[0]);
     expect(onQuickReorder).toHaveBeenCalledWith(mockSuggestions[0]);
   });

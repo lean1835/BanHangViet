@@ -1,5 +1,6 @@
 package com.sales.service.classes;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sales.dto.request.UpdateMinStockRequest;
 import com.sales.dto.response.*;
 import com.sales.entity.*;
@@ -19,6 +20,7 @@ import org.springframework.util.StringUtils;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -32,7 +34,7 @@ public class InventoryWarningServiceImpl implements InventoryWarningService {
     private final GoodsReceiptDetailRepository goodsReceiptDetailRepository;
     private final OrderRepository orderRepository;
     private final ActivityLogHelper activityLogHelper;
-    private final com.fasterxml.jackson.databind.ObjectMapper objectMapper;
+    private final ObjectMapper objectMapper;
 
     private User getAuthenticatedUser(String username) {
         return userRepository.findByUsername(username)
@@ -277,6 +279,12 @@ public class InventoryWarningServiceImpl implements InventoryWarningService {
             throw new AppException(ErrorCode.FORBIDDEN);
         }
 
+        // Quyền xem cảnh báo hàng bán chậm & đọng vốn: Chỉ Chủ hộ (VT-01) và Kế toán (VT-03) (NCL-18-CN-003-TC-03)
+        if (currentUser.getRole() == null ||
+                (!"VT-01".equals(currentUser.getRole().getCode()) && !"VT-03".equals(currentUser.getRole().getCode()))) {
+            throw new AppException(ErrorCode.FORBIDDEN);
+        }
+
         if (thresholdDays != null && thresholdDays <= 0) {
             throw new AppException(ErrorCode.INVALID_INPUT);
         }
@@ -308,7 +316,7 @@ public class InventoryWarningServiceImpl implements InventoryWarningService {
         List<SlowMovingProductResponse> content = projectionPage.getContent().stream()
                 .map(p -> {
                     LocalDateTime refDate = p.getLastSaleDate() != null ? p.getLastSaleDate() : p.getCreatedAt();
-                    long daysWithoutSale = refDate != null ? Math.max(0, java.time.temporal.ChronoUnit.DAYS.between(refDate, LocalDateTime.now())) : 0L;
+                    long daysWithoutSale = refDate != null ? Math.max(0, ChronoUnit.DAYS.between(refDate, LocalDateTime.now())) : 0L;
 
                     return SlowMovingProductResponse.builder()
                             .productId(p.getProductId())

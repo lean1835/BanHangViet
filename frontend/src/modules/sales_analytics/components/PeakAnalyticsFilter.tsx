@@ -1,7 +1,8 @@
 import React from "react";
-import { Calendar, Store, RefreshCw } from "lucide-react";
+import { Calendar, Store } from "lucide-react";
 import { useGetPointsOfSaleQuery } from "@/modules/point_of_sale/services/pointOfSaleApi";
 import type { IPointOfSale } from "@/modules/point_of_sale/types/IPointOfSale";
+import { getLocalDateString } from "@/utils/dateFormatter";
 import { SALES_ANALYTICS_COPY } from "@/constants/salesAnalytics";
 
 interface PeakAnalyticsFilterProps {
@@ -9,8 +10,6 @@ interface PeakAnalyticsFilterProps {
   toDate: string;
   posId: string;
   onFilterChange: (filters: { fromDate: string; toDate: string; posId: string }) => void;
-  onRefresh: () => void;
-  isLoading: boolean;
 }
 
 export const PeakAnalyticsFilter: React.FC<PeakAnalyticsFilterProps> = ({
@@ -18,8 +17,6 @@ export const PeakAnalyticsFilter: React.FC<PeakAnalyticsFilterProps> = ({
   toDate,
   posId,
   onFilterChange,
-  onRefresh,
-  isLoading,
 }) => {
   const { data: posRes } = useGetPointsOfSaleQuery();
   const pointOfSaleList: IPointOfSale[] = posRes?.content || [];
@@ -30,8 +27,8 @@ export const PeakAnalyticsFilter: React.FC<PeakAnalyticsFilterProps> = ({
     start.setDate(end.getDate() - days);
 
     onFilterChange({
-      fromDate: start.toISOString().split("T")[0],
-      toDate: end.toISOString().split("T")[0],
+      fromDate: getLocalDateString(start),
+      toDate: getLocalDateString(end),
       posId,
     });
   };
@@ -99,7 +96,7 @@ export const PeakAnalyticsFilter: React.FC<PeakAnalyticsFilterProps> = ({
         </div>
       </div>
 
-      {/* POS Selector & Refresh */}
+      {/* POS Selector */}
       <div className="flex items-center gap-3 flex-wrap">
         <div className="flex items-center gap-1.5">
           <Store className="w-4 h-4 text-slate-400" />
@@ -122,16 +119,6 @@ export const PeakAnalyticsFilter: React.FC<PeakAnalyticsFilterProps> = ({
             ))}
           </select>
         </div>
-
-        <button
-          type="button"
-          onClick={onRefresh}
-          disabled={isLoading}
-          className="h-9 px-3.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-xs font-bold text-slate-700 transition-colors flex items-center gap-1.5 disabled:opacity-50"
-        >
-          <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? "animate-spin" : ""}`} />
-          <span>Làm mới</span>
-        </button>
       </div>
     </div>
   );

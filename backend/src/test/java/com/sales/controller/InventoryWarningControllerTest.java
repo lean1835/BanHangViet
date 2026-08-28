@@ -320,7 +320,7 @@ public class InventoryWarningControllerTest {
         ProductGroup deletedGroup = productGroupRepository.save(ProductGroup.builder()
                 .household(testHousehold)
                 .name("Nhóm đã xóa")
-                .deletedAt(java.time.LocalDateTime.now())
+                .deletedAt(LocalDateTime.now())
                 .build());
 
         productRepository.save(Product.builder()
@@ -340,7 +340,7 @@ public class InventoryWarningControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(1000))
                 .andExpect(jsonPath("$.result.stockAdequate").value(false))
-                .andExpect(jsonPath("$.result.page.content[0].groupName").value(org.hamcrest.Matchers.nullValue()));
+                .andExpect(jsonPath("$.result.page.content[0].groupName").value(nullValue()));
     }
 
     @Test
@@ -384,7 +384,7 @@ public class InventoryWarningControllerTest {
         mockMvc.perform(get("/api/v1/inventory/low-stock-warnings"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(1000))
-                .andExpect(jsonPath("$.result.page.content[0].lastSupplierId").value(org.hamcrest.Matchers.nullValue()));
+                .andExpect(jsonPath("$.result.page.content[0].lastSupplierId").value(nullValue()));
     }
 
     @Test
@@ -461,6 +461,23 @@ public class InventoryWarningControllerTest {
     @WithMockUser(username = "test_employee_inv_warning", roles = {"VT-02"})
     public void getPurchaseSuggestions_employee_forbidden() throws Exception {
         mockMvc.perform(get("/api/v1/inventory/purchase-suggestions"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(username = "test_owner_inv_warning", roles = {"VT-01"})
+    public void getSlowMovingProducts_owner_success() throws Exception {
+        mockMvc.perform(get("/api/v1/inventory/slow-moving-products?thresholdDays=60"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(1000))
+                .andExpect(jsonPath("$.result.pageData").exists())
+                .andExpect(jsonPath("$.result.summary").exists());
+    }
+
+    @Test
+    @WithMockUser(username = "test_employee_inv_warning", roles = {"VT-02"})
+    public void getSlowMovingProducts_employee_forbidden() throws Exception {
+        mockMvc.perform(get("/api/v1/inventory/slow-moving-products?thresholdDays=60"))
                 .andExpect(status().isForbidden());
     }
 }

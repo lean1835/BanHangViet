@@ -7,6 +7,7 @@ import com.sales.dto.response.PeakHourlyProjection;
 import com.sales.dto.response.PosDailyRevenueProjection;
 import com.sales.dto.response.PosRevenueProjection;
 import com.sales.dto.response.ProductRevenueProjection;
+import com.sales.dto.response.ProductSalesSummaryProjection;
 import com.sales.dto.response.PurchaseSuggestionProjection;
 import com.sales.dto.response.SlowMovingProductProjection;
 import com.sales.dto.response.SlowMovingSummaryProjection;
@@ -152,7 +153,7 @@ public interface OrderRepository extends JpaRepository<Order, String> {
             "AND o.deleted_at IS NULL " +
             "AND o.created_at >= :startDateTime " +
             "GROUP BY oi.product_id", nativeQuery = true)
-    List<com.sales.dto.response.ProductSalesSummaryProjection> getProductSalesSummary(
+    List<ProductSalesSummaryProjection> getProductSalesSummary(
             @Param("householdId") String householdId,
             @Param("startDateTime") LocalDateTime startDateTime
     );

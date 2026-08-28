@@ -7,6 +7,8 @@ import type { IProduct } from "@/modules/product/types/IProduct";
 import type { IPosTab } from "../types/IPos";
 import { Camera, Mic, Search } from "lucide-react";
 import { formatCurrency } from "@/utils/formatCurrency";
+import { useDebounce } from "@/hooks/useDebounce";
+import { PRODUCT_QUERY_CONFIG } from "@/constants/product";
 
 interface IPosHeaderProps {
   products: IProduct[];
@@ -42,13 +44,17 @@ export const PosHeader: React.FC<IPosHeaderProps> = ({
   isOnline = true,
 }) => {
   const [searchTerm, setSearchTerm] = useState<string>("");
+  const debouncedSearchTerm = useDebounce(
+    searchTerm,
+    PRODUCT_QUERY_CONFIG.SEARCH_DEBOUNCE_MS
+  );
   const [isDropdownOpen, setIsDropdownOpen] = useState<boolean>(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const searchContainerRef = useRef<HTMLDivElement>(null);
 
-  // Live API Search Query
+  // Live API Search Query with Debounce (P1.2 performance optimization)
   const { data: searchResultData, isLoading } = useGetProductsQuery({
-    search: searchTerm.trim() || undefined,
+    search: debouncedSearchTerm.trim() || undefined,
     page: 0,
     size: 50,
   });

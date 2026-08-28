@@ -16,6 +16,7 @@ import { DayOfWeekDistribution } from "../components/DayOfWeekDistribution";
 import { PeakInsightsCard } from "../components/PeakInsightsCard";
 import { PeakAnalyticsFilter } from "../components/PeakAnalyticsFilter";
 import { formatCurrency, formatNumber } from "@/utils/formatCurrency";
+import { getLocalDateString } from "@/utils/dateFormatter";
 import { SALES_ANALYTICS_COPY } from "@/constants/salesAnalytics";
 
 export const PeakHoursAnalyticsPage: React.FC = () => {
@@ -24,22 +25,17 @@ export const PeakHoursAnalyticsPage: React.FC = () => {
   const isAllowed =
     currentRole === USER_ROLES.OWNER || currentRole === USER_ROLES.ACCOUNTANT;
 
-  // Default date range: last 30 days
-  const defaultToDate = new Date().toISOString().split("T")[0];
-  const defaultFromDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
-    .toISOString()
-    .split("T")[0];
+  // Default date range: last 30 days formatted in local client timezone (GMT+7)
+  const defaultToDate = getLocalDateString(new Date());
+  const defaultFromDate = getLocalDateString(
+    new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+  );
 
   const [fromDate, setFromDate] = useState<string>(defaultFromDate);
   const [toDate, setToDate] = useState<string>(defaultToDate);
   const [posId, setPosId] = useState<string>("");
 
-  const {
-    data: peakData,
-    isLoading,
-    isFetching,
-    refetch,
-  } = useGetPeakHoursAndDaysAnalysisQuery(
+  const { data: peakData, isLoading } = useGetPeakHoursAndDaysAnalysisQuery(
     {
       fromDate,
       toDate,
@@ -119,8 +115,6 @@ export const PeakHoursAnalyticsPage: React.FC = () => {
           setToDate(newTo);
           setPosId(newPos);
         }}
-        onRefresh={() => refetch()}
-        isLoading={isLoading || isFetching}
       />
 
       {/* KPI Cards Row */}

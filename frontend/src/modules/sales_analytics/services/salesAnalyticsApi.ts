@@ -227,29 +227,36 @@ export const salesAnalyticsApi = baseApi.injectEndpoints({
         const content = Array.isArray(result.content) ? result.content : [];
 
         return {
-          content: content.map((item: any) => ({
-            productId: readString(item?.productId),
-            sku: readString(item?.sku),
-            productName: readString(item?.productName),
-            unit: readString(item?.unit),
-            costPrice:
-              item?.costPrice !== undefined && item?.costPrice !== null
-                ? readNumber(item?.costPrice)
-                : undefined,
-            stockQuantity: readNumber(item?.stockQuantity),
-            minStockQuantity: readNumber(item?.minStockQuantity),
-            averageWeeklySales: readNumber(item?.averageWeeklySales),
-            totalSoldInPeriod: readNumber(item?.totalSoldInPeriod),
-            suggestedQuantity: readNumber(item?.suggestedQuantity),
-            calculationRationale: readString(item?.calculationRationale),
-            hasPromotion: Boolean(item?.hasPromotion),
-            promotionWarning: readNullableString(item?.promotionWarning),
-            groupId: readNullableString(item?.groupId),
-            groupName: readNullableString(item?.groupName),
-            lastSupplierId: readNullableString(item?.lastSupplierId),
-            lastSupplierName: readNullableString(item?.lastSupplierName),
-            lastSupplierPhone: readNullableString(item?.lastSupplierPhone),
-          })),
+          content: content.map((rawItem: unknown) => {
+            const item = isRecord(rawItem) ? rawItem : {};
+            return {
+              productId: readString(item.productId),
+              sku: readString(item.sku),
+              productName: readString(item.productName),
+              unit: readString(item.unit),
+              price:
+                item.price !== undefined && item.price !== null
+                  ? readNumber(item.price)
+                  : undefined,
+              costPrice:
+                item.costPrice !== undefined && item.costPrice !== null
+                  ? readNumber(item.costPrice)
+                  : undefined,
+              stockQuantity: readNumber(item.stockQuantity),
+              minStockQuantity: readNumber(item.minStockQuantity),
+              averageWeeklySales: readNumber(item.averageWeeklySales),
+              totalSoldInPeriod: readNumber(item.totalSoldInPeriod),
+              suggestedQuantity: readNumber(item.suggestedQuantity),
+              calculationRationale: readString(item.calculationRationale),
+              hasPromotion: Boolean(item.hasPromotion),
+              promotionWarning: readNullableString(item.promotionWarning),
+              groupId: readNullableString(item.groupId),
+              groupName: readNullableString(item.groupName),
+              lastSupplierId: readNullableString(item.lastSupplierId),
+              lastSupplierName: readNullableString(item.lastSupplierName),
+              lastSupplierPhone: readNullableString(item.lastSupplierPhone),
+            };
+          }),
           pageNumber: readNumber(result.pageNumber),
           pageSize: readNumber(result.pageSize) || 10,
           totalElements: readNumber(result.totalElements),
