@@ -1,5 +1,9 @@
 import React, { createContext, useContext, useState, useMemo, useCallback, type ReactNode } from "react";
-import { getLocalDateString } from "@/utils/dateFormatter";
+import {
+  getLocalDateString,
+  getWeekDateRange,
+  getPreviousWeekDateRange,
+} from "@/utils/dateFormatter";
 
 // ==========================================
 // 1. REVENUE REPORT FILTER
@@ -84,9 +88,72 @@ export interface IActivityLogFilterState {
 }
 
 // ==========================================
+// 4. PEAK HOURS REPORT FILTER
+// ==========================================
+export interface IPeakHoursFilterState {
+  fromDate: string;
+  toDate: string;
+  posId: string;
+  activePreset: "thisWeek" | "lastWeek" | "14days" | "30days" | "custom";
+}
+
+export const getPeakHoursPresetDates = (preset: "thisWeek" | "lastWeek" | "14days" | "30days") => {
+  if (preset === "thisWeek") {
+    return getWeekDateRange();
+  }
+  if (preset === "lastWeek") {
+    return getPreviousWeekDateRange();
+  }
+  if (preset === "14days") {
+    const end = new Date();
+    const start = new Date();
+    start.setDate(end.getDate() - 14);
+    return { fromDate: getLocalDateString(start), toDate: getLocalDateString(end) };
+  }
+  // 30days
+  const end = new Date();
+  const start = new Date();
+  start.setDate(end.getDate() - 30);
+  return { fromDate: getLocalDateString(start), toDate: getLocalDateString(end) };
+};
+
+// ==========================================
+// 5. POS REVENUE REPORT FILTER
+// ==========================================
+export interface IPosRevenueFilterState {
+  fromDate: string;
+  toDate: string;
+  posId: string;
+  activePreset: "today" | "thisWeek" | "thisMonth" | "thisQuarter" | "custom";
+}
+
+export const getPosRevenuePresetDates = (preset: "today" | "thisWeek" | "thisMonth" | "thisQuarter") => {
+  const now = new Date();
+  const todayStr = getLocalDateString(now);
+
+  if (preset === "today") {
+    return { fromDate: todayStr, toDate: todayStr };
+  }
+  if (preset === "thisWeek") {
+    const day = now.getDay();
+    const diff = now.getDate() - day + (day === 0 ? -6 : 1);
+    const monday = new Date(now.setDate(diff));
+    return { fromDate: getLocalDateString(monday), toDate: todayStr };
+  }
+  if (preset === "thisMonth") {
+    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+    return { fromDate: getLocalDateString(firstDay), toDate: todayStr };
+  }
+  // thisQuarter
+  const quarterMonth = Math.floor(now.getMonth() / 3) * 3;
+  const firstDayQuarter = new Date(now.getFullYear(), quarterMonth, 1);
+  return { fromDate: getLocalDateString(firstDayQuarter), toDate: todayStr };
+};
+
+// ==========================================
 // UNIFIED REPORT CONTEXT
 // ==========================================
-interface IReportFilterContextType {
+export interface IReportFilterContextType {
   // Revenue
   revenueFilter: IRevenueFilterState;
   setRevenueFilter: React.Dispatch<React.SetStateAction<IRevenueFilterState>>;
@@ -102,9 +169,21 @@ interface IReportFilterContextType {
   setActivityLogFilter: React.Dispatch<React.SetStateAction<IActivityLogFilterState>>;
   setActivityLogPreset: (preset: "today" | "7days" | "thisMonth" | "all") => void;
   resetActivityLogFilter: () => void;
+
+  // Peak Hours
+  peakHoursFilter: IPeakHoursFilterState;
+  setPeakHoursFilter: React.Dispatch<React.SetStateAction<IPeakHoursFilterState>>;
+  setPeakHoursPreset: (preset: "thisWeek" | "lastWeek" | "14days" | "30days") => void;
+  resetPeakHoursFilter: () => void;
+
+  // POS Revenue
+  posRevenueFilter: IPosRevenueFilterState;
+  setPosRevenueFilter: React.Dispatch<React.SetStateAction<IPosRevenueFilterState>>;
+  setPosRevenuePreset: (preset: "today" | "thisWeek" | "thisMonth" | "thisQuarter") => void;
+  resetPosRevenueFilter: () => void;
 }
 
-const ReportFilterContext = createContext<IReportFilterContextType | undefined>(undefined);
+export const ReportFilterContext = createContext<IReportFilterContextType | undefined>(undefined);
 
 export const ReportFilterProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   // 1. Revenue
@@ -173,6 +252,64 @@ export const ReportFilterProvider: React.FC<{ children: ReactNode }> = ({ childr
     setActivityLogFilter({ fromDate: "", toDate: "" });
   }, []);
 
+  // 4. Peak Hours
+  const initialWeek = useMemo(() => getWeekDateRange(), []);
+  const [peakHoursFilter, setPeakHoursFilter] = useState<IPeakHoursFilterState>({
+    fromDate: initialWeek.fromDate,
+    toDate: initialWeek.toDate,
+    posId: "",
+    activePreset: "thisWeek",
+  });
+
+  const setPeakHoursPreset = useCallback((preset: "thisWeek" | "lastWeek" | "14days" | "30days") => {
+    const dates = getPeakHoursPresetDates(preset);
+    setPeakHoursFilter((prev) => ({
+      ...prev,
+      fromDate: dates.fromDate,
+      toDate: dates.toDate,
+      activePreset: preset,
+    }));
+  }, []);
+
+  const resetPeakHoursFilter = useCallback(() => {
+    const dates = getWeekDateRange();
+    setPeakHoursFilter({
+      fromDate: dates.fromDate,
+      toDate: dates.toDate,
+      posId: "",
+      activePreset: "thisWeek",
+    });
+  }, []);
+
+  // 5. POS Revenue
+  const initialPosRevenueDates = useMemo(() => getPosRevenuePresetDates("thisMonth"), []);
+  const [posRevenueFilter, setPosRevenueFilter] = useState<IPosRevenueFilterState>({
+    fromDate: initialPosRevenueDates.fromDate,
+    toDate: initialPosRevenueDates.toDate,
+    posId: "",
+    activePreset: "thisMonth",
+  });
+
+  const setPosRevenuePreset = useCallback((preset: "today" | "thisWeek" | "thisMonth" | "thisQuarter") => {
+    const dates = getPosRevenuePresetDates(preset);
+    setPosRevenueFilter((prev) => ({
+      ...prev,
+      fromDate: dates.fromDate,
+      toDate: dates.toDate,
+      activePreset: preset,
+    }));
+  }, []);
+
+  const resetPosRevenueFilter = useCallback(() => {
+    const dates = getPosRevenuePresetDates("thisMonth");
+    setPosRevenueFilter({
+      fromDate: dates.fromDate,
+      toDate: dates.toDate,
+      posId: "",
+      activePreset: "thisMonth",
+    });
+  }, []);
+
   const contextValue = useMemo(
     () => ({
       revenueFilter,
@@ -185,6 +322,14 @@ export const ReportFilterProvider: React.FC<{ children: ReactNode }> = ({ childr
       setActivityLogFilter,
       setActivityLogPreset,
       resetActivityLogFilter,
+      peakHoursFilter,
+      setPeakHoursFilter,
+      setPeakHoursPreset,
+      resetPeakHoursFilter,
+      posRevenueFilter,
+      setPosRevenueFilter,
+      setPosRevenuePreset,
+      resetPosRevenueFilter,
     }),
     [
       revenueFilter,
@@ -194,6 +339,12 @@ export const ReportFilterProvider: React.FC<{ children: ReactNode }> = ({ childr
       activityLogFilter,
       setActivityLogPreset,
       resetActivityLogFilter,
+      peakHoursFilter,
+      setPeakHoursPreset,
+      resetPeakHoursFilter,
+      posRevenueFilter,
+      setPosRevenuePreset,
+      resetPosRevenueFilter,
     ]
   );
 
@@ -211,3 +362,8 @@ export const useReportFilter = () => {
   }
   return context;
 };
+
+export const useOptionalReportFilter = () => {
+  return useContext(ReportFilterContext);
+};
+

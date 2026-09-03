@@ -108,6 +108,7 @@ export const EMPLOYEE_MESSAGES = {
 
 export const EMPLOYEE_UI = {
   SIDEBAR: {
+    TITLE: "Bộ lọc nhân viên",
     STATUS_FILTER_LABEL: "Trạng thái tài khoản",
     ROLE_FILTER_LABEL: "Vai trò phân quyền",
     ALL_ROLES_LABEL: "Tất cả vai trò",

@@ -2,6 +2,7 @@ import { useNavigate } from "react-router-dom";
 import { FileSpreadsheet, AlertCircle, BarChart3 } from "lucide-react";
 import { formatCurrency } from "@/utils/formatCurrency";
 import { APP_ROUTES } from "@/constants/routes";
+import { useAnimatedNumber } from "@/hooks/useAnimatedNumber";
 
 interface SalesKpiCardsProps {
   totalRevenue: number;
@@ -16,16 +17,20 @@ export const SalesKpiCards = ({
 }: SalesKpiCardsProps) => {
   const navigate = useNavigate();
 
+  const animatedOrders = useAnimatedNumber(totalOrders, 1600, 100);
+  const animatedFailedInvoices = useAnimatedNumber(totalFailedInvoices, 1500, 150);
+  const animatedRevenue = useAnimatedNumber(totalRevenue, 1800, 200);
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
       {/* Card 1: Số đơn bán hàng */}
-      <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between transition-all hover:shadow-md">
+      <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between transition-all hover:shadow-md animate-fade-in-up">
         <div>
           <span className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">
             Số đơn bán hàng
           </span>
-          <h3 className="text-2xl font-black text-slate-800 mt-1">
-            {totalOrders}
+          <h3 className="text-2xl font-black text-slate-800 mt-1 tabular-nums transition-all">
+            {animatedOrders}
           </h3>
           <div className="flex items-center gap-1 mt-1 text-[11px] text-slate-500 font-medium">
             <span>Đơn hàng trong kỳ</span>
@@ -37,13 +42,13 @@ export const SalesKpiCards = ({
       </div>
 
       {/* Card 2: Hóa đơn gửi lỗi */}
-      <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between transition-all hover:shadow-md">
+      <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between transition-all hover:shadow-md animate-fade-in-up" style={{ animationDelay: "60ms" }}>
         <div>
           <span className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">
             Hóa đơn gửi lỗi
           </span>
-          <h3 className="text-2xl font-black text-slate-800 mt-1">
-            {totalFailedInvoices}
+          <h3 className="text-2xl font-black text-slate-800 mt-1 tabular-nums transition-all">
+            {animatedFailedInvoices}
           </h3>
           <div className="flex items-center gap-1 mt-1 text-[11px] text-rose-500 font-bold">
             <AlertCircle className="w-3.5 h-3.5" />
@@ -56,13 +61,13 @@ export const SalesKpiCards = ({
       </div>
 
       {/* Card 3: Tổng doanh thu */}
-      <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between transition-all hover:shadow-md">
+      <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between transition-all hover:shadow-md animate-fade-in-up" style={{ animationDelay: "120ms" }}>
         <div>
           <span className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">
             Tổng doanh thu
           </span>
-          <h3 className="text-2xl font-black text-slate-800 mt-1">
-            {formatCurrency(totalRevenue)}
+          <h3 className="text-2xl font-black text-slate-800 mt-1 tabular-nums transition-all">
+            {formatCurrency(animatedRevenue)}
           </h3>
           <div className="flex items-center gap-1 mt-1 text-[11px] text-slate-500 font-medium">
             <span>Doanh thu thuần trong kỳ</span>

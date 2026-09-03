@@ -1,13 +1,5 @@
-import {
-  APP_FALLBACKS,
-  APP_MESSAGES,
-  APP_SYMBOLS,
-} from "@/constants/app";
 import { BrandLogo } from "@/components/common/BrandLogo";
-import { ROLE_LABELS, type TDemoRole } from "@/constants/roles";
-import { useAppDispatch, useAppSelector } from "@/hooks/useRedux";
-import { logout } from "@/stores/authSlice";
-import { baseApi } from "@/stores/baseApi";
+import type { TDemoRole } from "@/constants/roles";
 
 interface DashboardUtilityBarProps {
   currentRole: TDemoRole;
@@ -24,14 +16,6 @@ export const DashboardUtilityBar = ({
   pendingCount = 0,
   onSync,
 }: DashboardUtilityBarProps) => {
-  const dispatch = useAppDispatch();
-  const user = useAppSelector((state) => state.auth.user);
-
-  const handleLogout = () => {
-    dispatch(baseApi.util.resetApiState());
-    dispatch(logout());
-  };
-
   return (
     <div className="flex min-h-11 shrink-0 flex-wrap items-center justify-between gap-2 border-b border-slate-200 bg-white px-2 py-1.5 text-[11px] font-medium sm:px-4">
       <div className="flex min-w-0 items-center gap-2">
@@ -39,7 +23,6 @@ export const DashboardUtilityBar = ({
       </div>
 
       <div className="flex min-w-0 basis-full flex-wrap items-center justify-end gap-1.5 sm:basis-auto sm:flex-1 sm:flex-nowrap sm:gap-2 lg:gap-4">
-
         {pendingCount > 0 && (
           <button
             onClick={onSync}
@@ -50,25 +33,6 @@ export const DashboardUtilityBar = ({
             <span>{pendingCount} đơn chờ đồng bộ</span>
           </button>
         )}
-
-        <div className="flex items-center gap-2 rounded-md bg-slate-100 px-2.5 py-1 font-bold text-slate-700">
-          <span className="max-w-48 truncate">
-            {APP_MESSAGES.GREETING_PREFIX} {user?.fullName || APP_FALLBACKS.HOUSEHOLD_NAME}
-          </span>
-          {user?.roleId && ROLE_LABELS[user.roleId as TDemoRole] && (
-            <>
-              <span className="text-slate-300">{APP_SYMBOLS.DIVIDER}</span>
-              <span className="text-slate-500 font-semibold">{ROLE_LABELS[user.roleId as TDemoRole]}</span>
-            </>
-          )}
-          <span className="text-slate-300">{APP_SYMBOLS.DIVIDER}</span>
-          <button
-            onClick={handleLogout}
-            className="text-rose-600 hover:text-rose-800 transition-colors font-extrabold"
-          >
-            {APP_MESSAGES.LOGOUT}
-          </button>
-        </div>
       </div>
     </div>
   );

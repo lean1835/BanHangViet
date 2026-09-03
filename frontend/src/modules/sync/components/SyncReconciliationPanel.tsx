@@ -48,7 +48,11 @@ export const SyncReconciliationPanel = ({
 
   // Queries
   const { data: summaryData, isLoading: isSummaryLoading, refetch: refetchSummary } =
-    useGetSyncReconciliationSummaryQuery(summaryFilterParams);
+    useGetSyncReconciliationSummaryQuery(summaryFilterParams, {
+      refetchOnMountOrArgChange: true,
+      refetchOnFocus: true,
+      refetchOnReconnect: true,
+    });
 
   const filterParams = useMemo(() => {
     return {
@@ -59,16 +63,20 @@ export const SyncReconciliationPanel = ({
   }, [summaryFilterParams, page]);
 
   const { data: sessionsData, isLoading: isSessionsLoading, isError: isSessionsError, refetch: refetchSessions } =
-    useGetSyncSessionsQuery(filterParams);
-
-  const summary = summaryData?.result;
-  const sessions = sessionsData?.result?.content || [];
-  const totalPages = sessionsData?.result?.totalPages || 0;
+    useGetSyncSessionsQuery(filterParams, {
+      refetchOnMountOrArgChange: true,
+      refetchOnFocus: true,
+      refetchOnReconnect: true,
+    });
 
   const handleRefresh = () => {
     void refetchSummary();
     void refetchSessions();
   };
+
+  const summary = summaryData?.result;
+  const sessions = sessionsData?.result?.content || [];
+  const totalPages = sessionsData?.result?.totalPages || 0;
 
   return (
     <div className="flex flex-col bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden w-full">
@@ -89,14 +97,6 @@ export const SyncReconciliationPanel = ({
             Lưu vết và đối soát số đơn gửi từ thiết bị client so với máy chủ sau từng phiên kết nối lại.
           </p>
         </div>
-
-        <button
-          onClick={handleRefresh}
-          className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-slate-600 text-xs font-bold hover:bg-slate-100 transition-colors flex items-center gap-1.5 shadow-2xs"
-        >
-          <RefreshCw className="w-3.5 h-3.5 text-slate-500" />
-          <span>Làm mới</span>
-        </button>
       </div>
 
       {/* High level summary metrics */}

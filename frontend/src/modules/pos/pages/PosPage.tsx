@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Clock, CalendarCheck } from "lucide-react";
 import { APP_ROUTES } from "@/constants/routes";
@@ -50,6 +50,7 @@ import { CustomerFormModal } from "@/modules/customer/components/CustomerFormMod
 import { OrderSuccessModal } from "../components/OrderSuccessModal";
 import { recordOrderDiscount } from "@/modules/anomaly_alert/utils/anomalyStorage";
 import { calculatePosTotals } from "../utils/posCalculations";
+import { notifyOrderCompleted } from "@/utils/orderEvents";
 
 const POS_TABS_STORAGE_KEY = "pos_tabs_state_v1";
 
@@ -239,6 +240,8 @@ export const PosPage = () => {
   // Loading states
   const [isSavingDraft, setIsSavingDraft] = useState<boolean>(false);
   const [isCompletingOrder, setIsCompletingOrder] = useState<boolean>(false);
+  const isSavingDraftRef = useRef<boolean>(false);
+  const isCompletingOrderRef = useRef<boolean>(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   // Active tab getter
@@ -546,7 +549,8 @@ export const PosPage = () => {
 
   // Save Draft (Lưu nháp đơn hàng xuống DB)
   const handleSaveDraft = async () => {
-    if (activeTab.items.length === 0) return;
+    if (activeTab.items.length === 0 || isSavingDraftRef.current) return;
+    isSavingDraftRef.current = true;
     setIsSavingDraft(true);
 
     try {
@@ -596,6 +600,7 @@ export const PosPage = () => {
       );
     } finally {
       setIsSavingDraft(false);
+      isSavingDraftRef.current = false;
     }
   };
 
@@ -712,6 +717,7 @@ export const PosPage = () => {
     });
 
     updateActiveTab({ backendOrderId: `local_${offlineOrderNumber}`, status: "COMPLETED", isSaved: true });
+    notifyOrderCompleted();
     const limitStatus = checkOfflineLimitStatus();
     const countInfo = limitStatus.maxOrders > 0
       ? `${limitStatus.currentOrdersCount}/${limitStatus.maxOrders}`
@@ -723,7 +729,8 @@ export const PosPage = () => {
 
   // Complete Order (Thanh toán hoàn tất)
   const handleCompleteOrder = async () => {
-    if (activeTab.items.length === 0) return;
+    if (activeTab.items.length === 0 || isCompletingOrderRef.current) return;
+    isCompletingOrderRef.current = true;
     setIsCompletingOrder(true);
 
     // Calculate totals via centralized utility (including Customer VIP discount)
@@ -736,12 +743,13 @@ export const PosPage = () => {
       changeAmount,
     } = totals;
 
-    // Client-side validation: check payment amount before calling backend
+    // Client-side validation: check payment amount before calling backend (chuẩn quy tắc QTN-03)
     if (activeTab.paymentMethod === "CASH" && effectiveAmountGiven < finalTotal) {
       showToast(
         `Số tiền khách đưa (${effectiveAmountGiven.toLocaleString("vi-VN")} đ) chưa đủ để thanh toán (${finalTotal.toLocaleString("vi-VN")} đ). Vui lòng nhập lại!`
       );
       setIsCompletingOrder(false);
+      isCompletingOrderRef.current = false;
       return;
     }
 
@@ -754,6 +762,7 @@ export const PosPage = () => {
             `Không thể chốt đơn! Đã vượt quá giới hạn bán khi mất mạng (${limitStatus.maxOrders} đơn / ${limitStatus.maxHours}h). Vui lòng kết nối mạng để đồng bộ!`
         );
         setIsCompletingOrder(false);
+        isCompletingOrderRef.current = false;
         return;
       }
 
@@ -765,6 +774,7 @@ export const PosPage = () => {
         changeAmount
       );
       setIsCompletingOrder(false);
+      isCompletingOrderRef.current = false;
       return;
     }
 
@@ -832,6 +842,7 @@ export const PosPage = () => {
       });
 
       updateActiveTab({ backendOrderId: orderId!, status: "COMPLETED", isSaved: true });
+      notifyOrderCompleted();
     } catch (err: any) {
       if (!window.navigator.onLine || err?.status === "FETCH_ERROR" || err?.status === 0) {
         if (discountCash > 0 && totalCart > 0) {
@@ -859,6 +870,7 @@ export const PosPage = () => {
       }
     } finally {
       setIsCompletingOrder(false);
+      isCompletingOrderRef.current = false;
     }
   };
 

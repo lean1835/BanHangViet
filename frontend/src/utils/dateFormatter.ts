@@ -126,3 +126,33 @@ export const formatDateOnly = (dateStr?: string | null): string => {
   return `${d}/${m}/${y}`;
 };
 
+/**
+ * Returns { fromDate, toDate } representing Monday to Sunday of the week for a given date (default today).
+ * Ensures that when entering a new week (starting Monday), the range covers Monday through Sunday.
+ */
+export const getWeekDateRange = (baseDate: Date = new Date()): { fromDate: string; toDate: string } => {
+  const date = new Date(baseDate);
+  const day = date.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+  const diffToMonday = day === 0 ? -6 : 1 - day;
+
+  const monday = new Date(date);
+  monday.setDate(date.getDate() + diffToMonday);
+
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+
+  return {
+    fromDate: getLocalDateString(monday),
+    toDate: getLocalDateString(sunday),
+  };
+};
+
+/**
+ * Returns { fromDate, toDate } representing Monday to Sunday of the previous week.
+ */
+export const getPreviousWeekDateRange = (baseDate: Date = new Date()): { fromDate: string; toDate: string } => {
+  const date = new Date(baseDate);
+  date.setDate(date.getDate() - 7);
+  return getWeekDateRange(date);
+};
+

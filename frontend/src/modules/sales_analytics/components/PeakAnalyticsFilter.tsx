@@ -2,7 +2,11 @@ import React from "react";
 import { Calendar, Store } from "lucide-react";
 import { useGetPointsOfSaleQuery } from "@/modules/point_of_sale/services/pointOfSaleApi";
 import type { IPointOfSale } from "@/modules/point_of_sale/types/IPointOfSale";
-import { getLocalDateString } from "@/utils/dateFormatter";
+import {
+  getLocalDateString,
+  getWeekDateRange,
+  getPreviousWeekDateRange,
+} from "@/utils/dateFormatter";
 import { SALES_ANALYTICS_COPY } from "@/constants/salesAnalytics";
 
 interface PeakAnalyticsFilterProps {
@@ -20,6 +24,28 @@ export const PeakAnalyticsFilter: React.FC<PeakAnalyticsFilterProps> = ({
 }) => {
   const { data: posRes } = useGetPointsOfSaleQuery();
   const pointOfSaleList: IPointOfSale[] = posRes?.content || [];
+
+  const currentWeek = React.useMemo(() => getWeekDateRange(), []);
+  const isCurrentWeek = fromDate === currentWeek.fromDate && toDate === currentWeek.toDate;
+
+  const previousWeek = React.useMemo(() => getPreviousWeekDateRange(), []);
+  const isPreviousWeek = fromDate === previousWeek.fromDate && toDate === previousWeek.toDate;
+
+  const handleCurrentWeekPreset = () => {
+    onFilterChange({
+      fromDate: currentWeek.fromDate,
+      toDate: currentWeek.toDate,
+      posId,
+    });
+  };
+
+  const handlePreviousWeekPreset = () => {
+    onFilterChange({
+      fromDate: previousWeek.fromDate,
+      toDate: previousWeek.toDate,
+      posId,
+    });
+  };
 
   const handlePresetChange = (days: number) => {
     const end = new Date();
@@ -71,25 +97,42 @@ export const PeakAnalyticsFilter: React.FC<PeakAnalyticsFilterProps> = ({
         </div>
 
         {/* Quick Presets Buttons */}
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 flex-wrap">
           <button
             type="button"
-            onClick={() => handlePresetChange(7)}
-            className="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 text-[11px] font-bold text-slate-600 transition-colors"
+            onClick={handleCurrentWeekPreset}
+            className={`px-2.5 py-1.5 rounded-lg border text-[11px] font-bold transition-all cursor-pointer ${
+              isCurrentWeek
+                ? "bg-kv-blue-primary text-white border-kv-blue-primary shadow-xs"
+                : "border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-600"
+            }`}
+            title="Thứ 2 đến Chủ nhật tuần này"
           >
-            7 ngày
+            Tuần này
+          </button>
+          <button
+            type="button"
+            onClick={handlePreviousWeekPreset}
+            className={`px-2.5 py-1.5 rounded-lg border text-[11px] font-bold transition-all cursor-pointer ${
+              isPreviousWeek
+                ? "bg-kv-blue-primary text-white border-kv-blue-primary shadow-xs"
+                : "border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-600"
+            }`}
+            title="Thứ 2 đến Chủ nhật tuần trước"
+          >
+            Tuần trước
           </button>
           <button
             type="button"
             onClick={() => handlePresetChange(14)}
-            className="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 text-[11px] font-bold text-slate-600 transition-colors"
+            className="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 text-[11px] font-bold text-slate-600 transition-colors cursor-pointer"
           >
             14 ngày
           </button>
           <button
             type="button"
             onClick={() => handlePresetChange(30)}
-            className="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 text-[11px] font-bold text-slate-600 transition-colors"
+            className="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 text-[11px] font-bold text-slate-600 transition-colors cursor-pointer"
           >
             30 ngày
           </button>

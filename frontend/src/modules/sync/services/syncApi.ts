@@ -11,6 +11,7 @@ import type {
   ISyncReconciliationSummary,
   ISyncSessionFilterParams,
 } from "../types/ISync";
+import { notifyOrderCompleted } from "@/utils/orderEvents";
 
 export const syncApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
@@ -27,6 +28,14 @@ export const syncApi = baseApi.injectEndpoints({
         method: HTTP_METHODS.POST,
         body,
       }),
+      async onQueryStarted(_arg, { queryFulfilled }) {
+        try {
+          await queryFulfilled;
+          notifyOrderCompleted();
+        } catch (e) {
+          void e;
+        }
+      },
       invalidatesTags: [
         { type: API_TAG_TYPES.ORDER, id: "LIST" },
         { type: API_TAG_TYPES.INVOICE, id: "LIST" },
@@ -35,6 +44,8 @@ export const syncApi = baseApi.injectEndpoints({
         { type: API_TAG_TYPES.SYNC, id: "STATUS" },
         { type: API_TAG_TYPES.SYNC, id: "SESSIONS" },
         { type: API_TAG_TYPES.SYNC, id: "SUMMARY" },
+        API_TAG_TYPES.REPORT,
+        API_TAG_TYPES.SALES_ANALYTICS,
       ],
     }),
     resolveConflict: builder.mutation<IApiResponse<IOrderResponse>, ISyncResolveRequest>({
@@ -43,6 +54,14 @@ export const syncApi = baseApi.injectEndpoints({
         method: HTTP_METHODS.POST,
         body,
       }),
+      async onQueryStarted(_arg, { queryFulfilled }) {
+        try {
+          await queryFulfilled;
+          notifyOrderCompleted();
+        } catch (e) {
+          void e;
+        }
+      },
       invalidatesTags: [
         { type: API_TAG_TYPES.ORDER, id: "LIST" },
         { type: API_TAG_TYPES.INVOICE, id: "LIST" },
@@ -51,6 +70,8 @@ export const syncApi = baseApi.injectEndpoints({
         { type: API_TAG_TYPES.SYNC, id: "STATUS" },
         { type: API_TAG_TYPES.SYNC, id: "SESSIONS" },
         { type: API_TAG_TYPES.SYNC, id: "SUMMARY" },
+        API_TAG_TYPES.REPORT,
+        API_TAG_TYPES.SALES_ANALYTICS,
       ],
     }),
     getSyncSessions: builder.query<IApiResponse<IPageResponse<ISyncSession>>, ISyncSessionFilterParams | void>({

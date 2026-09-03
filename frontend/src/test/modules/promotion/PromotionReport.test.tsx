@@ -242,7 +242,7 @@ describe("NCL-15-CN-004: Báo cáo hiệu quả chương trình khuyến mại",
 
     // Must show 403 Forbidden Access Guard
     expect(
-      screen.getByText(/Truy cập bị từ chối \(403 Forbidden - NCL-15-CN-004-TC-03\)/i)
+      screen.getByText(/Truy cập bị từ chối \(403 Forbidden\)/i)
     ).toBeInTheDocument();
 
     expect(

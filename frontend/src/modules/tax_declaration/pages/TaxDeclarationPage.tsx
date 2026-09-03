@@ -136,7 +136,7 @@ export const TaxDeclarationPage: React.FC = () => {
   });
 
   return (
-    <div className="max-w-7xl mx-auto flex flex-col gap-6 pb-12">
+    <div className="flex flex-col gap-6 w-full pb-12 animate-auth-fade-in">
       {/* 1. Tiêu đề trang & Mô tả */}
       <div className="flex flex-col gap-1">
         <h1 className="text-xl font-black text-slate-800">

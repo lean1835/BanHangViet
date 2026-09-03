@@ -6,7 +6,6 @@ import {
   Calendar,
   FileText,
   Unlock,
-  RefreshCw,
   AlertCircle,
   Clock,
   Loader2,
@@ -14,6 +13,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Layers,
+  RefreshCw,
 } from "lucide-react";
 import type { ITaxDeclarationPeriodResponse } from "../types/ITaxDeclaration";
 import { formatCurrency } from "@/utils/formatCurrency";
@@ -28,7 +28,7 @@ export const PeriodLockAuditTimeline: React.FC<
   IPeriodLockAuditTimelineProps
 > = ({ period }) => {
   const [currentPage, setCurrentPage] = useState<number>(1);
-  const pageSize = 5;
+  const pageSize = 8;
 
   const { data: logsResponse, isLoading: isLoadingLogs } =
     useGetActivityLogsQuery({ size: 100 });

@@ -94,7 +94,7 @@ export const getPromotionCalculatedState = (promo?: {
 
 
 export const PROMOTION_CONFIG = {
-  PAGE_SIZE: 10,
+  PAGE_SIZE: 8,
   INITIAL_PAGE: 0,
 } as const;
 

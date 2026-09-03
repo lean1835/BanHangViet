@@ -8,8 +8,9 @@ import {
   Lock,
 } from "lucide-react";
 import { formatNumber } from "@/utils/formatCurrency";
+import { TablePaginationFooter } from "@/components/common/TablePaginationFooter";
 import type { IPurchaseSuggestion } from "@/modules/product/types/IInventoryWarning";
-import { INVENTORY_WARNING_COPY, PRODUCT_QUERY_CONFIG } from "@/constants/product";
+import { INVENTORY_WARNING_COPY } from "@/constants/product";
 
 interface PurchaseSuggestionTableProps {
   suggestions: IPurchaseSuggestion[];
@@ -75,9 +76,6 @@ export const PurchaseSuggestionTable: React.FC<PurchaseSuggestionTableProps> = (
     );
   }
 
-  const startItem = page * pageSize + PRODUCT_QUERY_CONFIG.DISPLAY_INDEX_OFFSET;
-  const endItem = Math.min((page + 1) * pageSize, totalElements);
-
   return (
     <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col min-h-[500px] w-full animate-auth-fade-in">
       {/* Block Header */}
@@ -86,9 +84,6 @@ export const PurchaseSuggestionTable: React.FC<PurchaseSuggestionTableProps> = (
           <h3 className="font-extrabold text-slate-800 text-sm">
             Gợi ý nhập hàng theo tốc độ bán
           </h3>
-          <p className="text-[11px] text-slate-400 font-normal">
-            Đề xuất số lượng nhập hàng tối ưu dự trù đủ bán cho chu kỳ 1 tuần tiếp theo
-          </p>
         </div>
         <span className="text-xs font-bold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-lg">
           {totalElements} mặt hàng
@@ -245,34 +240,14 @@ export const PurchaseSuggestionTable: React.FC<PurchaseSuggestionTableProps> = (
 
         {/* Pagination Bar */}
         {totalPages > 1 && (
-          <div className="flex flex-wrap items-center justify-between gap-3 pt-4 mt-4 border-t border-slate-100 text-xs font-semibold text-slate-600">
-            <div>
-              Hiển thị bản ghi từ <span className="font-bold text-slate-800">{startItem}</span> đến{" "}
-              <span className="font-bold text-slate-800">{endItem}</span> trong tổng số{" "}
-              <span className="font-bold text-slate-800">{totalElements}</span> bản ghi
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                disabled={page === 0}
-                onClick={() => onPageChange(page - 1)}
-                className="px-3 h-8 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center font-bold text-slate-700"
-              >
-                Trang trước
-              </button>
-              <span className="px-3 h-8 flex items-center justify-center border border-slate-200 rounded-lg bg-slate-50 font-bold text-slate-700">
-                Trang {page + 1} / {totalPages}
-              </span>
-              <button
-                type="button"
-                disabled={page >= totalPages - 1}
-                onClick={() => onPageChange(page + 1)}
-                className="px-3 h-8 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center font-bold text-slate-700"
-              >
-                Trang sau
-              </button>
-            </div>
-          </div>
+          <TablePaginationFooter
+            currentPage={page}
+            pageSize={pageSize}
+            totalElements={totalElements}
+            totalPages={totalPages}
+            onPageChange={onPageChange}
+            recordUnit="mặt hàng"
+          />
         )}
       </div>
     </div>

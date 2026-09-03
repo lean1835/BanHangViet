@@ -1,12 +1,15 @@
 import React, { useState } from "react";
-import { Flame, Clock, Calendar, TrendingUp } from "lucide-react";
-import { formatCurrency, formatNumber } from "@/utils/formatCurrency";
+import { Flame, Clock, Calendar, TrendingUp, ShoppingBag, DollarSign } from "lucide-react";
+import { formatCurrency, formatNumber, formatCompactCurrency } from "@/utils/formatCurrency";
 import type { ISalesHeatmapCell } from "../types/ISalesAnalytics";
 import { SALES_ANALYTICS_COPY } from "@/constants/salesAnalytics";
+
+export type HeatmapMetric = "ORDERS" | "REVENUE";
 
 interface PeakHoursHeatmapProps {
   heatmap: ISalesHeatmapCell[];
   maxRevenue?: number;
+  initialMetric?: HeatmapMetric;
 }
 
 const DAYS_OF_WEEK = [
@@ -19,8 +22,8 @@ const DAYS_OF_WEEK = [
   { index: 7, name: "Chủ Nhật", fullName: "Chủ Nhật" },
 ];
 
-const getHeatmapColorClass = (intensity: number, orderCount: number): string => {
-  if (orderCount === 0 || intensity <= 0) {
+const getHeatmapColorClass = (intensity: number, hasValue: boolean): string => {
+  if (!hasValue || intensity <= 0) {
     return "bg-slate-50 border-slate-200/50 text-slate-400 hover:border-slate-300";
   }
   if (intensity < 0.2) {
@@ -35,8 +38,26 @@ const getHeatmapColorClass = (intensity: number, orderCount: number): string => 
   return "bg-indigo-700 border-indigo-800 text-white font-black hover:bg-indigo-800 ring-1 ring-amber-400 shadow-sm";
 };
 
-export const PeakHoursHeatmap: React.FC<PeakHoursHeatmapProps> = ({ heatmap }) => {
+export const PeakHoursHeatmap: React.FC<PeakHoursHeatmapProps> = ({
+  heatmap,
+  initialMetric = "ORDERS",
+}) => {
+  const [metric, setMetric] = useState<HeatmapMetric>(initialMetric);
   const [hoveredCell, setHoveredCell] = useState<ISalesHeatmapCell | null>(null);
+
+  // Calculate max order count and max revenue dynamically from the dataset
+  const { maxOrders, maxRevenue } = React.useMemo(() => {
+    let maxO = 0;
+    let maxR = 0;
+    for (const cell of heatmap) {
+      if ((cell.orderCount || 0) > maxO) maxO = cell.orderCount;
+      if ((cell.totalRevenue || 0) > maxR) maxR = cell.totalRevenue;
+    }
+    return {
+      maxOrders: Math.max(maxO, 1),
+      maxRevenue: Math.max(maxR, 1),
+    };
+  }, [heatmap]);
 
   // Map heatmap data for O(1) cell lookup: `${dayOfWeek}_${hourOfDay}`
   const cellMap = React.useMemo(() => {
@@ -60,22 +81,59 @@ export const PeakHoursHeatmap: React.FC<PeakHoursHeatmapProps> = ({ heatmap }) =
               {SALES_ANALYTICS_COPY.PEAK_HOURS.HEATMAP_TITLE}
             </h3>
             <p className="text-[11px] text-slate-400 font-normal">
-              {SALES_ANALYTICS_COPY.PEAK_HOURS.HEATMAP_SUBTITLE}
+              {metric === "ORDERS"
+                ? "Màu sắc càng đậm thể hiện lượng đơn hàng phát sinh càng cao trong khung giờ"
+                : "Màu sắc càng đậm thể hiện doanh thu đạt đỉnh càng cao trong khung giờ"}
             </p>
           </div>
         </div>
 
-        {/* Legend */}
-        <div className="flex items-center gap-2 text-[10px] font-bold text-slate-500 shrink-0">
-          <span>Vắng khách (0%)</span>
-          <div className="flex items-center gap-1">
-            <span className="w-3.5 h-3.5 rounded bg-slate-100 border border-slate-200 inline-block" />
-            <span className="w-3.5 h-3.5 rounded bg-sky-100 border border-sky-200 inline-block" />
-            <span className="w-3.5 h-3.5 rounded bg-sky-300 border border-sky-400 inline-block" />
-            <span className="w-3.5 h-3.5 rounded bg-blue-500 border border-blue-600 inline-block" />
-            <span className="w-3.5 h-3.5 rounded bg-indigo-700 border border-indigo-800 inline-block ring-1 ring-amber-400" />
+        {/* Right side: Metric toggle & Legend */}
+        <div className="flex flex-wrap items-center gap-3 sm:gap-4">
+          {/* Segmented Metric Switcher */}
+          <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-[11px]">
+            <button
+              type="button"
+              onClick={() => setMetric("ORDERS")}
+              className={`flex items-center gap-1.5 px-2.5 py-1 font-bold rounded-md transition-all cursor-pointer ${
+                metric === "ORDERS"
+                  ? "bg-white text-blue-700 shadow-xs"
+                  : "text-slate-500 hover:text-slate-800"
+              }`}
+            >
+              <ShoppingBag className="w-3.5 h-3.5" />
+              <span>Số lượng đơn</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setMetric("REVENUE")}
+              className={`flex items-center gap-1.5 px-2.5 py-1 font-bold rounded-md transition-all cursor-pointer ${
+                metric === "REVENUE"
+                  ? "bg-white text-emerald-700 shadow-xs"
+                  : "text-slate-500 hover:text-slate-800"
+              }`}
+            >
+              <DollarSign className="w-3.5 h-3.5" />
+              <span>Doanh thu</span>
+            </button>
           </div>
-          <span className="text-indigo-700 font-black">Cao điểm nhất (100%)</span>
+
+          {/* Legend */}
+          <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500 shrink-0">
+            <span>{metric === "ORDERS" ? "0 đơn" : "0 đ"}</span>
+            <div className="flex items-center gap-1">
+              <span className="w-3.5 h-3.5 rounded bg-slate-100 border border-slate-200 inline-block" />
+              <span className="w-3.5 h-3.5 rounded bg-sky-100 border border-sky-200 inline-block" />
+              <span className="w-3.5 h-3.5 rounded bg-sky-300 border border-sky-400 inline-block" />
+              <span className="w-3.5 h-3.5 rounded bg-blue-500 border border-blue-600 inline-block" />
+              <span className="w-3.5 h-3.5 rounded bg-indigo-700 border border-indigo-800 inline-block ring-1 ring-amber-400" />
+            </div>
+            <span className="text-indigo-700 font-black">
+              {metric === "ORDERS"
+                ? `Đỉnh (${formatNumber(maxOrders)} đơn)`
+                : `Đỉnh (${formatCompactCurrency(maxRevenue)})`}
+            </span>
+          </div>
         </div>
       </div>
 
@@ -115,12 +173,22 @@ export const PeakHoursHeatmap: React.FC<PeakHoursHeatmapProps> = ({ heatmap }) =
                     intensity: 0,
                   };
 
+                  const cellIntensity =
+                    metric === "ORDERS"
+                      ? (cell.orderCount || 0) / maxOrders
+                      : (cell.totalRevenue || 0) / maxRevenue;
+
+                  const hasValue =
+                    metric === "ORDERS"
+                      ? (cell.orderCount || 0) > 0
+                      : (cell.totalRevenue || 0) > 0;
+
                   const colorClass = getHeatmapColorClass(
-                    cell.intensity || 0,
-                    cell.orderCount || 0
+                    cellIntensity,
+                    hasValue
                   );
 
-                  const isPeakCell = (cell.intensity || 0) >= 0.85 && (cell.orderCount || 0) > 0;
+                  const isPeakCell = cellIntensity >= 0.85 && hasValue;
 
                   return (
                     <div
@@ -129,8 +197,16 @@ export const PeakHoursHeatmap: React.FC<PeakHoursHeatmapProps> = ({ heatmap }) =
                       onMouseLeave={() => setHoveredCell(null)}
                       className={`flex-1 h-8 rounded-md border text-[9px] flex items-center justify-center cursor-pointer transition-all duration-150 relative group ${colorClass}`}
                     >
-                      {cell.orderCount > 0 ? (
-                        <span>{cell.orderCount}</span>
+                      {metric === "ORDERS" ? (
+                        cell.orderCount > 0 ? (
+                          <span className="font-semibold">{cell.orderCount}</span>
+                        ) : (
+                          <span className="opacity-0 group-hover:opacity-40">-</span>
+                        )
+                      ) : cell.totalRevenue > 0 ? (
+                        <span className="font-semibold text-[8px] leading-tight text-center px-0.5 truncate max-w-full">
+                          {formatCompactCurrency(cell.totalRevenue)}
+                        </span>
                       ) : (
                         <span className="opacity-0 group-hover:opacity-40">-</span>
                       )}
@@ -175,7 +251,11 @@ export const PeakHoursHeatmap: React.FC<PeakHoursHeatmapProps> = ({ heatmap }) =
             <div className="flex items-center gap-1.5">
               <span className="text-slate-400">Mức độ tập trung:</span>
               <span className="font-bold text-indigo-700">
-                {Math.round((hoveredCell.intensity || 0) * 100)}%
+                {Math.round(
+                  (metric === "ORDERS"
+                    ? (hoveredCell.orderCount || 0) / maxOrders
+                    : (hoveredCell.totalRevenue || 0) / maxRevenue) * 100
+                )}%
               </span>
             </div>
           </div>
@@ -189,3 +269,5 @@ export const PeakHoursHeatmap: React.FC<PeakHoursHeatmapProps> = ({ heatmap }) =
     </div>
   );
 };
+
+export default PeakHoursHeatmap;

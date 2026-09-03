@@ -3,6 +3,7 @@ import { API_CONFIG, API_TAG_TYPES, HTTP_METHODS } from "@/constants/api";
 import { ORDER_API_ENDPOINTS, ORDER_API_TAG_IDS } from "@/constants/order";
 import type { IApiResponse } from "@/types/api";
 import type { IOrderResponse } from "@/modules/order/types/IOrder";
+import { notifyOrderCompleted } from "@/utils/orderEvents";
 
 export const orderApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
@@ -81,6 +82,14 @@ export const orderApi = baseApi.injectEndpoints({
         method: HTTP_METHODS.POST,
         body: { amountGiven },
       }),
+      async onQueryStarted(_arg, { queryFulfilled }) {
+        try {
+          await queryFulfilled;
+          notifyOrderCompleted();
+        } catch (e) {
+          void e;
+        }
+      },
       invalidatesTags: [
         API_TAG_TYPES.ORDER,
         API_TAG_TYPES.SHIFT,
@@ -91,6 +100,10 @@ export const orderApi = baseApi.injectEndpoints({
         API_TAG_TYPES.PRODUCT,
         API_TAG_TYPES.POS_INVENTORY,
         API_TAG_TYPES.INVENTORY_WARNING,
+        API_TAG_TYPES.SALES_ANALYTICS,
+        { type: API_TAG_TYPES.SALES_ANALYTICS, id: "PEAK_HOURS" },
+        API_TAG_TYPES.POS_REVENUE,
+        { type: API_TAG_TYPES.POS_REVENUE, id: "SUMMARY" },
       ],
     }),
   }),

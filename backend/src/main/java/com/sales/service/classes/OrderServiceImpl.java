@@ -26,8 +26,10 @@ import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -217,7 +219,20 @@ public class OrderServiceImpl implements OrderService {
         BigDecimal totalCartAmount = BigDecimal.ZERO;
         BigDecimal itemPromoDiscountSum = BigDecimal.ZERO;
 
+        // Khử trùng lặp thực thể OrderItem do Join Fetch / EntityGraph
+        List<OrderItem> uniqueItems = new ArrayList<>();
+        Set<String> seenIds = new HashSet<>();
         for (OrderItem item : order.getItems()) {
+            if (item.getId() != null) {
+                if (seenIds.add(item.getId())) {
+                    uniqueItems.add(item);
+                }
+            } else {
+                uniqueItems.add(item);
+            }
+        }
+
+        for (OrderItem item : uniqueItems) {
             BigDecimal qty = item.getQuantity() != null ? item.getQuantity() : BigDecimal.ZERO;
             BigDecimal price = item.getUnitPrice() != null ? item.getUnitPrice() : BigDecimal.ZERO;
             BigDecimal lineDiscount = item.getDiscountAmount() != null ? item.getDiscountAmount() : BigDecimal.ZERO;
@@ -241,9 +256,9 @@ public class OrderServiceImpl implements OrderService {
             Customer cust = order.getCustomer();
             if ("PERCENTAGE".equalsIgnoreCase(cust.getDiscountType())) {
                 customerDiscountAmount = totalCartAmount.multiply(cust.getDiscountRate())
-                        .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+                        .divide(BigDecimal.valueOf(100), 0, RoundingMode.HALF_UP).setScale(2);
             } else {
-                customerDiscountAmount = totalCartAmount.min(cust.getDiscountRate());
+                customerDiscountAmount = totalCartAmount.min(cust.getDiscountRate()).setScale(0, RoundingMode.HALF_UP).setScale(2);
             }
         }
 
@@ -255,9 +270,9 @@ public class OrderServiceImpl implements OrderService {
         if (order.getDiscountType() != null) {
             if ("PERCENTAGE".equals(order.getDiscountType())) {
                 BigDecimal rate = order.getDiscountRateOrValue() != null ? order.getDiscountRateOrValue() : BigDecimal.ZERO;
-                manualDiscount = afterVipAmount.multiply(rate).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+                manualDiscount = afterVipAmount.multiply(rate).divide(BigDecimal.valueOf(100), 0, RoundingMode.HALF_UP).setScale(2);
             } else if ("CASH".equals(order.getDiscountType())) {
-                manualDiscount = order.getDiscountRateOrValue() != null ? afterVipAmount.min(order.getDiscountRateOrValue()) : BigDecimal.ZERO;
+                manualDiscount = order.getDiscountRateOrValue() != null ? afterVipAmount.min(order.getDiscountRateOrValue()).setScale(0, RoundingMode.HALF_UP).setScale(2) : BigDecimal.ZERO;
             }
         }
 
@@ -267,7 +282,7 @@ public class OrderServiceImpl implements OrderService {
         BigDecimal finalTaxAmount = BigDecimal.ZERO;
         if (totalCartAmount.compareTo(BigDecimal.ZERO) > 0) {
             BigDecimal discountRatio = afterDiscountAmount.divide(totalCartAmount, 6, RoundingMode.HALF_UP);
-            for (OrderItem item : order.getItems()) {
+            for (OrderItem item : uniqueItems) {
                 BigDecimal qty = item.getQuantity() != null ? item.getQuantity() : BigDecimal.ZERO;
                 BigDecimal price = item.getUnitPrice() != null ? item.getUnitPrice() : BigDecimal.ZERO;
                 BigDecimal lineDiscount = item.getDiscountAmount() != null ? item.getDiscountAmount() : BigDecimal.ZERO;
@@ -279,11 +294,14 @@ public class OrderServiceImpl implements OrderService {
             }
         }
 
-        // Bước 5: Khách cần trả (finalAmount = afterDiscountAmount + finalTaxAmount)
-        BigDecimal finalAmount = afterDiscountAmount.add(finalTaxAmount).max(BigDecimal.ZERO);
+        // Làm tròn tiền thuế và tiền thanh toán cuối cùng về số nguyên đồng (VND không có số lẻ thập phân)
+        finalTaxAmount = finalTaxAmount.setScale(0, RoundingMode.HALF_UP).setScale(2);
 
-        BigDecimal promotionDiscountAmount = itemPromoDiscountSum.add(manualDiscount);
-        BigDecimal totalDiscount = itemPromoDiscountSum.add(customerDiscountAmount).add(manualDiscount);
+        // Bước 5: Khách cần trả (finalAmount = afterDiscountAmount + finalTaxAmount)
+        BigDecimal finalAmount = afterDiscountAmount.add(finalTaxAmount).max(BigDecimal.ZERO).setScale(0, RoundingMode.HALF_UP).setScale(2);
+
+        BigDecimal promotionDiscountAmount = itemPromoDiscountSum.add(manualDiscount).setScale(0, RoundingMode.HALF_UP).setScale(2);
+        BigDecimal totalDiscount = itemPromoDiscountSum.add(customerDiscountAmount).add(manualDiscount).setScale(0, RoundingMode.HALF_UP).setScale(2);
 
         order.setPromotionDiscountAmount(promotionDiscountAmount);
         order.setCustomerDiscountAmount(customerDiscountAmount);
@@ -675,10 +693,21 @@ public class OrderServiceImpl implements OrderService {
                 throw new AppException(ErrorCode.INSUFFICIENT_PAYMENT);
             }
             BigDecimal amountGiven = request.getAmountGiven();
-            if (amountGiven.compareTo(order.getFinalAmount()) < 0) {
+            BigDecimal expectedFinalAmount = order.getFinalAmount() != null
+                    ? order.getFinalAmount()
+                    : BigDecimal.ZERO;
+
+            BigDecimal roundedAmountGiven = amountGiven.setScale(0, RoundingMode.HALF_UP);
+            BigDecimal roundedExpectedAmount = expectedFinalAmount.setScale(0, RoundingMode.HALF_UP);
+
+            // Kiểm tra số tiền khách trả phải đủ so với số tiền cần thanh toán theo QTN-03
+            if (roundedAmountGiven.compareTo(roundedExpectedAmount) < 0) {
                 throw new AppException(ErrorCode.INSUFFICIENT_PAYMENT);
             }
-            changeAmount = amountGiven.subtract(order.getFinalAmount());
+            changeAmount = amountGiven.subtract(expectedFinalAmount);
+            if (changeAmount.compareTo(BigDecimal.ZERO) < 0) {
+                changeAmount = BigDecimal.ZERO;
+            }
             order.setPaymentStatus("PAID");
         } else if ("BANK_TRANSFER".equals(order.getPaymentMethod())) {
             order.setPaymentStatus("PAID");
@@ -732,23 +761,34 @@ public class OrderServiceImpl implements OrderService {
         // Get warnings before deduction
         List<String> warnings = checkStockWarnings(order);
 
-        // Logic fix: Subtract physical stock quantity
-        List<Product> productsToSave = new ArrayList<>();
+        // Logic fix: Deduplicate items and subtract physical stock quantity accurately
+        Map<String, BigDecimal> productDeductions = new HashMap<>();
+        Map<String, Product> productMap = new HashMap<>();
         Map<String, BigDecimal> posStockDeductions = new HashMap<>();
+        Set<String> processedItemIds = new HashSet<>();
 
         for (OrderItem item : order.getItems()) {
-            if (item.getProduct() != null) {
+            if (item.getId() != null && !processedItemIds.add(item.getId())) {
+                continue; // Skip duplicate collection instances from join fetches
+            }
+            if (item.getProduct() != null && item.getQuantity() != null && item.getQuantity().compareTo(BigDecimal.ZERO) > 0) {
                 Product product = item.getProduct();
-                product.setStockQuantity(product.getStockQuantity().subtract(item.getQuantity()));
-                productsToSave.add(product);
+                productMap.put(product.getId(), product);
+                productDeductions.merge(product.getId(), item.getQuantity(), BigDecimal::add);
 
                 if (order.getPointOfSale() != null) {
                     posStockDeductions.merge(product.getId(), item.getQuantity(), BigDecimal::add);
                 }
             }
         }
-        if (!productsToSave.isEmpty()) {
-            productRepository.saveAll(productsToSave);
+
+        // Atomic DB deduction: Trừ tồn kho sản phẩm trực tiếp ở mức DB để tránh lặp thực thể/dirty check
+        for (Map.Entry<String, BigDecimal> entry : productDeductions.entrySet()) {
+            productRepository.deductStock(entry.getKey(), household.getId(), entry.getValue());
+            Product product = productMap.get(entry.getKey());
+            if (product != null && product.getStockQuantity() != null) {
+                product.setStockQuantity(product.getStockQuantity().subtract(entry.getValue()));
+            }
         }
 
         // NCL-17-CN-002-TC-01: Trừ tồn kho theo điểm bán hàng loạt (tránh N+1 query)

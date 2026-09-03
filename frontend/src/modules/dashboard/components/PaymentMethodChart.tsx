@@ -1,5 +1,7 @@
 import { useMemo } from "react";
 import type { IDailyRevenueProjection } from "@/modules/report/types/IReport";
+import { useAnimatedNumber } from "@/hooks/useAnimatedNumber";
+import { useProgressAnimation } from "@/hooks/useProgressAnimation";
 
 interface PaymentMethodChartProps {
   dailyRevenues?: IDailyRevenueProjection[];
@@ -49,10 +51,11 @@ export const PaymentMethodChart = ({ dailyRevenues }: PaymentMethodChartProps) =
     ].filter((item) => item.amount > 0);
   }, [dailyRevenues]);
 
+  const progress = useProgressAnimation([dailyRevenues], 1800, 150);
   const totalAmount = stats.reduce((sum, item) => sum + item.amount, 0);
+  const animatedTotal = useAnimatedNumber(totalAmount, 1800, 150);
 
   // SVG calculations for Donut Chart
-  // Radius r = 40, Center = (50, 50). Circumference = 2 * pi * r = 251.327
   const r = 36;
   const circ = 2 * Math.PI * r;
 
@@ -70,7 +73,7 @@ export const PaymentMethodChart = ({ dailyRevenues }: PaymentMethodChartProps) =
         {/* SVG Donut Chart */}
         <div className="relative w-36 h-36 shrink-0">
           <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
-            {/* Background circle */}
+            {/* Background circle (trắng / empty track) */}
             <circle
               cx="50"
               cy="50"
@@ -80,9 +83,12 @@ export const PaymentMethodChart = ({ dailyRevenues }: PaymentMethodChartProps) =
               strokeWidth="10"
             />
             {stats.map((item, idx) => {
-              const strokeDasharray = `${(item.percentage / 100) * circ} ${circ}`;
+              // Animates stroke from 0 (trắng) to full percentage
+              const currentPercent = item.percentage * progress;
+              const strokeDasharray = `${(currentPercent / 100) * circ} ${circ}`;
               const strokeDashoffset = -((accumulatedPercent / 100) * circ);
-              accumulatedPercent += item.percentage;
+              accumulatedPercent += currentPercent;
+
               return (
                 <circle
                   key={idx}
@@ -95,17 +101,16 @@ export const PaymentMethodChart = ({ dailyRevenues }: PaymentMethodChartProps) =
                   strokeDasharray={strokeDasharray}
                   strokeDashoffset={strokeDashoffset}
                   strokeLinecap="round"
-                  className="transition-all duration-500 ease-out"
                 />
               );
             })}
           </svg>
           <div className="absolute inset-0 flex flex-col items-center justify-center">
             <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Tổng cộng</span>
-            <span className="text-sm font-extrabold text-slate-800">
-              {totalAmount > 1000000
-                ? `${(totalAmount / 1000000).toFixed(1)}M`
-                : totalAmount.toLocaleString("vi-VN") + " đ"}
+            <span className="text-sm font-extrabold text-slate-800 tabular-nums">
+              {animatedTotal > 1000000
+                ? `${(animatedTotal / 1000000).toFixed(1)}M`
+                : animatedTotal.toLocaleString("vi-VN") + " đ"}
             </span>
           </div>
         </div>
@@ -122,9 +127,11 @@ export const PaymentMethodChart = ({ dailyRevenues }: PaymentMethodChartProps) =
                 <span className="text-slate-500 font-medium">{item.name}</span>
               </div>
               <div className="text-right">
-                <span className="font-bold text-slate-800">{item.percentage}%</span>
-                <span className="text-[10px] text-slate-400 block font-medium">
-                  {item.amount.toLocaleString("vi-VN")} đ
+                <span className="font-bold text-slate-800 tabular-nums">
+                  {Math.round(item.percentage * progress)}%
+                </span>
+                <span className="text-[10px] text-slate-400 block font-medium tabular-nums">
+                  {Math.round(item.amount * progress).toLocaleString("vi-VN")} đ
                 </span>
               </div>
             </div>

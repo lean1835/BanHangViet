@@ -1,8 +1,9 @@
 import React, { useState, useMemo } from "react";
-import { Search, FileText, CheckCircle2, ArrowDownRight, ArrowUpRight, ChevronLeft, ChevronRight } from "lucide-react";
+import { Search, FileText, CheckCircle2, ArrowDownRight, ArrowUpRight } from "lucide-react";
 import type { ITaxSalesRegisterItemResponse } from "../types/ITaxDeclaration";
 import { formatCurrency } from "@/utils/formatCurrency";
 import { formatDateOnly } from "@/utils/dateFormatter";
+import { TablePaginationFooter } from "@/components/common/TablePaginationFooter";
 
 interface ITaxInvoiceAnnexTableProps {
   invoices: ITaxSalesRegisterItemResponse[];
@@ -17,7 +18,7 @@ export const TaxInvoiceAnnexTable: React.FC<ITaxInvoiceAnnexTableProps> = ({
 }) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-  const pageSize = 10;
+  const pageSize = 8;
 
   const filteredInvoices = useMemo(() => {
     if (!searchTerm.trim()) return invoices;
@@ -38,39 +39,45 @@ export const TaxInvoiceAnnexTable: React.FC<ITaxInvoiceAnnexTableProps> = ({
   }, [filteredInvoices, currentPage, pageSize]);
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden p-5 transition-all">
-      {/* Header & Tìm kiếm */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100">
+    <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col min-h-[500px] w-full">
+      {/* Block Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 mb-4 border-b border-slate-100">
         <div>
           <h3 className="font-extrabold text-sm text-slate-800 flex items-center gap-2">
             <FileText className="w-4 h-4 text-blue-600 shrink-0 stroke-[2.2]" />
             <span>Phụ lục 01-2/BK-HĐKD: Bảng kê hóa đơn bán ra ({periodLabel})</span>
           </h3>
           <p className="text-xs text-slate-500 mt-0.5">
-            Gồm các hóa đơn hợp lệ đã được cấp mã và đã trừ phần điều chỉnh giảm (QTN-21, QTN-22)
+            Gồm các hóa đơn hợp lệ đã được cấp mã và đã trừ phần điều chỉnh giảm
           </p>
         </div>
 
-        <div className="relative w-full sm:w-72">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 shrink-0 stroke-[2.2]" />
-          <input
-            type="text"
-            placeholder="Tìm số HĐ, ký hiệu, khách hàng, MST..."
-            value={searchTerm}
-            onChange={(e) => {
-              setSearchTerm(e.target.value);
-              setCurrentPage(1);
-            }}
-            className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-blue-600 focus:bg-white focus:ring-2 focus:ring-blue-500/10 transition-all"
-          />
+        <div className="flex items-center gap-3">
+          <div className="relative w-full sm:w-64">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 shrink-0 stroke-[2.2]" />
+            <input
+              type="text"
+              placeholder="Tìm số HĐ, ký hiệu, MST..."
+              value={searchTerm}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="w-full pl-9 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:outline-none focus:border-blue-600 focus:bg-white transition-all font-semibold"
+            />
+          </div>
+          <span className="text-xs font-bold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-lg shrink-0">
+            {filteredInvoices.length} hóa đơn
+          </span>
         </div>
       </div>
 
-      {/* Bảng dữ liệu */}
-      <div className="overflow-x-auto mt-3">
-        <table className="w-full text-xs text-left border-collapse">
-          <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold uppercase text-[10px]">
-            <tr>
+      <div className="flex flex-col flex-1 justify-between">
+        {/* Bảng dữ liệu */}
+        <div className="overflow-x-auto">
+          <table className="responsive-data-table responsive-data-table--page w-full text-left border-collapse">
+            <thead>
+              <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold text-xs">
               <th className="p-3 text-center w-12">STT</th>
               <th className="p-3">Mẫu số & Ký hiệu</th>
               <th className="p-3">Số HĐ</th>
@@ -177,37 +184,16 @@ export const TaxInvoiceAnnexTable: React.FC<ITaxInvoiceAnnexTableProps> = ({
         </table>
       </div>
 
-      {/* Phân trang */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between pt-4 border-t border-slate-100 mt-2 text-xs">
-          <span className="text-slate-500">
-            Hiển thị {paginatedInvoices.length} trên tổng số {filteredInvoices.length} hóa đơn
-          </span>
-          <div className="flex items-center gap-1">
-            <button
-              type="button"
-              disabled={currentPage === 1}
-              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-              className="inline-flex items-center gap-1 px-3 py-1.5 border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-100 active:scale-95 transition-all duration-150 disabled:opacity-40 disabled:pointer-events-none cursor-pointer"
-            >
-              <ChevronLeft className="w-3.5 h-3.5" />
-              <span>Trước</span>
-            </button>
-            <span className="px-3 py-1.5 font-bold text-slate-700 bg-slate-50 rounded-lg border border-slate-100">
-              Trang {currentPage} / {totalPages}
-            </span>
-            <button
-              type="button"
-              disabled={currentPage === totalPages}
-              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-              className="inline-flex items-center gap-1 px-3 py-1.5 border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-100 active:scale-95 transition-all duration-150 disabled:opacity-40 disabled:pointer-events-none cursor-pointer"
-            >
-              <span>Sau</span>
-              <ChevronRight className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        </div>
-      )}
+        {/* Phân trang */}
+        <TablePaginationFooter
+          currentPage={currentPage - 1}
+          pageSize={pageSize}
+          totalElements={filteredInvoices.length}
+          totalPages={totalPages}
+          onPageChange={(zeroBasedPage) => setCurrentPage(zeroBasedPage + 1)}
+          recordUnit="hóa đơn"
+        />
+      </div>
     </div>
   );
 };

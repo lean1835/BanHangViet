@@ -52,47 +52,42 @@ export const TaxRevenueByRateTable: React.FC<ITaxRevenueByRateTableProps> = ({
   };
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-      {/* Table Title Bar */}
-      <div className="p-4 bg-slate-50/80 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+    <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col min-h-[400px] w-full">
+      {/* Block Header */}
+      <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-4">
         <div>
-          <h2 className="text-sm font-bold text-slate-800 tracking-tight flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-blue-600"></span>
+          <h3 className="font-extrabold text-slate-800 text-sm">
             Bảng Tổng hợp Doanh thu chịu thuế & Tiền thuế GTGT theo Thuế suất
-          </h2>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Dữ liệu phân tách theo từng mức thuế suất áp dụng trong kỳ kê khai
-          </p>
+          </h3>
         </div>
-
-        <span className="text-xs font-semibold text-slate-500 bg-white px-2.5 py-1 rounded-lg border border-slate-200 shrink-0">
-          Tổng số nhóm thuế: <strong className="text-slate-800">{items.length}</strong>
+        <span className="text-xs font-bold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-lg">
+          {items.length} nhóm thuế
         </span>
       </div>
 
       {/* Table Content */}
       <div className="overflow-x-auto">
-        <table className="w-full text-xs text-left">
-          <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase tracking-wider">
-            <tr>
-              <th className="py-3.5 px-4 text-center w-12">STT</th>
-              <th className="py-3.5 px-4 min-w-[220px]">Mức thuế suất</th>
-              <th className="py-3.5 px-4 text-right">Doanh thu chịu thuế</th>
-              <th className="py-3.5 px-4 text-right bg-indigo-50/80 text-indigo-900 border-x border-indigo-100 font-bold">
+        <table className="responsive-data-table responsive-data-table--page w-full text-left border-collapse">
+          <thead>
+            <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold text-xs">
+              <th className="p-3 text-center w-12">STT</th>
+              <th className="p-3 min-w-[220px]">Mức thuế suất</th>
+              <th className="p-3 text-right">Doanh thu chịu thuế</th>
+              <th className="p-3 text-right bg-indigo-50/80 text-indigo-900 border-x border-indigo-100 font-bold">
                 <div className="flex items-center justify-end gap-1.5">
                   <span className="w-2 h-2 rounded-full bg-indigo-600 animate-pulse"></span>
                   <span>Tiền thuế GTGT</span>
                 </div>
               </th>
-              <th className="py-3.5 px-4 text-center">Tỷ trọng (%)</th>
-              <th className="py-3.5 px-4 text-center">Số lượng HĐ</th>
+              <th className="p-3 text-center">Tỷ trọng (%)</th>
+              <th className="p-3 text-center">Số lượng HĐ</th>
             </tr>
           </thead>
 
-          <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
+          <tbody className="divide-y divide-slate-100 font-medium text-slate-700 text-xs">
             {items.length === 0 ? (
               <tr>
-                <td colSpan={6} className="py-8 text-center text-slate-400">
+                <td colSpan={6} className="py-12 text-center text-slate-400 font-semibold">
                   Chưa có dữ liệu tổng hợp doanh thu cho kỳ này.
                 </td>
               </tr>
@@ -104,12 +99,12 @@ export const TaxRevenueByRateTable: React.FC<ITaxRevenueByRateTableProps> = ({
                     : "0.0";
 
                 return (
-                  <tr key={idx} className="hover:bg-slate-50/80 transition-colors">
-                    <td className="py-3.5 px-4 text-center text-slate-400 font-mono font-semibold">
+                  <tr key={idx} className="hover:bg-slate-50/50 group transition-all">
+                    <td className="p-3 text-center text-slate-400 font-mono font-semibold">
                       {idx + 1}
                     </td>
 
-                    <td className="py-3.5 px-4">
+                    <td className="p-3">
                       <div className="flex items-center gap-2.5">
                         <span
                           className={`px-2.5 py-0.5 rounded-md font-bold text-xs border shrink-0 ${getTaxRateBadgeStyle(
@@ -124,16 +119,16 @@ export const TaxRevenueByRateTable: React.FC<ITaxRevenueByRateTableProps> = ({
                       </div>
                     </td>
 
-                    <td className="py-3.5 px-4 text-right font-bold text-slate-800">
+                    <td className="p-3 text-right font-bold text-slate-800">
                       {formatCurrency(item.revenueAmount)}
                     </td>
 
                     {/* Nổi bật cột Tiền thuế GTGT */}
-                    <td className="py-3.5 px-4 text-right font-bold text-indigo-700 bg-indigo-50/40 border-x border-indigo-100/60 text-xs">
+                    <td className="p-3 text-right font-bold text-indigo-700 bg-indigo-50/40 border-x border-indigo-100/60 text-xs">
                       {formatCurrency(item.taxAmount)}
                     </td>
 
-                    <td className="py-3.5 px-4 text-center font-semibold">
+                    <td className="p-3 text-center font-semibold">
                       <div className="flex items-center justify-center gap-1.5">
                         <div className="w-12 bg-slate-200 h-1.5 rounded-full overflow-hidden hidden sm:block">
                           <div
@@ -145,7 +140,7 @@ export const TaxRevenueByRateTable: React.FC<ITaxRevenueByRateTableProps> = ({
                       </div>
                     </td>
 
-                    <td className="py-3.5 px-4 text-center font-bold text-slate-700">
+                    <td className="p-3 text-center font-bold text-slate-700">
                       {item.invoiceCount}
                     </td>
                   </tr>
@@ -158,20 +153,20 @@ export const TaxRevenueByRateTable: React.FC<ITaxRevenueByRateTableProps> = ({
           {items.length > 0 && (
             <tfoot className="bg-slate-100 text-slate-900 font-bold border-t-2 border-slate-300">
               <tr>
-                <td colSpan={2} className="py-3.5 px-4 text-right uppercase tracking-wider text-xs font-bold text-slate-700">
+                <td colSpan={2} className="p-3 text-right uppercase tracking-wider text-xs font-bold text-slate-700">
                   Tổng cộng kỳ kê khai:
                 </td>
-                <td className="py-3.5 px-4 text-right text-blue-700 text-xs font-bold">
+                <td className="p-3 text-right text-blue-700 text-xs font-bold">
                   {formatCurrency(totalCalculatedRevenue)}
                 </td>
                 {/* Nổi bật Tổng tiền thuế GTGT ở chân bảng */}
-                <td className="py-3.5 px-4 text-right bg-indigo-100/80 border-x border-indigo-200">
+                <td className="p-3 text-right bg-indigo-100/80 border-x border-indigo-200">
                   <span className="inline-block bg-indigo-600 text-white font-bold text-xs px-2.5 py-1 rounded-lg shadow-xs">
                     {formatCurrency(totalCalculatedTax)}
                   </span>
                 </td>
-                <td className="py-3.5 px-4 text-center text-xs font-bold">100%</td>
-                <td className="py-3.5 px-4 text-center text-xs font-bold">{totalInvoices}</td>
+                <td className="p-3 text-center text-xs font-bold">100%</td>
+                <td className="p-3 text-center text-xs font-bold">{totalInvoices}</td>
               </tr>
             </tfoot>
           )}

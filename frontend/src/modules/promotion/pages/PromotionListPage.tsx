@@ -346,13 +346,16 @@ export const PromotionListPage: React.FC = () => {
         </div>
 
         {/* Main Table Card */}
-        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col min-h-[500px] w-full">
-          <h3 className="font-extrabold text-slate-800 text-sm border-b pb-4 mb-4 flex items-center justify-between">
-            <span className="flex items-center gap-2">
+        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col min-h-[500px] w-full">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-4">
+            <h3 className="font-extrabold text-slate-800 text-sm flex items-center gap-2">
               <Tag size={16} className="text-kv-blue-primary" />
-              Danh sách chương trình khuyến mại ({filteredPromotions.length})
+              Danh sách chương trình khuyến mại
+            </h3>
+            <span className="text-xs font-bold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-lg">
+              {totalElements} chương trình
             </span>
-          </h3>
+          </div>
 
           {isError ? (
             <div className="p-6 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-xs font-semibold flex flex-col gap-3">

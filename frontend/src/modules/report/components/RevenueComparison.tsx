@@ -10,6 +10,7 @@ import {
 import { useCompareRevenueQuery } from "../services/reportApi";
 import { useReportFilter } from "../context/ReportFilterContext";
 import { formatCurrency } from "@/utils/formatCurrency";
+import { useOnOrderCompleted } from "@/utils/orderEvents";
 import { z } from "zod";
 
 export const revenueComparisonSchema = z
@@ -57,10 +58,18 @@ export const RevenueComparison: React.FC = () => {
     data: comparisonRes,
     isLoading,
     isFetching,
+    refetch,
   } = useCompareRevenueQuery(
     { period1Start, period1End, period2Start, period2End },
-    { skip: !isValid }
+    {
+      skip: !isValid,
+      refetchOnMountOrArgChange: true,
+      refetchOnFocus: true,
+      refetchOnReconnect: true,
+    }
   );
+
+  useOnOrderCompleted(refetch);
 
   const result = comparisonRes?.result;
 
@@ -77,7 +86,7 @@ export const RevenueComparison: React.FC = () => {
   const isGrowth = (result?.differenceAmount || 0) >= 0;
 
   return (
-    <div className="max-w-7xl mx-auto flex flex-col gap-6 w-full">
+    <div className="flex flex-col gap-6 w-full animate-auth-fade-in">
       {/* Validation Warning */}
       {validationError && (
         <div className="flex items-center gap-2 p-3.5 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-xs font-bold shadow-xs">

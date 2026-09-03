@@ -265,4 +265,66 @@ class OrderServiceImplTest {
         assertEquals(new BigDecimal("15000.00"), order.getDiscountAmount());
         assertEquals(new BigDecimal("85000.00"), order.getFinalAmount());
     }
+
+    @Test
+    @DisplayName("Fix bug: completeOrder với danh sách OrderItem bị trùng phần tử (do Join) -> Chỉ trừ tồn kho x1 chính xác")
+    void completeOrder_StockDeductionAccurate_NoDuplicateDeduction() {
+        Product testProduct = Product.builder()
+                .id("prod-101")
+                .sku("SKU-TNQ")
+                .name("Sản phẩm TNQ")
+                .stockQuantity(new BigDecimal("994"))
+                .price(new BigDecimal("50000.00"))
+                .build();
+
+        PointOfSale pos = PointOfSale.builder()
+                .id("pos-cs1")
+                .name("Điểm bán CS1")
+                .build();
+
+        Order order = Order.builder()
+                .id("order-004")
+                .household(household)
+                .shift(activeShift)
+                .pointOfSale(pos)
+                .createdByUser(currentUser)
+                .status("CREATING")
+                .paymentStatus("PENDING")
+                .paymentMethod("CASH")
+                .finalAmount(new BigDecimal("50000.00"))
+                .items(new ArrayList<>())
+                .build();
+
+        OrderItem item1 = OrderItem.builder()
+                .id("item-001")
+                .order(order)
+                .product(testProduct)
+                .productName("Sản phẩm TNQ")
+                .quantity(new BigDecimal("1"))
+                .unitPrice(new BigDecimal("50000.00"))
+                .subtotal(new BigDecimal("50000.00"))
+                .build();
+
+        // Giả lập danh sách items bị duplicate cùng 1 OrderItem do EntityGraph join
+        order.getItems().add(item1);
+        order.getItems().add(item1);
+
+        when(userRepository.findByUsername("chuho")).thenReturn(Optional.of(currentUser));
+        when(orderRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("order-004", "house-001"))
+                .thenReturn(Optional.of(order));
+        when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        com.sales.dto.request.CompleteOrderRequest completeRequest = com.sales.dto.request.CompleteOrderRequest.builder()
+                .amountGiven(new BigDecimal("50000.00"))
+                .build();
+
+        orderService.completeOrder("chuho", "order-004", completeRequest);
+
+        // Tồn kho của product chỉ được trừ đúng 1 đơn vị: 994 - 1 = 993 (không phải 992)
+        assertEquals(new BigDecimal("993"), testProduct.getStockQuantity());
+        verify(productRepository).deductStock(eq("prod-101"), eq("house-001"), eq(new BigDecimal("1")));
+        verify(posInventoryService).batchDeductPosStock(eq("house-001"), eq("pos-cs1"), argThat(deductions ->
+                deductions.get("prod-101").compareTo(new BigDecimal("1")) == 0
+        ));
+    }
 }

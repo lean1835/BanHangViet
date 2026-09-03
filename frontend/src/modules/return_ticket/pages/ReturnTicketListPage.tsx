@@ -14,6 +14,7 @@ import {
   useApproveReturnTicketMutation,
 } from "../services/returnTicketApi";
 import { ReturnTicketSidebar } from "../components/ReturnTicketSidebar";
+import { ReturnTicketStatisticsSidebar } from "../components/ReturnTicketStatisticsSidebar";
 import { ReturnTicketTable } from "../components/ReturnTicketTable";
 import { ReturnTicketDetailModal } from "../components/ReturnTicketDetailModal";
 import { ReturnTicketRejectModal } from "../components/ReturnTicketRejectModal";
@@ -31,13 +32,22 @@ export const ReturnTicketListPage: React.FC = () => {
   // Tabs: 'LIST' | 'STATISTICS'
   const [activeTab, setActiveTab] = useState<"LIST" | "STATISTICS">("LIST");
 
-  // Filters
+  // Filters for Ticket List
   const [statusFilter, setStatusFilter] = useState<TReturnTicketStatus | "ALL">("ALL");
   const [fromDate, setFromDate] = useState<string>("");
   const [toDate, setToDate] = useState<string>("");
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [currentPage, setCurrentPage] = useState<number>(0);
   const pageSize = RETURN_TICKET_CONFIG.DEFAULT_PAGE_SIZE;
+
+  // Filters for Statistics
+  const today = new Date();
+  const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+  const formatDate = (d: Date) => d.toISOString().split("T")[0];
+
+  const [statsFromDate, setStatsFromDate] = useState<string>(formatDate(firstDay));
+  const [statsToDate, setStatsToDate] = useState<string>(formatDate(today));
+  const [statsTopLimit, setStatsTopLimit] = useState<number>(10);
 
   // Modals
   const [selectedTicket, setSelectedTicket] = useState<IReturnTicket | null>(null);
@@ -66,6 +76,12 @@ export const ReturnTicketListPage: React.FC = () => {
     setToDate("");
     setSearchQuery("");
     setCurrentPage(0);
+  };
+
+  const handleResetStatsFilters = () => {
+    setStatsFromDate(formatDate(firstDay));
+    setStatsToDate(formatDate(today));
+    setStatsTopLimit(10);
   };
 
   const handleApprove = async (ticketId: string) => {
@@ -105,7 +121,17 @@ export const ReturnTicketListPage: React.FC = () => {
             }}
             onResetFilters={handleResetFilters}
           />
-        ) : undefined
+        ) : (
+          <ReturnTicketStatisticsSidebar
+            fromDate={statsFromDate}
+            toDate={statsToDate}
+            onFromDateChange={setStatsFromDate}
+            onToDateChange={setStatsToDate}
+            topLimit={statsTopLimit}
+            onTopLimitChange={setStatsTopLimit}
+            onResetFilters={handleResetStatsFilters}
+          />
+        )
       }
     >
       <div className="flex flex-col gap-4 w-full flex-1 animate-page-fade">
@@ -171,7 +197,13 @@ export const ReturnTicketListPage: React.FC = () => {
             onOpenCreate={() => navigate(APP_ROUTES.RETURN_TICKET_CREATE)}
           />
         ) : (
-          <ReturnTicketStatistics />
+          <ReturnTicketStatistics
+            fromDate={statsFromDate}
+            toDate={statsToDate}
+            topLimit={statsTopLimit}
+            onFromDateChange={setStatsFromDate}
+            onToDateChange={setStatsToDate}
+          />
         )}
       </div>
 

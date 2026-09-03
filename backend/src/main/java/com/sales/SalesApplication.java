@@ -13,12 +13,20 @@ import java.util.TimeZone;
 @EnableScheduling
 public class SalesApplication {
 
+    static {
+        TimeZone.setDefault(TimeZone.getTimeZone("Asia/Ho_Chi_Minh"));
+        System.setProperty("user.timezone", "Asia/Ho_Chi_Minh");
+    }
+
     @PostConstruct
     public void init() {
         TimeZone.setDefault(TimeZone.getTimeZone("Asia/Ho_Chi_Minh"));
+        System.setProperty("user.timezone", "Asia/Ho_Chi_Minh");
     }
 
     public static void main(String[] args) {
+        TimeZone.setDefault(TimeZone.getTimeZone("Asia/Ho_Chi_Minh"));
+        System.setProperty("user.timezone", "Asia/Ho_Chi_Minh");
         SpringApplication.run(SalesApplication.class, args);
     }
 }

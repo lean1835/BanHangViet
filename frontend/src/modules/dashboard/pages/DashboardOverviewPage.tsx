@@ -131,18 +131,15 @@ export const DashboardOverviewPage = () => {
   return (
     <DashboardWorkspaceLayout>
       {currentRole === USER_ROLES.CASHIER ? (
-        <div className="max-w-[1200px] mx-auto w-full px-4 py-6 flex flex-col gap-6 animate-auth-fade-in">
+        <div className="w-full max-w-[1520px] mx-auto px-4 py-6 flex flex-col gap-6 animate-auth-fade-in">
           <CashierShiftDashboard />
         </div>
       ) : currentRole === USER_ROLES.OWNER || currentRole === USER_ROLES.ACCOUNTANT ? (
-        <div className="flex flex-col gap-6 max-w-[1280px] mx-auto p-4 md:p-6 bg-slate-50/50 min-h-screen animate-auth-fade-in">
+        <div className="flex flex-col gap-6 w-full max-w-[1520px] mx-auto p-4 md:p-6 bg-slate-50/50 min-h-screen animate-auth-fade-in">
           {/* Header Row */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-5">
             <div>
               <h1 className="text-3xl font-black text-slate-800 tracking-tight">Dashboard</h1>
-              <p className="text-xs text-slate-400 font-semibold mt-1">
-                Chào mừng trở lại, <span className="text-kv-blue-primary font-bold">{ROLE_LABELS[currentRole]}</span>! Dưới đây là thông tin tổng quan về hoạt động kinh doanh của Hộ Bán Hàng Việt.
-              </p>
             </div>
             {/* Time range selection inputs */}
             <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-lg border border-slate-200 shadow-sm text-xs font-bold text-slate-700 shrink-0">
@@ -205,17 +202,17 @@ export const DashboardOverviewPage = () => {
               {/* Row 2: Charts and Rankings (3-column layout) */}
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* 2.1: Revenue Line Chart */}
-                <div className="lg:col-span-1 flex">
+                <div className="lg:col-span-1 flex animate-fade-in-up" style={{ animationDelay: "180ms" }}>
                   <RevenueChart totalRevenueToday={totalRevenue} dailyRevenues={dailyRevenues} />
                 </div>
 
                 {/* 2.2: Payment Method Donut Chart */}
-                <div className="lg:col-span-1 flex">
+                <div className="lg:col-span-1 flex animate-fade-in-up" style={{ animationDelay: "240ms" }}>
                   <PaymentMethodChart dailyRevenues={dailyRevenues} />
                 </div>
 
                 {/* 2.3: Top Selling Products */}
-                <div className="lg:col-span-1 flex">
+                <div className="lg:col-span-1 flex animate-fade-in-up" style={{ animationDelay: "300ms" }}>
                   <BestSellersWidget topSellingProducts={topSellingProducts} />
                 </div>
               </div>
@@ -223,12 +220,12 @@ export const DashboardOverviewPage = () => {
               {/* Row 3: Reconciliation and Audit Logs (2-column layout) */}
               <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 items-stretch">
                 {/* 3.1: Reconciliation & Failed Invoices (Left 66%) */}
-                <div className="xl:col-span-2 flex flex-col min-h-0">
+                <div className="xl:col-span-2 flex flex-col min-h-0 animate-fade-in-up" style={{ animationDelay: "360ms" }}>
                   <ReconciliationTable date={toDate} currentRole={currentRole} />
                 </div>
 
                 {/* 3.2: Recent Activity Audit Logs (Right 33%) */}
-                <div className="xl:col-span-1 flex flex-col min-h-0">
+                <div className="xl:col-span-1 flex flex-col min-h-0 animate-fade-in-up" style={{ animationDelay: "420ms" }}>
                   <RecentActivityPanel logs={mappedLogs} />
                 </div>
               </div>

@@ -16,7 +16,6 @@ export const EmployeePage = () => {
   const {
     data: employees = [],
     isLoading,
-    isFetching,
     refetch,
   } = useGetAllEmployeesQuery(undefined, {
     refetchOnMountOrArgChange: true,
@@ -51,7 +50,6 @@ export const EmployeePage = () => {
         selectedRole={selectedRole}
         userRole={currentRole}
         isLoading={isLoading}
-        isFetching={isFetching}
         refetch={refetch}
       />
     </DashboardWorkspaceLayout>

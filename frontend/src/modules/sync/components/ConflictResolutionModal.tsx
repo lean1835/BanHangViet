@@ -164,7 +164,7 @@ export const ConflictResolutionModal: React.FC<ConflictResolutionModalProps> = (
         {/* Modal Footer */}
         <div className="flex items-center justify-between border-t border-slate-100 bg-slate-50 px-6 py-3">
           <span className="text-[11px] text-slate-400 font-medium">
-            Mọi thao tác giải quyết xung đột đều được lưu nhật ký hoạt động (NCL 07).
+            Mọi thao tác giải quyết xung đột đều được lưu nhật ký hoạt động.
           </span>
           <button
             onClick={onClose}

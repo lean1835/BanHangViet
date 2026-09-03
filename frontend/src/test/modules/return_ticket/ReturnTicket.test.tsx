@@ -11,6 +11,7 @@ import { ReturnTicketDetailModal } from "@/modules/return_ticket/components/Retu
 import { ReturnTicketRejectModal } from "@/modules/return_ticket/components/ReturnTicketRejectModal";
 import { CreateReturnTicketModal } from "@/modules/return_ticket/components/CreateReturnTicketModal";
 import { ReturnTicketStatistics } from "@/modules/return_ticket/components/ReturnTicketStatistics";
+import { ReturnTicketStatisticsSidebar } from "@/modules/return_ticket/components/ReturnTicketStatisticsSidebar";
 import {
   getReturnTicketStatusLabel,
   getReturnTicketStatusBadge,
@@ -319,4 +320,46 @@ describe("NCL-11-CN-004: ReturnTicketStatistics Component", () => {
     ).toBeInTheDocument();
   });
 });
+
+describe("NCL-11-CN-004: ReturnTicketStatisticsSidebar Component", () => {
+  it("renders sidebar filters, preset buttons, and triggers date changes", () => {
+    const onFromDateMock = vi.fn();
+    const onToDateMock = vi.fn();
+    const onTopLimitMock = vi.fn();
+    const onResetMock = vi.fn();
+
+    render(
+      <ReturnTicketStatisticsSidebar
+        fromDate="2026-08-01"
+        toDate="2026-08-31"
+        onFromDateChange={onFromDateMock}
+        onToDateChange={onToDateMock}
+        topLimit={10}
+        onTopLimitChange={onTopLimitMock}
+        onResetFilters={onResetMock}
+      />
+    );
+
+    expect(screen.getByText("Bộ lọc thống kê")).toBeInTheDocument();
+    expect(screen.getByText("Hôm nay")).toBeInTheDocument();
+    expect(screen.getByText("7 ngày qua")).toBeInTheDocument();
+    expect(screen.getByText("Tháng này")).toBeInTheDocument();
+    expect(screen.getByText("Tháng trước")).toBeInTheDocument();
+
+    // Clicking 'Hôm nay' calls onFromDateChange and onToDateChange
+    fireEvent.click(screen.getByText("Hôm nay"));
+    expect(onFromDateMock).toHaveBeenCalled();
+    expect(onToDateMock).toHaveBeenCalled();
+
+    // Changing top limit calls onTopLimitChange
+    const select = screen.getByLabelText(/Giới hạn mặt hàng trả nhiều/i);
+    fireEvent.change(select, { target: { value: "20" } });
+    expect(onTopLimitMock).toHaveBeenCalledWith(20);
+
+    // Clicking reset
+    fireEvent.click(screen.getByText("Xóa bộ lọc"));
+    expect(onResetMock).toHaveBeenCalled();
+  });
+});
+
 

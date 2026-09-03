@@ -77,7 +77,7 @@ export const AnomalyAlertPage: React.FC = () => {
   } = useGetAnomalyAlertsQuery(
     {
       page: filter.page || 0,
-      size: filter.size || ANOMALY_UI.TABLE.PAGE_SIZE || 9,
+      size: filter.size || ANOMALY_UI.TABLE.PAGE_SIZE || 8,
       keyword: filter.keyword || undefined,
       severity: filter.severity || undefined,
       status: filter.status || undefined,
@@ -111,7 +111,7 @@ export const AnomalyAlertPage: React.FC = () => {
     useMemo(() => {
       const serverPageContent = alertsData?.result?.content || [];
       const serverTotal = alertsData?.result?.totalElements ?? serverPageContent.length;
-      const pageSize = filter.size || ANOMALY_UI.TABLE.PAGE_SIZE || 9;
+      const pageSize = filter.size || ANOMALY_UI.TABLE.PAGE_SIZE || 8;
       const pageIndex = filter.page || 0;
 
       // Lọc các cảnh báo local theo filter hiện tại
@@ -261,7 +261,7 @@ export const AnomalyAlertPage: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6 w-full">
+    <div className="flex flex-col gap-6 w-full animate-auth-fade-in">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-3">
         <div>

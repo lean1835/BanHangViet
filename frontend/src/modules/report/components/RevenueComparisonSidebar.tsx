@@ -1,16 +1,8 @@
 import React from "react";
-import { SlidersHorizontal, RefreshCw } from "lucide-react";
+import { SlidersHorizontal } from "lucide-react";
 import { useReportFilter } from "../context/ReportFilterContext";
 
-interface RevenueComparisonSidebarProps {
-  onRefresh?: () => void;
-  isFetching?: boolean;
-}
-
-export const RevenueComparisonSidebar: React.FC<RevenueComparisonSidebarProps> = ({
-  onRefresh,
-  isFetching,
-}) => {
+export const RevenueComparisonSidebar: React.FC = () => {
   const { comparisonFilter, setComparisonFilter, setComparisonPreset } = useReportFilter();
 
   return (
@@ -21,18 +13,6 @@ export const RevenueComparisonSidebar: React.FC<RevenueComparisonSidebarProps> =
           <SlidersHorizontal className="w-3.5 h-3.5 text-kv-blue-primary" />
           <span>BỘ LỌC SO SÁNH</span>
         </div>
-        {onRefresh && (
-          <button
-            type="button"
-            onClick={onRefresh}
-            disabled={isFetching}
-            title="Làm mới số liệu so sánh"
-            className="flex items-center gap-1 text-[10px] font-bold text-kv-blue-primary hover:text-kv-blue-dark transition-colors cursor-pointer"
-          >
-            <RefreshCw className={`w-3 h-3 ${isFetching ? "animate-spin" : ""}`} />
-            <span>Làm mới</span>
-          </button>
-        )}
       </div>
 
       {/* Presets */}

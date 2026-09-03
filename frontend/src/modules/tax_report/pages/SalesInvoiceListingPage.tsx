@@ -36,7 +36,7 @@ export const SalesInvoiceListingPage: React.FC = () => {
     periodNumber: currentMonth,
     year: currentYear,
     page: 0,
-    size: 20,
+    size: 8,
     search: "",
   });
 
@@ -204,7 +204,7 @@ export const SalesInvoiceListingPage: React.FC = () => {
   const hasExpiredRateWarning = Boolean(isExpiredRateError);
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-6 w-full animate-auth-fade-in">
       {/* Header & Title */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
