@@ -1,6 +1,5 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
-  Flame,
   ShoppingBag,
   DollarSign,
   TrendingUp,
@@ -14,10 +13,11 @@ import { PeakHoursHeatmap } from "../components/PeakHoursHeatmap";
 import { HourlyDistributionBar } from "../components/HourlyDistributionBar";
 import { DayOfWeekDistribution } from "../components/DayOfWeekDistribution";
 import { PeakInsightsCard } from "../components/PeakInsightsCard";
-import { PeakAnalyticsFilter } from "../components/PeakAnalyticsFilter";
 import { formatCurrency, formatNumber } from "@/utils/formatCurrency";
-import { getLocalDateString } from "@/utils/dateFormatter";
+import { getWeekDateRange } from "@/utils/dateFormatter";
 import { SALES_ANALYTICS_COPY } from "@/constants/salesAnalytics";
+import { useOnOrderCompleted } from "@/utils/orderEvents";
+import { useOptionalReportFilter } from "@/modules/report/context/ReportFilterContext";
 
 export const PeakHoursAnalyticsPage: React.FC = () => {
   const { currentRole } = useDashboardDemo();
@@ -25,29 +25,37 @@ export const PeakHoursAnalyticsPage: React.FC = () => {
   const isAllowed =
     currentRole === USER_ROLES.OWNER || currentRole === USER_ROLES.ACCOUNTANT;
 
-  // Default date range: last 30 days formatted in local client timezone (GMT+7)
-  const defaultToDate = getLocalDateString(new Date());
-  const defaultFromDate = getLocalDateString(
-    new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
-  );
+  // Lấy bộ lọc từ thanh bên trái (ReportSidebar / ReportFilterContext), fallback an toàn nếu test độc lập
+  const reportFilterCtx = useOptionalReportFilter();
+  const currentWeek = useMemo(() => getWeekDateRange(), []);
+  const [localFromDate] = useState<string>(currentWeek.fromDate);
+  const [localToDate] = useState<string>(currentWeek.toDate);
+  const [localPosId] = useState<string>("");
 
-  const [fromDate, setFromDate] = useState<string>(defaultFromDate);
-  const [toDate, setToDate] = useState<string>(defaultToDate);
-  const [posId, setPosId] = useState<string>("");
+  const fromDate = reportFilterCtx ? reportFilterCtx.peakHoursFilter.fromDate : localFromDate;
+  const toDate = reportFilterCtx ? reportFilterCtx.peakHoursFilter.toDate : localToDate;
+  const posId = reportFilterCtx ? reportFilterCtx.peakHoursFilter.posId : localPosId;
 
-  const { data: peakData, isLoading } = useGetPeakHoursAndDaysAnalysisQuery(
+  const { data: peakData, isLoading, refetch } = useGetPeakHoursAndDaysAnalysisQuery(
     {
       fromDate,
       toDate,
       posId: posId || undefined,
     },
-    { skip: !isAllowed }
+    {
+      skip: !isAllowed,
+      refetchOnFocus: true, // Tự động làm mới khi quay lại tab trình duyệt
+      refetchOnReconnect: true, // Tự động làm mới khi có mạng trở lại
+    }
   );
+
+  // Tự động làm mới tức thì (0ms) khi có bất kỳ đơn hàng nào bán thành công (cùng tab hoặc khác tab)
+  useOnOrderCompleted(refetch);
 
   // Permission Denied View for Employee (NCL-18-CN-001-TC-03)
   if (!isAllowed) {
     return (
-      <div className="max-w-7xl mx-auto flex flex-col items-center justify-center min-h-[400px] bg-white rounded-2xl border border-slate-200 p-8 text-center shadow-sm w-full animate-auth-fade-in">
+      <div className="flex flex-col items-center justify-center min-h-[400px] bg-white rounded-2xl border border-slate-200 p-8 text-center shadow-sm w-full animate-auth-fade-in">
         <div className="w-14 h-14 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mb-3.5">
           <Lock className="w-7 h-7" />
         </div>
@@ -93,29 +101,17 @@ export const PeakHoursAnalyticsPage: React.FC = () => {
   const hasData = totalOrders > 0;
 
   return (
-    <div className="max-w-7xl mx-auto flex flex-col gap-6 w-full animate-auth-fade-in">
+    <div className="flex flex-col gap-6 w-full animate-auth-fade-in">
       {/* Page Title */}
       <div className="flex flex-col gap-1">
-        <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
-          <Flame className="w-6 h-6 text-amber-500" />
-          <span>{SALES_ANALYTICS_COPY.PEAK_HOURS.TITLE}</span>
+        <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+          {SALES_ANALYTICS_COPY.PEAK_HOURS.TITLE}
         </h1>
         <p className="text-xs text-slate-500 max-w-2xl">
           {SALES_ANALYTICS_COPY.PEAK_HOURS.SUBTITLE}
         </p>
       </div>
 
-      {/* Filter Bar */}
-      <PeakAnalyticsFilter
-        fromDate={fromDate}
-        toDate={toDate}
-        posId={posId}
-        onFilterChange={({ fromDate: newFrom, toDate: newTo, posId: newPos }) => {
-          setFromDate(newFrom);
-          setToDate(newTo);
-          setPosId(newPos);
-        }}
-      />
 
       {/* KPI Cards Row */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

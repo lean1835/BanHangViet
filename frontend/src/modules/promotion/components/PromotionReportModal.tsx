@@ -258,7 +258,7 @@ export const PromotionReportModal: React.FC<PromotionReportModalProps> = ({
 
         {/* Modal Body */}
         <div className="p-6 overflow-y-auto flex-1 space-y-6">
-          {/* RBAC Violation Guard (NCL-15-CN-004-TC-03) */}
+          {/* RBAC Violation Guard */}
           {!canViewReport ? (
             <div className="p-6 bg-rose-50 border border-rose-200 rounded-2xl text-rose-800 space-y-3">
               <div className="flex items-center gap-3">
@@ -267,7 +267,7 @@ export const PromotionReportModal: React.FC<PromotionReportModalProps> = ({
                 </div>
                 <div>
                   <h3 className="text-sm font-black text-rose-900 uppercase tracking-wide">
-                    Truy cập bị từ chối (403 Forbidden - NCL-15-CN-004-TC-03)
+                    Truy cập bị từ chối (403 Forbidden)
                   </h3>
                   <p className="text-xs text-rose-700 font-medium mt-0.5">
                     Bạn đang đăng nhập với vai trò <strong>Nhân viên bán hàng (VT-02)</strong>.
@@ -354,7 +354,7 @@ export const PromotionReportModal: React.FC<PromotionReportModalProps> = ({
                       <span>Mức giảm:</span>{" "}
                       <strong className="text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200">
                         {report.discountType === DISCOUNT_TYPE.PERCENTAGE
-                          ? `${report.discountValue}%`
+                           ? `${report.discountValue}%`
                           : formatCurrency(report.discountValue)}
                       </strong>
                     </span>
@@ -362,7 +362,7 @@ export const PromotionReportModal: React.FC<PromotionReportModalProps> = ({
                 </div>
               </div>
 
-              {/* Case 1: No Transactions (hasData === false) - NCL-15-CN-004-TC-02 */}
+              {/* Case 1: No Transactions (hasData === false) */}
               {!report.hasData ? (
                 <div className="p-8 rounded-2xl bg-gradient-to-b from-sky-50/60 to-slate-50 border border-sky-200/80 text-center flex flex-col items-center justify-center gap-3">
                   <div className="w-14 h-14 rounded-2xl bg-sky-100 text-sky-600 flex items-center justify-center shadow-inner">
@@ -376,11 +376,11 @@ export const PromotionReportModal: React.FC<PromotionReportModalProps> = ({
                       "Chương trình khuyến mại chưa phát sinh giao dịch bán hàng nào trong thời gian diễn ra. Khi có đơn hàng được thanh toán, hệ thống sẽ tự động đo lường doanh thu tăng thêm và hiệu quả tài chính ròng tại đây."}
                   </p>
                   <div className="mt-2 text-[11px] font-semibold text-slate-400 bg-white px-3 py-1.5 rounded-lg border border-slate-200 shadow-2xs">
-                    💡 Lưu ý: Hệ thống không hiển thị số 0 nhằm tránh hiểu lầm chiến dịch đang chịu thua lỗ (NCL-15-CN-004-TC-02).
+                    💡 Lưu ý: Hệ thống không hiển thị số 0 nhằm tránh hiểu lầm chiến dịch đang chịu thua lỗ.
                   </div>
                 </div>
               ) : (
-                /* Case 2: Has Transactions (hasData === true) - NCL-15-CN-004-TC-01 */
+                /* Case 2: Has Transactions (hasData === true) */
                 <div className="space-y-6">
                   {/* 4 Main KPI Cards */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">

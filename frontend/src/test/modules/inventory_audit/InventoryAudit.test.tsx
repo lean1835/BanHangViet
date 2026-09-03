@@ -12,6 +12,7 @@ import { baseApi } from "@/stores/baseApi";
 
 afterEach(() => {
   cleanup();
+  vi.clearAllTimers();
 });
 
 // Helper to wrap with redux provider

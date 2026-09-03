@@ -1,5 +1,6 @@
 import React from "react";
 import { formatNumber } from "@/utils/formatCurrency";
+import { TablePaginationFooter } from "@/components/common/TablePaginationFooter";
 import type { IInventoryAudit } from "../types/IInventoryAudit";
 import { INVENTORY_AUDIT_COPY } from "@/constants/inventoryAudit";
 
@@ -62,9 +63,6 @@ export const InventoryAuditTable: React.FC<InventoryAuditTableProps> = ({
           <h3 className="font-extrabold text-slate-800 text-sm">
             Danh sách phiếu kiểm kê kho
           </h3>
-          <p className="text-[11px] text-slate-400 font-normal">
-            Theo dõi kết quả kiểm đếm thực tế và lịch sử điều chỉnh số lượng tồn kho
-          </p>
         </div>
         <span className="text-xs font-bold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-lg">
           {totalElements} phiếu kiểm kê
@@ -172,34 +170,14 @@ export const InventoryAuditTable: React.FC<InventoryAuditTableProps> = ({
 
       {/* Pagination Bar */}
       {totalPages > 1 && (
-        <div className="flex flex-wrap items-center justify-between gap-3 pt-4 mt-4 border-t border-slate-100 text-xs font-semibold text-slate-600">
-          <div>
-            Hiển thị bản ghi từ <span className="font-bold text-slate-800">{page * pageSize + 1}</span> đến{" "}
-            <span className="font-bold text-slate-800">{Math.min((page + 1) * pageSize, totalElements)}</span> trong tổng số{" "}
-            <span className="font-bold text-slate-800">{totalElements}</span> bản ghi
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => onPageChange(page - 1)}
-              disabled={page <= 0}
-              className="px-3 h-8 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center font-bold text-slate-700"
-            >
-              Trang trước
-            </button>
-            <span className="px-3 h-8 flex items-center justify-center border border-slate-200 rounded-lg bg-slate-50 font-bold text-slate-700">
-              Trang {page + 1} / {totalPages || 1}
-            </span>
-            <button
-              type="button"
-              onClick={() => onPageChange(page + 1)}
-              disabled={page >= totalPages - 1}
-              className="px-3 h-8 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center font-bold text-slate-700"
-            >
-              Trang sau
-            </button>
-          </div>
-        </div>
+        <TablePaginationFooter
+          currentPage={page}
+          pageSize={pageSize}
+          totalElements={totalElements}
+          totalPages={totalPages}
+          onPageChange={onPageChange}
+          recordUnit="phiếu kiểm kê"
+        />
       )}
       </div>
     </div>

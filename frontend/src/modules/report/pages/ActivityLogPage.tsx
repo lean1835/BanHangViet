@@ -1,9 +1,6 @@
 import { useState, useEffect } from "react";
 import { 
   Activity, 
-  RefreshCw, 
-  ChevronLeft, 
-  ChevronRight, 
   User, 
   FileText, 
   CheckCircle2, 
@@ -18,12 +15,13 @@ import {
 import { useGetActivityLogsQuery } from "../services/reportApi";
 import { useReportFilter } from "../context/ReportFilterContext";
 import type { IActivityLogResponse } from "../types/IReport";
+import { TablePaginationFooter } from "@/components/common/TablePaginationFooter";
 
 export const ActivityLogPage = () => {
   const { activityLogFilter } = useReportFilter();
   const { fromDate, toDate } = activityLogFilter;
   const [page, setPage] = useState(0);
-  const pageSize = 9;
+  const pageSize = 8;
 
   useEffect(() => {
     setPage(0);
@@ -38,7 +36,12 @@ export const ActivityLogPage = () => {
       page,
       size: pageSize,
     },
-    { skip: isDateInvalid }
+    {
+      skip: isDateInvalid,
+      refetchOnMountOrArgChange: true,
+      refetchOnFocus: true,
+      refetchOnReconnect: true,
+    }
   );
 
   const logsPage = data?.result;
@@ -599,7 +602,7 @@ interface IParsedLogPayload {
   };
 
   return (
-    <div className="max-w-7xl mx-auto flex flex-col gap-4 w-full">
+    <div className="flex flex-col gap-4 w-full animate-auth-fade-in">
       {isDateInvalid && (
         <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs font-bold text-rose-600 flex items-center gap-2 shadow-xs">
           <AlertTriangle className="w-4 h-4 text-rose-500 shrink-0" />
@@ -607,109 +610,110 @@ interface IParsedLogPayload {
         </div>
       )}
 
-      {/* Log Table Container */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col min-h-[420px]">
-        <div className="overflow-x-auto flex-1">
-          {isLoading || isFetching ? (
-            <div className="flex flex-col items-center justify-center py-16 text-slate-400 text-xs font-semibold">
-              <RefreshCw className="w-8 h-8 animate-spin text-kv-blue-primary mb-2" />
-              <span>Đang tải nhật ký hoạt động...</span>
-            </div>
-          ) : logsList.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 text-slate-400 text-xs font-semibold">
-              <Activity className="w-10 h-10 text-slate-300 mb-2" />
-              <span>Không tìm thấy nhật ký hoạt động nào phù hợp.</span>
-            </div>
-          ) : (
-            <table className="w-full text-left border-collapse text-xs">
-              <thead>
-                <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase tracking-wider text-[11px]">
-                  <th className="py-3.5 px-5 min-w-[180px]">Người thực hiện</th>
-                  <th className="py-3.5 px-5 min-w-[160px]">Thời gian</th>
-                  <th className="py-3.5 px-5 min-w-[170px]">Thao tác</th>
-                  <th className="py-3.5 px-5 min-w-[130px]">Đối tượng</th>
-                  <th className="py-3.5 px-6 min-w-[340px] w-full">Chi tiết</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 font-medium">
-                {logsList.map((log) => {
-                  const badge = getActionBadge(log.action);
-                  const notesText = parseLogNotes(log);
-                  return (
-                    <tr key={log.id} className="hover:bg-slate-50/70 transition-colors">
-                      {/* User */}
-                      <td className="py-3.5 px-5 whitespace-nowrap">
-                        <div className="flex items-center gap-2.5">
-                          <div className="w-7 h-7 rounded-full bg-slate-100 text-slate-600 font-black text-xs flex items-center justify-center shrink-0 uppercase border border-slate-200 shadow-2xs">
-                            {(log.fullName || log.username || "U").charAt(0).toUpperCase()}
-                          </div>
-                          <div>
-                            <span className="font-extrabold text-slate-800 block leading-tight text-xs">
-                              {log.fullName || log.username || "Hệ thống"}
-                            </span>
-                            {log.username && (
-                              <span className="text-[10px] text-slate-400 font-mono font-semibold">
-                                @{log.username}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </td>
-
-                      {/* Time */}
-                      <td className="py-3.5 px-5 font-mono font-bold text-slate-500 whitespace-nowrap text-xs">
-                        {formatDateTime(log.createdAt)}
-                      </td>
-
-                      {/* Action Badge */}
-                      <td className="py-3.5 px-5 whitespace-nowrap">
-                        <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-[10px] font-extrabold border shadow-2xs ${badge.className}`}>
-                          {badge.icon}
-                          {badge.label}
-                        </span>
-                      </td>
-
-                      {/* Target Table */}
-                      <td className="py-3.5 px-5 whitespace-nowrap text-xs text-slate-700 font-bold">
-                        {getTargetTableLabel(log.targetTable)}
-                      </td>
-
-                      {/* Detail / Notes */}
-                      <td className="py-3.5 px-6 text-slate-700 font-medium min-w-[340px]">
-                        {notesText}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          )}
-        </div>
-
-        {/* Pagination Footer */}
-        <div className="p-4 border-t border-slate-200 bg-slate-50/50 flex items-center justify-between flex-wrap gap-4 text-xs font-bold text-slate-600 shrink-0">
-          <span>
-            Hiển thị <span className="text-slate-800">{logsList.length}</span> / {totalElements} bản ghi (Trang {page + 1}/{totalPages})
-          </span>
-
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setPage((p) => Math.max(0, p - 1))}
-              disabled={page === 0 || isLoading}
-              className="flex items-center px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              <ChevronLeft className="w-4 h-4 mr-1" /> Trang trước
-            </button>
-
-            <button
-              onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
-              disabled={page >= totalPages - 1 || isLoading}
-              className="flex items-center px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              Trang sau <ChevronRight className="w-4 h-4 ml-1" />
-            </button>
+      {/* Main Table Card */}
+      <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col min-h-[500px] w-full">
+        {/* Block Header */}
+        <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-4">
+          <div>
+            <h3 className="font-extrabold text-slate-800 text-sm">
+              Nhật ký hoạt động hệ thống
+            </h3>
           </div>
+          <span className="text-xs font-bold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-lg">
+            {totalElements} bản ghi
+          </span>
         </div>
+
+        {isLoading || isFetching ? (
+          <div className="flex flex-col justify-center items-center flex-1 py-20 text-slate-400 gap-2">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-kv-blue-primary"></div>
+            <span className="text-xs font-bold">
+              Đang tải nhật ký hoạt động...
+            </span>
+          </div>
+        ) : logsList.length === 0 ? (
+          <div className="flex flex-col justify-center items-center flex-1 py-20 text-slate-400 gap-2 font-semibold">
+            <Activity className="w-10 h-10 text-slate-300 mb-2" />
+            <span>Không tìm thấy nhật ký hoạt động nào phù hợp.</span>
+          </div>
+        ) : (
+          <div className="flex flex-col flex-1 justify-between">
+            <div className="overflow-x-auto">
+              <table className="responsive-data-table responsive-data-table--page w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold text-xs">
+                    <th className="p-3 min-w-[180px]">Người thực hiện</th>
+                    <th className="p-3 min-w-[160px]">Thời gian</th>
+                    <th className="p-3 min-w-[170px]">Thao tác</th>
+                    <th className="p-3 min-w-[130px]">Đối tượng</th>
+                    <th className="p-3 min-w-[340px] w-full">Chi tiết</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 font-medium text-slate-700 text-xs">
+                  {logsList.map((log) => {
+                    const badge = getActionBadge(log.action);
+                    const notesText = parseLogNotes(log);
+                    return (
+                      <tr key={log.id} className="hover:bg-slate-50/50 group transition-all">
+                        {/* User */}
+                        <td className="p-3 whitespace-nowrap">
+                          <div className="flex items-center gap-2.5">
+                            <div className="w-7 h-7 rounded-full bg-slate-100 text-slate-600 font-black text-xs flex items-center justify-center shrink-0 uppercase border border-slate-200 shadow-2xs">
+                              {(log.fullName || log.username || "U").charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                              <span className="font-extrabold text-slate-800 block leading-tight text-xs">
+                                {log.fullName || log.username || "Hệ thống"}
+                              </span>
+                              {log.username && (
+                                <span className="text-[10px] text-slate-400 font-mono font-semibold">
+                                  @{log.username}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+
+                        {/* Time */}
+                        <td className="p-3 font-mono font-bold text-slate-500 whitespace-nowrap text-xs">
+                          {formatDateTime(log.createdAt)}
+                        </td>
+
+                        {/* Action Badge */}
+                        <td className="p-3 whitespace-nowrap">
+                          <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-[10px] font-extrabold border shadow-2xs ${badge.className}`}>
+                            {badge.icon}
+                            {badge.label}
+                          </span>
+                        </td>
+
+                        {/* Target Table */}
+                        <td className="p-3 whitespace-nowrap text-xs text-slate-700 font-bold">
+                          {getTargetTableLabel(log.targetTable)}
+                        </td>
+
+                        {/* Detail / Notes */}
+                        <td className="p-3 text-slate-700 font-medium min-w-[340px]">
+                          {notesText}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Pagination Controls */}
+            <TablePaginationFooter
+              currentPage={page}
+              pageSize={pageSize}
+              totalElements={totalElements}
+              totalPages={totalPages}
+              onPageChange={setPage}
+              recordUnit="bản ghi"
+            />
+          </div>
+        )}
       </div>
     </div>
   );

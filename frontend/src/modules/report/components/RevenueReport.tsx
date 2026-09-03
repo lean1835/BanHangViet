@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import {
   TrendingUp,
   ShoppingBag,
@@ -14,29 +14,63 @@ import {
 } from "../services/reportApi";
 import { useReportFilter } from "../context/ReportFilterContext";
 import { formatCurrency } from "@/utils/formatCurrency";
+import { TablePaginationFooter } from "@/components/common/TablePaginationFooter";
+import { useOnOrderCompleted } from "@/utils/orderEvents";
 
 export const RevenueReport: React.FC = () => {
   const { revenueFilter } = useReportFilter();
   const { fromDate, toDate } = revenueFilter;
 
+  const [topSellingPage, setTopSellingPage] = useState<number>(0);
+  const topSellingPageSize = 8;
+
   const {
     data: dailyRes,
     isLoading: isDailyLoading,
     isFetching: isDailyFetching,
-  } = useGetDailyRevenueQuery({ fromDate, toDate });
+    refetch: refetchDaily,
+  } = useGetDailyRevenueQuery(
+    { fromDate, toDate },
+    {
+      refetchOnMountOrArgChange: true,
+      refetchOnFocus: true,
+      refetchOnReconnect: true,
+    }
+  );
 
   const {
     data: topSellingRes,
     isLoading: isTopSellingLoading,
     isFetching: isTopSellingFetching,
-  } = useGetTopSellingProductsQuery({ fromDate, toDate, limit: 10 });
+    refetch: refetchTopSelling,
+  } = useGetTopSellingProductsQuery(
+    { fromDate, toDate, limit: 50 },
+    {
+      refetchOnMountOrArgChange: true,
+      refetchOnFocus: true,
+      refetchOnReconnect: true,
+    }
+  );
+
+  // Tự động làm mới khi có đơn hàng hoàn thành
+  useOnOrderCompleted(() => {
+    void refetchDaily();
+    void refetchTopSelling();
+  });
 
   const rawDailyList = dailyRes?.result;
   const dailyList = useMemo(() => {
     if (!rawDailyList) return [];
     return [...rawDailyList].sort((a, b) => (a.salesDate || "").localeCompare(b.salesDate || ""));
   }, [rawDailyList]);
-  const topSellingList = topSellingRes?.result || [];
+  const rawTopSellingList = topSellingRes?.result;
+  const topSellingList = useMemo(() => rawTopSellingList || [], [rawTopSellingList]);
+
+  const totalTopSellingPages = Math.ceil(topSellingList.length / topSellingPageSize) || 1;
+  const paginatedTopSellingList = useMemo(() => {
+    const start = topSellingPage * topSellingPageSize;
+    return topSellingList.slice(start, start + topSellingPageSize);
+  }, [topSellingList, topSellingPage, topSellingPageSize]);
 
   // Aggregated KPIs
   const totalNetRevenue = useMemo(
@@ -72,7 +106,7 @@ export const RevenueReport: React.FC = () => {
   const isLoading = isDailyLoading || isTopSellingLoading;
 
   return (
-    <div className="max-w-7xl mx-auto flex flex-col gap-6 w-full">
+    <div className="flex flex-col gap-6 w-full animate-auth-fade-in">
       {/* KPI Cards Header */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
@@ -193,18 +227,20 @@ export const RevenueReport: React.FC = () => {
         </div>
 
         {/* Right Column: Top Selling Products */}
-        <div className="xl:col-span-1 bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col min-h-[380px]">
-          <div className="flex items-center justify-between border-b pb-3 mb-4">
+        <div className="xl:col-span-1 bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col min-h-[500px]">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-4">
             <h3 className="font-extrabold text-slate-800 text-sm flex items-center gap-2">
               <Award className="w-4 h-4 text-amber-500" />
               <span>Mặt Hàng Bán Chạy</span>
             </h3>
-            <span className="text-[11px] text-slate-400 font-semibold">Top 10</span>
+            <span className="text-xs font-bold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-lg">
+              {topSellingList.length} mặt hàng
+            </span>
           </div>
 
           {isTopSellingLoading || isTopSellingFetching ? (
-            <div className="flex-1 flex flex-col items-center justify-center py-16 text-slate-400 text-xs font-semibold">
-              <RefreshCw className="w-8 h-8 animate-spin text-kv-blue-primary mb-2" />
+            <div className="flex-1 flex flex-col items-center justify-center py-16 text-slate-400 text-xs font-semibold gap-2">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-kv-blue-primary"></div>
               <span>Đang tải danh sách bán chạy...</span>
             </div>
           ) : topSellingList.length === 0 ? (
@@ -213,54 +249,69 @@ export const RevenueReport: React.FC = () => {
               <span>Không có sản phẩm bán chạy trong thời gian này.</span>
             </div>
           ) : (
-            <div className="overflow-x-auto flex-1">
-              <table className="w-full text-left text-xs font-semibold text-slate-700">
-                <thead>
-                  <tr className="border-b border-slate-100 text-slate-400 uppercase tracking-wider text-[10px]">
-                    <th className="pb-2 pl-1">#</th>
-                    <th className="pb-2">Sản phẩm</th>
-                    <th className="pb-2 text-right">Đã bán</th>
-                    <th className="pb-2 text-right pr-1">Doanh thu</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {topSellingList.map((product, idx) => (
-                    <tr key={product.productId || idx} className="hover:bg-slate-50/70 transition-colors">
-                      <td className="py-2.5 pl-1">
-                        <span
-                          className={`w-5 h-5 rounded-full text-[10px] font-black flex items-center justify-center ${
-                            idx === 0
-                              ? "bg-amber-100 text-amber-700 border border-amber-300"
-                              : idx === 1
-                              ? "bg-slate-200 text-slate-700"
-                              : idx === 2
-                              ? "bg-amber-50 text-amber-600"
-                              : "bg-slate-100 text-slate-500"
-                          }`}
-                        >
-                          {idx + 1}
-                        </span>
-                      </td>
-                      <td className="py-2.5">
-                        <span className="font-bold text-slate-800 block truncate max-w-[140px]" title={product.productName}>
-                          {product.productName}
-                        </span>
-                        {product.sku && (
-                          <span className="text-[10px] text-slate-400 font-mono font-normal block">
-                            {product.sku}
-                          </span>
-                        )}
-                      </td>
-                      <td className="py-2.5 text-right font-black text-kv-blue-primary">
-                        {product.quantitySold} {product.unit || ""}
-                      </td>
-                      <td className="py-2.5 text-right pr-1 font-bold text-slate-800">
-                        {formatCurrency(product.revenue)}
-                      </td>
+            <div className="flex flex-col flex-1 justify-between">
+              <div className="overflow-x-auto">
+                <table className="responsive-data-table responsive-data-table--page w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold text-xs">
+                      <th className="p-3 w-10 text-center">STT</th>
+                      <th className="p-3">Sản phẩm</th>
+                      <th className="p-3 text-right">Đã bán</th>
+                      <th className="p-3 text-right">Doanh thu</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 font-medium text-slate-700 text-xs">
+                    {paginatedTopSellingList.map((product, idx) => {
+                      const overallIdx = topSellingPage * topSellingPageSize + idx;
+                      return (
+                        <tr key={product.productId || idx} className="hover:bg-slate-50/50 group transition-all">
+                          <td className="p-3 text-center">
+                            <span
+                              className={`w-5 h-5 rounded-full text-[10px] font-black inline-flex items-center justify-center ${
+                                overallIdx === 0
+                                  ? "bg-amber-100 text-amber-700 border border-amber-300"
+                                  : overallIdx === 1
+                                  ? "bg-slate-200 text-slate-700"
+                                  : overallIdx === 2
+                                  ? "bg-amber-50 text-amber-600"
+                                  : "bg-slate-100 text-slate-500"
+                              }`}
+                            >
+                              {overallIdx + 1}
+                            </span>
+                          </td>
+                          <td className="p-3">
+                            <span className="font-bold text-slate-800 block truncate max-w-[140px]" title={product.productName}>
+                              {product.productName}
+                            </span>
+                            {product.sku && (
+                              <span className="text-[10px] text-slate-400 font-mono font-normal block">
+                                {product.sku}
+                              </span>
+                            )}
+                          </td>
+                          <td className="p-3 text-right font-black text-kv-blue-primary">
+                            {product.quantitySold} {product.unit || ""}
+                          </td>
+                          <td className="p-3 text-right font-bold text-slate-800">
+                            {formatCurrency(product.revenue)}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Pagination Controls */}
+              <TablePaginationFooter
+                currentPage={topSellingPage}
+                pageSize={topSellingPageSize}
+                totalElements={topSellingList.length}
+                totalPages={totalTopSellingPages}
+                onPageChange={setTopSellingPage}
+                recordUnit="mặt hàng"
+              />
             </div>
           )}
         </div>

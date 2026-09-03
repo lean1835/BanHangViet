@@ -8,6 +8,11 @@ import { DayOfWeekDistribution } from "@/modules/sales_analytics/components/DayO
 import { PeakInsightsCard } from "@/modules/sales_analytics/components/PeakInsightsCard";
 import { SlowMovingProductTable } from "@/modules/sales_analytics/components/SlowMovingProductTable";
 import { PurchaseSuggestionTable } from "@/modules/product/components/PurchaseSuggestionTable";
+import { PeakHoursSidebar } from "@/modules/sales_analytics/components/PeakHoursSidebar";
+import { ReportFilterProvider } from "@/modules/report/context/ReportFilterContext";
+import { Provider } from "react-redux";
+import { configureStore } from "@reduxjs/toolkit";
+import { baseApi } from "@/stores/baseApi";
 import type {
   ISalesHeatmapCell,
   IPeakHourlySalesData,
@@ -17,6 +22,8 @@ import type {
   ISlowMovingSummary,
 } from "@/modules/sales_analytics/types/ISalesAnalytics";
 import type { IPurchaseSuggestion } from "@/modules/product/types/IInventoryWarning";
+import { getWeekDateRange, getPreviousWeekDateRange } from "@/utils/dateFormatter";
+import { notifyOrderCompleted, useOnOrderCompleted } from "@/utils/orderEvents";
 
 afterEach(() => {
   cleanup();
@@ -108,6 +115,33 @@ describe("NCL-18-CN-001: Peak Hours and Days Analytics Components", () => {
     expect(screen.getByText("Thứ 2")).toBeInTheDocument();
     expect(screen.getByText("Thứ 7")).toBeInTheDocument();
     expect(screen.getByText("Chủ Nhật")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /số lượng đơn/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /doanh thu/i })).toBeInTheDocument();
+  });
+
+  it("NCL-18-CN-001-TC-01: PeakHoursHeatmap switches between Orders and Revenue metrics", () => {
+    render(<PeakHoursHeatmap heatmap={mockHeatmap} maxRevenue={5000000} />);
+
+    // Default mode: Orders (shows order count 30 and 15)
+    expect(screen.getByText("30")).toBeInTheDocument();
+    expect(screen.getByText("15")).toBeInTheDocument();
+    expect(screen.getByText("Đỉnh (30 đơn)")).toBeInTheDocument();
+
+    // Switch to Revenue mode
+    const revenueBtn = screen.getByRole("button", { name: /doanh thu/i });
+    fireEvent.click(revenueBtn);
+
+    // Revenue mode shows compact currency: "5 tr" and "2.5 tr"
+    expect(screen.getByText("5 tr")).toBeInTheDocument();
+    expect(screen.getByText("2.5 tr")).toBeInTheDocument();
+    expect(screen.getByText("Đỉnh (5 tr)")).toBeInTheDocument();
+
+    // Switch back to Orders mode
+    const ordersBtn = screen.getByRole("button", { name: /số lượng đơn/i });
+    fireEvent.click(ordersBtn);
+
+    expect(screen.getByText("30")).toBeInTheDocument();
+    expect(screen.getByText("15")).toBeInTheDocument();
   });
 
   it("NCL-18-CN-001-TC-01: HourlyDistributionBar renders 24 bars and peak hour highlight", () => {
@@ -153,6 +187,25 @@ describe("NCL-18-CN-001: Peak Hours and Days Analytics Components", () => {
     expect(
       screen.getByText(/Khoảng thời gian đã chọn chưa ghi nhận đơn hàng hoàn thành/i)
     ).toBeInTheDocument();
+  });
+
+  it("NCL-18-CN-001: getWeekDateRange spans Monday to Sunday and shifts automatically when entering new week", () => {
+    // Thursday 2026-09-03
+    const thursday = new Date(2026, 8, 3);
+    const rangeThursday = getWeekDateRange(thursday);
+    expect(rangeThursday.fromDate).toBe("2026-08-31"); // Monday
+    expect(rangeThursday.toDate).toBe("2026-09-06"); // Sunday
+
+    // When moving to new week: Monday 2026-09-07
+    const nextMonday = new Date(2026, 8, 7);
+    const rangeNextMonday = getWeekDateRange(nextMonday);
+    expect(rangeNextMonday.fromDate).toBe("2026-09-07"); // Monday of new week
+    expect(rangeNextMonday.toDate).toBe("2026-09-13"); // Sunday of new week
+
+    // Previous week
+    const prevRange = getPreviousWeekDateRange(thursday);
+    expect(prevRange.fromDate).toBe("2026-08-24");
+    expect(prevRange.toDate).toBe("2026-08-30");
   });
 });
 
@@ -444,4 +497,51 @@ describe("NCL-18-CN-003: SlowMovingProductTable Component", () => {
       )
     ).toBeInTheDocument();
   });
+
+  it("Real-time auto-update: useOnOrderCompleted triggers callback when notifyOrderCompleted is called without F5", () => {
+    const callback = vi.fn();
+
+    const TestComponent = () => {
+      useOnOrderCompleted(callback);
+      return <div>Peak Hours Live Tracker</div>;
+    };
+
+    render(<TestComponent />);
+    expect(callback).not.toHaveBeenCalled();
+
+    // Trigger order completed event
+    notifyOrderCompleted();
+
+    expect(callback).toHaveBeenCalled();
+  });
+
+  it("Sidebar integration: PeakHoursSidebar renders presets, date pickers, and POS filter", () => {
+    const store = configureStore({
+      reducer: {
+        [baseApi.reducerPath]: baseApi.reducer,
+      },
+      middleware: (getDefaultMiddleware) =>
+        getDefaultMiddleware().concat(baseApi.middleware),
+    });
+
+    render(
+      <Provider store={store}>
+        <ReportFilterProvider>
+          <PeakHoursSidebar />
+        </ReportFilterProvider>
+      </Provider>
+    );
+
+    expect(screen.getByText("Bộ lọc giờ cao điểm")).toBeInTheDocument();
+    expect(screen.getByText("Tuần này")).toBeInTheDocument();
+    expect(screen.getByText("Tuần trước")).toBeInTheDocument();
+    expect(screen.getByText("14 ngày")).toBeInTheDocument();
+    expect(screen.getByText("30 ngày")).toBeInTheDocument();
+    expect(screen.getByText("Xóa bộ lọc")).toBeInTheDocument();
+
+    // Switching presets
+    fireEvent.click(screen.getByText("14 ngày"));
+    expect(screen.getByText("14 ngày")).toHaveClass("bg-kv-blue-primary");
+  });
 });
+

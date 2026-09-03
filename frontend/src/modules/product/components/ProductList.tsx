@@ -4,6 +4,7 @@ import { Search, Plus, Edit, Trash2, FileSpreadsheet, AlertTriangle, Printer, Ba
 import { ImportProductsModal } from "@/modules/product/components/ImportProductsModal";
 import { BarcodePrintModal } from "@/modules/barcode/components/BarcodePrintModal";
 import { VoiceSearchModal } from "@/modules/product/components/VoiceSearchModal";
+import { TablePaginationFooter } from "@/components/common/TablePaginationFooter";
 import {
   PRODUCT_FILTER,
   PRODUCT_API_RESPONSE_DEFAULTS,
@@ -236,15 +237,12 @@ export const ProductList: React.FC<ProductListProps> = ({
 
       {/* Main product table card */}
       <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col min-h-[500px] w-full">
-        {/* Block Header matching StockEntryHistoryTable */}
+        {/* Block Header */}
         <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-4">
           <div>
             <h3 className="font-extrabold text-slate-800 text-sm">
               {PRODUCT_LIST_COPY.CARD_TITLE}
             </h3>
-            <p className="text-[11px] text-slate-400 font-normal">
-              {PRODUCT_LIST_COPY.CARD_SUBTITLE}
-            </p>
           </div>
           <span className="text-xs font-bold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-lg">
             {totalElements} {PRODUCT_LIST_COPY.PAGINATION_SUFFIX}
@@ -419,52 +417,14 @@ export const ProductList: React.FC<ProductListProps> = ({
             </div>
 
             {/* Pagination Controls */}
-            {totalPages > PRODUCT_QUERY_CONFIG.MIN_PAGINATION_PAGE_COUNT && (
-              <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4 mt-4 font-semibold text-slate-600 text-xs">
-                <div>
-                  Hiển thị bản ghi từ <span className="font-bold text-slate-800">{currentPage * PRODUCT_QUERY_CONFIG.PAGE_SIZE + 1}</span> đến{" "}
-                  <span className="font-bold text-slate-800">{Math.min((currentPage + 1) * PRODUCT_QUERY_CONFIG.PAGE_SIZE, totalElements)}</span> trong tổng số{" "}
-                  <span className="font-bold text-slate-800">{totalElements}</span> bản ghi
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setCurrentPage((page) =>
-                        Math.max(
-                          PRODUCT_QUERY_CONFIG.INITIAL_PAGE,
-                          page - PRODUCT_QUERY_CONFIG.PAGE_STEP,
-                        ),
-                      )
-                    }
-                    disabled={currentPage === PRODUCT_QUERY_CONFIG.INITIAL_PAGE}
-                    className="px-3 h-8 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center font-bold text-slate-700"
-                  >
-                    Trang trước
-                  </button>
-                  <span className="px-3 h-8 flex items-center justify-center border border-slate-200 rounded-lg bg-slate-50 font-bold text-slate-700">
-                    Trang {currentPage + 1} / {totalPages}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setCurrentPage((page) =>
-                        Math.min(
-                          totalPages - PRODUCT_QUERY_CONFIG.PAGE_STEP,
-                          page + PRODUCT_QUERY_CONFIG.PAGE_STEP,
-                        ),
-                      )
-                    }
-                    disabled={
-                      currentPage === totalPages - PRODUCT_QUERY_CONFIG.PAGE_STEP
-                    }
-                    className="px-3 h-8 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center font-bold text-slate-700"
-                  >
-                    Trang sau
-                  </button>
-                </div>
-              </div>
-            )}
+            <TablePaginationFooter
+              currentPage={currentPage}
+              pageSize={pageSize}
+              totalElements={totalElements}
+              totalPages={totalPages}
+              onPageChange={setCurrentPage}
+              recordUnit="bản ghi"
+            />
           </div>
         )}
       </div>

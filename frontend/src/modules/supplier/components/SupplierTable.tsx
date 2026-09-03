@@ -1,5 +1,6 @@
 import React from "react";
 import { formatCurrency } from "@/utils/formatCurrency";
+import { TablePaginationFooter } from "@/components/common/TablePaginationFooter";
 import type { ISupplier } from "../types/ISupplier";
 import { Wallet } from "lucide-react";
 
@@ -30,14 +31,12 @@ export const SupplierTable: React.FC<SupplierTableProps> = ({
   onViewDetail,
   onPayDebt,
   page = 0,
-  pageSize = 6,
+  pageSize = 8,
   totalPages = 0,
   onPageChange,
 }) => {
   const showActionColumn = canManage || Boolean(canPayDebt && onPayDebt);
   const displayTotal = totalCount ?? suppliers.length;
-  const startItem = page * pageSize + 1;
-  const endItem = Math.min((page + 1) * pageSize, displayTotal);
 
   return (
     <div className="w-full bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden animate-auth-fade-in flex flex-col justify-between">
@@ -48,9 +47,6 @@ export const SupplierTable: React.FC<SupplierTableProps> = ({
             <h2 className="text-xs font-bold text-slate-800 uppercase tracking-wide">
               Quản lý Nhà cung cấp
             </h2>
-            <p className="text-[11px] text-slate-400 font-normal mt-0.5">
-              Quản lý hồ sơ đối tác, thông tin liên hệ và theo dõi công nợ phải trả
-            </p>
           </div>
           <span className="text-xs font-bold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-lg">
             {displayTotal} nhà cung cấp
@@ -257,35 +253,17 @@ export const SupplierTable: React.FC<SupplierTableProps> = ({
         )}
       </div>
 
-      {/* Pagination Controls attached seamlessly inside the card */}
+      {/* Pagination Controls */}
       {totalPages > 1 && onPageChange && (
-        <div className="flex flex-wrap items-center justify-between gap-3 px-6 py-3.5 border-t border-slate-100 text-xs font-semibold text-slate-600">
-          <div>
-            Hiển thị bản ghi từ <span className="font-bold text-slate-800">{startItem}</span> đến{" "}
-            <span className="font-bold text-slate-800">{endItem}</span> trong tổng số{" "}
-            <span className="font-bold text-slate-800">{displayTotal}</span> bản ghi
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => onPageChange(page - 1)}
-              disabled={page === 0}
-              className="px-3 h-8 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center font-bold text-slate-700"
-            >
-              Trang trước
-            </button>
-            <span className="px-3 h-8 flex items-center justify-center border border-slate-200 rounded-lg bg-slate-50 font-bold text-slate-700">
-              Trang {page + 1} / {totalPages}
-            </span>
-            <button
-              type="button"
-              onClick={() => onPageChange(page + 1)}
-              disabled={page + 1 >= totalPages}
-              className="px-3 h-8 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center font-bold text-slate-700"
-            >
-              Trang sau
-            </button>
-          </div>
+        <div className="px-6 pb-4">
+          <TablePaginationFooter
+            currentPage={page}
+            pageSize={pageSize}
+            totalElements={displayTotal}
+            totalPages={totalPages}
+            onPageChange={onPageChange}
+            recordUnit="nhà cung cấp"
+          />
         </div>
       )}
     </div>

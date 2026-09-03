@@ -135,7 +135,7 @@ export const ANOMALY_UI = {
     RESET_BTN: "Đặt lại bộ lọc",
   },
   TABLE: {
-    PAGE_SIZE: 9,
+    PAGE_SIZE: 8,
     COLUMNS: {
       SEVERITY: "Mức độ",
       TYPE: "Loại vi phạm",

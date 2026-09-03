@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import {
   ShieldCheck,
   Database,
@@ -71,7 +72,7 @@ export const AuditLogDetailModal: React.FC<AuditLogDetailModalProps> = ({ log, o
   const actionDisplay = AUDIT_ACTION_MAP[log.action]?.label || log.action;
   const tableDisplay = AUDIT_TABLE_MAP[log.targetTable] || log.targetTable;
 
-  return (
+  const modalContent = (
     <div
       role="dialog"
       aria-modal="true"
@@ -79,7 +80,7 @@ export const AuditLogDetailModal: React.FC<AuditLogDetailModalProps> = ({ log, o
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 app-modal-backdrop animate-backdrop-fade-in"
+      className="fixed inset-0 z-[999] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 app-modal-backdrop animate-backdrop-fade-in"
     >
       <div className="app-modal-panel w-full max-w-4xl bg-white rounded-3xl shadow-2xl border border-slate-100 flex flex-col overflow-hidden animate-modal-bounce-in">
         {/* Modal Header */}
@@ -243,4 +244,6 @@ export const AuditLogDetailModal: React.FC<AuditLogDetailModalProps> = ({ log, o
       </div>
     </div>
   );
+
+  return typeof document !== "undefined" ? createPortal(modalContent, document.body) : modalContent;
 };

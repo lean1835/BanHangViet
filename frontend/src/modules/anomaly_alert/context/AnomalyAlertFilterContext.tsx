@@ -5,7 +5,7 @@ import { ANOMALY_UI } from "@/constants/anomalyAlert";
 
 export const initialAnomalyFilterState: IAnomalyAlertFilterParams = {
   page: 0,
-  size: ANOMALY_UI.TABLE.PAGE_SIZE || 9,
+  size: ANOMALY_UI.TABLE.PAGE_SIZE || 8,
   keyword: "",
   severity: "",
   status: "",

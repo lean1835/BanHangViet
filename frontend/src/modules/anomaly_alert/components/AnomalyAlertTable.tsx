@@ -1,16 +1,12 @@
 import React from "react";
-import {
-  User,
-  ChevronLeft,
-  ChevronRight,
-  ShieldCheck,
-} from "lucide-react";
+import { User, ShieldCheck } from "lucide-react";
 import {
   ANOMALY_UI,
   ANOMALY_SEVERITY_STYLES,
   ANOMALY_STATUS_STYLES,
   ANOMALY_ALERT_TYPE_INFO,
 } from "@/constants/anomalyAlert";
+import { TablePaginationFooter } from "@/components/common/TablePaginationFooter";
 import { formatDate } from "@/utils/dateFormatter";
 import type { IAnomalyAlert } from "../types/IAnomalyAlert";
 
@@ -34,24 +30,38 @@ export const AnomalyAlertTable: React.FC<AnomalyAlertTableProps> = ({
   onViewDetail,
 }) => {
   return (
-    <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
-      <div className="overflow-x-auto">
-        <table className="w-full text-left text-xs border-collapse">
+    <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between min-h-[500px]">
+      <div>
+        <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-4">
+          <h3 className="font-extrabold text-slate-800 text-sm">
+            Danh sách cảnh báo bất thường
+          </h3>
+          <span className="text-xs font-bold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-lg">
+            {totalElements} cảnh báo
+          </span>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="responsive-data-table responsive-data-table--page w-full text-left border-collapse">
           <thead>
-            <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider text-[11px]">
-              <th className="py-3 px-3 w-32 whitespace-nowrap">{ANOMALY_UI.TABLE.COLUMNS.SEVERITY}</th>
-              <th className="py-3 px-3 whitespace-nowrap">{ANOMALY_UI.TABLE.COLUMNS.TYPE}</th>
-              <th className="py-3 px-4 min-w-[240px]">{ANOMALY_UI.TABLE.COLUMNS.TITLE}</th>
-              <th className="py-3 px-3 whitespace-nowrap">{ANOMALY_UI.TABLE.COLUMNS.ACTOR}</th>
-              <th className="py-3 px-3 whitespace-nowrap">{ANOMALY_UI.TABLE.COLUMNS.TIME}</th>
-              <th className="py-3 px-3 whitespace-nowrap">{ANOMALY_UI.TABLE.COLUMNS.STATUS}</th>
+            <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold text-xs">
+              <th className="p-3 w-32 whitespace-nowrap">{ANOMALY_UI.TABLE.COLUMNS.SEVERITY}</th>
+              <th className="p-3 whitespace-nowrap">{ANOMALY_UI.TABLE.COLUMNS.TYPE}</th>
+              <th className="p-3 min-w-[240px]">{ANOMALY_UI.TABLE.COLUMNS.TITLE}</th>
+              <th className="p-3 whitespace-nowrap">{ANOMALY_UI.TABLE.COLUMNS.ACTOR}</th>
+              <th className="p-3 whitespace-nowrap">{ANOMALY_UI.TABLE.COLUMNS.TIME}</th>
+              <th className="p-3 whitespace-nowrap">{ANOMALY_UI.TABLE.COLUMNS.STATUS}</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100 text-slate-700">
+          <tbody className="divide-y divide-slate-100 font-medium text-slate-700 text-xs">
             {isLoading ? (
               <tr>
-                <td colSpan={6} className="text-center py-10 text-slate-400 font-bold">
-                  Đang tải danh sách cảnh báo bất thường...
+                <td colSpan={6} className="py-20 text-center text-slate-400">
+                  <div className="flex flex-col items-center justify-center gap-2">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-kv-blue-primary"></div>
+                    <span className="text-xs font-bold">
+                      Đang tải danh sách cảnh báo bất thường...
+                    </span>
+                  </div>
                 </td>
               </tr>
             ) : alerts.length === 0 ? (
@@ -143,55 +153,17 @@ export const AnomalyAlertTable: React.FC<AnomalyAlertTableProps> = ({
           </tbody>
         </table>
       </div>
+    </div>
 
       {totalElements > 0 && (
-        <div className="flex flex-col sm:flex-row items-center justify-between px-4 py-3 border-t border-slate-200 bg-slate-50/70 text-xs gap-2">
-          <div className="text-slate-500 font-semibold">
-            Hiển thị <strong className="text-slate-800">{page * (ANOMALY_UI.TABLE.PAGE_SIZE || 9) + 1}</strong> -{" "}
-            <strong className="text-slate-800">
-              {Math.min((page + 1) * (ANOMALY_UI.TABLE.PAGE_SIZE || 9), totalElements)}
-            </strong>{" "}
-            trên tổng số <strong className="text-slate-800">{totalElements}</strong> cảnh báo (9 bản ghi/trang)
-          </div>
-
-          {totalPages > 1 && (
-            <div className="flex items-center gap-1.5">
-              <button
-                onClick={() => onPageChange(page - 1)}
-                disabled={page <= 0}
-                aria-label="Trang trước"
-                className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-slate-600 disabled:opacity-40 disabled:hover:bg-white cursor-pointer shadow-2xs transition-all"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-
-              <div className="flex items-center gap-1">
-                {Array.from({ length: totalPages }, (_, i) => (
-                  <button
-                    key={i}
-                    onClick={() => onPageChange(i)}
-                    className={`min-w-[28px] h-7 px-2 rounded-lg text-xs font-bold transition-all cursor-pointer shadow-2xs ${
-                      page === i
-                        ? "bg-kv-blue-primary text-white border border-kv-blue-primary shadow-xs"
-                        : "bg-white border border-slate-200 text-slate-700 hover:bg-slate-100"
-                    }`}
-                  >
-                    {i + 1}
-                  </button>
-                ))}
-              </div>
-
-              <button
-                onClick={() => onPageChange(page + 1)}
-                disabled={page >= totalPages - 1}
-                aria-label="Trang sau"
-                className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-slate-600 disabled:opacity-40 disabled:hover:bg-white cursor-pointer shadow-2xs transition-all"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
-          )}
-        </div>
+        <TablePaginationFooter
+          currentPage={page}
+          pageSize={ANOMALY_UI.TABLE.PAGE_SIZE}
+          totalElements={totalElements}
+          totalPages={totalPages}
+          onPageChange={onPageChange}
+          recordUnit="cảnh báo"
+        />
       )}
     </div>
   );

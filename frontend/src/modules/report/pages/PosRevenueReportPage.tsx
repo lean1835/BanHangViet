@@ -1,13 +1,10 @@
 import React, { useState, useMemo } from "react";
 import {
-  Calendar,
-  Filter,
   ShieldAlert,
   Loader2,
   AlertCircle,
 } from "lucide-react";
 import { useGetPosRevenueReportQuery } from "../services/posRevenueReportApi";
-import { useGetPointsOfSaleQuery } from "@/modules/point_of_sale/services/pointOfSaleApi";
 import type { IPosRevenueSummary } from "../types/IPosRevenue";
 import { PosRevenueKpis } from "../components/PosRevenueKpis";
 import { PosRevenueChart } from "../components/PosRevenueChart";
@@ -15,7 +12,8 @@ import { PosRevenueTable } from "../components/PosRevenueTable";
 import { useDashboardDemo } from "@/providers/DashboardDemoProvider";
 import { USER_ROLES } from "@/constants/roles";
 
-type TPeriodOption = "TODAY" | "THIS_WEEK" | "THIS_MONTH" | "THIS_QUARTER" | "CUSTOM";
+import { useOptionalReportFilter } from "../context/ReportFilterContext";
+import { useOnOrderCompleted } from "@/utils/orderEvents";
 
 const formatDateToISO = (date: Date): string => {
   const y = date.getFullYear();
@@ -27,42 +25,21 @@ const formatDateToISO = (date: Date): string => {
 export const PosRevenueReportPage: React.FC = () => {
   const { currentRole } = useDashboardDemo();
 
-  const [period, setPeriod] = useState<TPeriodOption>("THIS_MONTH");
-  const [selectedPosId, setSelectedPosId] = useState<string>("");
+  // Đọc bộ lọc từ thanh bên trái (ReportSidebar / ReportFilterContext), fallback nếu test độc lập
+  const reportFilterCtx = useOptionalReportFilter();
 
-  // Calculate default dates based on period
-  const [fromDate, setFromDate] = useState(() => {
+  const [localFromDate] = useState(() => {
     const now = new Date();
     return formatDateToISO(new Date(now.getFullYear(), now.getMonth(), 1));
   });
-
-  const [toDate, setToDate] = useState(() => {
+  const [localToDate] = useState(() => {
     return formatDateToISO(new Date());
   });
+  const [localPosId] = useState<string>("");
 
-  const handlePeriodChange = (newPeriod: TPeriodOption) => {
-    setPeriod(newPeriod);
-    const now = new Date();
-
-    if (newPeriod === "TODAY") {
-      const todayStr = formatDateToISO(now);
-      setFromDate(todayStr);
-      setToDate(todayStr);
-    } else if (newPeriod === "THIS_WEEK") {
-      const day = now.getDay();
-      const diff = now.getDate() - day + (day === 0 ? -6 : 1); // Monday
-      const monday = new Date(now.setDate(diff));
-      setFromDate(formatDateToISO(monday));
-      setToDate(formatDateToISO(new Date()));
-    } else if (newPeriod === "THIS_MONTH") {
-      setFromDate(formatDateToISO(new Date(now.getFullYear(), now.getMonth(), 1)));
-      setToDate(formatDateToISO(new Date()));
-    } else if (newPeriod === "THIS_QUARTER") {
-      const quarterMonth = Math.floor(now.getMonth() / 3) * 3;
-      setFromDate(formatDateToISO(new Date(now.getFullYear(), quarterMonth, 1)));
-      setToDate(formatDateToISO(new Date()));
-    }
-  };
+  const fromDate = reportFilterCtx ? reportFilterCtx.posRevenueFilter.fromDate : localFromDate;
+  const toDate = reportFilterCtx ? reportFilterCtx.posRevenueFilter.toDate : localToDate;
+  const selectedPosId = reportFilterCtx ? reportFilterCtx.posRevenueFilter.posId : localPosId;
 
   // Query BE endpoint: GET /api/v1/points-of-sale/reports/revenue
   const {
@@ -70,16 +47,22 @@ export const PosRevenueReportPage: React.FC = () => {
     isLoading: isLoadingApi,
     isFetching,
     error: apiError,
-  } = useGetPosRevenueReportQuery({
-    fromDate,
-    toDate,
-    posId: selectedPosId || undefined,
-  });
+    refetch,
+  } = useGetPosRevenueReportQuery(
+    {
+      fromDate,
+      toDate,
+      posId: selectedPosId || undefined,
+    },
+    {
+      refetchOnMountOrArgChange: true,
+      refetchOnFocus: true,
+      refetchOnReconnect: true,
+    }
+  );
 
-  // Query POS list for filter dropdown
-  const { data: posData } = useGetPointsOfSaleQuery({
-    size: 50,
-  });
+  // Tự động làm mới tức thì (0ms) khi có bất kỳ đơn hàng nào bán thành công
+  useOnOrderCompleted(refetch);
 
   const reportSummary: IPosRevenueSummary = useMemo(() => {
     if (apiReportData) {
@@ -117,7 +100,7 @@ export const PosRevenueReportPage: React.FC = () => {
   }
 
   return (
-    <div className="space-y-5 animate-fade-in">
+    <div className="flex flex-col gap-5 w-full animate-auth-fade-in">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 pb-4 border-b border-slate-200">
         <div>
@@ -132,98 +115,6 @@ export const PosRevenueReportPage: React.FC = () => {
           <p className="text-xs text-slate-500 mt-1">
             Tổng hợp và so sánh doanh thu thuần, tỷ trọng đóng góp giữa các chi nhánh trong cùng hộ
           </p>
-        </div>
-
-        {/* Filter Toolbar */}
-        <div className="flex flex-wrap items-center gap-2">
-          {/* POS Selector */}
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-white shadow-xs text-xs">
-            <Filter className="w-3.5 h-3.5 text-slate-400" />
-            <select
-              value={selectedPosId}
-              onChange={(e) => setSelectedPosId(e.target.value)}
-              className="bg-transparent font-semibold text-slate-700 outline-none cursor-pointer"
-            >
-              <option value="">Tất cả điểm bán ({posData?.totalElements || 0})</option>
-              {posData?.content?.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name} ({p.posCode})
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Period Filter Buttons */}
-          <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl shrink-0">
-            <button
-              type="button"
-              onClick={() => handlePeriodChange("TODAY")}
-              className={`px-2.5 py-1 text-xs font-bold rounded-lg transition-all ${
-                period === "TODAY"
-                  ? "bg-white text-kv-blue-primary shadow-xs"
-                  : "text-slate-600 hover:text-slate-900"
-              }`}
-            >
-              Hôm nay
-            </button>
-            <button
-              type="button"
-              onClick={() => handlePeriodChange("THIS_WEEK")}
-              className={`px-2.5 py-1 text-xs font-bold rounded-lg transition-all ${
-                period === "THIS_WEEK"
-                  ? "bg-white text-kv-blue-primary shadow-xs"
-                  : "text-slate-600 hover:text-slate-900"
-              }`}
-            >
-              Tuần này
-            </button>
-            <button
-              type="button"
-              onClick={() => handlePeriodChange("THIS_MONTH")}
-              className={`px-2.5 py-1 text-xs font-bold rounded-lg transition-all ${
-                period === "THIS_MONTH"
-                  ? "bg-white text-kv-blue-primary shadow-xs"
-                  : "text-slate-600 hover:text-slate-900"
-              }`}
-            >
-              Tháng này
-            </button>
-            <button
-              type="button"
-              onClick={() => handlePeriodChange("THIS_QUARTER")}
-              className={`px-2.5 py-1 text-xs font-bold rounded-lg transition-all ${
-                period === "THIS_QUARTER"
-                  ? "bg-white text-kv-blue-primary shadow-xs"
-                  : "text-slate-600 hover:text-slate-900"
-              }`}
-            >
-              Quý này
-            </button>
-          </div>
-
-          {/* Date Pickers */}
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-white shadow-xs text-xs">
-            <Calendar className="w-3.5 h-3.5 text-slate-400" />
-            <input
-              type="date"
-              value={fromDate}
-              onChange={(e) => {
-                setFromDate(e.target.value);
-                setPeriod("CUSTOM");
-              }}
-              className="bg-transparent font-medium text-slate-700 outline-none text-xs"
-            />
-            <span className="text-slate-400">-</span>
-            <input
-              type="date"
-              value={toDate}
-              onChange={(e) => {
-                setToDate(e.target.value);
-                setPeriod("CUSTOM");
-              }}
-              className="bg-transparent font-medium text-slate-700 outline-none text-xs"
-            />
-          </div>
         </div>
       </div>
 

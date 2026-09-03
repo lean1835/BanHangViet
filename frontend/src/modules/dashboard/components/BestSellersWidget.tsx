@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import type { IProductRevenueProjection } from "@/modules/report/types/IReport";
+import { useProgressAnimation } from "@/hooks/useProgressAnimation";
 
 interface BestSellersWidgetProps {
   topSellingProducts?: IProductRevenueProjection[];
@@ -7,6 +8,7 @@ interface BestSellersWidgetProps {
 
 export const BestSellersWidget = ({ topSellingProducts }: BestSellersWidgetProps) => {
   const [rankBy, setRankBy] = useState<"quantity" | "revenue">("quantity");
+  const progress = useProgressAnimation([topSellingProducts, rankBy], 1800, 150);
 
   const list = useMemo(() => {
     if (!topSellingProducts || topSellingProducts.length === 0) {
@@ -70,7 +72,10 @@ export const BestSellersWidget = ({ topSellingProducts }: BestSellersWidgetProps
         ) : (
           list.map((item, idx) => {
             const currentVal = rankBy === "quantity" ? item.qty : item.revenue;
-            const percent = Math.max(10, Math.round((currentVal / maxVal) * 100));
+            const fullPercent = Math.max(4, (currentVal / maxVal) * 100);
+            const animatedPercent = fullPercent * progress;
+            const animatedQty = Math.round(item.qty * progress);
+            const animatedRevenue = Math.round(item.revenue * progress);
 
             return (
               <div key={idx} className="flex flex-col gap-1.5">
@@ -78,16 +83,18 @@ export const BestSellersWidget = ({ topSellingProducts }: BestSellersWidgetProps
                   <span className="text-slate-700 font-bold truncate max-w-[180px]">
                     {idx + 1}. {item.name}
                   </span>
-                  <span className="text-slate-800 font-extrabold shrink-0">
+                  <span className="text-slate-800 font-extrabold shrink-0 tabular-nums">
                     {rankBy === "quantity"
-                      ? `${item.qty} sản phẩm`
-                      : item.revenue.toLocaleString("vi-VN") + " đ"}
+                      ? `${animatedQty.toLocaleString("vi-VN")} sản phẩm`
+                      : `${animatedRevenue.toLocaleString("vi-VN")} đ`}
                   </span>
                 </div>
                 <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
                   <div
-                    className={`h-full rounded-full transition-all duration-500 ${item.color}`}
-                    style={{ width: `${percent}%` }}
+                    className={`h-full rounded-full will-change-[width] ${item.color}`}
+                    style={{
+                      width: `${animatedPercent}%`,
+                    }}
                   />
                 </div>
               </div>

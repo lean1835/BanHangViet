@@ -227,7 +227,7 @@ export const PromotionReportPage: React.FC = () => {
                 </div>
                 <div>
                   <h3 className="text-sm font-black text-rose-900 uppercase tracking-wide">
-                    Truy cập bị từ chối (403 Forbidden - NCL-15-CN-004-TC-03)
+                    Truy cập bị từ chối (403 Forbidden)
                   </h3>
                   <p className="text-xs text-rose-700 font-medium mt-0.5">
                     Bạn đang đăng nhập với vai trò <strong>Nhân viên bán hàng (VT-02)</strong>.
@@ -274,7 +274,7 @@ export const PromotionReportPage: React.FC = () => {
             </div>
           ) : (
             <div className="space-y-5">
-              {/* Case 1: No Transactions (hasData === false) - NCL-15-CN-004-TC-02 */}
+              {/* Case 1: No Transactions (hasData === false) */}
               {!report.hasData ? (
                 <div className="p-8 rounded-2xl bg-white border border-sky-200/80 text-center flex flex-col items-center justify-center gap-3 shadow-sm">
                   <div className="w-14 h-14 rounded-2xl bg-sky-100 text-sky-600 flex items-center justify-center shadow-inner">
@@ -288,11 +288,11 @@ export const PromotionReportPage: React.FC = () => {
                       "Chương trình khuyến mại chưa phát sinh giao dịch bán hàng nào trong thời gian diễn ra. Khi có đơn hàng được thanh toán, hệ thống sẽ tự động đo lường doanh thu tăng thêm và hiệu quả tài chính ròng tại đây."}
                   </p>
                   <div className="mt-2 text-[11px] font-semibold text-slate-400 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200">
-                    💡 Lưu ý: Hệ thống không hiển thị số 0 nhằm tránh hiểu lầm chiến dịch đang chịu thua lỗ (NCL-15-CN-004-TC-02).
+                    💡 Lưu ý: Hệ thống không hiển thị số 0 nhằm tránh hiểu lầm chiến dịch đang chịu thua lỗ.
                   </div>
                 </div>
               ) : (
-                /* Case 2: Has Transactions (hasData === true) - NCL-15-CN-004-TC-01 */
+                /* Case 2: Has Transactions (hasData === true) */
                 <div className="space-y-5">
                   {/* 4 Main KPI Cards */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

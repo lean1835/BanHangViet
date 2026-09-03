@@ -1,16 +1,8 @@
 import React from "react";
-import { Calendar, SlidersHorizontal, RefreshCw } from "lucide-react";
+import { Calendar, SlidersHorizontal } from "lucide-react";
 import { useReportFilter } from "../context/ReportFilterContext";
 
-interface RevenueReportSidebarProps {
-  onRefresh?: () => void;
-  isFetching?: boolean;
-}
-
-export const RevenueReportSidebar: React.FC<RevenueReportSidebarProps> = ({
-  onRefresh,
-  isFetching,
-}) => {
+export const RevenueReportSidebar: React.FC = () => {
   const { revenueFilter, setRevenueFilter, setRevenuePreset } = useReportFilter();
 
   return (
@@ -21,18 +13,6 @@ export const RevenueReportSidebar: React.FC<RevenueReportSidebarProps> = ({
           <SlidersHorizontal className="w-3.5 h-3.5 text-kv-blue-primary" />
           <span>BỘ LỌC DOANH THU</span>
         </div>
-        {onRefresh && (
-          <button
-            type="button"
-            onClick={onRefresh}
-            disabled={isFetching}
-            title="Làm mới số liệu"
-            className="flex items-center gap-1 text-[10px] font-bold text-kv-blue-primary hover:text-kv-blue-dark transition-colors cursor-pointer"
-          >
-            <RefreshCw className={`w-3 h-3 ${isFetching ? "animate-spin" : ""}`} />
-            <span>Làm mới</span>
-          </button>
-        )}
       </div>
 
       {/* Quick Presets */}

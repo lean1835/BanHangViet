@@ -1,6 +1,7 @@
 import React from "react";
 import { formatCurrency } from "@/utils/formatCurrency";
 import { USER_ROLES } from "@/constants/roles";
+import { TablePaginationFooter } from "@/components/common/TablePaginationFooter";
 import {
   getReturnTicketStatusBadge,
   getRefundPaymentMethodLabel,
@@ -64,12 +65,17 @@ export const ReturnTicketTable: React.FC<IReturnTicketTableProps> = ({
   }
 
   return (
-    <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col flex-1 w-full justify-between">
+    <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col flex-1 w-full justify-between">
       <div>
         {/* Title */}
-        <h3 className="font-extrabold text-slate-800 text-sm border-b pb-4 mb-4">
-          Danh sách phiếu trả hàng ({totalElements} phiếu)
-        </h3>
+        <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-4">
+          <h3 className="font-extrabold text-slate-800 text-sm">
+            Danh sách phiếu trả hàng
+          </h3>
+          <span className="text-xs font-bold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-lg">
+            {totalElements} phiếu trả
+          </span>
+        </div>
 
         {/* Table Content */}
         <div className="overflow-x-auto">
@@ -198,50 +204,14 @@ export const ReturnTicketTable: React.FC<IReturnTicketTableProps> = ({
 
       {/* Pagination Footer */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-end border-t border-slate-200 pt-4 mt-4 text-xs font-semibold text-slate-700">
-          <div className="flex items-center gap-1">
-            <button
-              type="button"
-              disabled={currentPage === 0}
-              onClick={() => onPageChange(Math.max(0, currentPage - 1))}
-              className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              ← Trước
-            </button>
-            {Array.from({ length: Math.min(5, totalPages) }).map((_, i) => {
-              let pageIndex = i;
-              if (totalPages > 5) {
-                if (currentPage >= 3) {
-                  pageIndex = Math.min(totalPages - 5 + i, currentPage - 2 + i);
-                }
-              }
-              if (pageIndex >= totalPages) return null;
-
-              return (
-                <button
-                  key={pageIndex}
-                  type="button"
-                  onClick={() => onPageChange(pageIndex)}
-                  className={`h-8 w-8 rounded-lg text-xs font-bold transition-colors ${
-                    currentPage === pageIndex
-                      ? "bg-kv-blue-primary text-white shadow-sm"
-                      : "border border-slate-200 text-slate-700 hover:bg-slate-50"
-                  }`}
-                >
-                  {pageIndex + 1}
-                </button>
-              );
-            })}
-            <button
-              type="button"
-              disabled={currentPage >= totalPages - 1}
-              onClick={() => onPageChange(Math.min(totalPages - 1, currentPage + 1))}
-              className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              Sau →
-            </button>
-          </div>
-        </div>
+        <TablePaginationFooter
+          currentPage={currentPage}
+          pageSize={_pageSize}
+          totalElements={totalElements}
+          totalPages={totalPages}
+          onPageChange={onPageChange}
+          recordUnit="phiếu trả"
+        />
       )}
     </div>
   );

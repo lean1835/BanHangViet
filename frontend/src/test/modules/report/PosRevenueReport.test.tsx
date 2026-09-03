@@ -10,6 +10,8 @@ import { PosRevenueTable } from "@/modules/report/components/PosRevenueTable";
 import { PosRevenueKpis } from "@/modules/report/components/PosRevenueKpis";
 import { PosRevenueChart } from "@/modules/report/components/PosRevenueChart";
 import { PosRevenueReportPage } from "@/modules/report/pages/PosRevenueReportPage";
+import { PosRevenueReportSidebar } from "@/modules/report/components/PosRevenueReportSidebar";
+import { ReportFilterProvider } from "@/modules/report/context/ReportFilterContext";
 import type { IPosRevenueSummary } from "@/modules/report/types/IPosRevenue";
 
 afterEach(() => {
@@ -157,8 +159,6 @@ describe("PosRevenueReport Module (NCL-17-CN-004)", () => {
     expect(
       screen.getByText("Báo cáo Doanh thu theo Điểm bán")
     ).toBeInTheDocument();
-    expect(screen.getByText("Hôm nay")).toBeInTheDocument();
-    expect(screen.getByText("Tháng này")).toBeInTheDocument();
   });
 
   // Test 5: Role Guard blocks Salesperson VT-02 (NCL-17-CN-004-TC-03)
@@ -171,5 +171,21 @@ describe("PosRevenueReport Module (NCL-17-CN-004)", () => {
     expect(
       screen.getByText(/Thu ngân \(VT-02\)/)
     ).toBeInTheDocument();
+  });
+
+  // Test 6: PosRevenueReportSidebar renders presets and date inputs
+  it("renders PosRevenueReportSidebar with presets, custom dates, and POS filter", () => {
+    renderWithReduxAndDemo(
+      <ReportFilterProvider>
+        <PosRevenueReportSidebar />
+      </ReportFilterProvider>
+    );
+
+    expect(screen.getByText("Bộ lọc điểm bán")).toBeInTheDocument();
+    expect(screen.getByText("Hôm nay")).toBeInTheDocument();
+    expect(screen.getByText("Tuần này")).toBeInTheDocument();
+    expect(screen.getByText("Tháng này")).toBeInTheDocument();
+    expect(screen.getByText("Quý này")).toBeInTheDocument();
+    expect(screen.getByText("Xóa bộ lọc")).toBeInTheDocument();
   });
 });

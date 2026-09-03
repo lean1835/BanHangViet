@@ -449,13 +449,13 @@ export const CustomerFormModal: React.FC<CustomerFormModalProps> = ({
             </div>
           </div>
 
-          {/* Section 2: Chính sách Khách hàng thân thiết & Chiết khấu riêng (NCL-15-CN-003) */}
+          {/* Section 2: Chính sách Khách hàng thân thiết & Chiết khấu riêng */}
           <div className="mt-2 rounded-xl border border-amber-200 bg-amber-50/40 p-4 space-y-3">
             <div className="flex items-center justify-between pb-1 border-b border-amber-200/60">
               <div className="flex items-center gap-2">
                 <Sparkles size={16} className="text-amber-600" />
                 <span className="text-xs font-bold text-slate-800 uppercase tracking-wide">
-                  Chiết khấu riêng & Khách thân thiết (NCL-15-CN-003)
+                  Chiết khấu riêng & Khách thân thiết
                 </span>
               </div>
 
@@ -469,7 +469,7 @@ export const CustomerFormModal: React.FC<CustomerFormModalProps> = ({
 
             {!canManageDiscount && (
               <div className="text-[11px] text-amber-800 font-medium bg-amber-100/70 p-2.5 rounded-lg border border-amber-200 flex items-start gap-1.5">
-                <span>🔒 Mức chiết khấu riêng thuộc thẩm quyền phê duyệt của Chủ hộ kinh doanh. Nhân viên bán hàng chỉ được xem thông tin theo chính sách bảo mật (NCL-15-CN-003-TC-03).</span>
+                <span>🔒 Mức chiết khấu riêng thuộc thẩm quyền phê duyệt của Chủ hộ kinh doanh. Nhân viên bán hàng chỉ được xem thông tin theo chính sách bảo mật.</span>
               </div>
             )}
 

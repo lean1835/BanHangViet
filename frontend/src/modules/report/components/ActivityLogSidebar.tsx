@@ -1,16 +1,8 @@
 import React from "react";
-import { Calendar, SlidersHorizontal, RotateCcw, RefreshCw } from "lucide-react";
+import { Calendar, SlidersHorizontal, RotateCcw } from "lucide-react";
 import { useReportFilter } from "../context/ReportFilterContext";
 
-interface ActivityLogSidebarProps {
-  onRefresh?: () => void;
-  isFetching?: boolean;
-}
-
-export const ActivityLogSidebar: React.FC<ActivityLogSidebarProps> = ({
-  onRefresh,
-  isFetching,
-}) => {
+export const ActivityLogSidebar: React.FC = () => {
   const {
     activityLogFilter,
     setActivityLogFilter,
@@ -109,21 +101,6 @@ export const ActivityLogSidebar: React.FC<ActivityLogSidebarProps> = ({
           </div>
         </div>
       </div>
-
-      {/* Refresh Button */}
-      {onRefresh && (
-        <div className="pt-2 border-t border-slate-100 mt-1">
-          <button
-            type="button"
-            onClick={onRefresh}
-            disabled={isFetching}
-            className="w-full py-2 px-3 bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-700 font-bold rounded-xl border border-slate-200 shadow-2xs transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${isFetching ? "animate-spin text-kv-blue-primary" : ""}`} />
-            <span>{isFetching ? "Đang tải dữ liệu..." : "Làm mới nhật ký"}</span>
-          </button>
-        </div>
-      )}
     </div>
   );
 };

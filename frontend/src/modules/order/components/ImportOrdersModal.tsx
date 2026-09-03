@@ -39,6 +39,7 @@ import { baseApi } from "@/stores/baseApi";
 import { useAppDispatch } from "@/hooks/useRedux";
 import { API_TAG_TYPES } from "@/constants/api";
 import { ORDER_PAYMENT_METHOD } from "@/constants/order";
+import { notifyOrderCompleted } from "@/utils/orderEvents";
 
 interface ImportOrdersModalProps {
   isOpen: boolean;
@@ -345,7 +346,8 @@ export const ImportOrdersModal: React.FC<ImportOrdersModalProps> = ({
       );
       showError(errMsg);
     } finally {
-      dispatch(baseApi.util.invalidateTags([API_TAG_TYPES.ORDER]));
+      dispatch(baseApi.util.invalidateTags([API_TAG_TYPES.ORDER, API_TAG_TYPES.SALES_ANALYTICS, API_TAG_TYPES.REPORT]));
+      notifyOrderCompleted();
       setIsSubmitting(false);
     }
   };

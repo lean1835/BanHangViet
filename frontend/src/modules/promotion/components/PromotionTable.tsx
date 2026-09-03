@@ -1,6 +1,7 @@
 import React from "react";
-import { Edit, Trash2, Tag, ChevronLeft, ChevronRight, BarChart3 } from "lucide-react";
+import { Edit, Trash2, Tag, BarChart3 } from "lucide-react";
 import { formatCurrency } from "@/utils/formatCurrency";
+import { TablePaginationFooter } from "@/components/common/TablePaginationFooter";
 import {
   DISCOUNT_TYPE,
   PROMOTION_APPLY_SCOPE,
@@ -32,6 +33,7 @@ const formatDateTime = (dateStr: string | null | undefined): string => {
   if (!dateStr) return "-";
   try {
     const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr;
     return d.toLocaleString("vi-VN", {
       hour: "2-digit",
       minute: "2-digit",
@@ -50,7 +52,7 @@ export const PromotionTable: React.FC<PromotionTableProps> = ({
   canManage,
   canViewReport,
   page,
-  pageSize: _pageSize,
+  pageSize,
   totalPages,
   totalElements,
   onPageChange,
@@ -210,7 +212,7 @@ export const PromotionTable: React.FC<PromotionTableProps> = ({
                         <button
                           type="button"
                           onClick={() => onViewReport(promo)}
-                          title="Báo cáo hiệu quả khuyến mại (NCL-15-CN-004)"
+                          title="Báo cáo hiệu quả khuyến mại"
                           className="p-1.5 text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 rounded-lg transition-colors"
                           aria-label="Báo cáo hiệu quả"
                         >
@@ -250,46 +252,14 @@ export const PromotionTable: React.FC<PromotionTableProps> = ({
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-between border-t border-slate-200 bg-slate-50/50 px-4 py-3 text-xs mt-4">
-          <div className="text-slate-600 font-medium">
-            Hiển thị <span className="font-bold text-slate-800">{promotions.length}</span> /{" "}
-            <span className="font-bold text-slate-800">{totalElements}</span> chương trình
-          </div>
-          <div className="flex items-center gap-1">
-            <button
-              type="button"
-              disabled={page === 0}
-              onClick={() => onPageChange(page - 1)}
-              className="inline-flex items-center gap-1 px-2.5 py-1 rounded border border-slate-300 bg-white font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <ChevronLeft size={14} />
-              Trước
-            </button>
-            {[...Array(totalPages)].map((_, idx) => (
-              <button
-                key={idx}
-                type="button"
-                onClick={() => onPageChange(idx)}
-                className={`min-w-7 px-2.5 py-1 rounded font-bold border text-xs transition-all ${
-                  idx === page
-                    ? "bg-kv-blue-primary text-white border-kv-blue-primary shadow-sm"
-                    : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
-                }`}
-              >
-                {idx + 1}
-              </button>
-            ))}
-            <button
-              type="button"
-              disabled={page >= totalPages - 1}
-              onClick={() => onPageChange(page + 1)}
-              className="inline-flex items-center gap-1 px-2.5 py-1 rounded border border-slate-300 bg-white font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Sau
-              <ChevronRight size={14} />
-            </button>
-          </div>
-        </div>
+        <TablePaginationFooter
+          currentPage={page}
+          pageSize={pageSize}
+          totalElements={totalElements}
+          totalPages={totalPages}
+          onPageChange={onPageChange}
+          recordUnit="chương trình"
+        />
       )}
     </div>
   );

@@ -2,18 +2,52 @@ import React, { useState } from "react";
 import { formatCurrency, formatNumber } from "@/utils/formatCurrency";
 import { useGetReturnTicketStatisticsQuery } from "../services/returnTicketApi";
 
-export const ReturnTicketStatistics: React.FC = () => {
+export interface ReturnTicketStatisticsProps {
+  fromDate?: string;
+  toDate?: string;
+  topLimit?: number;
+  onFromDateChange?: (val: string) => void;
+  onToDateChange?: (val: string) => void;
+}
+
+export const ReturnTicketStatistics: React.FC<ReturnTicketStatisticsProps> = ({
+  fromDate: controlledFromDate,
+  toDate: controlledToDate,
+  topLimit: controlledTopLimit = 10,
+  onFromDateChange,
+  onToDateChange,
+}) => {
   const today = new Date();
   const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
   const formatDate = (d: Date) => d.toISOString().split("T")[0];
 
-  const [fromDate, setFromDate] = useState<string>(formatDate(firstDay));
-  const [toDate, setToDate] = useState<string>(formatDate(today));
+  const [localFromDate, setLocalFromDate] = useState<string>(formatDate(firstDay));
+  const [localToDate, setLocalToDate] = useState<string>(formatDate(today));
+
+  const fromDate = controlledFromDate ?? localFromDate;
+  const toDate = controlledToDate ?? localToDate;
+  const topLimit = controlledTopLimit;
+
+  const handleFromDateChange = (val: string) => {
+    if (onFromDateChange) {
+      onFromDateChange(val);
+    } else {
+      setLocalFromDate(val);
+    }
+  };
+
+  const handleToDateChange = (val: string) => {
+    if (onToDateChange) {
+      onToDateChange(val);
+    } else {
+      setLocalToDate(val);
+    }
+  };
 
   const { data: statsResponse, isLoading, isError } = useGetReturnTicketStatisticsQuery({
     fromDate: fromDate || undefined,
     toDate: toDate || undefined,
-    topLimit: 10,
+    topLimit,
   });
 
   const stats = statsResponse?.result;
@@ -37,7 +71,7 @@ export const ReturnTicketStatistics: React.FC = () => {
             <input
               type="date"
               value={fromDate}
-              onChange={(e) => setFromDate(e.target.value)}
+              onChange={(e) => handleFromDateChange(e.target.value)}
               className="bg-transparent font-semibold text-slate-700 focus:outline-none"
             />
           </div>
@@ -46,7 +80,7 @@ export const ReturnTicketStatistics: React.FC = () => {
             <input
               type="date"
               value={toDate}
-              onChange={(e) => setToDate(e.target.value)}
+              onChange={(e) => handleToDateChange(e.target.value)}
               className="bg-transparent font-semibold text-slate-700 focus:outline-none"
             />
           </div>

@@ -37,7 +37,7 @@ export const AuditLogPage: React.FC = () => {
   // Filter state from Left Sidebar Context
   const { filter } = useAuditLogFilter();
   const [page, setPage] = useState<number>(0);
-  const pageSize = 15;
+  const pageSize = 8;
 
   // Auto reset page to 0 when filter changes
   useEffect(() => {
@@ -82,9 +82,7 @@ export const AuditLogPage: React.FC = () => {
       const res = await triggerVerifyIntegrity().unwrap();
       if (res?.result) {
         setIntegrityResult(res.result);
-        if (res.result.valid) {
-          showSuccess("Nhật ký kiểm toán hoàn toàn toàn vẹn và hợp lệ!");
-        } else {
+        if (!res.result.valid) {
           showError("Phát hiện chuỗi kiểm tra nhật ký có dấu hiệu bị can thiệp!");
         }
       }
@@ -147,15 +145,10 @@ export const AuditLogPage: React.FC = () => {
   const totalElements = data?.result?.totalElements || 0;
 
   return (
-    <div className="flex flex-col gap-4 w-full flex-1 animate-fade-in">
+    <div className="flex flex-col gap-4 w-full flex-1 animate-auth-fade-in">
       {/* Top Header Section */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2 text-xs font-bold text-slate-400 mb-1">
-            <span>BÁO CÁO</span>
-            <span>/</span>
-            <span className="text-kv-blue-primary">NHẬT KÝ KIỂM TOÁN</span>
-          </div>
           <h1 className="text-xl sm:text-2xl font-bold text-slate-800 tracking-tight">
             {AUDIT_LOG_UI.TITLE}
           </h1>

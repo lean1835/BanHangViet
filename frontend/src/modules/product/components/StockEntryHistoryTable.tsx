@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { formatCurrency } from "@/utils/formatCurrency";
 import { formatDateShort } from "@/utils/dateFormatter";
 import { useGetSuppliersQuery } from "@/modules/supplier/services/supplierApi";
+import { TablePaginationFooter } from "@/components/common/TablePaginationFooter";
 import type { IGoodsReceipt } from "../types/IGoodsReceipt";
 
 interface StockEntryHistoryTableProps {
@@ -18,7 +19,7 @@ export const StockEntryHistoryTable = ({
   receipts,
   onViewDetails,
   page = 0,
-  pageSize = 6,
+  pageSize = 8,
   totalElements = 0,
   totalPages = 0,
   onPageChange,
@@ -35,8 +36,6 @@ export const StockEntryHistoryTable = ({
   }, [suppliers]);
 
   const displayTotal = totalElements || receipts.length;
-  const startItem = page * pageSize + 1;
-  const endItem = Math.min((page + 1) * pageSize, displayTotal);
 
   return (
     <div className="w-full bg-white p-5 rounded-2xl border border-slate-200 shadow-sm animate-auth-fade-in flex flex-col justify-between">
@@ -46,9 +45,6 @@ export const StockEntryHistoryTable = ({
             <h3 className="font-extrabold text-slate-800 text-sm">
               Lịch sử Phiếu nhập kho từ nhà cung cấp
             </h3>
-            <p className="text-[11px] text-slate-400 font-normal">
-              Bấm vào dòng để xem chi tiết danh sách hàng hóa và giá vốn của từng phiếu nhập
-            </p>
           </div>
           <span className="text-xs font-bold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-lg">
             {displayTotal} phiếu
@@ -142,34 +138,14 @@ export const StockEntryHistoryTable = ({
 
       {/* Pagination Controls attached seamlessly inside the card */}
       {totalPages > 1 && onPageChange && (
-        <div className="flex flex-wrap items-center justify-between gap-3 pt-4 mt-4 border-t border-slate-100 text-xs font-semibold text-slate-600">
-          <div>
-            Hiển thị bản ghi từ <span className="font-bold text-slate-800">{startItem}</span> đến{" "}
-            <span className="font-bold text-slate-800">{endItem}</span> trong tổng số{" "}
-            <span className="font-bold text-slate-800">{displayTotal}</span> bản ghi
-          </div>
-          <div className="flex items-center gap-1.5">
-            <button
-              type="button"
-              onClick={() => onPageChange(page - 1)}
-              disabled={page === 0}
-              className="px-3 h-8 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center font-bold text-slate-700"
-            >
-              Trang trước
-            </button>
-            <span className="px-3 h-8 flex items-center justify-center border border-slate-200 rounded-lg bg-slate-50 font-bold text-slate-700">
-              Trang {page + 1} / {totalPages}
-            </span>
-            <button
-              type="button"
-              onClick={() => onPageChange(page + 1)}
-              disabled={page + 1 >= totalPages}
-              className="px-3 h-8 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center font-bold text-slate-700"
-            >
-              Trang sau
-            </button>
-          </div>
-        </div>
+        <TablePaginationFooter
+          currentPage={page}
+          pageSize={pageSize}
+          totalElements={displayTotal}
+          totalPages={totalPages}
+          onPageChange={onPageChange}
+          recordUnit="phiếu"
+        />
       )}
     </div>
   );

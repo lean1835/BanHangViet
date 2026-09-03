@@ -5,7 +5,9 @@ import { APP_ROUTES } from "@/constants/routes";
 import { AuditLogSidebar } from "@/modules/audit_log/components/AuditLogSidebar";
 import { useAuditLogFilter } from "@/modules/audit_log/context/AuditLogFilterContext";
 import { AnomalyAlertSidebar } from "@/modules/anomaly_alert/components/AnomalyAlertSidebar";
+import { PeakHoursSidebar } from "@/modules/sales_analytics/components/PeakHoursSidebar";
 import { RevenueReportSidebar } from "./RevenueReportSidebar";
+import { PosRevenueReportSidebar } from "./PosRevenueReportSidebar";
 import { RevenueComparisonSidebar } from "./RevenueComparisonSidebar";
 import { ActivityLogSidebar } from "./ActivityLogSidebar";
 
@@ -23,6 +25,14 @@ export const ReportSidebar: React.FC = () => {
     location.pathname === APP_ROUTES.REPORT_REVENUE ||
     location.pathname === APP_ROUTES.REPORTS ||
     location.pathname === "/reports";
+
+  const isPosRevenueRoute =
+    location.pathname === APP_ROUTES.REPORT_POS_REVENUE ||
+    location.pathname.startsWith("/reports/pos-revenue");
+
+  const isPeakHoursRoute =
+    location.pathname === APP_ROUTES.REPORT_PEAK_HOURS ||
+    location.pathname.startsWith("/reports/peak-hours");
 
   const isComparisonRoute =
     location.pathname === APP_ROUTES.REPORT_COMPARISON ||
@@ -50,21 +60,16 @@ export const ReportSidebar: React.FC = () => {
       </div>
 
       {/* Primary Navigation Items */}
-      <div className="flex flex-col gap-2">
-        <span className="font-bold text-slate-400 uppercase tracking-wide text-[10px]">
-          {REPORT_UI.SIDEBAR.SECTION_LABEL}
-        </span>
-        <div className="flex flex-col gap-1">
-          {REPORT_NAVIGATION_ITEMS.map((item) => (
-            <NavLink
-              key={item.path}
-              to={item.path}
-              className={getNavLinkClassName}
-            >
-              {item.label}
-            </NavLink>
-          ))}
-        </div>
+      <div className="flex flex-col gap-1">
+        {REPORT_NAVIGATION_ITEMS.map((item) => (
+          <NavLink
+            key={item.path}
+            to={item.path}
+            className={getNavLinkClassName}
+          >
+            {item.label}
+          </NavLink>
+        ))}
       </div>
 
       {/* 1. Revenue Report Filter */}
@@ -74,7 +79,21 @@ export const ReportSidebar: React.FC = () => {
         </div>
       )}
 
-      {/* 2. Revenue Comparison Filter */}
+      {/* 2. POS Revenue Report Filter */}
+      {isPosRevenueRoute && (
+        <div className="pt-2 border-t border-slate-200">
+          <PosRevenueReportSidebar />
+        </div>
+      )}
+
+      {/* 3. Peak Hours Report Filter */}
+      {isPeakHoursRoute && (
+        <div className="pt-2 border-t border-slate-200">
+          <PeakHoursSidebar />
+        </div>
+      )}
+
+      {/* 3. Revenue Comparison Filter */}
       {isComparisonRoute && (
         <div className="pt-2 border-t border-slate-200">
           <RevenueComparisonSidebar />

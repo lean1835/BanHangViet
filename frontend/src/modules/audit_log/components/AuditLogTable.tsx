@@ -5,13 +5,12 @@ import {
   PlusCircle,
   CheckCircle2,
   FileText,
-  ChevronLeft,
-  ChevronRight,
   ShieldCheck,
   ChevronRight as ArrowRightIcon,
 } from "lucide-react";
 import type { IActivityLog } from "../types/IAuditLog";
 import { AUDIT_LOG_UI, AUDIT_ACTION_MAP, AUDIT_TABLE_MAP } from "@/constants/auditLog";
+import { TablePaginationFooter } from "@/components/common/TablePaginationFooter";
 
 interface AuditLogTableProps {
   logs: IActivityLog[];
@@ -124,162 +123,146 @@ export const AuditLogTable: React.FC<AuditLogTableProps> = ({
   };
 
   return (
-    <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col min-h-[440px]">
-      {/* Table content */}
-      <div className="overflow-x-auto flex-1 no-scrollbar">
-        <table className="responsive-data-table responsive-data-table--page w-full text-left border-collapse text-xs">
-          <thead>
-            <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase tracking-wider text-[11px] sticky top-0 z-10">
-              <th className="py-3.5 px-4 w-[7%] text-center">{AUDIT_LOG_UI.COLUMNS.SEQUENCE}</th>
-              <th className="py-3.5 px-4 w-[19%]">{AUDIT_LOG_UI.COLUMNS.TIMESTAMP}</th>
-              <th className="py-3.5 px-4 w-[25%]">{AUDIT_LOG_UI.COLUMNS.ACTOR}</th>
-              <th className="py-3.5 px-4 w-[23%]">{AUDIT_LOG_UI.COLUMNS.ACTION}</th>
-              <th className="py-3.5 px-4 w-[22%]">{AUDIT_LOG_UI.COLUMNS.TARGET}</th>
-              <th className="py-3.5 px-3 w-[4%] text-center"></th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100 font-medium">
-            {isLoading ? (
-              <tr>
-                <td colSpan={6} className="py-20 text-center text-slate-400">
-                  <div className="flex flex-col items-center justify-center gap-2">
-                    <div className="w-7 h-7 border-2 border-kv-blue-primary border-t-transparent rounded-full animate-spin" />
-                    <span className="font-semibold text-xs text-slate-500">
-                      Đang tải nhật ký kiểm toán...
-                    </span>
-                  </div>
-                </td>
-              </tr>
-            ) : logs.length === 0 ? (
-              <tr>
-                <td colSpan={6} className="py-20 text-center text-slate-400">
-                  <div className="flex flex-col items-center justify-center gap-2">
-                    <ShieldCheck className="w-12 h-12 text-slate-300" />
-                    <p className="font-bold text-sm text-slate-600">{AUDIT_LOG_UI.EMPTY_LOGS}</p>
-                    <span className="text-[11px] text-slate-400">
-                      Thử điều chỉnh lại bộ lọc hoặc thời gian tìm kiếm.
-                    </span>
-                  </div>
-                </td>
-              </tr>
-            ) : (
-              logs.map((item) => {
-                const badge = getActionBadge(item.action);
-                return (
-                  <tr
-                    key={item.id}
-                    onClick={() => onViewDetail(item)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") {
-                        e.preventDefault();
-                        onViewDetail(item);
-                      }
-                    }}
-                    role="button"
-                    tabIndex={0}
-                    aria-label={`Xem chi tiết nhật ký kiểm toán #${item.sequenceNumber}`}
-                    className="hover:bg-blue-50/60 active:bg-blue-100/50 transition-all duration-150 group cursor-pointer select-none"
-                  >
-                    {/* Sequence */}
-                    <td className="py-3.5 px-4 text-center whitespace-nowrap align-middle">
-                      <span className="font-mono font-bold text-xs bg-slate-100 group-hover:bg-blue-100 text-slate-800 group-hover:text-kv-blue-primary px-2.5 py-1 rounded-md border border-slate-200/80 transition-colors">
-                        #{item.sequenceNumber}
-                      </span>
-                    </td>
+    <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col min-h-[500px] w-full">
+      {/* Block Header */}
+      <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-4">
+        <div>
+          <h3 className="font-extrabold text-slate-800 text-sm">
+            Danh sách sự kiện kiểm toán
+          </h3>
+        </div>
+        <span className="text-xs font-bold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-lg">
+          {totalElements.toLocaleString("vi-VN")} bản ghi
+        </span>
+      </div>
 
-                    {/* Timestamp */}
-                    <td className="py-3.5 px-4 font-mono font-bold text-slate-600 whitespace-nowrap text-xs align-middle">
-                      {formatDateTime(item.createdAt)}
-                    </td>
+      {isLoading ? (
+        <div className="flex flex-col justify-center items-center flex-1 py-20 text-slate-400 gap-2">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-kv-blue-primary"></div>
+          <span className="text-xs font-bold">
+            Đang tải nhật ký kiểm toán...
+          </span>
+        </div>
+      ) : logs.length === 0 ? (
+        <div className="flex flex-col justify-center items-center flex-1 py-20 text-slate-400 gap-2 font-semibold">
+          <ShieldCheck className="w-12 h-12 text-slate-300" />
+          <p className="font-bold text-sm text-slate-600">{AUDIT_LOG_UI.EMPTY_LOGS}</p>
+          <span className="text-xs text-slate-400">
+            Thử điều chỉnh lại bộ lọc hoặc thời gian tìm kiếm.
+          </span>
+        </div>
+      ) : (
+        <div className="flex flex-col flex-1 justify-between">
+          <div className="overflow-x-auto">
+            <table className="responsive-data-table responsive-data-table--page w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold text-xs">
+                  <th className="p-3 w-[8%] text-center">{AUDIT_LOG_UI.COLUMNS.SEQUENCE}</th>
+                  <th className="p-3 w-[19%]">{AUDIT_LOG_UI.COLUMNS.TIMESTAMP}</th>
+                  <th className="p-3 w-[25%]">{AUDIT_LOG_UI.COLUMNS.ACTOR}</th>
+                  <th className="p-3 w-[23%]">{AUDIT_LOG_UI.COLUMNS.ACTION}</th>
+                  <th className="p-3 w-[21%]">{AUDIT_LOG_UI.COLUMNS.TARGET}</th>
+                  <th className="p-3 w-[4%] text-center"></th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 font-medium text-slate-700 text-xs">
+                {logs.map((item) => {
+                  const badge = getActionBadge(item.action);
+                  return (
+                    <tr
+                      key={item.id}
+                      onClick={() => onViewDetail(item)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          onViewDetail(item);
+                        }
+                      }}
+                      role="button"
+                      tabIndex={0}
+                      aria-label={`Xem chi tiết nhật ký kiểm toán #${item.sequenceNumber}`}
+                      className="hover:bg-slate-50/50 group transition-all cursor-pointer select-none"
+                    >
+                      {/* Sequence */}
+                      <td className="p-3 text-center whitespace-nowrap align-middle">
+                        <span className="font-mono font-bold text-xs bg-slate-100 group-hover:bg-blue-100 text-slate-800 group-hover:text-kv-blue-primary px-2.5 py-1 rounded-md border border-slate-200/80 transition-colors">
+                          #{item.sequenceNumber}
+                        </span>
+                      </td>
 
-                    {/* Actor User */}
-                    <td className="py-3.5 px-4 whitespace-nowrap align-middle">
-                      <div className="flex items-center gap-2.5">
-                        <div className="w-7 h-7 rounded-full bg-slate-100 group-hover:bg-blue-100 text-slate-600 group-hover:text-kv-blue-primary font-black text-xs flex items-center justify-center shrink-0 uppercase border border-slate-200 shadow-2xs transition-colors">
-                          {(item.fullName || item.username || "U").charAt(0).toUpperCase()}
+                      {/* Timestamp */}
+                      <td className="p-3 font-mono font-bold text-slate-600 whitespace-nowrap text-xs align-middle">
+                        {formatDateTime(item.createdAt)}
+                      </td>
+
+                      {/* Actor User */}
+                      <td className="p-3 whitespace-nowrap align-middle">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-7 h-7 rounded-full bg-slate-100 group-hover:bg-blue-100 text-slate-600 group-hover:text-kv-blue-primary font-black text-xs flex items-center justify-center shrink-0 uppercase border border-slate-200 shadow-2xs transition-colors">
+                            {(item.fullName || item.username || "U").charAt(0).toUpperCase()}
+                          </div>
+                          <div className="min-w-0">
+                            <span className="font-extrabold text-slate-800 block leading-tight text-xs truncate">
+                              {item.fullName || item.username || "Hệ thống"}
+                            </span>
+                            {item.username && (
+                              <span className="text-[10px] text-slate-400 font-mono font-semibold block truncate">
+                                @{item.username}
+                              </span>
+                            )}
+                          </div>
                         </div>
-                        <div className="min-w-0">
-                          <span className="font-extrabold text-slate-800 block leading-tight text-xs truncate">
-                            {item.fullName || item.username || "Hệ thống"}
-                          </span>
-                          {item.username && (
-                            <span className="text-[10px] text-slate-400 font-mono font-semibold block truncate">
-                              @{item.username}
+                      </td>
+
+                      {/* Action Badge */}
+                      <td className="p-3 whitespace-nowrap align-middle">
+                        <span
+                          className={`inline-flex items-center px-2.5 py-1 rounded-md text-[10px] font-extrabold border shadow-2xs ${badge.className}`}
+                          title={`Mã gốc: ${item.action}`}
+                        >
+                          {badge.icon}
+                          <span>{badge.label}</span>
+                          <span className="sr-only">{item.action}</span>
+                        </span>
+                      </td>
+
+                      {/* Target Table & Friendly ID */}
+                      <td className="p-3 whitespace-nowrap align-middle">
+                        <div className="text-xs text-slate-700 font-bold">
+                          <span>{getTargetTableLabel(item.targetTable)}</span>
+                          {item.targetId && (
+                            <span
+                              className="font-mono text-[10px] text-slate-400 block font-normal truncate"
+                              title={`Mã đối tượng: ${item.targetId}`}
+                            >
+                              #{item.targetId.length > 12 ? `${item.targetId.slice(-8)}` : item.targetId}
                             </span>
                           )}
                         </div>
-                      </div>
-                    </td>
+                      </td>
 
-                    {/* Action Badge */}
-                    <td className="py-3.5 px-4 whitespace-nowrap align-middle">
-                      <span
-                        className={`inline-flex items-center px-2.5 py-1 rounded-md text-[10px] font-extrabold border shadow-2xs ${badge.className}`}
-                        title={`Mã gốc: ${item.action}`}
-                      >
-                        {badge.icon}
-                        <span>{badge.label}</span>
-                        <span className="sr-only">{item.action}</span>
-                      </span>
-                    </td>
+                      {/* Arrow Indicator on Hover */}
+                      <td className="p-3 text-center whitespace-nowrap align-middle">
+                        <ArrowRightIcon className="w-4 h-4 text-slate-300 group-hover:text-kv-blue-primary group-hover:translate-x-1 transition-all mx-auto" />
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
 
-                    {/* Target Table & Friendly ID */}
-                    <td className="py-3.5 px-4 whitespace-nowrap align-middle">
-                      <div className="text-xs text-slate-700 font-bold">
-                        <span>{getTargetTableLabel(item.targetTable)}</span>
-                        {item.targetId && (
-                          <span
-                            className="font-mono text-[10px] text-slate-400 block font-normal truncate"
-                            title={`Mã đối tượng: ${item.targetId}`}
-                          >
-                            #{item.targetId.length > 12 ? `${item.targetId.slice(-8)}` : item.targetId}
-                          </span>
-                        )}
-                      </div>
-                    </td>
-
-                    {/* Arrow Indicator on Hover */}
-                    <td className="py-3.5 px-3 text-center whitespace-nowrap align-middle">
-                      <ArrowRightIcon className="w-4 h-4 text-slate-300 group-hover:text-kv-blue-primary group-hover:translate-x-1 transition-all mx-auto" />
-                    </td>
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Pagination Footer */}
-      <div className="p-4 border-t border-slate-200 bg-slate-50/50 flex items-center justify-between flex-wrap gap-4 text-xs font-bold text-slate-600 shrink-0">
-        <span>
-          Hiển thị <span className="text-slate-800">{logs.length}</span> / {totalElements.toLocaleString("vi-VN")} bản ghi (Trang {page + 1}/{totalPages})
-        </span>
-
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => onPageChange(page - 1)}
-            disabled={page === 0}
-            className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed text-xs transition-colors shadow-2xs cursor-pointer"
-          >
-            <ChevronLeft className="w-3.5 h-3.5" />
-            <span>Trước</span>
-          </button>
-
-          <span className="px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-xs font-mono font-bold text-slate-700 shadow-2xs">
-            {page + 1} / {totalPages}
-          </span>
-
-          <button
-            onClick={() => onPageChange(page + 1)}
-            disabled={page >= totalPages - 1}
-            className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed text-xs transition-colors shadow-2xs cursor-pointer"
-          >
-            <span>Sau</span>
-            <ChevronRight className="w-3.5 h-3.5" />
-          </button>
+          {/* Pagination Controls */}
+          <TablePaginationFooter
+            currentPage={page}
+            pageSize={8}
+            totalElements={totalElements}
+            totalPages={totalPages}
+            onPageChange={onPageChange}
+            recordUnit="bản ghi"
+          />
         </div>
-      </div>
+      )}
     </div>
   );
 };
