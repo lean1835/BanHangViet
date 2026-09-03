@@ -47,7 +47,7 @@ export const SyncReconciliationPanel = ({
   }, [selectedStatus, fromDate, toDate]);
 
   // Queries
-  const { data: summaryData, isLoading: isSummaryLoading } =
+  const { data: summaryData, isLoading: isSummaryLoading, refetch: refetchSummary } =
     useGetSyncReconciliationSummaryQuery(summaryFilterParams, {
       refetchOnMountOrArgChange: true,
       refetchOnFocus: true,
@@ -62,12 +62,17 @@ export const SyncReconciliationPanel = ({
     };
   }, [summaryFilterParams, page]);
 
-  const { data: sessionsData, isLoading: isSessionsLoading, isError: isSessionsError } =
+  const { data: sessionsData, isLoading: isSessionsLoading, isError: isSessionsError, refetch: refetchSessions } =
     useGetSyncSessionsQuery(filterParams, {
       refetchOnMountOrArgChange: true,
       refetchOnFocus: true,
       refetchOnReconnect: true,
     });
+
+  const handleRefresh = () => {
+    void refetchSummary();
+    void refetchSessions();
+  };
 
   const summary = summaryData?.result;
   const sessions = sessionsData?.result?.content || [];

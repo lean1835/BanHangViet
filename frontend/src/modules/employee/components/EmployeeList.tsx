@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { Search, Plus, Edit, Trash2, Users, ClipboardCheck, LayoutGrid, List } from "lucide-react";
 import { TablePaginationFooter } from "@/components/common/TablePaginationFooter";
 import {
@@ -30,6 +31,7 @@ interface EmployeeListProps {
   selectedRole: string;
   userRole?: string;
   isLoading?: boolean;
+  refetch?: () => void;
 }
 
 export const EmployeeList: React.FC<EmployeeListProps> = ({
@@ -41,6 +43,7 @@ export const EmployeeList: React.FC<EmployeeListProps> = ({
   selectedRole,
   userRole,
   isLoading,
+  refetch,
 }) => {
   const isOwner = userRole === USER_ROLES.OWNER;
   const { showSuccess, showError, showInfo } = useNotification();
