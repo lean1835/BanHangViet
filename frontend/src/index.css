@@ -143,6 +143,159 @@
   will-change: transform, opacity;
 }
 
+/* Fluid Wave Undulation Animations for Auth Page */
+@keyframes waveFlowLinear {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes waveFlowReverse {
+  0% {
+    transform: translateX(-50%);
+  }
+  100% {
+    transform: translateX(0);
+  }
+}
+
+@keyframes waveBobbingSlow {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+.animate-wave-back {
+  animation: waveFlowLinear 22s linear infinite;
+  will-change: transform;
+}
+
+.animate-wave-mid {
+  animation: waveFlowReverse 15s linear infinite;
+  will-change: transform;
+}
+
+.animate-wave-front {
+  animation: waveFlowLinear 10s linear infinite;
+  will-change: transform;
+}
+
+/* Card Reveal & Morph Animation between Login & Register */
+@keyframes authCardReveal {
+  0% {
+    opacity: 0;
+    transform: scale(0.92) translateY(20px);
+    filter: blur(8px);
+  }
+  60% {
+    opacity: 0.95;
+    transform: scale(1.008) translateY(-2px);
+    filter: blur(0.5px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+    filter: blur(0);
+  }
+}
+
+.animate-card-reveal {
+  animation: authCardReveal 0.42s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  will-change: transform, opacity, filter;
+}
+
+/* Split Screen Door Slide Opening to Both Sides */
+.door-slide-left {
+  transition: transform 0.85s cubic-bezier(0.7, 0, 0.2, 1), box-shadow 0.85s ease;
+  will-change: transform;
+}
+
+.door-slide-right {
+  transition: transform 0.85s cubic-bezier(0.7, 0, 0.2, 1), box-shadow 0.85s ease;
+  will-change: transform;
+}
+
+@keyframes dashboardRevealFade {
+  0% {
+    opacity: 0.6;
+    transform: scale(0.98);
+    filter: blur(4px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+    filter: blur(0px);
+  }
+}
+
+.animate-dashboard-reveal {
+  animation: dashboardRevealFade 0.85s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Dashboard Chart Animations */
+@keyframes chartLineDraw {
+  0% {
+    stroke-dashoffset: 1200;
+  }
+  100% {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes chartAreaFadeIn {
+  0% {
+    opacity: 0;
+    transform: scaleY(0.25);
+    transform-origin: bottom;
+  }
+  100% {
+    opacity: 1;
+    transform: scaleY(1);
+    transform-origin: bottom;
+  }
+}
+
+@keyframes chartDotPop {
+  0% {
+    transform: scale(0);
+    opacity: 0;
+  }
+  65% {
+    transform: scale(1.35);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes donutChartSpinIn {
+  0% {
+    transform: rotate(-90deg) scale(0.82);
+    opacity: 0;
+  }
+  60% {
+    transform: rotate(-90deg) scale(1.04);
+    opacity: 1;
+  }
+  100% {
+    transform: rotate(-90deg) scale(1);
+    opacity: 1;
+  }
+}
+
+.animate-donut-spin {
+  animation: donutChartSpinIn 1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  transform-origin: center;
+}
+
 /* Page Transition Animations */
 @keyframes pageFadeIn {
   0% {
