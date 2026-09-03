@@ -64,6 +64,12 @@ public class OrderControllerTest {
     @Autowired
     private OrderRepository orderRepository;
 
+    @Autowired
+    private PointOfSaleRepository pointOfSaleRepository;
+
+    @Autowired
+    private PosInventoryRepository posInventoryRepository;
+
 
 
     private BusinessHousehold testHousehold;
@@ -607,6 +613,90 @@ public class OrderControllerTest {
         Product updatedProduct = productRepository.findById(testProduct.getId()).orElseThrow();
         entityManager.refresh(updatedProduct);
         org.junit.jupiter.api.Assertions.assertEquals(0, new BigDecimal("45.000").compareTo(updatedProduct.getStockQuantity()));
+    }
+
+    @Test
+    @WithMockUser(username = "test_owner_order", roles = {"VT-01"})
+    public void completeOrder_withPointOfSale_deductsBothStocksCorrectly() throws Exception {
+        openShiftForUser(testOwner);
+
+        // Tạo điểm bán CS1
+        PointOfSale pos1 = pointOfSaleRepository.save(PointOfSale.builder()
+                .household(testHousehold)
+                .posCode("POS-CS1")
+                .name("Điểm bán CS1")
+                .address("Địa chỉ CS1")
+                .isDefault(false)
+                .isActive(true)
+                .build());
+
+        // Set Product stock = 994
+        testProduct.setStockQuantity(new BigDecimal("994.000"));
+        testProduct = productRepository.saveAndFlush(testProduct);
+
+        // Set CS1 inventory = 7
+        PosInventory posInv = posInventoryRepository.save(PosInventory.builder()
+                .household(testHousehold)
+                .pointOfSale(pos1)
+                .product(testProduct)
+                .stockQuantity(new BigDecimal("7.000"))
+                .minStockQuantity(new BigDecimal("2.000"))
+                .build());
+
+        // Cập nhật ca mở cho testOwner gắn với pos1
+        Shift openShift = shiftRepository.findByUserIdAndStatus(testOwner.getId(), ShiftStatus.OPEN).orElseThrow();
+        openShift.setPointOfSale(pos1);
+        shiftRepository.saveAndFlush(openShift);
+
+        entityManager.clear();
+
+        // 1. Tạo đơn hàng gắn với CS1
+        CreateOrderRequest orderReq = CreateOrderRequest.builder().build();
+        String responseStr = mockMvc.perform(post("/api/v1/orders")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(orderReq)))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        String orderId = objectMapper.readTree(responseStr).get("result").get("id").asText();
+
+        // 2. Thêm 1 sản phẩm vào đơn
+        CreateOrderItemRequest itemReq = CreateOrderItemRequest.builder()
+                .productId(testProduct.getId())
+                .quantity(new BigDecimal("1.000"))
+                .build();
+        mockMvc.perform(post("/api/v1/orders/" + orderId + "/items")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(itemReq)))
+                .andExpect(status().isOk());
+
+        // 3. Chọn CASH payment
+        OrderPaymentRequest payReq = OrderPaymentRequest.builder()
+                .paymentMethod("CASH")
+                .build();
+        mockMvc.perform(post("/api/v1/orders/" + orderId + "/payment")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(payReq)))
+                .andExpect(status().isOk());
+
+        // 4. Chốt đơn (Complete)
+        CompleteOrderRequest completeReq = CompleteOrderRequest.builder()
+                .amountGiven(new BigDecimal("50000.00"))
+                .build();
+        mockMvc.perform(post("/api/v1/orders/" + orderId + "/complete")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(completeReq)))
+                .andExpect(status().isOk());
+
+        entityManager.flush();
+        entityManager.clear();
+
+        // 5. Kiểm tra stock của product giảm đúng 1 đơn vị: từ 994.000 xuống 993.000 (KHÔNG PHẢI 992.000)
+        Product finalProduct = productRepository.findById(testProduct.getId()).orElseThrow();
+        org.junit.jupiter.api.Assertions.assertEquals(0, new BigDecimal("993.000").compareTo(finalProduct.getStockQuantity()));
+
+        // 6. Kiểm tra stock tại điểm bán CS1 giảm đúng 1 đơn vị: từ 7.000 xuống 6.000
+        PosInventory finalPosInv = posInventoryRepository.findById(posInv.getId()).orElseThrow();
+        org.junit.jupiter.api.Assertions.assertEquals(0, new BigDecimal("6.000").compareTo(finalPosInv.getStockQuantity()));
     }
 
     @Test

@@ -204,10 +204,10 @@ public class SalesAnalyticsServiceImpl implements SalesAnalyticsService {
                 BigDecimal cellRev = p != null && p.getTotalRevenue() != null ? p.getTotalRevenue() : BigDecimal.ZERO;
 
                 double intensity = 0.0;
-                if (maxCellRevenue.compareTo(BigDecimal.ZERO) > 0) {
-                    intensity = cellRev.divide(maxCellRevenue, 4, RoundingMode.HALF_UP).doubleValue();
-                } else if (maxCellOrders > 0) {
+                if (maxCellOrders > 0) {
                     intensity = (double) cellOrders / maxCellOrders;
+                } else if (maxCellRevenue.compareTo(BigDecimal.ZERO) > 0) {
+                    intensity = cellRev.divide(maxCellRevenue, 4, RoundingMode.HALF_UP).doubleValue();
                 }
                 // Cap intensity between 0.0 and 1.0
                 intensity = Math.min(1.0, Math.max(0.0, intensity));
