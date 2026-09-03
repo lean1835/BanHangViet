@@ -2,7 +2,7 @@ import React, { Suspense } from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { APP_ROUTES, ROUTE_SEGMENTS } from "@/constants/routes";
 import { APP_MESSAGES } from "@/constants/app";
-import { ROLE_GROUPS } from "@/constants/roles";
+import { ROLE_GROUPS, USER_ROLES } from "@/constants/roles";
 import { DashboardDemoProvider } from "@/providers/DashboardDemoProvider";
 import { PrivateRoute } from "./guards/PrivateRoute";
 import { PublicRoute } from "./guards/PublicRoute";
@@ -77,6 +77,9 @@ const SalesInvoiceListingPage = React.lazy(
   () => import("@/modules/tax_report/pages/SalesInvoiceListingPage")
 );
 const SettingsLayout = React.lazy(() => import("@/modules/settings/pages/SettingsLayout"));
+const UserProfilePage = React.lazy(
+  () => import("@/modules/settings/pages/UserProfilePage")
+);
 const BusinessInfoPage = React.lazy(
   () => import("@/modules/settings/pages/BusinessInfoPage")
 );
@@ -305,17 +308,53 @@ export const AppRouter = () => (
           <Route
             path={ROUTE_SEGMENTS.SETTINGS}
             element={
-              <RoleRoute allowedRoles={ROLE_GROUPS.PRODUCT_MANAGEMENT}>
+              <RoleRoute allowedRoles={ROLE_GROUPS.NORMAL_MANAGEMENT}>
                 <SettingsLayout />
               </RoleRoute>
             }
           >
-            <Route index element={<Navigate to={ROUTE_SEGMENTS.POINTS_OF_SALE} replace />} />
-            <Route path={ROUTE_SEGMENTS.POINTS_OF_SALE} element={<PointOfSalePage />} />
-            <Route path={ROUTE_SEGMENTS.BUSINESS_INFO} element={<BusinessInfoPage />} />
-            <Route path={ROUTE_SEGMENTS.INVOICE_TEMPLATE} element={<InvoiceTemplatePage />} />
-            <Route path={ROUTE_SEGMENTS.TAX_RATES} element={<TaxRateSettingsPage />} />
-            <Route path={ROUTE_SEGMENTS.BACKUP_EXPORT} element={<BackupExportPage />} />
+            <Route index element={<Navigate to={ROUTE_SEGMENTS.USER_PROFILE} replace />} />
+            <Route path={ROUTE_SEGMENTS.USER_PROFILE} element={<UserProfilePage />} />
+            <Route
+              path={ROUTE_SEGMENTS.POINTS_OF_SALE}
+              element={
+                <RoleRoute allowedRoles={[USER_ROLES.OWNER]}>
+                  <PointOfSalePage />
+                </RoleRoute>
+              }
+            />
+            <Route
+              path={ROUTE_SEGMENTS.BUSINESS_INFO}
+              element={
+                <RoleRoute allowedRoles={[USER_ROLES.OWNER, USER_ROLES.ACCOUNTANT]}>
+                  <BusinessInfoPage />
+                </RoleRoute>
+              }
+            />
+            <Route
+              path={ROUTE_SEGMENTS.INVOICE_TEMPLATE}
+              element={
+                <RoleRoute allowedRoles={[USER_ROLES.OWNER, USER_ROLES.ACCOUNTANT]}>
+                  <InvoiceTemplatePage />
+                </RoleRoute>
+              }
+            />
+            <Route
+              path={ROUTE_SEGMENTS.TAX_RATES}
+              element={
+                <RoleRoute allowedRoles={[USER_ROLES.OWNER, USER_ROLES.ACCOUNTANT]}>
+                  <TaxRateSettingsPage />
+                </RoleRoute>
+              }
+            />
+            <Route
+              path={ROUTE_SEGMENTS.BACKUP_EXPORT}
+              element={
+                <RoleRoute allowedRoles={[USER_ROLES.OWNER]}>
+                  <BackupExportPage />
+                </RoleRoute>
+              }
+            />
             <Route path={ROUTE_SEGMENTS.PRINTER} element={<Navigate to={ROUTE_SEGMENTS.BUSINESS_INFO} replace />} />
           </Route>
 

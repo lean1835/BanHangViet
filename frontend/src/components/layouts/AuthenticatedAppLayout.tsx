@@ -1,11 +1,9 @@
 import { useState } from "react";
-import { Outlet, useLocation, useNavigate } from "react-router-dom";
+import { Outlet, useLocation } from "react-router-dom";
 import { APP_ROUTES } from "@/constants/routes";
 import { USER_ROLES } from "@/constants/roles";
-import type { TDemoRole } from "@/constants/roles";
 import { useDashboardDemo } from "@/providers/DashboardDemoProvider";
 import { DashboardNavigation } from "./DashboardNavigation";
-import { DashboardUtilityBar } from "./DashboardUtilityBar";
 import { useOfflineSync } from "@/modules/sync/hooks/useOfflineSync";
 import { OfflineSyncBanner } from "@/modules/sync/components/OfflineSyncBanner";
 import { ConflictResolutionModal } from "@/modules/sync/components/ConflictResolutionModal";
@@ -14,14 +12,11 @@ import { useAuthExpiration } from "@/hooks/useAuthExpiration";
 export const AuthenticatedAppLayout = () => {
   useAuthExpiration();
 
-  const navigate = useNavigate();
   const location = useLocation();
   const {
     currentRole,
-    setCurrentRole,
     isOnline,
     simConflict,
-    setSimConflict,
     refetchOrders,
   } = useDashboardDemo();
 
@@ -47,48 +42,18 @@ export const AuthenticatedAppLayout = () => {
     onSyncSuccess: refetchOrders,
   });
 
-  const handleRoleChange = (newRole: TDemoRole) => {
-    setCurrentRole(newRole);
-
-    if (newRole === USER_ROLES.PLATFORM_ADMIN) {
-      navigate(APP_ROUTES.ADMIN_OVERVIEW);
-      return;
-    }
-
-    if (newRole === USER_ROLES.TAX_AUTHORITY) {
-      navigate(APP_ROUTES.TAX_AUTHORITY_INVOICES);
-      return;
-    }
-
-    if (
-      newRole === USER_ROLES.CASHIER ||
-      location.pathname.startsWith(APP_ROUTES.ADMIN) ||
-      location.pathname.startsWith(APP_ROUTES.TAX_AUTHORITY) ||
-      (newRole === USER_ROLES.ACCOUNTANT &&
-        location.pathname.startsWith(APP_ROUTES.SHIFTS))
-    ) {
-      navigate(APP_ROUTES.DASHBOARD);
-    }
-  };
-
   return (
     <div className="h-screen max-h-screen flex flex-col overflow-hidden bg-slate-100 text-slate-800 text-xs font-sans select-none">
-      {/* Top-most Utility Bar is kept across all pages */}
       <div className="shrink-0 z-30">
-        <DashboardUtilityBar
-          currentRole={currentRole}
-          isOnline={isOnline}
-          simConflict={simConflict}
-          pendingCount={pendingCount}
-          onRoleChange={handleRoleChange}
-          onConflictChange={setSimConflict}
-          onSync={triggerSync}
-        />
         {/* Blue Navigation Menu is hidden when on POS screen */}
         {!isPosScreen &&
           currentRole !== USER_ROLES.PLATFORM_ADMIN &&
           currentRole !== USER_ROLES.TAX_AUTHORITY && (
-            <DashboardNavigation currentRole={currentRole} />
+            <DashboardNavigation
+              currentRole={currentRole}
+              pendingCount={pendingCount}
+              onSync={triggerSync}
+            />
           )}
         <OfflineSyncBanner
           isOnline={isOnline}

@@ -43,6 +43,7 @@ export const ROUTE_SEGMENTS = {
   POS_TRANSFERS: "pos-transfers",
   POS_REVENUE: "pos-revenue",
   PEAK_HOURS: "peak-hours",
+  USER_PROFILE: "user-profile",
   WILDCARD: "*",
 } as const;
 
@@ -133,6 +134,10 @@ export const APP_ROUTES = {
     ROUTE_SEGMENTS.PEAK_HOURS,
   ),
   SETTINGS: createRoute(ROUTE_SEGMENTS.SETTINGS),
+  SETTINGS_USER_PROFILE: createRoute(
+    ROUTE_SEGMENTS.SETTINGS,
+    ROUTE_SEGMENTS.USER_PROFILE,
+  ),
   SETTINGS_POINTS_OF_SALE: createRoute(
     ROUTE_SEGMENTS.SETTINGS,
     ROUTE_SEGMENTS.POINTS_OF_SALE,
