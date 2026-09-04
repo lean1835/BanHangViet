@@ -2088,8 +2088,12 @@ export const OrderHistoryTable: React.FC<OrderHistoryTableProps> = ({
                       >
                         {translateStatus(order.status)}
                       </span>
-                      {(order.isOffline || order.syncStatus) && (
-                        <SyncStatusBadge status={order.syncStatus} isOffline={order.isOffline} />
+                      {(order.isOffline || (order.syncStatus && order.syncStatus !== "SYNCED")) && (
+                        <SyncStatusBadge
+                          status={order.syncStatus}
+                          isOffline={order.isOffline}
+                          hideSynced
+                        />
                       )}
                     </td>
                   </tr>

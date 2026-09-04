@@ -5,12 +5,14 @@ interface SyncStatusBadgeProps {
   status?: TSyncStatus | string;
   isOffline?: boolean;
   className?: string;
+  hideSynced?: boolean;
 }
 
 export const SyncStatusBadge: React.FC<SyncStatusBadgeProps> = ({
   status = "SYNCED",
   isOffline = false,
   className = "",
+  hideSynced = false,
 }) => {
   if (status === "PENDING" || (isOffline && (!status || status === "PENDING"))) {
     return (
@@ -46,6 +48,10 @@ export const SyncStatusBadge: React.FC<SyncStatusBadgeProps> = ({
         <span>Thất bại</span>
       </span>
     );
+  }
+
+  if (hideSynced) {
+    return null;
   }
 
   return (

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
-import { X, Tag, Search, Check } from "lucide-react";
+import { X, Search, Tag } from "lucide-react";
 import { formatCurrency } from "@/utils/formatCurrency";
 import { useAccessibleDialog } from "@/hooks/useAccessibleDialog";
 import {
@@ -298,10 +298,10 @@ export const PromotionFormModal: React.FC<PromotionFormModalProps> = ({
         className="relative w-full max-w-2xl rounded-2xl bg-white shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh] animate-modal-bounce"
       >
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-6 py-4">
+        <div className="flex items-center justify-between border-b border-slate-200 bg-white px-6 py-4">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-kv-blue-primary text-white shadow-md">
-              <Tag size={20} />
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-kv-blue-primary text-white shadow-sm">
+              <Tag size={18} />
             </div>
             <div>
               <h2
@@ -312,7 +312,7 @@ export const PromotionFormModal: React.FC<PromotionFormModalProps> = ({
                   ? "Cập nhật chương trình khuyến mại"
                   : "Tạo chương trình khuyến mại theo thời gian"}
               </h2>
-              <p className="text-xs text-slate-500 font-medium">
+              <p className="text-xs text-slate-500 font-medium mt-0.5">
                 Thiết lập mức giảm giá, đối tượng áp dụng và khoảng thời gian tự động hiệu lực
               </p>
             </div>
@@ -320,7 +320,8 @@ export const PromotionFormModal: React.FC<PromotionFormModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg p-2 text-slate-400 hover:bg-slate-200 hover:text-slate-600 transition-colors"
+            className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors"
+            aria-label="Đóng"
           >
             <X size={18} />
           </button>
@@ -332,10 +333,10 @@ export const PromotionFormModal: React.FC<PromotionFormModalProps> = ({
           onSubmit={handleSubmit}
           className="flex flex-col flex-1 overflow-hidden"
         >
-          <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+          <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
             {/* Tên chương trình */}
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                 Tên chương trình khuyến mại <span className="text-rose-500">*</span>
               </label>
               <input
@@ -347,20 +348,20 @@ export const PromotionFormModal: React.FC<PromotionFormModalProps> = ({
                 }}
                 placeholder="Ví dụ: Giảm giá mùa tựu trường, Khuyến mại nhóm gia vị..."
                 maxLength={255}
-                className={`w-full text-xs font-semibold rounded-lg border px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-kv-blue-primary/20 ${
+                className={`w-full h-10 px-3 text-xs sm:text-sm font-medium rounded-lg border bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none transition-colors ${
                   errors.name
-                    ? "border-rose-500 focus:border-rose-500"
-                    : "border-slate-300 focus:border-kv-blue-primary"
+                    ? "border-rose-400 focus:border-rose-500 focus:ring-2 focus:ring-rose-100"
+                    : "border-slate-300 hover:border-slate-400 focus:border-kv-blue-primary focus:ring-2 focus:ring-blue-100"
                 }`}
               />
               {errors.name && (
-                <p className="text-[11px] font-semibold text-rose-500 mt-1">{errors.name}</p>
+                <p className="text-xs text-rose-500 mt-1">{errors.name}</p>
               )}
             </div>
 
-            {/* Mô tả */}
+            {/* Mô tả chi tiết */}
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                 Mô tả chi tiết
               </label>
               <textarea
@@ -369,43 +370,48 @@ export const PromotionFormModal: React.FC<PromotionFormModalProps> = ({
                 placeholder="Ghi chú thêm về điều kiện áp dụng hoặc mục tiêu chương trình..."
                 maxLength={500}
                 rows={2}
-                className="w-full text-xs font-semibold rounded-lg border border-slate-300 px-3 py-2 text-slate-800 focus:border-kv-blue-primary focus:outline-none focus:ring-2 focus:ring-kv-blue-primary/20 resize-none"
+                className="w-full px-3 py-2 text-xs sm:text-sm font-medium rounded-lg border border-slate-300 hover:border-slate-400 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-kv-blue-primary focus:ring-2 focus:ring-blue-100 transition-colors resize-none"
               />
             </div>
 
-            {/* Mức giảm & Loại giảm */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 rounded-xl bg-slate-50 p-3.5 border border-slate-200">
+            {/* Hàng 1: Hình thức giảm giá & Mức giảm */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                   Hình thức giảm giá <span className="text-rose-500">*</span>
                 </label>
-                <div className="grid grid-cols-2 gap-2">
-                  {Object.entries(DISCOUNT_TYPE_LABELS).map(([type, label]) => (
-                    <button
-                      key={type}
-                      type="button"
-                      onClick={() =>
-                        setDiscountType(type as TDiscountType)
-                      }
-                      className={`flex items-center justify-center px-3 py-2 rounded-lg text-xs font-bold border transition-all ${
-                        discountType === type
-                          ? "bg-kv-blue-primary text-white border-kv-blue-primary shadow-sm"
-                          : "bg-white text-slate-700 border-slate-300 hover:bg-slate-100"
-                      }`}
-                    >
-                      {label}
-                    </button>
-                  ))}
+                <div className="grid grid-cols-2 p-1 bg-slate-100 rounded-lg border border-slate-200 h-10">
+                  <button
+                    type="button"
+                    onClick={() => setDiscountType(DISCOUNT_TYPE.PERCENTAGE)}
+                    className={`text-xs rounded-md transition-all flex items-center justify-center ${
+                      discountType === DISCOUNT_TYPE.PERCENTAGE
+                        ? "bg-white text-kv-blue-primary font-bold shadow-xs"
+                        : "text-slate-600 hover:text-slate-900 font-medium"
+                    }`}
+                  >
+                    {DISCOUNT_TYPE_LABELS[DISCOUNT_TYPE.PERCENTAGE]}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDiscountType(DISCOUNT_TYPE.FIXED_AMOUNT)}
+                    className={`text-xs rounded-md transition-all flex items-center justify-center ${
+                      discountType === DISCOUNT_TYPE.FIXED_AMOUNT
+                        ? "bg-white text-kv-blue-primary font-bold shadow-xs"
+                        : "text-slate-600 hover:text-slate-900 font-medium"
+                    }`}
+                  >
+                    {DISCOUNT_TYPE_LABELS[DISCOUNT_TYPE.FIXED_AMOUNT]}
+                  </button>
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Mức giảm{" "}
-                  {discountType === DISCOUNT_TYPE.PERCENTAGE ? "(%)" : "(VNĐ)"}{" "}
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                  Mức giảm {discountType === DISCOUNT_TYPE.PERCENTAGE ? "(%)" : "(VNĐ)"}{" "}
                   <span className="text-rose-500">*</span>
                 </label>
-                <div className="relative">
+                <div className="relative flex items-center h-10">
                   <input
                     type="number"
                     min="0.01"
@@ -426,28 +432,26 @@ export const PromotionFormModal: React.FC<PromotionFormModalProps> = ({
                     placeholder={
                       discountType === DISCOUNT_TYPE.PERCENTAGE ? "10" : "50000"
                     }
-                    className={`w-full text-xs font-semibold rounded-lg border px-3 py-2 pr-10 text-slate-800 focus:outline-none focus:ring-2 focus:ring-kv-blue-primary/20 ${
+                    className={`w-full h-full rounded-lg border bg-white pl-3 pr-12 text-xs sm:text-sm font-semibold text-slate-900 placeholder:text-slate-400 focus:outline-none transition-colors ${
                       errors.discountValue
-                        ? "border-rose-500 focus:border-rose-500"
-                        : "border-slate-300 focus:border-kv-blue-primary"
+                        ? "border-rose-400 focus:border-rose-500 focus:ring-2 focus:ring-rose-100"
+                        : "border-slate-300 hover:border-slate-400 focus:border-kv-blue-primary focus:ring-2 focus:ring-blue-100"
                     }`}
                   />
-                  <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-xs font-bold text-slate-400">
+                  <div className="absolute right-0 top-0 bottom-0 px-3 flex items-center justify-center bg-slate-100 border-l border-slate-300 rounded-r-lg text-xs font-bold text-slate-600 select-none">
                     {discountType === DISCOUNT_TYPE.PERCENTAGE ? "%" : "₫"}
                   </div>
                 </div>
                 {errors.discountValue && (
-                  <p className="text-[11px] font-semibold text-rose-500 mt-1">
-                    {errors.discountValue}
-                  </p>
+                  <p className="text-xs text-rose-500 mt-1">{errors.discountValue}</p>
                 )}
               </div>
             </div>
 
-            {/* Thời gian bắt đầu - kết thúc */}
+            {/* Hàng 2: Thời gian bắt đầu & Thời gian kết thúc */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                   Thời gian bắt đầu <span className="text-rose-500">*</span>
                 </label>
                 <input
@@ -458,21 +462,19 @@ export const PromotionFormModal: React.FC<PromotionFormModalProps> = ({
                     if (errors.startDate)
                       setErrors((prev) => ({ ...prev, startDate: "" }));
                   }}
-                  className={`w-full text-xs font-semibold rounded-lg border px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-kv-blue-primary/20 ${
+                  className={`w-full h-10 px-3 text-xs sm:text-sm font-medium rounded-lg border bg-white text-slate-900 focus:outline-none transition-colors ${
                     errors.startDate
-                      ? "border-rose-500 focus:border-rose-500"
-                      : "border-slate-300 focus:border-kv-blue-primary"
+                      ? "border-rose-400 focus:border-rose-500 focus:ring-2 focus:ring-rose-100"
+                      : "border-slate-300 hover:border-slate-400 focus:border-kv-blue-primary focus:ring-2 focus:ring-blue-100"
                   }`}
                 />
                 {errors.startDate && (
-                  <p className="text-[11px] font-semibold text-rose-500 mt-1">
-                    {errors.startDate}
-                  </p>
+                  <p className="text-xs text-rose-500 mt-1">{errors.startDate}</p>
                 )}
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                   Thời gian kết thúc <span className="text-rose-500">*</span>
                 </label>
                 <input
@@ -483,98 +485,124 @@ export const PromotionFormModal: React.FC<PromotionFormModalProps> = ({
                     if (errors.endDate)
                       setErrors((prev) => ({ ...prev, endDate: "" }));
                   }}
-                  className={`w-full text-xs font-semibold rounded-lg border px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-kv-blue-primary/20 ${
+                  className={`w-full h-10 px-3 text-xs sm:text-sm font-medium rounded-lg border bg-white text-slate-900 focus:outline-none transition-colors ${
                     errors.endDate
-                      ? "border-rose-500 focus:border-rose-500"
-                      : "border-slate-300 focus:border-kv-blue-primary"
+                      ? "border-rose-400 focus:border-rose-500 focus:ring-2 focus:ring-rose-100"
+                      : "border-slate-300 hover:border-slate-400 focus:border-kv-blue-primary focus:ring-2 focus:ring-blue-100"
                   }`}
                 />
                 {errors.endDate && (
-                  <p className="text-[11px] font-semibold text-rose-500 mt-1">
-                    {errors.endDate}
-                  </p>
+                  <p className="text-xs text-rose-500 mt-1">{errors.endDate}</p>
                 )}
               </div>
             </div>
 
-            {/* Phạm vi áp dụng */}
+            {/* Hàng 3: Phạm vi áp dụng */}
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                 Phạm vi áp dụng <span className="text-rose-500">*</span>
               </label>
-              <div className="grid grid-cols-3 gap-2 mb-3">
-                {Object.entries(PROMOTION_APPLY_SCOPE_LABELS).map(
-                  ([scope, label]) => (
-                    <button
-                      key={scope}
-                      type="button"
-                      onClick={() => {
-                        setApplyScope(scope as TPromotionApplyScope);
-                        if (errors.targets)
-                          setErrors((prev) => ({ ...prev, targets: "" }));
-                      }}
-                      className={`px-3 py-2 rounded-lg text-xs font-bold border transition-all text-center ${
-                        applyScope === scope
-                          ? "bg-kv-blue-primary text-white border-kv-blue-primary shadow-sm"
-                          : "bg-white text-slate-700 border-slate-300 hover:bg-slate-100"
-                      }`}
-                    >
-                      {label}
-                    </button>
-                  )
-                )}
+              <div className="grid grid-cols-3 p-1 bg-slate-100 rounded-lg border border-slate-200 h-10 mb-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setApplyScope(PROMOTION_APPLY_SCOPE.ALL);
+                    if (errors.targets)
+                      setErrors((prev) => ({ ...prev, targets: "" }));
+                  }}
+                  className={`text-xs rounded-md transition-all flex items-center justify-center ${
+                    applyScope === PROMOTION_APPLY_SCOPE.ALL
+                      ? "bg-white text-kv-blue-primary font-bold shadow-xs"
+                      : "text-slate-600 hover:text-slate-900 font-medium"
+                  }`}
+                >
+                  {PROMOTION_APPLY_SCOPE_LABELS[PROMOTION_APPLY_SCOPE.ALL]}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setApplyScope(PROMOTION_APPLY_SCOPE.PRODUCT);
+                    if (errors.targets)
+                      setErrors((prev) => ({ ...prev, targets: "" }));
+                  }}
+                  className={`text-xs rounded-md transition-all flex items-center justify-center ${
+                    applyScope === PROMOTION_APPLY_SCOPE.PRODUCT
+                      ? "bg-white text-kv-blue-primary font-bold shadow-xs"
+                      : "text-slate-600 hover:text-slate-900 font-medium"
+                  }`}
+                >
+                  {PROMOTION_APPLY_SCOPE_LABELS[PROMOTION_APPLY_SCOPE.PRODUCT]}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setApplyScope(PROMOTION_APPLY_SCOPE.PRODUCT_GROUP);
+                    if (errors.targets)
+                      setErrors((prev) => ({ ...prev, targets: "" }));
+                  }}
+                  className={`text-xs rounded-md transition-all flex items-center justify-center ${
+                    applyScope === PROMOTION_APPLY_SCOPE.PRODUCT_GROUP
+                      ? "bg-white text-kv-blue-primary font-bold shadow-xs"
+                      : "text-slate-600 hover:text-slate-900 font-medium"
+                  }`}
+                >
+                  {
+                    PROMOTION_APPLY_SCOPE_LABELS[
+                      PROMOTION_APPLY_SCOPE.PRODUCT_GROUP
+                    ]
+                  }
+                </button>
               </div>
 
               {/* Scope === PRODUCT Picker */}
               {applyScope === PROMOTION_APPLY_SCOPE.PRODUCT && (
-                <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 space-y-2">
-                  <div className="flex items-center justify-between gap-2">
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 space-y-2.5">
+                  <div className="flex items-center justify-between gap-2.5">
                     <div className="relative flex-1">
-                      <span className="absolute inset-y-0 left-0 flex items-center pl-2.5 pointer-events-none text-slate-400">
-                        <Search size={13} />
+                      <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-400">
+                        <Search size={14} />
                       </span>
                       <input
                         type="text"
                         placeholder="Tìm sản phẩm theo tên, mã SKU..."
                         value={productSearch}
                         onChange={(e) => setProductSearch(e.target.value)}
-                        className="w-full text-xs font-semibold rounded-lg border border-slate-300 bg-white pl-8 pr-2.5 py-1.5 focus:border-kv-blue-primary focus:outline-none"
+                        className="w-full h-9 text-xs font-medium rounded-lg border border-slate-300 hover:border-slate-400 bg-white pl-9 pr-3 text-slate-900 placeholder:text-slate-400 focus:border-kv-blue-primary focus:ring-2 focus:ring-blue-100 outline-none transition-colors"
                       />
                     </div>
                     <div className="flex items-center gap-1.5">
                       <button
                         type="button"
                         onClick={handleSelectAllProducts}
-                        className="text-[11px] font-bold text-kv-blue-primary hover:underline px-1"
+                        className="text-xs font-bold text-kv-blue-primary bg-blue-50 hover:bg-blue-100 px-2.5 py-1.5 rounded-lg transition-colors"
                       >
                         Chọn tất cả
                       </button>
-                      <span className="text-slate-300">|</span>
                       <button
                         type="button"
                         onClick={handleClearAllProducts}
-                        className="text-[11px] font-semibold text-slate-500 hover:underline px-1"
+                        className="text-xs font-semibold text-slate-500 hover:bg-slate-200 px-2.5 py-1.5 rounded-lg transition-colors"
                       >
                         Bỏ chọn
                       </button>
                     </div>
                   </div>
 
-                  <div className="text-[11px] font-bold text-slate-600">
-                    Đã chọn:{" "}
-                    <span className="font-extrabold text-kv-blue-primary">
+                  <div className="text-xs font-semibold text-slate-600 flex items-center gap-1.5">
+                    <span>Đã chọn:</span>
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-kv-blue-primary">
                       {selectedProductIds.length}
-                    </span>{" "}
-                    sản phẩm
+                    </span>
+                    <span>sản phẩm</span>
                   </div>
 
-                  <div className="max-h-48 overflow-y-auto divide-y divide-slate-100 rounded-lg border border-slate-200 bg-white">
+                  <div className="max-h-52 overflow-y-auto divide-y divide-slate-100 rounded-lg border border-slate-200 bg-white">
                     {isProductsLoading ? (
-                      <div className="p-4 text-center text-xs text-slate-500 font-semibold">
+                      <div className="p-4 text-center text-xs text-slate-500 font-medium">
                         Đang tải danh sách sản phẩm...
                       </div>
                     ) : filteredProducts.length === 0 ? (
-                      <div className="p-4 text-center text-xs text-slate-500 font-semibold">
+                      <div className="p-4 text-center text-xs text-slate-500 font-medium">
                         Không tìm thấy sản phẩm nào
                       </div>
                     ) : (
@@ -584,7 +612,7 @@ export const PromotionFormModal: React.FC<PromotionFormModalProps> = ({
                           <label
                             key={p.id}
                             className={`flex items-center justify-between p-2.5 hover:bg-slate-50 cursor-pointer text-xs transition-colors ${
-                              isChecked ? "bg-kv-blue-primary/5" : ""
+                              isChecked ? "bg-blue-50/50" : ""
                             }`}
                           >
                             <div className="flex items-center gap-2.5">
@@ -592,15 +620,20 @@ export const PromotionFormModal: React.FC<PromotionFormModalProps> = ({
                                 type="checkbox"
                                 checked={isChecked}
                                 onChange={() => toggleProduct(p.id)}
-                                className="rounded border-slate-300 text-kv-blue-primary focus:ring-kv-blue-primary w-4 h-4"
+                                className="rounded border-slate-300 text-kv-blue-primary focus:ring-kv-blue-primary w-4 h-4 cursor-pointer"
                               />
                               <div>
-                                <span className="font-bold text-slate-800">
+                                <span className="font-semibold text-slate-800">
                                   {p.name}
                                 </span>
+                                {p.sku && (
+                                  <span className="ml-2 text-[11px] text-slate-400">
+                                    SKU: {p.sku}
+                                  </span>
+                                )}
                               </div>
                             </div>
-                            <span className="font-bold text-slate-700">
+                            <span className="font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded text-[11px]">
                               {formatCurrency(p.price)}
                             </span>
                           </label>
@@ -613,54 +646,53 @@ export const PromotionFormModal: React.FC<PromotionFormModalProps> = ({
 
               {/* Scope === PRODUCT_GROUP Picker */}
               {applyScope === PROMOTION_APPLY_SCOPE.PRODUCT_GROUP && (
-                <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 space-y-2">
-                  <div className="flex items-center justify-between gap-2">
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 space-y-2.5">
+                  <div className="flex items-center justify-between gap-2.5">
                     <div className="relative flex-1">
-                      <span className="absolute inset-y-0 left-0 flex items-center pl-2.5 pointer-events-none text-slate-400">
-                        <Search size={13} />
+                      <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-400">
+                        <Search size={14} />
                       </span>
                       <input
                         type="text"
                         placeholder="Tìm nhóm hàng..."
                         value={groupSearch}
                         onChange={(e) => setGroupSearch(e.target.value)}
-                        className="w-full text-xs font-semibold rounded-lg border border-slate-300 bg-white pl-8 pr-2.5 py-1.5 focus:border-kv-blue-primary focus:outline-none"
+                        className="w-full h-9 text-xs font-medium rounded-lg border border-slate-300 hover:border-slate-400 bg-white pl-9 pr-3 text-slate-900 placeholder:text-slate-400 focus:border-kv-blue-primary focus:ring-2 focus:ring-blue-100 outline-none transition-colors"
                       />
                     </div>
                     <div className="flex items-center gap-1.5">
                       <button
                         type="button"
                         onClick={handleSelectAllGroups}
-                        className="text-[11px] font-bold text-kv-blue-primary hover:underline px-1"
+                        className="text-xs font-bold text-kv-blue-primary bg-blue-50 hover:bg-blue-100 px-2.5 py-1.5 rounded-lg transition-colors"
                       >
                         Chọn tất cả
                       </button>
-                      <span className="text-slate-300">|</span>
                       <button
                         type="button"
                         onClick={handleClearAllGroups}
-                        className="text-[11px] font-semibold text-slate-500 hover:underline px-1"
+                        className="text-xs font-semibold text-slate-500 hover:bg-slate-200 px-2.5 py-1.5 rounded-lg transition-colors"
                       >
                         Bỏ chọn
                       </button>
                     </div>
                   </div>
 
-                  <div className="text-[11px] font-bold text-slate-600">
-                    Đã chọn:{" "}
-                    <span className="font-extrabold text-kv-blue-primary">
+                  <div className="text-xs font-semibold text-slate-600 flex items-center gap-1.5">
+                    <span>Đã chọn:</span>
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-kv-blue-primary">
                       {selectedGroupIds.length}
-                    </span>{" "}
-                    nhóm hàng
+                    </span>
+                    <span>nhóm hàng</span>
                   </div>
 
-                  <div className="max-h-48 overflow-y-auto divide-y divide-slate-100 rounded-lg border border-slate-200 bg-white">
+                  <div className="max-h-52 overflow-y-auto divide-y divide-slate-100 rounded-lg border border-slate-200 bg-white">
                     {isGroupsLoading ? (
-                      <div className="p-4 text-center text-xs text-slate-500 font-semibold">
+                      <div className="p-4 text-center text-xs text-slate-500 font-medium">
                         Đang tải danh sách nhóm hàng...
                       </div>
                     ) : filteredGroups.length === 0 ? (
-                      <div className="p-4 text-center text-xs text-slate-500 font-semibold">
+                      <div className="p-4 text-center text-xs text-slate-500 font-medium">
                         Chưa có nhóm hàng nào
                       </div>
                     ) : (
@@ -670,16 +702,16 @@ export const PromotionFormModal: React.FC<PromotionFormModalProps> = ({
                           <label
                             key={g.id}
                             className={`flex items-center gap-2.5 p-2.5 hover:bg-slate-50 cursor-pointer text-xs transition-colors ${
-                              isChecked ? "bg-kv-blue-primary/5" : ""
+                              isChecked ? "bg-blue-50/50" : ""
                             }`}
                           >
                             <input
                               type="checkbox"
                               checked={isChecked}
                               onChange={() => toggleGroup(g.id)}
-                              className="rounded border-slate-300 text-kv-blue-primary focus:ring-kv-blue-primary w-4 h-4"
+                              className="rounded border-slate-300 text-kv-blue-primary focus:ring-kv-blue-primary w-4 h-4 cursor-pointer"
                             />
-                            <span className="font-bold text-slate-800">
+                            <span className="font-semibold text-slate-800">
                               {g.name}
                             </span>
                           </label>
@@ -691,17 +723,15 @@ export const PromotionFormModal: React.FC<PromotionFormModalProps> = ({
               )}
 
               {errors.targets && (
-                <p className="text-[11px] font-semibold text-rose-500 mt-1">
-                  {errors.targets}
-                </p>
+                <p className="text-xs text-rose-500 mt-1">{errors.targets}</p>
               )}
             </div>
 
             {/* Trạng thái nếu là Edit */}
             {isEdit && (
               <div className="border-t border-slate-100 pt-3">
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Trạng thái kích hoạt
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                  Trạng thái chương trình
                 </label>
                 <div className="flex items-center gap-4">
                   <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 cursor-pointer">
@@ -732,26 +762,25 @@ export const PromotionFormModal: React.FC<PromotionFormModalProps> = ({
           </div>
 
           {/* Footer Actions */}
-          <div className="flex items-center justify-end gap-2.5 border-t border-slate-200 bg-slate-50 px-6 py-3.5">
+          <div className="flex items-center justify-end gap-3 border-t border-slate-200 bg-slate-50 px-6 py-3.5">
             <button
               type="button"
               onClick={onClose}
               disabled={isLoading}
-              className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-200 rounded-lg transition-colors disabled:opacity-50"
+              className="h-9 px-4 text-xs font-semibold text-slate-600 hover:text-slate-800 hover:bg-slate-200/70 rounded-lg transition-colors disabled:opacity-50"
             >
               Hủy bỏ
             </button>
             <button
               type="submit"
               disabled={isLoading}
-              className="inline-flex items-center gap-1.5 px-5 py-2 text-xs font-bold text-white bg-kv-blue-primary hover:bg-kv-blue-dark active:scale-95 rounded-lg shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              className="h-9 px-5 text-xs font-bold text-white bg-kv-blue-primary hover:bg-kv-blue-dark active:scale-98 rounded-lg shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isLoading ? (
                 <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
               ) : (
-                <Check size={14} />
+                isEdit ? "Cập nhật chương trình" : "Lưu chương trình"
               )}
-              {isEdit ? "Cập nhật chương trình" : "Lưu chương trình"}
             </button>
           </div>
         </form>

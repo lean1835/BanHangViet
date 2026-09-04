@@ -4,13 +4,12 @@ import {
   AlertTriangle,
   Edit2,
   CheckCircle,
-  ChevronLeft,
-  ChevronRight,
   Search,
 } from "lucide-react";
 import type { IPosInventory } from "../types/IPointOfSale";
 import { formatCurrency } from "@/utils/formatCurrency";
 import { USER_ROLES } from "@/constants/roles";
+import { TablePaginationFooter } from "@/components/common/TablePaginationFooter";
 
 interface PosInventoryTableProps {
   data: IPosInventory[];
@@ -33,6 +32,7 @@ export const PosInventoryTable: React.FC<PosInventoryTableProps> = ({
   totalElements,
   totalPages,
   currentPage,
+  pageSize = 8,
   onPageChange,
   searchTerm,
   onSearchChange,
@@ -195,37 +195,15 @@ export const PosInventoryTable: React.FC<PosInventoryTableProps> = ({
         </div>
 
         {/* Pagination */}
-        <div className="flex flex-col sm:flex-row items-center justify-between px-4 py-3 border-t border-slate-200/80 bg-slate-50/50 text-xs text-slate-500 gap-2">
-          <span>
-            Hiển thị <strong>{data.length}</strong> trên tổng số{" "}
-            <strong>{totalElements}</strong> mặt hàng
-          </span>
-
-          {totalPages > 1 && (
-            <div className="flex items-center gap-1">
-              <button
-                type="button"
-                onClick={() => onPageChange(currentPage - 1)}
-                disabled={currentPage === 0}
-                className="p-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-
-              <span className="px-3 py-1 font-bold text-slate-700">
-                Trang {currentPage + 1} / {totalPages}
-              </span>
-
-              <button
-                type="button"
-                onClick={() => onPageChange(currentPage + 1)}
-                disabled={currentPage >= totalPages - 1}
-                className="p-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
-          )}
+        <div className="px-4 py-3 border-t border-slate-200/80 bg-slate-50/50">
+          <TablePaginationFooter
+            currentPage={currentPage}
+            pageSize={pageSize}
+            totalElements={totalElements}
+            totalPages={totalPages}
+            onPageChange={onPageChange}
+            recordUnit="mặt hàng"
+          />
         </div>
       </div>
     </div>
