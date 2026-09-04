@@ -278,16 +278,16 @@ export const PromotionListPage: React.FC = () => {
         {/* Top action row: Search bar and Create button */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           {/* Search bar input */}
-          <div className="relative flex-1 max-w-md">
-            <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-400">
-              <Search size={14} />
+          <div className="relative flex-1 max-w-md group">
+            <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400 group-focus-within:text-kv-blue-primary transition-colors">
+              <Search size={15} />
             </span>
             <input
               type="text"
               placeholder="Tìm kiếm chương trình khuyến mại..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="h-11 w-full rounded-lg border border-slate-300 bg-white pl-9 pr-4 text-xs font-semibold text-slate-700 shadow-sm transition-all focus:border-kv-blue-primary focus:outline-none lg:h-9"
+              className="h-10 w-full rounded-xl border border-slate-200 hover:border-slate-300 bg-white pl-10 pr-4 text-xs font-medium text-slate-800 placeholder:text-slate-400 shadow-2xs transition-all outline-none focus:border-kv-blue-primary focus:ring-4 focus:ring-kv-blue-primary/10"
             />
           </div>
 
@@ -297,10 +297,10 @@ export const PromotionListPage: React.FC = () => {
               <button
                 type="button"
                 onClick={handleOpenCreateModal}
-                className="flex h-11 items-center gap-1.5 rounded-lg bg-kv-blue-primary px-4 text-xs font-bold text-white shadow-sm transition-all hover:bg-kv-blue-dark lg:h-9 active:scale-95"
+                className="flex h-10 items-center gap-1.5 rounded-xl bg-kv-blue-primary hover:bg-kv-blue-dark px-4 text-xs font-bold text-white shadow-sm shadow-blue-500/20 transition-all hover:shadow-md hover:shadow-blue-500/25 active:scale-98"
               >
-                <Plus size={14} />
-                Tạo khuyến mại
+                <Plus size={15} className="stroke-[2.5]" />
+                <span>Tạo khuyến mại</span>
               </button>
             </div>
           )}

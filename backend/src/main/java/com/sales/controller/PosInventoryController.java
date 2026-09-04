@@ -34,7 +34,7 @@ public class PosInventoryController {
             @RequestParam(required = false) String groupId,
             @RequestParam(required = false) Boolean lowStockOnly,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "8") int size,
             @RequestParam(defaultValue = "createdAt") String sortBy,
             @RequestParam(defaultValue = "desc") String sortDir) {
 

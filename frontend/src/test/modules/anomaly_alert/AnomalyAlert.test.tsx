@@ -158,8 +158,8 @@ describe("NCL-14-CN-004: Anomaly Detection & Alert Module", () => {
       );
 
       // Verify Severity badges
-      expect(screen.getByText("CRITICAL")).toBeInTheDocument();
-      expect(screen.getByText("WARNING")).toBeInTheDocument();
+      expect(screen.getByText("Nghiêm trọng")).toBeInTheDocument();
+      expect(screen.getByText("Cảnh báo")).toBeInTheDocument();
 
       // Verify Alert Types
       expect(screen.getByText("Hủy hóa đơn hàng loạt")).toBeInTheDocument();
@@ -192,6 +192,30 @@ describe("NCL-14-CN-004: Anomaly Detection & Alert Module", () => {
       const alertRowText = screen.getByText("Hủy hóa đơn hàng loạt");
       fireEvent.click(alertRowText.closest("tr")!);
       expect(handleViewDetail).toHaveBeenCalledWith(mockAlerts[0]);
+    });
+
+    it("Renders pagination footer accurately and enables page change when multiple pages exist", () => {
+      const handlePageChange = vi.fn();
+
+      renderWithProviders(
+        <AnomalyAlertTable
+          alerts={mockAlerts}
+          isLoading={false}
+          page={0}
+          totalPages={5}
+          totalElements={34}
+          onPageChange={handlePageChange}
+          onViewDetail={vi.fn()}
+        />
+      );
+
+      expect(screen.getByText(/trong tổng số/)).toBeInTheDocument();
+      expect(screen.getByText("Trang 1 / 5")).toBeInTheDocument();
+
+      const nextBtn = screen.getByText("Trang sau");
+      expect(nextBtn).toBeEnabled();
+      fireEvent.click(nextBtn);
+      expect(handlePageChange).toHaveBeenCalledWith(1);
     });
   });
 
