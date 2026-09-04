@@ -54,7 +54,7 @@ echo "Re-deploy Backend container..."
 BE_IMAGE_NAME=$BE_IMAGE_NAME FE_IMAGE_NAME=$FE_IMAGE_NAME docker compose up -d banhangviet-be
 
 echo "Kiểm tra Health Check Backend..."
-MAX_RETRIES=24 # 2 phút
+MAX_RETRIES=48 # ~4 phút (48 * 5s = 240s)
 RETRY_COUNT=0
 HEALTHY=0
 
@@ -67,8 +67,8 @@ while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
     break
   fi
   
-  if [ "$STATUS" = "unhealthy" ]; then
-    echo -e "${RED}!!! Backend Unhealthy - In log chi tiết 100 dòng của Backend: !!!${NC}"
+  if [ "$STATUS" = "unhealthy" ] && [ $RETRY_COUNT -ge 30 ]; then
+    echo -e "${RED}!!! Backend Unhealthy sau $RETRY_COUNT lần thử - In log chi tiết 100 dòng của Backend: !!!${NC}"
     docker logs --tail 100 banhangviet-be || true
     exit 1
   fi
