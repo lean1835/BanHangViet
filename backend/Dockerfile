@@ -35,4 +35,4 @@ COPY --from=builder /app/target/app.jar app.jar
 # Port Spring Boot mặc định (8080)
 EXPOSE 8080
 
-ENTRYPOINT ["java", "-jar", "app.jar"]
+ENTRYPOINT ["java", "-XX:+UseG1GC", "-XX:MaxRAMPercentage=75.0", "-jar", "app.jar"]
