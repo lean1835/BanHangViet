@@ -20,7 +20,8 @@ export default defineConfig({
         manualChunks: {
           "vendor-react": ["react", "react-dom", "react-router-dom"],
           "vendor-state": ["@reduxjs/toolkit", "react-redux"],
-          "vendor-ui": ["antd", "lucide-react"],
+          "vendor-antd": ["antd"],
+          "vendor-icons": ["lucide-react"],
           "vendor-forms": ["react-hook-form", "@hookform/resolvers", "zod"],
         },
       },
