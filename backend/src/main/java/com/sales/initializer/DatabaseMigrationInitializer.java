@@ -26,5 +26,14 @@ public class DatabaseMigrationInitializer implements CommandLineRunner {
         } catch (Exception e) {
             log.warn("DatabaseMigrationInitializer: Bỏ qua kiểm tra trigger database (H2 in-memory hoặc không hỗ trợ trigger): {}", e.getMessage());
         }
+
+        try {
+            // Đảm bảo from_point_of_sale_id và to_point_of_sale_id cho phép NULL (hỗ trợ chuyển hàng từ/đến Kho gốc)
+            jdbcTemplate.execute("ALTER TABLE pos_transfers MODIFY COLUMN from_point_of_sale_id VARCHAR(36) NULL;");
+            jdbcTemplate.execute("ALTER TABLE pos_transfers MODIFY COLUMN to_point_of_sale_id VARCHAR(36) NULL;");
+            log.info("DatabaseMigrationInitializer: Đã đảm bảo pos_transfers cho phép NULL cho from/to_point_of_sale_id.");
+        } catch (Exception e) {
+            log.warn("DatabaseMigrationInitializer: Bỏ qua cập nhật cột pos_transfers (H2 in-memory hoặc không hỗ trợ MODIFY COLUMN): {}", e.getMessage());
+        }
     }
 }

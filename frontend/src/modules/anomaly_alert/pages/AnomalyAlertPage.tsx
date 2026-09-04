@@ -69,15 +69,15 @@ export const AnomalyAlertPage: React.FC = () => {
   const [isRulesModalOpen, setIsRulesModalOpen] = useState<boolean>(false);
   const [isScanModalOpen, setIsScanModalOpen] = useState<boolean>(false);
 
-  // Queries - Phân trang Server-side 100% với tham số filter (page, size: 9, keyword, severity, status, alertType, dates)
+  // Queries - Lấy danh sách từ Server để hợp nhất chính xác với Local alerts và phân trang đồng nhất
   const {
     data: alertsData,
     isLoading: isAlertsLoading,
     refetch: refetchAlerts,
   } = useGetAnomalyAlertsQuery(
     {
-      page: filter.page || 0,
-      size: filter.size || ANOMALY_UI.TABLE.PAGE_SIZE || 8,
+      page: 0,
+      size: 500,
       keyword: filter.keyword || undefined,
       severity: filter.severity || undefined,
       status: filter.status || undefined,
@@ -106,11 +106,10 @@ export const AnomalyAlertPage: React.FC = () => {
   // Mutations
   const [reviewAlert, { isLoading: isReviewing }] = useReviewAlertMutation();
 
-  // Hợp nhất dữ liệu Server-side pagination và local alerts
+  // Hợp nhất dữ liệu Server và local alerts, sau đó phân trang đồng nhất
   const { totalElements, totalPages, pagedAlerts, mergedSummary } =
     useMemo(() => {
-      const serverPageContent = alertsData?.result?.content || [];
-      const serverTotal = alertsData?.result?.totalElements ?? serverPageContent.length;
+      const serverAlerts = alertsData?.result?.content || [];
       const pageSize = filter.size || ANOMALY_UI.TABLE.PAGE_SIZE || 8;
       const pageIndex = filter.page || 0;
 
@@ -143,20 +142,39 @@ export const AnomalyAlertPage: React.FC = () => {
         return true;
       });
 
-      // Tránh trùng lặp ID giữa server page và local alerts
-      const serverIds = new Set(serverPageContent.map((item) => item.id));
-      const uniqueLocal = filteredLocal.filter((local) => !serverIds.has(local.id));
+      // Tránh trùng lặp ID hoặc title giữa server page và local alerts
+      const serverIds = new Set(serverAlerts.map((item) => item.id));
+      const serverTitles = new Set(
+        serverAlerts.map((item) => (item.title || "").trim().toLowerCase())
+      );
+      const uniqueLocal = filteredLocal.filter((local) => {
+        if (serverIds.has(local.id)) return false;
+        const normTitle = (local.title || "").trim().toLowerCase();
+        if (normTitle && serverTitles.has(normTitle)) return false;
+        return true;
+      });
 
-      // Danh sách hiển thị cho trang hiện tại
-      let currentDisplayList: IAnomalyAlert[] = [];
-      if (pageIndex === 0) {
-        currentDisplayList = [...uniqueLocal, ...serverPageContent].slice(0, pageSize);
-      } else {
-        currentDisplayList = serverPageContent;
-      }
+      // Hợp nhất toàn bộ danh sách và sắp xếp theo thời gian mới nhất
+      const allMerged = [...uniqueLocal, ...serverAlerts];
+      allMerged.sort((a, b) => {
+        const timeA = new Date(a.detectedAt || a.createdAt || 0).getTime();
+        const timeB = new Date(b.detectedAt || b.createdAt || 0).getTime();
+        return timeB - timeA;
+      });
 
-      const totalCount = serverTotal + uniqueLocal.length;
+      const totalCount = allMerged.length;
       const totalPagesCount = Math.max(1, Math.ceil(totalCount / pageSize));
+      const safePageIndex = Math.min(pageIndex, Math.max(0, totalPagesCount - 1));
+
+      // Cắt trang dữ liệu chính xác cho trang hiện tại
+      const startIndex = safePageIndex * pageSize;
+      const currentDisplayList = allMerged.slice(
+        startIndex,
+        startIndex + pageSize
+      );
+
+      const totalAlertsCount = totalCount;
+      const totalPagesResult = totalPagesCount;
 
       // Tính toán KPIs summary tổng thể
       const baseSummary = summaryData?.result || {
@@ -198,6 +216,13 @@ export const AnomalyAlertPage: React.FC = () => {
         mergedSummary: summary,
       };
     }, [alertsData?.result, localAlerts, filter, summaryData?.result]);
+
+  // Tự động điều chỉnh trang nếu trang hiện tại vượt quá totalPages
+  useEffect(() => {
+    if (filter.page !== undefined && totalPages > 0 && filter.page >= totalPages) {
+      setFilter((prev) => ({ ...prev, page: Math.max(0, totalPages - 1) }));
+    }
+  }, [filter.page, totalPages, setFilter]);
 
   const handleViewAlert = (alert: IAnomalyAlert) => {
     setSelectedAlert(alert);

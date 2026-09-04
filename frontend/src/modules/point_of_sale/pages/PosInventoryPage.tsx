@@ -27,7 +27,7 @@ export const PosInventoryPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [lowStockOnly, setLowStockOnly] = useState(false);
   const [currentPage, setCurrentPage] = useState(0);
-  const pageSize = 10;
+  const pageSize = 8;
 
   // Active Modals
   const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);

@@ -97,7 +97,7 @@ export const AnomalyAlertTable: React.FC<AnomalyAlertTableProps> = ({
                       <span
                         className={`text-[10px] font-black px-2.5 py-1 rounded-full border whitespace-nowrap inline-flex items-center justify-center leading-none ${severityStyle.bg}`}
                       >
-                        {a.severity}
+                        {severityStyle.label}
                       </span>
                     </td>
                     <td className="py-3 px-3 whitespace-nowrap">

@@ -80,7 +80,7 @@ export const PromotionFilterSidebar: React.FC<PromotionFilterSidebarProps> = ({
           onChange={(e) =>
             onFilterChange({ ...filter, stateFilter: e.target.value })
           }
-          className="h-9 w-full px-3 rounded-lg border border-slate-300 bg-white text-xs font-semibold text-slate-700 focus:outline-none focus:border-kv-blue-primary shadow-sm transition-all cursor-pointer"
+          className="h-9.5 w-full px-3 rounded-xl border border-slate-200 hover:border-slate-300 bg-white text-xs font-semibold text-slate-700 focus:outline-none focus:border-kv-blue-primary focus:ring-4 focus:ring-kv-blue-primary/10 shadow-2xs transition-all cursor-pointer"
         >
           <option value="ALL">Tất cả trạng thái</option>
           {Object.entries(PROMOTION_STATE_LABELS).map(([key, label]) => (
@@ -105,7 +105,7 @@ export const PromotionFilterSidebar: React.FC<PromotionFilterSidebarProps> = ({
           onChange={(e) =>
             onFilterChange({ ...filter, scopeFilter: e.target.value })
           }
-          className="h-9 w-full px-3 rounded-lg border border-slate-300 bg-white text-xs font-semibold text-slate-700 focus:outline-none focus:border-kv-blue-primary shadow-sm transition-all cursor-pointer"
+          className="h-9.5 w-full px-3 rounded-xl border border-slate-200 hover:border-slate-300 bg-white text-xs font-semibold text-slate-700 focus:outline-none focus:border-kv-blue-primary focus:ring-4 focus:ring-kv-blue-primary/10 shadow-2xs transition-all cursor-pointer"
         >
           <option value="ALL">Tất cả phạm vi</option>
           {Object.entries(PROMOTION_APPLY_SCOPE_LABELS).map(([key, label]) => (
@@ -123,25 +123,25 @@ export const PromotionFilterSidebar: React.FC<PromotionFilterSidebarProps> = ({
         </span>
 
         {/* Quick Date Presets */}
-        <div className="grid grid-cols-3 gap-1">
+        <div className="grid grid-cols-3 gap-1.5">
           <button
             type="button"
             onClick={() => setDatePreset("today")}
-            className="px-2 py-1 text-[11px] font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded text-center transition-colors"
+            className="px-2.5 py-1.5 text-[11px] font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200/80 rounded-lg text-center transition-colors"
           >
             Hôm nay
           </button>
           <button
             type="button"
             onClick={() => setDatePreset("7days")}
-            className="px-2 py-1 text-[11px] font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded text-center transition-colors"
+            className="px-2.5 py-1.5 text-[11px] font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200/80 rounded-lg text-center transition-colors"
           >
             7 ngày qua
           </button>
           <button
             type="button"
             onClick={() => setDatePreset("thisMonth")}
-            className="px-2 py-1 text-[11px] font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded text-center transition-colors"
+            className="px-2.5 py-1.5 text-[11px] font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200/80 rounded-lg text-center transition-colors"
           >
             Tháng này
           </button>
@@ -160,7 +160,7 @@ export const PromotionFilterSidebar: React.FC<PromotionFilterSidebarProps> = ({
                   : "",
               })
             }
-            className="h-9 w-full px-3 rounded-lg border border-slate-300 bg-white text-xs font-semibold text-slate-700 focus:outline-none focus:border-kv-blue-primary shadow-sm"
+            className="h-9.5 w-full px-3 rounded-xl border border-slate-200 hover:border-slate-300 bg-white text-xs font-semibold text-slate-700 focus:outline-none focus:border-kv-blue-primary focus:ring-4 focus:ring-kv-blue-primary/10 shadow-2xs transition-all"
           />
         </div>
 
@@ -177,7 +177,7 @@ export const PromotionFilterSidebar: React.FC<PromotionFilterSidebarProps> = ({
                   : "",
               })
             }
-            className="h-9 w-full px-3 rounded-lg border border-slate-300 bg-white text-xs font-semibold text-slate-700 focus:outline-none focus:border-kv-blue-primary shadow-sm"
+            className="h-9.5 w-full px-3 rounded-xl border border-slate-200 hover:border-slate-300 bg-white text-xs font-semibold text-slate-700 focus:outline-none focus:border-kv-blue-primary focus:ring-4 focus:ring-kv-blue-primary/10 shadow-2xs transition-all"
           />
         </div>
       </div>
@@ -194,7 +194,7 @@ export const PromotionFilterSidebar: React.FC<PromotionFilterSidebarProps> = ({
                 activeNowOnly: e.target.checked,
               })
             }
-            className="rounded border-slate-300 text-kv-blue-primary focus:ring-kv-blue-primary w-4 h-4"
+            className="rounded-md border-slate-300 text-kv-blue-primary focus:ring-kv-blue-primary w-4 h-4 cursor-pointer accent-kv-blue-primary"
           />
           <span>Chỉ hiện đang hiệu lực ngay</span>
         </label>
