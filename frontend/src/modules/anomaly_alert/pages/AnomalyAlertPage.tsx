@@ -173,9 +173,6 @@ export const AnomalyAlertPage: React.FC = () => {
         startIndex + pageSize
       );
 
-      const totalAlertsCount = totalCount;
-      const totalPagesResult = totalPagesCount;
-
       // Tính toán KPIs summary tổng thể
       const baseSummary = summaryData?.result || {
         totalAlerts: totalCount,
