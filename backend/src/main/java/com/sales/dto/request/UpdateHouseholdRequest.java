@@ -1,5 +1,7 @@
 package com.sales.dto.request;
 
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
@@ -32,4 +34,12 @@ public class UpdateHouseholdRequest {
 
     @Size(max = 100, message = "Tên người đại diện không được vượt quá 100 ký tự")
     private String representativeName;
+
+    @Min(value = 0, message = "Số đơn offline tối đa không được nhỏ hơn 0 (0 = Không giới hạn)")
+    @Max(value = 1000, message = "Số đơn offline tối đa không quá 1000")
+    private Integer offlineMaxOrders;
+
+    @Min(value = 0, message = "Số giờ offline tối đa không được nhỏ hơn 0 (0 = Không giới hạn)")
+    @Max(value = 168, message = "Số giờ offline tối đa không quá 168 giờ")
+    private Integer offlineMaxHours;
 }

@@ -78,7 +78,7 @@ export const ORDER_UI = {
     STATUS_FILTER_LABEL: "Lọc theo trạng thái:",
     EMPTY_MESSAGE: "Không có đơn hàng nào khớp với bộ lọc.",
     WALK_IN_CUSTOMER_LABEL: "Khách vãng lai",
-    READ_ONLY_LABEL: "🔒 Chỉ xem",
+    READ_ONLY_LABEL: "Chỉ xem",
     DETAILS_LABEL: "Chi tiết",
     DETAILS_MESSAGE: (orderNumber: string) => `Xem chi tiết đơn hàng: ${orderNumber}`,
     COLUMNS: {

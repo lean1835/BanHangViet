@@ -26,6 +26,11 @@ export const EmployeeSidebar: React.FC<EmployeeSidebarProps> = ({
 }) => {
   return (
     <div className="flex flex-col gap-5 w-full">
+      {/* Title */}
+      <div className="font-extrabold text-sm text-slate-800 border-b pb-2">
+        {EMPLOYEE_UI.SIDEBAR.TITLE}
+      </div>
+
       {/* Trạng thái hoạt động */}
       <div className="flex flex-col gap-3">
         <span className="font-bold text-slate-400 uppercase tracking-wide text-[10px]">

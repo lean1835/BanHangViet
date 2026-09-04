@@ -19,6 +19,7 @@ public class InvoiceItemResponse {
     private BigDecimal taxRatePercentage;
     private BigDecimal taxAmount;
     private BigDecimal discountAmount;
+    private String promotionName;
     private BigDecimal subtotal;
     private LocalDateTime createdAt;
 }

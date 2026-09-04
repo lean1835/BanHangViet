@@ -4,16 +4,28 @@ import type { TStockFilter } from "@/modules/product/types/TStockFilter";
 export interface IProduct {
   id: string;
   sku: string;
+  barcode?: string | null;
   name: string;
   unit: string;
   price: number;
+  costPrice?: number;
   stockQuantity: number;
+  minStockQuantity?: number;
   status: TProductStatus;
   groupId: string | null;
   groupName: string | null;
   taxRateId: string;
   taxRateName: string;
   taxRatePercentage: number;
+  warehouseStock?: number;
+  allocatedStock?: number;
+  posStocks?: Array<{
+    posId: string;
+    posCode: string;
+    posName: string;
+    stockQuantity: number;
+    minStockQuantity: number;
+  }>;
   createdAt: string;
   updatedAt: string;
 }
@@ -25,6 +37,12 @@ export interface IGetProductsParams {
   stockFilter?: TStockFilter;
   page?: number;
   size?: number;
+}
+
+export interface IVoiceSearchParams {
+  query?: string;
+  groupId?: string;
+  limit?: number;
 }
 
 export type TProductPayload = Partial<IProduct> & { taxRateId: string };

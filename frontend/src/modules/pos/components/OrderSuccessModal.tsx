@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import type { IPosTab } from "../types/IPos";
 import type { IInvoice } from "@/modules/e_invoice/types/IInvoice";
+import { calculatePosTotals } from "../utils/posCalculations";
 import { USER_ROLES } from "@/constants/roles";
 import { STORAGE_KEYS } from "@/constants/app";
 import { formatCurrency } from "@/utils/formatCurrency";
@@ -23,6 +24,7 @@ import {
   useCancelInvoiceMutation,
   useUpdateInvoiceMutation,
 } from "@/modules/e_invoice/services/eInvoiceApi";
+import { markOfflineOrderInvoiceIssued } from "@/modules/sync/utils/offlineSyncStorage";
 
 interface IOrderSuccessModalProps {
   isOpen: boolean;
@@ -89,23 +91,16 @@ export const OrderSuccessModal: React.FC<IOrderSuccessModalProps> = ({
     window.print();
   };
 
-  // Price calculations
-  const itemsSum = tab.items.reduce((sum, item) => sum + item.lineTotal, 0);
-  const discountCash =
-    tab.discountType === "PERCENTAGE"
-      ? (itemsSum * (tab.discountValue || 0)) / 100
-      : tab.discountValue || 0;
-  const afterDiscount = Math.max(0, itemsSum - discountCash);
-
-  const itemTaxTotal = tab.items.reduce((sum, item) => {
-    const itemTax = (item.product?.taxRatePercentage || 0) / 100;
-    return sum + item.lineTotal * itemTax;
-  }, 0);
-
-  const taxAmount =
-    tab.vatRate !== undefined
-      ? afterDiscount * (tab.vatRate / 100)
-      : itemTaxTotal;
+  // Price calculations via centralized posCalculations utility
+  const {
+    totalOriginalAmount: originalItemsSum,
+    totalPromotionDiscount: totalPromoDiscount,
+    totalCartAmount: itemsSum,
+    customerDiscountCash,
+    manualDiscountCash,
+    totalOrderLevelDiscounts: discountCash,
+    totalTaxAmount: taxAmount,
+  } = calculatePosTotals(tab);
 
   // Handle Real Invoice Issuance (POST /invoices/draft)
   const handleIssueInvoice = async () => {
@@ -138,6 +133,7 @@ export const OrderSuccessModal: React.FC<IOrderSuccessModalProps> = ({
         buyerTaxCode: (tab.customer as any)?.taxCode || "",
         taxAuthorityCode: "",
         symbol: "1M26SOP",
+        orderNumber: tab.orderNumber,
         customer: tab.customer?.name || "Khách mua lẻ",
         amount: finalTotal,
         time: new Date().toISOString(),
@@ -150,12 +146,13 @@ export const OrderSuccessModal: React.FC<IOrderSuccessModalProps> = ({
           id: item.id || `item_${idx}`,
           productId: item.product?.id || `p_${idx}`,
           productName: item.product?.name || "Sản phẩm",
-          unit: "Cái",
+          unit: item.product?.unit || "Cái",
           quantity: item.quantity,
           unitPrice: item.price,
           taxRatePercentage: item.product?.taxRatePercentage || 0,
           taxAmount: Math.round((item.lineTotal * (item.product?.taxRatePercentage || 0)) / 100),
           discountAmount: item.lineDiscount || 0,
+          promotionName: item.promotionName || undefined,
           subtotal: item.lineTotal,
         })),
       };
@@ -191,6 +188,7 @@ export const OrderSuccessModal: React.FC<IOrderSuccessModalProps> = ({
         buyerTaxCode: (tab.customer as any)?.taxCode || "",
         taxAuthorityCode: "",
         symbol: "1M26SOP",
+        orderNumber: tab.orderNumber,
         customer: tab.customer?.name || "Khách mua lẻ",
         amount: finalTotal,
         time: new Date().toISOString(),
@@ -203,12 +201,13 @@ export const OrderSuccessModal: React.FC<IOrderSuccessModalProps> = ({
           id: item.id || `item_${idx}`,
           productId: item.product?.id || `p_${idx}`,
           productName: item.product?.name || "Sản phẩm",
-          unit: "Cái",
+          unit: item.product?.unit || "Cái",
           quantity: item.quantity,
           unitPrice: item.price,
           taxRatePercentage: item.product?.taxRatePercentage || 0,
           taxAmount: Math.round((item.lineTotal * (item.product?.taxRatePercentage || 0)) / 100),
           discountAmount: item.lineDiscount || 0,
+          promotionName: item.promotionName || undefined,
           subtotal: item.lineTotal,
         })),
       };
@@ -222,6 +221,9 @@ export const OrderSuccessModal: React.FC<IOrderSuccessModalProps> = ({
 
   const saveInvoiceToOfflineCache = (inv: IInvoice) => {
     try {
+      if (tab.orderNumber) {
+        markOfflineOrderInvoiceIssued(tab.orderNumber);
+      }
       const raw = localStorage.getItem(STORAGE_KEYS.POS_OFFLINE_INVOICES);
       const list: IInvoice[] = raw ? JSON.parse(raw) : [];
       const map = new Map<string, IInvoice>();
@@ -368,7 +370,11 @@ export const OrderSuccessModal: React.FC<IOrderSuccessModalProps> = ({
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto animate-fadeIn select-none"
-      onClick={handleSafeClose}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          handleSafeClose();
+        }
+      }}
     >
       {/* Printable Area Wrapper with thermal print styles */}
       <style>{`
@@ -517,10 +523,17 @@ export const OrderSuccessModal: React.FC<IOrderSuccessModalProps> = ({
                 </div>
               )}
 
-              {discountCash > 0 && (
+              {customerDiscountCash > 0 && (
+                <div className="flex justify-between text-amber-800 font-semibold">
+                  <span>Chiết khấu khách VIP:</span>
+                  <span className="font-bold">-{formatCurrency(customerDiscountCash)}</span>
+                </div>
+              )}
+
+              {manualDiscountCash > 0 && (
                 <div className="flex justify-between text-emerald-700">
-                  <span>Chiết khấu / Giảm giá:</span>
-                  <span className="font-bold">-{formatCurrency(discountCash)}</span>
+                  <span>Chiết khấu thêm:</span>
+                  <span className="font-bold">-{formatCurrency(manualDiscountCash)}</span>
                 </div>
               )}
 
@@ -595,18 +608,16 @@ export const OrderSuccessModal: React.FC<IOrderSuccessModalProps> = ({
 
       {/* ─── VIEW 2: INHERITED E-INVOICE DETAIL MODAL FROM E_INVOICE MODULE ─── */}
       {modalView === "ISSUE_INVOICE_VIEW" && realInvoice && (
-        <div className="relative w-full max-w-4xl" onClick={(e) => e.stopPropagation()}>
-          <InvoiceDetailModal
-            isOpen={true}
-            onClose={() => setModalView("SUCCESS")}
-            invoice={realInvoice}
-            currentRole={USER_ROLES.OWNER}
-            onSendToTax={handleSendToTax}
-            onResendToTax={handleResendToTax}
-            onCancelInvoice={handleCancelInvoice}
-            onUpdateInvoice={handleUpdateInvoice}
-          />
-        </div>
+        <InvoiceDetailModal
+          isOpen={true}
+          onClose={() => setModalView("SUCCESS")}
+          invoice={realInvoice}
+          currentRole={USER_ROLES.OWNER}
+          onSendToTax={handleSendToTax}
+          onResendToTax={handleResendToTax}
+          onCancelInvoice={handleCancelInvoice}
+          onUpdateInvoice={handleUpdateInvoice}
+        />
       )}
 
       {/* Foreground Success Alert Dialog via Portal (renders on top of InvoiceDetailModal) */}
@@ -803,9 +814,26 @@ export const OrderSuccessModal: React.FC<IOrderSuccessModalProps> = ({
                       tab.items.map((item, idx) => (
                         <tr key={idx} className="align-top">
                           <td className="p-1 sm:p-1.5 text-center font-bold text-slate-600">{idx + 1}</td>
-                          <td className="p-1 sm:p-1.5 font-semibold text-slate-900 break-words">{item.product.name}</td>
+                          <td className="p-1 sm:p-1.5 font-semibold text-slate-900 break-words">
+                            <div>{item.product.name}</div>
+                            {item.promotionName && !item.bypassPromotion && (
+                              <div className="text-[8.5px] text-emerald-700 italic font-semibold">
+                                KM: {item.promotionName}
+                                {item.lineDiscount > 0 ? ` (-${formatCurrency(item.lineDiscount)})` : ""}
+                              </div>
+                            )}
+                          </td>
                           <td className="p-1 sm:p-1.5 text-center font-bold">{item.quantity}</td>
-                          <td className="p-1 sm:p-1.5 text-right whitespace-nowrap">{formatCurrency(item.price)}</td>
+                          <td className="p-1 sm:p-1.5 text-right whitespace-nowrap">
+                            {item.promotionName && item.lineDiscount > 0 && !item.bypassPromotion ? (
+                              <div>
+                                <span className="line-through text-slate-400 text-[8.5px] block">{formatCurrency(item.price)}</span>
+                                <span>{formatCurrency((item.quantity * item.price - item.lineDiscount) / item.quantity)}</span>
+                              </div>
+                            ) : (
+                              formatCurrency(item.price)
+                            )}
+                          </td>
                           <td className="p-1 sm:p-1.5 text-right font-black text-slate-900 whitespace-nowrap">
                             {formatCurrency(item.lineTotal)}
                           </td>
@@ -825,9 +853,16 @@ export const OrderSuccessModal: React.FC<IOrderSuccessModalProps> = ({
               {/* ─── SUMMARY BLOCK ─── */}
               <div className="border-t-2 border-slate-900 pt-2 space-y-1.5 text-[10px]">
                 <div className="flex justify-between font-semibold text-slate-700">
-                  <span>Cộng tiền hàng:</span>
-                  <span className="font-bold text-slate-900">{formatCurrency(itemsSum)}</span>
+                  <span>Cộng tiền hàng (gốc):</span>
+                  <span className="font-bold text-slate-900">{formatCurrency(originalItemsSum)}</span>
                 </div>
+
+                {totalPromoDiscount > 0 && (
+                  <div className="flex justify-between text-emerald-700 font-bold">
+                    <span>Khuyến mại tự động:</span>
+                    <span>-{formatCurrency(totalPromoDiscount)}</span>
+                  </div>
+                )}
 
                 {taxAmount > 0 && (
                   <div className="flex justify-between font-semibold text-slate-700">
@@ -836,10 +871,17 @@ export const OrderSuccessModal: React.FC<IOrderSuccessModalProps> = ({
                   </div>
                 )}
 
-                {discountCash > 0 && (
+                {customerDiscountCash > 0 && (
+                  <div className="flex justify-between text-amber-800 font-semibold">
+                    <span>Chiết khấu khách VIP:</span>
+                    <span className="font-bold">-{formatCurrency(customerDiscountCash)}</span>
+                  </div>
+                )}
+
+                {manualDiscountCash > 0 && (
                   <div className="flex justify-between text-emerald-700">
-                    <span>Chiết khấu / Giảm giá:</span>
-                    <span className="font-bold">-{formatCurrency(discountCash)}</span>
+                    <span>Chiết khấu thêm:</span>
+                    <span className="font-bold">-{formatCurrency(manualDiscountCash)}</span>
                   </div>
                 )}
 

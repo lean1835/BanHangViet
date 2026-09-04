@@ -22,6 +22,7 @@ public class ProductController {
 
     private final ProductService productService;
     private final com.sales.service.interfaces.ProductImportService productImportService;
+    private final com.sales.service.interfaces.InventoryWarningService inventoryWarningService;
 
     @GetMapping("/import-template")
     @PreAuthorize("hasRole('VT-01')")
@@ -77,6 +78,21 @@ public class ProductController {
         return ResponseEntity.ok(response);
     }
 
+    @PutMapping("/{id}/min-stock")
+    @PreAuthorize("hasRole('VT-01')")
+    public ResponseEntity<ApiResponse<ProductResponse>> updateMinStock(
+            Principal principal,
+            @PathVariable String id,
+            @Valid @RequestBody com.sales.dto.request.UpdateMinStockRequest request) {
+        ProductResponse result = inventoryWarningService.updateMinStock(principal.getName(), id, request);
+        ApiResponse<ProductResponse> response = ApiResponse.<ProductResponse>builder()
+                .code(1000)
+                .message("Cập nhật ngưỡng tồn tối thiểu thành công")
+                .result(result)
+                .build();
+        return ResponseEntity.ok(response);
+    }
+
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('VT-01')")
     public ResponseEntity<ApiResponse<Void>> deleteProduct(
@@ -114,12 +130,28 @@ public class ProductController {
             @RequestParam(required = false) Boolean excludeInactive,
             @RequestParam(required = false) String stockFilter,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size) {
+            @RequestParam(defaultValue = "6") int size) {
         PageResponse<ProductResponse> result = productService.getProducts(
                 principal.getName(), search, groupId, status, excludeInactive, stockFilter, page, size);
         ApiResponse<PageResponse<ProductResponse>> response = ApiResponse.<PageResponse<ProductResponse>>builder()
                 .code(1000)
                 .message("Lấy danh sách hàng hóa thành công")
+                .result(result)
+                .build();
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/voice-search")
+    @PreAuthorize("hasAnyRole('VT-01', 'VT-02', 'VT-03')")
+    public ResponseEntity<ApiResponse<java.util.List<ProductResponse>>> voiceSearchProducts(
+            Principal principal,
+            @RequestParam(required = false) String query,
+            @RequestParam(required = false) String groupId,
+            @RequestParam(defaultValue = "10") int limit) {
+        java.util.List<ProductResponse> result = productService.voiceSearchProducts(principal.getName(), query, groupId, limit);
+        ApiResponse<java.util.List<ProductResponse>> response = ApiResponse.<java.util.List<ProductResponse>>builder()
+                .code(1000)
+                .message("Tìm kiếm hàng hóa bằng giọng nói thành công")
                 .result(result)
                 .build();
         return ResponseEntity.ok(response);

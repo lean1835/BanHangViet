@@ -1,7 +1,8 @@
-import React, { useState } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { Search, Plus, Edit, Trash2, AlertTriangle, Bell, Wallet, Calendar, Eye } from "lucide-react";
+import { TablePaginationFooter } from "@/components/common/TablePaginationFooter";
 import { CUSTOMER_UI } from "@/constants/customer";
 import { APP_ROUTES } from "@/constants/routes";
 import { formatCurrency } from "@/utils/formatCurrency";
@@ -36,6 +37,19 @@ export const CustomerList: React.FC<CustomerListProps> = ({
   const [customerToDelete, setCustomerToDelete] = useState<ICustomer | null>(null);
   const [customerToRemind, setCustomerToRemind] = useState<ICustomer | null>(null);
   const [customerToPayDebt, setCustomerToPayDebt] = useState<ICustomer | null>(null);
+
+  // Pagination state (8 records/page)
+  const [page, setPage] = useState(0);
+  const PAGE_SIZE = 8;
+
+  useEffect(() => {
+    setPage(0);
+  }, [searchQuery, customers.length]);
+
+  const paginatedCustomers = useMemo(() => {
+    const start = page * PAGE_SIZE;
+    return customers.slice(start, start + PAGE_SIZE);
+  }, [customers, page]);
 
   const isDeleteOpen = Boolean(customerToDelete);
   const deleteDialogRef = useAccessibleDialog({
@@ -83,33 +97,41 @@ export const CustomerList: React.FC<CustomerListProps> = ({
       </div>
 
       {/* Main Customer table card */}
-      <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col min-h-[500px] w-full">
-        <h3 className="font-extrabold text-slate-800 text-sm border-b pb-4 mb-4">
-          {CUSTOMER_UI.LIST.TITLE} ({customers.length})
-        </h3>
+      <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col min-h-[500px] w-full">
+        <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-4">
+          <div>
+            <h3 className="font-extrabold text-slate-800 text-sm">
+              {CUSTOMER_UI.LIST.TITLE}
+            </h3>
+          </div>
+          <span className="text-xs font-bold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-lg">
+            {customers.length} khách hàng
+          </span>
+        </div>
 
         {customers.length === 0 ? (
           <div className="flex flex-col items-center justify-center flex-1 py-16 text-slate-400 gap-2">
             <p className="text-xs font-medium">{CUSTOMER_UI.LIST.EMPTY_MESSAGE}</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="responsive-data-table responsive-data-table--page w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold text-xs">
-                  <th className="p-3">{CUSTOMER_UI.LIST.COLUMNS.NAME}</th>
-                  <th className="p-3">{CUSTOMER_UI.LIST.COLUMNS.PHONE}</th>
-                  <th className="p-3">{CUSTOMER_UI.LIST.COLUMNS.ADDRESS}</th>
-                  <th className="p-3 text-right">{CUSTOMER_UI.LIST.COLUMNS.CREDIT_LIMIT}</th>
-                  <th className="p-3 text-right">{CUSTOMER_UI.LIST.COLUMNS.CURRENT_DEBT}</th>
-                  <th className="p-3 text-center">{CUSTOMER_UI.LIST.COLUMNS.DUE_DATE}</th>
-                  <th className="p-3 text-center">{CUSTOMER_UI.LIST.COLUMNS.DEBT_STATUS}</th>
-                  <th className="p-3 text-center">{CUSTOMER_UI.LIST.COLUMNS.REMIND_COLUMN}</th>
-                  <th className="p-3 text-center">{CUSTOMER_UI.LIST.COLUMNS.ACTIONS}</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 font-medium text-slate-700 text-xs">
-                {customers.map((customer) => {
+          <div className="flex flex-col flex-1 justify-between">
+            <div className="overflow-x-auto">
+              <table className="responsive-data-table responsive-data-table--page w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold text-xs">
+                    <th className="p-3">{CUSTOMER_UI.LIST.COLUMNS.NAME}</th>
+                    <th className="p-3">{CUSTOMER_UI.LIST.COLUMNS.PHONE}</th>
+                    <th className="p-3">{CUSTOMER_UI.LIST.COLUMNS.ADDRESS}</th>
+                    <th className="p-3 text-right">{CUSTOMER_UI.LIST.COLUMNS.CREDIT_LIMIT}</th>
+                    <th className="p-3 text-right">{CUSTOMER_UI.LIST.COLUMNS.CURRENT_DEBT}</th>
+                    <th className="p-3 text-center">{CUSTOMER_UI.LIST.COLUMNS.DUE_DATE}</th>
+                    <th className="p-3 text-center">{CUSTOMER_UI.LIST.COLUMNS.DEBT_STATUS}</th>
+                    <th className="p-3 text-center">{CUSTOMER_UI.LIST.COLUMNS.REMIND_COLUMN}</th>
+                    <th className="p-3 text-center">{CUSTOMER_UI.LIST.COLUMNS.ACTIONS}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 font-medium text-slate-700 text-xs">
+                  {paginatedCustomers.map((customer) => {
                   const isExceeded = customer.debt > customer.creditLimit;
                   const hasDebt = customer.debt > 0;
                   const todayStr = new Date().toISOString().split("T")[0];
@@ -125,9 +147,25 @@ export const CustomerList: React.FC<CustomerListProps> = ({
                       title="Nhấn để xem chi tiết danh sách đơn hàng nợ & thông tin khách hàng"
                     >
                       <td className="p-3 font-bold text-slate-800 group-hover:text-kv-blue-primary transition-colors">
-                        <div className="flex items-center gap-1.5">
-                          <span>{customer.name}</span>
-                          <Eye size={12} className="text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity" />
+                        <div className="flex flex-col gap-0.5">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span>{customer.name}</span>
+                            {(customer.isVip || (customer.discountRate && customer.discountRate > 0)) && (
+                              <span className="px-1.5 py-0.2 rounded text-[10px] font-extrabold bg-amber-100 text-amber-800 border border-amber-300 inline-flex items-center gap-0.5">
+                                VIP {customer.discountRate && customer.discountRate > 0
+                                  ? (customer.discountType === "CASH"
+                                    ? `-${formatCurrency(customer.discountRate)}`
+                                    : `-${customer.discountRate}%`)
+                                  : ""}
+                              </span>
+                            )}
+                            <Eye size={12} className="text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity" />
+                          </div>
+                          {customer.totalSpent && customer.totalSpent > 0 ? (
+                            <span className="text-[10px] text-slate-400 font-normal">
+                              Tích lũy: {formatCurrency(customer.totalSpent)}
+                            </span>
+                          ) : null}
                         </div>
                       </td>
                       <td className="p-3 font-mono font-semibold text-slate-800">
@@ -183,7 +221,7 @@ export const CustomerList: React.FC<CustomerListProps> = ({
                           }`}
                         >
                           {isOverdue
-                            ? "QUÁ HẠN NỢ ⚠️"
+                            ? "QUÁ HẠN NỢ"
                             : isExceeded
                               ? "Vượt hạn mức"
                               : hasDebt
@@ -255,6 +293,15 @@ export const CustomerList: React.FC<CustomerListProps> = ({
               </tbody>
             </table>
           </div>
+
+          <TablePaginationFooter
+            currentPage={page}
+            pageSize={PAGE_SIZE}
+            totalElements={customers.length}
+            onPageChange={setPage}
+            recordUnit="khách hàng"
+          />
+        </div>
         )}
       </div>
 
@@ -302,7 +349,7 @@ export const CustomerList: React.FC<CustomerListProps> = ({
             </p>
             {customerToDelete.debt > 0 && (
               <div className="p-3 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold flex flex-col gap-1">
-                <span>⚠️ CẢNH BÁO CÔNG NỢ:</span>
+                <span>CẢNH BÁO CÔNG NỢ:</span>
                 <span>
                   Khách hàng hiện còn dư nợ chưa thanh toán:{" "}
                   <strong className="text-rose-800">{formatCurrency(customerToDelete.debt)}</strong>.

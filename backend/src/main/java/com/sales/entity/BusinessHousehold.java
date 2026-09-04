@@ -39,6 +39,15 @@ public class BusinessHousehold {
     @Builder.Default
     private Boolean revenueThresholdEnabled = false;
 
+    @Column(name = "offline_max_orders", nullable = false)
+    @Builder.Default
+    private Integer offlineMaxOrders = 50;
+
+    @Column(name = "offline_max_hours", nullable = false)
+    @Builder.Default
+    private Integer offlineMaxHours = 24;
+
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

@@ -14,6 +14,9 @@ public class EmployeeResponse {
     private String phoneNumber;
     private String roleCode;
     private String roleName;
+    private String pointOfSaleId;
+    private String pointOfSaleName;
+    private String posCode;
     private Boolean isActive;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

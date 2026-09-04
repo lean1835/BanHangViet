@@ -27,6 +27,56 @@ export const householdInfoSchema = z.object({
     .max(100, "Tên người đại diện không được vượt quá 100 ký tự")
     .optional()
     .or(z.literal("")),
+  limitOrdersEnabled: z.boolean(),
+  offlineMaxOrders: z.coerce.number({ invalid_type_error: "Số đơn tối đa phải là số hợp lệ" }).optional(),
+  limitHoursEnabled: z.boolean(),
+  offlineMaxHours: z.coerce.number({ invalid_type_error: "Số giờ tối đa phải là số hợp lệ" }).optional(),
+}).superRefine((data, ctx) => {
+  if (data.limitOrdersEnabled) {
+    const val = data.offlineMaxOrders;
+    if (val === undefined || val === null || isNaN(val)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Vui lòng nhập số đơn tối đa cho phép bán",
+        path: ["offlineMaxOrders"],
+      });
+    } else if (val < 1) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Số đơn tối đa tối thiểu là 1 đơn",
+        path: ["offlineMaxOrders"],
+      });
+    } else if (val > 1000) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Số đơn tối đa không quá 1000 đơn",
+        path: ["offlineMaxOrders"],
+      });
+    }
+  }
+
+  if (data.limitHoursEnabled) {
+    const val = data.offlineMaxHours;
+    if (val === undefined || val === null || isNaN(val)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Vui lòng nhập số giờ tối đa cho phép bán",
+        path: ["offlineMaxHours"],
+      });
+    } else if (val < 1) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Thời gian bán tối đa tối thiểu là 1 giờ",
+        path: ["offlineMaxHours"],
+      });
+    } else if (val > 168) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Thời gian bán tối đa không quá 168 giờ (7 ngày)",
+        path: ["offlineMaxHours"],
+      });
+    }
+  }
 });
 
 export type THouseholdInfoFormData = z.infer<typeof householdInfoSchema>;

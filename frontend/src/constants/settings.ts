@@ -1,22 +1,43 @@
 import { APP_ROUTES } from "./routes";
 import { APP_FALLBACKS } from "./app";
+import { USER_ROLES, type TDemoRole } from "./roles";
 
-export const SETTINGS_NAVIGATION_ITEMS = [
+export interface ISettingsNavigationItem {
+  path: string;
+  label: string;
+  allowedRoles: readonly TDemoRole[];
+}
+
+export const SETTINGS_NAVIGATION_ITEMS: readonly ISettingsNavigationItem[] = [
+  {
+    path: APP_ROUTES.SETTINGS_USER_PROFILE,
+    label: "Tài khoản người dùng",
+    allowedRoles: [USER_ROLES.OWNER, USER_ROLES.CASHIER, USER_ROLES.ACCOUNTANT],
+  },
+  {
+    path: APP_ROUTES.SETTINGS_POINTS_OF_SALE,
+    label: "Điểm bán (Chi nhánh)",
+    allowedRoles: [USER_ROLES.OWNER],
+  },
   {
     path: APP_ROUTES.SETTINGS_BUSINESS_INFO,
     label: "Thông tin cửa hàng",
+    allowedRoles: [USER_ROLES.OWNER, USER_ROLES.ACCOUNTANT],
   },
   {
     path: APP_ROUTES.SETTINGS_INVOICE_TEMPLATE,
     label: "Mẫu hóa đơn",
+    allowedRoles: [USER_ROLES.OWNER, USER_ROLES.ACCOUNTANT],
   },
   {
     path: APP_ROUTES.SETTINGS_TAX_RATES,
     label: "Thuế suất",
+    allowedRoles: [USER_ROLES.OWNER, USER_ROLES.ACCOUNTANT],
   },
   {
     path: APP_ROUTES.SETTINGS_BACKUP_EXPORT,
-    label: "Sao lưu dữ liệu",
+    label: "Sao lưu & Phục hồi dữ liệu",
+    allowedRoles: [USER_ROLES.OWNER],
   },
 ] as const;
 
@@ -33,7 +54,7 @@ export const SETTINGS_UI = {
       PHONE: "Số điện thoại liên lạc:",
       ADDRESS: "Địa chỉ cửa hàng vật lý:",
     },
-    NOTICE_ICON: "ℹ️",
+    NOTICE_ICON: "",
     NOTICE:
       "Thông tin hồ sơ hộ kinh doanh được đồng bộ tự động từ tờ khai hóa đơn thuế điện tử và không được phép chỉnh sửa tự do sau khi cơ quan thuế đã cấp mã số kinh doanh.",
   },

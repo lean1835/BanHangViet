@@ -36,6 +36,9 @@ public class Product {
     @Column(nullable = false, length = 50)
     private String sku;
 
+    @Column(length = 100)
+    private String barcode;
+
     @Column(nullable = false, length = 255)
     private String name;
 
@@ -45,8 +48,16 @@ public class Product {
     @Column(nullable = false, precision = 15, scale = 2)
     private BigDecimal price;
 
+    @Column(name = "cost_price", nullable = false, precision = 15, scale = 2)
+    @Builder.Default
+    private BigDecimal costPrice = BigDecimal.ZERO;
+
     @Column(name = "stock_quantity", nullable = false, precision = 12, scale = 3)
     private BigDecimal stockQuantity;
+
+    @Column(name = "min_stock_quantity", nullable = false, precision = 12, scale = 3)
+    @Builder.Default
+    private BigDecimal minStockQuantity = BigDecimal.ZERO;
 
     @Column(nullable = false, length = 20)
     @Builder.Default

@@ -25,10 +25,9 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -40,7 +39,9 @@ public class ProductServiceImpl implements ProductService {
     private final ProductRepository productRepository;
     private final ProductGroupRepository productGroupRepository;
     private final TaxRateRepository taxRateRepository;
-    private final ActivityLogRepository activityLogRepository;
+    private final PosInventoryRepository posInventoryRepository;
+    private final PosTransferItemRepository posTransferItemRepository;
+    private final ActivityLogHelper activityLogHelper;
     private final ObjectMapper objectMapper;
 
     private User getAuthenticatedUser(String username) {
@@ -59,19 +60,7 @@ public class ProductServiceImpl implements ProductService {
             String oldStr = oldValue != null ? objectMapper.writeValueAsString(oldValue) : null;
             String newStr = newValue != null ? objectMapper.writeValueAsString(newValue) : null;
 
-            ActivityLog logRecord = ActivityLog.builder()
-                    .household(household)
-                    .user(actor)
-                    .action(action)
-                    .targetTable("products")
-                    .targetId(targetId)
-                    .oldValue(oldStr)
-                    .newValue(newStr)
-                    .clientIp(clientIp)
-                    .userAgent(userAgent)
-                    .build();
-
-            activityLogRepository.save(logRecord);
+            activityLogHelper.logActivityInNewTransaction(household, actor, action, "products", targetId, oldStr, newStr, clientIp, userAgent);
         } catch (Exception e) {
             log.error("Failed to write activity log for product", e);
         }
@@ -81,10 +70,12 @@ public class ProductServiceImpl implements ProductService {
         Map<String, Object> map = new HashMap<>();
         map.put("id", product.getId());
         map.put("sku", product.getSku());
+        map.put("barcode", product.getBarcode());
         map.put("name", product.getName());
         map.put("unit", product.getUnit());
         map.put("price", product.getPrice());
         map.put("stockQuantity", product.getStockQuantity());
+        map.put("minStockQuantity", product.getMinStockQuantity());
         map.put("status", product.getStatus());
         map.put("groupId", product.getGroup() != null ? product.getGroup().getId() : null);
         map.put("taxRateId", product.getTaxRate() != null ? product.getTaxRate().getId() : null);
@@ -92,19 +83,75 @@ public class ProductServiceImpl implements ProductService {
     }
 
     private ProductResponse mapToResponse(Product product) {
+        String householdId = product.getHousehold() != null ? product.getHousehold().getId() : null;
+        List<PosInventory> posInvs = (householdId != null && posInventoryRepository != null)
+                ? posInventoryRepository.findByHouseholdIdAndProductId(householdId, product.getId())
+                : Collections.emptyList();
+
+        BigDecimal inTransit = (householdId != null && posTransferItemRepository != null)
+                ? posTransferItemRepository.sumInTransitFromWarehouseByProductId(householdId, product.getId())
+                : BigDecimal.ZERO;
+
+        return mapToResponse(product, posInvs, inTransit);
+    }
+
+    private ProductResponse mapToResponse(Product product, List<PosInventory> posInvs, BigDecimal inTransit) {
+        return mapToResponse(product, posInvs, inTransit, null);
+    }
+
+    private ProductResponse mapToResponse(Product product, List<PosInventory> posInvs, BigDecimal inTransit, User currentUser) {
+        BigDecimal totalStock = product.getStockQuantity() != null ? product.getStockQuantity() : BigDecimal.ZERO;
+        BigDecimal allocatedStock = posInvs != null
+                ? posInvs.stream()
+                        .map(pi -> pi.getStockQuantity() != null ? pi.getStockQuantity() : BigDecimal.ZERO)
+                        .reduce(BigDecimal.ZERO, BigDecimal::add)
+                : BigDecimal.ZERO;
+
+        BigDecimal safeInTransit = inTransit != null ? inTransit : BigDecimal.ZERO;
+        BigDecimal warehouseStock = totalStock.subtract(allocatedStock).subtract(safeInTransit).max(BigDecimal.ZERO);
+
+        List<com.sales.dto.response.PosStockBreakdownResponse> posStocks = posInvs != null
+                ? posInvs.stream()
+                        .map(pi -> com.sales.dto.response.PosStockBreakdownResponse.builder()
+                                .posId(pi.getPointOfSale() != null ? pi.getPointOfSale().getId() : null)
+                                .posCode(pi.getPointOfSale() != null ? pi.getPointOfSale().getPosCode() : null)
+                                .posName(pi.getPointOfSale() != null ? pi.getPointOfSale().getName() : null)
+                                .stockQuantity(pi.getStockQuantity())
+                                .minStockQuantity(pi.getMinStockQuantity())
+                                .build())
+                        .collect(Collectors.toList())
+                : Collections.emptyList();
+
+        BigDecimal displayedStock = totalStock;
+        if (currentUser != null && currentUser.getPointOfSale() != null && "VT-02".equals(currentUser.getRole().getCode())) {
+            String userPosId = currentUser.getPointOfSale().getId();
+            displayedStock = posInvs != null
+                    ? posInvs.stream()
+                            .filter(pi -> pi.getPointOfSale() != null && userPosId.equals(pi.getPointOfSale().getId()))
+                            .map(pi -> pi.getStockQuantity() != null ? pi.getStockQuantity() : BigDecimal.ZERO)
+                            .findFirst()
+                            .orElse(BigDecimal.ZERO)
+                    : BigDecimal.ZERO;
+        }
+
         return ProductResponse.builder()
                 .id(product.getId())
                 .sku(product.getSku())
+                .barcode(product.getBarcode())
                 .name(product.getName())
                 .unit(product.getUnit())
                 .price(product.getPrice())
-                .stockQuantity(product.getStockQuantity())
+                .stockQuantity(displayedStock)
+                .minStockQuantity(product.getMinStockQuantity())
                 .status(product.getStatus())
                 .groupId(product.getGroup() != null ? product.getGroup().getId() : null)
                 .groupName(product.getGroup() != null ? product.getGroup().getName() : null)
                 .taxRateId(product.getTaxRate().getId())
                 .taxRateName(product.getTaxRate().getName())
                 .taxRatePercentage(product.getTaxRate().getRatePercentage())
+                .warehouseStock(warehouseStock)
+                .allocatedStock(allocatedStock)
+                .posStocks(posStocks)
                 .createdAt(product.getCreatedAt())
                 .updatedAt(product.getUpdatedAt())
                 .build();
@@ -124,6 +171,10 @@ public class ProductServiceImpl implements ProductService {
             throw new AppException(ErrorCode.PRODUCT_SKU_EXISTS);
         }
 
+        if (StringUtils.hasText(request.getBarcode()) && productRepository.existsByHouseholdIdAndBarcodeAndDeletedAtIsNull(household.getId(), request.getBarcode().trim())) {
+            throw new AppException(ErrorCode.BARCODE_ALREADY_EXISTS);
+        }
+
         // Xác thực thuế suất đang hoạt động thuộc hộ kinh doanh
         TaxRate taxRate = taxRateRepository.findByIdAndHouseholdIdAndIsActiveTrue(request.getTaxRateId(), household.getId())
                 .orElseThrow(() -> new AppException(ErrorCode.TAX_RATE_NOT_FOUND));
@@ -140,10 +191,12 @@ public class ProductServiceImpl implements ProductService {
                 .group(group)
                 .taxRate(taxRate)
                 .sku(request.getSku())
+                .barcode(StringUtils.hasText(request.getBarcode()) ? request.getBarcode().trim() : null)
                 .name(request.getName())
                 .unit(request.getUnit())
                 .price(request.getPrice())
                 .stockQuantity(request.getStockQuantity())
+                .minStockQuantity(request.getMinStockQuantity() != null ? request.getMinStockQuantity() : java.math.BigDecimal.ZERO)
                 .status(request.getStatus())
                 .build();
 
@@ -171,6 +224,10 @@ public class ProductServiceImpl implements ProductService {
             throw new AppException(ErrorCode.PRODUCT_SKU_EXISTS);
         }
 
+        if (StringUtils.hasText(request.getBarcode()) && productRepository.existsByHouseholdIdAndBarcodeAndIdNotAndDeletedAtIsNull(household.getId(), request.getBarcode().trim(), productId)) {
+            throw new AppException(ErrorCode.BARCODE_ALREADY_EXISTS);
+        }
+
         // Xác thực thuế suất đang hoạt động thuộc hộ kinh doanh
         TaxRate taxRate = taxRateRepository.findByIdAndHouseholdIdAndIsActiveTrue(request.getTaxRateId(), household.getId())
                 .orElseThrow(() -> new AppException(ErrorCode.TAX_RATE_NOT_FOUND));
@@ -185,10 +242,20 @@ public class ProductServiceImpl implements ProductService {
         Map<String, Object> oldValue = buildProductLogMap(product);
 
         product.setSku(request.getSku());
+        if (request.getBarcode() != null) {
+            if (StringUtils.hasText(request.getBarcode())) {
+                product.setBarcode(request.getBarcode().trim());
+            } else {
+                product.setBarcode(null);
+            }
+        }
         product.setName(request.getName());
         product.setUnit(request.getUnit());
         product.setPrice(request.getPrice());
         product.setStockQuantity(request.getStockQuantity());
+        if (request.getMinStockQuantity() != null) {
+            product.setMinStockQuantity(request.getMinStockQuantity());
+        }
         product.setStatus(request.getStatus());
         product.setGroup(group);
         product.setTaxRate(taxRate);
@@ -234,7 +301,15 @@ public class ProductServiceImpl implements ProductService {
         Product product = productRepository.findByIdAndHouseholdIdAndDeletedAtIsNull(productId, household.getId())
                 .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_NOT_FOUND));
 
-        return mapToResponse(product);
+        List<PosInventory> posInvs = (household.getId() != null && posInventoryRepository != null)
+                ? posInventoryRepository.findByHouseholdIdAndProductId(household.getId(), product.getId())
+                : Collections.emptyList();
+
+        BigDecimal inTransit = (household.getId() != null && posTransferItemRepository != null)
+                ? posTransferItemRepository.sumInTransitFromWarehouseByProductId(household.getId(), product.getId())
+                : BigDecimal.ZERO;
+
+        return mapToResponse(product, posInvs, inTransit, currentUser);
     }
 
     @Override
@@ -250,9 +325,28 @@ public class ProductServiceImpl implements ProductService {
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
 
         Page<Product> productPage = productRepository.findAll(spec, pageable);
+        List<Product> products = productPage.getContent();
 
-        List<ProductResponse> content = productPage.getContent().stream()
-                .map(this::mapToResponse)
+        List<String> productIds = products.stream().map(Product::getId).collect(Collectors.toList());
+        Map<String, List<PosInventory>> posInvsByProduct = new HashMap<>();
+        Map<String, BigDecimal> inTransitByProduct = new HashMap<>();
+
+        if (!productIds.isEmpty()) {
+            List<PosInventory> allPosInvs = posInventoryRepository.findByHouseholdIdAndProductIdIn(household.getId(), productIds);
+            for (PosInventory pi : allPosInvs) {
+                if (pi.getProduct() != null) {
+                    posInvsByProduct.computeIfAbsent(pi.getProduct().getId(), k -> new ArrayList<>()).add(pi);
+                }
+            }
+
+            List<Object[]> inTransitRows = posTransferItemRepository.sumInTransitFromWarehouseByProductIds(household.getId(), productIds);
+            for (Object[] row : inTransitRows) {
+                inTransitByProduct.put((String) row[0], (BigDecimal) row[1]);
+            }
+        }
+
+        List<ProductResponse> content = products.stream()
+                .map(p -> mapToResponse(p, posInvsByProduct.getOrDefault(p.getId(), Collections.emptyList()), inTransitByProduct.getOrDefault(p.getId(), BigDecimal.ZERO), currentUser))
                 .collect(Collectors.toList());
 
         return PageResponse.<ProductResponse>builder()
@@ -263,5 +357,44 @@ public class ProductServiceImpl implements ProductService {
                 .totalPages(productPage.getTotalPages())
                 .last(productPage.isLast())
                 .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ProductResponse> voiceSearchProducts(String currentUsername, String query, String groupId, int limit) {
+        User currentUser = getAuthenticatedUser(currentUsername);
+        BusinessHousehold household = currentUser.getHousehold();
+        if (household == null) {
+            throw new AppException(ErrorCode.FORBIDDEN);
+        }
+
+        int effectiveLimit = limit > 0 ? Math.min(limit, 50) : 10;
+        Specification<Product> spec = ProductSpecification.filterVoiceSearch(household.getId(), query, groupId);
+        Pageable pageable = PageRequest.of(0, effectiveLimit, Sort.by(Sort.Direction.ASC, "name"));
+
+        Page<Product> productPage = productRepository.findAll(spec, pageable);
+        List<Product> products = productPage.getContent();
+
+        List<String> productIds = products.stream().map(Product::getId).collect(Collectors.toList());
+        Map<String, List<PosInventory>> posInvsByProduct = new HashMap<>();
+        Map<String, BigDecimal> inTransitByProduct = new HashMap<>();
+
+        if (!productIds.isEmpty()) {
+            List<PosInventory> allPosInvs = posInventoryRepository.findByHouseholdIdAndProductIdIn(household.getId(), productIds);
+            for (PosInventory pi : allPosInvs) {
+                if (pi.getProduct() != null) {
+                    posInvsByProduct.computeIfAbsent(pi.getProduct().getId(), k -> new ArrayList<>()).add(pi);
+                }
+            }
+
+            List<Object[]> inTransitRows = posTransferItemRepository.sumInTransitFromWarehouseByProductIds(household.getId(), productIds);
+            for (Object[] row : inTransitRows) {
+                inTransitByProduct.put((String) row[0], (BigDecimal) row[1]);
+            }
+        }
+
+        return products.stream()
+                .map(p -> mapToResponse(p, posInvsByProduct.getOrDefault(p.getId(), Collections.emptyList()), inTransitByProduct.getOrDefault(p.getId(), BigDecimal.ZERO), currentUser))
+                .collect(Collectors.toList());
     }
 }

@@ -5,6 +5,8 @@ import com.sales.dto.request.UpdateProductRequest;
 import com.sales.dto.response.PageResponse;
 import com.sales.dto.response.ProductResponse;
 
+import java.util.List;
+
 public interface ProductService {
     ProductResponse createProduct(String currentUsername, CreateProductRequest request);
 
@@ -15,4 +17,6 @@ public interface ProductService {
     ProductResponse getProductById(String currentUsername, String productId);
 
     PageResponse<ProductResponse> getProducts(String currentUsername, String search, String groupId, String status, Boolean excludeInactive, String stockFilter, int page, int size);
+
+    List<ProductResponse> voiceSearchProducts(String currentUsername, String query, String groupId, int limit);
 }

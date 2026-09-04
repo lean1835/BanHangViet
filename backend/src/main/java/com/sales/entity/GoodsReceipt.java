@@ -5,6 +5,7 @@ import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
@@ -25,11 +26,19 @@ public class GoodsReceipt {
     private BusinessHousehold household;
 
     @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "supplier_id")
+    private Supplier supplier;
+
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "created_by_user_id", nullable = false)
     private User createdByUser;
 
     @Column(name = "receipt_number", nullable = false, length = 50, unique = true)
     private String receiptNumber;
+
+    @Column(name = "total_amount", nullable = false, precision = 15, scale = 2)
+    @Builder.Default
+    private BigDecimal totalAmount = BigDecimal.ZERO;
 
     @Column(name = "received_at", nullable = false)
     private LocalDateTime receivedAt;

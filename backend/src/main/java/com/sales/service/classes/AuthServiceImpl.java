@@ -114,6 +114,9 @@ public class AuthServiceImpl implements AuthService {
                 .fullName(user.getFullName())
                 .roleCode(user.getRole().getCode())
                 .householdId(user.getHousehold() != null ? user.getHousehold().getId() : null)
+                .pointOfSaleId(user.getPointOfSale() != null ? user.getPointOfSale().getId() : null)
+                .pointOfSaleName(user.getPointOfSale() != null ? user.getPointOfSale().getName() : null)
+                .posCode(user.getPointOfSale() != null ? user.getPointOfSale().getPosCode() : null)
                 .build();
     }
 }

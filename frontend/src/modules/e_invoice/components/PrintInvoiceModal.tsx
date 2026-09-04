@@ -60,7 +60,7 @@ export const PrintInvoiceModal: React.FC<PrintInvoiceModalProps> = ({
   return createPortal(
     <div
       onClick={onClose}
-      className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto animate-fadeIn"
+      className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto animate-backdrop-fade-in"
     >
       {/* Printable Area Wrapper with print styles */}
       <style>{`
@@ -117,7 +117,7 @@ export const PrintInvoiceModal: React.FC<PrintInvoiceModalProps> = ({
       <div
         ref={dialogRef}
         onClick={(e) => e.stopPropagation()}
-        className="bg-white border border-slate-200 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[94vh] overflow-hidden flex flex-col my-auto"
+        className="bg-white border border-slate-200 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[94vh] overflow-hidden flex flex-col my-auto animate-modal-bounce-in"
       >
         {/* Modal Header */}
         <div className="px-4 sm:px-6 py-3.5 border-b border-slate-100 bg-slate-50 flex items-center justify-between no-print shrink-0">
@@ -241,11 +241,31 @@ export const PrintInvoiceModal: React.FC<PrintInvoiceModalProps> = ({
                     itemsList.map((item, idx) => (
                       <tr key={idx} className="align-top">
                         <td className="p-1 sm:p-1.5 text-center font-bold text-slate-600">{idx + 1}</td>
-                        <td className="p-1 sm:p-1.5 font-semibold text-slate-900 break-words">{item.productName}</td>
+                        <td className="p-1 sm:p-1.5 font-semibold text-slate-900 break-words">
+                          <div>{item.productName}</div>
+                          {((item.discountAmount && item.discountAmount > 0) || item.promotionName) && (
+                            <div className="text-[8.5px] text-emerald-700 italic font-semibold">
+                              Sale: {item.promotionName ? `${item.promotionName} ` : ""}(-{formatCurrency(item.discountAmount || 0)})
+                            </div>
+                          )}
+                        </td>
                         <td className="p-1 sm:p-1.5 text-center font-bold">{item.quantity}</td>
-                        <td className="p-1 sm:p-1.5 text-right whitespace-nowrap">{formatCurrency(item.unitPrice)}</td>
+                        <td className="p-1 sm:p-1.5 text-right whitespace-nowrap">
+                          {item.discountAmount && item.discountAmount > 0 ? (
+                            <div>
+                              <span className="line-through text-slate-400 text-[8.5px] block">
+                                {formatCurrency(item.unitPrice)}
+                              </span>
+                              <span>
+                                {formatCurrency(Math.max(0, (item.quantity * item.unitPrice - item.discountAmount) / (item.quantity || 1)))}
+                              </span>
+                            </div>
+                          ) : (
+                            formatCurrency(item.unitPrice)
+                          )}
+                        </td>
                         <td className="p-1 sm:p-1.5 text-right font-black text-slate-900 whitespace-nowrap">
-                          {formatCurrency(item.subtotal || item.unitPrice * item.quantity)}
+                          {formatCurrency((item.quantity * item.unitPrice) - (item.discountAmount || 0))}
                         </td>
                       </tr>
                     ))

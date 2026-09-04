@@ -30,6 +30,15 @@ public class UpdateCustomerRequest {
     @DecimalMin(value = "0.0", message = "Hạn mức công nợ không được nhỏ hơn 0")
     private BigDecimal creditLimit;
 
+    @DecimalMin(value = "0.0", message = "Mức chiết khấu không được nhỏ hơn 0%")
+    @DecimalMax(value = "100.0", message = "Mức chiết khấu không được vượt quá 100%")
+    private BigDecimal discountRate;
+
+    @Pattern(regexp = "^(PERCENTAGE|CASH)$", message = "Loại chiết khấu không hợp lệ (PERCENTAGE hoặc CASH)")
+    private String discountType;
+
+    private Boolean isVip;
+
     @Min(value = 0, message = "Số ngày nhắc nợ trước hạn không được nhỏ hơn 0")
     @Max(value = 365, message = "Số ngày nhắc nợ trước hạn không được vượt quá 365 ngày")
     private Integer reminderDaysBefore;

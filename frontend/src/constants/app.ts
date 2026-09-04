@@ -10,6 +10,8 @@ export const STORAGE_KEYS = {
   AUTH_TOKEN: "token",
   AUTH_USER: "user",
   POS_OFFLINE_INVOICES: "pos_offline_invoices_v1",
+  LOCAL_ANOMALY_ALERTS: "local_anomaly_alerts_v1",
+  FAILED_LOGIN_ATTEMPTS: "failed_login_attempts_v1",
 } as const;
 
 export const APP_FALLBACKS = {
@@ -30,7 +32,7 @@ export const APP_MESSAGES = {
   ROLE_LABEL: "Vai trò:",
   GREETING_PREFIX: "Xin chào,",
   LOGOUT: "Đăng xuất",
-  EXIT_DEMO: "✕ Thoát Demo",
+  EXIT_DEMO: "Thoát Demo",
   NETWORK_TOGGLE_TITLE: "Nhấp để chuyển trạng thái mạng",
   OFFLINE_CONFLICT_LABEL: "Mô phỏng xung đột offline",
 } as const;

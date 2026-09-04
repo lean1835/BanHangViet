@@ -37,11 +37,11 @@ export const ConflictResolutionModal: React.FC<ConflictResolutionModalProps> = (
 
   return (
     <div 
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm animate-fade-in"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm animate-backdrop-fade-in"
       onClick={onClose}
     >
       <div 
-        className="w-full max-w-2xl rounded-xl bg-white shadow-2xl border border-slate-100 overflow-hidden"
+        className="w-full max-w-2xl rounded-xl bg-white shadow-2xl border border-slate-100 overflow-hidden animate-modal-bounce-in"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Modal Header */}
@@ -63,9 +63,13 @@ export const ConflictResolutionModal: React.FC<ConflictResolutionModalProps> = (
           </div>
           <button
             onClick={onClose}
+            aria-label="Đóng"
             className="rounded-lg p-1 text-slate-400 hover:bg-slate-200 hover:text-slate-600 transition-colors"
           >
-            ✕
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
           </button>
         </div>
 
@@ -73,9 +77,8 @@ export const ConflictResolutionModal: React.FC<ConflictResolutionModalProps> = (
         <div className="p-6 space-y-5">
           {!isOwner && (
             <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-xs text-amber-800 flex items-start gap-3">
-              <span className="text-lg">⚠️</span>
               <div>
-                <strong className="font-bold">Yêu cầu quyền Chủ hộ kinh doanh (VT-01):</strong>
+                <strong className="font-bold">Yêu cầu quyền Chủ hộ kinh doanh:</strong>
                 <p className="mt-0.5">
                   Tài khoản hiện tại của bạn không đủ thẩm quyền giải quyết xung đột. Vui lòng báo Chủ hộ kinh doanh thực hiện thao tác này.
                 </p>
@@ -161,7 +164,7 @@ export const ConflictResolutionModal: React.FC<ConflictResolutionModalProps> = (
         {/* Modal Footer */}
         <div className="flex items-center justify-between border-t border-slate-100 bg-slate-50 px-6 py-3">
           <span className="text-[11px] text-slate-400 font-medium">
-            Mọi thao tác giải quyết xung đột đều được lưu nhật ký hoạt động (NCL 07).
+            Mọi thao tác giải quyết xung đột đều được lưu nhật ký hoạt động.
           </span>
           <button
             onClick={onClose}

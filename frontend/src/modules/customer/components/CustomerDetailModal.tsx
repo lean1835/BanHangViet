@@ -15,6 +15,7 @@ import {
   Package,
   Clock,
   ArrowLeft,
+  Crown,
 } from "lucide-react";
 import { formatCurrency } from "@/utils/formatCurrency";
 import { formatDateOnly } from "@/utils/dateFormatter";
@@ -146,7 +147,7 @@ export const CustomerDetailModal: React.FC<CustomerDetailModalProps> = ({
                   }`}
                 >
                   {isOverdue
-                    ? "QUÁ HẠN NỢ ⚠️"
+                    ? "QUÁ HẠN NỢ"
                     : isExceeded
                       ? "Vượt hạn mức"
                       : hasDebt
@@ -216,6 +217,53 @@ export const CustomerDetailModal: React.FC<CustomerDetailModalProps> = ({
             </div>
           </div>
 
+          {/* Debt reminder setting badge */}
+          <div className="flex items-center justify-between px-3 py-2 bg-slate-50/80 rounded-lg border border-slate-200/70 text-[11px] text-slate-600">
+            <span className="font-semibold text-slate-500">Cấu hình nhắc nợ thanh toán:</span>
+            <span className="font-bold text-slate-700">
+              Trước {customer.reminderDaysBefore ?? 3} ngày &bull; Sau {customer.reminderDaysAfter ?? 3} ngày
+            </span>
+          </div>
+
+          {/* VIP & Discount Policy Card (NCL-15-CN-003) */}
+          <div className="p-3.5 rounded-xl bg-gradient-to-r from-amber-50/70 to-orange-50/50 border border-amber-200 flex flex-col gap-2.5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5 text-xs font-extrabold text-amber-900">
+                <Crown size={15} className="text-amber-600" />
+                <span>Chính sách Khách hàng thân thiết & Chiết khấu riêng</span>
+              </div>
+              {customer.isVip || (customer.discountRate && customer.discountRate > 0) ? (
+                <span className="px-2 py-0.5 rounded text-[10px] font-black bg-amber-500 text-white uppercase tracking-wider shadow-2xs">
+                  Khách VIP
+                </span>
+              ) : (
+                <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-600 border border-slate-200">
+                  Khách thông thường
+                </span>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-0.5">
+              <div className="bg-white/80 p-2.5 rounded-lg border border-amber-100 flex flex-col">
+                <span className="text-[10px] text-slate-400 font-bold uppercase">Mức chiết khấu riêng</span>
+                <span className="text-xs font-black text-amber-700 mt-0.5">
+                  {customer.discountRate && customer.discountRate > 0
+                    ? customer.discountType === "CASH"
+                      ? `${formatCurrency(customer.discountRate)}`
+                      : `${customer.discountRate}% trên đơn`
+                    : "0% (Không áp dụng)"}
+                </span>
+              </div>
+
+              <div className="bg-white/80 p-2.5 rounded-lg border border-amber-100 flex flex-col">
+                <span className="text-[10px] text-slate-400 font-bold uppercase">Tổng chi tiêu tích lũy</span>
+                <span className="text-xs font-black text-slate-800 mt-0.5">
+                  {formatCurrency(customer.totalSpent || 0)}
+                </span>
+              </div>
+            </div>
+          </div>
+
           {/* Customer Address & Notes */}
           {customer.address && (
             <div className="flex items-center gap-2 p-2.5 sm:p-3 bg-slate-50 rounded-xl border border-slate-200/60 text-[11px] sm:text-xs text-slate-600">
@@ -260,30 +308,50 @@ export const CustomerDetailModal: React.FC<CustomerDetailModalProps> = ({
             </div>
           )}
 
-          {/* Detail Tabs Header */}
-          <div className="border-b border-slate-200 flex items-center gap-4 sm:gap-6 overflow-x-auto no-scrollbar">
-            <button
-              type="button"
-              onClick={() => setActiveTab("DEBT_ORDERS")}
-              className={`pb-2 text-[11px] sm:text-xs font-extrabold transition-all relative shrink-0 ${
-                activeTab === "DEBT_ORDERS"
-                  ? "text-kv-blue-primary border-b-2 border-kv-blue-primary"
-                  : "text-slate-500 hover:text-slate-700"
-              }`}
-            >
-              Đơn hàng nợ ({activeDebtOrders.length})
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab("HISTORY")}
-              className={`pb-2 text-[11px] sm:text-xs font-extrabold transition-all relative shrink-0 ${
-                activeTab === "HISTORY"
-                  ? "text-kv-blue-primary border-b-2 border-kv-blue-primary"
-                  : "text-slate-500 hover:text-slate-700"
-              }`}
-            >
-              Lịch sử phát sinh & Thu nợ ({debtHistory.length})
-            </button>
+          {/* Detail Tabs Header - Spacious, sticky navigation */}
+          <div className="sticky top-0 z-20 bg-white/95 backdrop-blur-xs pt-3 -mt-2 -mx-3.5 sm:-mx-5 px-3.5 sm:px-5 border-b border-slate-200">
+            <div className="flex items-center gap-6 sm:gap-8 overflow-x-auto no-scrollbar">
+              <button
+                type="button"
+                onClick={() => setActiveTab("DEBT_ORDERS")}
+                className={`pb-3 text-xs sm:text-sm font-bold transition-all inline-flex items-center gap-2 relative shrink-0 border-b-2 -mb-[1px] ${
+                  activeTab === "DEBT_ORDERS"
+                    ? "text-kv-blue-primary border-kv-blue-primary font-extrabold"
+                    : "text-slate-500 hover:text-slate-800 border-transparent hover:border-slate-300"
+                }`}
+              >
+                <span>Đơn hàng nợ</span>
+                <span
+                  className={`px-2 py-0.5 rounded-full text-xs font-bold transition-colors ${
+                    activeTab === "DEBT_ORDERS"
+                      ? "bg-blue-100 text-kv-blue-primary"
+                      : "bg-slate-100 text-slate-500"
+                  }`}
+                >
+                  {activeDebtOrders.length}
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab("HISTORY")}
+                className={`pb-3 text-xs sm:text-sm font-bold transition-all inline-flex items-center gap-2 relative shrink-0 border-b-2 -mb-[1px] ${
+                  activeTab === "HISTORY"
+                    ? "text-kv-blue-primary border-kv-blue-primary font-extrabold"
+                    : "text-slate-500 hover:text-slate-800 border-transparent hover:border-slate-300"
+                }`}
+              >
+                <span>Lịch sử thu nợ & phát sinh</span>
+                <span
+                  className={`px-2 py-0.5 rounded-full text-xs font-bold transition-colors ${
+                    activeTab === "HISTORY"
+                      ? "bg-blue-100 text-kv-blue-primary"
+                      : "bg-slate-100 text-slate-500"
+                  }`}
+                >
+                  {debtHistory.length}
+                </span>
+              </button>
+            </div>
           </div>
 
           {/* Tab 1: Active Debt Orders with Product Details */}

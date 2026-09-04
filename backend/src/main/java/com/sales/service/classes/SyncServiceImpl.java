@@ -8,6 +8,10 @@ import com.sales.dto.request.SyncResolveRequest;
 import com.sales.dto.response.SyncCheckResponse;
 import com.sales.dto.response.OrderResponse;
 import com.sales.dto.response.OrderItemResponse;
+import com.sales.dto.response.PageResponse;
+import com.sales.dto.response.SyncReconciliationSummaryResponse;
+import com.sales.dto.response.SyncSessionResponse;
+import com.sales.dto.response.SyncSessionDetailResponse;
 import com.sales.entity.*;
 import com.sales.exception.AppException;
 import com.sales.exception.ErrorCode;
@@ -17,6 +21,9 @@ import com.sales.service.interfaces.EInvoiceService;
 import com.sales.constant.ConflictResolutionStrategy;
 import com.sales.event.OrderSyncedEvent;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -25,7 +32,10 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -47,15 +57,22 @@ public class SyncServiceImpl implements SyncService {
     private final CustomerRepository customerRepository;
     private final ShiftRepository shiftRepository;
     private final UserRepository userRepository;
-    private final ActivityLogRepository activityLogRepository;
+    private final ActivityLogHelper activityLogHelper;
     private final EInvoiceRepository eInvoiceRepository;
     private final EInvoiceService eInvoiceService;
+    private final SyncSessionRepository syncSessionRepository;
+    private final SyncSessionDetailRepository syncSessionDetailRepository;
     private final ObjectMapper objectMapper;
     private final ApplicationEventPublisher eventPublisher;
+    private final CustomerDebtRepository customerDebtRepository;
 
     private User getAuthenticatedUser(String username) {
         return userRepository.findByUsername(username)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+    }
+
+    private boolean isHouseholdOwner(User user) {
+        return user != null && user.getRole() != null && "VT-01".equals(user.getRole().getCode());
     }
 
     private void logActivity(BusinessHousehold household, User actor, String action, String targetId, Object oldValue, Object newValue) {
@@ -69,19 +86,7 @@ public class SyncServiceImpl implements SyncService {
             String oldStr = oldValue != null ? objectMapper.writeValueAsString(oldValue) : null;
             String newStr = newValue != null ? objectMapper.writeValueAsString(newValue) : null;
 
-            ActivityLog logRecord = ActivityLog.builder()
-                    .household(household)
-                    .user(actor)
-                    .action(action)
-                    .targetTable("orders")
-                    .targetId(targetId)
-                    .oldValue(oldStr)
-                    .newValue(newStr)
-                    .clientIp(clientIp)
-                    .userAgent(userAgent)
-                    .build();
-
-            activityLogRepository.save(logRecord);
+            activityLogHelper.logActivityInNewTransaction(household, actor, action, "orders", targetId, oldStr, newStr, clientIp, userAgent);
         } catch (Exception e) {
             log.error("Failed to write activity log in sync service", e);
         }
@@ -243,7 +248,27 @@ public class SyncServiceImpl implements SyncService {
         Map<String, Product> productMap = products.stream()
                 .collect(Collectors.toMap(Product::getId, p -> p));
 
-        // -----------------------------------------------------
+        // --- SYNC SESSION TRACKING FOR RECONCILIATION REPORT (NCL-08-CN-006) ---
+        int totalSent = requests.size();
+        int totalReceived = 0;
+        int totalDuplicated = 0;
+        int totalConflicted = 0;
+        int totalFailed = 0;
+
+        long sessionCount = syncSessionRepository.countByHouseholdId(household.getId()) + 1;
+        String timeSuffix = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
+        String uniqueSuffix = UUID.randomUUID().toString().substring(0, 4).toUpperCase();
+        String sessionCode = "DB-" + timeSuffix + "-" + String.format("%04d", (sessionCount % 10000)) + "-" + uniqueSuffix;
+
+        SyncSession syncSession = SyncSession.builder()
+                .sessionCode(sessionCode)
+                .household(household)
+                .user(currentUser)
+                .totalSent(totalSent)
+                .syncedAt(LocalDateTime.now())
+                .status("MATCHED")
+                .details(new ArrayList<>())
+                .build();
 
         for (OfflineOrderRequest req : requests) {
             List<String> warnings = new ArrayList<>();
@@ -252,107 +277,327 @@ public class SyncServiceImpl implements SyncService {
             Order existing = existingOrderMap.get(req.getOrderNumber());
             if (existing != null) {
                 // Already synced previously, skip duplicate creation to prevent double record
+                totalDuplicated++;
+                SyncSessionDetail detail = SyncSessionDetail.builder()
+                        .syncSession(syncSession)
+                        .orderNumber(req.getOrderNumber())
+                        .status("DUPLICATE")
+                        .note("Đơn hàng đã tồn tại trên máy chủ")
+                        .build();
+                syncSession.getDetails().add(detail);
                 responses.add(mapToResponse(existing));
                 continue;
             }
 
-            // Check overdue sync limit (QTN-11 & AC NCL-08-CN-002-TC-02)
-            if (req.getCreatedAt() != null && req.getCreatedAt().isBefore(LocalDateTime.now().minusHours(MAX_SYNC_HOURS))) {
-                warnings.add("Đơn hàng " + req.getOrderNumber() + " đồng bộ quá hạn quy định (24 giờ).");
-            }
-
-            // 2. Resolve shift
-            Shift shift = null;
-            if (req.getShiftId() != null && !req.getShiftId().trim().isEmpty()) {
-                shift = shiftMap.get(req.getShiftId());
-            }
-            if (shift == null) {
-                shift = activeShift;
-            }
-
-            // 3. Resolve customer
-            Customer customer = null;
-            if (req.getCustomerId() != null && !req.getCustomerId().trim().isEmpty()) {
-                customer = customerMap.get(req.getCustomerId());
-            }
-
-            // 4. Create Order entity
-            Order order = Order.builder()
-                    .household(household)
-                    .shift(shift)
-                    .createdByUser(currentUser)
-                    .customer(customer)
-                    .orderNumber(req.getOrderNumber())
-                    .totalAmount(req.getTotalAmount() != null ? req.getTotalAmount() : BigDecimal.ZERO)
-                    .discountAmount(req.getDiscountAmount() != null ? req.getDiscountAmount() : BigDecimal.ZERO)
-                    .finalAmount(req.getFinalAmount() != null ? req.getFinalAmount() : BigDecimal.ZERO)
-                    .paymentMethod(req.getPaymentMethod())
-                    .paymentStatus(req.getPaymentStatus() != null ? req.getPaymentStatus() : "PAID")
-                    .status("COMPLETED")
-                    .syncStatus("SYNCED")
-                    .isOffline(true)
-                    .syncedAt(LocalDateTime.now())
-                    .discountType(req.getDiscountType())
-                    .discountRateOrValue(req.getDiscountRateOrValue())
-                    .build();
-
-            // Explicitly set createdAt using the offline timestamp
-            order.setCreatedAt(req.getCreatedAt() != null ? req.getCreatedAt() : LocalDateTime.now());
-
-            List<OrderItem> items = new ArrayList<>();
-
+            // 2. Pre-validate products before persistence to avoid transaction rollback pollution
+            boolean hasValidProducts = true;
+            String invalidProductNote = null;
             if (req.getItems() != null) {
                 for (OfflineOrderItemRequest itemReq : req.getItems()) {
                     Product product = productMap.get(itemReq.getProductId());
                     if (product == null) {
-                        throw new AppException(ErrorCode.PRODUCT_NOT_FOUND);
+                        hasValidProducts = false;
+                        invalidProductNote = "Sản phẩm (ID: " + itemReq.getProductId() + ") không tồn tại hoặc đã bị xóa";
+                        break;
                     }
-
-                    // Check stock warning before atomic deduction
-                    if (product.getStockQuantity() != null && product.getStockQuantity().compareTo(itemReq.getQuantity()) < 0) {
-                        String reqQtyStr = itemReq.getQuantity() != null ? itemReq.getQuantity().stripTrailingZeros().toPlainString() : "0";
-                        String stockQtyStr = product.getStockQuantity() != null ? product.getStockQuantity().stripTrailingZeros().toPlainString() : "0";
-                        warnings.add("Sản phẩm '" + product.getName() + "' vượt quá số lượng tồn kho khả dụng khi đồng bộ (Yêu cầu: "
-                                + reqQtyStr + ", Tồn kho: " + stockQtyStr + ").");
-                    }
-
-                    // Subtract stock atomically via SQL (do not mutate in-memory entity to prevent Hibernate dirty checking conflicts)
-                    int affectedRows = productRepository.deductStock(product.getId(), household.getId(), itemReq.getQuantity());
-                    if (affectedRows == 0) {
-                        throw new AppException(ErrorCode.PRODUCT_NOT_FOUND);
-                    }
-
-                    OrderItem orderItem = OrderItem.builder()
-                            .order(order)
-                            .product(product)
-                            .productName(product.getName())
-                            .quantity(itemReq.getQuantity())
-                            .unitPrice(itemReq.getUnitPrice())
-                            .discountAmount(itemReq.getDiscountAmount() != null ? itemReq.getDiscountAmount() : BigDecimal.ZERO)
-                            .taxRatePercentage(itemReq.getTaxRatePercentage() != null ? itemReq.getTaxRatePercentage() : BigDecimal.ZERO)
-                            .taxAmount(itemReq.getTaxAmount() != null ? itemReq.getTaxAmount() : BigDecimal.ZERO)
-                            .subtotal(itemReq.getSubtotal() != null ? itemReq.getSubtotal() : BigDecimal.ZERO)
-                            .build();
-
-                    items.add(orderItem);
                 }
             }
 
-            order.setItems(items);
-            order = orderRepository.save(order);
+            if (!hasValidProducts) {
+                totalFailed++;
+                SyncSessionDetail detail = SyncSessionDetail.builder()
+                        .syncSession(syncSession)
+                        .orderNumber(req.getOrderNumber())
+                        .status("FAILED")
+                        .note(invalidProductNote != null ? invalidProductNote : "Sản phẩm không hợp lệ")
+                        .build();
+                syncSession.getDetails().add(detail);
+                continue;
+            }
 
-            // Write activity logs
-            logActivity(household, currentUser, "SYNC_OFFLINE_ORDER", order.getId(), null, buildOrderLogMap(order));
+            try {
+                // Check overdue sync limit (QTN-11 & AC NCL-08-CN-002-TC-02)
+                if (req.getCreatedAt() != null && req.getCreatedAt().isBefore(LocalDateTime.now().minusHours(MAX_SYNC_HOURS))) {
+                    warnings.add("Đơn hàng " + req.getOrderNumber() + " đồng bộ quá hạn quy định (24 giờ).");
+                }
 
-            // 5. Decoupled automatic invoice generation via Event Listener (running post-commit asynchronously)
-            eventPublisher.publishEvent(new OrderSyncedEvent(username, order.getId()));
+                // 3. Resolve shift
+                Shift shift = null;
+                if (req.getShiftId() != null && !req.getShiftId().trim().isEmpty()) {
+                    shift = shiftMap.get(req.getShiftId());
+                }
+                if (shift == null) {
+                    shift = activeShift;
+                }
 
-            OrderResponse orderResponse = mapToResponse(order);
-            orderResponse.setWarningMessages(warnings);
-            responses.add(orderResponse);
+                // 4. Resolve customer
+                Customer customer = null;
+                if (req.getCustomerId() != null && !req.getCustomerId().trim().isEmpty()) {
+                    customer = customerMap.get(req.getCustomerId());
+                }
+
+                // 5. Create Order entity
+                Order order = Order.builder()
+                        .household(household)
+                        .shift(shift)
+                        .createdByUser(currentUser)
+                        .customer(customer)
+                        .orderNumber(req.getOrderNumber())
+                        .totalAmount(req.getTotalAmount() != null ? req.getTotalAmount() : BigDecimal.ZERO)
+                        .discountAmount(req.getDiscountAmount() != null ? req.getDiscountAmount() : BigDecimal.ZERO)
+                        .finalAmount(req.getFinalAmount() != null ? req.getFinalAmount() : BigDecimal.ZERO)
+                        .paymentMethod(req.getPaymentMethod())
+                        .paymentStatus(req.getPaymentStatus() != null ? req.getPaymentStatus() : "PAID")
+                        .status("COMPLETED")
+                        .syncStatus("SYNCED")
+                        .isOffline(true)
+                        .syncedAt(LocalDateTime.now())
+                        .discountType(req.getDiscountType())
+                        .discountRateOrValue(req.getDiscountRateOrValue())
+                        .build();
+
+                // Explicitly set createdAt using the offline timestamp
+                order.setCreatedAt(req.getCreatedAt() != null ? req.getCreatedAt() : LocalDateTime.now());
+
+                List<OrderItem> items = new ArrayList<>();
+
+                if (req.getItems() != null) {
+                    for (OfflineOrderItemRequest itemReq : req.getItems()) {
+                        Product product = productMap.get(itemReq.getProductId());
+
+                        // Check stock warning before atomic deduction
+                        if (product.getStockQuantity() != null && product.getStockQuantity().compareTo(itemReq.getQuantity()) < 0) {
+                            String reqQtyStr = itemReq.getQuantity() != null ? itemReq.getQuantity().stripTrailingZeros().toPlainString() : "0";
+                            String stockQtyStr = product.getStockQuantity() != null ? product.getStockQuantity().stripTrailingZeros().toPlainString() : "0";
+                            warnings.add("Sản phẩm '" + product.getName() + "' vượt quá số lượng tồn kho khả dụng khi đồng bộ (Yêu cầu: "
+                                    + reqQtyStr + ", Tồn kho: " + stockQtyStr + ").");
+                        }
+
+                        // Subtract stock atomically via SQL
+                        int affectedRows = productRepository.deductStock(product.getId(), household.getId(), itemReq.getQuantity());
+                        if (affectedRows == 0) {
+                            log.warn("Deduct stock failed for product {}", product.getId());
+                        }
+
+                        OrderItem orderItem = OrderItem.builder()
+                                .order(order)
+                                .product(product)
+                                .productName(product.getName())
+                                .quantity(itemReq.getQuantity())
+                                .unitPrice(itemReq.getUnitPrice())
+                                .discountAmount(itemReq.getDiscountAmount() != null ? itemReq.getDiscountAmount() : BigDecimal.ZERO)
+                                .taxRatePercentage(itemReq.getTaxRatePercentage() != null ? itemReq.getTaxRatePercentage() : BigDecimal.ZERO)
+                                .taxAmount(itemReq.getTaxAmount() != null ? itemReq.getTaxAmount() : BigDecimal.ZERO)
+                                .subtotal(itemReq.getSubtotal() != null ? itemReq.getSubtotal() : BigDecimal.ZERO)
+                                .build();
+
+                        items.add(orderItem);
+                    }
+                }
+
+                order.setItems(items);
+                order = orderRepository.save(order);
+
+                totalReceived++;
+                SyncSessionDetail detail = SyncSessionDetail.builder()
+                        .syncSession(syncSession)
+                        .orderNumber(req.getOrderNumber())
+                        .status("SUCCESS")
+                        .note("Đồng bộ thành công")
+                        .build();
+                syncSession.getDetails().add(detail);
+
+                // Write activity logs
+                logActivity(household, currentUser, "SYNC_OFFLINE_ORDER", order.getId(), null, buildOrderLogMap(order));
+
+                // Decoupled automatic invoice generation via Event Listener
+                eventPublisher.publishEvent(new OrderSyncedEvent(username, order.getId(), Boolean.TRUE.equals(req.getIsInvoiceIssuedOffline())));
+
+                OrderResponse orderResponse = mapToResponse(order);
+                orderResponse.setWarningMessages(warnings);
+                responses.add(orderResponse);
+
+            } catch (Exception e) {
+                log.error("Failed to sync order {}", req.getOrderNumber(), e);
+                totalFailed++;
+                SyncSessionDetail detail = SyncSessionDetail.builder()
+                        .syncSession(syncSession)
+                        .orderNumber(req.getOrderNumber())
+                        .status("FAILED")
+                        .note(e.getMessage() != null ? e.getMessage() : "Lỗi khi xử lý lưu đơn hàng")
+                        .build();
+                syncSession.getDetails().add(detail);
+            }
         }
 
+        // Finalize SyncSession Status (AC NCL-08-CN-006-TC-01 & TC-02)
+        syncSession.setTotalReceived(totalReceived);
+        syncSession.setTotalDuplicated(totalDuplicated);
+        syncSession.setTotalConflicted(totalConflicted);
+        syncSession.setTotalFailed(totalFailed);
+
+        boolean isMatched = totalSent == (totalReceived + totalDuplicated);
+        syncSession.setStatus(isMatched ? "MATCHED" : "DISCREPANCY");
+
+        syncSessionRepository.save(syncSession);
+
         return responses;
+    }
+
+    private SyncSessionResponse mapToSyncSessionResponse(SyncSession session, boolean includeDetails) {
+        List<SyncSessionDetailResponse> detailResponses = null;
+        if (includeDetails && session.getDetails() != null) {
+            detailResponses = session.getDetails().stream()
+                    .map(d -> SyncSessionDetailResponse.builder()
+                            .id(d.getId())
+                            .orderNumber(d.getOrderNumber())
+                            .status(d.getStatus())
+                            .note(d.getNote())
+                            .build())
+                    .collect(Collectors.toList());
+        }
+
+        return SyncSessionResponse.builder()
+                .id(session.getId())
+                .sessionCode(session.getSessionCode())
+                .userId(session.getUser() != null ? session.getUser().getId() : null)
+                .username(session.getUser() != null ? session.getUser().getUsername() : null)
+                .userFullName(session.getUser() != null ? session.getUser().getFullName() : null)
+                .deviceId(session.getDeviceId())
+                .totalSent(session.getTotalSent())
+                .totalReceived(session.getTotalReceived())
+                .totalDuplicated(session.getTotalDuplicated())
+                .totalConflicted(session.getTotalConflicted())
+                .totalFailed(session.getTotalFailed())
+                .status(session.getStatus())
+                .syncedAt(session.getSyncedAt())
+                .createdAt(session.getCreatedAt())
+                .details(detailResponses)
+                .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PageResponse<SyncSessionResponse> getSyncSessions(
+            String username, int page, int size, String fromDateStr, String toDateStr, String status) {
+        User currentUser = getAuthenticatedUser(username);
+        BusinessHousehold household = currentUser.getHousehold();
+        if (household == null) {
+            throw new AppException(ErrorCode.FORBIDDEN);
+        }
+
+        // Data scoping (AC NCL-08-CN-006-TC-03):
+        // VT-01 (Owner) can view all sessions; VT-02 (Staff) only views own sessions
+        String filterUserId = isHouseholdOwner(currentUser) ? null : currentUser.getId();
+
+        if (status != null && (status.trim().isEmpty() || "ALL".equalsIgnoreCase(status.trim()))) {
+            status = null;
+        }
+
+        LocalDateTime fromDate = null;
+        LocalDateTime toDate = null;
+
+        if (fromDateStr != null && !fromDateStr.trim().isEmpty()) {
+            try {
+                fromDate = LocalDate.parse(fromDateStr.trim(), DateTimeFormatter.ISO_LOCAL_DATE).atStartOfDay();
+            } catch (Exception e) {
+                log.warn("Invalid fromDate format: {}", fromDateStr);
+            }
+        }
+        if (toDateStr != null && !toDateStr.trim().isEmpty()) {
+            try {
+                toDate = LocalDate.parse(toDateStr.trim(), DateTimeFormatter.ISO_LOCAL_DATE).atTime(LocalTime.MAX);
+            } catch (Exception e) {
+                log.warn("Invalid toDate format: {}", toDateStr);
+            }
+        }
+
+        Pageable pageable = PageRequest.of(page, size);
+        Page<SyncSession> sessionsPage = syncSessionRepository.findFiltered(
+                household.getId(), filterUserId, status, fromDate, toDate, pageable);
+
+        List<SyncSessionResponse> responses = sessionsPage.getContent().stream()
+                .map(s -> mapToSyncSessionResponse(s, false))
+                .collect(Collectors.toList());
+
+        return PageResponse.<SyncSessionResponse>builder()
+                .content(responses)
+                .pageNumber(sessionsPage.getNumber())
+                .pageSize(sessionsPage.getSize())
+                .totalElements(sessionsPage.getTotalElements())
+                .totalPages(sessionsPage.getTotalPages())
+                .last(sessionsPage.isLast())
+                .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public SyncSessionResponse getSyncSessionDetail(String username, String sessionId) {
+        User currentUser = getAuthenticatedUser(username);
+        BusinessHousehold household = currentUser.getHousehold();
+        if (household == null) {
+            throw new AppException(ErrorCode.FORBIDDEN);
+        }
+
+        SyncSession session = syncSessionRepository.findWithDetailsByIdAndHouseholdId(sessionId, household.getId())
+                .orElseThrow(() -> new AppException(ErrorCode.INVALID_INPUT));
+
+        // Data Scoping check (AC NCL-08-CN-006-TC-03)
+        if (!isHouseholdOwner(currentUser) && !session.getUser().getId().equals(currentUser.getId())) {
+            throw new AppException(ErrorCode.FORBIDDEN);
+        }
+
+        return mapToSyncSessionResponse(session, true);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public SyncReconciliationSummaryResponse getSyncReconciliationSummary(
+            String username, String fromDateStr, String toDateStr, String status) {
+        User currentUser = getAuthenticatedUser(username);
+        BusinessHousehold household = currentUser.getHousehold();
+        if (household == null) {
+            throw new AppException(ErrorCode.FORBIDDEN);
+        }
+
+        // Data scoping (AC NCL-08-CN-006-TC-03)
+        String filterUserId = isHouseholdOwner(currentUser) ? null : currentUser.getId();
+
+        if (status != null && (status.trim().isEmpty() || "ALL".equalsIgnoreCase(status.trim()))) {
+            status = null;
+        }
+
+        LocalDateTime fromDate = null;
+        LocalDateTime toDate = null;
+
+        if (fromDateStr != null && !fromDateStr.trim().isEmpty()) {
+            try {
+                fromDate = LocalDate.parse(fromDateStr.trim(), DateTimeFormatter.ISO_LOCAL_DATE).atStartOfDay();
+            } catch (Exception e) {
+                log.warn("Invalid fromDate format: {}", fromDateStr);
+            }
+        }
+        if (toDateStr != null && !toDateStr.trim().isEmpty()) {
+            try {
+                toDate = LocalDate.parse(toDateStr.trim(), DateTimeFormatter.ISO_LOCAL_DATE).atTime(LocalTime.MAX);
+            } catch (Exception e) {
+                log.warn("Invalid toDate format: {}", toDateStr);
+            }
+        }
+
+        long totalSessions = syncSessionRepository.countFiltered(household.getId(), filterUserId, status, fromDate, toDate);
+        long matchedSessions = "DISCREPANCY".equalsIgnoreCase(status) ? 0 :
+                syncSessionRepository.countFiltered(household.getId(), filterUserId, "MATCHED", fromDate, toDate);
+        long discrepancySessions = "MATCHED".equalsIgnoreCase(status) ? 0 :
+                syncSessionRepository.countFiltered(household.getId(), filterUserId, "DISCREPANCY", fromDate, toDate);
+        long totalSyncedOrders = syncSessionRepository.sumTotalReceivedFiltered(household.getId(), filterUserId, status, fromDate, toDate);
+
+        return SyncReconciliationSummaryResponse.builder()
+                .totalSessions(totalSessions)
+                .matchedSessions(matchedSessions)
+                .discrepancySessions(discrepancySessions)
+                .totalSyncedOrders(totalSyncedOrders)
+                .build();
     }
 
     @Override
@@ -365,7 +610,7 @@ public class SyncServiceImpl implements SyncService {
         }
 
         // Only owner is allowed
-        if (!"VT-01".equals(currentUser.getRole().getCode())) {
+        if (!isHouseholdOwner(currentUser)) {
             throw new AppException(ErrorCode.FORBIDDEN);
         }
 

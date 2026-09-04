@@ -30,4 +30,11 @@ Thumbs.db
 backend/run.log
 *.log
 backend/*.log
+backend/backups/
+MR_*.md
+
+# Backups (runtime generated data)
+backups/
+backend/backups/
+*.zip.json
 

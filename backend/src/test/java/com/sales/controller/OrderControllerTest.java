@@ -64,6 +64,12 @@ public class OrderControllerTest {
     @Autowired
     private OrderRepository orderRepository;
 
+    @Autowired
+    private PointOfSaleRepository pointOfSaleRepository;
+
+    @Autowired
+    private PosInventoryRepository posInventoryRepository;
+
 
 
     private BusinessHousehold testHousehold;
@@ -331,7 +337,7 @@ public class OrderControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(discountReq)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.result.discountAmount").value(55000.00))
+                .andExpect(jsonPath("$.result.discountAmount").value(50000.00))
                 .andExpect(jsonPath("$.result.finalAmount").value(55000.00));
     }
 
@@ -610,6 +616,90 @@ public class OrderControllerTest {
     }
 
     @Test
+    @WithMockUser(username = "test_owner_order", roles = {"VT-01"})
+    public void completeOrder_withPointOfSale_deductsBothStocksCorrectly() throws Exception {
+        openShiftForUser(testOwner);
+
+        // Tạo điểm bán CS1
+        PointOfSale pos1 = pointOfSaleRepository.save(PointOfSale.builder()
+                .household(testHousehold)
+                .posCode("POS-CS1")
+                .name("Điểm bán CS1")
+                .address("Địa chỉ CS1")
+                .isDefault(false)
+                .isActive(true)
+                .build());
+
+        // Set Product stock = 994
+        testProduct.setStockQuantity(new BigDecimal("994.000"));
+        testProduct = productRepository.saveAndFlush(testProduct);
+
+        // Set CS1 inventory = 7
+        PosInventory posInv = posInventoryRepository.save(PosInventory.builder()
+                .household(testHousehold)
+                .pointOfSale(pos1)
+                .product(testProduct)
+                .stockQuantity(new BigDecimal("7.000"))
+                .minStockQuantity(new BigDecimal("2.000"))
+                .build());
+
+        // Cập nhật ca mở cho testOwner gắn với pos1
+        Shift openShift = shiftRepository.findByUserIdAndStatus(testOwner.getId(), ShiftStatus.OPEN).orElseThrow();
+        openShift.setPointOfSale(pos1);
+        shiftRepository.saveAndFlush(openShift);
+
+        entityManager.clear();
+
+        // 1. Tạo đơn hàng gắn với CS1
+        CreateOrderRequest orderReq = CreateOrderRequest.builder().build();
+        String responseStr = mockMvc.perform(post("/api/v1/orders")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(orderReq)))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        String orderId = objectMapper.readTree(responseStr).get("result").get("id").asText();
+
+        // 2. Thêm 1 sản phẩm vào đơn
+        CreateOrderItemRequest itemReq = CreateOrderItemRequest.builder()
+                .productId(testProduct.getId())
+                .quantity(new BigDecimal("1.000"))
+                .build();
+        mockMvc.perform(post("/api/v1/orders/" + orderId + "/items")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(itemReq)))
+                .andExpect(status().isOk());
+
+        // 3. Chọn CASH payment
+        OrderPaymentRequest payReq = OrderPaymentRequest.builder()
+                .paymentMethod("CASH")
+                .build();
+        mockMvc.perform(post("/api/v1/orders/" + orderId + "/payment")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(payReq)))
+                .andExpect(status().isOk());
+
+        // 4. Chốt đơn (Complete)
+        CompleteOrderRequest completeReq = CompleteOrderRequest.builder()
+                .amountGiven(new BigDecimal("50000.00"))
+                .build();
+        mockMvc.perform(post("/api/v1/orders/" + orderId + "/complete")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(completeReq)))
+                .andExpect(status().isOk());
+
+        entityManager.flush();
+        entityManager.clear();
+
+        // 5. Kiểm tra stock của product giảm đúng 1 đơn vị: từ 994.000 xuống 993.000 (KHÔNG PHẢI 992.000)
+        Product finalProduct = productRepository.findById(testProduct.getId()).orElseThrow();
+        org.junit.jupiter.api.Assertions.assertEquals(0, new BigDecimal("993.000").compareTo(finalProduct.getStockQuantity()));
+
+        // 6. Kiểm tra stock tại điểm bán CS1 giảm đúng 1 đơn vị: từ 7.000 xuống 6.000
+        PosInventory finalPosInv = posInventoryRepository.findById(posInv.getId()).orElseThrow();
+        org.junit.jupiter.api.Assertions.assertEquals(0, new BigDecimal("6.000").compareTo(finalPosInv.getStockQuantity()));
+    }
+
+    @Test
     @WithMockUser(username = "test_employee_order", roles = {"VT-02"})
     public void getOrder_salespersonOwnOrder_success() throws Exception {
         openShiftForUser(testEmployee);
@@ -781,11 +871,11 @@ public class OrderControllerTest {
                         .content(objectMapper.writeValueAsString(discountReq)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.result.totalAmount").value(44000.00))
-                .andExpect(jsonPath("$.result.discountAmount").value(4400.00))
+                .andExpect(jsonPath("$.result.discountAmount").value(4000.00))
                 .andExpect(jsonPath("$.result.finalAmount").value(39600.00));
 
         // 4. Thêm 3 mặt hàng nữa -> tổng quantity = 5 (total 100k, subtotal 110k)
-        // Chiết khấu 10% phải tự động tính lại thành 11k
+        // Chiết khấu 10% phải tự động tính lại thành 10k
         CreateOrderItemRequest addMoreReq = CreateOrderItemRequest.builder()
                 .productId(testProduct.getId())
                 .quantity(new BigDecimal("3.000"))
@@ -795,7 +885,7 @@ public class OrderControllerTest {
                         .content(objectMapper.writeValueAsString(addMoreReq)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.result.totalAmount").value(110000.00))
-                .andExpect(jsonPath("$.result.discountAmount").value(11000.00))
+                .andExpect(jsonPath("$.result.discountAmount").value(10000.00))
                 .andExpect(jsonPath("$.result.finalAmount").value(99000.00));
 
         // 5. Cập nhật quantity về 1 (total 20k, subtotal 22k)
@@ -813,7 +903,7 @@ public class OrderControllerTest {
                         .content(objectMapper.writeValueAsString(updateReq)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.result.totalAmount").value(22000.00))
-                .andExpect(jsonPath("$.result.discountAmount").value(2200.00))
+                .andExpect(jsonPath("$.result.discountAmount").value(2000.00))
                 .andExpect(jsonPath("$.result.finalAmount").value(19800.00));
 
         // 6. Xóa item (total 0) -> chiết khấu tự động tính lại thành 0

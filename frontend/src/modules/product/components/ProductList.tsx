@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { Search, Plus, Edit, Trash2, FileSpreadsheet } from "lucide-react";
+import { Search, Plus, Edit, Trash2, FileSpreadsheet, AlertTriangle, Printer, Barcode, Mic } from "lucide-react";
 import { ImportProductsModal } from "@/modules/product/components/ImportProductsModal";
+import { BarcodePrintModal } from "@/modules/barcode/components/BarcodePrintModal";
+import { VoiceSearchModal } from "@/modules/product/components/VoiceSearchModal";
+import { TablePaginationFooter } from "@/components/common/TablePaginationFooter";
 import {
   PRODUCT_FILTER,
   PRODUCT_API_RESPONSE_DEFAULTS,
@@ -66,6 +69,12 @@ export const ProductList: React.FC<ProductListProps> = ({
   // Delete modal controls
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [productToDelete, setProductToDelete] = useState<{ id: string; name: string } | null>(null);
+
+  // Barcode print modal controls
+  const [barcodePrintProduct, setBarcodePrintProduct] = useState<{ id: string; name: string } | null>(null);
+
+  // Voice search modal controls
+  const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
 
   // Reset page to 0 on filter changes
   useEffect(() => {
@@ -168,7 +177,7 @@ export const ProductList: React.FC<ProductListProps> = ({
     <div className="flex flex-col gap-4 w-full animate-auth-fade-in">
       {/* Top action row */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        {/* Search bar input */}
+        {/* Search bar input with Voice Search */}
         <div className="relative flex-1 max-w-md">
           <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-400">
             <Search size={14} />
@@ -178,8 +187,16 @@ export const ProductList: React.FC<ProductListProps> = ({
             placeholder={PRODUCT_LIST_COPY.SEARCH_PLACEHOLDER}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="h-11 w-full rounded-lg border border-slate-300 bg-white pl-9 pr-4 text-xs font-semibold text-slate-700 shadow-sm transition-all focus:border-kv-blue-primary focus:outline-none lg:h-9"
+            className="h-11 w-full rounded-lg border border-slate-300 bg-white pl-9 pr-10 text-xs font-semibold text-slate-700 shadow-sm transition-all focus:border-kv-blue-primary focus:outline-none lg:h-9"
           />
+          <button
+            type="button"
+            onClick={() => setIsVoiceModalOpen(true)}
+            className="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 hover:text-blue-600 transition-colors"
+            title="Tìm hàng bằng giọng nói"
+          >
+            <Mic size={15} />
+          </button>
         </div>
 
         {/* Buttons */}
@@ -219,7 +236,18 @@ export const ProductList: React.FC<ProductListProps> = ({
       </div>
 
       {/* Main product table card */}
-      <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col min-h-[500px] w-full">
+      <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col min-h-[500px] w-full">
+        {/* Block Header */}
+        <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-4">
+          <div>
+            <h3 className="font-extrabold text-slate-800 text-sm">
+              {PRODUCT_LIST_COPY.CARD_TITLE}
+            </h3>
+          </div>
+          <span className="text-xs font-bold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-lg">
+            {totalElements} {PRODUCT_LIST_COPY.PAGINATION_SUFFIX}
+          </span>
+        </div>
         {isLoading ? (
           <div className="flex flex-col justify-center items-center flex-1 py-20 text-slate-400 gap-2">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-kv-blue-primary"></div>
@@ -285,7 +313,15 @@ export const ProductList: React.FC<ProductListProps> = ({
                           index +
                           PRODUCT_QUERY_CONFIG.DISPLAY_INDEX_OFFSET}
                       </td>
-                      <td className="p-3 font-mono font-bold text-slate-800">{prod.sku}</td>
+                      <td className="p-3 font-mono font-bold text-slate-800">
+                        <div>{prod.sku}</div>
+                        {prod.barcode && (
+                          <div className="text-[10px] text-[#0070f4] flex items-center gap-1 font-semibold tracking-normal mt-0.5">
+                            <Barcode size={11} className="shrink-0" />
+                            <span>{prod.barcode}</span>
+                          </div>
+                        )}
+                      </td>
                       <td className="p-3 font-bold text-slate-800 break-words max-w-[220px]">
                         {prod.name}
                       </td>
@@ -293,8 +329,37 @@ export const ProductList: React.FC<ProductListProps> = ({
                       <td className="p-3 text-right font-extrabold text-kv-blue-primary">
                         {formatCurrency(prod.price)}
                       </td>
-                      <td className="p-3 text-right font-extrabold text-emerald-600">
-                        {formatNumber(prod.stockQuantity)}
+                      <td className="p-3 text-right font-extrabold">
+                        {prod.minStockQuantity &&
+                        prod.minStockQuantity > 0 &&
+                        prod.stockQuantity <= prod.minStockQuantity ? (
+                          <span
+                            title={`Tồn kho dưới ngưỡng tối thiểu (${formatNumber(prod.minStockQuantity)})`}
+                            className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-black ${
+                              prod.stockQuantity <= 0
+                                ? "text-rose-600 bg-rose-100/80"
+                                : "text-amber-600 bg-amber-100/80"
+                            }`}
+                          >
+                            <AlertTriangle className="w-3 h-3 shrink-0" />
+                            {formatNumber(prod.stockQuantity)}
+                          </span>
+                        ) : prod.stockQuantity <= 0 ? (
+                          <span className="text-rose-600 font-bold">
+                            {formatNumber(prod.stockQuantity)}
+                          </span>
+                        ) : (
+                          <div>
+                            <span className="text-slate-800 font-bold">
+                              {formatNumber(prod.stockQuantity)}
+                            </span>
+                            {prod.posStocks && prod.posStocks.length > 0 && (
+                              <div className="text-[10px] text-slate-400 font-normal mt-0.5 leading-tight">
+                                <div>Điểm bán: <span className="font-semibold text-kv-blue-primary">{formatNumber(prod.allocatedStock ?? 0)}</span></div>
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </td>
                       <td className="p-3">
                         {prod.groupName && (
@@ -318,6 +383,14 @@ export const ProductList: React.FC<ProductListProps> = ({
                       {isOwner && (
                         <td className="p-3">
                           <div className="flex items-center justify-center gap-1.5 opacity-100 transition-opacity lg:opacity-0 lg:group-hover:opacity-100 lg:group-focus-within:opacity-100">
+                            <button
+                              onClick={() => setBarcodePrintProduct({ id: prod.id, name: prod.name })}
+                              title="In tem mã vạch"
+                              aria-label="In tem mã vạch"
+                              className="flex min-h-11 min-w-11 items-center justify-center rounded p-1 text-slate-500 transition-colors hover:bg-slate-100 hover:text-amber-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500 lg:min-h-0 lg:min-w-0"
+                            >
+                              <Printer size={14} />
+                            </button>
                             <button
                               onClick={() => handleEditProduct(prod)}
                               title={PRODUCT_LIST_COPY.EDIT_TOOLTIP}
@@ -344,52 +417,14 @@ export const ProductList: React.FC<ProductListProps> = ({
             </div>
 
             {/* Pagination Controls */}
-            {totalPages > PRODUCT_QUERY_CONFIG.MIN_PAGINATION_PAGE_COUNT && (
-              <div className="flex items-center justify-between border-t pt-4 mt-4 font-semibold text-slate-500 text-xs">
-                <span>
-                  {PRODUCT_LIST_COPY.PAGINATION_PREFIX} {displayedProducts.length}{" "}
-                  {PRODUCT_LIST_COPY.PAGINATION_TOTAL} {totalElements}{" "}
-                  {PRODUCT_LIST_COPY.PAGINATION_SUFFIX}
-                </span>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() =>
-                      setCurrentPage((page) =>
-                        Math.max(
-                          PRODUCT_QUERY_CONFIG.INITIAL_PAGE,
-                          page - PRODUCT_QUERY_CONFIG.PAGE_STEP,
-                        ),
-                      )
-                    }
-                    disabled={currentPage === PRODUCT_QUERY_CONFIG.INITIAL_PAGE}
-                    className="h-11 rounded-lg border bg-white px-3 text-slate-700 transition-all hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 lg:h-8"
-                  >
-                    {PRODUCT_LIST_COPY.PREVIOUS_PAGE_ACTION}
-                  </button>
-                  <span className="font-bold text-slate-700">
-                    {PRODUCT_LIST_COPY.PAGE_LABEL}{" "}
-                    {currentPage + PRODUCT_QUERY_CONFIG.DISPLAY_INDEX_OFFSET} /{" "}
-                    {totalPages}
-                  </span>
-                  <button
-                    onClick={() =>
-                      setCurrentPage((page) =>
-                        Math.min(
-                          totalPages - PRODUCT_QUERY_CONFIG.PAGE_STEP,
-                          page + PRODUCT_QUERY_CONFIG.PAGE_STEP,
-                        ),
-                      )
-                    }
-                    disabled={
-                      currentPage === totalPages - PRODUCT_QUERY_CONFIG.PAGE_STEP
-                    }
-                    className="h-11 rounded-lg border bg-white px-3 text-slate-700 transition-all hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 lg:h-8"
-                  >
-                    {PRODUCT_LIST_COPY.NEXT_PAGE_ACTION}
-                  </button>
-                </div>
-              </div>
-            )}
+            <TablePaginationFooter
+              currentPage={currentPage}
+              pageSize={pageSize}
+              totalElements={totalElements}
+              totalPages={totalPages}
+              onPageChange={setCurrentPage}
+              recordUnit="bản ghi"
+            />
           </div>
         )}
       </div>
@@ -465,6 +500,31 @@ export const ProductList: React.FC<ProductListProps> = ({
           refetch();
         }}
       />
+
+      {/* Barcode Print Modal */}
+      {barcodePrintProduct && (
+        <BarcodePrintModal
+          isOpen={Boolean(barcodePrintProduct)}
+          onClose={() => {
+            setBarcodePrintProduct(null);
+            refetch();
+          }}
+          productId={barcodePrintProduct.id}
+          productName={barcodePrintProduct.name}
+        />
+      )}
+
+      {/* Voice Search Modal */}
+      {isVoiceModalOpen && (
+        <VoiceSearchModal
+          isOpen={isVoiceModalOpen}
+          onClose={() => setIsVoiceModalOpen(false)}
+          onSelectProduct={(product) => {
+            setSearchQuery(product.name);
+          }}
+          groupId={selectedGroup === PRODUCT_FILTER.ALL ? undefined : selectedGroup}
+        />
+      )}
     </div>
   );
 };

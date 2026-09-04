@@ -27,10 +27,25 @@ public interface ProductRepository extends JpaRepository<Product, String>, JpaSp
 
     boolean existsBySkuAndHouseholdIdAndIdNotAndDeletedAtIsNull(String sku, String householdId, String id);
 
+    boolean existsByHouseholdIdAndBarcodeAndDeletedAtIsNull(String householdId, String barcode);
+
+    boolean existsByHouseholdIdAndBarcodeAndIdNotAndDeletedAtIsNull(String householdId, String barcode, String id);
+
+    Optional<Product> findByHouseholdIdAndBarcodeAndDeletedAtIsNull(String householdId, String barcode);
+
     boolean existsByHouseholdIdAndTaxRateIdAndDeletedAtIsNull(String householdId, String taxRateId);
 
     @EntityGraph(attributePaths = {"group", "taxRate", "household"})
     Optional<Product> findByIdAndHouseholdIdAndDeletedAtIsNull(String id, String householdId);
+
+    @EntityGraph(attributePaths = {"group", "taxRate", "household"})
+    @Query("""
+        SELECT p FROM Product p 
+        WHERE p.household.id = :householdId 
+          AND (p.barcode = :code OR p.sku = :code OR LOWER(p.barcode) = LOWER(:code) OR LOWER(p.sku) = LOWER(:code)) 
+          AND p.deletedAt IS NULL
+    """)
+    List<Product> findByHouseholdIdAndBarcodeOrSku(@Param("householdId") String householdId, @Param("code") String code);
 
     @EntityGraph(attributePaths = {"group", "taxRate", "household"})
     List<Product> findByGroupIdAndDeletedAtIsNull(String groupId);
@@ -40,6 +55,9 @@ public interface ProductRepository extends JpaRepository<Product, String>, JpaSp
 
     @Query("SELECT p.sku FROM Product p WHERE p.household.id = :householdId AND p.deletedAt IS NULL")
     List<String> findSkusByHouseholdId(@Param("householdId") String householdId);
+
+    List<Product> findAllByHouseholdId(String householdId);
+    List<Product> findAllByHouseholdIdAndDeletedAtIsNull(String householdId);
 
     @Override
     @EntityGraph(attributePaths = {"group", "taxRate", "household"})
@@ -51,6 +69,9 @@ public interface ProductRepository extends JpaRepository<Product, String>, JpaSp
 
     @Query("SELECT p.id FROM Product p WHERE p.group.id = :groupId AND p.deletedAt IS NULL")
     List<String> findProductIdsByGroupIdAndDeletedAtIsNull(@Param("groupId") String groupId);
+
+    @Query("SELECT p.id FROM Product p WHERE p.group.id IN :groupIds AND p.deletedAt IS NULL")
+    List<String> findProductIdsByGroupIdInAndDeletedAtIsNull(@Param("groupIds") Collection<String> groupIds);
 
     @Modifying(clearAutomatically = true)
     @Query("UPDATE Product p SET p.group = null, p.updatedAt = :updatedAt WHERE p.group.id = :groupId AND p.deletedAt IS NULL")
@@ -64,11 +85,11 @@ public interface ProductRepository extends JpaRepository<Product, String>, JpaSp
     @Query("UPDATE Product p SET p.group = :group, p.updatedAt = :updatedAt WHERE p.id IN :ids AND p.household.id = :householdId AND p.deletedAt IS NULL")
     int updateGroupIdForProducts(@Param("group") ProductGroup group, @Param("ids") Collection<String> ids, @Param("householdId") String householdId, @Param("updatedAt") LocalDateTime updatedAt);
 
-    @Modifying
+    @Modifying(clearAutomatically = true)
     @Query("UPDATE Product p SET p.stockQuantity = p.stockQuantity - :quantity WHERE p.id = :id AND p.household.id = :householdId AND p.deletedAt IS NULL")
     int deductStock(@Param("id") String id, @Param("householdId") String householdId, @Param("quantity") BigDecimal quantity);
 
-    @Modifying
+    @Modifying(clearAutomatically = true)
     @Query("UPDATE Product p SET p.stockQuantity = p.stockQuantity + :quantity WHERE p.id = :id AND p.household.id = :householdId AND p.deletedAt IS NULL")
     int addStock(@Param("id") String id, @Param("householdId") String householdId, @Param("quantity") BigDecimal quantity);
 }

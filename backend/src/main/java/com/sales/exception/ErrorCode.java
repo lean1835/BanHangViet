@@ -81,7 +81,118 @@ public enum ErrorCode {
     DEBT_NOT_FOUND(3027, "Khoản công nợ không tồn tại", HttpStatus.NOT_FOUND),
     INVALID_DEBT_PAYMENT_AMOUNT(3028, "Số tiền thu nợ không hợp lệ", HttpStatus.BAD_REQUEST),
     CUSTOMER_HAS_OUTSTANDING_DEBT(3029, "Không thể xóa khách hàng đang còn dư nợ công nợ", HttpStatus.BAD_REQUEST),
-    EMAIL_SEND_FAILED(3030, "Gửi thư điện tử thất bại", HttpStatus.INTERNAL_SERVER_ERROR);
+    EMAIL_SEND_FAILED(3030, "Gửi thư điện tử thất bại", HttpStatus.INTERNAL_SERVER_ERROR),
+
+    // Quản lý Trả hàng, hoàn tiền và điều chỉnh giảm (NCL-11)
+    RETURN_TICKET_NOT_FOUND(4020, "Không tìm thấy phiếu trả hàng", HttpStatus.NOT_FOUND),
+    INVOICE_NOT_ELIGIBLE_FOR_RETURN(4021, "Hóa đơn gốc không ở trạng thái được phép trả hàng (phải là ISSUED và chưa bị hủy)", HttpStatus.BAD_REQUEST),
+    EXCEEDED_RETURNABLE_QUANTITY(4022, "Số lượng trả vượt quá số lượng còn lại có thể trả của hóa đơn gốc", HttpStatus.BAD_REQUEST),
+    RETURN_PERIOD_EXPIRED(4023, "Hóa đơn gốc đã quá thời hạn trả hàng theo quy định của cửa hàng", HttpStatus.BAD_REQUEST),
+    RETURN_TICKET_ALREADY_PROCESSED(4024, "Phiếu trả hàng đã được xử lý duyệt hoặc từ chối trước đó", HttpStatus.BAD_REQUEST),
+    RETURN_TICKET_NOT_APPROVED(4025, "Phiếu trả hàng chưa được duyệt, không thể lập hóa đơn điều chỉnh giảm", HttpStatus.BAD_REQUEST),
+    ADJUSTMENT_INVOICE_ALREADY_EXISTS(4026, "Hóa đơn điều chỉnh giảm đã được lập cho phiếu trả hàng này", HttpStatus.BAD_REQUEST),
+    EMPTY_RETURN_TICKET_ITEMS(4027, "Phiếu trả hàng phải chọn ít nhất một mặt hàng để trả", HttpStatus.BAD_REQUEST),
+    UNAUTHORIZED_RETURN_ACTION(4028, "Chỉ có chủ hộ mới có quyền duyệt hoặc từ chối phiếu trả hàng", HttpStatus.FORBIDDEN),
+
+    // NCL-13 Quản lý nhà cung cấp & Công nợ phải trả (NCL-13-CN-003)
+    SUPPLIER_NOT_FOUND(3031, "Nhà cung cấp không tồn tại", HttpStatus.NOT_FOUND),
+    SUPPLIER_PHONE_EXISTS(3032, "Số điện thoại nhà cung cấp đã tồn tại trong hộ kinh doanh", HttpStatus.BAD_REQUEST),
+    SUPPLIER_HAS_DEPENDENCIES(3033, "Không thể xóa nhà cung cấp đã phát sinh phiếu nhập kho", HttpStatus.BAD_REQUEST),
+    SELLING_BELOW_COST_WARNING(3034, "Đơn giá nhập cao hơn giá bán niêm yết. Cần xác nhận từ chủ hộ", HttpStatus.BAD_REQUEST),
+    SUPPLIER_DEBT_NOT_FOUND(3035, "Khoản công nợ nhà cung cấp không tồn tại", HttpStatus.NOT_FOUND),
+    INVALID_SUPPLIER_PAYMENT_AMOUNT(3036, "Số tiền thanh toán nợ nhà cung cấp không hợp lệ", HttpStatus.BAD_REQUEST),
+    SUPPLIER_HAS_OUTSTANDING_DEBT(3037, "Không thể xóa nhà cung cấp đang còn công nợ chưa thanh toán", HttpStatus.BAD_REQUEST),
+
+    // NCL-13 Kiểm kê kho và kiểm tra chênh lệch tồn (NCL-13-CN-004)
+    INVENTORY_AUDIT_NOT_FOUND(3040, "Phiếu kiểm kê kho không tồn tại", HttpStatus.NOT_FOUND),
+    EMPTY_AUDIT_DETAILS(3041, "Phiếu kiểm kê kho phải chứa ít nhất một mặt hàng", HttpStatus.BAD_REQUEST),
+    DISCREPANCY_REASON_REQUIRED(3042, "Cần ghi rõ lý do khi số lượng đếm thực tế có chênh lệch so với tồn hệ thống", HttpStatus.BAD_REQUEST),
+    DUPLICATE_PRODUCT_IN_AUDIT(3043, "Không được chứa sản phẩm trùng lặp trong cùng một phiếu kiểm kê", HttpStatus.BAD_REQUEST),
+    ONLY_STORE_OWNER_CAN_AUDIT(3044, "Chỉ chủ hộ kinh doanh mới có quyền thực hiện kiểm kê và điều chỉnh tồn kho", HttpStatus.FORBIDDEN),
+
+    // NCL-15 Chiết khấu & Chương trình khuyến mại (NCL-15-CN-001 & NCL-15-CN-002)
+    PROMOTION_NOT_FOUND(3050, "Chương trình khuyến mại không tồn tại", HttpStatus.NOT_FOUND),
+    INVALID_PROMOTION_DATE(3051, "Thời gian kết thúc phải lớn hơn thời gian bắt đầu", HttpStatus.BAD_REQUEST),
+    INVALID_PROMOTION_DISCOUNT_VALUE(3052, "Mức giảm giá không hợp lệ", HttpStatus.BAD_REQUEST),
+    PROMOTION_TARGET_REQUIRED(3053, "Cần chọn danh sách sản phẩm hoặc nhóm sản phẩm áp dụng", HttpStatus.BAD_REQUEST),
+    ONLY_STORE_OWNER_CAN_MANAGE_PROMOTION(3054, "Chỉ chủ hộ kinh doanh mới có quyền tạo và quản lý chương trình khuyến mại", HttpStatus.FORBIDDEN),
+    PROMOTION_NAME_EXISTS(3055, "Tên chương trình khuyến mại đã tồn tại trong hộ kinh doanh", HttpStatus.BAD_REQUEST),
+    PROMOTION_REMOVE_REQUIRES_OWNER(3056, "Nhân viên không có quyền bỏ khuyến mại tự động, cần có sự phê duyệt của chủ hộ kinh doanh", HttpStatus.FORBIDDEN),
+
+    // NCL-16 Mã vạch (NCL-16-CN-002)
+    BARCODE_ALREADY_EXISTS(3057, "Mã vạch đã tồn tại trong hộ kinh doanh", HttpStatus.BAD_REQUEST),
+    FORBIDDEN_BARCODE_MANAGEMENT(3058, "Chỉ chủ hộ kinh doanh mới có quyền thao tác mã vạch", HttpStatus.FORBIDDEN),
+    BARCODE_GENERATION_FAILED(3059, "Không thể sinh mã vạch nội bộ", HttpStatus.INTERNAL_SERVER_ERROR),
+
+    // NCL-12 Sổ sách & Hỗ trợ kê khai thuế theo kỳ
+    NO_VALID_INVOICES_IN_PERIOD(5001, "Kỳ kê khai chưa có hóa đơn hợp lệ được cấp mã", HttpStatus.BAD_REQUEST),
+    TAX_PERIOD_NOT_FOUND(5002, "Kỳ kê khai thuế không tồn tại", HttpStatus.NOT_FOUND),
+    TAX_PERIOD_ALREADY_EXISTS(5003, "Kỳ kê khai thuế này đã được tạo trước đó", HttpStatus.BAD_REQUEST),
+    TAX_PERIOD_ALREADY_LOCKED(5004, "Kỳ kê khai thuế đã bị khóa, không thể thay đổi", HttpStatus.BAD_REQUEST),
+    PRODUCT_TAX_RATE_INACTIVE(5005, "Có mặt hàng trong kỳ đang gán mức thuế đã ngừng hiệu lực", HttpStatus.BAD_REQUEST),
+    HOUSEHOLD_TAX_INFO_INCOMPLETE(5006, "Thông tin hộ kinh doanh chưa đầy đủ (thiếu mã số thuế hoặc người đại diện) để xuất tờ khai thuế", HttpStatus.BAD_REQUEST),
+    HOUSEHOLD_TAX_CODE_MISSING(5007, "Thông tin hộ kinh doanh chưa đầy đủ: Thiếu mã số thuế", HttpStatus.BAD_REQUEST),
+    HOUSEHOLD_REPRESENTATIVE_MISSING(5008, "Thông tin hộ kinh doanh chưa đầy đủ: Thiếu người đại diện hợp pháp", HttpStatus.BAD_REQUEST),
+    TAX_PERIOD_NOT_LOCKED(5009, "Kỳ kê khai thuế chưa bị khóa", HttpStatus.BAD_REQUEST),
+    TAX_PERIOD_UNLOCK_REASON_REQUIRED(5010, "Lý do mở lại kỳ kê khai không được để trống", HttpStatus.BAD_REQUEST),
+
+    // NCL-14-CN-002 Sao lưu dữ liệu tự động theo ngày
+    BACKUP_CONFIG_NOT_FOUND(5020, "Cấu hình sao lưu dữ liệu tự động không tồn tại", HttpStatus.NOT_FOUND),
+    INVALID_RETENTION_COUNT(5021, "Số lượng bản sao lưu giữ lại phải từ 1 đến 100", HttpStatus.BAD_REQUEST),
+    INVALID_SCHEDULED_TIME(5022, "Thời gian chạy sao lưu không đúng định dạng HH:mm (00:00 - 23:59)", HttpStatus.BAD_REQUEST),
+    BACKUP_FILE_NOT_FOUND(5023, "Tệp sao lưu không tồn tại trên hệ thống", HttpStatus.NOT_FOUND),
+    BACKUP_EXECUTION_FAILED(5024, "Lỗi thực thi sao lưu dữ liệu tự động", HttpStatus.INTERNAL_SERVER_ERROR),
+    ONLY_STORE_OWNER_CAN_BACKUP(5025, "Chỉ chủ hộ kinh doanh mới có quyền cấu hình và thực thi sao lưu dữ liệu", HttpStatus.FORBIDDEN),
+
+    // NCL-14-CN-003 Phục hồi dữ liệu từ bản sao lưu
+    RESTORE_NOT_ALLOWED(5030, "Chỉ chủ hộ kinh doanh mới có quyền thực hiện phục hồi dữ liệu", HttpStatus.FORBIDDEN),
+    BACKUP_NOT_ELIGIBLE_FOR_RESTORE(5031, "Bản sao lưu không hợp lệ hoặc đã bị dọn dẹp (PURGED), không thể phục hồi", HttpStatus.BAD_REQUEST),
+    BACKUP_CORRUPTED_OR_INVALID(5032, "Bản sao lưu bị lỗi cấu trúc hoặc không đọc được dữ liệu", HttpStatus.BAD_REQUEST),
+    RESTORE_CONFIRMATION_REQUIRED(5033, "Yêu cầu xác nhận đồng ý ghi đè/khôi phục dữ liệu trước khi thực hiện", HttpStatus.BAD_REQUEST),
+    RESTORE_EXECUTION_FAILED(5034, "Quá trình phục hồi dữ liệu gặp sự cố kỹ thuật", HttpStatus.INTERNAL_SERVER_ERROR),
+
+    // NCL-14 Nhật ký kiểm toán không sửa xóa được
+    AUDIT_LOG_IMMUTABLE(6001, "Nhật ký kiểm toán là dữ liệu bất biến, tuyệt đối không được sửa hoặc xóa", HttpStatus.FORBIDDEN),
+    AUDIT_LOG_TAMPERED(6002, "Phát hiện chuỗi kiểm tra Hash Chain bị đứt gãy hoặc bị can thiệp trái phép", HttpStatus.INTERNAL_SERVER_ERROR),
+    AUDIT_LOG_NOT_FOUND(6003, "Không tìm thấy bản ghi nhật ký kiểm toán", HttpStatus.NOT_FOUND),
+
+
+    // NCL-14-CN-004 Cảnh báo thao tác bất thường
+    ANOMALY_ALERT_NOT_FOUND(6010, "Cảnh báo thao tác bất thường không tồn tại", HttpStatus.NOT_FOUND),
+    ANOMALY_RULE_NOT_FOUND(6011, "Cấu hình quy tắc cảnh báo không tồn tại", HttpStatus.NOT_FOUND),
+    INVALID_ANOMALY_STATUS(6012, "Trạng thái xử lý cảnh báo không hợp lệ (chỉ chấp nhận REVIEWED hoặc DISMISSED)", HttpStatus.BAD_REQUEST),
+    ANOMALY_ACCESS_DENIED(6013, "Nhân viên không có quyền truy cập trung tâm cảnh báo thao tác bất thường", HttpStatus.FORBIDDEN),
+
+    // NCL-17 Nhiều điểm bán trong cùng một hộ kinh doanh (NCL-17-CN-001)
+    POS_NOT_FOUND(7001, "Điểm bán không tồn tại trên hệ thống", HttpStatus.NOT_FOUND),
+    POS_NAME_ALREADY_EXISTS(7002, "Tên điểm bán đã tồn tại trong hộ kinh doanh", HttpStatus.BAD_REQUEST),
+    POS_CODE_ALREADY_EXISTS(7003, "Mã điểm bán đã tồn tại trong hộ kinh doanh", HttpStatus.BAD_REQUEST),
+    POS_INVOICE_SYMBOL_EXISTS(7004, "Ký hiệu hóa đơn của điểm bán mới trùng với điểm bán đã có", HttpStatus.BAD_REQUEST),
+    CANNOT_DELETE_DEFAULT_POS(7005, "Không thể xóa điểm bán đang được thiết lập làm mặc định", HttpStatus.BAD_REQUEST),
+    CANNOT_DEACTIVATE_DEFAULT_POS(7006, "Không thể ngưng hoạt động điểm bán mặc định. Vui lòng chuyển mặc định sang điểm bán khác trước", HttpStatus.BAD_REQUEST),
+    CANNOT_SET_INACTIVE_POS_AS_DEFAULT(7007, "Không thể thiết lập điểm bán đang ngưng hoạt động làm điểm mặc định", HttpStatus.BAD_REQUEST),
+    
+    // NCL-17-CN-002 Gán nhân viên và tồn kho theo từng điểm bán
+    POS_EMPLOYEE_ACCESS_DENIED(7011, "Nhân viên chỉ được phép thao tác tại điểm bán được gán", HttpStatus.FORBIDDEN),
+    POS_PRODUCT_NOT_INITIALIZED(7012, "Mặt hàng chưa được khai báo tồn kho tại điểm bán này. Vui lòng chuyển hàng hoặc khởi tạo tồn kho", HttpStatus.BAD_REQUEST),
+    POS_INSUFFICIENT_STOCK(7013, "Số lượng tồn kho tại điểm bán không đủ để bán", HttpStatus.BAD_REQUEST),
+    POS_EMPLOYEE_NOT_ASSIGNED(7014, "Nhân viên chưa được gán vào điểm bán nào", HttpStatus.FORBIDDEN),
+    CANNOT_ASSIGN_OWNER_TO_POS(7015, "Chủ hộ có quyền quản trị toàn bộ điểm bán, không thể gán điểm bán cố định", HttpStatus.BAD_REQUEST),
+    INVALID_POS_INVENTORY_QTY(7016, "Số lượng tồn kho khai báo không được nhỏ hơn 0", HttpStatus.BAD_REQUEST),
+    
+    // NCL-17-CN-003 Chuyển hàng giữa các điểm bán
+    TRANSFER_NOT_FOUND(7020, "Phiếu chuyển hàng không tồn tại", HttpStatus.NOT_FOUND),
+    TRANSFER_SAME_POS(7021, "Điểm bán gửi và điểm bán nhận không được trùng nhau", HttpStatus.BAD_REQUEST),
+    TRANSFER_INVALID_STATUS(7022, "Trạng thái phiếu chuyển không hợp lệ để thực hiện thao tác", HttpStatus.BAD_REQUEST),
+    TRANSFER_ITEMS_EMPTY(7023, "Phiếu chuyển hàng phải có ít nhất một mặt hàng", HttpStatus.BAD_REQUEST),
+    TRANSFER_QUANTITY_INVALID(7024, "Số lượng chuyển phải lớn hơn 0", HttpStatus.BAD_REQUEST),
+    TRANSFER_EXCEED_STOCK(7025, "Số lượng chuyển vượt quá tồn kho hiện có tại điểm gửi", HttpStatus.BAD_REQUEST),
+    TRANSFER_RECEIVER_PERMISSION_DENIED(7026, "Chỉ nhân viên thuộc điểm nhận, kế toán hoặc chủ hộ mới có quyền xác nhận nhận hàng", HttpStatus.FORBIDDEN),
+    TRANSFER_CANCEL_REASON_REQUIRED(7027, "Cần nhập lý do khi hủy phiếu chuyển hàng", HttpStatus.BAD_REQUEST),
+    TRANSFER_EXCEED_WAREHOUSE_STOCK(7028, "Số lượng chuyển vượt quá tồn kho khả dụng tại Kho gốc", HttpStatus.BAD_REQUEST),
+    POS_INVENTORY_EXCEED_PRODUCT_STOCK(7029, "Số lượng tồn kho phân bổ vượt quá tồn kho khả dụng trong danh mục hàng hóa", HttpStatus.BAD_REQUEST),
+    TRANSFER_SAME_SOURCE_DEST(7030, "Điểm gửi và điểm nhận không được trùng nhau", HttpStatus.BAD_REQUEST),
+    TRANSFER_SOURCE_AND_DEST_EMPTY(7031, "Cần chọn điểm gửi hoặc điểm nhận hợp lệ", HttpStatus.BAD_REQUEST);
 
     private final int code;
     private final String message;

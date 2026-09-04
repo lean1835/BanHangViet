@@ -15,4 +15,5 @@ public class GoodsReceiptDetailResponse {
     private String productSku;
     private BigDecimal quantity;
     private BigDecimal purchasePrice;
+    private BigDecimal subtotal;
 }

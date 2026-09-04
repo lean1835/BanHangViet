@@ -13,6 +13,7 @@ import com.sales.exception.AppException;
 import com.sales.exception.ErrorCode;
 import com.sales.repository.ActivityLogRepository;
 import com.sales.repository.OrderRepository;
+import com.sales.repository.PointOfSaleRepository;
 import com.sales.repository.ShiftRepository;
 import com.sales.repository.UserRepository;
 import com.sales.service.interfaces.ShiftService;
@@ -38,8 +39,9 @@ public class ShiftServiceImpl implements ShiftService {
 
     private final ShiftRepository shiftRepository;
     private final UserRepository userRepository;
-    private final ActivityLogRepository activityLogRepository;
+    private final ActivityLogHelper activityLogHelper;
     private final OrderRepository orderRepository;
+    private final PointOfSaleRepository pointOfSaleRepository;
     private final ObjectMapper objectMapper;
 
     private User getAuthenticatedUser(String username) {
@@ -58,19 +60,7 @@ public class ShiftServiceImpl implements ShiftService {
             String oldStr = oldValue != null ? objectMapper.writeValueAsString(oldValue) : null;
             String newStr = newValue != null ? objectMapper.writeValueAsString(newValue) : null;
 
-            ActivityLog logRecord = ActivityLog.builder()
-                    .household(household)
-                    .user(actor)
-                    .action(action)
-                    .targetTable("shifts")
-                    .targetId(targetId)
-                    .oldValue(oldStr)
-                    .newValue(newStr)
-                    .clientIp(clientIp)
-                    .userAgent(userAgent)
-                    .build();
-
-            activityLogRepository.save(logRecord);
+            activityLogHelper.logActivityInNewTransaction(household, actor, action, "shifts", targetId, oldStr, newStr, clientIp, userAgent);
         } catch (Exception e) {
             log.error("Failed to write activity log", e);
         }
@@ -114,6 +104,9 @@ public class ShiftServiceImpl implements ShiftService {
                 .username(shift.getUser().getUsername())
                 .fullName(shift.getUser().getFullName())
                 .householdId(shift.getHousehold().getId())
+                .pointOfSaleId(shift.getPointOfSale() != null ? shift.getPointOfSale().getId() : null)
+                .pointOfSaleName(shift.getPointOfSale() != null ? shift.getPointOfSale().getName() : null)
+                .posCode(shift.getPointOfSale() != null ? shift.getPointOfSale().getPosCode() : null)
                 .openedAt(shift.getOpenedAt())
                 .closedAt(shift.getClosedAt())
                 .openingCash(shift.getOpeningCash())
@@ -154,9 +147,17 @@ public class ShiftServiceImpl implements ShiftService {
             throw new AppException(ErrorCode.SHIFT_ALREADY_OPEN);
         }
 
+        // QTN-28 / NCL-17-CN-002: Check POS assignment for sales employee (VT-02)
+        if (targetUser.getRole() != null && "VT-02".equals(targetUser.getRole().getCode())) {
+            if (targetUser.getPointOfSale() == null && pointOfSaleRepository.countByHouseholdIdAndDeletedAtIsNull(household.getId()) > 0) {
+                throw new AppException(ErrorCode.POS_EMPLOYEE_NOT_ASSIGNED);
+            }
+        }
+
         Shift shift = Shift.builder()
                 .household(household)
                 .user(targetUser)
+                .pointOfSale(targetUser.getPointOfSale())
                 .openedAt(LocalDateTime.now())
                 .openingCash(request.getOpeningCash())
                 .status(ShiftStatus.OPEN)
@@ -185,7 +186,7 @@ public class ShiftServiceImpl implements ShiftService {
 
         User currentUser = getAuthenticatedUser(currentUsername);
 
-        Shift shift = shiftRepository.findByIdForUpdate(shiftId)
+        Shift shift = shiftRepository.findById(shiftId)
                 .orElseThrow(() -> new AppException(ErrorCode.ACTIVE_SHIFT_NOT_FOUND));
 
         if (shift.getStatus() == ShiftStatus.CLOSED) {

@@ -199,7 +199,7 @@ export const BackupExportPanel: React.FC = () => {
               Xuất và sao lưu dữ liệu hộ kinh doanh
             </h3>
             <p className="text-xs text-slate-400 font-semibold mt-0.5">
-              Tải về tệp dữ liệu sao lưu danh mục hàng hóa, đơn hàng và hóa đơn (CN-006)
+              Tải về tệp dữ liệu sao lưu danh mục hàng hóa, đơn hàng và hóa đơn
             </p>
           </div>
         </div>

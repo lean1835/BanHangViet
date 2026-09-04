@@ -11,6 +11,7 @@ import type { IDeliveryLog } from "../types/IInvoiceDelivery";
 import { CancelInvoiceModal } from "./CancelInvoiceModal";
 import { SendInvoiceModal } from "./SendInvoiceModal";
 import { PrintInvoiceModal } from "./PrintInvoiceModal";
+import { CreateReturnTicketModal } from "@/modules/return_ticket/components/CreateReturnTicketModal";
 import { useGetInvoiceLogsQuery } from "../services/eInvoiceApi";
 import {
   getStatusClassName,
@@ -69,6 +70,7 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [showSendModal, setShowSendModal] = useState(false);
   const [showPrintModal, setShowPrintModal] = useState(false);
+  const [showCreateReturnModal, setShowCreateReturnModal] = useState(false);
   const [deliveryLogs, setDeliveryLogs] = useState<IDeliveryLog[]>(invoice.deliveryLogs || []);
   const [isActionPending, setIsActionPending] = useState(false);
 
@@ -209,7 +211,7 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
         role="dialog"
         aria-modal="true"
         aria-label={`Chi tiết hóa đơn ${invoice.lookupCode}`}
-        className="app-modal-panel flex w-full max-w-4xl flex-col overflow-hidden rounded-xl border border-slate-100 bg-slate-50 text-left text-xs font-semibold text-slate-700 shadow-2xl animate-modal-bounce-in lg:h-[90vh]"
+        className="app-modal-panel flex w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-slate-100 bg-slate-50 text-left text-xs font-semibold text-slate-700 shadow-2xl animate-modal-bounce-in max-h-[92vh]"
       >
         {/* Header */}
         <div className="app-modal-header flex items-center justify-between bg-slate-800 px-5 py-3 text-white">
@@ -219,14 +221,18 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
           <button
             onClick={onClose}
             type="button"
-            className="flex min-h-11 min-w-11 items-center justify-center text-lg text-white/80 transition-colors hover:text-white"
+            aria-label="Đóng"
+            className="flex min-h-11 min-w-11 items-center justify-center text-white/80 transition-colors hover:text-white"
           >
-            ✕
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 flex flex-col lg:flex-row lg:items-stretch gap-6">
-          <div className="flex-1 shrink-0 min-h-0 bg-white border border-slate-200 rounded-xl p-6 shadow-sm flex flex-col gap-6 text-[10px] text-slate-800 font-medium relative overflow-x-hidden overflow-y-auto">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 flex flex-col lg:flex-row lg:items-start gap-6">
+          <div className="flex-1 w-full bg-white border border-slate-200 rounded-xl p-6 shadow-sm flex flex-col gap-5 text-[10px] text-slate-800 font-medium relative overflow-hidden">
             {/* Watermark */}
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none opacity-[0.03] text-slate-800 text-[3.5rem] font-extrabold rotate-[30deg] uppercase whitespace-nowrap">
               Hóa đơn điện tử
@@ -249,6 +255,9 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
                 </p>
               </div>
               <div className="text-right flex flex-col gap-0.5 font-bold text-slate-600 text-[10px]">
+                {invoice.orderNumber && (
+                  <p>Mã đơn hàng: <span className="text-blue-600 font-mono font-bold">{invoice.orderNumber}</span></p>
+                )}
                 <p>Mẫu số: <span className="text-slate-800 font-extrabold">{invoice.invoicePattern || "1"}</span></p>
                 <p>Ký hiệu: <span className="text-slate-800 font-extrabold">{invoice.invoiceSymbol || invoice.symbol}</span></p>
                 <p>Số HĐ: <span className="text-kv-blue-primary font-mono font-extrabold">{invoice.invoiceNumber || "Chưa cấp số"}</span></p>
@@ -334,7 +343,7 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
             </div>
 
             {/* Items Table */}
-            <div className="flex-1">
+            <div className="flex-1 overflow-x-auto">
               <table className="w-full text-left border-collapse border border-slate-200">
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold text-[9px] uppercase">
@@ -343,6 +352,7 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
                     <th className="p-2 border-r border-slate-200 text-center w-12">ĐVT</th>
                     <th className="p-2 border-r border-slate-200 text-center w-12">SL</th>
                     <th className="p-2 border-r border-slate-200 text-right w-20">Đơn giá</th>
+                    <th className="p-2 border-r border-slate-200 text-right w-20">Chiết khấu</th>
                     <th className="p-2 border-r border-slate-200 text-center w-14">Thuế (%)</th>
                     <th className="p-2 text-right w-24">Thành tiền</th>
                   </tr>
@@ -352,12 +362,43 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
                     invoice.items.map((item, idx) => (
                       <tr key={item.id}>
                         <td className="p-2 border-r border-slate-200 text-center">{idx + 1}</td>
-                        <td className="p-2 border-r border-slate-200 font-bold text-slate-800">{item.productName}</td>
+                        <td className="p-2 border-r border-slate-200 font-bold text-slate-800">
+                          <div>{item.productName}</div>
+                          {((item.discountAmount && item.discountAmount > 0) || item.promotionName) && (
+                            <div className="text-[9px] text-emerald-700 font-semibold flex items-center gap-1 mt-0.5">
+                              <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 py-0.5 rounded text-[8.5px] inline-flex items-center gap-0.5 font-bold">
+                                {item.promotionName || "Giảm giá"}: -{formatCurrency(item.discountAmount || 0)}
+                              </span>
+                            </div>
+                          )}
+                        </td>
                         <td className="p-2 border-r border-slate-200 text-center text-slate-500">{item.unit || "Lon"}</td>
                         <td className="p-2 border-r border-slate-200 text-center font-bold">{item.quantity}</td>
-                        <td className="p-2 border-r border-slate-200 text-right">{formatCurrency(item.unitPrice)}</td>
+                        <td className="p-2 border-r border-slate-200 text-right whitespace-nowrap">
+                          {item.discountAmount && item.discountAmount > 0 ? (
+                            <div>
+                              <span className="line-through text-slate-400 text-[9px] block font-normal">
+                                {formatCurrency(item.unitPrice)}
+                              </span>
+                              <span className="font-bold text-emerald-700">
+                                {formatCurrency(Math.max(0, (item.quantity * item.unitPrice - item.discountAmount) / (item.quantity || 1)))}
+                              </span>
+                            </div>
+                          ) : (
+                            formatCurrency(item.unitPrice)
+                          )}
+                        </td>
+                        <td className="p-2 border-r border-slate-200 text-right font-semibold whitespace-nowrap">
+                          {item.discountAmount && item.discountAmount > 0 ? (
+                            <span className="text-rose-600 font-bold">-{formatCurrency(item.discountAmount)}</span>
+                          ) : (
+                            <span className="text-slate-400 font-normal">0 đ</span>
+                          )}
+                        </td>
                         <td className="p-2 border-r border-slate-200 text-center text-slate-500">{item.taxRatePercentage}%</td>
-                        <td className="p-2 text-right font-bold text-slate-800">{formatCurrency(item.subtotal)}</td>
+                        <td className="p-2 text-right font-bold text-slate-800">
+                          {formatCurrency((item.quantity * item.unitPrice) - (item.discountAmount || 0))}
+                        </td>
                       </tr>
                     ))
                   ) : (
@@ -367,6 +408,7 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
                       <td className="p-2 border-r border-slate-200 text-center text-slate-500">Lần</td>
                       <td className="p-2 border-r border-slate-200 text-center font-bold">1</td>
                       <td className="p-2 border-r border-slate-200 text-right">{formatCurrency(invoice.amount)}</td>
+                      <td className="p-2 border-r border-slate-200 text-right text-slate-400 font-normal">0 đ</td>
                       <td className="p-2 border-r border-slate-200 text-center text-slate-500">8%</td>
                       <td className="p-2 text-right font-bold text-slate-800">{formatCurrency(invoice.amount)}</td>
                     </tr>
@@ -423,8 +465,8 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
                 
                 {invoice.status !== E_INVOICE_STATUS.DRAFT ? (
                   <div className="mt-2.5 px-3 py-2 border-2 border-rose-500 rounded bg-rose-50/40 text-[8px] text-rose-700 font-bold flex flex-col items-center gap-0.5 rotate-[-2deg] shadow-sm max-w-[180px] leading-normal select-none">
-                    <span className="text-[9px] text-rose-600 flex items-center gap-1 font-black">
-                      🛡️ ĐÃ KÝ SỐ ĐIỆN TỬ
+                    <span className="text-[9px] text-rose-600 flex items-center gap-1 font-black uppercase">
+                      ĐÃ KÝ SỐ ĐIỆN TỬ
                     </span>
                     <span className="uppercase tracking-wide text-[7px] text-rose-600">{invoice.householdName || "HỘ KINH DOANH BÁN HÀNG VIỆT"}</span>
                     <span>MST: {invoice.householdTaxCode || "-"}</span>
@@ -441,7 +483,6 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
               {invoice.status === E_INVOICE_STATUS.ISSUED && invoice.taxAuthorityCode && invoice.taxAuthorityCode !== E_INVOICE_DEFAULTS.EMPTY_TAX_AUTHORITY_CODE && (
                 <div className="col-span-1 sm:col-span-2 flex justify-center mt-2">
                   <div className="px-4 py-2 border-2 border-emerald-500 rounded bg-emerald-50/40 text-[8px] text-emerald-800 font-bold flex items-center gap-3 rotate-[1deg] shadow-sm max-w-[320px] leading-normal select-none">
-                    <span className="text-[12px] text-emerald-600 font-black">✓</span>
                     <div className="flex flex-col text-left">
                       <span className="font-black uppercase tracking-wider text-[9px]">MÃ CƠ QUAN THUẾ CẤP</span>
                       <span className="font-mono text-[9px] tracking-wider text-slate-800 font-extrabold">{invoice.taxAuthorityCode}</span>
@@ -568,9 +609,25 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
                   </button>
                 )}
 
+                {/* Return ticket creation (NCL-11-CN-001) */}
+                {invoice.status === E_INVOICE_STATUS.ISSUED &&
+                  (currentRole === USER_ROLES.OWNER || currentRole === USER_ROLES.CASHIER) && (
+                  <button
+                    type="button"
+                    onClick={() => setShowCreateReturnModal(true)}
+                    className="w-full flex min-h-9 py-1.5 items-center justify-center rounded-lg border border-kv-blue-primary/40 bg-kv-blue-primary/10 text-kv-blue-primary text-[11px] font-bold hover:bg-kv-blue-primary hover:text-white transition-all shadow-sm"
+                  >
+                    <svg className="w-3.5 h-3.5 mr-1.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <polyline points="9 14 4 9 9 4" />
+                      <path d="M20 20v-7a4 4 0 0 0-4-4H4" />
+                    </svg>
+                    LẬP PHIẾU TRẢ HÀNG
+                  </button>
+                )}
+
                 {currentRole === USER_ROLES.CASHIER && invoice.status === E_INVOICE_STATUS.ISSUED && (
                   <span className="text-[10px] text-slate-400 font-semibold italic text-center p-2 border border-dashed rounded-lg">
-                    🔒 Tài khoản thu ngân không được quyền thực hiện điều chỉnh hoặc hủy hóa đơn.
+                    Tài khoản thu ngân không được quyền thực hiện điều chỉnh hoặc hủy hóa đơn.
                   </span>
                 )}
 
@@ -611,6 +668,21 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
             isOpen={showPrintModal}
             onClose={() => setShowPrintModal(false)}
             invoice={invoice}
+          />
+        )}
+
+        {/* Return Ticket Creation Modal (NCL-11-CN-001) */}
+        {showCreateReturnModal && (
+          <CreateReturnTicketModal
+            isOpen={showCreateReturnModal}
+            onClose={() => setShowCreateReturnModal(false)}
+            initialInvoiceId={invoice.id}
+            currentRole={currentRole}
+            onSuccess={() => {
+              setShowCreateReturnModal(false);
+              onClose();
+              navigate("/return-tickets");
+            }}
           />
         )}
       </div>

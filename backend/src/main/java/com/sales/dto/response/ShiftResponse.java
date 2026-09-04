@@ -15,6 +15,9 @@ public class ShiftResponse {
     private String username;
     private String fullName;
     private String householdId;
+    private String pointOfSaleId;
+    private String pointOfSaleName;
+    private String posCode;
     private LocalDateTime openedAt;
     private LocalDateTime closedAt;
     private BigDecimal openingCash;

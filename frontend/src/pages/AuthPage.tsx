@@ -1,135 +1,133 @@
-import React from "react";
-import { NavLink, Outlet, useLocation } from "react-router-dom";
-import { BrandLogo } from "@/components/common/BrandLogo";
-import { APP_BRAND } from "@/constants/app";
-import { AUTH_TABS, AUTH_UI } from "@/constants/auth";
+import React, { useState, useCallback } from "react";
+import { Outlet, useLocation } from "react-router-dom";
+import { ShoppingCart, Package, Receipt } from "lucide-react";
+
+export interface AuthOutletContext {
+  triggerDoorOpening: () => Promise<void>;
+  isDoorOpening: boolean;
+}
 
 export const AuthPage: React.FC = () => {
   const location = useLocation();
+  const [isDoorOpening, setIsDoorOpening] = useState(false);
 
-  const getTabClassName = (isActive: boolean) =>
-    `flex-1 py-3.5 text-center font-bold text-xs uppercase tracking-wider border-b-2 transition-all duration-150 ${
-      isActive
-        ? "text-kv-blue-primary border-b-kv-blue-primary bg-white"
-        : "text-slate-400 border-b-transparent hover:text-slate-600"
-    }`;
+  const triggerDoorOpening = useCallback((): Promise<void> => {
+    setIsDoorOpening(true);
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        resolve();
+      }, 750);
+    });
+  }, []);
 
   return (
-    <div className="absolute inset-0 z-[10000] flex items-start justify-center overflow-y-auto bg-gradient-to-br from-[#1e3c72] to-[#2a5298] p-2 sm:p-4">
-      <div className="my-auto grid min-h-0 w-full max-w-[920px] grid-cols-1 overflow-hidden rounded-xl bg-white shadow-2xl animate-auth-fade-in sm:rounded-2xl md:min-h-[550px] md:grid-cols-[1.15fr_1fr]">
-        
-        {/* Left: Product Introduction & Animations */}
-        <div className="bg-gradient-to-br from-[#070e27] to-[#0050df] text-white p-8 flex flex-col justify-between relative overflow-hidden hidden md:flex border-r border-white/5">
-          <div>
-            <div className="mb-6">
-              <BrandLogo size="lg" variant="light" />
+    <div className="h-screen max-h-screen w-full relative overflow-hidden bg-gradient-to-br from-slate-100 via-blue-50/60 to-white select-none">
+
+      {/* 🚪 The Two Massive Sliding Doors in Foreground (z-10) */}
+      <div className="absolute inset-0 z-10 flex flex-col lg:flex-row pointer-events-auto">
+        {/* Left Door: Blue Hero Banner (Pulls 100% to the LEFT) */}
+        <div
+          className={`relative hidden lg:flex flex-col justify-between w-[50%] xl:w-[52%] h-screen max-h-screen bg-gradient-to-br from-[#0F56E8] via-[#0E50DE] to-[#0A3CB3] text-white p-10 xl:p-14 overflow-hidden flex-shrink-0 door-slide-left ${
+            isDoorOpening ? "-translate-x-full shadow-[30px_0_60px_rgba(0,0,0,0.5)]" : "translate-x-0"
+          }`}
+        >
+          {/* Decorative Top-Left Dot Matrix */}
+          <div className="absolute top-8 left-8 grid grid-cols-6 gap-2.5 opacity-25 pointer-events-none">
+            {Array.from({ length: 36 }).map((_, i) => (
+              <div key={i} className="w-1.5 h-1.5 rounded-full bg-white" />
+            ))}
+          </div>
+
+          <div className="absolute -top-24 -left-24 w-96 h-96 rounded-full bg-white/10 blur-3xl pointer-events-none" />
+          <div className="absolute bottom-10 right-0 w-80 h-80 rounded-full bg-blue-400/20 blur-3xl pointer-events-none" />
+
+          <div className="z-10" />
+
+          <div className="my-auto text-center flex flex-col items-center z-10 max-w-md mx-auto">
+            <div className="w-28 h-28 mb-5 flex items-center justify-center transform transition-transform hover:scale-105 duration-300">
+              <img
+                src="/app-logo.png"
+                alt="Bán Hàng Việt Logo"
+                className="w-full h-full object-contain drop-shadow-[0_12px_24px_rgba(0,0,0,0.25)] select-none pointer-events-none"
+              />
             </div>
-            
-            <h2 className="text-xl font-extrabold leading-snug mb-3">
-              {AUTH_UI.INTRO_TITLE}
-            </h2>
-            <p className="text-xs text-slate-300 leading-relaxed">
-              {AUTH_UI.INTRO_DESCRIPTION}
+            <h1 className="text-3xl xl:text-4xl font-black tracking-tight text-white">
+              Bán Hàng Việt
+            </h1>
+            <p className="text-sm xl:text-base text-blue-100/90 mt-3 leading-relaxed font-normal">
+              Giải pháp quản lý bán hàng đa kênh &amp; hóa đơn điện tử thông minh, tinh gọn và hiệu quả toàn diện.
             </p>
           </div>
 
-          {/* Cloud Connection Animated Graphic */}
-          <div className="relative h-[180px] my-6 bg-white/[0.03] rounded-xl border border-white/[0.08] overflow-hidden">
-            {/* Cloud Server Node (Tax) */}
-            <div className="absolute right-[15%] top-[22%] text-center z-10">
-              <div className="w-11 h-11 bg-emerald-500 rounded-full flex items-center justify-center mx-auto animate-pulse-glow">
-                <svg width="20" height="20" fill="none" stroke="white" stroke-width="2" viewBox="0 0 24 24">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M3 15a4 4 0 0 0 4 4h9a5 5 0 1 0-.1-9.999 5.002 5.002 0 1 0-9.78 2.096A4.001 4.001 0 0 0 3 15z"
-                  />
-                </svg>
+          <div className="grid grid-cols-3 gap-3 pt-5 pb-1 border-t border-white/10 z-10 max-w-md mx-auto w-full">
+            <div className="flex flex-col items-center text-center group cursor-default">
+              <div className="w-9 h-9 rounded-xl bg-white/10 backdrop-blur-sm border border-white/15 flex items-center justify-center mb-1.5 transition-all duration-200 group-hover:scale-105 group-hover:bg-white/20 shadow-sm">
+                <ShoppingCart className="w-4 h-4 text-white" strokeWidth={2} />
               </div>
-              <span className="text-[10px] text-slate-400 font-bold block mt-1">
-                {AUTH_UI.TAX_AUTHORITY_LABEL}
-              </span>
+              <span className="text-xs font-semibold text-white/95 leading-tight">Bán hàng POS</span>
+              <span className="text-[10px] text-blue-100/70 mt-0.5 leading-tight">Tính tiền &amp; quét mã</span>
             </div>
 
-            {/* App Client Node (POS) */}
-            <div className="absolute left-[15%] top-[48%] text-center z-10">
-              <div className="w-11 h-11 bg-blue-500 rounded-full flex items-center justify-center mx-auto shadow-[0_0_15px_rgba(59,130,246,0.4)]">
-                <svg width="20" height="20" fill="none" stroke="white" stroke-width="2" viewBox="0 0 24 24">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5.586a1 1 0 0 1 .707.293l5.414 5.414a1 1 0 0 1 .293.707V19a2 2 0 0 1-2 2z"
-                  />
-                </svg>
+            <div className="flex flex-col items-center text-center group cursor-default">
+              <div className="w-9 h-9 rounded-xl bg-white/10 backdrop-blur-sm border border-white/15 flex items-center justify-center mb-1.5 transition-all duration-200 group-hover:scale-105 group-hover:bg-white/20 shadow-sm">
+                <Package className="w-4 h-4 text-white" strokeWidth={2} />
               </div>
-              <span className="text-[10px] text-slate-400 font-bold block mt-1">
-                {AUTH_UI.POS_LABEL}
-              </span>
+              <span className="text-xs font-semibold text-white/95 leading-tight">Quản lý kho</span>
+              <span className="text-[10px] text-blue-100/70 mt-0.5 leading-tight">Tồn kho tức thời</span>
             </div>
 
-            {/* Animated Data Packet */}
-            <div className="absolute w-2.5 h-2.5 bg-amber-500 rounded-full shadow-[0_0_8px_#f59e0b] animate-float-packet z-[5]"></div>
-            <div className="absolute w-2.5 h-2.5 bg-emerald-400 rounded-full shadow-[0_0_8px_#10b981] animate-float-packet-reverse z-[5]"></div>
-
-            {/* Connection Line */}
-            <svg className="absolute w-full h-full top-0 left-0 pointer-events-none z-0">
-              <line
-                x1="25%"
-                y1="60%"
-                x2="80%"
-                y2="35%"
-                stroke="rgba(255,255,255,0.12)"
-                strokeWidth="2"
-                strokeDasharray="4"
-              />
-            </svg>
+            <div className="flex flex-col items-center text-center group cursor-default">
+              <div className="w-9 h-9 rounded-xl bg-white/10 backdrop-blur-sm border border-white/15 flex items-center justify-center mb-1.5 transition-all duration-200 group-hover:scale-105 group-hover:bg-white/20 shadow-sm">
+                <Receipt className="w-4 h-4 text-white" strokeWidth={2} />
+              </div>
+              <span className="text-xs font-semibold text-white/95 leading-tight">Hóa đơn điện tử</span>
+              <span className="text-[10px] text-blue-100/70 mt-0.5 leading-tight">Chuẩn Tổng cục Thuế</span>
+            </div>
           </div>
 
-          <div className="text-[11px] text-slate-400 flex items-center gap-1.5">
-            <svg width="14" height="14" fill="currentColor" viewBox="0 0 20 20" className="text-emerald-500">
-              <path
-                fillRule="evenodd"
-                d="M2.166 4.9L10 1.154l7.834 3.746A2 2 0 0119 6.74v4.997a4 4 0 01-2.166 3.59L10 18.846l-6.834-3.52A4 4 0 011 11.737V6.74a2 2 0 011.166-1.84zM10 3.3L4 6.177v5.56c0 1.02.467 1.982 1.272 2.6L10 16.92l4.728-2.583A3 3 0 0016 11.737v-5.56L10 3.3z"
-                clipRule="evenodd"
-              />
-            </svg>
-            <span>{AUTH_UI.SECURITY_LABEL}</span>
+          <div className="absolute inset-x-0 bottom-0 pointer-events-none overflow-hidden h-56 xl:h-64 z-0">
+            <div className="absolute bottom-0 left-0 w-[200%] h-full animate-wave-back">
+              <svg viewBox="0 0 2880 320" preserveAspectRatio="none" className="w-full h-full opacity-35">
+                <path fill="#031C57" d="M 0,180 Q 360,250 720,180 T 1440,180 Q 2160,250 2880,180 L 2880,320 L 0,320 Z" />
+              </svg>
+            </div>
+            <div className="absolute bottom-0 left-0 w-[200%] h-full animate-wave-mid">
+              <svg viewBox="0 0 2880 320" preserveAspectRatio="none" className="w-full h-full opacity-30">
+                <path fill="#2563EB" d="M 0,145 Q 360,80 720,145 T 1440,145 Q 2160,80 2880,145 L 2880,320 L 0,320 Z" />
+              </svg>
+            </div>
+            <div className="absolute bottom-0 left-0 w-[200%] h-full animate-wave-front">
+              <svg viewBox="0 0 2880 320" preserveAspectRatio="none" className="w-full h-full opacity-20">
+                <path fill="#FFFFFF" d="M 0,190 Q 360,130 720,190 T 1440,190 Q 2160,130 2880,190 L 2880,320 L 0,320 Z" />
+              </svg>
+            </div>
           </div>
         </div>
 
-        {/* Right: Auth Forms */}
-        <div className="flex flex-col justify-between bg-white">
-          
-          <div className="flex flex-col items-center gap-1.5 border-b border-slate-100 bg-slate-50 px-4 py-4 text-center sm:px-6 sm:py-5">
-            <BrandLogo size="lg" className="my-1" />
-            <span className="text-[11px] text-slate-500 font-medium">
-              {APP_BRAND.SYSTEM_DESCRIPTION}
-            </span>
-          </div>
-
-          <div className="flex border-b border-slate-100 bg-slate-50">
-            {AUTH_TABS.map((tab) => (
-              <NavLink
-                key={tab.path}
-                to={tab.path}
-                className={({ isActive }) => getTabClassName(isActive)}
-              >
-                {tab.label}
-              </NavLink>
-            ))}
+        {/* Right Door: Form Area (Pulls 100% to the RIGHT) */}
+        <div
+          className={`flex-1 h-screen max-h-screen bg-[#F6F8FB] flex flex-col justify-center items-center p-4 sm:p-8 relative overflow-y-auto door-slide-right ${
+            isDoorOpening ? "translate-x-full shadow-[-30px_0_60px_rgba(0,0,0,0.3)]" : "translate-x-0"
+          }`}
+        >
+          <div className="lg:hidden w-full max-w-[440px] mb-6 text-center">
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-100/70 text-blue-700 text-xs font-semibold mb-2">
+              <span>✨ Bán Hàng Việt</span>
+            </div>
+            <h2 className="text-xl font-bold text-slate-800">Hệ thống Quản lý Bán hàng</h2>
           </div>
 
           <div
             key={location.pathname}
-            className="flex flex-1 flex-col justify-center p-4 sm:p-6"
+            className="w-full flex justify-center items-center my-auto animate-card-reveal"
           >
-            <Outlet />
+            <Outlet context={{ triggerDoorOpening, isDoorOpening } satisfies AuthOutletContext} />
           </div>
         </div>
-
       </div>
     </div>
   );
 };
 
 export default AuthPage;
+

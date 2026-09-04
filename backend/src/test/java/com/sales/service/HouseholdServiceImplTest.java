@@ -104,6 +104,8 @@ class HouseholdServiceImplTest {
                 .address("456 Giải Phóng")
                 .phoneNumber("0912345678")
                 .representativeName("Nguyễn Văn B")
+                .offlineMaxOrders(80)
+                .offlineMaxHours(48)
                 .build();
 
         HouseholdResponse response = householdService.updateMyHousehold("owner", request);
@@ -113,6 +115,8 @@ class HouseholdServiceImplTest {
         assertEquals("9876543210", response.getTaxCode());
         assertEquals("456 Giải Phóng", response.getAddress());
         assertEquals("0912345678", response.getPhoneNumber());
+        assertEquals(80, response.getOfflineMaxOrders());
+        assertEquals(48, response.getOfflineMaxHours());
 
         verify(householdRepository, times(1)).save(any(BusinessHousehold.class));
         verify(activityLogHelper, times(1)).logActivityInNewTransaction(any(), any(), any(), any(), any(), any(), any(), any(), any());

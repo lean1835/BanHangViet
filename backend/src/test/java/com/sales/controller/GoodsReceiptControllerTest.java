@@ -54,10 +54,14 @@ public class GoodsReceiptControllerTest {
     @Autowired
     private GoodsReceiptRepository goodsReceiptRepository;
 
+    @Autowired
+    private SupplierRepository supplierRepository;
+
     private User ownerUser;
     private User employeeUser;
     private User accountingUser;
     private BusinessHousehold household;
+    private Supplier supplier;
     private Product product1;
 
     @BeforeEach
@@ -73,6 +77,13 @@ public class GoodsReceiptControllerTest {
                 .phoneNumber("0123456789")
                 .build();
         household = householdRepository.save(household);
+
+        supplier = Supplier.builder()
+                .household(household)
+                .name("Nhà Cung Cấp Sữa Vinamilk")
+                .phoneNumber("0987654321")
+                .build();
+        supplier = supplierRepository.save(supplier);
 
         ownerUser = User.builder()
                 .username("owner_test_inv")
@@ -118,6 +129,7 @@ public class GoodsReceiptControllerTest {
                 .name("Sữa Tươi")
                 .unit("Hộp")
                 .price(new BigDecimal("10000.00"))
+                .costPrice(new BigDecimal("6000.00"))
                 .stockQuantity(new BigDecimal("10.000"))
                 .taxRate(taxRate)
                 .status("ACTIVE")
@@ -140,11 +152,12 @@ public class GoodsReceiptControllerTest {
     public void createGoodsReceipt_success() throws Exception {
         CreateGoodsReceiptDetailRequest detail = CreateGoodsReceiptDetailRequest.builder()
                 .productId(product1.getId())
-                .quantity(new BigDecimal("20.500"))
-                .purchasePrice(new BigDecimal("8000.00"))
+                .quantity(new BigDecimal("20.000"))
+                .purchasePrice(new BigDecimal("9000.00"))
                 .build();
 
         CreateGoodsReceiptRequest request = CreateGoodsReceiptRequest.builder()
+                .supplierId(supplier.getId())
                 .receiptNumber("GR-001")
                 .notes("Nhập sữa tháng 7")
                 .details(Collections.singletonList(detail))
@@ -155,11 +168,16 @@ public class GoodsReceiptControllerTest {
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(1000))
-                .andExpect(jsonPath("$.result.receiptNumber").value("GR-001"));
+                .andExpect(jsonPath("$.result.receiptNumber").value("GR-001"))
+                .andExpect(jsonPath("$.result.supplierId").value(supplier.getId()))
+                .andExpect(jsonPath("$.result.supplierName").value("Nhà Cung Cấp Sữa Vinamilk"))
+                .andExpect(jsonPath("$.result.totalAmount").value(180000.00));
 
-        // Verify stock added
+        // Verify stock added (10 + 20 = 30) and costPrice recalculated:
+        // (10 * 6000 + 20 * 9000) / 30 = (60000 + 180000) / 30 = 240000 / 30 = 8000.00
         Product updatedProduct = productRepository.findById(product1.getId()).orElseThrow();
-        assertEquals(new BigDecimal("30.500"), updatedProduct.getStockQuantity());
+        assertEquals(new BigDecimal("30.000"), updatedProduct.getStockQuantity());
+        assertEquals(new BigDecimal("8000.00"), updatedProduct.getCostPrice());
     }
 
     @Test
@@ -320,5 +338,171 @@ public class GoodsReceiptControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(username = "owner_test_inv", roles = "VT-01")
+    public void createGoodsReceipt_negativeInitialStock_success() throws Exception {
+        // Set stock to negative (-10)
+        product1.setStockQuantity(new BigDecimal("-10.000"));
+        productRepository.save(product1);
+
+        CreateGoodsReceiptDetailRequest detail = CreateGoodsReceiptDetailRequest.builder()
+                .productId(product1.getId())
+                .quantity(new BigDecimal("10.000"))
+                .purchasePrice(new BigDecimal("7500.00"))
+                .build();
+
+        CreateGoodsReceiptRequest request = CreateGoodsReceiptRequest.builder()
+                .receiptNumber("GR-NEG-STOCK")
+                .details(Collections.singletonList(detail))
+                .build();
+
+        mockMvc.perform(post("/api/v1/goods-receipts")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(1000));
+
+        Product updatedProduct = productRepository.findById(product1.getId()).orElseThrow();
+        assertEquals(new BigDecimal("0.000"), updatedProduct.getStockQuantity());
+        assertEquals(new BigDecimal("7500.00"), updatedProduct.getCostPrice());
+    }
+
+    @Test
+    @WithMockUser(username = "owner_test_inv", roles = "VT-01")
+    public void getGoodsReceipts_withSupplier_success() throws Exception {
+        GoodsReceipt existing = GoodsReceipt.builder()
+                .household(household)
+                .supplier(supplier)
+                .createdByUser(ownerUser)
+                .receiptNumber("GR-WITH-SUP")
+                .receivedAt(java.time.LocalDateTime.now())
+                .build();
+        goodsReceiptRepository.save(existing);
+
+        mockMvc.perform(get("/api/v1/goods-receipts"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(1000))
+                .andExpect(jsonPath("$.result.content[0].supplierId").value(supplier.getId()))
+                .andExpect(jsonPath("$.result.content[0].supplierName").value("Nhà Cung Cấp Sữa Vinamilk"));
+    }
+
+    @Test
+    @WithMockUser(username = "owner_test_inv", roles = "VT-01")
+    public void createGoodsReceipt_duplicateProductInDetails_fails() throws Exception {
+        CreateGoodsReceiptDetailRequest detail1 = CreateGoodsReceiptDetailRequest.builder()
+                .productId(product1.getId())
+                .quantity(new BigDecimal("10.000"))
+                .purchasePrice(new BigDecimal("8000.00"))
+                .build();
+
+        CreateGoodsReceiptDetailRequest detail2 = CreateGoodsReceiptDetailRequest.builder()
+                .productId(product1.getId())
+                .quantity(new BigDecimal("5.000"))
+                .purchasePrice(new BigDecimal("8500.00"))
+                .build();
+
+        CreateGoodsReceiptRequest request = CreateGoodsReceiptRequest.builder()
+                .receiptNumber("GR-DUP-PROD")
+                .details(Arrays.asList(detail1, detail2))
+                .build();
+
+        mockMvc.perform(post("/api/v1/goods-receipts")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(2006));
+    }
+
+    @Test
+    @WithMockUser(username = "owner_test_inv", roles = "VT-01")
+    public void createGoodsReceipt_receiptNumberTooLong_fails() throws Exception {
+        CreateGoodsReceiptDetailRequest detail = CreateGoodsReceiptDetailRequest.builder()
+                .productId(product1.getId())
+                .quantity(new BigDecimal("10.000"))
+                .purchasePrice(new BigDecimal("8000.00"))
+                .build();
+
+        String longReceiptNumber = "A".repeat(51);
+
+        CreateGoodsReceiptRequest request = CreateGoodsReceiptRequest.builder()
+                .receiptNumber(longReceiptNumber)
+                .details(Collections.singletonList(detail))
+                .build();
+
+        mockMvc.perform(post("/api/v1/goods-receipts")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @WithMockUser(username = "owner_test_inv", roles = "VT-01")
+    public void createGoodsReceipt_sellingBelowCost_withoutConfirmation_fails() throws Exception {
+        // product1 price is 10000.00, purchase price is 12000.00 (selling below cost)
+        CreateGoodsReceiptDetailRequest detail = CreateGoodsReceiptDetailRequest.builder()
+                .productId(product1.getId())
+                .quantity(new BigDecimal("5.000"))
+                .purchasePrice(new BigDecimal("12000.00"))
+                .build();
+
+        CreateGoodsReceiptRequest request = CreateGoodsReceiptRequest.builder()
+                .receiptNumber("GR-BELOW-COST-1")
+                .confirmSellingBelowCost(false)
+                .details(Collections.singletonList(detail))
+                .build();
+
+        mockMvc.perform(post("/api/v1/goods-receipts")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(3034))
+                .andExpect(jsonPath("$.message").value("Đơn giá nhập cao hơn giá bán niêm yết. Cần xác nhận từ chủ hộ"));
+    }
+
+    @Test
+    @WithMockUser(username = "owner_test_inv", roles = "VT-01")
+    public void createGoodsReceipt_sellingBelowCost_withConfirmation_success() throws Exception {
+        CreateGoodsReceiptDetailRequest detail = CreateGoodsReceiptDetailRequest.builder()
+                .productId(product1.getId())
+                .quantity(new BigDecimal("5.000"))
+                .purchasePrice(new BigDecimal("12000.00"))
+                .build();
+
+        CreateGoodsReceiptRequest request = CreateGoodsReceiptRequest.builder()
+                .receiptNumber("GR-BELOW-COST-2")
+                .confirmSellingBelowCost(true)
+                .details(Collections.singletonList(detail))
+                .build();
+
+        mockMvc.perform(post("/api/v1/goods-receipts")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(1000));
+    }
+
+    @Test
+    @WithMockUser(username = "owner_test_inv", roles = "VT-01")
+    public void createGoodsReceipt_notesTooLong_fails() throws Exception {
+        CreateGoodsReceiptDetailRequest detail = CreateGoodsReceiptDetailRequest.builder()
+                .productId(product1.getId())
+                .quantity(new BigDecimal("10.000"))
+                .purchasePrice(new BigDecimal("8000.00"))
+                .build();
+
+        String longNotes = "N".repeat(1001);
+
+        CreateGoodsReceiptRequest request = CreateGoodsReceiptRequest.builder()
+                .receiptNumber("GR-LONG-NOTES")
+                .notes(longNotes)
+                .details(Collections.singletonList(detail))
+                .build();
+
+        mockMvc.perform(post("/api/v1/goods-receipts")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest());
     }
 }

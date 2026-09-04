@@ -5,6 +5,9 @@ export interface IHouseholdInfo {
   address: string;
   phoneNumber: string;
   representativeName?: string;
+  revenueThresholdEnabled?: boolean;
+  offlineMaxOrders?: number;
+  offlineMaxHours?: number;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -15,6 +18,8 @@ export interface IUpdateHouseholdRequest {
   address: string;
   phoneNumber: string;
   representativeName?: string;
+  offlineMaxOrders?: number;
+  offlineMaxHours?: number;
 }
 
 export interface IInvoiceTemplate {

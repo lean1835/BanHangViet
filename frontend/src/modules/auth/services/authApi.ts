@@ -62,6 +62,9 @@ const transformAuthResponse = (response: unknown): IAuthResponse => {
         AUTH_API_RESPONSE_FIELDS.FULL_NAME,
       ),
       roleId: getRequiredString(data, AUTH_API_RESPONSE_FIELDS.ROLE_CODE),
+      pointOfSaleId: getOptionalString(data, "pointOfSaleId") || null,
+      pointOfSaleName: getOptionalString(data, "pointOfSaleName") || null,
+      posCode: getOptionalString(data, "posCode") || null,
       household: householdId
         ? {
             id: householdId,

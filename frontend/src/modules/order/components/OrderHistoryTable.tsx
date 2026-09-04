@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { TablePaginationFooter } from "@/components/common/TablePaginationFooter";
 import {
   DEFAULT_ORDER_PAYMENT_METHOD_LABEL,
   ORDER_PAYMENT_METHOD,
@@ -47,6 +48,7 @@ import {
 } from "@/modules/customer/services/customerApi";
 import { ImportOrdersModal } from "@/modules/order/components/ImportOrdersModal";
 import { FileSpreadsheet } from "lucide-react";
+import { notifyOrderCompleted } from "@/utils/orderEvents";
 
 interface OrderHistoryTableProps {
   currentRole: string;
@@ -1100,8 +1102,10 @@ export const OrderHistoryTable: React.FC<OrderHistoryTableProps> = ({
     dispatch(
       baseApi.util.invalidateTags([
         API_TAG_TYPES.REPORT,
+        API_TAG_TYPES.SALES_ANALYTICS,
       ]),
     );
+    notifyOrderCompleted();
 
     const itemDetails = selectedItems
       .map((item) => `${item.productName} (x${item.quantity})`)
@@ -1888,7 +1892,7 @@ export const OrderHistoryTable: React.FC<OrderHistoryTableProps> = ({
     });
   }, [orders, statusFilter, fromDate, toDate, searchQuery]);
 
-  const PAGE_SIZE = 9;
+  const PAGE_SIZE = 8;
   const totalElements = filteredOrders.length;
   const totalPages = Math.ceil(totalElements / PAGE_SIZE);
 
@@ -1899,20 +1903,25 @@ export const OrderHistoryTable: React.FC<OrderHistoryTableProps> = ({
   }, [filteredOrders, page]);
 
   return (
-    <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col gap-4">
-      <div className="flex items-center justify-between border-b pb-4 mb-2 flex-wrap gap-3">
-        <span className="font-extrabold text-sm text-slate-800">
+    <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col gap-4">
+      <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-2 flex-wrap gap-3">
+        <h3 className="font-extrabold text-sm text-slate-800">
           {ORDER_UI.HISTORY.TITLE}
-        </span>
-        {canMutateOrders && (
-          <button
-            type="button"
-            onClick={() => setShowImportModal(true)}
-            className="px-3.5 h-8 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold transition-colors flex items-center gap-1.5 text-xs shadow-sm"
-          >
-            <FileSpreadsheet className="w-4 h-4" /> Import từ Excel
-          </button>
-        )}
+        </h3>
+        <div className="flex items-center gap-3">
+          <span className="text-xs font-bold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-lg">
+            {totalElements} đơn hàng
+          </span>
+          {canMutateOrders && (
+            <button
+              type="button"
+              onClick={() => setShowImportModal(true)}
+              className="px-3.5 h-8 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold transition-colors flex items-center gap-1.5 text-xs shadow-sm"
+            >
+              <FileSpreadsheet className="w-4 h-4" /> Import từ Excel
+            </button>
+          )}
+        </div>
       </div>
 
       {canMutateOrders && isActiveShiftError && (
@@ -2093,58 +2102,14 @@ export const OrderHistoryTable: React.FC<OrderHistoryTableProps> = ({
 
       {/* Điều khiển phân trang */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-between border-t border-slate-200 pt-4 text-xs font-semibold text-slate-700">
-          <div className="flex flex-1 justify-between sm:hidden">
-            <button
-              type="button"
-              onClick={() => setPage((p) => Math.max(0, p - 1))}
-              disabled={page === 0}
-              className="relative inline-flex items-center rounded-md border border-slate-300 bg-white px-3 py-1.5 hover:bg-slate-50 disabled:opacity-50 transition-colors"
-            >
-              Trang trước
-            </button>
-            <button
-              type="button"
-              onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
-              disabled={page + 1 >= totalPages}
-              className="relative ml-3 inline-flex items-center rounded-md border border-slate-300 bg-white px-3 py-1.5 hover:bg-slate-50 disabled:opacity-50 transition-colors"
-            >
-              Trang sau
-            </button>
-          </div>
-          <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
-            <div>
-              <p className="text-slate-500">
-                Hiển thị <span className="font-bold text-slate-800">{page * PAGE_SIZE + 1}</span> -{" "}
-                <span className="font-bold text-slate-800">
-                  {Math.min((page + 1) * PAGE_SIZE, totalElements)}
-                </span>{" "}
-                trong tổng số <span className="font-bold text-slate-800">{totalElements}</span> đơn hàng
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setPage((p) => Math.max(0, p - 1))}
-                disabled={page === 0}
-                className="px-3 h-8 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 transition-colors disabled:opacity-50 flex items-center justify-center font-bold"
-              >
-                Trang trước
-              </button>
-              <span className="px-3 h-8 flex items-center justify-center border border-slate-200 rounded-lg bg-slate-50 font-bold">
-                Trang {page + 1} / {totalPages}
-              </span>
-              <button
-                type="button"
-                onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
-                disabled={page + 1 >= totalPages}
-                className="px-3 h-8 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 transition-colors disabled:opacity-50 flex items-center justify-center font-bold"
-              >
-                Trang sau
-              </button>
-            </div>
-          </div>
-        </div>
+        <TablePaginationFooter
+          currentPage={page}
+          pageSize={PAGE_SIZE}
+          totalElements={totalElements}
+          totalPages={totalPages}
+          onPageChange={setPage}
+          recordUnit="đơn hàng"
+        />
       )}
 
       {/* Modal: Tạo đơn hàng mới */}
@@ -2172,9 +2137,12 @@ export const OrderHistoryTable: React.FC<OrderHistoryTableProps> = ({
                 type="button"
                 disabled={isSubmittingOrder}
                 aria-label="Đóng biểu mẫu đơn hàng"
-                className="flex min-h-11 min-w-11 items-center justify-center text-lg text-white/80 transition-colors hover:text-white disabled:cursor-wait disabled:opacity-60"
+                className="flex min-h-11 min-w-11 items-center justify-center text-white/80 transition-colors hover:text-white disabled:cursor-wait disabled:opacity-60"
               >
-                ✕
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
               </button>
             </div>
 
@@ -2204,7 +2172,7 @@ export const OrderHistoryTable: React.FC<OrderHistoryTableProps> = ({
                 >
                   {errors.items && (
                     <div className="bg-rose-50 border border-rose-200 text-rose-600 p-2 rounded-lg text-[10px] font-bold">
-                      ⚠️ {errors.items}
+                      {errors.items}
                     </div>
                   )}
 
@@ -2464,7 +2432,7 @@ export const OrderHistoryTable: React.FC<OrderHistoryTableProps> = ({
                       return (
                         <div className="col-span-2 p-3 rounded-xl bg-amber-50 border border-amber-200/80 flex flex-col gap-2 mt-1">
                           <span className="text-xs font-bold text-amber-800 flex items-center gap-1">
-                            ⚠️ Đơn nợ này khiến khách vượt hạn mức ({formatCurrency(potentialDebt)} đ / {formatCurrency(selectedCustomer.creditLimit)} đ)!
+                            Đơn nợ này khiến khách vượt hạn mức ({formatCurrency(potentialDebt)} đ / {formatCurrency(selectedCustomer.creditLimit)} đ)!
                           </span>
                           {isOwner ? (
                             <label className="flex items-center gap-2 cursor-pointer text-xs font-extrabold text-slate-800 bg-white p-2 rounded-lg border border-amber-300 shadow-sm">
@@ -2474,11 +2442,11 @@ export const OrderHistoryTable: React.FC<OrderHistoryTableProps> = ({
                                 onChange={(e) => setIsOwnerDebtApproved(e.target.checked)}
                                 className="h-4 w-4 text-kv-blue-primary rounded accent-kv-blue-primary cursor-pointer"
                               />
-                              <span>👑 Chủ hộ (VT-01) xác nhận cho nợ vượt hạn mức</span>
+                              <span>Chủ hộ xác nhận cho nợ vượt hạn mức</span>
                             </label>
                           ) : (
                             <p className="text-[11px] font-semibold text-rose-600 bg-white p-2 rounded-lg border border-rose-200">
-                              🔒 Bạn không có quyền Chủ hộ (VT-01) để duyệt nợ vượt hạn mức. Vui lòng yêu cầu Chủ hộ phê duyệt.
+                              Bạn không có quyền Chủ hộ để duyệt nợ vượt hạn mức. Vui lòng yêu cầu Chủ hộ phê duyệt.
                             </p>
                           )}
                         </div>
@@ -2566,9 +2534,12 @@ export const OrderHistoryTable: React.FC<OrderHistoryTableProps> = ({
                 }}
                 disabled={isAbandoningDraft}
                 aria-label="Đóng xác nhận bỏ tiến trình"
-                className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-xl text-white/90 transition-colors hover:bg-white/10 hover:text-white disabled:opacity-60"
+                className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-white/90 transition-colors hover:bg-white/10 hover:text-white disabled:opacity-60"
               >
-                <span aria-hidden="true">✕</span>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
               </button>
             </div>
             <div className="space-y-4 p-4 sm:p-5">
@@ -2648,9 +2619,12 @@ export const OrderHistoryTable: React.FC<OrderHistoryTableProps> = ({
                 onClick={() => setShowDetailModal(false)}
                 type="button"
                 aria-label="Đóng chi tiết đơn hàng"
-                className="flex min-h-11 min-w-11 items-center justify-center text-lg text-white/80 transition-colors hover:text-white"
+                className="flex min-h-11 min-w-11 items-center justify-center text-white/80 transition-colors hover:text-white"
               >
-                ✕
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
               </button>
             </div>
 

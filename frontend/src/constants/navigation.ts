@@ -15,7 +15,10 @@ export const NAVIGATION_ITEM_IDS = {
   SHIFTS: "shifts",
   ORDERS: "orders",
   E_INVOICES: "e-invoices",
+  RETURN_TICKETS: "return-tickets",
   CUSTOMERS: "customers",
+  PROMOTIONS: "promotions",
+  SUPPLIERS: "suppliers",
   EMPLOYEES: "employees",
   REPORTS: "reports",
   SETTINGS: "settings",
@@ -29,10 +32,11 @@ export const PRIMARY_NAVIGATION_ACTION = {
 export const HIDDEN_NAVIGATION_BY_ROLE: Partial<Record<TDemoRole, readonly string[]>> = {
   [USER_ROLES.CASHIER]: [
     NAVIGATION_ITEM_IDS.PRODUCTS,
+    NAVIGATION_ITEM_IDS.PROMOTIONS,
     NAVIGATION_ITEM_IDS.REPORTS,
-    NAVIGATION_ITEM_IDS.SETTINGS,
     NAVIGATION_ITEM_IDS.EMPLOYEES,
     NAVIGATION_ITEM_IDS.SHIFTS,
+    NAVIGATION_ITEM_IDS.SUPPLIERS,
   ],
   [USER_ROLES.ACCOUNTANT]: [NAVIGATION_ITEM_IDS.SHIFTS],
 };
@@ -69,10 +73,22 @@ export const PRIMARY_NAVIGATION_ITEMS: IPrimaryNavigationItem[] = [
     allowedRoles: ROLE_GROUPS.NORMAL_MANAGEMENT,
   },
   {
+    id: NAVIGATION_ITEM_IDS.RETURN_TICKETS,
+    label: "Trả hàng",
+    path: APP_ROUTES.RETURN_TICKETS,
+    allowedRoles: ROLE_GROUPS.NORMAL_MANAGEMENT,
+  },
+  {
     id: NAVIGATION_ITEM_IDS.CUSTOMERS,
     label: "Khách hàng",
     path: APP_ROUTES.CUSTOMERS,
     allowedRoles: ROLE_GROUPS.NORMAL_MANAGEMENT,
+  },
+  {
+    id: NAVIGATION_ITEM_IDS.PROMOTIONS,
+    label: "Khuyến mại",
+    path: APP_ROUTES.PROMOTIONS,
+    allowedRoles: ROLE_GROUPS.PRODUCT_MANAGEMENT,
   },
   {
     id: NAVIGATION_ITEM_IDS.EMPLOYEES,
@@ -90,7 +106,7 @@ export const PRIMARY_NAVIGATION_ITEMS: IPrimaryNavigationItem[] = [
     id: NAVIGATION_ITEM_IDS.SETTINGS,
     label: "Cấu hình",
     path: APP_ROUTES.SETTINGS,
-    allowedRoles: ROLE_GROUPS.PRODUCT_MANAGEMENT,
+    allowedRoles: ROLE_GROUPS.NORMAL_MANAGEMENT,
   },
 ];
 

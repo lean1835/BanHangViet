@@ -1,6 +1,7 @@
-import React, { useState } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { Search, Plus, Edit, Trash2, Users, ClipboardCheck, LayoutGrid, List } from "lucide-react";
+import { TablePaginationFooter } from "@/components/common/TablePaginationFooter";
 import {
   EMPLOYEE_MESSAGES,
   EMPLOYEE_ROLE_FILTER_ALL,
@@ -29,6 +30,8 @@ interface EmployeeListProps {
   statusFilter: TEmployeeStatusFilter;
   selectedRole: string;
   userRole?: string;
+  isLoading?: boolean;
+  refetch?: () => void;
 }
 
 export const EmployeeList: React.FC<EmployeeListProps> = ({
@@ -39,6 +42,8 @@ export const EmployeeList: React.FC<EmployeeListProps> = ({
   statusFilter,
   selectedRole,
   userRole,
+  isLoading,
+  refetch,
 }) => {
   const isOwner = userRole === USER_ROLES.OWNER;
   const { showSuccess, showError, showInfo } = useNotification();
@@ -70,6 +75,7 @@ export const EmployeeList: React.FC<EmployeeListProps> = ({
         await createEmployee(emp).unwrap();
         showSuccess(EMPLOYEE_MESSAGES.CREATED);
       }
+      refetch?.();
     } catch (error: unknown) {
       showError(
         EMPLOYEE_MESSAGES.ERROR_PREFIX +
@@ -94,6 +100,7 @@ export const EmployeeList: React.FC<EmployeeListProps> = ({
       await deleteEmployee(employeeToDelete.id).unwrap();
       showSuccess(EMPLOYEE_MESSAGES.DELETED);
       setEmployeeToDelete(null);
+      refetch?.();
     } catch (error: unknown) {
       showError(
         EMPLOYEE_MESSAGES.ERROR_PREFIX +
@@ -127,19 +134,29 @@ export const EmployeeList: React.FC<EmployeeListProps> = ({
     return matchesSearch && matchesStatus && matchesRole;
   });
 
+  // Pagination state (8 records/page)
+  const [page, setPage] = useState(0);
+  const PAGE_SIZE = 8;
+
+  useEffect(() => {
+    setPage(0);
+  }, [searchQuery, statusFilter, selectedRole, employees.length]);
+
+  const paginatedEmployees = useMemo(() => {
+    const start = page * PAGE_SIZE;
+    return filteredEmployees.slice(start, start + PAGE_SIZE);
+  }, [filteredEmployees, page]);
+
   return (
-    <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col min-h-[520px] w-full animate-auth-fade-in">
+    <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col min-h-[520px] w-full animate-auth-fade-in">
       {/* Top Header Controls */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4 pb-4 border-b">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4 pb-4 border-b border-slate-100">
         <div className="flex items-center gap-3">
           <h3 className="font-extrabold text-slate-800 text-sm">
             {EMPLOYEE_UI.LIST.TITLE}
           </h3>
-          <span className="text-[10px] bg-blue-50 text-kv-blue-primary font-bold px-2 py-0.5 rounded-full border border-blue-100">
-            {EMPLOYEE_UI.LIST.countLabel(
-              filteredEmployees.length,
-              employees.length,
-            )}
+          <span className="text-xs font-bold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-lg">
+            {filteredEmployees.length} nhân viên
           </span>
         </div>
 
@@ -199,9 +216,15 @@ export const EmployeeList: React.FC<EmployeeListProps> = ({
       </div>
 
       {/* Table Content */}
-      {filteredEmployees.length > 0 ? (
-        <div className="overflow-x-auto">
-          <table className="responsive-data-table responsive-data-table--page w-full text-left border-collapse">
+      {isLoading ? (
+        <div className="flex-1 flex flex-col justify-center items-center py-16">
+          <div className="w-8 h-8 border-4 border-kv-blue-primary border-t-transparent rounded-full animate-spin mb-3"></div>
+          <span className="text-xs font-semibold text-slate-500">Đang tải danh sách nhân viên...</span>
+        </div>
+      ) : filteredEmployees.length > 0 ? (
+        <div className="flex flex-col flex-1 justify-between">
+          <div className="overflow-x-auto">
+            <table className="responsive-data-table responsive-data-table--page w-full text-left border-collapse">
             <thead>
               <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold text-xs">
                 <th className="p-3">{EMPLOYEE_UI.LIST.COLUMNS.USERNAME}</th>
@@ -221,7 +244,7 @@ export const EmployeeList: React.FC<EmployeeListProps> = ({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 font-medium text-slate-700 text-xs animate-auth-fade-in">
-              {filteredEmployees.map((emp) => {
+              {paginatedEmployees.map((emp) => {
                 const role = roles.find((r) => r.code === emp.roleCode);
 
                 return (
@@ -278,6 +301,15 @@ export const EmployeeList: React.FC<EmployeeListProps> = ({
             </tbody>
           </table>
         </div>
+
+        <TablePaginationFooter
+          currentPage={page}
+          pageSize={PAGE_SIZE}
+          totalElements={filteredEmployees.length}
+          onPageChange={setPage}
+          recordUnit="nhân viên"
+        />
+      </div>
       ) : (
         /* Empty State */
         <div className="flex-1 flex flex-col justify-center items-center text-center p-8">

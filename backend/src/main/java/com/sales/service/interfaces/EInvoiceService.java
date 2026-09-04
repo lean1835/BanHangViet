@@ -1,5 +1,6 @@
 package com.sales.service.interfaces;
 
+import com.sales.dto.request.BulkIssueInvoiceRequest;
 import com.sales.dto.request.CancelInvoiceRequest;
 import com.sales.dto.request.CreateAdjustmentInvoiceRequest;
 import com.sales.dto.request.UpdateInvoiceRequest;
@@ -9,6 +10,9 @@ import java.time.LocalDate;
 import java.util.List;
 
 public interface EInvoiceService {
+    // Nghiệp vụ phát hành dồn hóa đơn sau khi có mạng
+    BulkIssueInvoiceResponse bulkIssueInvoices(String currentUsername, BulkIssueInvoiceRequest request);
+
     // Nghiệp vụ điều chỉnh hóa đơn & Lịch sử log
     InvoiceResponse createAdjustmentInvoice(String currentUsername, String originalInvoiceId,
             CreateAdjustmentInvoiceRequest request);

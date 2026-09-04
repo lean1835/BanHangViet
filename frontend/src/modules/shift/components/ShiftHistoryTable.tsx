@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useState, useMemo, useEffect } from "react";
+import { TablePaginationFooter } from "@/components/common/TablePaginationFooter";
 import {
   DEFAULT_SHIFT_CASH_AMOUNT,
   SHIFT_DIFFERENCE_REASON_MAX_LENGTH,
@@ -40,7 +41,8 @@ export const ShiftHistoryTable: React.FC<ShiftHistoryTableProps> = ({ currentRol
     isLoading,
     refetch: refetchShiftsHistory,
   } = useGetShiftsHistoryQuery(undefined, { refetchOnMountOrArgChange: true });
-  const shifts = shiftsHistoryData?.result || [];
+  const rawShifts = shiftsHistoryData?.result;
+  const shifts = useMemo(() => rawShifts || [], [rawShifts]);
 
   const {
     data: activeShiftData,
@@ -72,6 +74,31 @@ export const ShiftHistoryTable: React.FC<ShiftHistoryTableProps> = ({ currentRol
   // Search state
   const [searchQuery, setSearchQuery] = useState("");
   const debouncedSearchQuery = useDebounce(searchQuery, SHIFT_SEARCH_DEBOUNCE_MS);
+
+  // Pagination state (8 records/page)
+  const [page, setPage] = useState(0);
+  const PAGE_SIZE = 8;
+
+  useEffect(() => {
+    setPage(0);
+  }, [debouncedSearchQuery, shifts.length]);
+
+  const filteredShifts = useMemo(() => {
+    const q = debouncedSearchQuery.toLowerCase();
+    return shifts.filter((s) => {
+      return (
+        s.id.toLowerCase().includes(q) ||
+        (s.fullName || "").toLowerCase().includes(q) ||
+        (s.username || "").toLowerCase().includes(q) ||
+        (s.differenceReason || "").toLowerCase().includes(q)
+      );
+    });
+  }, [shifts, debouncedSearchQuery]);
+
+  const paginatedShifts = useMemo(() => {
+    const start = page * PAGE_SIZE;
+    return filteredShifts.slice(start, start + PAGE_SIZE);
+  }, [filteredShifts, page]);
 
   const handleOpenShift = async () => {
     if (isOpeningShift) return;
@@ -220,17 +247,6 @@ export const ShiftHistoryTable: React.FC<ShiftHistoryTableProps> = ({ currentRol
     );
   }
 
-  // Filter shifts based on search query
-  const filteredShifts = shifts.filter((s) => {
-    const q = debouncedSearchQuery.toLowerCase();
-    return (
-      s.id.toLowerCase().includes(q) ||
-      (s.fullName || "").toLowerCase().includes(q) ||
-      (s.username || "").toLowerCase().includes(q) ||
-      (s.differenceReason || "").toLowerCase().includes(q)
-    );
-  });
-
   return (
     <div className="flex flex-col gap-4">
       {/* Top Actions Toolbar */}
@@ -239,13 +255,13 @@ export const ShiftHistoryTable: React.FC<ShiftHistoryTableProps> = ({ currentRol
           <div className="relative w-full sm:w-64">
             <input
               type="text"
+              placeholder={SHIFT_UI.HISTORY.SEARCH_PLACEHOLDER}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder={SHIFT_UI.HISTORY.SEARCH_PLACEHOLDER}
-              className="h-11 w-full rounded-lg border border-slate-300 bg-white px-3 pr-8 text-xs font-semibold text-slate-700 shadow-sm focus:border-kv-blue-primary focus:outline-none lg:h-9"
+              className="w-full pl-9 pr-4 py-1.5 text-xs rounded-lg border border-slate-200 focus:outline-none focus:border-kv-blue-primary"
             />
-            <span className="absolute right-2.5 top-3 text-slate-400">
-              <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+            <span className="absolute left-3 top-2 text-slate-400">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <circle cx="11" cy="11" r="8"/>
                 <line x1="21" y1="21" x2="16.65" y2="16.65"/>
               </svg>
@@ -283,6 +299,7 @@ export const ShiftHistoryTable: React.FC<ShiftHistoryTableProps> = ({ currentRol
               </div>
             ) : (
               <button
+                type="button"
                 onClick={() => {
                   setOpeningCashInput(DEFAULT_SHIFT_CASH_AMOUNT);
                   setSelectedEmployeeForShift("");
@@ -303,10 +320,16 @@ export const ShiftHistoryTable: React.FC<ShiftHistoryTableProps> = ({ currentRol
       </div>
 
       {/* Main Table Card */}
-      <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm w-full">
-        <h3 className="font-extrabold text-slate-800 text-sm border-b pb-3 mb-4 text-left">
-          {SHIFT_UI.HISTORY.TITLE}
-        </h3>
+      <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm w-full flex flex-col justify-between min-h-[500px]">
+        <div>
+          <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-4">
+            <h3 className="font-extrabold text-slate-800 text-sm text-left">
+              {SHIFT_UI.HISTORY.TITLE}
+            </h3>
+            <span className="text-xs font-bold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-lg">
+              {filteredShifts.length} ca làm việc
+            </span>
+          </div>
         <div className="overflow-x-auto">
         <table className="responsive-data-table responsive-data-table--page w-full text-left border-collapse text-[11px]">
           <thead>
@@ -348,7 +371,7 @@ export const ShiftHistoryTable: React.FC<ShiftHistoryTableProps> = ({ currentRol
                 </td>
               </tr>
             ) : (
-              filteredShifts.map((s) => (
+              paginatedShifts.map((s) => (
                 <tr key={s.id} className="hover:bg-slate-50/50">
                   <td className="p-3 font-bold text-slate-800 font-mono text-[10px]">
                     {s.id.slice(-SHIFT_CODE_SUFFIX_LENGTH)}
@@ -412,7 +435,16 @@ export const ShiftHistoryTable: React.FC<ShiftHistoryTableProps> = ({ currentRol
             )}
           </tbody>
         </table>
+        </div>
       </div>
+
+      <TablePaginationFooter
+        currentPage={page}
+        pageSize={PAGE_SIZE}
+        totalElements={filteredShifts.length}
+        onPageChange={setPage}
+        recordUnit="ca làm việc"
+      />
     </div>
 
       {/* Local Close Shift Modal */}
@@ -451,9 +483,12 @@ export const ShiftHistoryTable: React.FC<ShiftHistoryTableProps> = ({ currentRol
                 disabled={isClosingShift || isHistoryFetching}
                 type="button"
                 aria-label="Đóng hộp thoại đóng ca hộ"
-                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-lg text-white/80 transition-colors hover:text-white disabled:cursor-not-allowed disabled:opacity-60 lg:h-8 lg:w-8"
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-white/80 transition-colors hover:text-white disabled:cursor-not-allowed disabled:opacity-60 lg:h-8 lg:w-8"
               >
-                <span aria-hidden="true">{SHIFT_UI.COMMON.CLOSE_ICON}</span>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
               </button>
             </div>
 
@@ -588,9 +623,12 @@ export const ShiftHistoryTable: React.FC<ShiftHistoryTableProps> = ({ currentRol
                 type="button"
                 disabled={isOpeningShift}
                 aria-label="Đóng hộp thoại mở ca làm việc"
-                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-lg text-white/80 transition-colors hover:text-white disabled:cursor-not-allowed disabled:opacity-60 lg:h-8 lg:w-8"
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-white/80 transition-colors hover:text-white disabled:cursor-not-allowed disabled:opacity-60 lg:h-8 lg:w-8"
               >
-                <span aria-hidden="true">{SHIFT_UI.COMMON.CLOSE_ICON}</span>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
               </button>
             </div>
 

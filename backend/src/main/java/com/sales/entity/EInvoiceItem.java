@@ -57,6 +57,13 @@ public class EInvoiceItem {
     @Builder.Default
     private BigDecimal discountAmount = BigDecimal.ZERO;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "promotion_id")
+    private Promotion promotion;
+
+    @Column(name = "promotion_name", length = 255)
+    private String promotionName;
+
     @Column(nullable = false, precision = 15, scale = 2)
     private BigDecimal subtotal;
 

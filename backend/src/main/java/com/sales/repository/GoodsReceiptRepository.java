@@ -12,11 +12,13 @@ import java.util.Optional;
 @Repository
 public interface GoodsReceiptRepository extends JpaRepository<GoodsReceipt, String> {
     
-    @EntityGraph(attributePaths = {"createdByUser"})
+    @EntityGraph(attributePaths = {"createdByUser", "supplier"})
     Optional<GoodsReceipt> findByIdAndHouseholdId(String id, String householdId);
     
-    @EntityGraph(attributePaths = {"createdByUser"})
+    @EntityGraph(attributePaths = {"createdByUser", "supplier"})
     Page<GoodsReceipt> findByHouseholdId(String householdId, Pageable pageable);
     
     boolean existsByReceiptNumber(String receiptNumber);
+
+    boolean existsBySupplierId(String supplierId);
 }

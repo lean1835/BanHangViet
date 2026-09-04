@@ -28,7 +28,7 @@ import { formatActivityTimestamp } from "@/utils/dateFormatter";
 
 import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 
-interface IDashboardDemoContext {
+export interface IDashboardDemoContext {
   currentRole: TDemoRole;
   setCurrentRole: Dispatch<SetStateAction<TDemoRole>>;
   isOnline: boolean;
@@ -51,7 +51,7 @@ interface IDashboardDemoContext {
   refetchOrders: (syncedOrderNumbers?: string[]) => void;
 }
 
-const DashboardDemoContext = createContext<IDashboardDemoContext | null>(null);
+export const DashboardDemoContext = createContext<IDashboardDemoContext | null>(null);
 
 interface DashboardDemoProviderProps {
   children: ReactNode;

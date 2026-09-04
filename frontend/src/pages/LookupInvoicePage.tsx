@@ -19,6 +19,7 @@ import { formatCurrency } from "@/utils/formatCurrency";
 
 interface ILookupDisplayInvoice {
   lookupCode: string;
+  orderNumber?: string;
   symbol: string;
   invoicePattern?: string;
   title?: string;
@@ -100,6 +101,7 @@ export const LookupInvoicePage: React.FC = () => {
 
           setSearchedInvoice({
             lookupCode: cleanCode,
+            orderNumber: (data as any).orderNumber || undefined,
             symbol: data.invoiceSymbol || data.invoicePattern || "-",
             invoicePattern: data.invoicePattern || "1",
             title: data.title || "HÓA ĐƠN GIÁ TRỊ GIA TĂNG",
@@ -251,7 +253,7 @@ export const LookupInvoicePage: React.FC = () => {
           <div className="flex-1 p-8 md:p-10">
             <h1 className="text-center mb-6 text-base font-bold text-kv-text-dark tracking-wider uppercase flex items-center justify-center gap-2">
               <ShieldCheck className="w-5 h-5 text-kv-blue-primary shrink-0" />
-              <span>Tra Cứu &amp; Tải Hóa Đơn Điện Tử Khách Hàng</span>
+              <span>Tra Cứu Hóa Đơn Điện Tử</span>
             </h1>
             <div className="h-px bg-[#dce3ec] mb-7" />
 
@@ -278,7 +280,7 @@ export const LookupInvoicePage: React.FC = () => {
                   />
                   {codeError ? (
                     <div className="mt-1.5 text-rose-600 text-xs font-semibold flex items-center gap-1">
-                      <span>⚠️ {codeError}</span>
+                      <span>{codeError}</span>
                     </div>
                   ) : (
                     <div className="mt-1">
@@ -335,7 +337,7 @@ export const LookupInvoicePage: React.FC = () => {
 
                   {captchaError && (
                     <div className="mt-1.5 text-rose-600 text-xs font-semibold flex items-center gap-1">
-                      <span>⚠️ {captchaError}</span>
+                      <span>{captchaError}</span>
                     </div>
                   )}
                 </div>
@@ -424,6 +426,9 @@ export const LookupInvoicePage: React.FC = () => {
                   </p>
                 </div>
                 <div className="text-right flex flex-col gap-0.5 font-bold text-slate-600 text-[10px]">
+                  {searchedInvoice.orderNumber && (
+                    <p>Mã đơn hàng: <span className="text-blue-600 font-mono font-bold">{searchedInvoice.orderNumber}</span></p>
+                  )}
                   <p>Mẫu số: <span className="text-slate-800 font-extrabold">{searchedInvoice.invoicePattern || "1"}</span></p>
                   <p>Ký hiệu: <span className="text-slate-800 font-extrabold">{searchedInvoice.symbol}</span></p>
                   <p>Số HĐ: <span className="text-kv-blue-primary font-mono font-extrabold">{searchedInvoice.invoiceNumber}</span></p>
@@ -465,6 +470,7 @@ export const LookupInvoicePage: React.FC = () => {
                       <th className="p-2 border-r border-slate-200 text-center w-12">ĐVT</th>
                       <th className="p-2 border-r border-slate-200 text-center w-12">SL</th>
                       <th className="p-2 border-r border-slate-200 text-right w-20">Đơn giá</th>
+                      <th className="p-2 border-r border-slate-200 text-right w-20">Chiết khấu</th>
                       <th className="p-2 border-r border-slate-200 text-center w-14">Thuế (%)</th>
                       <th className="p-2 text-right w-24">Thành tiền</th>
                     </tr>
@@ -474,12 +480,41 @@ export const LookupInvoicePage: React.FC = () => {
                       searchedInvoice.items.map((item, idx) => (
                         <tr key={idx}>
                           <td className="p-2 border-r border-slate-200 text-center">{idx + 1}</td>
-                          <td className="p-2 border-r border-slate-200 font-bold text-slate-800">{item.productName}</td>
+                          <td className="p-2 border-r border-slate-200 font-bold text-slate-800">
+                            <div>{item.productName}</div>
+                            {((item.discountAmount && item.discountAmount > 0) || (item as any).promotionName) && (
+                              <div className="text-[8.5px] text-emerald-700 font-semibold flex items-center gap-1 mt-0.5">
+                                <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 px-1 py-0.2 rounded inline-flex items-center gap-0.5 font-bold">
+                                  {(item as any).promotionName || "Giảm giá"}: -{formatCurrency(item.discountAmount || 0)}
+                                </span>
+                              </div>
+                            )}
+                          </td>
                           <td className="p-2 border-r border-slate-200 text-center text-slate-500">{item.unit || "Cái"}</td>
                           <td className="p-2 border-r border-slate-200 text-center font-bold">{item.quantity}</td>
-                          <td className="p-2 border-r border-slate-200 text-right">{formatCurrency(item.unitPrice)}</td>
+                          <td className="p-2 border-r border-slate-200 text-right whitespace-nowrap">
+                            {item.discountAmount && item.discountAmount > 0 ? (
+                              <div>
+                                <span className="line-through text-slate-400 text-[8.5px] block font-normal">
+                                  {formatCurrency(item.unitPrice)}
+                                </span>
+                                <span className="font-bold text-emerald-700">
+                                  {formatCurrency(Math.max(0, (item.quantity * item.unitPrice - item.discountAmount) / (item.quantity || 1)))}
+                                </span>
+                              </div>
+                            ) : (
+                              formatCurrency(item.unitPrice)
+                            )}
+                          </td>
+                          <td className="p-2 border-r border-slate-200 text-right font-semibold whitespace-nowrap">
+                            {item.discountAmount && item.discountAmount > 0 ? (
+                              <span className="text-rose-600 font-bold">-{formatCurrency(item.discountAmount)}</span>
+                            ) : (
+                              <span className="text-slate-400 font-normal">0 đ</span>
+                            )}
+                          </td>
                           <td className="p-2 border-r border-slate-200 text-center text-slate-500">{item.taxRatePercentage || 8}%</td>
-                          <td className="p-2 text-right font-bold text-slate-800">{formatCurrency(item.subtotal || item.unitPrice * item.quantity)}</td>
+                          <td className="p-2 text-right font-bold text-slate-800">{formatCurrency((item.quantity * item.unitPrice) - (item.discountAmount || 0))}</td>
                         </tr>
                       ))
                     ) : (
@@ -489,6 +524,7 @@ export const LookupInvoicePage: React.FC = () => {
                         <td className="p-2 border-r border-slate-200 text-center text-slate-500">Cái</td>
                         <td className="p-2 border-r border-slate-200 text-center font-bold">1</td>
                         <td className="p-2 border-r border-slate-200 text-right">{formatCurrency(searchedInvoice.amount)}</td>
+                        <td className="p-2 border-r border-slate-200 text-right text-slate-400 font-normal">0 đ</td>
                         <td className="p-2 border-r border-slate-200 text-center text-slate-500">8%</td>
                         <td className="p-2 text-right font-bold text-slate-800">{formatCurrency(searchedInvoice.amount)}</td>
                       </tr>
@@ -544,8 +580,8 @@ export const LookupInvoicePage: React.FC = () => {
                   <span className="text-[8px] text-slate-400 mt-0.5 italic">(Ký, đóng dấu điện tử)</span>
                   
                   <div className="mt-2.5 px-3 py-2 border-2 border-rose-500 rounded bg-rose-50/40 text-[8px] text-rose-700 font-bold flex flex-col items-center gap-0.5 rotate-[-2deg] shadow-sm max-w-[180px] leading-normal select-none">
-                    <span className="text-[9px] text-rose-600 flex items-center gap-1 font-black">
-                      🛡️ ĐÃ KÝ SỐ ĐIỆN TỬ
+                    <span className="text-[9px] text-rose-600 flex items-center gap-1 font-black uppercase">
+                      ĐÃ KÝ SỐ ĐIỆN TỬ
                     </span>
                     <span className="uppercase tracking-wide text-[7px] text-rose-600">{searchedInvoice.householdName}</span>
                     <span>MST: {searchedInvoice.householdTaxCode}</span>
@@ -557,7 +593,6 @@ export const LookupInvoicePage: React.FC = () => {
                 {searchedInvoice.taxAuthorityCode && searchedInvoice.taxAuthorityCode !== "-" && (
                   <div className="col-span-1 sm:col-span-2 flex justify-center mt-2">
                     <div className="px-4 py-2 border-2 border-emerald-500 rounded bg-emerald-50/40 text-[8px] text-emerald-800 font-bold flex items-center gap-3 rotate-[1deg] shadow-sm max-w-[320px] leading-normal select-none">
-                      <span className="text-[12px] text-emerald-600 font-black">✓</span>
                       <div className="flex flex-col text-left">
                         <span className="font-black uppercase tracking-wider text-[9px]">MÃ CƠ QUAN THUẾ CẤP</span>
                         <span className="font-mono text-[9px] tracking-wider text-slate-800 font-extrabold">{searchedInvoice.taxAuthorityCode}</span>

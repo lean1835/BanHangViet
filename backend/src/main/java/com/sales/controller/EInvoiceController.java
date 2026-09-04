@@ -1,10 +1,12 @@
 package com.sales.controller;
 
 import com.sales.dto.ApiResponse;
+import com.sales.dto.request.BulkIssueInvoiceRequest;
 import com.sales.dto.request.CancelInvoiceRequest;
 import com.sales.dto.request.CreateAdjustmentInvoiceRequest;
 import com.sales.dto.request.UpdateInvoiceRequest;
 import com.sales.dto.request.DeliverInvoiceEmailRequest;
+import com.sales.dto.response.BulkIssueInvoiceResponse;
 import com.sales.dto.response.InvoiceResponse;
 import com.sales.dto.response.InvoiceStatusLogResponse;
 import com.sales.dto.response.PageResponse;
@@ -66,6 +68,20 @@ public class EInvoiceController {
     // ============================================
     // NGHIỆP VỤ PHÁT HÀNH HÓA ĐƠN GỐC & TRA CỨU CHUNG
     // ============================================
+
+    @PostMapping("/bulk-issue")
+    @PreAuthorize("hasAnyRole('VT-01', 'VT-02')")
+    public ResponseEntity<ApiResponse<BulkIssueInvoiceResponse>> bulkIssueInvoices(
+            Principal principal,
+            @Valid @RequestBody BulkIssueInvoiceRequest request) {
+        BulkIssueInvoiceResponse result = eInvoiceService.bulkIssueInvoices(principal.getName(), request);
+        ApiResponse<BulkIssueInvoiceResponse> response = ApiResponse.<BulkIssueInvoiceResponse>builder()
+                .code(1000)
+                .message("Phát hành dồn hóa đơn hoàn tất")
+                .result(result)
+                .build();
+        return ResponseEntity.ok(response);
+    }
 
     @PostMapping("/draft")
     @PreAuthorize("hasAnyRole('VT-01', 'VT-02')")

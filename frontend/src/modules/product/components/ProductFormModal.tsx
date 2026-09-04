@@ -11,13 +11,14 @@ import {
   PRODUCT_FORM_LIMITS,
   PRODUCT_STATUS_OPTIONS,
   PRODUCT_STATUS_VALUES,
-  PRODUCT_SYMBOLS,
   PRODUCT_VALIDATION_MESSAGES,
 } from "@/constants/product";
 import { useGetProductGroupsQuery } from "@/modules/product/services/productApi";
 import { useGetTaxRatesQuery } from "@/modules/settings/services/taxRateApi";
 import type { IProduct } from "@/modules/product/types/IProduct";
 import { useAccessibleDialog } from "@/hooks/useAccessibleDialog";
+import { Sparkles, Barcode } from "lucide-react";
+import { useGenerateInternalBarcodeMutation } from "@/modules/barcode/services/barcodeApi";
 
 interface ProductFormModalProps {
   isOpen: boolean;
@@ -39,6 +40,12 @@ const productSchema = z.object({
       PRODUCT_FORM_LIMITS.SKU_MAX_LENGTH,
       PRODUCT_VALIDATION_MESSAGES.SKU_TOO_LONG,
     ),
+  barcode: z
+    .string()
+    .trim()
+    .max(100, "Mã vạch không vượt quá 100 ký tự")
+    .optional()
+    .or(z.literal("")),
   name: z
     .string()
     .trim()
@@ -74,6 +81,12 @@ const productSchema = z.object({
       PRODUCT_FORM_LIMITS.MIN_NON_NEGATIVE_VALUE,
       PRODUCT_VALIDATION_MESSAGES.STOCK_NEGATIVE,
     ),
+  minStockQuantity: z
+    .number()
+    .min(
+      PRODUCT_FORM_LIMITS.MIN_NON_NEGATIVE_VALUE,
+      PRODUCT_VALIDATION_MESSAGES.MIN_STOCK_NEGATIVE,
+    ),
   taxRateId: z
     .string()
     .min(
@@ -94,6 +107,9 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
   const [priceInput, setPriceInput] = useState<string>(
     PRODUCT_FORM_DEFAULTS.EMPTY_TEXT,
   );
+  const [generateInternalBarcode, { isLoading: isGeneratingBarcode }] =
+    useGenerateInternalBarcodeMutation();
+
   const { data: groups = [] } = useGetProductGroupsQuery();
   const { data: dbTaxRates = [] } = useGetTaxRatesQuery(undefined, {
     refetchOnMountOrArgChange: true,
@@ -138,11 +154,13 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
     resolver: zodResolver(productSchema),
     defaultValues: {
       sku: PRODUCT_FORM_DEFAULTS.SKU,
+      barcode: "",
       name: PRODUCT_FORM_DEFAULTS.NAME,
       groupId: PRODUCT_FORM_DEFAULTS.GROUP_ID,
       unit: PRODUCT_FORM_DEFAULTS.UNIT,
       price: PRODUCT_FORM_DEFAULTS.PRICE,
       stockQuantity: PRODUCT_FORM_DEFAULTS.STOCK_QUANTITY,
+      minStockQuantity: PRODUCT_FORM_DEFAULTS.MIN_STOCK_QUANTITY,
       taxRateId: PRODUCT_FORM_DEFAULTS.TAX_RATE_ID,
       status: PRODUCT_FORM_DEFAULTS.STATUS,
     },
@@ -169,12 +187,15 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
     if (product) {
       reset({
         sku: product.sku || PRODUCT_FORM_DEFAULTS.SKU,
+        barcode: product.barcode || "",
         name: product.name || PRODUCT_FORM_DEFAULTS.NAME,
         groupId: product.groupId || PRODUCT_FORM_DEFAULTS.GROUP_ID,
         unit: product.unit || PRODUCT_FORM_DEFAULTS.EMPTY_TEXT,
         price: product.price || PRODUCT_FORM_DEFAULTS.PRICE,
         stockQuantity:
           product.stockQuantity || PRODUCT_FORM_DEFAULTS.STOCK_QUANTITY,
+        minStockQuantity:
+          product.minStockQuantity ?? PRODUCT_FORM_DEFAULTS.MIN_STOCK_QUANTITY,
         taxRateId: defaultTaxRateId,
         status: product.status || PRODUCT_FORM_DEFAULTS.STATUS,
       });
@@ -186,17 +207,52 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
     } else {
       reset({
         sku: PRODUCT_FORM_DEFAULTS.SKU,
+        barcode: "",
         name: PRODUCT_FORM_DEFAULTS.NAME,
         groupId: PRODUCT_FORM_DEFAULTS.GROUP_ID,
         unit: PRODUCT_FORM_DEFAULTS.UNIT,
         price: PRODUCT_FORM_DEFAULTS.PRICE,
         stockQuantity: PRODUCT_FORM_DEFAULTS.STOCK_QUANTITY,
+        minStockQuantity: PRODUCT_FORM_DEFAULTS.MIN_STOCK_QUANTITY,
         taxRateId: defaultTaxRateId,
         status: PRODUCT_FORM_DEFAULTS.STATUS,
       });
       setPriceInput(PRODUCT_FORM_DEFAULTS.EMPTY_TEXT);
     }
   }, [product, isOpen, reset, availableTaxRates]);
+
+  const calculateEan13CheckDigit = (base12: string): number => {
+    let sumOdd = 0;
+    let sumEven = 0;
+    for (let i = 0; i < 12; i++) {
+      const digit = parseInt(base12[i], 10);
+      if (i % 2 === 0) {
+        sumOdd += digit;
+      } else {
+        sumEven += digit * 3;
+      }
+    }
+    const remainder = (sumOdd + sumEven) % 10;
+    return remainder === 0 ? 0 : 10 - remainder;
+  };
+
+  const handleGenerateBarcode = async () => {
+    if (product?.id) {
+      try {
+        const res = await generateInternalBarcode(product.id).unwrap();
+        if (res?.barcode) {
+          setValue("barcode", res.barcode, { shouldValidate: true });
+        }
+      } catch (e) {
+        console.warn("Failed to generate internal barcode from server", e);
+      }
+    } else {
+      const base12 =
+        "200" + Math.floor(100000000 + Math.random() * 900000000).toString();
+      const checkDigit = calculateEan13CheckDigit(base12);
+      setValue("barcode", base12 + checkDigit, { shouldValidate: true });
+    }
+  };
 
   const handlePriceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const rawVal = e.target.value.replace(/\D/g, "");
@@ -222,6 +278,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
       unit: values.unit.trim(),
       price: values.price,
       stockQuantity: values.stockQuantity,
+      minStockQuantity: values.minStockQuantity ?? 0,
       taxRateId: values.taxRateId,
       status: values.status,
     };
@@ -262,9 +319,12 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
             type="button"
             disabled={isSubmitting}
             aria-label={PRODUCT_FORM_COPY.CANCEL_ACTION}
-            className="flex min-h-11 min-w-11 items-center justify-center text-lg text-white/80 transition-colors hover:text-white"
+            className="flex min-h-11 min-w-11 items-center justify-center text-white/80 transition-colors hover:text-white"
           >
-            {PRODUCT_SYMBOLS.CLOSE}
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
           </button>
         </div>
 
@@ -282,9 +342,36 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                 type="text"
                 placeholder={PRODUCT_FORM_COPY.SKU_PLACEHOLDER}
                 {...register(PRODUCT_FORM_FIELD_NAMES.SKU)}
-                className={`border ${errors.sku ? "border-rose-500" : "border-slate-300"} h-9 px-3 rounded-lg focus:outline-none focus:border-kv-blue-primary`}
+                className={`border ${errors.sku ? "border-rose-500" : "border-slate-300"} h-9 px-3 rounded-lg focus:outline-none focus:border-kv-blue-primary font-mono text-xs`}
               />
               {errors.sku && <span className="text-[10px] text-rose-500 font-bold">{errors.sku.message}</span>}
+            </div>
+
+            {/* Mã vạch (Barcode) */}
+            <div className="flex flex-col gap-1">
+              <div className="flex items-center justify-between">
+                <label className="text-slate-600 flex items-center gap-1">
+                  <Barcode size={13} className="text-slate-500" />
+                  <span>Mã vạch (Barcode)</span>
+                </label>
+                <button
+                  type="button"
+                  onClick={handleGenerateBarcode}
+                  disabled={isGeneratingBarcode}
+                  className="text-[10px] font-bold text-[#0070f4] hover:underline flex items-center gap-0.5"
+                  title="Tự động sinh mã vạch nội bộ (200...)"
+                >
+                  <Sparkles size={11} />
+                  <span>{isGeneratingBarcode ? "Đang sinh..." : "Sinh mã"}</span>
+                </button>
+              </div>
+              <input
+                type="text"
+                placeholder="Nhập hoặc quét mã vạch..."
+                {...register("barcode")}
+                className="border border-slate-300 h-9 px-3 rounded-lg focus:outline-none focus:border-kv-blue-primary font-mono text-xs"
+              />
+              {errors.barcode && <span className="text-[10px] text-rose-500 font-bold">{errors.barcode.message}</span>}
             </div>
 
             {/* Đơn vị tính */}
@@ -369,6 +456,23 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
               />
               {errors.stockQuantity && (
                 <span className="text-[10px] text-rose-500 font-bold">{errors.stockQuantity.message}</span>
+              )}
+            </div>
+
+            {/* Ngưỡng tồn tối thiểu */}
+            <div className="flex flex-col gap-1">
+              <label className="text-slate-600">Ngưỡng tồn tối thiểu:</label>
+              <input
+                type="number"
+                min={PRODUCT_FORM_LIMITS.MIN_NON_NEGATIVE_VALUE}
+                placeholder="Ví dụ: 10"
+                {...register(PRODUCT_FORM_FIELD_NAMES.MIN_STOCK_QUANTITY, {
+                  valueAsNumber: true,
+                })}
+                className={`border ${errors.minStockQuantity ? "border-rose-500" : "border-slate-300"} h-9 px-3 rounded-lg focus:outline-none focus:border-kv-blue-primary`}
+              />
+              {errors.minStockQuantity && (
+                <span className="text-[10px] text-rose-500 font-bold">{errors.minStockQuantity.message}</span>
               )}
             </div>
 

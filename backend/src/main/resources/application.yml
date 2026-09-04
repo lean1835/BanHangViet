@@ -9,10 +9,17 @@ spring:
   application:
     name: sales-service
   datasource:
-    url: ${DB_URL:jdbc:mysql://localhost:3306/ban_hang_viet?createDatabaseIfNotExist=true&useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true&useUnicode=true&characterEncoding=UTF-8&characterSetResults=UTF-8}
+    url: ${DB_URL:jdbc:mysql://localhost:3306/ban_hang_viet?createDatabaseIfNotExist=true&useSSL=false&serverTimezone=Asia/Ho_Chi_Minh&allowPublicKeyRetrieval=true&useUnicode=true&characterEncoding=UTF-8&characterSetResults=UTF-8}
     username: ${DB_USER:root}
     password: ${DB_PASSWORD:root}
     driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+      idle-timeout: 300000
+      max-lifetime: 1800000
+      connection-timeout: 20000
+      keepalive-time: 60000
   jpa:
     hibernate:
       ddl-auto: update
@@ -20,6 +27,10 @@ spring:
     properties:
       hibernate:
         format_sql: true
+        jdbc:
+          time_zone: Asia/Ho_Chi_Minh
+  jackson:
+    time-zone: Asia/Ho_Chi_Minh
   mail:
     host: ${MAIL_HOST:smtp.gmail.com}
     port: ${MAIL_PORT:587}
@@ -41,6 +52,8 @@ app:
     expiration-ms: ${JWT_EXPIRATION_MS:86400000} # 24 hours
   frontend-url: ${FRONTEND_URL:http://localhost:3000}
   default-household-name: ${DEFAULT_HOUSEHOLD_NAME:BanHangViet}
+  return-ticket:
+    max-days: ${MAX_RETURN_DAYS:7}
 
 management:
   endpoints:

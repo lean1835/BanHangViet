@@ -1,37 +1,47 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { 
   Activity, 
-  Calendar, 
-  RefreshCw, 
-  ChevronLeft, 
-  ChevronRight, 
   User, 
   FileText, 
   CheckCircle2, 
   RotateCw, 
   PlusCircle, 
   AlertTriangle,
-  Lock
+  Lock,
+  Unlock,
+  Layers,
+  FileSpreadsheet
 } from "lucide-react";
 import { useGetActivityLogsQuery } from "../services/reportApi";
+import { useReportFilter } from "../context/ReportFilterContext";
 import type { IActivityLogResponse } from "../types/IReport";
+import { TablePaginationFooter } from "@/components/common/TablePaginationFooter";
 
 export const ActivityLogPage = () => {
-  const [fromDate, setFromDate] = useState("");
-  const [toDate, setToDate] = useState("");
+  const { activityLogFilter } = useReportFilter();
+  const { fromDate, toDate } = activityLogFilter;
   const [page, setPage] = useState(0);
-  const pageSize = 9;
+  const pageSize = 8;
+
+  useEffect(() => {
+    setPage(0);
+  }, [activityLogFilter]);
 
   const isDateInvalid = Boolean(fromDate && toDate && fromDate > toDate);
 
-  const { data, isLoading, isFetching, refetch } = useGetActivityLogsQuery(
+  const { data, isLoading, isFetching } = useGetActivityLogsQuery(
     {
       fromDate: fromDate || undefined,
       toDate: toDate || undefined,
       page,
       size: pageSize,
     },
-    { skip: isDateInvalid }
+    {
+      skip: isDateInvalid,
+      refetchOnMountOrArgChange: true,
+      refetchOnFocus: true,
+      refetchOnReconnect: true,
+    }
   );
 
   const logsPage = data?.result;
@@ -84,20 +94,68 @@ export const ActivityLogPage = () => {
       case "product_groups": return "Nhóm hàng";
       case "orders": return "Đơn hàng";
       case "shifts": return "Ca làm việc";
-      case "invoices": return "Hóa đơn HĐĐT";
+      case "invoices":
+      case "einvoices": return "Hóa đơn HĐĐT";
       case "goods_receipts": return "Phiếu nhập hàng";
       case "customers": return "Khách hàng";
+      case "suppliers": return "Nhà cung cấp";
       case "debts":
       case "customer_debts": return "Công nợ khách hàng";
       case "users":
       case "employees": return "Nhân viên";
       case "reports": return "Báo cáo / Quỹ";
+      case "tax_declaration_periods": return "Kỳ kê khai thuế";
+      case "tax_sales_registers": return "Bảng kê thuế";
       default: return table.toUpperCase();
     }
   };
 
   const getActionBadge = (action: string) => {
     const actUpper = (action || "").toUpperCase();
+
+    // 1. Thao tác kỳ kê khai thuế & Bảng kê thuế
+    if (actUpper === "SUMMARIZE_TAX_REVENUE") {
+      return {
+        label: "TỔNG HỢP DOANH THU THUẾ",
+        className: "bg-indigo-100 text-indigo-700 border-indigo-200",
+        icon: <Layers className="w-3 h-3 mr-1 shrink-0" />,
+      };
+    }
+    if (actUpper === "GENERATE_TAX_SALES_REGISTER" || actUpper === "GENERATE_TAX_REGISTER") {
+      return {
+        label: "LẬP BẢNG KÊ HÓA ĐƠN",
+        className: "bg-blue-100 text-blue-700 border-blue-200",
+        icon: <FileSpreadsheet className="w-3 h-3 mr-1 shrink-0" />,
+      };
+    }
+    if (actUpper === "RECALCULATE_TAX_REGISTER") {
+      return {
+        label: "TÍNH LẠI BẢNG KÊ THUẾ",
+        className: "bg-emerald-100 text-emerald-700 border-emerald-200",
+        icon: <RotateCw className="w-3 h-3 mr-1 shrink-0" />,
+      };
+    }
+    if (actUpper === "LOCK_TAX_PERIOD") {
+      return {
+        label: "CHỐT KHÓA KỲ THUẾ",
+        className: "bg-rose-100 text-rose-700 border-rose-200",
+        icon: <Lock className="w-3 h-3 mr-1 shrink-0" />,
+      };
+    }
+    if (actUpper === "UNLOCK_TAX_PERIOD") {
+      return {
+        label: "MỞ LẠI KỲ THUẾ",
+        className: "bg-amber-100 text-amber-800 border-amber-200",
+        icon: <Unlock className="w-3 h-3 mr-1 shrink-0" />,
+      };
+    }
+    if (actUpper === "EXPORT_TAX_DECLARATION") {
+      return {
+        label: "XUẤT TỜ KHAI THUẾ",
+        className: "bg-sky-100 text-sky-700 border-sky-200",
+        icon: <FileText className="w-3 h-3 mr-1 shrink-0" />,
+      };
+    }
     if (actUpper.includes("COLLECT_DEBT") || actUpper.includes("THU_NO") || actUpper.includes("PAY_DEBT")) {
       return {
         label: "THU NỢ KHÁCH HÀNG",
@@ -301,7 +359,7 @@ interface IParsedLogPayload {
             )}
           </span>
           {errCount > 0 && (
-            <span className="text-amber-700 font-bold">⚠ {errCount} hóa đơn lỗi</span>
+            <span className="text-amber-700 font-bold">{errCount} hóa đơn lỗi</span>
           )}
           {parsed.notes && (
             <span className="text-blue-700 italic">Ghi chú: "{parsed.notes}"</span>
@@ -544,170 +602,118 @@ interface IParsedLogPayload {
   };
 
   return (
-    <div className="max-w-7xl mx-auto flex flex-col gap-6">
-      {/* Filter Bar */}
-      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col gap-2">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-2 text-xs font-semibold text-slate-600">
-            <Calendar className="w-4 h-4 text-slate-400 shrink-0" />
-            <span>Từ:</span>
-            <input
-              type="date"
-              value={fromDate}
-              onChange={(e) => {
-                setFromDate(e.target.value);
-                setPage(0);
-              }}
-              className={`border ${isDateInvalid ? "border-rose-400" : "border-slate-200"} rounded-lg px-2.5 py-1 text-xs font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-kv-blue-primary/20`}
-            />
-            <span>Đến:</span>
-            <input
-              type="date"
-              value={toDate}
-              onChange={(e) => {
-                setToDate(e.target.value);
-                setPage(0);
-              }}
-              className={`border ${isDateInvalid ? "border-rose-400" : "border-slate-200"} rounded-lg px-2.5 py-1 text-xs font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-kv-blue-primary/20`}
-            />
-          </div>
+    <div className="flex flex-col gap-4 w-full animate-auth-fade-in">
+      {isDateInvalid && (
+        <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs font-bold text-rose-600 flex items-center gap-2 shadow-xs">
+          <AlertTriangle className="w-4 h-4 text-rose-500 shrink-0" />
+          <span>Lỗi bộ lọc: Ngày bắt đầu không được lớn hơn ngày kết thúc!</span>
+        </div>
+      )}
 
-          <div className="flex items-center gap-3">
-            {(fromDate || toDate) && (
-              <button
-                onClick={() => {
-                  setFromDate("");
-                  setToDate("");
-                  setPage(0);
-                }}
-                className="text-xs font-bold text-rose-500 hover:text-rose-600 transition-colors"
-              >
-                Xóa bộ lọc
-              </button>
-            )}
-
-            <button
-              onClick={() => void refetch()}
-              disabled={isFetching || isDateInvalid}
-              className="bg-slate-100 hover:bg-slate-200 text-slate-700 p-2 rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center"
-              title="Làm mới dữ liệu"
-            >
-              <RefreshCw className={`w-4 h-4 ${isFetching ? "animate-spin" : ""}`} />
-            </button>
+      {/* Main Table Card */}
+      <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col min-h-[500px] w-full">
+        {/* Block Header */}
+        <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-4">
+          <div>
+            <h3 className="font-extrabold text-slate-800 text-sm">
+              Nhật ký hoạt động hệ thống
+            </h3>
           </div>
+          <span className="text-xs font-bold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-lg">
+            {totalElements} bản ghi
+          </span>
         </div>
 
-        {isDateInvalid && (
-          <div className="text-xs font-bold text-rose-500 flex items-center gap-1 mt-1">
-            <AlertTriangle className="w-3.5 h-3.5" />
-            <span>Ngày bắt đầu không được lớn hơn ngày kết thúc!</span>
+        {isLoading || isFetching ? (
+          <div className="flex flex-col justify-center items-center flex-1 py-20 text-slate-400 gap-2">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-kv-blue-primary"></div>
+            <span className="text-xs font-bold">
+              Đang tải nhật ký hoạt động...
+            </span>
+          </div>
+        ) : logsList.length === 0 ? (
+          <div className="flex flex-col justify-center items-center flex-1 py-20 text-slate-400 gap-2 font-semibold">
+            <Activity className="w-10 h-10 text-slate-300 mb-2" />
+            <span>Không tìm thấy nhật ký hoạt động nào phù hợp.</span>
+          </div>
+        ) : (
+          <div className="flex flex-col flex-1 justify-between">
+            <div className="overflow-x-auto">
+              <table className="responsive-data-table responsive-data-table--page w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold text-xs">
+                    <th className="p-3 min-w-[180px]">Người thực hiện</th>
+                    <th className="p-3 min-w-[160px]">Thời gian</th>
+                    <th className="p-3 min-w-[170px]">Thao tác</th>
+                    <th className="p-3 min-w-[130px]">Đối tượng</th>
+                    <th className="p-3 min-w-[340px] w-full">Chi tiết</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 font-medium text-slate-700 text-xs">
+                  {logsList.map((log) => {
+                    const badge = getActionBadge(log.action);
+                    const notesText = parseLogNotes(log);
+                    return (
+                      <tr key={log.id} className="hover:bg-slate-50/50 group transition-all">
+                        {/* User */}
+                        <td className="p-3 whitespace-nowrap">
+                          <div className="flex items-center gap-2.5">
+                            <div className="w-7 h-7 rounded-full bg-slate-100 text-slate-600 font-black text-xs flex items-center justify-center shrink-0 uppercase border border-slate-200 shadow-2xs">
+                              {(log.fullName || log.username || "U").charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                              <span className="font-extrabold text-slate-800 block leading-tight text-xs">
+                                {log.fullName || log.username || "Hệ thống"}
+                              </span>
+                              {log.username && (
+                                <span className="text-[10px] text-slate-400 font-mono font-semibold">
+                                  @{log.username}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+
+                        {/* Time */}
+                        <td className="p-3 font-mono font-bold text-slate-500 whitespace-nowrap text-xs">
+                          {formatDateTime(log.createdAt)}
+                        </td>
+
+                        {/* Action Badge */}
+                        <td className="p-3 whitespace-nowrap">
+                          <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-[10px] font-extrabold border shadow-2xs ${badge.className}`}>
+                            {badge.icon}
+                            {badge.label}
+                          </span>
+                        </td>
+
+                        {/* Target Table */}
+                        <td className="p-3 whitespace-nowrap text-xs text-slate-700 font-bold">
+                          {getTargetTableLabel(log.targetTable)}
+                        </td>
+
+                        {/* Detail / Notes */}
+                        <td className="p-3 text-slate-700 font-medium min-w-[340px]">
+                          {notesText}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Pagination Controls */}
+            <TablePaginationFooter
+              currentPage={page}
+              pageSize={pageSize}
+              totalElements={totalElements}
+              totalPages={totalPages}
+              onPageChange={setPage}
+              recordUnit="bản ghi"
+            />
           </div>
         )}
-      </div>
-
-      {/* Log Table Container */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col min-h-[420px]">
-        <div className="overflow-x-auto flex-1">
-          {isLoading || isFetching ? (
-            <div className="flex flex-col items-center justify-center py-16 text-slate-400 text-xs font-semibold">
-              <RefreshCw className="w-8 h-8 animate-spin text-kv-blue-primary mb-2" />
-              <span>Đang tải nhật ký hoạt động...</span>
-            </div>
-          ) : logsList.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 text-slate-400 text-xs font-semibold">
-              <Activity className="w-10 h-10 text-slate-300 mb-2" />
-              <span>Không tìm thấy nhật ký hoạt động nào phù hợp.</span>
-            </div>
-          ) : (
-            <table className="w-full text-left border-collapse text-xs">
-              <thead>
-                <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase tracking-wider text-[11px]">
-                  <th className="py-3.5 px-5 min-w-[180px]">Người thực hiện</th>
-                  <th className="py-3.5 px-5 min-w-[160px]">Thời gian</th>
-                  <th className="py-3.5 px-5 min-w-[170px]">Thao tác</th>
-                  <th className="py-3.5 px-5 min-w-[130px]">Đối tượng</th>
-                  <th className="py-3.5 px-6 min-w-[340px] w-full">Chi tiết</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 font-medium">
-                {logsList.map((log) => {
-                  const badge = getActionBadge(log.action);
-                  const notesText = parseLogNotes(log);
-                  return (
-                    <tr key={log.id} className="hover:bg-slate-50/70 transition-colors">
-                      {/* User */}
-                      <td className="py-3.5 px-5 whitespace-nowrap">
-                        <div className="flex items-center gap-2.5">
-                          <div className="w-7 h-7 rounded-full bg-slate-100 text-slate-600 font-black text-xs flex items-center justify-center shrink-0 uppercase border border-slate-200 shadow-2xs">
-                            {(log.fullName || log.username || "U").charAt(0).toUpperCase()}
-                          </div>
-                          <div>
-                            <span className="font-extrabold text-slate-800 block leading-tight text-xs">
-                              {log.fullName || log.username || "Hệ thống"}
-                            </span>
-                            {log.username && (
-                              <span className="text-[10px] text-slate-400 font-mono font-semibold">
-                                @{log.username}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </td>
-
-                      {/* Time */}
-                      <td className="py-3.5 px-5 font-mono font-bold text-slate-500 whitespace-nowrap text-xs">
-                        {formatDateTime(log.createdAt)}
-                      </td>
-
-                      {/* Action Badge */}
-                      <td className="py-3.5 px-5 whitespace-nowrap">
-                        <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-[10px] font-extrabold border shadow-2xs ${badge.className}`}>
-                          {badge.icon}
-                          {badge.label}
-                        </span>
-                      </td>
-
-                      {/* Target Table */}
-                      <td className="py-3.5 px-5 whitespace-nowrap text-xs text-slate-700 font-bold">
-                        {getTargetTableLabel(log.targetTable)}
-                      </td>
-
-                      {/* Detail / Notes */}
-                      <td className="py-3.5 px-6 text-slate-700 font-medium min-w-[340px]">
-                        {notesText}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          )}
-        </div>
-
-        {/* Pagination Footer */}
-        <div className="p-4 border-t border-slate-200 bg-slate-50/50 flex items-center justify-between flex-wrap gap-4 text-xs font-bold text-slate-600 shrink-0">
-          <span>
-            Hiển thị <span className="text-slate-800">{logsList.length}</span> / {totalElements} bản ghi (Trang {page + 1}/{totalPages})
-          </span>
-
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setPage((p) => Math.max(0, p - 1))}
-              disabled={page === 0 || isLoading}
-              className="flex items-center px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              <ChevronLeft className="w-4 h-4 mr-1" /> Trang trước
-            </button>
-
-            <button
-              onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
-              disabled={page >= totalPages - 1 || isLoading}
-              className="flex items-center px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              Trang sau <ChevronRight className="w-4 h-4 ml-1" />
-            </button>
-          </div>
-        </div>
       </div>
     </div>
   );

@@ -39,6 +39,22 @@ export const API_TAG_TYPES = {
   TAX_RATE: "TaxRate",
   SETTINGS: "Settings",
   DEBT: "Debt",
+  SUPPLIER: "Supplier",
+  INVENTORY_AUDIT: "InventoryAudit",
+  INVENTORY_WARNING: "InventoryWarning",
+  RETURN_TICKET: "ReturnTicket",
+  AUDIT_LOG: "AuditLog",
+  BACKUP: "Backup",
+  RESTORE: "Restore",
+  ANOMALY_ALERT: "AnomalyAlert",
+  PROMOTION: "Promotion",
+  BARCODE: "Barcode",
+  POINT_OF_SALE: "PointOfSale",
+  POS_EMPLOYEE: "PosEmployee",
+  POS_INVENTORY: "PosInventory",
+  POS_TRANSFER: "PosTransfer",
+  POS_REVENUE: "PosRevenue",
+  SALES_ANALYTICS: "SalesAnalytics",
 } as const;
 
 export const API_TAG_TYPE_VALUES = Object.values(API_TAG_TYPES);

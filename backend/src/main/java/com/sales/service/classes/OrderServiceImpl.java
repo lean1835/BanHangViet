@@ -12,6 +12,7 @@ import com.sales.exception.AppException;
 import com.sales.exception.ErrorCode;
 import com.sales.repository.*;
 import com.sales.service.interfaces.OrderService;
+import com.sales.service.interfaces.PosInventoryService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -25,8 +26,10 @@ import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -40,9 +43,13 @@ public class OrderServiceImpl implements OrderService {
     private final CustomerRepository customerRepository;
     private final ShiftRepository shiftRepository;
     private final UserRepository userRepository;
-    private final ActivityLogRepository activityLogRepository;
+    private final ActivityLogHelper activityLogHelper;
     private final ObjectMapper objectMapper;
     private final CustomerDebtRepository customerDebtRepository;
+    private final com.sales.service.interfaces.PromotionService promotionService;
+    private final com.sales.repository.PromotionRepository promotionRepository;
+    private final PosInventoryRepository posInventoryRepository;
+    private final PosInventoryService posInventoryService;
 
     private User getAuthenticatedUser(String username) {
         return userRepository.findByUsername(username)
@@ -51,8 +58,14 @@ public class OrderServiceImpl implements OrderService {
 
     private void checkOrderOwnership(Order order, User currentUser) {
         boolean isSalesperson = "VT-02".equals(currentUser.getRole().getCode());
-        if (isSalesperson && !order.getCreatedByUser().getId().equals(currentUser.getId())) {
-            throw new AppException(ErrorCode.FORBIDDEN);
+        if (isSalesperson) {
+            if (currentUser.getPointOfSale() != null && order.getPointOfSale() != null
+                    && !currentUser.getPointOfSale().getId().equals(order.getPointOfSale().getId())) {
+                throw new AppException(ErrorCode.POS_EMPLOYEE_ACCESS_DENIED);
+            }
+            if (!order.getCreatedByUser().getId().equals(currentUser.getId())) {
+                throw new AppException(ErrorCode.FORBIDDEN);
+            }
         }
     }
 
@@ -60,6 +73,16 @@ public class OrderServiceImpl implements OrderService {
         if (order.getShift() != null && order.getShift().getStatus() == ShiftStatus.CLOSED) {
             throw new AppException(ErrorCode.SHIFT_ALREADY_CLOSED);
         }
+    }
+
+    private String getClientIp() {
+        ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+        return attributes != null ? attributes.getRequest().getRemoteAddr() : null;
+    }
+
+    private String getUserAgent() {
+        ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+        return attributes != null ? attributes.getRequest().getHeader("User-Agent") : null;
     }
 
     private String generateQrCodeUrl(Order order) {
@@ -89,19 +112,7 @@ public class OrderServiceImpl implements OrderService {
             String oldStr = oldValue != null ? objectMapper.writeValueAsString(oldValue) : null;
             String newStr = newValue != null ? objectMapper.writeValueAsString(newValue) : null;
 
-            ActivityLog logRecord = ActivityLog.builder()
-                    .household(household)
-                    .user(actor)
-                    .action(action)
-                    .targetTable("orders")
-                    .targetId(targetId)
-                    .oldValue(oldStr)
-                    .newValue(newStr)
-                    .clientIp(clientIp)
-                    .userAgent(userAgent)
-                    .build();
-
-            activityLogRepository.save(logRecord);
+            activityLogHelper.logActivityInNewTransaction(household, actor, action, "orders", targetId, oldStr, newStr, clientIp, userAgent);
         } catch (Exception e) {
             log.error("Failed to write activity log", e);
         }
@@ -113,6 +124,8 @@ public class OrderServiceImpl implements OrderService {
         map.put("orderNumber", order.getOrderNumber());
         map.put("totalAmount", order.getTotalAmount());
         map.put("discountAmount", order.getDiscountAmount());
+        map.put("customerDiscountAmount", order.getCustomerDiscountAmount());
+        map.put("promotionDiscountAmount", order.getPromotionDiscountAmount());
         map.put("finalAmount", order.getFinalAmount());
         map.put("paymentMethod", order.getPaymentMethod());
         map.put("paymentStatus", order.getPaymentStatus());
@@ -129,6 +142,8 @@ public class OrderServiceImpl implements OrderService {
                         .quantity(item.getQuantity())
                         .unitPrice(item.getUnitPrice())
                         .discountAmount(item.getDiscountAmount())
+                        .promotionId(item.getPromotion() != null ? item.getPromotion().getId() : null)
+                        .promotionName(item.getPromotionName())
                         .taxRatePercentage(item.getTaxRatePercentage())
                         .taxAmount(item.getTaxAmount())
                         .subtotal(item.getSubtotal())
@@ -165,6 +180,8 @@ public class OrderServiceImpl implements OrderService {
                 .customerName(order.getCustomer() != null ? order.getCustomer().getName() : null)
                 .totalAmount(order.getTotalAmount())
                 .discountAmount(order.getDiscountAmount())
+                .customerDiscountAmount(order.getCustomerDiscountAmount())
+                .promotionDiscountAmount(order.getPromotionDiscountAmount())
                 .finalAmount(order.getFinalAmount())
                 .paymentMethod(order.getPaymentMethod())
                 .paymentStatus(order.getPaymentStatus())
@@ -198,26 +215,98 @@ public class OrderServiceImpl implements OrderService {
     }
 
     private void recalculateOrderTotals(Order order) {
-        BigDecimal total = BigDecimal.ZERO;
-        for (OrderItem item : order.getItems()) {
-            total = total.add(item.getSubtotal());
-        }
-        order.setTotalAmount(total);
+        BigDecimal totalSubtotal = BigDecimal.ZERO;
+        BigDecimal totalCartAmount = BigDecimal.ZERO;
+        BigDecimal itemPromoDiscountSum = BigDecimal.ZERO;
 
-        BigDecimal discountAmount = order.getDiscountAmount();
+        // Khử trùng lặp thực thể OrderItem do Join Fetch / EntityGraph
+        List<OrderItem> uniqueItems = new ArrayList<>();
+        Set<String> seenIds = new HashSet<>();
+        for (OrderItem item : order.getItems()) {
+            if (item.getId() != null) {
+                if (seenIds.add(item.getId())) {
+                    uniqueItems.add(item);
+                }
+            } else {
+                uniqueItems.add(item);
+            }
+        }
+
+        for (OrderItem item : uniqueItems) {
+            BigDecimal qty = item.getQuantity() != null ? item.getQuantity() : BigDecimal.ZERO;
+            BigDecimal price = item.getUnitPrice() != null ? item.getUnitPrice() : BigDecimal.ZERO;
+            BigDecimal lineDiscount = item.getDiscountAmount() != null ? item.getDiscountAmount() : BigDecimal.ZERO;
+            BigDecimal lineBase = qty.multiply(price).subtract(lineDiscount);
+
+            totalCartAmount = totalCartAmount.add(lineBase);
+            itemPromoDiscountSum = itemPromoDiscountSum.add(lineDiscount);
+
+            if (item.getSubtotal() != null) {
+                totalSubtotal = totalSubtotal.add(item.getSubtotal());
+            }
+        }
+        order.setTotalAmount(totalSubtotal);
+
+        // Bước 1: Khuyến mại tự động SP -> itemPromoDiscountSum (đã trừ trong totalCartAmount)
+
+        // Bước 2: Chiết khấu khách VIP (áp dụng trên số tiền sau KM tự động: totalCartAmount)
+        BigDecimal customerDiscountAmount = BigDecimal.ZERO;
+        if (order.getCustomer() != null && order.getCustomer().getDiscountRate() != null
+                && order.getCustomer().getDiscountRate().compareTo(BigDecimal.ZERO) > 0) {
+            Customer cust = order.getCustomer();
+            if ("PERCENTAGE".equalsIgnoreCase(cust.getDiscountType())) {
+                customerDiscountAmount = totalCartAmount.multiply(cust.getDiscountRate())
+                        .divide(BigDecimal.valueOf(100), 0, RoundingMode.HALF_UP).setScale(2);
+            } else {
+                customerDiscountAmount = totalCartAmount.min(cust.getDiscountRate()).setScale(0, RoundingMode.HALF_UP).setScale(2);
+            }
+        }
+
+        // Số tiền còn lại sau Bước 2 (sau chiết khấu VIP)
+        BigDecimal afterVipAmount = totalCartAmount.subtract(customerDiscountAmount).max(BigDecimal.ZERO);
+
+        // Bước 3: Chiết khấu thêm (áp dụng trên số tiền sau chiết khấu VIP: afterVipAmount)
+        BigDecimal manualDiscount = BigDecimal.ZERO;
         if (order.getDiscountType() != null) {
             if ("PERCENTAGE".equals(order.getDiscountType())) {
                 BigDecimal rate = order.getDiscountRateOrValue() != null ? order.getDiscountRateOrValue() : BigDecimal.ZERO;
-                discountAmount = total.multiply(rate).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+                manualDiscount = afterVipAmount.multiply(rate).divide(BigDecimal.valueOf(100), 0, RoundingMode.HALF_UP).setScale(2);
             } else if ("CASH".equals(order.getDiscountType())) {
-                discountAmount = order.getDiscountRateOrValue() != null ? order.getDiscountRateOrValue() : BigDecimal.ZERO;
+                manualDiscount = order.getDiscountRateOrValue() != null ? afterVipAmount.min(order.getDiscountRateOrValue()).setScale(0, RoundingMode.HALF_UP).setScale(2) : BigDecimal.ZERO;
             }
         }
-        if (discountAmount.compareTo(total) > 0) {
-            discountAmount = total;
+
+        BigDecimal afterDiscountAmount = afterVipAmount.subtract(manualDiscount).max(BigDecimal.ZERO);
+
+        // Bước 4: Thuế GTGT (VAT) được tính trên giá sau khi chiết khấu thêm (afterDiscountAmount)
+        BigDecimal finalTaxAmount = BigDecimal.ZERO;
+        if (totalCartAmount.compareTo(BigDecimal.ZERO) > 0) {
+            BigDecimal discountRatio = afterDiscountAmount.divide(totalCartAmount, 6, RoundingMode.HALF_UP);
+            for (OrderItem item : uniqueItems) {
+                BigDecimal qty = item.getQuantity() != null ? item.getQuantity() : BigDecimal.ZERO;
+                BigDecimal price = item.getUnitPrice() != null ? item.getUnitPrice() : BigDecimal.ZERO;
+                BigDecimal lineDiscount = item.getDiscountAmount() != null ? item.getDiscountAmount() : BigDecimal.ZERO;
+                BigDecimal lineBase = qty.multiply(price).subtract(lineDiscount);
+                BigDecimal discountedLineBase = lineBase.multiply(discountRatio);
+                BigDecimal taxRate = item.getTaxRatePercentage() != null ? item.getTaxRatePercentage() : BigDecimal.ZERO;
+                BigDecimal lineTax = discountedLineBase.multiply(taxRate).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+                finalTaxAmount = finalTaxAmount.add(lineTax);
+            }
         }
-        order.setDiscountAmount(discountAmount);
-        order.setFinalAmount(total.subtract(discountAmount).max(BigDecimal.ZERO));
+
+        // Làm tròn tiền thuế và tiền thanh toán cuối cùng về số nguyên đồng (VND không có số lẻ thập phân)
+        finalTaxAmount = finalTaxAmount.setScale(0, RoundingMode.HALF_UP).setScale(2);
+
+        // Bước 5: Khách cần trả (finalAmount = afterDiscountAmount + finalTaxAmount)
+        BigDecimal finalAmount = afterDiscountAmount.add(finalTaxAmount).max(BigDecimal.ZERO).setScale(0, RoundingMode.HALF_UP).setScale(2);
+
+        BigDecimal promotionDiscountAmount = itemPromoDiscountSum.add(manualDiscount).setScale(0, RoundingMode.HALF_UP).setScale(2);
+        BigDecimal totalDiscount = itemPromoDiscountSum.add(customerDiscountAmount).add(manualDiscount).setScale(0, RoundingMode.HALF_UP).setScale(2);
+
+        order.setPromotionDiscountAmount(promotionDiscountAmount);
+        order.setCustomerDiscountAmount(customerDiscountAmount);
+        order.setDiscountAmount(totalDiscount);
+        order.setFinalAmount(finalAmount);
     }
 
     @Override
@@ -233,10 +322,6 @@ public class OrderServiceImpl implements OrderService {
         Shift activeShift = shiftRepository.findByUserIdAndStatus(currentUser.getId(), ShiftStatus.OPEN)
                 .orElseThrow(() -> new AppException(ErrorCode.ACTIVE_SHIFT_NOT_FOUND));
 
-        // Lock the active shift to prevent concurrency race with closeShift
-        activeShift = shiftRepository.findByIdForUpdate(activeShift.getId())
-                .orElseThrow(() -> new AppException(ErrorCode.ACTIVE_SHIFT_NOT_FOUND));
-
         if (activeShift.getStatus() == ShiftStatus.CLOSED) {
             throw new AppException(ErrorCode.ACTIVE_SHIFT_NOT_FOUND);
         }
@@ -249,9 +334,14 @@ public class OrderServiceImpl implements OrderService {
 
         String orderNumber = "OD-" + System.currentTimeMillis() + "-" + (int) (Math.random() * 900 + 100);
 
+        PointOfSale pointOfSale = currentUser.getPointOfSale() != null 
+                ? currentUser.getPointOfSale() 
+                : (activeShift != null ? activeShift.getPointOfSale() : null);
+
         Order order = Order.builder()
                 .household(household)
                 .shift(activeShift)
+                .pointOfSale(pointOfSale)
                 .createdByUser(currentUser)
                 .customer(customer)
                 .orderNumber(orderNumber)
@@ -294,31 +384,54 @@ public class OrderServiceImpl implements OrderService {
         Product product = productRepository.findByIdAndHouseholdIdAndDeletedAtIsNull(request.getProductId(), household.getId())
                 .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_NOT_FOUND));
 
+        // NCL-17-CN-002-TC-03: Kiểm tra sản phẩm đã được khai tồn tại điểm bán chưa
+        if (order.getPointOfSale() != null) {
+            if (!posInventoryRepository.existsByPointOfSaleIdAndProductId(order.getPointOfSale().getId(), product.getId())) {
+                throw new AppException(ErrorCode.POS_PRODUCT_NOT_INITIALIZED);
+            }
+        }
+
         OrderItem existingItem = order.getItems().stream()
                 .filter(item -> item.getProduct() != null && item.getProduct().getId().equals(product.getId()))
                 .findFirst().orElse(null);
 
         BigDecimal quantityToAdd = request.getQuantity();
-        if (existingItem != null) {
-            existingItem.setQuantity(existingItem.getQuantity().add(quantityToAdd));
-            // Recalculate item line subtotal
-            BigDecimal baseAmount = existingItem.getQuantity().multiply(existingItem.getUnitPrice()).subtract(existingItem.getDiscountAmount());
-            BigDecimal taxAmount = baseAmount.multiply(existingItem.getTaxRatePercentage()).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
-            existingItem.setTaxAmount(taxAmount);
-            existingItem.setSubtotal(baseAmount.add(taxAmount));
-        } else {
-            BigDecimal baseAmount = quantityToAdd.multiply(product.getPrice());
-            BigDecimal taxRate = product.getTaxRate().getRatePercentage();
-            BigDecimal taxAmount = baseAmount.multiply(taxRate).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
-            BigDecimal subtotal = baseAmount.add(taxAmount);
+        BigDecimal targetQuantity = existingItem != null ? existingItem.getQuantity().add(quantityToAdd) : quantityToAdd;
 
+        com.sales.dto.response.PromotionItemResultResponse promoResult = promotionService.calculateItemPromotion(
+                currentUser,
+                product,
+                targetQuantity,
+                product.getPrice(),
+                request.getBypassPromotion()
+        );
+
+        Promotion promoEntity = promoResult.getPromotionId() != null
+                ? promotionRepository.findById(promoResult.getPromotionId()).orElse(null)
+                : null;
+
+        BigDecimal taxRate = product.getTaxRate() != null ? product.getTaxRate().getRatePercentage() : BigDecimal.ZERO;
+        BigDecimal baseAmount = targetQuantity.multiply(product.getPrice()).subtract(promoResult.getDiscountAmount());
+        BigDecimal taxAmount = baseAmount.multiply(taxRate).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+        BigDecimal subtotal = baseAmount.add(taxAmount);
+
+        if (existingItem != null) {
+            existingItem.setQuantity(targetQuantity);
+            existingItem.setDiscountAmount(promoResult.getDiscountAmount());
+            existingItem.setPromotion(promoEntity);
+            existingItem.setPromotionName(promoResult.getPromotionName());
+            existingItem.setTaxAmount(taxAmount);
+            existingItem.setSubtotal(subtotal);
+        } else {
             OrderItem newItem = OrderItem.builder()
                     .order(order)
                     .product(product)
                     .productName(product.getName())
-                    .quantity(quantityToAdd)
+                    .quantity(targetQuantity)
                     .unitPrice(product.getPrice())
-                    .discountAmount(BigDecimal.ZERO)
+                    .discountAmount(promoResult.getDiscountAmount())
+                    .promotion(promoEntity)
+                    .promotionName(promoResult.getPromotionName())
                     .taxRatePercentage(taxRate)
                     .taxAmount(taxAmount)
                     .subtotal(subtotal)
@@ -360,11 +473,37 @@ public class OrderServiceImpl implements OrderService {
                 .findFirst()
                 .orElseThrow(() -> new AppException(ErrorCode.ORDER_ITEM_NOT_FOUND));
 
-        item.setQuantity(request.getQuantity());
-        BigDecimal baseAmount = item.getQuantity().multiply(item.getUnitPrice()).subtract(item.getDiscountAmount());
-        BigDecimal taxAmount = baseAmount.multiply(item.getTaxRatePercentage()).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+        Product product = item.getProduct();
+        BigDecimal newQuantity = request.getQuantity();
+
+        com.sales.dto.response.PromotionItemResultResponse promoResult = product != null
+                ? promotionService.calculateItemPromotion(
+                        currentUser,
+                        product,
+                        newQuantity,
+                        item.getUnitPrice(),
+                        false
+                )
+                : null;
+
+        Promotion promoEntity = (promoResult != null && promoResult.getPromotionId() != null)
+                ? promotionRepository.findById(promoResult.getPromotionId()).orElse(null)
+                : null;
+
+        BigDecimal discountAmount = promoResult != null ? promoResult.getDiscountAmount() : BigDecimal.ZERO;
+        String promoName = promoResult != null ? promoResult.getPromotionName() : null;
+
+        BigDecimal taxRate = item.getTaxRatePercentage() != null ? item.getTaxRatePercentage() : BigDecimal.ZERO;
+        BigDecimal baseAmount = newQuantity.multiply(item.getUnitPrice()).subtract(discountAmount);
+        BigDecimal taxAmount = baseAmount.multiply(taxRate).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+        BigDecimal subtotal = baseAmount.add(taxAmount);
+
+        item.setQuantity(newQuantity);
+        item.setDiscountAmount(discountAmount);
+        item.setPromotion(promoEntity);
+        item.setPromotionName(promoName);
         item.setTaxAmount(taxAmount);
-        item.setSubtotal(baseAmount.add(taxAmount));
+        item.setSubtotal(subtotal);
 
         recalculateOrderTotals(order);
         order = orderRepository.save(order);
@@ -457,8 +596,7 @@ public class OrderServiceImpl implements OrderService {
 
         order.setDiscountType(request.getDiscountType());
         order.setDiscountRateOrValue(request.getDiscountValue());
-        order.setDiscountAmount(discountAmount);
-        order.setFinalAmount(order.getTotalAmount().subtract(discountAmount));
+        recalculateOrderTotals(order);
 
         order = orderRepository.save(order);
 
@@ -555,10 +693,21 @@ public class OrderServiceImpl implements OrderService {
                 throw new AppException(ErrorCode.INSUFFICIENT_PAYMENT);
             }
             BigDecimal amountGiven = request.getAmountGiven();
-            if (amountGiven.compareTo(order.getFinalAmount()) < 0) {
+            BigDecimal expectedFinalAmount = order.getFinalAmount() != null
+                    ? order.getFinalAmount()
+                    : BigDecimal.ZERO;
+
+            BigDecimal roundedAmountGiven = amountGiven.setScale(0, RoundingMode.HALF_UP);
+            BigDecimal roundedExpectedAmount = expectedFinalAmount.setScale(0, RoundingMode.HALF_UP);
+
+            // Kiểm tra số tiền khách trả phải đủ so với số tiền cần thanh toán theo QTN-03
+            if (roundedAmountGiven.compareTo(roundedExpectedAmount) < 0) {
                 throw new AppException(ErrorCode.INSUFFICIENT_PAYMENT);
             }
-            changeAmount = amountGiven.subtract(order.getFinalAmount());
+            changeAmount = amountGiven.subtract(expectedFinalAmount);
+            if (changeAmount.compareTo(BigDecimal.ZERO) < 0) {
+                changeAmount = BigDecimal.ZERO;
+            }
             order.setPaymentStatus("PAID");
         } else if ("BANK_TRANSFER".equals(order.getPaymentMethod())) {
             order.setPaymentStatus("PAID");
@@ -612,21 +761,51 @@ public class OrderServiceImpl implements OrderService {
         // Get warnings before deduction
         List<String> warnings = checkStockWarnings(order);
 
-        // Logic fix: Subtract physical stock quantity
-        List<Product> productsToSave = new ArrayList<>();
+        // Logic fix: Deduplicate items and subtract physical stock quantity accurately
+        Map<String, BigDecimal> productDeductions = new HashMap<>();
+        Map<String, Product> productMap = new HashMap<>();
+        Map<String, BigDecimal> posStockDeductions = new HashMap<>();
+        Set<String> processedItemIds = new HashSet<>();
+
         for (OrderItem item : order.getItems()) {
-            if (item.getProduct() != null) {
+            if (item.getId() != null && !processedItemIds.add(item.getId())) {
+                continue; // Skip duplicate collection instances from join fetches
+            }
+            if (item.getProduct() != null && item.getQuantity() != null && item.getQuantity().compareTo(BigDecimal.ZERO) > 0) {
                 Product product = item.getProduct();
-                product.setStockQuantity(product.getStockQuantity().subtract(item.getQuantity()));
-                productsToSave.add(product);
+                productMap.put(product.getId(), product);
+                productDeductions.merge(product.getId(), item.getQuantity(), BigDecimal::add);
+
+                if (order.getPointOfSale() != null) {
+                    posStockDeductions.merge(product.getId(), item.getQuantity(), BigDecimal::add);
+                }
             }
         }
-        if (!productsToSave.isEmpty()) {
-            productRepository.saveAll(productsToSave);
+
+        // Atomic DB deduction: Trừ tồn kho sản phẩm trực tiếp ở mức DB để tránh lặp thực thể/dirty check
+        for (Map.Entry<String, BigDecimal> entry : productDeductions.entrySet()) {
+            productRepository.deductStock(entry.getKey(), household.getId(), entry.getValue());
+            Product product = productMap.get(entry.getKey());
+            if (product != null && product.getStockQuantity() != null) {
+                product.setStockQuantity(product.getStockQuantity().subtract(entry.getValue()));
+            }
+        }
+
+        // NCL-17-CN-002-TC-01: Trừ tồn kho theo điểm bán hàng loạt (tránh N+1 query)
+        if (order.getPointOfSale() != null && !posStockDeductions.isEmpty()) {
+            posInventoryService.batchDeductPosStock(
+                    household.getId(), order.getPointOfSale().getId(), posStockDeductions);
         }
 
         order.setStatus("COMPLETED");
         order.setSyncedAt(LocalDateTime.now());
+
+        if (order.getCustomer() != null) {
+            Customer customer = order.getCustomer();
+            BigDecimal currentTotalSpent = customer.getTotalSpent() != null ? customer.getTotalSpent() : BigDecimal.ZERO;
+            customer.setTotalSpent(currentTotalSpent.add(order.getFinalAmount()));
+            customerRepository.save(customer);
+        }
 
         order = orderRepository.save(order);
 

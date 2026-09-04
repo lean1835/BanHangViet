@@ -108,6 +108,7 @@ export const EMPLOYEE_MESSAGES = {
 
 export const EMPLOYEE_UI = {
   SIDEBAR: {
+    TITLE: "Bộ lọc nhân viên",
     STATUS_FILTER_LABEL: "Trạng thái tài khoản",
     ROLE_FILTER_LABEL: "Vai trò phân quyền",
     ALL_ROLES_LABEL: "Tất cả vai trò",
@@ -115,7 +116,7 @@ export const EMPLOYEE_UI = {
   FORM: {
     CREATE_TITLE: "Thêm mới tài khoản nhân viên",
     UPDATE_TITLE: "Cập nhật tài khoản nhân viên",
-    CLOSE_LABEL: "✕",
+    CLOSE_LABEL: "Đóng",
     USERNAME_LABEL: "Tên đăng nhập (Tài khoản)*:",
     USERNAME_PLACEHOLDER: "Ví dụ: nhanvien_a",
     CREATE_PASSWORD_LABEL: "Mật khẩu đăng nhập*:",

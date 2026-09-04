@@ -14,6 +14,11 @@ export interface CreateCustomerPayload {
   email?: string;
   address?: string;
   creditLimit: number;
+  discountRate?: number;
+  discountType?: "PERCENTAGE" | "CASH";
+  isVip?: boolean;
+  reminderDaysBefore?: number;
+  reminderDaysAfter?: number;
 }
 
 export interface UpdateCustomerPayload {
@@ -24,6 +29,11 @@ export interface UpdateCustomerPayload {
   email?: string;
   address?: string;
   creditLimit: number;
+  discountRate?: number;
+  discountType?: "PERCENTAGE" | "CASH";
+  isVip?: boolean;
+  reminderDaysBefore?: number;
+  reminderDaysAfter?: number;
 }
 
 export interface CustomerQueryParams {
@@ -59,6 +69,16 @@ const mapCustomer = (raw: unknown): ICustomer => {
       ? item.creditLimit
       : Number(item.creditLimit || 0)
   ) as number;
+  const discountRateVal = (
+    typeof item.discountRate === "number"
+      ? item.discountRate
+      : Number(item.discountRate || 0)
+  ) as number;
+  const totalSpentVal = (
+    typeof item.totalSpent === "number"
+      ? item.totalSpent
+      : Number(item.totalSpent || 0)
+  ) as number;
 
   return {
     id: String(item.id || ""),
@@ -71,6 +91,18 @@ const mapCustomer = (raw: unknown): ICustomer => {
     creditLimit: creditVal,
     debt: debtVal,
     currentDebt: debtVal,
+    discountRate: discountRateVal,
+    discountType: (item.discountType as "PERCENTAGE" | "CASH") || "PERCENTAGE",
+    totalSpent: totalSpentVal,
+    isVip: Boolean(item.isVip),
+    reminderDaysBefore:
+      typeof item.reminderDaysBefore === "number"
+        ? item.reminderDaysBefore
+        : undefined,
+    reminderDaysAfter:
+      typeof item.reminderDaysAfter === "number"
+        ? item.reminderDaysAfter
+        : undefined,
     dueDate: item.dueDate ? String(item.dueDate) : undefined,
     createdAt: item.createdAt ? String(item.createdAt) : undefined,
     updatedAt: item.updatedAt ? String(item.updatedAt) : undefined,
@@ -135,6 +167,11 @@ export const customerApi = baseApi.injectEndpoints({
           email: payload.email || "",
           address: payload.address || "",
           creditLimit: payload.creditLimit,
+          discountRate: payload.discountRate ?? 0,
+          discountType: payload.discountType ?? "PERCENTAGE",
+          isVip: payload.isVip ?? false,
+          reminderDaysBefore: payload.reminderDaysBefore ?? 3,
+          reminderDaysAfter: payload.reminderDaysAfter ?? 3,
         },
       }),
       transformResponse: (response: unknown): ICustomer => {
@@ -153,6 +190,11 @@ export const customerApi = baseApi.injectEndpoints({
           email: payload.email || "",
           address: payload.address || "",
           creditLimit: payload.creditLimit,
+          discountRate: payload.discountRate,
+          discountType: payload.discountType,
+          isVip: payload.isVip,
+          reminderDaysBefore: payload.reminderDaysBefore,
+          reminderDaysAfter: payload.reminderDaysAfter,
         },
       }),
       transformResponse: (response: unknown): ICustomer => {
@@ -175,7 +217,7 @@ export const customerApi = baseApi.injectEndpoints({
       ],
     }),
 
-    // --- DEBT ENDPOINTS (NCL-10) ---
+    // --- DEBT ENDPOINTS ---
 
     collectDebt: builder.mutation<ICustomerDebtResponse, ICollectDebtRequest>({
       query: (body) => ({

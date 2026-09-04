@@ -13,7 +13,15 @@ import { useGetAllEmployeesQuery } from "../services/employeeApi";
 
 export const EmployeePage = () => {
   const { currentRole } = useDashboardDemo();
-  const { data: employees = [] } = useGetAllEmployeesQuery();
+  const {
+    data: employees = [],
+    isLoading,
+    refetch,
+  } = useGetAllEmployeesQuery(undefined, {
+    refetchOnMountOrArgChange: true,
+    refetchOnFocus: true,
+    refetchOnReconnect: true,
+  });
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] =
     useState<TEmployeeStatusFilter>(EMPLOYEE_STATUS_FILTERS.ACTIVE);
@@ -41,6 +49,8 @@ export const EmployeePage = () => {
         statusFilter={statusFilter}
         selectedRole={selectedRole}
         userRole={currentRole}
+        isLoading={isLoading}
+        refetch={refetch}
       />
     </DashboardWorkspaceLayout>
   );

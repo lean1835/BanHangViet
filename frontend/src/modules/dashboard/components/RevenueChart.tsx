@@ -1,6 +1,8 @@
 import { useState, useMemo } from "react";
 import { formatCurrency } from "@/utils/formatCurrency";
 import type { IDailyRevenueProjection } from "@/modules/report/types/IReport";
+import { useAnimatedNumber } from "@/hooks/useAnimatedNumber";
+import { useProgressAnimation } from "@/hooks/useProgressAnimation";
 
 interface RevenueChartProps {
   totalRevenueToday: number;
@@ -9,6 +11,8 @@ interface RevenueChartProps {
 
 export const RevenueChart = ({ totalRevenueToday, dailyRevenues }: RevenueChartProps) => {
   const [activeTab, setActiveTab] = useState<"today" | "week">("week");
+  const animatedRevenue = useAnimatedNumber(totalRevenueToday, 1800, 150);
+  const progress = useProgressAnimation([dailyRevenues, activeTab], 1800, 150);
 
   const currentPoints = useMemo(() => {
     const rawList = activeTab === "today"
@@ -43,6 +47,23 @@ export const RevenueChart = ({ totalRevenueToday, dailyRevenues }: RevenueChartP
     });
   }, [dailyRevenues, activeTab]);
 
+  // Current sweep edge X from left (30) to right (450)
+  const clipWidth = progress <= 0 ? 0 : progress >= 1 ? 480 : 30 + 420 * progress;
+
+  // Calculate tracer dot Y coordinate on the curve as it sweeps
+  const tracerY = useMemo(() => {
+    if (progress <= 0 || progress >= 1 || currentPoints.length < 2) return null;
+    for (let i = 0; i < currentPoints.length - 1; i++) {
+      const pA = currentPoints[i];
+      const pB = currentPoints[i + 1];
+      if (clipWidth >= pA.x && clipWidth <= pB.x) {
+        const ratio = (clipWidth - pA.x) / Math.max(pB.x - pA.x, 1);
+        return pA.y + (pB.y - pA.y) * ratio;
+      }
+    }
+    return currentPoints[currentPoints.length - 1]?.y ?? 170;
+  }, [progress, clipWidth, currentPoints]);
+
   // Render SVG Path D attributes
   const linePath = currentPoints
     .map((p, i) => `${i === 0 ? "M" : "L"} ${p.x} ${p.y}`)
@@ -55,8 +76,8 @@ export const RevenueChart = ({ totalRevenueToday, dailyRevenues }: RevenueChartP
       <div className="p-4 border-b border-slate-100 flex items-center justify-between flex-wrap gap-2 shrink-0">
         <span className="font-extrabold text-slate-800 text-sm">
           Biểu đồ doanh thu kỳ:{" "}
-          <span className="text-kv-blue-primary">
-            {formatCurrency(totalRevenueToday)}
+          <span className="text-kv-blue-primary tabular-nums transition-all">
+            {formatCurrency(animatedRevenue)}
           </span>
         </span>
         <div className="flex bg-slate-100 p-0.5 rounded-lg border text-[10px]">
@@ -91,9 +112,14 @@ export const RevenueChart = ({ totalRevenueToday, dailyRevenues }: RevenueChartP
               <stop offset="0%" stopColor="#0068FF" stopOpacity="0.25" />
               <stop offset="100%" stopColor="#0068FF" stopOpacity="0.0" />
             </linearGradient>
+
+            {/* Sweep ClipPath: reveals from 0 (trắng tinh) to 480 (toàn bộ) from LEFT to RIGHT */}
+            <clipPath id="chartSweepClip">
+              <rect x="0" y="0" width={clipWidth} height="200" />
+            </clipPath>
           </defs>
 
-          {/* Grid lines */}
+          {/* Grid lines (static background) */}
           {[40, 75, 110, 145, 180].map((yVal, idx) => (
             <line
               key={idx}
@@ -107,58 +133,95 @@ export const RevenueChart = ({ totalRevenueToday, dailyRevenues }: RevenueChartP
             />
           ))}
 
-          {/* Gradient area under the line */}
-          <path d={fillPath} fill="url(#chartGradient)" />
+          {/* Clipped Line and Area: sweeps smoothly from LEFT to RIGHT */}
+          <g clipPath="url(#chartSweepClip)">
+            {/* Gradient area under the line */}
+            <path d={fillPath} fill="url(#chartGradient)" />
 
-          {/* Smooth line */}
-          <path
-            d={linePath}
-            fill="none"
-            stroke="#0068FF"
-            strokeWidth="3"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
+            {/* Smooth line */}
+            <path
+              d={linePath}
+              fill="none"
+              stroke="#0068FF"
+              strokeWidth="3"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </g>
 
-          {/* Points dots */}
-          {currentPoints.map((p, idx) => (
-            <g key={idx} className="group/dot cursor-pointer">
+          {/* Glowing Tracer Dot at the cutting edge as it draws from left to right */}
+          {tracerY !== null && (
+            <g>
               <circle
-                cx={p.x}
-                cy={p.y}
-                r="6"
-                fill="#ffffff"
-                stroke="#0068FF"
-                strokeWidth="2.5"
-                className="transition-all duration-150 hover:r-7"
-              />
-              <circle
-                cx={p.x}
-                cy={p.y}
-                r="10"
+                cx={clipWidth}
+                cy={tracerY}
+                r="8"
                 fill="#0068FF"
-                fillOpacity="0"
-                className="hover:fill-opacity-10 transition-all duration-150"
+                opacity="0.3"
+                className="animate-ping"
               />
-              {/* Simple Tooltip on Hover */}
-              <title>{p.label}: {p.val.toLocaleString("vi-VN")} đ</title>
+              <circle
+                cx={clipWidth}
+                cy={tracerY}
+                r="5"
+                fill="#0068FF"
+                stroke="#ffffff"
+                strokeWidth="2"
+              />
             </g>
-          ))}
+          )}
+
+          {/* Points dots: Ban đầu KHÔNG CÓ CHẤM NÀO, chỉ xuất hiện khi nét vẽ chạy tới từ trái qua phải */}
+          {currentPoints.map((p, idx) => {
+            const isRevealed = progress === 1 || clipWidth >= p.x;
+            if (!isRevealed) return null; // K có chấm nào trước khi đường chạy tới!
+
+            return (
+              <g
+                key={idx}
+                className="group/dot cursor-pointer"
+              >
+                <circle
+                  cx={p.x}
+                  cy={p.y}
+                  r="5.5"
+                  fill="#ffffff"
+                  stroke="#0068FF"
+                  strokeWidth="2.5"
+                  className="transition-all duration-150 hover:r-7"
+                />
+                <circle
+                  cx={p.x}
+                  cy={p.y}
+                  r="10"
+                  fill="#0068FF"
+                  fillOpacity="0"
+                  className="hover:fill-opacity-10 transition-all duration-150"
+                />
+                {/* Tooltip on Hover */}
+                <title>{p.label}: {p.val.toLocaleString("vi-VN")} đ</title>
+              </g>
+            );
+          })}
 
           {/* Axis Labels */}
-          {currentPoints.map((p, idx) => (
-            <text
-              key={idx}
-              x={p.x}
-              y="196"
-              fill="#94a3b8"
-              fontSize="9"
-              fontWeight="700"
-              textAnchor="middle"
-            >
-              {p.label}
-            </text>
-          ))}
+          {currentPoints.map((p, idx) => {
+            const isLabelRevealed = progress === 1 || clipWidth >= p.x;
+            return (
+              <text
+                key={idx}
+                x={p.x}
+                y="196"
+                fill={isLabelRevealed ? "#64748b" : "#cbd5e1"}
+                fontSize="9"
+                fontWeight="700"
+                textAnchor="middle"
+                className="transition-colors duration-200"
+              >
+                {p.label}
+              </text>
+            );
+          })}
         </svg>
       </div>
     </div>

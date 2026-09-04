@@ -22,3 +22,31 @@ export const formatNumber = (value: number | null | undefined): string => {
   const rounded = Math.round(value);
   return new Intl.NumberFormat(APP_LOCALE, { maximumFractionDigits: 0 }).format(rounded);
 };
+
+/**
+ * Formats a currency number in a compact readable format.
+ * Useful for small grid cells and mobile views.
+ * Examples: 50.000.000 -> "50 tr", 1.500.000 -> "1.5 tr", 250.000 -> "250k", 5.000 -> "5k".
+ * @param val Number to format.
+ * @returns Compact formatted string e.g. "1.5 tr", "250k".
+ */
+export const formatCompactCurrency = (val: number | null | undefined): string => {
+  if (val === null || val === undefined || val === 0) return "0";
+  const absVal = Math.abs(val);
+  const sign = val < 0 ? "-" : "";
+
+  if (absVal >= 1_000_000_000) {
+    const formatted = (absVal / 1_000_000_000).toFixed(1).replace(/\.0$/, "");
+    return `${sign}${formatted} tỷ`;
+  }
+  if (absVal >= 1_000_000) {
+    const formatted = (absVal / 1_000_000).toFixed(1).replace(/\.0$/, "");
+    return `${sign}${formatted} tr`;
+  }
+  if (absVal >= 1_000) {
+    const formatted = Math.round(absVal / 1_000);
+    return `${sign}${formatted}k`;
+  }
+  return `${sign}${Math.round(absVal)}`;
+};
+

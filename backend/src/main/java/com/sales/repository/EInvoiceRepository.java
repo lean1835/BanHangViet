@@ -40,7 +40,27 @@ public interface EInvoiceRepository extends JpaRepository<EInvoice, String>, Jpa
 
     boolean existsByLookupCodeAndDeletedAtIsNull(String lookupCode);
 
+    boolean existsByReturnTicketIdAndDeletedAtIsNull(String returnTicketId);
+
+    @EntityGraph(attributePaths = {"items", "items.product", "createdByUser", "canceledByUser", "household", "order", "originalInvoice"})
+    Optional<EInvoice> findByReturnTicketIdAndDeletedAtIsNull(String returnTicketId);
+
+    @EntityGraph(attributePaths = {"originalInvoice", "returnTicket"})
     List<EInvoice> findByHouseholdIdAndDeletedAtIsNullOrderByCreatedAtDesc(String householdId);
+
+    @EntityGraph(attributePaths = {"originalInvoice", "returnTicket"})
+    @Query("SELECT e FROM EInvoice e " +
+           "WHERE e.household.id = :householdId " +
+           "AND e.deletedAt IS NULL " +
+           "AND e.status <> 'CANCELED' " +
+           "AND (e.status IN ('TAX_CODE_GRANTED', 'ISSUED') OR e.taxAuthorityCode IS NOT NULL) " +
+           "AND (COALESCE(e.taxResponseAt, e.createdAt) BETWEEN :startDateTime AND :endDateTime) " +
+           "ORDER BY COALESCE(e.taxResponseAt, e.createdAt) ASC")
+    List<EInvoice> findValidInvoicesForTaxPeriod(
+            @Param("householdId") String householdId,
+            @Param("startDateTime") LocalDateTime startDateTime,
+            @Param("endDateTime") LocalDateTime endDateTime
+    );
 
     @Query("SELECT MAX(e.invoiceNumber) FROM EInvoice e WHERE e.household.id = :householdId AND e.invoicePattern = :pattern AND e.invoiceSymbol = :symbol AND e.invoiceNumber IS NOT NULL AND e.deletedAt IS NULL")
     Optional<String> findMaxInvoiceNumber(@Param("householdId") String householdId,
@@ -54,5 +74,23 @@ public interface EInvoiceRepository extends JpaRepository<EInvoice, String>, Jpa
     @EntityGraph(attributePaths = {"items", "items.product", "createdByUser", "canceledByUser", "household", "order"})
     List<EInvoice> findByHouseholdIdAndStatusAndDeletedAtIsNullAndCreatedAtBetween(
             String householdId, String status, LocalDateTime start, LocalDateTime end
+    );
+
+    @Query(value = "SELECT " +
+            "o.point_of_sale_id AS posId, " +
+            "COUNT(e.id) AS invoiceCount " +
+            "FROM e_invoices e " +
+            "JOIN orders o ON o.id = e.order_id " +
+            "WHERE e.household_id = :householdId " +
+            "AND e.deleted_at IS NULL " +
+            "AND e.status NOT IN ('CANCELED', 'DRAFT') " +
+            "AND e.created_at >= :startDateTime AND e.created_at <= :endDateTime " +
+            "AND (:posId IS NULL OR :posId = '' OR o.point_of_sale_id = :posId) " +
+            "GROUP BY o.point_of_sale_id", nativeQuery = true)
+    List<com.sales.dto.response.PosInvoiceCountProjection> getPosInvoiceCounts(
+            @Param("householdId") String householdId,
+            @Param("startDateTime") LocalDateTime startDateTime,
+            @Param("endDateTime") LocalDateTime endDateTime,
+            @Param("posId") String posId
     );
 }

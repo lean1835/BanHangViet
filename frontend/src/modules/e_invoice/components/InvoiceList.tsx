@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { formatCurrency } from "@/utils/formatCurrency";
 import { formatDate } from "@/utils/dateFormatter";
+import { TablePaginationFooter } from "@/components/common/TablePaginationFooter";
 import type { IInvoice } from "../types/IInvoice";
 import { getStatusClassName, getStatusLabel } from "../utils/eInvoiceHelpers";
 
@@ -9,7 +10,7 @@ interface InvoiceListProps {
   onSelectInvoice: (invoice: IInvoice) => void;
 }
 
-const PAGE_SIZE = 9;
+const PAGE_SIZE = 8;
 
 export const InvoiceList: React.FC<InvoiceListProps> = ({ invoices, onSelectInvoice }) => {
   const [page, setPage] = useState(0);
@@ -29,10 +30,15 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({ invoices, onSelectInvo
   }, [invoices, page]);
 
   return (
-    <div className="xl:col-span-3 bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col gap-4">
-      <h3 className="font-extrabold text-slate-800 text-sm border-b pb-4 mb-2">
-        Danh sách hóa đơn điện tử ({invoices.length} hóa đơn)
-      </h3>
+    <div className="xl:col-span-3 bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col gap-4">
+      <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-2">
+        <h3 className="font-extrabold text-slate-800 text-sm">
+          Danh sách hóa đơn điện tử
+        </h3>
+        <span className="text-xs font-bold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-lg">
+          {invoices.length} hóa đơn
+        </span>
+      </div>
 
       <div className="overflow-x-auto">
         <table className="responsive-data-table responsive-data-table--page w-full text-left border-collapse text-xs">
@@ -96,58 +102,14 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({ invoices, onSelectInvo
 
       {/* Điều khiển phân trang */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-between border-t border-slate-200 pt-4 text-xs font-semibold text-slate-700">
-          <div className="flex flex-1 justify-between sm:hidden">
-            <button
-              type="button"
-              onClick={() => setPage((p) => Math.max(0, p - 1))}
-              disabled={page === 0}
-              className="relative inline-flex items-center rounded-md border border-slate-300 bg-white px-3 py-1.5 hover:bg-slate-50 disabled:opacity-50 transition-colors"
-            >
-              Trang trước
-            </button>
-            <button
-              type="button"
-              onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
-              disabled={page + 1 >= totalPages}
-              className="relative ml-3 inline-flex items-center rounded-md border border-slate-300 bg-white px-3 py-1.5 hover:bg-slate-50 disabled:opacity-50 transition-colors"
-            >
-              Trang sau
-            </button>
-          </div>
-          <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
-            <div>
-              <p className="text-slate-500">
-                Hiển thị <span className="font-bold text-slate-800">{page * PAGE_SIZE + 1}</span> -{" "}
-                <span className="font-bold text-slate-800">
-                  {Math.min((page + 1) * PAGE_SIZE, totalElements)}
-                </span>{" "}
-                trong tổng số <span className="font-bold text-slate-800">{totalElements}</span> hóa đơn
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setPage((p) => Math.max(0, p - 1))}
-                disabled={page === 0}
-                className="px-3 h-8 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 transition-colors disabled:opacity-50 flex items-center justify-center font-bold"
-              >
-                Trang trước
-              </button>
-              <span className="px-3 h-8 flex items-center justify-center border border-slate-200 rounded-lg bg-slate-50 font-bold">
-                Trang {page + 1} / {totalPages}
-              </span>
-              <button
-                type="button"
-                onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
-                disabled={page + 1 >= totalPages}
-                className="px-3 h-8 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 transition-colors disabled:opacity-50 flex items-center justify-center font-bold"
-              >
-                Trang sau
-              </button>
-            </div>
-          </div>
-        </div>
+        <TablePaginationFooter
+          currentPage={page}
+          pageSize={PAGE_SIZE}
+          totalElements={totalElements}
+          totalPages={totalPages}
+          onPageChange={setPage}
+          recordUnit="hóa đơn"
+        />
       )}
     </div>
   );

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Clock, CalendarCheck } from "lucide-react";
 import { APP_ROUTES } from "@/constants/routes";
@@ -15,9 +15,19 @@ import {
   useCompleteOrderMutation,
 } from "@/modules/order/services/orderApi";
 import { useGetActiveShiftQuery } from "@/modules/shift/services/shiftApi";
+import { useGetMyHouseholdQuery } from "@/modules/settings/services/settingsApi";
+import { useAutoApplyPromotionsMutation } from "@/modules/promotion/services/promotionApi";
+import { useScanBarcodeMutation } from "@/modules/barcode/services/barcodeApi";
+import { useBarcodeScanner } from "@/modules/barcode/hooks/useBarcodeScanner";
+import { BarcodeScannerModal } from "@/modules/barcode/components/BarcodeScannerModal";
+import { UnrecognizedBarcodeModal } from "@/modules/barcode/components/UnrecognizedBarcodeModal";
+import { VoiceSearchModal } from "@/modules/product/components/VoiceSearchModal";
+import { playBarcodeBeepSound } from "@/modules/barcode/utils/barcodeAudio";
+import { BARCODE_MESSAGES } from "@/constants/barcode";
+import { USER_ROLES } from "@/constants/roles";
 
 import { useDashboardDemo } from "@/providers/DashboardDemoProvider";
-import { saveOfflineOrder } from "@/modules/sync/utils/offlineSyncStorage";
+import { saveOfflineOrder, checkOfflineLimitStatus, saveOfflineConfig } from "@/modules/sync/utils/offlineSyncStorage";
 import type { IOfflineOrderRequest } from "@/modules/sync/types/ISync";
 import type { IOrderResponse } from "@/modules/order/types/IOrder";
 import { getLocalDateTimeISOString } from "@/utils/dateFormatter";
@@ -38,6 +48,9 @@ import { PosCartTable } from "../components/PosCartTable";
 import { PosPaymentSidebar } from "../components/PosPaymentSidebar";
 import { CustomerFormModal } from "@/modules/customer/components/CustomerFormModal";
 import { OrderSuccessModal } from "../components/OrderSuccessModal";
+import { recordOrderDiscount } from "@/modules/anomaly_alert/utils/anomalyStorage";
+import { calculatePosTotals } from "../utils/posCalculations";
+import { notifyOrderCompleted } from "@/utils/orderEvents";
 
 const POS_TABS_STORAGE_KEY = "pos_tabs_state_v1";
 
@@ -57,12 +70,29 @@ const createInitialTab = (index: number): IPosTab => ({
 export const PosPage = () => {
   const navigate = useNavigate();
   const authenticatedUser = useAppSelector((state) => state.auth.user);
-  const { isOnline, setOrders, addLogEntry, setCustomers } = useDashboardDemo();
+  const { isOnline, setOrders, addLogEntry, setCustomers, currentRole } = useDashboardDemo();
+
+  const canManage =
+    currentRole === USER_ROLES.OWNER ||
+    currentRole === USER_ROLES.PLATFORM_ADMIN ||
+    authenticatedUser?.roleId === USER_ROLES.OWNER ||
+    authenticatedUser?.roleId === USER_ROLES.PLATFORM_ADMIN;
 
   // 1. Fetch products, customers & active shift
   const { data: productsData } = useGetProductsQuery({ page: 0, size: 200 });
   const { data: customersData } = useGetCustomersQuery();
   const { data: activeShiftData, isLoading: isShiftLoading } = useGetActiveShiftQuery();
+  const { data: householdData } = useGetMyHouseholdQuery(undefined, { skip: isOnline === false });
+
+  // Tự động đồng bộ cấu hình bán offline vào localStorage khi online
+  useEffect(() => {
+    if (householdData?.result) {
+      const h = householdData.result;
+      if (typeof h.offlineMaxOrders === "number" && typeof h.offlineMaxHours === "number") {
+        saveOfflineConfig({ maxOrders: h.offlineMaxOrders, maxHours: h.offlineMaxHours });
+      }
+    }
+  }, [householdData]);
 
   const activeShift = activeShiftData?.result;
   const isShiftOpen = Boolean(activeShift);
@@ -79,6 +109,53 @@ export const PosPage = () => {
   const [setPaymentMethod] = useSetPaymentMethodMutation();
   const [completeOrder] = useCompleteOrderMutation();
   const [createCustomer] = useCreateCustomerMutation();
+  const [autoApplyPromotions] = useAutoApplyPromotionsMutation();
+  const [scanBarcode] = useScanBarcodeMutation();
+
+  // Helper: Đồng bộ khuyến mại tự động từ server (QTN-26, NCL-15-CN-002)
+  const syncPromotionsForItems = async (
+    items: IPosCartItem[]
+  ): Promise<IPosCartItem[]> => {
+    if (items.length === 0) return [];
+    if (isOnline === false) {
+      return items.map((item) => ({
+        ...item,
+        lineTotal: item.quantity * item.price - (item.lineDiscount || 0),
+      }));
+    }
+    try {
+      const payload = {
+        items: items.map((item) => ({
+          productId: item.product.id,
+          quantity: item.quantity,
+          unitPrice: item.price,
+          bypassPromotion: Boolean(item.bypassPromotion),
+        })),
+      };
+      const res = await autoApplyPromotions(payload).unwrap();
+      if (res?.items && Array.isArray(res.items)) {
+        return items.map((item) => {
+          const promoRes = res.items.find((r) => r.productId === item.product.id);
+          if (promoRes) {
+            return {
+              ...item,
+              lineDiscount: promoRes.discountAmount ?? 0,
+              lineTotal: promoRes.finalSubtotal ?? item.quantity * item.price,
+              promotionId: promoRes.promotionId,
+              promotionName: promoRes.promotionName,
+              hasPromotion: promoRes.hasPromotion,
+              bypassPromotion: promoRes.bypassPromotion,
+              originalSubtotal: promoRes.originalSubtotal,
+            };
+          }
+          return item;
+        });
+      }
+    } catch (err) {
+      console.warn("Failed to auto apply promotions from server", err);
+    }
+    return items;
+  };
 
   // 3. Multi-order Tabs State with localStorage persistence
   const [tabs, setTabs] = useState<IPosTab[]>(() => {
@@ -151,6 +228,9 @@ export const PosPage = () => {
   // Modals state
   const [isAddCustomerModalOpen, setIsAddCustomerModalOpen] =
     useState<boolean>(false);
+  const [isScannerModalOpen, setIsScannerModalOpen] = useState<boolean>(false);
+  const [isVoiceModalOpen, setIsVoiceModalOpen] = useState<boolean>(false);
+  const [unrecognizedBarcode, setUnrecognizedBarcode] = useState<string | null>(null);
   const [completedOrderData, setCompletedOrderData] = useState<{
     tab: IPosTab;
     changeAmount: number;
@@ -160,6 +240,8 @@ export const PosPage = () => {
   // Loading states
   const [isSavingDraft, setIsSavingDraft] = useState<boolean>(false);
   const [isCompletingOrder, setIsCompletingOrder] = useState<boolean>(false);
+  const isSavingDraftRef = useRef<boolean>(false);
+  const isCompletingOrderRef = useRef<boolean>(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   // Active tab getter
@@ -182,6 +264,16 @@ export const PosPage = () => {
 
   // Tab management handlers
   const handleAddTab = () => {
+    if (isOnline === false) {
+      const limitStatus = checkOfflineLimitStatus();
+      if (limitStatus.isExceeded) {
+        showToast(
+          limitStatus.errorMessage ||
+            `Không thể tạo thêm hóa đơn mới! Đã vượt quá giới hạn bán khi mất mạng (${limitStatus.maxOrders} đơn / ${limitStatus.maxHours}h). Vui lòng kết nối mạng để đồng bộ!`
+        );
+        return;
+      }
+    }
     const nextIndex = tabCounter + 1;
     const newTab = createInitialTab(nextIndex);
     setTabs((prev) => [...prev, newTab]);
@@ -198,85 +290,241 @@ export const PosPage = () => {
     }
   };
 
-  // Product selection & cart manipulation
-  const handleSelectProduct = (product: IProduct) => {
-    setTabs((prevTabs) =>
-      prevTabs.map((t) => {
-        if (t.id !== activeTabId) return t;
-
-        const existingItemIndex = t.items.findIndex(
-          (item) => item.product.id === product.id
+  // Product selection & cart manipulation with auto promotion sync
+  const handleSelectProduct = async (product: IProduct) => {
+    if (isOnline === false) {
+      const limitStatus = checkOfflineLimitStatus();
+      if (limitStatus.isExceeded) {
+        showToast(
+          limitStatus.errorMessage ||
+            `Không thể chọn thêm hàng! Đã vượt quá giới hạn bán khi mất mạng (${limitStatus.maxOrders} đơn / ${limitStatus.maxHours}h). Vui lòng kết nối mạng để đồng bộ!`
         );
+        return;
+      }
+    }
 
-        let newItems: IPosCartItem[];
+    const currentTab = tabs.find((t) => t.id === activeTabId) || tabs[0];
+    const existingItemIndex = currentTab.items.findIndex(
+      (item) => item.product.id === product.id
+    );
 
-        if (existingItemIndex > -1) {
-          newItems = [...t.items];
-          const existingItem = newItems[existingItemIndex];
-          const updatedQty = existingItem.quantity + 1;
-          newItems[existingItemIndex] = {
-            ...existingItem,
-            quantity: updatedQty,
-            lineTotal:
-              updatedQty * existingItem.price - existingItem.lineDiscount,
-          };
-        } else {
-          newItems = [
-            ...t.items,
-            {
-              id: product.id,
-              product,
-              quantity: 1,
-              price: product.price,
-              lineDiscount: 0,
-              lineTotal: product.price,
-            },
-          ];
-        }
+    let newItems: IPosCartItem[];
 
-        return { ...t, items: newItems, isSaved: false };
-      })
+    if (existingItemIndex > -1) {
+      newItems = [...currentTab.items];
+      const existingItem = newItems[existingItemIndex];
+      const updatedQty = existingItem.quantity + 1;
+      newItems[existingItemIndex] = {
+        ...existingItem,
+        quantity: updatedQty,
+        lineTotal:
+          updatedQty * existingItem.price - (existingItem.lineDiscount || 0),
+      };
+    } else {
+      newItems = [
+        ...currentTab.items,
+        {
+          id: product.id,
+          product,
+          quantity: 1,
+          price: product.price,
+          lineDiscount: 0,
+          lineTotal: product.price,
+        },
+      ];
+    }
+
+    // Immediate optimistic UI update
+    setTabs((prevTabs) =>
+      prevTabs.map((t) =>
+        t.id === activeTabId
+          ? { ...t, items: newItems, isSaved: false, backendOrderId: undefined }
+          : t
+      )
+    );
+
+    // Sync authoritative promotion discount from backend (QTN-26)
+    const syncedItems = await syncPromotionsForItems(newItems);
+    setTabs((prevTabs) =>
+      prevTabs.map((t) =>
+        t.id === activeTabId
+          ? { ...t, items: syncedItems, isSaved: false, backendOrderId: undefined }
+          : t
+      )
     );
   };
 
-  const handleUpdateQuantity = (itemId: string, newQuantity: number) => {
+  // Handle Barcode Scan from Hardware Scanner, Camera, or Quick Search
+  const handleBarcodeScanned = async (scannedCode: string) => {
+    const cleanCode = scannedCode.trim();
+    if (!cleanCode) return;
+
+    if (isOnline === false) {
+      const limitStatus = checkOfflineLimitStatus();
+      if (limitStatus.isExceeded) {
+        showToast(
+          limitStatus.errorMessage ||
+            `Không thể quét thêm hàng! Đã vượt quá giới hạn bán khi mất mạng.`
+        );
+        return;
+      }
+    }
+
+    try {
+      const response = await scanBarcode({
+        barcode: cleanCode,
+        orderId: activeTab.backendOrderId,
+        quantity: 1,
+      }).unwrap();
+
+      if (response.found) {
+        playBarcodeBeepSound("success");
+
+        let targetProduct = productsList.find(
+          (p) =>
+            p.id === response.productId ||
+            p.sku === response.productSku ||
+            (response.barcode && p.barcode === response.barcode)
+        );
+
+        if (!targetProduct && response.productId) {
+          targetProduct = {
+            id: response.productId,
+            sku: response.productSku || cleanCode,
+            barcode: response.barcode,
+            name: response.productName || "Sản phẩm",
+            unit: response.unit || "Cái",
+            price: response.unitPrice ?? 0,
+            stockQuantity: response.stockQuantity ?? 999,
+            status: "ACTIVE",
+            groupId: null,
+            groupName: null,
+            taxRateId: "",
+            taxRateName: "",
+            taxRatePercentage: 0,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          };
+        }
+
+        if (targetProduct) {
+          await handleSelectProduct(targetProduct);
+          showToast(`Đã quét: ${response.productName || targetProduct.name} (+1)`);
+        }
+      } else {
+        // TC-02: Unrecognized barcode -> trigger resolution modal
+        playBarcodeBeepSound("error");
+        setUnrecognizedBarcode(response.suggestedBarcode || cleanCode);
+      }
+    } catch (err: any) {
+      playBarcodeBeepSound("error");
+      const errorMsg =
+        err?.data?.message || err?.message || BARCODE_MESSAGES.SCAN_ERROR;
+      showToast(errorMsg);
+    }
+  };
+
+  // Global Hardware USB/Bluetooth Barcode Scanner listener
+  useBarcodeScanner({
+    onScan: handleBarcodeScanned,
+    enabled: isShiftOpen && !isScannerModalOpen && !unrecognizedBarcode,
+  });
+
+  const handleUpdateQuantity = async (itemId: string, newQuantity: number) => {
     if (newQuantity <= 0) {
       handleRemoveItem(itemId);
       return;
     }
+    const currentTab = tabs.find((t) => t.id === activeTabId) || tabs[0];
+    const newItems = currentTab.items.map((item) => {
+      if (item.id !== itemId && item.product.id !== itemId) return item;
+      return {
+        ...item,
+        quantity: newQuantity,
+        lineTotal: newQuantity * item.price - (item.lineDiscount || 0),
+      };
+    });
+
     setTabs((prevTabs) =>
-      prevTabs.map((t) => {
-        if (t.id !== activeTabId) return t;
-        const newItems = t.items.map((item) => {
-          if (item.id !== itemId && item.product.id !== itemId) return item;
-          return {
-            ...item,
-            quantity: newQuantity,
-            lineTotal: newQuantity * item.price - item.lineDiscount,
-          };
-        });
-        return { ...t, items: newItems, isSaved: false };
-      })
+      prevTabs.map((t) =>
+        t.id === activeTabId
+          ? { ...t, items: newItems, isSaved: false, backendOrderId: undefined }
+          : t
+      )
+    );
+
+    const syncedItems = await syncPromotionsForItems(newItems);
+    setTabs((prevTabs) =>
+      prevTabs.map((t) =>
+        t.id === activeTabId
+          ? { ...t, items: syncedItems, isSaved: false, backendOrderId: undefined }
+          : t
+      )
     );
   };
 
-  const handleRemoveItem = (itemId: string) => {
+  const handleRemoveItem = async (itemId: string) => {
+    const currentTab = tabs.find((t) => t.id === activeTabId) || tabs[0];
+    const newItems = currentTab.items.filter(
+      (item) => item.id !== itemId && item.product.id !== itemId
+    );
+
     setTabs((prevTabs) =>
-      prevTabs.map((t) => {
-        if (t.id !== activeTabId) return t;
-        return {
-          ...t,
-          items: t.items.filter(
-            (item) => item.id !== itemId && item.product.id !== itemId
-          ),
-          isSaved: false,
-        };
-      })
+      prevTabs.map((t) =>
+        t.id === activeTabId
+          ? { ...t, items: newItems, isSaved: false, backendOrderId: undefined }
+          : t
+      )
+    );
+
+    if (newItems.length > 0) {
+      const syncedItems = await syncPromotionsForItems(newItems);
+      setTabs((prevTabs) =>
+        prevTabs.map((t) =>
+          t.id === activeTabId
+            ? { ...t, items: syncedItems, isSaved: false, backendOrderId: undefined }
+            : t
+        )
+      );
+    }
+  };
+
+  // Toggle bypass promotion (TC-04: Owner permission check)
+  const handleToggleBypassPromotion = async (itemId: string) => {
+    if (!canManage) {
+      showToast(
+        "Nhân viên không có quyền bỏ khuyến mại tự động. Cần có sự đồng ý của chủ hộ kinh doanh."
+      );
+      return;
+    }
+
+    const currentTab = tabs.find((t) => t.id === activeTabId);
+    if (!currentTab) return;
+
+    const targetItem = currentTab.items.find(
+      (i) => i.id === itemId || i.product.id === itemId
+    );
+    if (!targetItem) return;
+
+    const newBypass = !targetItem.bypassPromotion;
+    const updatedItems = currentTab.items.map((i) =>
+      i.id === itemId || i.product.id === itemId
+        ? { ...i, bypassPromotion: newBypass }
+        : i
+    );
+
+    const finalItems = await syncPromotionsForItems(updatedItems);
+    setTabs((prev) =>
+      prev.map((t) =>
+        t.id === activeTabId
+          ? { ...t, items: finalItems, isSaved: false, backendOrderId: undefined }
+          : t
+      )
     );
   };
 
   const handleClearCart = () => {
-    updateActiveTab({ items: [], isSaved: false });
+    updateActiveTab({ items: [], isSaved: false, backendOrderId: undefined });
   };
 
   // Add customer callback
@@ -289,6 +537,7 @@ export const PosPage = () => {
       updateActiveTab({
         customer: newCust,
         customerId: newCust.id,
+        backendOrderId: undefined,
         isSaved: false,
       });
       setIsAddCustomerModalOpen(false);
@@ -300,18 +549,22 @@ export const PosPage = () => {
 
   // Save Draft (Lưu nháp đơn hàng xuống DB)
   const handleSaveDraft = async () => {
-    if (activeTab.items.length === 0) return;
+    if (activeTab.items.length === 0 || isSavingDraftRef.current) return;
+    isSavingDraftRef.current = true;
     setIsSavingDraft(true);
 
     try {
       let orderId = activeTab.backendOrderId;
 
-      // 1. Create Order Draft, add items & apply discount if not existing on server
-      if (!orderId) {
+      // 1. Create Order Draft, add items & apply discount if not existing or modified
+      if (!orderId || !activeTab.isSaved) {
         const createRes = await createOrder({
           customerId: activeTab.customerId,
         }).unwrap();
         orderId = createRes.result.id;
+
+        // Persist backendOrderId immediately to prevent duplicate order creation on retry
+        updateActiveTab({ backendOrderId: orderId });
 
         // 2. Add Items
         for (const item of activeTab.items) {
@@ -319,6 +572,7 @@ export const PosPage = () => {
             orderId,
             productId: item.product.id,
             quantity: item.quantity,
+            bypassPromotion: item.bypassPromotion,
           }).unwrap();
         }
 
@@ -340,11 +594,13 @@ export const PosPage = () => {
 
       showToast(`Đã lưu nháp ${activeTab.orderNumber} thành công!`);
     } catch (err: any) {
+      updateActiveTab({ backendOrderId: undefined, isSaved: false });
       showToast(
         err?.data?.message || "Lưu đơn nháp thất bại. Vui lòng thử lại!"
       );
     } finally {
       setIsSavingDraft(false);
+      isSavingDraftRef.current = false;
     }
   };
 
@@ -461,49 +717,55 @@ export const PosPage = () => {
     });
 
     updateActiveTab({ backendOrderId: `local_${offlineOrderNumber}`, status: "COMPLETED", isSaved: true });
-    showToast("Đã lưu đơn hàng ở chế độ Ngoại tuyến. Đơn hàng sẽ tự động đồng bộ khi có kết nối mạng.");
+    notifyOrderCompleted();
+    const limitStatus = checkOfflineLimitStatus();
+    const countInfo = limitStatus.maxOrders > 0
+      ? `${limitStatus.currentOrdersCount}/${limitStatus.maxOrders}`
+      : `${limitStatus.currentOrdersCount} (Không giới hạn)`;
+    showToast(
+      `Đã lưu đơn hàng ở chế độ Ngoại tuyến (Đã lưu ${countInfo} đơn). Đơn hàng sẽ tự động đồng bộ khi có kết nối mạng.`
+    );
   };
 
   // Complete Order (Thanh toán hoàn tất)
   const handleCompleteOrder = async () => {
-    if (activeTab.items.length === 0) return;
+    if (activeTab.items.length === 0 || isCompletingOrderRef.current) return;
+    isCompletingOrderRef.current = true;
     setIsCompletingOrder(true);
 
-    // Calculate totals first
-    const totalCart = activeTab.items.reduce(
-      (sum, i) => sum + i.lineTotal,
-      0
-    );
-    const discountCash =
-      activeTab.discountType === "PERCENTAGE"
-        ? (totalCart * (activeTab.discountValue || 0)) / 100
-        : activeTab.discountValue || 0;
-    const afterDiscount = Math.max(0, totalCart - discountCash);
+    // Calculate totals via centralized utility (including Customer VIP discount)
+    const totals = calculatePosTotals(activeTab);
+    const {
+      totalCartAmount: totalCart,
+      totalOrderLevelDiscounts: discountCash,
+      finalTotal,
+      effectiveAmountGiven,
+      changeAmount,
+    } = totals;
 
-    const itemTaxTotal = activeTab.items.reduce((sum, item) => {
-      const itemTax = (item.product.taxRatePercentage || 0) / 100;
-      return sum + item.lineTotal * itemTax;
-    }, 0);
-
-    const totalTaxAmount =
-      activeTab.vatRate !== undefined
-        ? afterDiscount * (activeTab.vatRate / 100)
-        : itemTaxTotal;
-    const finalTotal = Math.max(0, afterDiscount + totalTaxAmount);
-
-    const effectiveAmountGiven =
-      activeTab.saleMode === "FAST"
-        ? finalTotal
-        : typeof activeTab.amountGiven === "number"
-        ? activeTab.amountGiven
-        : activeTab.paymentMethod === "DEBT"
-        ? 0
-        : finalTotal;
-
-    const changeAmount = effectiveAmountGiven - finalTotal;
+    // Client-side validation: check payment amount before calling backend (chuẩn quy tắc QTN-03)
+    if (activeTab.paymentMethod === "CASH" && effectiveAmountGiven < finalTotal) {
+      showToast(
+        `Số tiền khách đưa (${effectiveAmountGiven.toLocaleString("vi-VN")} đ) chưa đủ để thanh toán (${finalTotal.toLocaleString("vi-VN")} đ). Vui lòng nhập lại!`
+      );
+      setIsCompletingOrder(false);
+      isCompletingOrderRef.current = false;
+      return;
+    }
 
     // Check if system is offline
     if (isOnline === false) {
+      const limitStatus = checkOfflineLimitStatus();
+      if (limitStatus.isExceeded) {
+        showToast(
+          limitStatus.errorMessage ||
+            `Không thể chốt đơn! Đã vượt quá giới hạn bán khi mất mạng (${limitStatus.maxOrders} đơn / ${limitStatus.maxHours}h). Vui lòng kết nối mạng để đồng bộ!`
+        );
+        setIsCompletingOrder(false);
+        isCompletingOrderRef.current = false;
+        return;
+      }
+
       completeOrderOffline(
         totalCart,
         discountCash,
@@ -512,18 +774,22 @@ export const PosPage = () => {
         changeAmount
       );
       setIsCompletingOrder(false);
+      isCompletingOrderRef.current = false;
       return;
     }
 
     try {
       let orderId = activeTab.backendOrderId;
 
-      // 1. Create order, add items & apply discount if not created yet on server
-      if (!orderId) {
+      // 1. Create order, add items & apply discount if not created or if cart was modified
+      if (!orderId || !activeTab.isSaved) {
         const createRes = await createOrder({
           customerId: activeTab.customerId,
         }).unwrap();
         orderId = createRes.result.id;
+
+        // Persist backendOrderId immediately
+        updateActiveTab({ backendOrderId: orderId });
 
         // 2. Add Items
         for (const item of activeTab.items) {
@@ -531,6 +797,7 @@ export const PosPage = () => {
             orderId: orderId!,
             productId: item.product.id,
             quantity: item.quantity,
+            bypassPromotion: item.bypassPromotion,
           }).unwrap();
         }
 
@@ -557,6 +824,17 @@ export const PosPage = () => {
         amountGiven: effectiveAmountGiven,
       }).unwrap();
 
+      if (discountCash > 0 && totalCart > 0) {
+        const discountPercent = Math.round((discountCash / totalCart) * 100);
+        recordOrderDiscount({
+          orderNumber: activeTab.orderNumber,
+          totalAmount: totalCart,
+          discountPercent,
+          discountAmount: discountCash,
+          actorUsername: authenticatedUser?.username || "nhanvien",
+        });
+      }
+
       setCompletedOrderData({
         tab: { ...activeTab, backendOrderId: orderId!, amountGiven: effectiveAmountGiven },
         changeAmount,
@@ -564,8 +842,19 @@ export const PosPage = () => {
       });
 
       updateActiveTab({ backendOrderId: orderId!, status: "COMPLETED", isSaved: true });
+      notifyOrderCompleted();
     } catch (err: any) {
       if (!window.navigator.onLine || err?.status === "FETCH_ERROR" || err?.status === 0) {
+        if (discountCash > 0 && totalCart > 0) {
+          const discountPercent = Math.round((discountCash / totalCart) * 100);
+          recordOrderDiscount({
+            orderNumber: activeTab.orderNumber,
+            totalAmount: totalCart,
+            discountPercent,
+            discountAmount: discountCash,
+            actorUsername: authenticatedUser?.username || "nhanvien",
+          });
+        }
         completeOrderOffline(
           totalCart,
           discountCash,
@@ -574,12 +863,14 @@ export const PosPage = () => {
           changeAmount
         );
       } else {
+        updateActiveTab({ backendOrderId: undefined, isSaved: false });
         showToast(
           err?.data?.message || "Thanh toán thất bại. Vui lòng thử lại!"
         );
       }
     } finally {
       setIsCompletingOrder(false);
+      isCompletingOrderRef.current = false;
     }
   };
 
@@ -598,7 +889,7 @@ export const PosPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-100 flex flex-col font-sans select-none overflow-hidden">
+    <div className="h-full w-full bg-slate-100 flex flex-col font-sans select-none overflow-hidden">
       {/* Toast Notification */}
       {toastMessage && (
         <div className="fixed top-14 right-4 z-50 bg-slate-900/90 text-white text-xs font-bold px-4 py-3 rounded-xl shadow-2xl border border-slate-700 animate-auth-fade-in flex items-center justify-between gap-3 max-w-sm">
@@ -621,9 +912,13 @@ export const PosPage = () => {
           </div>
           <button
             onClick={() => setToastMessage(null)}
-            className="text-slate-400 hover:text-white"
+            className="text-slate-400 hover:text-white p-0.5 rounded hover:bg-slate-800"
+            aria-label="Đóng thông báo"
           >
-            ✕
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
           </button>
         </div>
       )}
@@ -637,18 +932,25 @@ export const PosPage = () => {
         onAddTab={handleAddTab}
         onCloseTab={handleCloseTab}
         onSelectProduct={handleSelectProduct}
+        onOpenScannerModal={() => setIsScannerModalOpen(true)}
+        onOpenVoiceModal={() => setIsVoiceModalOpen(true)}
+        onScanBarcode={handleBarcodeScanned}
         isOnline={isOnline}
         userName={authenticatedUser?.fullName || authenticatedUser?.username}
+        branchName={activeShift?.pointOfSaleName || authenticatedUser?.pointOfSaleName}
+        posId={activeShift?.pointOfSaleId || authenticatedUser?.pointOfSaleId}
       />
 
       {/* POS Main Workspace Body */}
-      <div className="flex-1 flex gap-3 p-3 overflow-hidden">
+      <div className="flex-1 min-h-0 flex gap-3 p-3 overflow-hidden">
         {/* Left Area: Cart Table */}
         <PosCartTable
           items={activeTab.items}
           onUpdateQuantity={handleUpdateQuantity}
           onRemoveItem={handleRemoveItem}
           onClearCart={handleClearCart}
+          canManage={canManage}
+          onToggleBypass={handleToggleBypassPromotion}
         />
 
         {/* Right Area: Payment Sidebar */}
@@ -681,6 +983,41 @@ export const PosPage = () => {
           isOpen={Boolean(completedOrderData)}
           onClose={handleCloseSuccessModal}
           completedOrder={completedOrderData}
+        />
+      )}
+
+      {/* Camera Barcode Scanner Modal */}
+      {isScannerModalOpen && (
+        <BarcodeScannerModal
+          isOpen={isScannerModalOpen}
+          onClose={() => setIsScannerModalOpen(false)}
+          onScan={handleBarcodeScanned}
+        />
+      )}
+
+      {/* Voice Search Modal (NCL-16-CN-003) */}
+      {isVoiceModalOpen && (
+        <VoiceSearchModal
+          isOpen={isVoiceModalOpen}
+          onClose={() => setIsVoiceModalOpen(false)}
+          onSelectProduct={async (selectedProduct) => {
+            await handleSelectProduct(selectedProduct);
+            showToast(`Đã thêm "${selectedProduct.name}" vào đơn hàng!`);
+          }}
+        />
+      )}
+
+      {/* Unrecognized Barcode Modal (TC-02) */}
+      {unrecognizedBarcode && (
+        <UnrecognizedBarcodeModal
+          isOpen={Boolean(unrecognizedBarcode)}
+          onClose={() => setUnrecognizedBarcode(null)}
+          unrecognizedBarcode={unrecognizedBarcode}
+          onAssignAndAddToCart={async (assignedProduct) => {
+            await handleSelectProduct(assignedProduct);
+            showToast(`Đã gán mã và thêm "${assignedProduct.name}" vào đơn!`);
+          }}
+          canManage={canManage}
         />
       )}
 

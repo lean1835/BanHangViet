@@ -35,6 +35,10 @@ public class Order {
     private Shift shift;
 
     @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "point_of_sale_id")
+    private PointOfSale pointOfSale;
+
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "created_by_user_id", nullable = false)
     private User createdByUser;
 
@@ -52,6 +56,14 @@ public class Order {
     @Column(name = "discount_amount", nullable = false, precision = 15, scale = 2)
     @Builder.Default
     private BigDecimal discountAmount = BigDecimal.ZERO;
+
+    @Column(name = "customer_discount_amount", nullable = false, precision = 15, scale = 2)
+    @Builder.Default
+    private BigDecimal customerDiscountAmount = BigDecimal.ZERO;
+
+    @Column(name = "promotion_discount_amount", nullable = false, precision = 15, scale = 2)
+    @Builder.Default
+    private BigDecimal promotionDiscountAmount = BigDecimal.ZERO;
 
     @Column(name = "final_amount", nullable = false, precision = 15, scale = 2)
     @Builder.Default

@@ -12,6 +12,7 @@ import com.sales.exception.AppException;
 import com.sales.exception.ErrorCode;
 import com.sales.repository.*;
 import com.sales.service.interfaces.GoodsReceiptService;
+import com.sales.service.interfaces.SupplierDebtService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -25,6 +26,8 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -34,16 +37,30 @@ import java.util.stream.Collectors;
 @Slf4j
 public class GoodsReceiptServiceImpl implements GoodsReceiptService {
 
+    private static final String RECEIPT_PREFIX = "NK-";
+    private static final String LOG_ACTION_CREATE_RECEIPT = "CREATE_GOODS_RECEIPT";
+    private static final String LOG_TARGET_TABLE = "goods_receipts";
+
     private final UserRepository userRepository;
     private final GoodsReceiptRepository goodsReceiptRepository;
     private final GoodsReceiptDetailRepository goodsReceiptDetailRepository;
     private final ProductRepository productRepository;
-    private final ActivityLogRepository activityLogRepository;
+    private final SupplierRepository supplierRepository;
+    private final ActivityLogHelper activityLogHelper;
+    private final SupplierDebtService supplierDebtService;
     private final ObjectMapper objectMapper;
 
     private User getAuthenticatedUser(String username) {
         return userRepository.findByUsername(username)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+    }
+
+    private User getAuthenticatedUserWithHousehold(String username) {
+        User user = getAuthenticatedUser(username);
+        if (user.getHousehold() == null) {
+            throw new AppException(ErrorCode.FORBIDDEN);
+        }
+        return user;
     }
 
     private void logActivity(BusinessHousehold household, User actor, String action, String targetId, Object oldValue, Object newValue) {
@@ -62,25 +79,16 @@ public class GoodsReceiptServiceImpl implements GoodsReceiptService {
             log.error("Failed to serialize log values for goods receipt", e);
         }
 
-        ActivityLog logRecord = ActivityLog.builder()
-                .household(household)
-                .user(actor)
-                .action(action)
-                .targetTable("goods_receipts")
-                .targetId(targetId)
-                .oldValue(oldStr)
-                .newValue(newStr)
-                .clientIp(clientIp)
-                .userAgent(userAgent)
-                .build();
-
-        activityLogRepository.save(logRecord);
+        activityLogHelper.logActivityInNewTransaction(household, actor, action, LOG_TARGET_TABLE, targetId, oldStr, newStr, clientIp, userAgent);
     }
 
     private Map<String, Object> buildReceiptLogMap(GoodsReceipt receipt, List<GoodsReceiptDetail> details) {
         Map<String, Object> map = new HashMap<>();
         map.put("id", receipt.getId());
         map.put("receiptNumber", receipt.getReceiptNumber());
+        map.put("supplierId", receipt.getSupplier() != null ? receipt.getSupplier().getId() : null);
+        map.put("supplierName", receipt.getSupplier() != null ? receipt.getSupplier().getName() : null);
+        map.put("totalAmount", receipt.getTotalAmount());
         map.put("receivedAt", receipt.getReceivedAt());
         map.put("notes", receipt.getNotes());
         map.put("householdId", receipt.getHousehold() != null ? receipt.getHousehold().getId() : null);
@@ -91,6 +99,7 @@ public class GoodsReceiptServiceImpl implements GoodsReceiptService {
             dMap.put("productId", d.getProduct().getId());
             dMap.put("quantity", d.getQuantity());
             dMap.put("purchasePrice", d.getPurchasePrice());
+            dMap.put("newCostPrice", d.getProduct().getCostPrice());
             return dMap;
         }).collect(Collectors.toList());
 
@@ -102,6 +111,9 @@ public class GoodsReceiptServiceImpl implements GoodsReceiptService {
         return GoodsReceiptResponse.builder()
                 .id(receipt.getId())
                 .receiptNumber(receipt.getReceiptNumber())
+                .supplierId(receipt.getSupplier() != null ? receipt.getSupplier().getId() : null)
+                .supplierName(receipt.getSupplier() != null ? receipt.getSupplier().getName() : null)
+                .totalAmount(receipt.getTotalAmount())
                 .receivedAt(receipt.getReceivedAt())
                 .notes(receipt.getNotes())
                 .createdByUserId(receipt.getCreatedByUser().getId())
@@ -112,6 +124,10 @@ public class GoodsReceiptServiceImpl implements GoodsReceiptService {
     }
 
     private GoodsReceiptDetailResponse mapDetailToResponse(GoodsReceiptDetail detail) {
+        BigDecimal subtotal = detail.getQuantity() != null && detail.getPurchasePrice() != null
+                ? detail.getQuantity().multiply(detail.getPurchasePrice()).setScale(2, RoundingMode.HALF_UP)
+                : BigDecimal.ZERO;
+
         return GoodsReceiptDetailResponse.builder()
                 .id(detail.getId())
                 .productId(detail.getProduct().getId())
@@ -119,45 +135,37 @@ public class GoodsReceiptServiceImpl implements GoodsReceiptService {
                 .productSku(detail.getProduct().getSku())
                 .quantity(detail.getQuantity())
                 .purchasePrice(detail.getPurchasePrice())
+                .subtotal(subtotal)
                 .build();
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public GoodsReceiptResponse createGoodsReceipt(String currentUsername, CreateGoodsReceiptRequest request) {
-        User currentUser = getAuthenticatedUser(currentUsername);
+        User currentUser = getAuthenticatedUserWithHousehold(currentUsername);
         BusinessHousehold household = currentUser.getHousehold();
-        if (household == null) {
-            throw new AppException(ErrorCode.FORBIDDEN);
-        }
 
         // Validate details
         if (request.getDetails() == null || request.getDetails().isEmpty()) {
             throw new AppException(ErrorCode.EMPTY_RECEIPT_DETAILS);
         }
 
-        // Generate receipt number if not provided
-        String receiptNumber = request.getReceiptNumber();
-        if (!StringUtils.hasText(receiptNumber)) {
-            receiptNumber = "NK-" + System.currentTimeMillis() + "-" + UUID.randomUUID().toString().substring(0, 8);
-        } else {
-            // Check global duplicate receipt number
-            if (goodsReceiptRepository.existsByReceiptNumber(receiptNumber)) {
-                throw new AppException(ErrorCode.RECEIPT_NUMBER_EXISTS);
-            }
+        // Validate duplicate products in details
+        long uniqueProductCount = request.getDetails().stream()
+                .map(CreateGoodsReceiptDetailRequest::getProductId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .count();
+        if (uniqueProductCount < request.getDetails().size()) {
+            throw new AppException(ErrorCode.INVALID_INPUT);
         }
 
-        LocalDateTime receivedAt = request.getReceivedAt() != null ? request.getReceivedAt() : LocalDateTime.now();
-
-        GoodsReceipt receipt = GoodsReceipt.builder()
-                .household(household)
-                .createdByUser(currentUser)
-                .receiptNumber(receiptNumber)
-                .receivedAt(receivedAt)
-                .notes(request.getNotes())
-                .build();
-
-        receipt = goodsReceiptRepository.save(receipt);
+        // Validate supplier if provided
+        Supplier supplier = null;
+        if (StringUtils.hasText(request.getSupplierId())) {
+            supplier = supplierRepository.findByIdAndHouseholdIdAndDeletedAtIsNull(request.getSupplierId(), household.getId())
+                    .orElseThrow(() -> new AppException(ErrorCode.SUPPLIER_NOT_FOUND));
+        }
 
         // Extract product IDs and query all products in one batch
         List<String> productIds = request.getDetails().stream()
@@ -176,6 +184,53 @@ public class GoodsReceiptServiceImpl implements GoodsReceiptService {
             }
         }
 
+        // Check for selling below cost warning (purchasePrice > product.price)
+        boolean containsSellingBelowCost = request.getDetails().stream().anyMatch(d -> {
+            Product p = productMap.get(d.getProductId());
+            return p != null && d.getPurchasePrice() != null && p.getPrice() != null
+                    && d.getPurchasePrice().compareTo(p.getPrice()) > 0;
+        });
+
+        if (containsSellingBelowCost && !Boolean.TRUE.equals(request.getConfirmSellingBelowCost())) {
+            throw new AppException(ErrorCode.SELLING_BELOW_COST_WARNING);
+        }
+
+        // Generate receipt number if not provided
+        String receiptNumber = request.getReceiptNumber();
+        if (!StringUtils.hasText(receiptNumber)) {
+            receiptNumber = RECEIPT_PREFIX + System.currentTimeMillis() + "-" + UUID.randomUUID().toString().substring(0, 8);
+        } else {
+            // Check global duplicate receipt number
+            if (goodsReceiptRepository.existsByReceiptNumber(receiptNumber)) {
+                throw new AppException(ErrorCode.RECEIPT_NUMBER_EXISTS);
+            }
+        }
+
+        LocalDateTime receivedAt = request.getReceivedAt() != null ? request.getReceivedAt() : LocalDateTime.now();
+
+        // Calculate total amount for the receipt by summing rounded item subtotals
+        BigDecimal totalAmount = BigDecimal.ZERO;
+        for (CreateGoodsReceiptDetailRequest detailReq : request.getDetails()) {
+            if (detailReq.getQuantity() != null && detailReq.getPurchasePrice() != null) {
+                BigDecimal itemSubtotal = detailReq.getQuantity()
+                        .multiply(detailReq.getPurchasePrice())
+                        .setScale(2, RoundingMode.HALF_UP);
+                totalAmount = totalAmount.add(itemSubtotal);
+            }
+        }
+
+        GoodsReceipt receipt = GoodsReceipt.builder()
+                .household(household)
+                .supplier(supplier)
+                .createdByUser(currentUser)
+                .receiptNumber(receiptNumber)
+                .totalAmount(totalAmount)
+                .receivedAt(receivedAt)
+                .notes(request.getNotes())
+                .build();
+
+        receipt = goodsReceiptRepository.save(receipt);
+
         List<GoodsReceiptDetail> detailsToSave = new ArrayList<>();
         for (CreateGoodsReceiptDetailRequest detailRequest : request.getDetails()) {
             Product product = productMap.get(detailRequest.getProductId());
@@ -189,15 +244,36 @@ public class GoodsReceiptServiceImpl implements GoodsReceiptService {
 
             detailsToSave.add(detail);
 
-            // Update product stock quantity
-            product.setStockQuantity(product.getStockQuantity().add(detailRequest.getQuantity()));
+            // Calculate moving average cost price (QTN-23) & update stock quantity
+            BigDecimal currentStock = product.getStockQuantity() != null ? product.getStockQuantity() : BigDecimal.ZERO;
+            BigDecimal currentCost = product.getCostPrice() != null ? product.getCostPrice() : BigDecimal.ZERO;
+            BigDecimal importQty = detailRequest.getQuantity();
+            BigDecimal importPrice = detailRequest.getPurchasePrice();
+
+            BigDecimal newCost;
+            BigDecimal combinedQty = currentStock.add(importQty);
+            if (currentStock.compareTo(BigDecimal.ZERO) > 0 && combinedQty.compareTo(BigDecimal.ZERO) > 0) {
+                BigDecimal currentTotalVal = currentStock.multiply(currentCost);
+                BigDecimal importTotalVal = importQty.multiply(importPrice);
+                BigDecimal combinedVal = currentTotalVal.add(importTotalVal);
+                newCost = combinedVal.divide(combinedQty, 2, RoundingMode.HALF_UP);
+            } else {
+                newCost = importPrice.setScale(2, RoundingMode.HALF_UP);
+            }
+
+            product.setCostPrice(newCost);
+            product.setStockQuantity(currentStock.add(importQty));
         }
 
         // Batch save details and products
         List<GoodsReceiptDetail> savedDetails = goodsReceiptDetailRepository.saveAll(detailsToSave);
         productRepository.saveAll(productMap.values());
 
-        logActivity(household, currentUser, "CREATE_GOODS_RECEIPT", receipt.getId(), null, buildReceiptLogMap(receipt, savedDetails));
+        if (supplier != null) {
+            supplierDebtService.recordGoodsReceiptDebt(household, supplier, receipt, currentUser);
+        }
+
+        logActivity(household, currentUser, LOG_ACTION_CREATE_RECEIPT, receipt.getId(), null, buildReceiptLogMap(receipt, savedDetails));
 
         return mapToResponse(receipt);
     }
@@ -205,11 +281,8 @@ public class GoodsReceiptServiceImpl implements GoodsReceiptService {
     @Override
     @Transactional(readOnly = true)
     public PageResponse<GoodsReceiptResponse> getGoodsReceipts(String currentUsername, int page, int size) {
-        User currentUser = getAuthenticatedUser(currentUsername);
+        User currentUser = getAuthenticatedUserWithHousehold(currentUsername);
         BusinessHousehold household = currentUser.getHousehold();
-        if (household == null) {
-            throw new AppException(ErrorCode.FORBIDDEN);
-        }
 
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
         Page<GoodsReceipt> receiptPage = goodsReceiptRepository.findByHouseholdId(household.getId(), pageable);
@@ -231,11 +304,8 @@ public class GoodsReceiptServiceImpl implements GoodsReceiptService {
     @Override
     @Transactional(readOnly = true)
     public GoodsReceiptDetailInfoResponse getGoodsReceiptById(String currentUsername, String id) {
-        User currentUser = getAuthenticatedUser(currentUsername);
+        User currentUser = getAuthenticatedUserWithHousehold(currentUsername);
         BusinessHousehold household = currentUser.getHousehold();
-        if (household == null) {
-            throw new AppException(ErrorCode.FORBIDDEN);
-        }
 
         GoodsReceipt receipt = goodsReceiptRepository.findByIdAndHouseholdId(id, household.getId())
                 .orElseThrow(() -> new AppException(ErrorCode.GOODS_RECEIPT_NOT_FOUND));
@@ -248,6 +318,9 @@ public class GoodsReceiptServiceImpl implements GoodsReceiptService {
         return GoodsReceiptDetailInfoResponse.builder()
                 .id(receipt.getId())
                 .receiptNumber(receipt.getReceiptNumber())
+                .supplierId(receipt.getSupplier() != null ? receipt.getSupplier().getId() : null)
+                .supplierName(receipt.getSupplier() != null ? receipt.getSupplier().getName() : null)
+                .totalAmount(receipt.getTotalAmount())
                 .receivedAt(receipt.getReceivedAt())
                 .notes(receipt.getNotes())
                 .createdByUserId(receipt.getCreatedByUser().getId())
@@ -258,3 +331,4 @@ public class GoodsReceiptServiceImpl implements GoodsReceiptService {
                 .build();
     }
 }
+

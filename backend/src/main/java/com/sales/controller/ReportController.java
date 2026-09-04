@@ -136,4 +136,19 @@ public class ReportController {
                 .build();
         return ResponseEntity.ok(response);
     }
+
+    @GetMapping("/points-of-sale")
+    public ResponseEntity<ApiResponse<PosRevenueReportResponse>> getPosRevenueReport(
+            Principal principal,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate,
+            @RequestParam(required = false) String posId) {
+        PosRevenueReportResponse result = reportService.getPosRevenueReport(principal.getName(), fromDate, toDate, posId);
+        ApiResponse<PosRevenueReportResponse> response = ApiResponse.<PosRevenueReportResponse>builder()
+                .code(1000)
+                .message("Lấy báo cáo doanh thu theo điểm bán thành công")
+                .result(result)
+                .build();
+        return ResponseEntity.ok(response);
+    }
 }

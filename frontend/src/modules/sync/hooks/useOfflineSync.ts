@@ -28,6 +28,7 @@ export const useOfflineSync = ({
   const [warnings, setWarnings] = useState<string[]>([]);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [lastSyncedTime, setLastSyncedTime] = useState<Date | null>(null);
+  const [unissuedOrderIds, setUnissuedOrderIds] = useState<string[]>([]);
 
   const [checkConflicts] = useCheckConflictsMutation();
   const [bulkUpload] = useBulkUploadMutation();
@@ -102,10 +103,31 @@ export const useOfflineSync = ({
         const uploadRes = await bulkUpload(payload).unwrap();
 
         syncedOrderNumbers = uploadRes.result?.map((r) => r.orderNumber) || [];
-        clearSyncedOrders(syncedOrderNumbers);
+        // Lọc ra các orderId chưa từng phát hành HĐĐT offline ở POS
+        const unissuedIds = cleanOrders
+          .filter((o) => !o.isInvoiceIssuedOffline)
+          .map((o) => {
+            const matchedRes = uploadRes.result?.find((r) => r.orderNumber === o.orderNumber);
+            return matchedRes?.id;
+          })
+          .filter(Boolean) as string[];
 
-        // Gom các thông điệp cảnh báo (như cảnh báo quá 24h, sản phẩm vượt tồn kho)
+        setUnissuedOrderIds(unissuedIds);
+        
+        // Chỉ xóa khỏi cache các đơn đã xác nhận đồng bộ thành công
+        if (syncedOrderNumbers.length > 0) {
+          clearSyncedOrders(syncedOrderNumbers);
+        }
+
+        // Gom các thông điệp cảnh báo
         const collectedWarnings: string[] = [];
+        if (syncedOrderNumbers.length < cleanOrders.length) {
+          const missingCount = cleanOrders.length - syncedOrderNumbers.length;
+          collectedWarnings.push(
+            `Phát hiện phiên đồng bộ lệch dữ liệu (${missingCount} đơn chưa ghi nhận thành công). Các đơn bị lệch đã được giữ lại trên thiết bị để đối soát.`
+          );
+        }
+
         uploadRes.result?.forEach((r) => {
           if (r.warningMessages && r.warningMessages.length > 0) {
             collectedWarnings.push(...r.warningMessages);
@@ -127,15 +149,16 @@ export const useOfflineSync = ({
     }
   }, [isOnline, simConflict, checkConflicts, bulkUpload, refreshPendingOrders, onSyncSuccess]);
 
-  // Tự động kích hoạt đồng bộ khi có kết nối mạng trở lại
+  // Tự động kích hoạt đồng bộ khi có kết nối mạng trở lại (Chỉ chạy 1 lần khi chuyển sang Online)
   useEffect(() => {
     if (isOnline) {
-      const pending = getPendingOfflineOrders();
-      if (pending.length > 0 && !isSyncing) {
+      const pending = getPendingOfflineOrders().filter((o) => o.syncStatus === "PENDING");
+      if (pending.length > 0) {
         triggerSync();
       }
     }
-  }, [isOnline, triggerSync, isSyncing]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOnline]);
 
   const resolveOrderConflict = useCallback(
     async (orderNumber: string, strategy: TConflictResolutionStrategy) => {
@@ -174,6 +197,10 @@ export const useOfflineSync = ({
     [conflictingOrders, userRole, resolveConflictMutation, refreshPendingOrders, onSyncSuccess]
   );
 
+  const clearUnissuedOrderIds = useCallback(() => {
+    setUnissuedOrderIds([]);
+  }, []);
+
   return {
     pendingOrders,
     pendingCount: pendingOrders.length,
@@ -181,6 +208,8 @@ export const useOfflineSync = ({
     warnings,
     isSyncing,
     lastSyncedTime,
+    unissuedOrderIds,
+    clearUnissuedOrderIds,
     triggerSync,
     resolveOrderConflict,
     refreshPendingOrders,
