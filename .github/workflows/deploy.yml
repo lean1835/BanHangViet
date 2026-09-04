@@ -121,6 +121,8 @@ jobs:
           ssh-private-key: ${{ secrets.PRODUCTION_SSH_KEY }}
 
       - name: Deploy Monorepo to Production VPS
+        env:
+          ENV_PRODUCTION: ${{ secrets.ENV_PRODUCTION }}
         run: |
           DEPLOY_PATH="/home/${{ secrets.PRODUCTION_USER }}/banhangviet-deployment"
           BE_TAG="${{ env.BE_IMAGE_BASE }}:${{ github.sha }}"
@@ -136,10 +138,8 @@ jobs:
           scp -o StrictHostKeyChecking=accept-new docker-compose.yml ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_IP }}:$DEPLOY_PATH/docker-compose.yml
           scp -o StrictHostKeyChecking=accept-new scripts/deploy.sh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_IP }}:$DEPLOY_PATH/scripts/deploy.sh
 
-          # Ghi file .env cho Backend từ Secret ENV_PRODUCTION (truyền qua stdin để tránh biến đổi ký tự đặc biệt)
-          ssh -o StrictHostKeyChecking=accept-new ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_IP }} "cat > $DEPLOY_PATH/backend/.env" << 'EOF'
-          ${{ secrets.ENV_PRODUCTION }}
-          EOF
+          # Ghi file .env cho Backend từ Secret ENV_PRODUCTION (truyền an toàn qua stdin, tránh lỗi thụt lề Heredoc)
+          printf '%s\n' "$ENV_PRODUCTION" | ssh -o StrictHostKeyChecking=accept-new ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_IP }} "cat > $DEPLOY_PATH/backend/.env"
 
           # Chạy script Deploy
           ssh -o StrictHostKeyChecking=accept-new ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_IP }} "
