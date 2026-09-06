@@ -117,6 +117,7 @@ public class AuthServiceImpl implements AuthService {
                 .pointOfSaleId(user.getPointOfSale() != null ? user.getPointOfSale().getId() : null)
                 .pointOfSaleName(user.getPointOfSale() != null ? user.getPointOfSale().getName() : null)
                 .posCode(user.getPointOfSale() != null ? user.getPointOfSale().getPosCode() : null)
+                .mustChangePassword(Boolean.TRUE.equals(user.getMustChangePassword()))
                 .build();
     }
 }

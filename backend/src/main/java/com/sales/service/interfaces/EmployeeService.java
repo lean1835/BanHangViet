@@ -11,4 +11,5 @@ public interface EmployeeService {
     EmployeeResponse createEmployee(String currentUsername, CreateEmployeeRequest request);
     EmployeeResponse updateEmployee(String currentUsername, String employeeId, UpdateEmployeeRequest request);
     void deleteEmployee(String currentUsername, String employeeId);
+    void resetEmployeePassword(String currentUsername, String employeeId, com.sales.dto.request.AdminResetEmployeePasswordRequest request);
 }

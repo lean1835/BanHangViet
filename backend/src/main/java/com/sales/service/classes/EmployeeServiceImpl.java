@@ -319,4 +319,48 @@ public class EmployeeServiceImpl implements EmployeeService {
 
         logActivity(household, currentUser, "DELETE_EMPLOYEE", employee.getId(), oldValueMap, buildUserLogMap(employee));
     }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void resetEmployeePassword(String currentUsername, String employeeId, com.sales.dto.request.AdminResetEmployeePasswordRequest request) {
+        User currentUser = getAuthenticatedUser(currentUsername);
+        BusinessHousehold household = currentUser.getHousehold();
+        if (household == null) {
+            throw new AppException(ErrorCode.UNAUTHORIZED);
+        }
+
+        // Kiểm tra quyền chủ hộ (VT-01)
+        if (currentUser.getRole() == null || !"VT-01".equals(currentUser.getRole().getCode())) {
+            throw new AppException(ErrorCode.FORBIDDEN);
+        }
+
+        User employee = userRepository.findById(employeeId)
+                .filter(u -> u.getDeletedAt() == null)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+
+        // Kiểm tra bảo mật đa hộ
+        if (employee.getHousehold() == null || !employee.getHousehold().getId().equals(household.getId())) {
+            throw new AppException(ErrorCode.UNAUTHORIZED);
+        }
+
+        // Cập nhật mật khẩu mới cho nhân viên và kích hoạt cờ buộc đổi mật khẩu lần đầu
+        LocalDateTime now = LocalDateTime.now();
+        employee.setPasswordHash(passwordEncoder.encode(request.getNewPassword()));
+        employee.setMustChangePassword(true);
+        employee.setPasswordChangedAt(now);
+        userRepository.save(employee);
+
+        // Xóa cache phiên đăng nhập của nhân viên
+        if (cacheManager.getCache("users") != null) {
+            cacheManager.getCache("users").evict(employee.getUsername());
+        }
+
+        // Ghi nhật ký hoạt động
+        Map<String, Object> logDetail = new HashMap<>();
+        logDetail.put("employeeId", employee.getId());
+        logDetail.put("employeeUsername", employee.getUsername());
+        logDetail.put("resetBy", currentUser.getUsername());
+
+        logActivity(household, currentUser, "RESET_EMPLOYEE_PASSWORD", employee.getId(), null, logDetail);
+    }
 }

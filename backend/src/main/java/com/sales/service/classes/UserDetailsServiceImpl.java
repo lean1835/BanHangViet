@@ -10,6 +10,8 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
 import org.springframework.cache.annotation.Cacheable;
+import com.sales.security.CustomUserDetails;
+
 import java.util.Collections;
 
 @Service
@@ -25,11 +27,12 @@ public class UserDetailsServiceImpl implements UserDetailsService {
                 .filter(u -> u.getDeletedAt() == null)
                 .orElseThrow(() -> new UsernameNotFoundException("Không tìm thấy người dùng với tên đăng nhập: " + username));
 
-        return org.springframework.security.core.userdetails.User.builder()
-                .username(user.getUsername())
-                .password(user.getPasswordHash())
-                .disabled(!user.getIsActive())
-                .authorities(Collections.singletonList(new SimpleGrantedAuthority("ROLE_" + user.getRole().getCode())))
-                .build();
+        return new CustomUserDetails(
+                user.getUsername(),
+                user.getPasswordHash(),
+                Boolean.TRUE.equals(user.getIsActive()),
+                Collections.singletonList(new SimpleGrantedAuthority("ROLE_" + user.getRole().getCode())),
+                user.getPasswordChangedAt()
+        );
     }
 }
