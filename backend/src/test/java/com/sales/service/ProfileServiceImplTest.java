@@ -127,6 +127,16 @@ class ProfileServiceImplTest {
         assertEquals(ErrorCode.USER_NOT_FOUND, ex.getErrorCode());
     }
 
+    @Test
+    @DisplayName("Lấy hồ sơ cá nhân - Tài khoản bị khóa ném USER_BLOCKED")
+    void testGetProfile_UserBlocked() {
+        user.setIsActive(false);
+        when(userRepository.findByUsername("nhanvien1")).thenReturn(Optional.of(user));
+
+        AppException ex = assertThrows(AppException.class, () -> profileService.getProfile("nhanvien1"));
+        assertEquals(ErrorCode.USER_BLOCKED, ex.getErrorCode());
+    }
+
     // ==========================================
     // 2. Cập nhật họ tên hồ sơ (updateProfile)
     // ==========================================
@@ -148,6 +158,25 @@ class ProfileServiceImplTest {
         assertEquals("Trần Thị Mai", response.getFullName());
         verify(userRepository, times(1)).save(user);
         verify(userCache, times(1)).evict("nhanvien1");
+    }
+
+    @Test
+    @DisplayName("Cập nhật hồ sơ - Old full name null không gây NullPointerException khi log activity")
+    void testUpdateProfile_NullOldFullName_Success() {
+        user.setFullName(null);
+        UpdateProfileRequest request = UpdateProfileRequest.builder()
+                .fullName("Trần Thị Mai")
+                .build();
+
+        when(userRepository.findByUsername("nhanvien1")).thenReturn(Optional.of(user));
+        when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(cacheManager.getCache("users")).thenReturn(userCache);
+
+        UserProfileResponse response = profileService.updateProfile("nhanvien1", request);
+
+        assertNotNull(response);
+        assertEquals("Trần Thị Mai", response.getFullName());
+        verify(userRepository, times(1)).save(user);
     }
 
     @Test
@@ -261,16 +290,16 @@ class ProfileServiceImplTest {
 
         when(userRepository.findByUsername("nhanvien1")).thenReturn(Optional.of(user));
         when(userRepository.findByPhoneNumberAndDeletedAtIsNull("0987654321")).thenReturn(Optional.empty());
-        when(otpRepository.findTopByUserIdOrderByCreatedAtDesc("user-123")).thenReturn(Optional.empty());
-        when(otpRepository.findTopByPhoneNumberOrderByCreatedAtDesc("0987654321")).thenReturn(Optional.empty());
+        when(otpRepository.findTopByUserIdAndTypeOrderByCreatedAtDesc("user-123", "UPDATE_PHONE")).thenReturn(Optional.empty());
+        when(otpRepository.findTopByPhoneNumberAndTypeOrderByCreatedAtDesc("0987654321", "UPDATE_PHONE")).thenReturn(Optional.empty());
 
         UpdatePhoneSendOtpResponse response = profileService.sendUpdatePhoneOtp("nhanvien1", request);
 
         assertNotNull(response);
         assertEquals("0987654321", response.getPhoneNumber());
         assertEquals(300, response.getExpiresInSeconds());
-        verify(otpRepository, times(1)).invalidateAllPendingOtpsForUser("user-123");
-        verify(otpRepository, times(1)).invalidateAllPendingOtps("0987654321");
+        verify(otpRepository, times(1)).invalidateAllPendingOtpsForUser("user-123", "UPDATE_PHONE");
+        verify(otpRepository, times(1)).invalidateAllPendingOtps("0987654321", "UPDATE_PHONE");
         verify(otpRepository, times(1)).save(any(PasswordResetOtp.class));
     }
 
@@ -310,6 +339,7 @@ class ProfileServiceImplTest {
     void testSendUpdatePhoneOtp_CooldownActive() {
         PasswordResetOtp recentOtp = PasswordResetOtp.builder()
                 .id("otp-recent")
+                .type("UPDATE_PHONE")
                 .createdAt(LocalDateTime.now().minusSeconds(30))
                 .build();
 
@@ -319,7 +349,7 @@ class ProfileServiceImplTest {
 
         when(userRepository.findByUsername("nhanvien1")).thenReturn(Optional.of(user));
         when(userRepository.findByPhoneNumberAndDeletedAtIsNull("0987654321")).thenReturn(Optional.empty());
-        when(otpRepository.findTopByUserIdOrderByCreatedAtDesc("user-123")).thenReturn(Optional.of(recentOtp));
+        when(otpRepository.findTopByUserIdAndTypeOrderByCreatedAtDesc("user-123", "UPDATE_PHONE")).thenReturn(Optional.of(recentOtp));
 
         AppException ex = assertThrows(AppException.class, () -> profileService.sendUpdatePhoneOtp("nhanvien1", request));
         assertEquals(ErrorCode.OTP_COOLDOWN_ACTIVE, ex.getErrorCode());
@@ -331,6 +361,7 @@ class ProfileServiceImplTest {
     void testSendUpdatePhoneOtp_TargetPhoneCooldownActive() {
         PasswordResetOtp recentOtp = PasswordResetOtp.builder()
                 .id("otp-recent-phone")
+                .type("UPDATE_PHONE")
                 .createdAt(LocalDateTime.now().minusSeconds(20))
                 .build();
 
@@ -340,8 +371,8 @@ class ProfileServiceImplTest {
 
         when(userRepository.findByUsername("nhanvien1")).thenReturn(Optional.of(user));
         when(userRepository.findByPhoneNumberAndDeletedAtIsNull("0987654321")).thenReturn(Optional.empty());
-        when(otpRepository.findTopByUserIdOrderByCreatedAtDesc("user-123")).thenReturn(Optional.empty());
-        when(otpRepository.findTopByPhoneNumberOrderByCreatedAtDesc("0987654321")).thenReturn(Optional.of(recentOtp));
+        when(otpRepository.findTopByUserIdAndTypeOrderByCreatedAtDesc("user-123", "UPDATE_PHONE")).thenReturn(Optional.empty());
+        when(otpRepository.findTopByPhoneNumberAndTypeOrderByCreatedAtDesc("0987654321", "UPDATE_PHONE")).thenReturn(Optional.of(recentOtp));
 
         AppException ex = assertThrows(AppException.class, () -> profileService.sendUpdatePhoneOtp("nhanvien1", request));
         assertEquals(ErrorCode.OTP_COOLDOWN_ACTIVE, ex.getErrorCode());
@@ -364,6 +395,7 @@ class ProfileServiceImplTest {
                 .id("otp-1")
                 .user(user)
                 .phoneNumber("0987654321")
+                .type("UPDATE_PHONE")
                 .otpCode("654321")
                 .expiryTime(LocalDateTime.now().plusMinutes(4))
                 .isUsed(false)
@@ -372,7 +404,7 @@ class ProfileServiceImplTest {
 
         when(userRepository.findByUsername("nhanvien1")).thenReturn(Optional.of(user));
         when(userRepository.findByPhoneNumberAndDeletedAtIsNull("0987654321")).thenReturn(Optional.empty());
-        when(otpRepository.findTopByUserIdAndPhoneNumberAndIsUsedFalseOrderByCreatedAtDesc("user-123", "0987654321"))
+        when(otpRepository.findTopByUserIdAndPhoneNumberAndTypeAndIsUsedFalseOrderByCreatedAtDesc("user-123", "0987654321", "UPDATE_PHONE"))
                 .thenReturn(Optional.of(otp));
         when(userRepository.save(any(User.class))).thenAnswer(inv -> inv.getArgument(0));
         when(cacheManager.getCache("users")).thenReturn(userCache);
@@ -397,7 +429,7 @@ class ProfileServiceImplTest {
 
         when(userRepository.findByUsername("nhanvien1")).thenReturn(Optional.of(user));
         when(userRepository.findByPhoneNumberAndDeletedAtIsNull("0987654321")).thenReturn(Optional.empty());
-        when(otpRepository.findTopByUserIdAndPhoneNumberAndIsUsedFalseOrderByCreatedAtDesc("user-123", "0987654321"))
+        when(otpRepository.findTopByUserIdAndPhoneNumberAndTypeAndIsUsedFalseOrderByCreatedAtDesc("user-123", "0987654321", "UPDATE_PHONE"))
                 .thenReturn(Optional.empty());
 
         AppException ex = assertThrows(AppException.class, () -> profileService.verifyAndUpdatePhone("nhanvien1", request));
@@ -417,6 +449,7 @@ class ProfileServiceImplTest {
                 .id("otp-expired")
                 .user(user)
                 .phoneNumber("0987654321")
+                .type("UPDATE_PHONE")
                 .otpCode("654321")
                 .expiryTime(LocalDateTime.now().minusMinutes(1))
                 .isUsed(false)
@@ -425,7 +458,7 @@ class ProfileServiceImplTest {
 
         when(userRepository.findByUsername("nhanvien1")).thenReturn(Optional.of(user));
         when(userRepository.findByPhoneNumberAndDeletedAtIsNull("0987654321")).thenReturn(Optional.empty());
-        when(otpRepository.findTopByUserIdAndPhoneNumberAndIsUsedFalseOrderByCreatedAtDesc("user-123", "0987654321"))
+        when(otpRepository.findTopByUserIdAndPhoneNumberAndTypeAndIsUsedFalseOrderByCreatedAtDesc("user-123", "0987654321", "UPDATE_PHONE"))
                 .thenReturn(Optional.of(expiredOtp));
 
         AppException ex = assertThrows(AppException.class, () -> profileService.verifyAndUpdatePhone("nhanvien1", request));
@@ -446,6 +479,7 @@ class ProfileServiceImplTest {
                 .id("otp-valid")
                 .user(user)
                 .phoneNumber("0987654321")
+                .type("UPDATE_PHONE")
                 .otpCode("654321")
                 .expiryTime(LocalDateTime.now().plusMinutes(4))
                 .isUsed(false)
@@ -454,7 +488,7 @@ class ProfileServiceImplTest {
 
         when(userRepository.findByUsername("nhanvien1")).thenReturn(Optional.of(user));
         when(userRepository.findByPhoneNumberAndDeletedAtIsNull("0987654321")).thenReturn(Optional.empty());
-        when(otpRepository.findTopByUserIdAndPhoneNumberAndIsUsedFalseOrderByCreatedAtDesc("user-123", "0987654321"))
+        when(otpRepository.findTopByUserIdAndPhoneNumberAndTypeAndIsUsedFalseOrderByCreatedAtDesc("user-123", "0987654321", "UPDATE_PHONE"))
                 .thenReturn(Optional.of(otp));
 
         AppException ex = assertThrows(AppException.class, () -> profileService.verifyAndUpdatePhone("nhanvien1", request));
@@ -477,6 +511,7 @@ class ProfileServiceImplTest {
                 .id("otp-max-attempt")
                 .user(user)
                 .phoneNumber("0987654321")
+                .type("UPDATE_PHONE")
                 .otpCode("654321")
                 .expiryTime(LocalDateTime.now().plusMinutes(4))
                 .isUsed(false)
@@ -485,7 +520,7 @@ class ProfileServiceImplTest {
 
         when(userRepository.findByUsername("nhanvien1")).thenReturn(Optional.of(user));
         when(userRepository.findByPhoneNumberAndDeletedAtIsNull("0987654321")).thenReturn(Optional.empty());
-        when(otpRepository.findTopByUserIdAndPhoneNumberAndIsUsedFalseOrderByCreatedAtDesc("user-123", "0987654321"))
+        when(otpRepository.findTopByUserIdAndPhoneNumberAndTypeAndIsUsedFalseOrderByCreatedAtDesc("user-123", "0987654321", "UPDATE_PHONE"))
                 .thenReturn(Optional.of(otp));
 
         AppException ex = assertThrows(AppException.class, () -> profileService.verifyAndUpdatePhone("nhanvien1", request));

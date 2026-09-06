@@ -41,6 +41,7 @@ public class ProfileServiceImpl implements ProfileService {
     private static final long OTP_EXPIRATION_MINUTES = 5;
     private static final int MAX_OTP_ATTEMPTS = 5;
     private static final long OTP_COOLDOWN_SECONDS = 60;
+    private static final String OTP_TYPE_UPDATE_PHONE = "UPDATE_PHONE";
 
     private final UserRepository userRepository;
     private final PasswordResetOtpRepository otpRepository;
@@ -56,6 +57,7 @@ public class ProfileServiceImpl implements ProfileService {
     @Transactional(readOnly = true)
     public UserProfileResponse getProfile(String username) {
         User user = findUserByUsername(username);
+        checkUserActive(user);
         return mapToUserProfileResponse(user);
     }
 
@@ -74,7 +76,7 @@ public class ProfileServiceImpl implements ProfileService {
         evictUserCache(username);
 
         logProfileActivity(updatedUser.getHousehold(), updatedUser, "UPDATE_PROFILE", updatedUser.getId(),
-                Map.of("fullName", oldFullName),
+                Map.of("fullName", oldFullName != null ? oldFullName : ""),
                 Map.of("fullName", newFullName, "actionDescription", "Cập nhật thông tin hồ sơ cá nhân"));
 
         return mapToUserProfileResponse(updatedUser);
@@ -149,7 +151,7 @@ public class ProfileServiceImpl implements ProfileService {
                 });
 
         // 3. Kiểm tra Cooldown 60s chống spam OTP (theo user và theo số điện thoại mới)
-        otpRepository.findTopByUserIdOrderByCreatedAtDesc(user.getId())
+        otpRepository.findTopByUserIdAndTypeOrderByCreatedAtDesc(user.getId(), OTP_TYPE_UPDATE_PHONE)
                 .ifPresent(lastOtp -> {
                     if (lastOtp.getCreatedAt() != null &&
                             lastOtp.getCreatedAt().plusSeconds(OTP_COOLDOWN_SECONDS).isAfter(LocalDateTime.now())) {
@@ -157,7 +159,7 @@ public class ProfileServiceImpl implements ProfileService {
                     }
                 });
 
-        otpRepository.findTopByPhoneNumberOrderByCreatedAtDesc(newPhoneNumber)
+        otpRepository.findTopByPhoneNumberAndTypeOrderByCreatedAtDesc(newPhoneNumber, OTP_TYPE_UPDATE_PHONE)
                 .ifPresent(lastOtp -> {
                     if (lastOtp.getCreatedAt() != null &&
                             lastOtp.getCreatedAt().plusSeconds(OTP_COOLDOWN_SECONDS).isAfter(LocalDateTime.now())) {
@@ -166,8 +168,8 @@ public class ProfileServiceImpl implements ProfileService {
                 });
 
         // 4. Vô hiệu hóa các OTP trước đó của user và của số điện thoại này
-        otpRepository.invalidateAllPendingOtpsForUser(user.getId());
-        otpRepository.invalidateAllPendingOtps(newPhoneNumber);
+        otpRepository.invalidateAllPendingOtpsForUser(user.getId(), OTP_TYPE_UPDATE_PHONE);
+        otpRepository.invalidateAllPendingOtps(newPhoneNumber, OTP_TYPE_UPDATE_PHONE);
 
         // 5. Sinh mã OTP 6 số ngẫu nhiên
         int codeInt = 100000 + secureRandom.nextInt(900000);
@@ -179,6 +181,7 @@ public class ProfileServiceImpl implements ProfileService {
         PasswordResetOtp otp = PasswordResetOtp.builder()
                 .user(user)
                 .phoneNumber(newPhoneNumber)
+                .type(OTP_TYPE_UPDATE_PHONE)
                 .otpCode(otpCode)
                 .expiryTime(expiryTime)
                 .isUsed(false)
@@ -214,7 +217,7 @@ public class ProfileServiceImpl implements ProfileService {
                 });
 
         // 2. Tìm OTP mới nhất gắn với user và số điện thoại mới (loại bỏ fallback không an toàn)
-        PasswordResetOtp otp = otpRepository.findTopByUserIdAndPhoneNumberAndIsUsedFalseOrderByCreatedAtDesc(user.getId(), newPhoneNumber)
+        PasswordResetOtp otp = otpRepository.findTopByUserIdAndPhoneNumberAndTypeAndIsUsedFalseOrderByCreatedAtDesc(user.getId(), newPhoneNumber, OTP_TYPE_UPDATE_PHONE)
                 .orElseThrow(() -> new AppException(ErrorCode.OTP_EXPIRED));
 
         // 3. Kiểm tra hạn OTP
