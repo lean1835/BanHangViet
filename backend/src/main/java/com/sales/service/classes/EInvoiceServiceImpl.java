@@ -228,6 +228,11 @@ public class EInvoiceServiceImpl implements EInvoiceService {
                 .sentToTaxAt(invoice.getSentToTaxAt())
                 .taxResponseAt(invoice.getTaxResponseAt())
                 .canceledAt(invoice.getCanceledAt())
+                .retryCount(invoice.getRetryCount())
+                .maxRetryCount(invoice.getMaxRetryCount())
+                .nextRetryAt(invoice.getNextRetryAt())
+                .lastRetryAt(invoice.getLastRetryAt())
+                .errorCategory(invoice.getErrorCategory())
                 .createdAt(invoice.getCreatedAt())
                 .updatedAt(invoice.getUpdatedAt())
                 .items(items)
@@ -588,13 +593,15 @@ public class EInvoiceServiceImpl implements EInvoiceService {
 
         checkInvoiceOwnership(invoice, currentUser);
 
-        if (!"SEND_ERROR".equals(invoice.getStatus())) {
+        if (!"SEND_ERROR".equals(invoice.getStatus()) && !"MANUAL_PROCESSING".equals(invoice.getStatus())) {
             throw new AppException(ErrorCode.INVOICE_NOT_SEND_ERROR);
         }
 
         String oldStatus = invoice.getStatus();
         invoice.setStatus("WAITING_TAX_CODE");
         invoice.setSentToTaxAt(LocalDateTime.now());
+        invoice.setNextRetryAt(null);
+        invoice.setErrorCategory(null);
         invoice.setTaxAuthorityResponse(null);
 
         EInvoice saved = eInvoiceRepository.save(invoice);
@@ -920,7 +927,7 @@ public class EInvoiceServiceImpl implements EInvoiceService {
 
         checkInvoiceOwnership(invoice, currentUser);
 
-        if (!"DRAFT".equals(invoice.getStatus()) && !"SEND_ERROR".equals(invoice.getStatus())) {
+        if (!"DRAFT".equals(invoice.getStatus()) && !"SEND_ERROR".equals(invoice.getStatus()) && !"MANUAL_PROCESSING".equals(invoice.getStatus())) {
             throw new AppException(ErrorCode.INVOICE_NOT_EDITABLE);
         }
 

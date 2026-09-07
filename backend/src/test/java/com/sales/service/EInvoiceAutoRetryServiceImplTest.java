@@ -1,0 +1,177 @@
+package com.sales.service;
+
+import com.sales.dto.response.InvoiceAutoRetrySummaryResponse;
+import com.sales.dto.response.InvoiceResponse;
+import com.sales.entity.BusinessHousehold;
+import com.sales.entity.BusinessHouseholdSettings;
+import com.sales.entity.EInvoice;
+import com.sales.entity.InvoiceStatusLog;
+import com.sales.entity.User;
+import com.sales.repository.BusinessHouseholdSettingsRepository;
+import com.sales.repository.EInvoiceRepository;
+import com.sales.repository.InvoiceStatusLogRepository;
+import com.sales.repository.UserRepository;
+import com.sales.service.classes.EInvoiceAutoRetryServiceImpl;
+import com.sales.service.interfaces.EInvoiceService;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.transaction.TransactionStatus;
+import org.springframework.transaction.support.TransactionCallback;
+import org.springframework.transaction.support.TransactionTemplate;
+
+import java.time.LocalDateTime;
+import java.util.Collections;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
+
+@ExtendWith(MockitoExtension.class)
+class EInvoiceAutoRetryServiceImplTest {
+
+    @Mock
+    private UserRepository userRepository;
+
+    @Mock
+    private EInvoiceRepository eInvoiceRepository;
+
+    @Mock
+    private InvoiceStatusLogRepository invoiceStatusLogRepository;
+
+    @Mock
+    private BusinessHouseholdSettingsRepository settingsRepository;
+
+    @Mock
+    private EInvoiceService eInvoiceService;
+
+    @Mock
+    private TransactionTemplate transactionTemplate;
+
+    @InjectMocks
+    private EInvoiceAutoRetryServiceImpl autoRetryService;
+
+    private BusinessHousehold household;
+    private BusinessHouseholdSettings settings;
+    private EInvoice waitingInvoice;
+
+    @BeforeEach
+    void setUp() {
+        household = BusinessHousehold.builder()
+                .id("hh-100")
+                .name("Hộ Kinh Doanh Mẫu")
+                .build();
+
+        settings = BusinessHouseholdSettings.builder()
+                .id("set-100")
+                .household(household)
+                .autoRetryEnabled(true)
+                .maxRetryAttempts(3)
+                .retryIntervalMinutes(15)
+                .maxRetryHoursDeadline(24)
+                .build();
+
+        waitingInvoice = EInvoice.builder()
+                .id("inv-100")
+                .household(household)
+                .status("WAITING_TAX_CODE")
+                .retryCount(0)
+                .createdAt(LocalDateTime.now().minusHours(1))
+                .build();
+
+        // TransactionTemplate mock pass-through
+        lenient().when(transactionTemplate.execute(any())).thenAnswer(invocation -> {
+            TransactionCallback<?> action = invocation.getArgument(0);
+            return action.doInTransaction(mock(TransactionStatus.class));
+        });
+    }
+
+    @Test
+    @DisplayName("NCL-04-CN-007-TC-01: Tự động thử lại thành công và cấp mã hóa đơn khi đến lịch")
+    void testProcessScheduledAutoRetry_Success() {
+        when(eInvoiceRepository.findEligibleForAutoRetry(any())).thenReturn(List.of(waitingInvoice));
+        when(eInvoiceRepository.findById("inv-100")).thenReturn(Optional.of(waitingInvoice));
+        when(settingsRepository.findByHouseholdId("hh-100")).thenReturn(Optional.of(settings));
+
+        // Mock approveInvoiceByTax success
+        when(eInvoiceService.approveInvoiceByTax(eq(null), eq("inv-100"), anyString()))
+                .thenAnswer(inv -> {
+                    waitingInvoice.setStatus("ISSUED");
+                    waitingInvoice.setTaxAuthorityCode("CQT-12345");
+                    return InvoiceResponse.builder().id("inv-100").status("ISSUED").build();
+                });
+
+        InvoiceAutoRetrySummaryResponse summary = autoRetryService.processScheduledAutoRetry();
+
+        assertNotNull(summary);
+        assertEquals(1, summary.getTotalProcessed());
+        assertEquals(1, summary.getSuccessCount());
+        assertEquals(0, summary.getMovedToManualCount());
+        assertTrue(summary.getIssuedInvoiceIds().contains("inv-100"));
+        verify(eInvoiceRepository, atLeastOnce()).save(any(EInvoice.class));
+    }
+
+    @Test
+    @DisplayName("NCL-04-CN-007-TC-02: Lỗi sai MST người mua (NON_RETRYABLE) -> Chuyển ngay sang MANUAL_PROCESSING")
+    void testProcessScheduledAutoRetry_NonRetryableError() {
+        waitingInvoice.setTaxAuthorityResponse("Lỗi từ cơ quan thuế: Sai mã số thuế người mua");
+        when(eInvoiceRepository.findEligibleForAutoRetry(any())).thenReturn(List.of(waitingInvoice));
+        when(eInvoiceRepository.findById("inv-100")).thenReturn(Optional.of(waitingInvoice));
+        when(settingsRepository.findByHouseholdId("hh-100")).thenReturn(Optional.of(settings));
+
+        InvoiceAutoRetrySummaryResponse summary = autoRetryService.processScheduledAutoRetry();
+
+        assertNotNull(summary);
+        assertEquals(1, summary.getTotalProcessed());
+        assertEquals(0, summary.getSuccessCount());
+        assertEquals(1, summary.getMovedToManualCount());
+        assertTrue(summary.getManualProcessingInvoiceIds().contains("inv-100"));
+        assertEquals("MANUAL_PROCESSING", waitingInvoice.getStatus());
+        verify(invoiceStatusLogRepository).save(any(InvoiceStatusLog.class));
+    }
+
+    @Test
+    @DisplayName("NCL-04-CN-007-TC-03: Đã chạm số lần thử tối đa (max_retry_attempts) -> Chuyển sang MANUAL_PROCESSING")
+    void testProcessScheduledAutoRetry_ExceedMaxAttempts() {
+        waitingInvoice.setRetryCount(3); // Max attempts is 3
+        when(eInvoiceRepository.findEligibleForAutoRetry(any())).thenReturn(List.of(waitingInvoice));
+        when(eInvoiceRepository.findById("inv-100")).thenReturn(Optional.of(waitingInvoice));
+        when(settingsRepository.findByHouseholdId("hh-100")).thenReturn(Optional.of(settings));
+
+        InvoiceAutoRetrySummaryResponse summary = autoRetryService.processScheduledAutoRetry();
+
+        assertNotNull(summary);
+        assertEquals(1, summary.getTotalProcessed());
+        assertEquals(0, summary.getSuccessCount());
+        assertEquals(1, summary.getMovedToManualCount());
+        assertTrue(summary.getManualProcessingInvoiceIds().contains("inv-100"));
+        assertEquals("MANUAL_PROCESSING", waitingInvoice.getStatus());
+        verify(invoiceStatusLogRepository).save(any(InvoiceStatusLog.class));
+    }
+
+    @Test
+    @DisplayName("NCL-04-CN-007-TC-03: Quá hạn max_retry_hours_deadline -> Chuyển sang MANUAL_PROCESSING")
+    void testProcessScheduledAutoRetry_ExceedDeadlineHours() {
+        waitingInvoice.setCreatedAt(LocalDateTime.now().minusHours(25)); // Deadline is 24 hours
+        when(eInvoiceRepository.findEligibleForAutoRetry(any())).thenReturn(List.of(waitingInvoice));
+        when(eInvoiceRepository.findById("inv-100")).thenReturn(Optional.of(waitingInvoice));
+        when(settingsRepository.findByHouseholdId("hh-100")).thenReturn(Optional.of(settings));
+
+        InvoiceAutoRetrySummaryResponse summary = autoRetryService.processScheduledAutoRetry();
+
+        assertNotNull(summary);
+        assertEquals(1, summary.getTotalProcessed());
+        assertEquals(0, summary.getSuccessCount());
+        assertEquals(1, summary.getMovedToManualCount());
+        assertTrue(summary.getManualProcessingInvoiceIds().contains("inv-100"));
+        assertEquals("MANUAL_PROCESSING", waitingInvoice.getStatus());
+        verify(invoiceStatusLogRepository).save(any(InvoiceStatusLog.class));
+    }
+}

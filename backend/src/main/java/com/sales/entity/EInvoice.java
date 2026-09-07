@@ -131,6 +131,22 @@ public class EInvoice {
     @Column(name = "canceled_at")
     private LocalDateTime canceledAt;
 
+    @Column(name = "retry_count", nullable = false)
+    @Builder.Default
+    private Integer retryCount = 0;
+
+    @Column(name = "max_retry_count")
+    private Integer maxRetryCount;
+
+    @Column(name = "next_retry_at")
+    private LocalDateTime nextRetryAt;
+
+    @Column(name = "last_retry_at")
+    private LocalDateTime lastRetryAt;
+
+    @Column(name = "error_category", length = 30)
+    private String errorCategory;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

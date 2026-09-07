@@ -93,4 +93,12 @@ public interface EInvoiceRepository extends JpaRepository<EInvoice, String>, Jpa
             @Param("endDateTime") LocalDateTime endDateTime,
             @Param("posId") String posId
     );
+
+    @EntityGraph(attributePaths = {"household", "createdByUser", "order"})
+    @Query("SELECT e FROM EInvoice e " +
+           "WHERE e.deletedAt IS NULL " +
+           "AND e.status IN ('WAITING_TAX_CODE', 'SEND_ERROR') " +
+           "AND (e.nextRetryAt IS NULL OR e.nextRetryAt <= :now) " +
+           "ORDER BY e.createdAt ASC")
+    List<EInvoice> findEligibleForAutoRetry(@Param("now") LocalDateTime now);
 }
