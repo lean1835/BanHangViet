@@ -17,7 +17,7 @@ public enum ErrorCode {
     ROLE_NOT_FOUND(2005, "Vai trò không tồn tại trong hệ thống", HttpStatus.NOT_FOUND),
     INVALID_INPUT(2006, "Dữ liệu đầu vào không hợp lệ", HttpStatus.BAD_REQUEST),
     WRONG_PASSWORD(2007, "Mật khẩu không chính xác", HttpStatus.BAD_REQUEST),
-    USER_BLOCKED(2008, "Tài khoản đã bị khóa", HttpStatus.FORBIDDEN),
+    USER_BLOCKED(2008, "Tài khoản đã bị khóa. Vui lòng liên hệ chủ hộ kinh doanh để được hỗ trợ", HttpStatus.FORBIDDEN),
     FORBIDDEN(2009, "Bạn không có quyền truy cập", HttpStatus.FORBIDDEN),
     HOUSEHOLD_NOT_FOUND(2010, "Hộ kinh doanh không tồn tại trên hệ thống", HttpStatus.NOT_FOUND),
     PRODUCT_NOT_FOUND(3001, "Hàng hóa không tồn tại", HttpStatus.NOT_FOUND),
@@ -192,7 +192,20 @@ public enum ErrorCode {
     TRANSFER_EXCEED_WAREHOUSE_STOCK(7028, "Số lượng chuyển vượt quá tồn kho khả dụng tại Kho gốc", HttpStatus.BAD_REQUEST),
     POS_INVENTORY_EXCEED_PRODUCT_STOCK(7029, "Số lượng tồn kho phân bổ vượt quá tồn kho khả dụng trong danh mục hàng hóa", HttpStatus.BAD_REQUEST),
     TRANSFER_SAME_SOURCE_DEST(7030, "Điểm gửi và điểm nhận không được trùng nhau", HttpStatus.BAD_REQUEST),
-    TRANSFER_SOURCE_AND_DEST_EMPTY(7031, "Cần chọn điểm gửi hoặc điểm nhận hợp lệ", HttpStatus.BAD_REQUEST);
+    TRANSFER_SOURCE_AND_DEST_EMPTY(7031, "Cần chọn điểm gửi hoặc điểm nhận hợp lệ", HttpStatus.BAD_REQUEST),
+
+    // NCL-01-CN-005 Đặt lại mật khẩu khi quên
+    OTP_EXPIRED(2036, "Mã xác thực đã hết hiệu lực. Vui lòng yêu cầu gửi lại mã mới", HttpStatus.BAD_REQUEST),
+    INVALID_OTP(2037, "Mã xác thực không chính xác", HttpStatus.BAD_REQUEST),
+    OTP_MAX_ATTEMPTS_EXCEEDED(2038, "Bạn đã nhập sai mã xác thực quá 5 lần. Vui lòng yêu cầu mã mới", HttpStatus.BAD_REQUEST),
+    PASSWORD_CONFIRMATION_MISMATCH(2039, "Mật khẩu xác nhận không khớp với mật khẩu mới", HttpStatus.BAD_REQUEST),
+    PHONE_NUMBER_NOT_FOUND(2040, "Số điện thoại chưa được đăng ký trong hệ thống", HttpStatus.NOT_FOUND),
+    OTP_COOLDOWN_ACTIVE(2041, "Vui lòng đợi 60 giây trước khi yêu cầu mã xác thực mới", HttpStatus.BAD_REQUEST),
+
+    // NCL-01-CN-006 Đổi mật khẩu và cập nhật hồ sơ cá nhân
+    NEW_PASSWORD_SAME_AS_CURRENT(2042, "Mật khẩu mới không được trùng với mật khẩu hiện tại", HttpStatus.BAD_REQUEST),
+    PHONE_NUMBER_ALREADY_EXISTS(2043, "Số điện thoại này đã được sử dụng bởi tài khoản khác", HttpStatus.BAD_REQUEST),
+    PHONE_NUMBER_UNCHANGED(2044, "Số điện thoại mới trùng với số điện thoại hiện tại", HttpStatus.BAD_REQUEST);
 
     private final int code;
     private final String message;

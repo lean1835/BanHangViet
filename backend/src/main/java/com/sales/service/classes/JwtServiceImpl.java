@@ -37,6 +37,7 @@ public class JwtServiceImpl implements JwtService {
         claims.put("role", user.getRole().getCode());
         claims.put("fullName", user.getFullName());
         claims.put("householdId", user.getHousehold() != null ? user.getHousehold().getId() : null);
+        claims.put("pwdAt", user.getPasswordChangedAt() != null ? user.getPasswordChangedAt().toString() : "");
 
         return Jwts.builder()
                 .claims(claims)
@@ -60,7 +61,22 @@ public class JwtServiceImpl implements JwtService {
     @Override
     public boolean isTokenValid(String token, UserDetails userDetails) {
         final String username = extractUsername(token);
-        return (username.equals(userDetails.getUsername())) && !isTokenExpired(token) && userDetails.isEnabled();
+        if (!username.equals(userDetails.getUsername()) || isTokenExpired(token) || !userDetails.isEnabled()) {
+            return false;
+        }
+
+        if (userDetails instanceof com.sales.security.CustomUserDetails customUserDetails) {
+            java.time.LocalDateTime passwordChangedAt = customUserDetails.getPasswordChangedAt();
+            String userPwdAt = passwordChangedAt != null ? passwordChangedAt.toString() : "";
+            String tokenPwdAt = extractClaim(token, claims -> claims.get("pwdAt", String.class));
+            if (tokenPwdAt == null) {
+                tokenPwdAt = "";
+            }
+            if (!userPwdAt.equals(tokenPwdAt)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private <T> T extractClaim(String token, Function<Claims, T> claimsResolver) {
