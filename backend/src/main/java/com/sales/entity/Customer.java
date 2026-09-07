@@ -31,6 +31,9 @@ public class Customer {
     @Column(name = "phone_number", nullable = false, length = 20)
     private String phoneNumber;
 
+    @Column(name = "tax_code", length = 20)
+    private String taxCode;
+
     @Column(length = 100)
     private String email;
 

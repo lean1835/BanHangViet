@@ -14,6 +14,7 @@ public class CustomerResponse {
     private String householdId;
     private String name;
     private String phoneNumber;
+    private String taxCode;
     private String email;
     private String address;
     private BigDecimal creditLimit;

@@ -23,6 +23,8 @@ public interface CustomerRepository extends JpaRepository<Customer, String> {
     Optional<Customer> findByIdAndHouseholdIdAndDeletedAtIsNullForUpdate(@Param("id") String id, @Param("householdId") String householdId);
 
     Optional<Customer> findByPhoneNumberAndHouseholdIdAndDeletedAtIsNull(String phoneNumber, String householdId);
+    Optional<Customer> findByHouseholdIdAndTaxCodeAndDeletedAtIsNull(String householdId, String taxCode);
+    Optional<Customer> findByTaxCodeAndHouseholdIdAndDeletedAtIsNull(String taxCode, String householdId);
     List<Customer> findAllByHouseholdIdAndDeletedAtIsNull(String householdId);
     List<Customer> findAllByHouseholdId(String householdId);
     Optional<Customer> findByIdAndHouseholdId(String id, String householdId);

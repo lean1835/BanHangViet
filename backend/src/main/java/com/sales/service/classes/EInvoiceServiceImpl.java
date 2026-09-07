@@ -53,6 +53,7 @@ public class EInvoiceServiceImpl implements EInvoiceService {
     private final InvoiceTemplateRepository invoiceTemplateRepository;
     private final OrderRepository orderRepository;
     private final InvoiceDeliveryLogRepository invoiceDeliveryLogRepository;
+    private final CustomerRepository customerRepository;
     private final EmailService emailService;
     private final ObjectMapper objectMapper;
     private final TransactionTemplate transactionTemplate;
@@ -486,6 +487,7 @@ public class EInvoiceServiceImpl implements EInvoiceService {
                 .title(template.getTitle() != null ? template.getTitle() : "HÓA ĐƠN GIÁ TRỊ GIA TĂNG")
                 .footerNote(template.getFooterNote())
                 .buyerName(order.getCustomer() != null ? order.getCustomer().getName() : "Khách mua lẻ")
+                .buyerTaxCode(order.getCustomer() != null ? order.getCustomer().getTaxCode() : null)
                 .buyerPhone(order.getCustomer() != null ? order.getCustomer().getPhoneNumber() : null)
                 .buyerEmail(order.getCustomer() != null ? order.getCustomer().getEmail() : null)
                 .buyerAddress(order.getCustomer() != null ? order.getCustomer().getAddress() : null)
@@ -911,6 +913,58 @@ public class EInvoiceServiceImpl implements EInvoiceService {
         return mapToInvoiceResponse(saved);
     }
 
+    private void validateBuyerTaxCode(String taxCode) {
+        if (taxCode == null || taxCode.trim().isEmpty()) {
+            return;
+        }
+        String trimmed = taxCode.trim();
+        if (!trimmed.matches("^\\d{10}$|^\\d{13}$|^\\d{10}-\\d{3}$")) {
+            throw new AppException(ErrorCode.INVALID_TAX_CODE);
+        }
+    }
+
+    private void syncCustomerProfile(BusinessHousehold household, String taxCode, String name, String address, String email, String phone) {
+        if (household == null || taxCode == null || taxCode.trim().isEmpty()) {
+            return;
+        }
+        String trimmedTaxCode = taxCode.trim();
+        Optional<Customer> custOpt = customerRepository.findByHouseholdIdAndTaxCodeAndDeletedAtIsNull(household.getId(), trimmedTaxCode);
+        if (custOpt.isPresent()) {
+            Customer cust = custOpt.get();
+            boolean updated = false;
+            if (name != null && !name.trim().isEmpty() && !name.equals(cust.getName())) {
+                cust.setName(name.trim());
+                updated = true;
+            }
+            if (address != null && !address.trim().isEmpty() && !address.equals(cust.getAddress())) {
+                cust.setAddress(address.trim());
+                updated = true;
+            }
+            if (email != null && !email.trim().isEmpty() && !email.equals(cust.getEmail())) {
+                cust.setEmail(email.trim());
+                updated = true;
+            }
+            if (phone != null && !phone.trim().isEmpty() && !phone.equals(cust.getPhoneNumber())) {
+                cust.setPhoneNumber(phone.trim());
+                updated = true;
+            }
+            if (updated) {
+                customerRepository.save(cust);
+            }
+        } else {
+            String custPhone = (phone != null && !phone.trim().isEmpty()) ? phone.trim() : "0000000000";
+            Customer newCust = Customer.builder()
+                    .household(household)
+                    .taxCode(trimmedTaxCode)
+                    .name(name != null && !name.trim().isEmpty() ? name.trim() : "Khách doanh nghiệp")
+                    .phoneNumber(custPhone)
+                    .address(address != null ? address.trim() : null)
+                    .email(email != null ? email.trim() : null)
+                    .build();
+            customerRepository.save(newCust);
+        }
+    }
+
     @Override
     @Transactional(rollbackFor = Exception.class)
     public InvoiceResponse updateInvoice(String currentUsername, String invoiceId, UpdateInvoiceRequest request) {
@@ -926,19 +980,74 @@ public class EInvoiceServiceImpl implements EInvoiceService {
 
         Map<String, Object> oldVal = buildInvoiceLogMap(invoice);
 
-        invoice.setBuyerName(request.getBuyerName());
-        invoice.setBuyerTaxCode(request.getBuyerTaxCode());
-        invoice.setBuyerAddress(request.getBuyerAddress());
-        invoice.setBuyerPhone(request.getBuyerPhone());
-        invoice.setBuyerEmail(request.getBuyerEmail());
+        String rawTaxCode = request.getBuyerTaxCode() != null ? request.getBuyerTaxCode().trim() : null;
+        String taxCode = (rawTaxCode != null && !rawTaxCode.isEmpty()) ? rawTaxCode : null;
+        String buyerName = request.getBuyerName() != null ? request.getBuyerName().trim() : null;
+        String buyerAddress = request.getBuyerAddress() != null ? request.getBuyerAddress().trim() : null;
+        String buyerPhone = request.getBuyerPhone() != null ? request.getBuyerPhone().trim() : null;
+        String buyerEmail = request.getBuyerEmail() != null ? request.getBuyerEmail().trim() : null;
+
+        if (taxCode != null && !taxCode.isEmpty()) {
+            validateBuyerTaxCode(taxCode);
+            Optional<Customer> existingCustOpt = customerRepository.findByHouseholdIdAndTaxCodeAndDeletedAtIsNull(
+                    currentUser.getHousehold().getId(), taxCode);
+            if (existingCustOpt.isPresent()) {
+                Customer cust = existingCustOpt.get();
+                if (buyerName == null || buyerName.isEmpty()) {
+                    buyerName = cust.getName();
+                }
+                if (buyerAddress == null || buyerAddress.isEmpty()) {
+                    buyerAddress = cust.getAddress();
+                }
+                if (buyerEmail == null || buyerEmail.isEmpty()) {
+                    buyerEmail = cust.getEmail();
+                }
+                if (buyerPhone == null || buyerPhone.isEmpty()) {
+                    buyerPhone = cust.getPhoneNumber();
+                }
+            }
+        }
+
+        if ((taxCode == null || taxCode.isEmpty()) && (buyerName == null || buyerName.isEmpty())) {
+            buyerName = "Khách lẻ";
+        }
+
+        invoice.setBuyerName(buyerName);
+        invoice.setBuyerTaxCode(taxCode);
+        invoice.setBuyerAddress(buyerAddress);
+        invoice.setBuyerPhone(buyerPhone);
+        invoice.setBuyerEmail(buyerEmail);
 
         EInvoice saved = eInvoiceRepository.save(invoice);
+
+        if (taxCode != null && !taxCode.isEmpty() && buyerName != null && !buyerName.isEmpty() && !"Khách lẻ".equals(buyerName)) {
+            syncCustomerProfile(currentUser.getHousehold(), taxCode, buyerName, buyerAddress, buyerEmail, buyerPhone);
+        }
 
         logActivity(invoice.getHousehold(), currentUser, "UPDATE_INVOICE", saved.getId(), oldVal,
                 buildInvoiceLogMap(saved));
 
         log.info("Cập nhật thông tin hóa đơn thành công. ID={}, Status={}", invoiceId, saved.getStatus());
         return mapToInvoiceResponse(saved);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public CustomerTaxLookupResponse lookupBuyerInfoByTaxCode(String currentUsername, String taxCode) {
+        User currentUser = getAuthenticatedUser(currentUsername);
+        validateBuyerTaxCode(taxCode);
+        String trimmedTaxCode = taxCode != null ? taxCode.trim() : "";
+        Customer customer = customerRepository.findByHouseholdIdAndTaxCodeAndDeletedAtIsNull(
+                currentUser.getHousehold().getId(), trimmedTaxCode)
+                .orElseThrow(() -> new AppException(ErrorCode.CUSTOMER_NOT_FOUND));
+
+        return CustomerTaxLookupResponse.builder()
+                .buyerName(customer.getName())
+                .buyerTaxCode(customer.getTaxCode())
+                .buyerAddress(customer.getAddress())
+                .buyerPhone(customer.getPhoneNumber())
+                .buyerEmail(customer.getEmail())
+                .build();
     }
 
     private String generateMockQrCodeBase64(String text) {
