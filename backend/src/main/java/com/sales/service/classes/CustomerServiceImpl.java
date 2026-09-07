@@ -68,6 +68,7 @@ public class CustomerServiceImpl implements CustomerService {
         map.put("id", customer.getId());
         map.put("name", customer.getName());
         map.put("phoneNumber", customer.getPhoneNumber());
+        map.put("taxCode", customer.getTaxCode());
         map.put("email", customer.getEmail());
         map.put("address", customer.getAddress());
         map.put("creditLimit", customer.getCreditLimit());
@@ -87,6 +88,7 @@ public class CustomerServiceImpl implements CustomerService {
                 .householdId(customer.getHousehold().getId())
                 .name(customer.getName())
                 .phoneNumber(customer.getPhoneNumber())
+                .taxCode(customer.getTaxCode())
                 .email(customer.getEmail())
                 .address(customer.getAddress())
                 .creditLimit(customer.getCreditLimit())
@@ -136,6 +138,7 @@ public class CustomerServiceImpl implements CustomerService {
                 .household(household)
                 .name(request.getName())
                 .phoneNumber(request.getPhoneNumber())
+                .taxCode(request.getTaxCode())
                 .email(request.getEmail())
                 .address(request.getAddress())
                 .creditLimit(creditLimit)
@@ -178,6 +181,9 @@ public class CustomerServiceImpl implements CustomerService {
 
         customer.setName(request.getName());
         customer.setPhoneNumber(request.getPhoneNumber());
+        if (request.getTaxCode() != null) {
+            customer.setTaxCode(request.getTaxCode());
+        }
         customer.setEmail(request.getEmail());
         customer.setAddress(request.getAddress());
         if (request.getCreditLimit() != null) {

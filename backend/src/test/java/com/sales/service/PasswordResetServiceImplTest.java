@@ -108,9 +108,9 @@ class PasswordResetServiceImplTest {
 
         when(userRepository.findByPhoneNumberAndDeletedAtIsNull("0912345678"))
                 .thenReturn(Optional.of(activeUser));
-        when(otpRepository.findTopByPhoneNumberOrderByCreatedAtDesc("0912345678"))
+        when(otpRepository.findTopByPhoneNumberAndTypeOrderByCreatedAtDesc("0912345678", "PASSWORD_RESET"))
                 .thenReturn(Optional.empty());
-        doNothing().when(otpRepository).invalidateAllPendingOtps("0912345678");
+        doNothing().when(otpRepository).invalidateAllPendingOtps("0912345678", "PASSWORD_RESET");
         when(otpRepository.save(any(PasswordResetOtp.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         ForgotPasswordResponse response = passwordResetService.sendResetOtp(request);
@@ -122,6 +122,7 @@ class PasswordResetServiceImplTest {
         org.mockito.ArgumentCaptor<PasswordResetOtp> captor = org.mockito.ArgumentCaptor.forClass(PasswordResetOtp.class);
         verify(otpRepository, times(1)).save(captor.capture());
         assertEquals("0912345678", captor.getValue().getPhoneNumber());
+        assertEquals("PASSWORD_RESET", captor.getValue().getType());
         assertNotNull(captor.getValue().getOtpCode());
         assertEquals(6, captor.getValue().getOtpCode().length());
     }
@@ -134,12 +135,13 @@ class PasswordResetServiceImplTest {
                 .build();
 
         PasswordResetOtp recentOtp = PasswordResetOtp.builder()
+                .type("PASSWORD_RESET")
                 .createdAt(LocalDateTime.now().minusSeconds(30))
                 .build();
 
         when(userRepository.findByPhoneNumberAndDeletedAtIsNull("0912345678"))
                 .thenReturn(Optional.of(activeUser));
-        when(otpRepository.findTopByPhoneNumberOrderByCreatedAtDesc("0912345678"))
+        when(otpRepository.findTopByPhoneNumberAndTypeOrderByCreatedAtDesc("0912345678", "PASSWORD_RESET"))
                 .thenReturn(Optional.of(recentOtp));
 
         AppException exception = assertThrows(AppException.class, () -> passwordResetService.sendResetOtp(request));
@@ -188,13 +190,14 @@ class PasswordResetServiceImplTest {
         PasswordResetOtp otp = PasswordResetOtp.builder()
                 .id("otp-1")
                 .phoneNumber("0912345678")
+                .type("PASSWORD_RESET")
                 .otpCode("123456")
                 .expiryTime(LocalDateTime.now().plusMinutes(3))
                 .isUsed(false)
                 .attemptCount(0)
                 .build();
 
-        when(otpRepository.findTopByPhoneNumberAndIsUsedFalseOrderByCreatedAtDesc("0912345678"))
+        when(otpRepository.findTopByPhoneNumberAndTypeAndIsUsedFalseOrderByCreatedAtDesc("0912345678", "PASSWORD_RESET"))
                 .thenReturn(Optional.of(otp));
 
         VerifyOtpResponse response = passwordResetService.verifyOtp(request);
@@ -214,13 +217,14 @@ class PasswordResetServiceImplTest {
         PasswordResetOtp expiredOtp = PasswordResetOtp.builder()
                 .id("otp-1")
                 .phoneNumber("0912345678")
+                .type("PASSWORD_RESET")
                 .otpCode("123456")
                 .expiryTime(LocalDateTime.now().minusMinutes(1))
                 .isUsed(false)
                 .attemptCount(0)
                 .build();
 
-        when(otpRepository.findTopByPhoneNumberAndIsUsedFalseOrderByCreatedAtDesc("0912345678"))
+        when(otpRepository.findTopByPhoneNumberAndTypeAndIsUsedFalseOrderByCreatedAtDesc("0912345678", "PASSWORD_RESET"))
                 .thenReturn(Optional.of(expiredOtp));
 
         AppException exception = assertThrows(AppException.class, () -> passwordResetService.verifyOtp(request));
@@ -241,13 +245,14 @@ class PasswordResetServiceImplTest {
         PasswordResetOtp validOtp = PasswordResetOtp.builder()
                 .id("otp-1")
                 .phoneNumber("0912345678")
+                .type("PASSWORD_RESET")
                 .otpCode("123456")
                 .expiryTime(LocalDateTime.now().plusMinutes(4))
                 .isUsed(false)
                 .attemptCount(0)
                 .build();
 
-        when(otpRepository.findTopByPhoneNumberAndIsUsedFalseOrderByCreatedAtDesc("0912345678"))
+        when(otpRepository.findTopByPhoneNumberAndTypeAndIsUsedFalseOrderByCreatedAtDesc("0912345678", "PASSWORD_RESET"))
                 .thenReturn(Optional.of(validOtp));
 
         AppException exception = assertThrows(AppException.class, () -> passwordResetService.verifyOtp(request));
@@ -271,6 +276,7 @@ class PasswordResetServiceImplTest {
                 .id("otp-1")
                 .user(activeUser)
                 .phoneNumber("0912345678")
+                .type("PASSWORD_RESET")
                 .otpCode("123456")
                 .expiryTime(LocalDateTime.now().plusMinutes(3))
                 .isUsed(false)
@@ -279,7 +285,7 @@ class PasswordResetServiceImplTest {
 
         when(userRepository.findByPhoneNumberAndDeletedAtIsNull("0912345678"))
                 .thenReturn(Optional.of(activeUser));
-        when(otpRepository.findTopByPhoneNumberAndIsUsedFalseOrderByCreatedAtDesc("0912345678"))
+        when(otpRepository.findTopByPhoneNumberAndTypeAndIsUsedFalseOrderByCreatedAtDesc("0912345678", "PASSWORD_RESET"))
                 .thenReturn(Optional.of(otp));
         when(passwordEncoder.encode("newSecretPassword123")).thenReturn("encoded_newSecretPassword123");
         when(cacheManager.getCache("users")).thenReturn(userCache);

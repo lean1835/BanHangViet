@@ -20,6 +20,9 @@ public class UpdateCustomerRequest {
     @Pattern(regexp = "^[0-9]{9,15}$", message = "Số điện thoại không hợp lệ")
     private String phoneNumber;
 
+    @Size(max = 20, message = "Mã số thuế không vượt quá 20 ký tự")
+    private String taxCode;
+
     @Size(max = 100, message = "Email không vượt quá 100 ký tự")
     @Email(message = "Email không đúng định dạng")
     private String email;
