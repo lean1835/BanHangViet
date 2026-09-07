@@ -36,6 +36,8 @@ public class PasswordResetServiceImpl implements PasswordResetService {
 
     private static final long OTP_EXPIRATION_MINUTES = 5;
     private static final int MAX_OTP_ATTEMPTS = 5;
+    private static final long OTP_COOLDOWN_SECONDS = 60;
+    private static final String OTP_TYPE_PASSWORD_RESET = "PASSWORD_RESET";
 
     private final UserRepository userRepository;
     private final PasswordResetOtpRepository otpRepository;
@@ -45,8 +47,6 @@ public class PasswordResetServiceImpl implements PasswordResetService {
     private final CacheManager cacheManager;
 
     private final SecureRandom secureRandom = new SecureRandom();
-
-    private static final long OTP_COOLDOWN_SECONDS = 60;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -63,7 +63,7 @@ public class PasswordResetServiceImpl implements PasswordResetService {
         }
 
         // 3. Kiểm tra tần suất gửi OTP (Cooldown 60 giây chống spam)
-        otpRepository.findTopByPhoneNumberOrderByCreatedAtDesc(phoneNumber)
+        otpRepository.findTopByPhoneNumberAndTypeOrderByCreatedAtDesc(phoneNumber, OTP_TYPE_PASSWORD_RESET)
                 .ifPresent(lastOtp -> {
                     if (lastOtp.getCreatedAt() != null &&
                             lastOtp.getCreatedAt().plusSeconds(OTP_COOLDOWN_SECONDS).isAfter(LocalDateTime.now())) {
@@ -72,7 +72,7 @@ public class PasswordResetServiceImpl implements PasswordResetService {
                 });
 
         // 4. Vô hiệu hóa toàn bộ các mã OTP chưa sử dụng trước đó của số điện thoại này
-        otpRepository.invalidateAllPendingOtps(phoneNumber);
+        otpRepository.invalidateAllPendingOtps(phoneNumber, OTP_TYPE_PASSWORD_RESET);
 
         // 5. Sinh mã OTP 6 chữ số ngẫu nhiên
         int codeInt = 100000 + secureRandom.nextInt(900000);
@@ -85,6 +85,7 @@ public class PasswordResetServiceImpl implements PasswordResetService {
         PasswordResetOtp otp = PasswordResetOtp.builder()
                 .user(user)
                 .phoneNumber(phoneNumber)
+                .type(OTP_TYPE_PASSWORD_RESET)
                 .otpCode(otpCode)
                 .expiryTime(expiryTime)
                 .isUsed(false)
@@ -110,7 +111,7 @@ public class PasswordResetServiceImpl implements PasswordResetService {
         String otpCode = request.getOtpCode().trim();
 
         // 1. Tìm OTP mới nhất chưa sử dụng của số điện thoại
-        PasswordResetOtp otp = otpRepository.findTopByPhoneNumberAndIsUsedFalseOrderByCreatedAtDesc(phoneNumber)
+        PasswordResetOtp otp = otpRepository.findTopByPhoneNumberAndTypeAndIsUsedFalseOrderByCreatedAtDesc(phoneNumber, OTP_TYPE_PASSWORD_RESET)
                 .orElseThrow(() -> new AppException(ErrorCode.OTP_EXPIRED));
 
         // 2. Kiểm tra thời hạn hiệu lực (NCL-01-CN-005-TC-02)
@@ -166,7 +167,7 @@ public class PasswordResetServiceImpl implements PasswordResetService {
         }
 
         // 4. Tìm và xác thực OTP mới nhất (NCL-01-CN-005-TC-02)
-        PasswordResetOtp otp = otpRepository.findTopByPhoneNumberAndIsUsedFalseOrderByCreatedAtDesc(phoneNumber)
+        PasswordResetOtp otp = otpRepository.findTopByPhoneNumberAndTypeAndIsUsedFalseOrderByCreatedAtDesc(phoneNumber, OTP_TYPE_PASSWORD_RESET)
                 .orElseThrow(() -> new AppException(ErrorCode.OTP_EXPIRED));
 
         if (LocalDateTime.now().isAfter(otp.getExpiryTime())) {

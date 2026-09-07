@@ -200,7 +200,12 @@ public enum ErrorCode {
     OTP_MAX_ATTEMPTS_EXCEEDED(2038, "Bạn đã nhập sai mã xác thực quá 5 lần. Vui lòng yêu cầu mã mới", HttpStatus.BAD_REQUEST),
     PASSWORD_CONFIRMATION_MISMATCH(2039, "Mật khẩu xác nhận không khớp với mật khẩu mới", HttpStatus.BAD_REQUEST),
     PHONE_NUMBER_NOT_FOUND(2040, "Số điện thoại chưa được đăng ký trong hệ thống", HttpStatus.NOT_FOUND),
-    OTP_COOLDOWN_ACTIVE(2041, "Vui lòng đợi 60 giây trước khi yêu cầu mã xác thực mới", HttpStatus.BAD_REQUEST);
+    OTP_COOLDOWN_ACTIVE(2041, "Vui lòng đợi 60 giây trước khi yêu cầu mã xác thực mới", HttpStatus.BAD_REQUEST),
+
+    // NCL-01-CN-006 Đổi mật khẩu và cập nhật hồ sơ cá nhân
+    NEW_PASSWORD_SAME_AS_CURRENT(2042, "Mật khẩu mới không được trùng với mật khẩu hiện tại", HttpStatus.BAD_REQUEST),
+    PHONE_NUMBER_ALREADY_EXISTS(2043, "Số điện thoại này đã được sử dụng bởi tài khoản khác", HttpStatus.BAD_REQUEST),
+    PHONE_NUMBER_UNCHANGED(2044, "Số điện thoại mới trùng với số điện thoại hiện tại", HttpStatus.BAD_REQUEST);
 
     private final int code;
     private final String message;
