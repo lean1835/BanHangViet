@@ -952,7 +952,9 @@ public class EInvoiceServiceImpl implements EInvoiceService {
                 customerRepository.save(cust);
             }
         } else {
-            String custPhone = (phone != null && !phone.trim().isEmpty()) ? phone.trim() : "MST-" + trimmedTaxCode;
+            String digitsOnly = trimmedTaxCode.replaceAll("[^0-9]", "");
+            String fallbackPhone = "09" + (digitsOnly + "00000000").substring(0, 8);
+            String custPhone = (phone != null && phone.trim().matches("^[0-9]{9,15}$")) ? phone.trim() : fallbackPhone;
             Customer newCust = Customer.builder()
                     .household(household)
                     .taxCode(trimmedTaxCode)

@@ -365,4 +365,47 @@ class CustomerServiceImplTest {
 
         assertEquals(ErrorCode.FORBIDDEN, exception.getErrorCode());
     }
+
+    @Test
+    @DisplayName("NCL-04-CN-006: Cập nhật thông tin khách hàng có Mã số thuế thành công")
+    void updateCustomer_WithTaxCode_Success() {
+        UpdateCustomerRequest request = UpdateCustomerRequest.builder()
+                .name("Công ty TNHH Giải Pháp Alpha")
+                .phoneNumber("0912345678")
+                .taxCode("0101234567")
+                .address("Hà Nội")
+                .build();
+
+        when(userRepository.findByUsername("chuho")).thenReturn(Optional.of(currentUser));
+        when(customerRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("cust-001", "house-001"))
+                .thenReturn(Optional.of(customerWithDebt));
+        when(customerRepository.save(any(Customer.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        CustomerResponse response = customerService.updateCustomer("chuho", "cust-001", request);
+
+        assertNotNull(response);
+        assertEquals("0101234567", response.getTaxCode());
+        assertEquals("Công ty TNHH Giải Pháp Alpha", response.getName());
+    }
+
+    @Test
+    @DisplayName("NCL-04-CN-006: Cập nhật khách hàng xóa Mã số thuế (để trống) sẽ lưu null")
+    void updateCustomer_ClearTaxCode_Success() {
+        customerWithDebt.setTaxCode("0101234567");
+        UpdateCustomerRequest request = UpdateCustomerRequest.builder()
+                .name("Nguyễn Văn A")
+                .phoneNumber("0912345678")
+                .taxCode("")
+                .build();
+
+        when(userRepository.findByUsername("chuho")).thenReturn(Optional.of(currentUser));
+        when(customerRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("cust-001", "house-001"))
+                .thenReturn(Optional.of(customerWithDebt));
+        when(customerRepository.save(any(Customer.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        CustomerResponse response = customerService.updateCustomer("chuho", "cust-001", request);
+
+        assertNotNull(response);
+        assertNull(response.getTaxCode());
+    }
 }
