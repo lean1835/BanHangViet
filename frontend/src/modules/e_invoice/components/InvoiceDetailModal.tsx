@@ -130,7 +130,8 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
       }, 600);
       return () => clearTimeout(timer);
     }
-  }, [buyerTaxCode]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [buyerTaxCode, invoice.buyerTaxCode]);
 
   const validateBuyerData = (): boolean => {
     const trimmedTaxCode = buyerTaxCode.trim();
