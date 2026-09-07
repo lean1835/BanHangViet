@@ -26,4 +26,16 @@ public interface InventoryAuditDetailRepository extends JpaRepository<InventoryA
             @Param("start") LocalDateTime start,
             @Param("end") LocalDateTime end
     );
+
+    @Query("SELECT d FROM InventoryAuditDetail d " +
+           "JOIN FETCH d.audit a " +
+           "LEFT JOIN FETCH a.createdByUser " +
+           "WHERE d.product.id = :productId " +
+           "AND a.household.id = :householdId " +
+           "AND a.status = 'COMPLETED' " +
+           "ORDER BY a.auditDate ASC, d.createdAt ASC")
+    List<InventoryAuditDetail> findStockMovementsByProduct(
+            @Param("productId") String productId,
+            @Param("householdId") String householdId
+    );
 }

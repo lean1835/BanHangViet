@@ -124,6 +124,9 @@ public enum ErrorCode {
     FORBIDDEN_BARCODE_MANAGEMENT(3058, "Chỉ chủ hộ kinh doanh mới có quyền thao tác mã vạch", HttpStatus.FORBIDDEN),
     BARCODE_GENERATION_FAILED(3059, "Không thể sinh mã vạch nội bộ", HttpStatus.INTERNAL_SERVER_ERROR),
 
+    // NCL-02-CN-006 Xem thẻ kho biến động tồn
+    INVALID_DATE_RANGE(3060, "Khoảng thời gian không hợp lệ (Từ ngày phải trước hoặc bằng Đến ngày)", HttpStatus.BAD_REQUEST),
+
     // NCL-12 Sổ sách & Hỗ trợ kê khai thuế theo kỳ
     NO_VALID_INVOICES_IN_PERIOD(5001, "Kỳ kê khai chưa có hóa đơn hợp lệ được cấp mã", HttpStatus.BAD_REQUEST),
     TAX_PERIOD_NOT_FOUND(5002, "Kỳ kê khai thuế không tồn tại", HttpStatus.NOT_FOUND),

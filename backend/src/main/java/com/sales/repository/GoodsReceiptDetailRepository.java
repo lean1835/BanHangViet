@@ -37,4 +37,15 @@ public interface GoodsReceiptDetailRepository extends JpaRepository<GoodsReceipt
            ") " +
            "GROUP BY grd.product_id, s.id, s.name, s.phone_number", nativeQuery = true)
     List<LatestSupplierProjection> findLatestSuppliersByProductIds(@Param("productIds") Collection<String> productIds);
+
+    @Query("SELECT grd FROM GoodsReceiptDetail grd " +
+           "JOIN FETCH grd.receipt gr " +
+           "LEFT JOIN FETCH gr.createdByUser " +
+           "WHERE grd.product.id = :productId " +
+           "AND gr.household.id = :householdId " +
+           "ORDER BY gr.receivedAt ASC, grd.createdAt ASC")
+    List<GoodsReceiptDetail> findStockMovementsByProduct(
+            @Param("productId") String productId,
+            @Param("householdId") String householdId
+    );
 }

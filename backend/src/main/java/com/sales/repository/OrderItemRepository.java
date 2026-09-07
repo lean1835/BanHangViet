@@ -87,4 +87,19 @@ public interface OrderItemRepository extends JpaRepository<OrderItem, String> {
             @Param("startDate") LocalDateTime startDate,
             @Param("endDate") LocalDateTime endDate
     );
+
+    @Query("""
+        SELECT oi FROM OrderItem oi
+        JOIN FETCH oi.order o
+        LEFT JOIN FETCH o.createdByUser
+        WHERE oi.product.id = :productId
+          AND o.household.id = :householdId
+          AND o.status = 'COMPLETED'
+          AND o.deletedAt IS NULL
+        ORDER BY o.createdAt ASC, oi.createdAt ASC
+    """)
+    List<OrderItem> findStockMovementsByProduct(
+            @Param("productId") String productId,
+            @Param("householdId") String householdId
+    );
 }

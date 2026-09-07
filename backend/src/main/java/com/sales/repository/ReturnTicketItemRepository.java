@@ -46,5 +46,18 @@ public interface ReturnTicketItemRepository extends JpaRepository<ReturnTicketIt
             @Param("endDateTime") java.time.LocalDateTime endDateTime,
             org.springframework.data.domain.Pageable pageable
     );
+
+    @Query("SELECT rti FROM ReturnTicketItem rti " +
+           "JOIN FETCH rti.returnTicket rt " +
+           "LEFT JOIN FETCH rt.approvedByUser " +
+           "LEFT JOIN FETCH rt.createdByUser " +
+           "WHERE rti.product.id = :productId " +
+           "AND rt.household.id = :householdId " +
+           "AND rt.status = 'APPROVED' " +
+           "ORDER BY COALESCE(rt.approvedAt, rt.createdAt) ASC, rti.createdAt ASC")
+    List<ReturnTicketItem> findStockMovementsByProduct(
+            @Param("productId") String productId,
+            @Param("householdId") String householdId
+    );
 }
 
