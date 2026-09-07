@@ -339,6 +339,10 @@ public class EInvoiceServiceImpl implements EInvoiceService {
         }
 
         // 6. Tạo hóa đơn điều chỉnh mới
+        if (request.getBuyerTaxCode() != null) {
+            validateBuyerTaxCode(request.getBuyerTaxCode());
+        }
+
         String lookupCode;
         do {
             lookupCode = UUID.randomUUID().toString().replaceAll("-", "").substring(0, 10).toUpperCase();
@@ -932,19 +936,15 @@ public class EInvoiceServiceImpl implements EInvoiceService {
         if (custOpt.isPresent()) {
             Customer cust = custOpt.get();
             boolean updated = false;
-            if (name != null && !name.trim().isEmpty() && !name.equals(cust.getName())) {
-                cust.setName(name.trim());
-                updated = true;
-            }
-            if (address != null && !address.trim().isEmpty() && !address.equals(cust.getAddress())) {
+            if ((cust.getAddress() == null || cust.getAddress().trim().isEmpty()) && address != null && !address.trim().isEmpty()) {
                 cust.setAddress(address.trim());
                 updated = true;
             }
-            if (email != null && !email.trim().isEmpty() && !email.equals(cust.getEmail())) {
+            if ((cust.getEmail() == null || cust.getEmail().trim().isEmpty()) && email != null && !email.trim().isEmpty()) {
                 cust.setEmail(email.trim());
                 updated = true;
             }
-            if (phone != null && !phone.trim().isEmpty() && !phone.equals(cust.getPhoneNumber())) {
+            if ((cust.getPhoneNumber() == null || cust.getPhoneNumber().trim().isEmpty()) && phone != null && !phone.trim().isEmpty()) {
                 cust.setPhoneNumber(phone.trim());
                 updated = true;
             }
@@ -952,7 +952,7 @@ public class EInvoiceServiceImpl implements EInvoiceService {
                 customerRepository.save(cust);
             }
         } else {
-            String custPhone = (phone != null && !phone.trim().isEmpty()) ? phone.trim() : "0000000000";
+            String custPhone = (phone != null && !phone.trim().isEmpty()) ? phone.trim() : "MST-" + trimmedTaxCode;
             Customer newCust = Customer.builder()
                     .household(household)
                     .taxCode(trimmedTaxCode)
@@ -1006,22 +1006,26 @@ public class EInvoiceServiceImpl implements EInvoiceService {
                     buyerPhone = cust.getPhoneNumber();
                 }
             }
+            if (buyerName == null || buyerName.trim().isEmpty() || buyerAddress == null || buyerAddress.trim().isEmpty()) {
+                throw new AppException(ErrorCode.INVALID_INPUT);
+            }
         }
 
-        if ((taxCode == null || taxCode.isEmpty()) && (buyerName == null || buyerName.isEmpty())) {
-            buyerName = "Khách lẻ";
+        String finalBuyerName = buyerName != null ? buyerName : invoice.getBuyerName();
+        if ((taxCode == null || taxCode.isEmpty()) && (finalBuyerName == null || finalBuyerName.trim().isEmpty())) {
+            finalBuyerName = "Khách lẻ";
         }
 
-        invoice.setBuyerName(buyerName);
+        invoice.setBuyerName(finalBuyerName);
         invoice.setBuyerTaxCode(taxCode);
-        invoice.setBuyerAddress(buyerAddress);
-        invoice.setBuyerPhone(buyerPhone);
-        invoice.setBuyerEmail(buyerEmail);
+        if (buyerAddress != null) invoice.setBuyerAddress(buyerAddress);
+        if (buyerPhone != null) invoice.setBuyerPhone(buyerPhone);
+        if (buyerEmail != null) invoice.setBuyerEmail(buyerEmail);
 
         EInvoice saved = eInvoiceRepository.save(invoice);
 
-        if (taxCode != null && !taxCode.isEmpty() && buyerName != null && !buyerName.isEmpty() && !"Khách lẻ".equals(buyerName)) {
-            syncCustomerProfile(currentUser.getHousehold(), taxCode, buyerName, buyerAddress, buyerEmail, buyerPhone);
+        if (taxCode != null && !taxCode.isEmpty() && finalBuyerName != null && !finalBuyerName.isEmpty() && !"Khách lẻ".equals(finalBuyerName)) {
+            syncCustomerProfile(currentUser.getHousehold(), taxCode, finalBuyerName, invoice.getBuyerAddress(), invoice.getBuyerEmail(), invoice.getBuyerPhone());
         }
 
         logActivity(invoice.getHousehold(), currentUser, "UPDATE_INVOICE", saved.getId(), oldVal,

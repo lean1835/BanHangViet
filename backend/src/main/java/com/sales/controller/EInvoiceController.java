@@ -142,7 +142,7 @@ public class EInvoiceController {
     }
 
     @GetMapping("/buyer-info/lookup")
-    @PreAuthorize("hasAnyRole('VT-01', 'VT-02')")
+    @PreAuthorize("hasAnyRole('VT-01', 'VT-02', 'VT-03')")
     public ResponseEntity<ApiResponse<CustomerTaxLookupResponse>> lookupBuyerInfo(
             Principal principal,
             @RequestParam String taxCode) {

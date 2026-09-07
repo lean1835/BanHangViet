@@ -24,12 +24,11 @@ public interface CustomerRepository extends JpaRepository<Customer, String> {
 
     Optional<Customer> findByPhoneNumberAndHouseholdIdAndDeletedAtIsNull(String phoneNumber, String householdId);
     Optional<Customer> findByHouseholdIdAndTaxCodeAndDeletedAtIsNull(String householdId, String taxCode);
-    Optional<Customer> findByTaxCodeAndHouseholdIdAndDeletedAtIsNull(String taxCode, String householdId);
     List<Customer> findAllByHouseholdIdAndDeletedAtIsNull(String householdId);
     List<Customer> findAllByHouseholdId(String householdId);
     Optional<Customer> findByIdAndHouseholdId(String id, String householdId);
 
     @Query("SELECT c FROM Customer c WHERE c.household.id = :householdId AND c.deletedAt IS NULL " +
-           "AND (LOWER(c.name) LIKE LOWER(CONCAT('%', :query, '%')) OR c.phoneNumber LIKE CONCAT('%', :query, '%'))")
+           "AND (LOWER(c.name) LIKE LOWER(CONCAT('%', :query, '%')) OR c.phoneNumber LIKE CONCAT('%', :query, '%') OR c.taxCode LIKE CONCAT('%', :query, '%'))")
     List<Customer> searchCustomers(@Param("householdId") String householdId, @Param("query") String query);
 }
