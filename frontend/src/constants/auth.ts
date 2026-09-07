@@ -3,6 +3,9 @@ import { APP_ROUTES } from "./routes";
 export const AUTH_API_ENDPOINTS = {
   LOGIN: "/auth/login",
   REGISTER: "/auth/register",
+  FORGOT_PASSWORD: "/auth/forgot-password",
+  VERIFY_OTP: "/auth/verify-otp",
+  RESET_PASSWORD: "/auth/reset-password",
 } as const;
 
 export const AUTH_API_RESPONSE_FIELDS = {
@@ -27,6 +30,11 @@ export const AUTH_FORM_FIELDS = {
   FULL_NAME: "fullName",
   USERNAME: "username",
   PASSWORD: "password",
+  PHONE_NUMBER: "phoneNumber",
+  EMAIL: "email",
+  OTP_CODE: "otpCode",
+  NEW_PASSWORD: "newPassword",
+  CONFIRM_PASSWORD: "confirmPassword",
 } as const;
 
 export const AUTH_ENVIRONMENT = {
@@ -38,8 +46,12 @@ export const AUTH_VALIDATION = {
   OWNER_NAME_MIN_LENGTH: 2,
   USERNAME_MIN_LENGTH: 4,
   PASSWORD_MIN_LENGTH: 6,
+  OTP_LENGTH: 6,
+  OTP_PATTERN: /^\d{6}$/,
   TAX_CODE_PATTERN: /^\d{10}(-\d{3})?$/,
   VIETNAM_PHONE_PATTERN: /^(0[3|5|7|8|9])([0-9]{8})$/,
+  PHONE_NUMBER_PATTERN: /^(0|\+84)[0-9]{9,10}$/,
+  GMAIL_PATTERN: /^[a-zA-Z0-9._%+-]+@gmail\.com$/i,
 } as const;
 
 export const AUTH_VALIDATION_MESSAGES = {
@@ -65,6 +77,14 @@ export const AUTH_VALIDATION_MESSAGES = {
     "Mã số thuế gồm 10 hoặc 13 chữ số (dạng XXXXXXXXXX-XXX).",
   PHONE_INVALID: "Số điện thoại không đúng định dạng Việt Nam!",
   PHONE_FORM_INVALID: "Định dạng SĐT Việt Nam không hợp lệ!",
+  GMAIL_REQUIRED: "Vui lòng nhập địa chỉ Gmail!",
+  GMAIL_INVALID: "Địa chỉ Gmail không đúng định dạng (ví dụ: user@gmail.com)!",
+  OTP_REQUIRED: "Vui lòng nhập mã xác thực OTP!",
+  OTP_INVALID_LENGTH: "Mã xác thực OTP phải gồm đúng 6 chữ số!",
+  NEW_PASSWORD_REQUIRED: "Vui lòng nhập mật khẩu mới!",
+  NEW_PASSWORD_MIN_LENGTH: "Mật khẩu mới phải chứa ít nhất 6 ký tự!",
+  CONFIRM_PASSWORD_REQUIRED: "Vui lòng xác nhận mật khẩu mới!",
+  PASSWORD_MISMATCH: "Mật khẩu xác nhận không khớp với mật khẩu mới!",
 } as const;
 
 export const AUTH_MESSAGES = {
@@ -76,6 +96,16 @@ export const AUTH_MESSAGES = {
   INVALID_RESPONSE: "Phản hồi xác thực không hợp lệ",
   missingResponseField: (field: string) =>
     `Phản hồi đăng nhập thiếu trường ${field}`,
+  FORGOT_PASSWORD_SUCCESS:
+    "Mã xác thực đã được gửi tới Gmail của bạn.",
+  FORGOT_PASSWORD_FAILED:
+    "Không thể gửi mã xác thực. Vui lòng kiểm tra lại địa chỉ Gmail!",
+  VERIFY_OTP_FAILED:
+    "Mã xác thực không hợp lệ hoặc đã hết hạn!",
+  RESET_PASSWORD_SUCCESS:
+    "Đặt lại mật khẩu thành công! Mọi phiên đăng nhập cũ đã được kết thúc.",
+  RESET_PASSWORD_FAILED:
+    "Đặt lại mật khẩu thất bại. Vui lòng thử lại!",
 } as const;
 
 export const AUTH_TABS = [

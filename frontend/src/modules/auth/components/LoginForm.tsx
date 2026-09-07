@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Link, useOutletContext } from "react-router-dom";
-import { Form, Input, Alert, message } from "antd";
+import { Form, Input, Alert } from "antd";
 import type { AuthOutletContext } from "@/pages/AuthPage";
 import { useLoginMutation } from "../services/authApi";
 import { useAppDispatch } from "@/hooks/useRedux";
@@ -237,15 +237,12 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
             <span>Ghi nhớ tôi</span>
           </label>
 
-          <button
-            type="button"
-            onClick={() =>
-              message.info("Vui lòng liên hệ quản trị viên để hỗ trợ khôi phục mật khẩu.")
-            }
+          <Link
+            to={APP_ROUTES.FORGOT_PASSWORD}
             className="text-sm font-medium text-[#0F56E8] hover:text-blue-700 hover:underline transition-colors"
           >
             Quên mật khẩu?
-          </button>
+          </Link>
         </div>
 
         {/* Primary Submit Button */}

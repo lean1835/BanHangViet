@@ -31,14 +31,14 @@ public interface UserSessionRepository extends JpaRepository<UserSession, String
     @Query("SELECT s FROM UserSession s JOIN FETCH s.user u JOIN FETCH u.role WHERE s.user.id = :userId ORDER BY s.lastActiveAt DESC")
     List<UserSession> findAllSessionsByUserId(@Param("userId") String userId);
 
-    @Modifying(clearAutomatically = true)
+    @Modifying(flushAutomatically = true)
     @Query("UPDATE UserSession s SET s.isRevoked = true, s.revokedAt = :revokedAt, s.revokedByUser = :revokedBy, s.revokeReason = :reason WHERE s.user.id = :userId AND s.isRevoked = false")
     int revokeAllActiveSessionsForUser(@Param("userId") String userId,
                                       @Param("revokedAt") LocalDateTime revokedAt,
                                       @Param("revokedBy") User revokedBy,
                                       @Param("reason") String reason);
 
-    @Modifying(clearAutomatically = true)
+    @Modifying(flushAutomatically = true)
     @Query("UPDATE UserSession s SET s.isRevoked = true, s.revokedAt = :revokedAt, s.revokedByUser = :revokedBy, s.revokeReason = :reason WHERE s.user.id = :userId AND s.id <> :excludeSessionId AND s.isRevoked = false")
     int revokeOtherActiveSessionsForUser(@Param("userId") String userId,
                                         @Param("excludeSessionId") String excludeSessionId,
@@ -46,7 +46,7 @@ public interface UserSessionRepository extends JpaRepository<UserSession, String
                                         @Param("revokedBy") User revokedBy,
                                         @Param("reason") String reason);
 
-    @Modifying(clearAutomatically = true)
+    @Modifying(flushAutomatically = true)
     @Query("UPDATE UserSession s SET s.lastActiveAt = :lastActiveAt WHERE s.id = :sessionId")
     void updateLastActiveAt(@Param("sessionId") String sessionId, @Param("lastActiveAt") LocalDateTime lastActiveAt);
 }

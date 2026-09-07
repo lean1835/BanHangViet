@@ -11,6 +11,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class ForgotPasswordResponse {
     private String phoneNumber;
+    private String email;
     private Long expiresInSeconds;
     private String message;
 }

@@ -16,7 +16,7 @@ public class ActivityLogHelper {
 
     private final AuditLogService auditLogService;
 
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    @Transactional
     public void logActivityInNewTransaction(BusinessHousehold household, User actor, String action, String targetTable, String targetId, String oldValue, String newValue, String clientIp, String userAgent) {
         try {
             auditLogService.recordLog(household, actor, action, targetTable, targetId, oldValue, newValue, clientIp, userAgent);

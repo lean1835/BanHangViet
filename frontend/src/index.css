@@ -39,6 +39,19 @@
   textarea {
     min-width: 0;
   }
+
+}
+
+/* Ẩn triệt để icon con mắt và clear mặc định của Microsoft Edge / IE */
+input::-ms-reveal,
+input::-ms-clear,
+input[type="password"]::-ms-reveal,
+input[type="password"]::-ms-clear {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  pointer-events: none !important;
+  visibility: hidden !important;
 }
 
 /* Hide scrollbars across all modern browsers */

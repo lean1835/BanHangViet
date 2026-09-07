@@ -365,4 +365,73 @@ public class AuthControllerTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value(2007));
     }
+
+    @Test
+    public void forgotPassword_and_resetPassword_flow_email_success() throws Exception {
+        RegisterRequest registerReq = RegisterRequest.builder()
+                .householdName("Hộ Email Reset Test")
+                .taxCode("9876543211")
+                .householdAddress("TP.HCM")
+                .householdPhone("0934567890")
+                .username("user_email_test")
+                .password("oldPassword123")
+                .fullName("Chủ Hộ Email Test")
+                .phone("0934567890")
+                .build();
+
+        mockMvc.perform(post("/api/v1/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(registerReq)))
+                .andExpect(status().isOk());
+
+        User user = userRepository.findByUsername("user_email_test")
+                .orElseThrow(() -> new AssertionError("Registered user should exist"));
+        user.setEmail("test.reset@gmail.com");
+        userRepository.save(user);
+
+        // 2. Gửi yêu cầu quên mật khẩu qua Gmail
+        com.sales.dto.request.ForgotPasswordRequest forgotReq = com.sales.dto.request.ForgotPasswordRequest.builder()
+                .email("test.reset@gmail.com")
+                .build();
+
+        mockMvc.perform(post("/api/v1/auth/forgot-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(forgotReq)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(1000))
+                .andExpect(jsonPath("$.result.email").value("test.reset@gmail.com"))
+                .andExpect(jsonPath("$.result.otpCode").doesNotExist());
+
+        // Lấy OTP từ cơ sở dữ liệu (mô phỏng người dùng nhận qua Gmail)
+        String otpCode = otpRepository.findTopByEmailAndTypeAndIsUsedFalseOrderByCreatedAtDesc("test.reset@gmail.com", "PASSWORD_RESET")
+                .orElseThrow(() -> new AssertionError("OTP record for email should exist in database"))
+                .getOtpCode();
+
+        // 3. Xác thực OTP
+        com.sales.dto.request.VerifyOtpRequest verifyReq = com.sales.dto.request.VerifyOtpRequest.builder()
+                .email("test.reset@gmail.com")
+                .otpCode(otpCode)
+                .build();
+
+        mockMvc.perform(post("/api/v1/auth/verify-otp")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(verifyReq)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(1000))
+                .andExpect(jsonPath("$.result.valid").value(true));
+
+        // 4. Đặt lại mật khẩu mới
+        com.sales.dto.request.ResetPasswordRequest resetReq = com.sales.dto.request.ResetPasswordRequest.builder()
+                .email("test.reset@gmail.com")
+                .otpCode(otpCode)
+                .newPassword("newPassword789")
+                .confirmPassword("newPassword789")
+                .build();
+
+        mockMvc.perform(post("/api/v1/auth/reset-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(resetReq)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(1000));
+    }
 }
