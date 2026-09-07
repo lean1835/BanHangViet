@@ -138,6 +138,8 @@ public class AuthServiceImpl implements AuthService {
                 .userId(user.getId())
                 .username(user.getUsername())
                 .fullName(user.getFullName())
+                .phoneNumber(user.getPhoneNumber())
+                .email(user.getEmail())
                 .roleCode(user.getRole().getCode())
                 .householdId(user.getHousehold() != null ? user.getHousehold().getId() : null)
                 .pointOfSaleId(user.getPointOfSale() != null ? user.getPointOfSale().getId() : null)

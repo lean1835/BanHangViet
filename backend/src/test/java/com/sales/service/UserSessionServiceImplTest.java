@@ -266,8 +266,6 @@ public class UserSessionServiceImplTest {
     @Test
     @DisplayName("Tự động hết hạn phiên khi thời gian không thao tác vượt quá cấu hình sessionTimeoutMinutes của hộ")
     void testValidateSession_AutoExpires_WhenExceedingIdleTimeout() {
-        // Household cấu hình timeout = 60 phút
-        // Phiên có thao tác gần nhất 65 phút trước
         UserSession idleSession = UserSession.builder()
                 .id("sess-idle-01")
                 .user(staff)
@@ -286,6 +284,29 @@ public class UserSessionServiceImplTest {
         assertTrue(idleSession.getIsRevoked());
         assertNotNull(idleSession.getRevokedAt());
         assertTrue(idleSession.getRevokeReason().contains("Tự động hết hạn do không thao tác quá 60 phút"));
+    }
+
+    @Test
+    @DisplayName("Hết hạn phiên khi token JWT vượt quá thời hạn expiresAt")
+    void testValidateSession_Expires_WhenExceedingJwtExpiresAt() {
+        UserSession expiredSession = UserSession.builder()
+                .id("sess-expired-01")
+                .user(staff)
+                .household(household)
+                .expiresAt(LocalDateTime.now().minusMinutes(5))
+                .lastActiveAt(LocalDateTime.now().minusMinutes(10))
+                .isRevoked(false)
+                .build();
+
+        when(userSessionRepository.findByIdWithHousehold("sess-expired-01")).thenReturn(Optional.of(expiredSession));
+        when(userSessionRepository.save(any(UserSession.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        boolean isValid = userSessionService.validateSession("sess-expired-01");
+
+        assertFalse(isValid, "Phiên quá hạn token JWT phải bị từ chối");
+        assertTrue(expiredSession.getIsRevoked());
+        assertNotNull(expiredSession.getRevokedAt());
+        assertEquals("Phiên hết hạn", expiredSession.getRevokeReason());
     }
 
     @Test

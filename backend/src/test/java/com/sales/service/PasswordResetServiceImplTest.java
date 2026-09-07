@@ -59,6 +59,9 @@ class PasswordResetServiceImplTest {
     @Mock
     private Cache userCache;
 
+    @Mock
+    private com.sales.service.interfaces.EmailService emailService;
+
     @InjectMocks
     private PasswordResetServiceImpl passwordResetService;
 
@@ -80,6 +83,7 @@ class PasswordResetServiceImplTest {
                 .id("u-1")
                 .username("chuho_test")
                 .phoneNumber("0912345678")
+                .email("test@gmail.com")
                 .passwordHash("old_hashed_password")
                 .fullName("Nguyễn Văn A")
                 .household(household)
@@ -91,6 +95,7 @@ class PasswordResetServiceImplTest {
                 .id("u-2")
                 .username("blocked_user")
                 .phoneNumber("0987654321")
+                .email("blocked@gmail.com")
                 .passwordHash("old_hashed_password")
                 .fullName("Trần Văn B")
                 .household(household)
@@ -335,5 +340,102 @@ class PasswordResetServiceImplTest {
 
         assertEquals(ErrorCode.USER_BLOCKED, exception.getErrorCode());
         verify(userRepository, never()).save(any(User.class));
+    }
+
+    @Test
+    @DisplayName("Gửi OTP đặt lại mật khẩu qua email thành công")
+    void testSendResetOtp_ByEmail_Success() {
+        ForgotPasswordRequest request = ForgotPasswordRequest.builder()
+                .email("test@gmail.com")
+                .build();
+
+        when(userRepository.findByEmailAndDeletedAtIsNull("test@gmail.com"))
+                .thenReturn(Optional.of(activeUser));
+        when(otpRepository.findTopByEmailAndTypeOrderByCreatedAtDesc("test@gmail.com", "PASSWORD_RESET"))
+                .thenReturn(Optional.empty());
+
+        ForgotPasswordResponse response = passwordResetService.sendResetOtp(request);
+
+        assertNotNull(response);
+        assertEquals("test@gmail.com", response.getEmail());
+        verify(otpRepository, times(1)).invalidateAllPendingOtpsForEmail("test@gmail.com", "PASSWORD_RESET");
+        verify(otpRepository, times(1)).save(any(PasswordResetOtp.class));
+        verify(emailService, times(1)).sendPasswordResetOtpEmail(eq("test@gmail.com"), anyString(), eq("Nguyễn Văn A"));
+    }
+
+    @Test
+    @DisplayName("Gửi OTP đặt lại mật khẩu qua email thất bại khi email không tồn tại")
+    void testSendResetOtp_ByEmail_NotFound() {
+        ForgotPasswordRequest request = ForgotPasswordRequest.builder()
+                .email("unknown@gmail.com")
+                .build();
+
+        when(userRepository.findByEmailAndDeletedAtIsNull("unknown@gmail.com"))
+                .thenReturn(Optional.empty());
+
+        AppException exception = assertThrows(AppException.class, () -> passwordResetService.sendResetOtp(request));
+        assertEquals(ErrorCode.EMAIL_NOT_FOUND, exception.getErrorCode());
+        verify(otpRepository, never()).save(any(PasswordResetOtp.class));
+    }
+
+    @Test
+    @DisplayName("Xác thực OTP qua email thành công")
+    void testVerifyOtp_ByEmail_Success() {
+        VerifyOtpRequest request = VerifyOtpRequest.builder()
+                .email("test@gmail.com")
+                .otpCode("123456")
+                .build();
+
+        PasswordResetOtp otp = PasswordResetOtp.builder()
+                .id("otp-email-1")
+                .email("test@gmail.com")
+                .otpCode("123456")
+                .expiryTime(LocalDateTime.now().plusMinutes(5))
+                .isUsed(false)
+                .attemptCount(0)
+                .build();
+
+        when(otpRepository.findTopByEmailAndTypeAndIsUsedFalseOrderByCreatedAtDesc("test@gmail.com", "PASSWORD_RESET"))
+                .thenReturn(Optional.of(otp));
+
+        VerifyOtpResponse response = passwordResetService.verifyOtp(request);
+
+        assertNotNull(response);
+        assertTrue(Boolean.TRUE.equals(response.getValid()));
+    }
+
+    @Test
+    @DisplayName("Đặt lại mật khẩu qua email thành công")
+    void testResetPassword_ByEmail_Success() {
+        ResetPasswordRequest request = ResetPasswordRequest.builder()
+                .email("test@gmail.com")
+                .otpCode("123456")
+                .newPassword("newPassword456")
+                .confirmPassword("newPassword456")
+                .build();
+
+        PasswordResetOtp otp = PasswordResetOtp.builder()
+                .id("otp-email-2")
+                .email("test@gmail.com")
+                .otpCode("123456")
+                .expiryTime(LocalDateTime.now().plusMinutes(5))
+                .isUsed(false)
+                .attemptCount(0)
+                .build();
+
+        when(userRepository.findByEmailAndDeletedAtIsNull("test@gmail.com"))
+                .thenReturn(Optional.of(activeUser));
+        when(otpRepository.findTopByEmailAndTypeAndIsUsedFalseOrderByCreatedAtDesc("test@gmail.com", "PASSWORD_RESET"))
+                .thenReturn(Optional.of(otp));
+        when(passwordEncoder.encode("newPassword456")).thenReturn("hashed_newPassword456");
+        when(cacheManager.getCache("users")).thenReturn(userCache);
+
+        passwordResetService.resetPassword(request);
+
+        assertEquals("hashed_newPassword456", activeUser.getPasswordHash());
+        assertTrue(otp.getIsUsed());
+        verify(userRepository, times(1)).save(activeUser);
+        verify(otpRepository, times(1)).save(otp);
+        verify(userCache, times(1)).evict(activeUser.getUsername());
     }
 }

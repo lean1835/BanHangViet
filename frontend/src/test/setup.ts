@@ -19,3 +19,20 @@ if (typeof global !== "undefined") {
   (global as unknown as Window & typeof globalThis).requestAnimationFrame = safeRaf;
   (global as unknown as Window & typeof globalThis).cancelAnimationFrame = safeCaf;
 }
+
+if (typeof window !== "undefined" && !window.matchMedia) {
+  Object.defineProperty(window, "matchMedia", {
+    writable: true,
+    value: (query: string) => ({
+      matches: false,
+      media: query,
+      onchange: null,
+      addListener: () => {},
+      removeListener: () => {},
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      dispatchEvent: () => false,
+    }),
+  });
+}
+

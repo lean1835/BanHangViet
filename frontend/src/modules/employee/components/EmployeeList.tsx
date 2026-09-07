@@ -252,7 +252,14 @@ export const EmployeeList: React.FC<EmployeeListProps> = ({
                     <td className="p-3 font-mono font-bold text-slate-800">{emp.username}</td>
                     <td className="p-3 font-bold text-slate-800">{emp.fullName}</td>
                     <td className="p-3 font-mono font-semibold">
-                      {emp.phoneNumber || EMPLOYEE_UI.LIST.EMPTY_PHONE_LABEL}
+                      <div>{emp.phoneNumber || EMPLOYEE_UI.LIST.EMPTY_PHONE_LABEL}</div>
+                      {emp.email ? (
+                        <div className="text-[11px] font-sans font-normal text-slate-500 truncate max-w-[200px]" title={emp.email}>
+                          {emp.email}
+                        </div>
+                      ) : (
+                        <div className="text-[10px] font-sans text-slate-400 italic">Chưa có email</div>
+                      )}
                     </td>
                     <td className="p-3">
                       <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${

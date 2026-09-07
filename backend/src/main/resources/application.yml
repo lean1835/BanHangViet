@@ -42,6 +42,9 @@ spring:
           auth: true
           starttls:
             enable: true
+            required: true
+          ssl:
+            trust: ${MAIL_SSL_TRUST:smtp.gmail.com}
           connectiontimeout: ${MAIL_CONNECTION_TIMEOUT:5000}
           timeout: ${MAIL_TIMEOUT:5000}
           writetimeout: ${MAIL_WRITE_TIMEOUT:5000}

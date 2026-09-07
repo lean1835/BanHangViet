@@ -8,7 +8,8 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "password_reset_otps", indexes = {
-    @Index(name = "idx_pwd_reset_lookup", columnList = "phone_number, type, is_used, created_at")
+    @Index(name = "idx_pwd_reset_lookup", columnList = "phone_number, type, is_used, created_at"),
+    @Index(name = "idx_pwd_reset_email_lookup", columnList = "email, type, is_used, created_at")
 })
 @Data
 @Builder
@@ -25,8 +26,11 @@ public class PasswordResetOtp {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
-    @Column(name = "phone_number", nullable = false, length = 20)
+    @Column(name = "phone_number", length = 20)
     private String phoneNumber;
+
+    @Column(name = "email", length = 100)
+    private String email;
 
     @Column(name = "type", nullable = false, length = 20)
     @Builder.Default
