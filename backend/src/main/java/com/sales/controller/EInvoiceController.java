@@ -11,6 +11,7 @@ import com.sales.dto.response.InvoiceResponse;
 import com.sales.dto.response.InvoiceStatusLogResponse;
 import com.sales.dto.response.PageResponse;
 import com.sales.dto.response.InvoiceQrResponse;
+import com.sales.dto.response.CustomerTaxLookupResponse;
 import com.sales.dto.response.InvoicePrintResponse;
 
 import com.sales.service.interfaces.EInvoiceService;
@@ -135,6 +136,20 @@ public class EInvoiceController {
         ApiResponse<InvoiceResponse> response = ApiResponse.<InvoiceResponse>builder()
                 .code(1000)
                 .message("Cập nhật thông tin hóa đơn điện tử thành công")
+                .result(result)
+                .build();
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/buyer-info/lookup")
+    @PreAuthorize("hasAnyRole('VT-01', 'VT-02', 'VT-03')")
+    public ResponseEntity<ApiResponse<CustomerTaxLookupResponse>> lookupBuyerInfo(
+            Principal principal,
+            @RequestParam String taxCode) {
+        CustomerTaxLookupResponse result = eInvoiceService.lookupBuyerInfoByTaxCode(principal.getName(), taxCode);
+        ApiResponse<CustomerTaxLookupResponse> response = ApiResponse.<CustomerTaxLookupResponse>builder()
+                .code(1000)
+                .message("Tra cứu thông tin người mua theo mã số thuế thành công")
                 .result(result)
                 .build();
         return ResponseEntity.ok(response);

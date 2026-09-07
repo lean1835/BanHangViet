@@ -41,6 +41,8 @@ public interface EInvoiceService {
 
     InvoiceResponse updateInvoice(String currentUsername, String invoiceId, UpdateInvoiceRequest request);
 
+    CustomerTaxLookupResponse lookupBuyerInfoByTaxCode(String currentUsername, String taxCode);
+
     // Cổng tiếp nhận dành cho Cơ quan Thuế mô phỏng (VT-05)
     PageResponse<InvoiceResponse> getWaitingInvoicesForTax(int page, int size);
     PageResponse<InvoiceResponse> getProcessedInvoicesForTax(int page, int size);
