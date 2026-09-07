@@ -37,4 +37,7 @@ public interface UserRepository extends JpaRepository<User, String> {
 
     @EntityGraph(attributePaths = {"role", "household", "pointOfSale"})
     Optional<User> findByPhoneNumberAndDeletedAtIsNull(String phoneNumber);
+
+    @EntityGraph(attributePaths = {"role", "household", "pointOfSale"})
+    Optional<User> findFirstByRole_CodeAndDeletedAtIsNull(String roleCode);
 }

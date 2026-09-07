@@ -100,5 +100,17 @@ public interface EInvoiceRepository extends JpaRepository<EInvoice, String>, Jpa
            "AND e.status IN ('WAITING_TAX_CODE', 'SEND_ERROR') " +
            "AND (e.nextRetryAt IS NULL OR e.nextRetryAt <= :now) " +
            "ORDER BY e.createdAt ASC")
-    List<EInvoice> findEligibleForAutoRetry(@Param("now") LocalDateTime now);
+    List<EInvoice> findEligibleForAutoRetry(@Param("now") LocalDateTime now, Pageable pageable);
+
+    @EntityGraph(attributePaths = {"household", "createdByUser", "order"})
+    @Query("SELECT e FROM EInvoice e " +
+           "WHERE e.deletedAt IS NULL " +
+           "AND e.household.id = :householdId " +
+           "AND e.status IN ('WAITING_TAX_CODE', 'SEND_ERROR') " +
+           "AND (e.nextRetryAt IS NULL OR e.nextRetryAt <= :now) " +
+           "ORDER BY e.createdAt ASC")
+    List<EInvoice> findEligibleForAutoRetryByHousehold(
+            @Param("householdId") String householdId,
+            @Param("now") LocalDateTime now,
+            Pageable pageable);
 }

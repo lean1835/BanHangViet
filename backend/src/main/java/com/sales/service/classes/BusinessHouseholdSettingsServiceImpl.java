@@ -15,6 +15,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.HashMap;
+import java.util.Map;
+
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -22,6 +26,8 @@ public class BusinessHouseholdSettingsServiceImpl implements BusinessHouseholdSe
 
     private final UserRepository userRepository;
     private final BusinessHouseholdSettingsRepository settingsRepository;
+    private final ActivityLogHelper activityLogHelper;
+    private final ObjectMapper objectMapper;
 
     private User getAuthenticatedUser(String username) {
         return userRepository.findByUsername(username)
@@ -59,7 +65,19 @@ public class BusinessHouseholdSettingsServiceImpl implements BusinessHouseholdSe
         if (household == null) {
             throw new AppException(ErrorCode.FORBIDDEN);
         }
-        BusinessHouseholdSettings settings = getOrCreateSettingsEntity(household);
+        BusinessHouseholdSettings settings = settingsRepository.findByHouseholdId(household.getId())
+                .orElse(null);
+        if (settings == null) {
+            return AutoRetrySettingsResponse.builder()
+                    .id(null)
+                    .householdId(household.getId())
+                    .autoRetryEnabled(true)
+                    .maxRetryAttempts(3)
+                    .retryIntervalMinutes(15)
+                    .maxRetryHoursDeadline(24)
+                    .updatedAt(null)
+                    .build();
+        }
         return mapToResponse(settings);
     }
 
@@ -78,12 +96,36 @@ public class BusinessHouseholdSettingsServiceImpl implements BusinessHouseholdSe
         }
 
         BusinessHouseholdSettings settings = getOrCreateSettingsEntity(household);
+
+        Map<String, Object> oldVal = new HashMap<>();
+        oldVal.put("autoRetryEnabled", settings.getAutoRetryEnabled());
+        oldVal.put("maxRetryAttempts", settings.getMaxRetryAttempts());
+        oldVal.put("retryIntervalMinutes", settings.getRetryIntervalMinutes());
+        oldVal.put("maxRetryHoursDeadline", settings.getMaxRetryHoursDeadline());
+
         settings.setAutoRetryEnabled(request.getAutoRetryEnabled());
         settings.setMaxRetryAttempts(request.getMaxRetryAttempts());
         settings.setRetryIntervalMinutes(request.getRetryIntervalMinutes());
         settings.setMaxRetryHoursDeadline(request.getMaxRetryHoursDeadline());
 
         BusinessHouseholdSettings saved = settingsRepository.save(settings);
+
+        Map<String, Object> newVal = new HashMap<>();
+        newVal.put("autoRetryEnabled", saved.getAutoRetryEnabled());
+        newVal.put("maxRetryAttempts", saved.getMaxRetryAttempts());
+        newVal.put("retryIntervalMinutes", saved.getRetryIntervalMinutes());
+        newVal.put("maxRetryHoursDeadline", saved.getMaxRetryHoursDeadline());
+
+        try {
+            String oldStr = objectMapper.writeValueAsString(oldVal);
+            String newStr = objectMapper.writeValueAsString(newVal);
+            activityLogHelper.logActivityInNewTransaction(
+                    household, user, "UPDATE_HOUSEHOLD_SETTINGS", "business_household_settings",
+                    saved.getId(), oldStr, newStr, null, null);
+        } catch (Exception e) {
+            log.error("Không thể ghi activity log khi cập nhật cấu hình hộ kinh doanh", e);
+        }
+
         log.info("Cập nhật cấu hình tự động gửi lại hóa đơn cho hộ ID={}: maxAttempts={}, interval={}m, deadline={}h",
                 household.getId(), saved.getMaxRetryAttempts(), saved.getRetryIntervalMinutes(), saved.getMaxRetryHoursDeadline());
 

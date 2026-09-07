@@ -2,10 +2,12 @@ package com.sales.service;
 
 import com.sales.dto.response.InvoiceAutoRetrySummaryResponse;
 import com.sales.dto.response.InvoiceResponse;
+import com.sales.dto.response.PageResponse;
 import com.sales.entity.BusinessHousehold;
 import com.sales.entity.BusinessHouseholdSettings;
 import com.sales.entity.EInvoice;
 import com.sales.entity.InvoiceStatusLog;
+import com.sales.entity.Role;
 import com.sales.entity.User;
 import com.sales.repository.BusinessHouseholdSettingsRepository;
 import com.sales.repository.EInvoiceRepository;
@@ -20,6 +22,10 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.transaction.TransactionStatus;
 import org.springframework.transaction.support.TransactionCallback;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -28,7 +34,6 @@ import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
-import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -61,6 +66,7 @@ class EInvoiceAutoRetryServiceImplTest {
     private BusinessHousehold household;
     private BusinessHouseholdSettings settings;
     private EInvoice waitingInvoice;
+    private User testUser;
 
     @BeforeEach
     void setUp() {
@@ -78,10 +84,18 @@ class EInvoiceAutoRetryServiceImplTest {
                 .maxRetryHoursDeadline(24)
                 .build();
 
+        Role role = Role.builder().id(1).code("VT-01").name("Chủ hộ").build();
+        testUser = User.builder()
+                .id("user-100")
+                .username("chuho_test")
+                .household(household)
+                .role(role)
+                .build();
+
         waitingInvoice = EInvoice.builder()
                 .id("inv-100")
                 .household(household)
-                .status("WAITING_TAX_CODE")
+                .status("SEND_ERROR")
                 .retryCount(0)
                 .createdAt(LocalDateTime.now().minusHours(1))
                 .build();
@@ -96,7 +110,7 @@ class EInvoiceAutoRetryServiceImplTest {
     @Test
     @DisplayName("NCL-04-CN-007-TC-01: Tự động thử lại thành công và cấp mã hóa đơn khi đến lịch")
     void testProcessScheduledAutoRetry_Success() {
-        when(eInvoiceRepository.findEligibleForAutoRetry(any())).thenReturn(List.of(waitingInvoice));
+        when(eInvoiceRepository.findEligibleForAutoRetry(any(), any(Pageable.class))).thenReturn(List.of(waitingInvoice));
         when(eInvoiceRepository.findById("inv-100")).thenReturn(Optional.of(waitingInvoice));
         when(settingsRepository.findByHouseholdId("hh-100")).thenReturn(Optional.of(settings));
 
@@ -119,10 +133,10 @@ class EInvoiceAutoRetryServiceImplTest {
     }
 
     @Test
-    @DisplayName("NCL-04-CN-007-TC-02: Lỗi sai MST người mua (NON_RETRYABLE) -> Chuyển ngay sang MANUAL_PROCESSING")
+    @DisplayName("NCL-04-CN-007-TC-02: Lỗi sai MST người mua (NON_RETRYABLE) -> Không tăng retryCount và chuyển sang MANUAL_PROCESSING")
     void testProcessScheduledAutoRetry_NonRetryableError() {
         waitingInvoice.setTaxAuthorityResponse("Lỗi từ cơ quan thuế: Sai mã số thuế người mua");
-        when(eInvoiceRepository.findEligibleForAutoRetry(any())).thenReturn(List.of(waitingInvoice));
+        when(eInvoiceRepository.findEligibleForAutoRetry(any(), any(Pageable.class))).thenReturn(List.of(waitingInvoice));
         when(eInvoiceRepository.findById("inv-100")).thenReturn(Optional.of(waitingInvoice));
         when(settingsRepository.findByHouseholdId("hh-100")).thenReturn(Optional.of(settings));
 
@@ -134,6 +148,8 @@ class EInvoiceAutoRetryServiceImplTest {
         assertEquals(1, summary.getMovedToManualCount());
         assertTrue(summary.getManualProcessingInvoiceIds().contains("inv-100"));
         assertEquals("MANUAL_PROCESSING", waitingInvoice.getStatus());
+        // TC-02: retryCount không được tăng khi gặp lỗi non-retryable
+        assertEquals(0, waitingInvoice.getRetryCount());
         verify(invoiceStatusLogRepository).save(any(InvoiceStatusLog.class));
     }
 
@@ -141,7 +157,7 @@ class EInvoiceAutoRetryServiceImplTest {
     @DisplayName("NCL-04-CN-007-TC-03: Đã chạm số lần thử tối đa (max_retry_attempts) -> Chuyển sang MANUAL_PROCESSING")
     void testProcessScheduledAutoRetry_ExceedMaxAttempts() {
         waitingInvoice.setRetryCount(3); // Max attempts is 3
-        when(eInvoiceRepository.findEligibleForAutoRetry(any())).thenReturn(List.of(waitingInvoice));
+        when(eInvoiceRepository.findEligibleForAutoRetry(any(), any(Pageable.class))).thenReturn(List.of(waitingInvoice));
         when(eInvoiceRepository.findById("inv-100")).thenReturn(Optional.of(waitingInvoice));
         when(settingsRepository.findByHouseholdId("hh-100")).thenReturn(Optional.of(settings));
 
@@ -160,7 +176,7 @@ class EInvoiceAutoRetryServiceImplTest {
     @DisplayName("NCL-04-CN-007-TC-03: Quá hạn max_retry_hours_deadline -> Chuyển sang MANUAL_PROCESSING")
     void testProcessScheduledAutoRetry_ExceedDeadlineHours() {
         waitingInvoice.setCreatedAt(LocalDateTime.now().minusHours(25)); // Deadline is 24 hours
-        when(eInvoiceRepository.findEligibleForAutoRetry(any())).thenReturn(List.of(waitingInvoice));
+        when(eInvoiceRepository.findEligibleForAutoRetry(any(), any(Pageable.class))).thenReturn(List.of(waitingInvoice));
         when(eInvoiceRepository.findById("inv-100")).thenReturn(Optional.of(waitingInvoice));
         when(settingsRepository.findByHouseholdId("hh-100")).thenReturn(Optional.of(settings));
 
@@ -173,5 +189,53 @@ class EInvoiceAutoRetryServiceImplTest {
         assertTrue(summary.getManualProcessingInvoiceIds().contains("inv-100"));
         assertEquals("MANUAL_PROCESSING", waitingInvoice.getStatus());
         verify(invoiceStatusLogRepository).save(any(InvoiceStatusLog.class));
+    }
+
+    @Test
+    @DisplayName("P1.1: processManualAutoRetryForUser cách ly dữ liệu đa hộ kinh doanh")
+    void testProcessManualAutoRetryForUser_HouseholdIsolation() {
+        when(userRepository.findByUsername("chuho_test")).thenReturn(Optional.of(testUser));
+        when(eInvoiceRepository.findEligibleForAutoRetryByHousehold(eq("hh-100"), any(), any(Pageable.class)))
+                .thenReturn(List.of(waitingInvoice));
+        when(eInvoiceRepository.findById("inv-100")).thenReturn(Optional.of(waitingInvoice));
+        when(settingsRepository.findByHouseholdId("hh-100")).thenReturn(Optional.of(settings));
+
+        when(eInvoiceService.approveInvoiceByTax(eq(null), eq("inv-100"), anyString()))
+                .thenAnswer(inv -> {
+                    waitingInvoice.setStatus("ISSUED");
+                    return InvoiceResponse.builder().id("inv-100").status("ISSUED").build();
+                });
+
+        InvoiceAutoRetrySummaryResponse summary = autoRetryService.processManualAutoRetryForUser("chuho_test");
+
+        assertNotNull(summary);
+        assertEquals(1, summary.getTotalProcessed());
+        assertEquals(1, summary.getSuccessCount());
+        verify(eInvoiceRepository).findEligibleForAutoRetryByHousehold(eq("hh-100"), any(), any(Pageable.class));
+        verify(eInvoiceRepository, never()).findEligibleForAutoRetry(any(), any());
+    }
+
+    @Test
+    @DisplayName("P1.2: getManualProcessingInvoices phân trang và map trực tiếp không bị N+1")
+    void testGetManualProcessingInvoices_DirectMapping() {
+        when(userRepository.findByUsername("chuho_test")).thenReturn(Optional.of(testUser));
+        EInvoice manualInvoice = EInvoice.builder()
+                .id("inv-manual-1")
+                .household(household)
+                .status("MANUAL_PROCESSING")
+                .items(Collections.emptyList())
+                .build();
+        Page<EInvoice> pageData = new PageImpl<>(List.of(manualInvoice));
+
+        when(eInvoiceRepository.findAll(any(Specification.class), any(Pageable.class))).thenReturn(pageData);
+
+        PageResponse<InvoiceResponse> response = autoRetryService.getManualProcessingInvoices("chuho_test", 0, 10);
+
+        assertNotNull(response);
+        assertEquals(1, response.getContent().size());
+        assertEquals("inv-manual-1", response.getContent().get(0).getId());
+        assertEquals("MANUAL_PROCESSING", response.getContent().get(0).getStatus());
+        // Đảm bảo không gọi eInvoiceService.getInvoice trong vòng lặp (tránh N+1)
+        verify(eInvoiceService, never()).getInvoice(anyString(), anyString());
     }
 }
