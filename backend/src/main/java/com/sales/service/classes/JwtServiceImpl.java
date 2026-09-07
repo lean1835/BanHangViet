@@ -32,25 +32,46 @@ public class JwtServiceImpl implements JwtService {
 
     @Override
     public String generateToken(User user) {
+        return generateToken(user, null);
+    }
+
+    @Override
+    public String generateToken(User user, String sessionId) {
         Map<String, Object> claims = new HashMap<>();
         claims.put("userId", user.getId());
         claims.put("role", user.getRole().getCode());
         claims.put("fullName", user.getFullName());
         claims.put("householdId", user.getHousehold() != null ? user.getHousehold().getId() : null);
         claims.put("pwdAt", user.getPasswordChangedAt() != null ? user.getPasswordChangedAt().toString() : "");
+        if (sessionId != null) {
+            claims.put("sid", sessionId);
+        }
 
-        return Jwts.builder()
+        var builder = Jwts.builder()
                 .claims(claims)
                 .subject(user.getUsername())
                 .issuedAt(new Date(System.currentTimeMillis()))
                 .expiration(new Date(System.currentTimeMillis() + expirationMs))
-                .signWith(getSignKey())
-                .compact();
+                .signWith(getSignKey());
+
+        if (sessionId != null) {
+            builder.id(sessionId);
+        }
+
+        return builder.compact();
     }
 
     @Override
     public String extractUsername(String token) {
         return extractClaim(token, Claims::getSubject);
+    }
+
+    @Override
+    public String extractSessionId(String token) {
+        return extractClaim(token, claims -> {
+            String sid = claims.get("sid", String.class);
+            return sid != null ? sid : claims.getId();
+        });
     }
 
     @Override
