@@ -16,4 +16,5 @@ public class LoginResponse {
     private String pointOfSaleId;
     private String pointOfSaleName;
     private String posCode;
+    private Boolean mustChangePassword;
 }

@@ -34,4 +34,7 @@ public interface UserRepository extends JpaRepository<User, String> {
     List<User> findByHouseholdIdAndPointOfSaleIdAndDeletedAtIsNull(String householdId, String pointOfSaleId);
 
     long countByPointOfSaleIdAndDeletedAtIsNull(String pointOfSaleId);
+
+    @EntityGraph(attributePaths = {"role", "household", "pointOfSale"})
+    Optional<User> findByPhoneNumberAndDeletedAtIsNull(String phoneNumber);
 }
