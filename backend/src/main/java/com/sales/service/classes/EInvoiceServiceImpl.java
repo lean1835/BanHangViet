@@ -883,9 +883,7 @@ public class EInvoiceServiceImpl implements EInvoiceService {
     public InvoiceResponse rejectInvoiceByTax(String currentUsername, String invoiceId, String errorMessage) {
         User currentUser = currentUsername != null ? getAuthenticatedUser(currentUsername) : null;
         if (currentUser == null) {
-            currentUser = userRepository.findAll().stream()
-                    .filter(u -> u.getRole() != null && "VT-05".equals(u.getRole().getCode()))
-                    .findFirst()
+            currentUser = userRepository.findFirstByRole_CodeAndDeletedAtIsNull("VT-05")
                     .orElseThrow(() -> new AppException(ErrorCode.UNAUTHORIZED));
         }
 
