@@ -246,7 +246,9 @@ public class EInvoiceAutoRetryServiceImpl implements EInvoiceAutoRetryService {
         }
 
         // Kiểm tra hạn chót thời gian hoặc số lần thử tối đa (TC-03)
-        boolean deadlineExceeded = invoice.getCreatedAt() != null && invoice.getCreatedAt().plusHours(deadlineHours).isBefore(now);
+        // Mốc thời gian bắt đầu chu kỳ thử lại căn cứ vào sentToTaxAt (lần gửi thuế gần nhất) hoặc createdAt
+        LocalDateTime cycleStart = invoice.getSentToTaxAt() != null ? invoice.getSentToTaxAt() : invoice.getCreatedAt();
+        boolean deadlineExceeded = cycleStart != null && cycleStart.plusHours(deadlineHours).isBefore(now);
         boolean maxAttemptsReached = invoice.getRetryCount() >= maxAttempts;
 
         if (deadlineExceeded || maxAttemptsReached) {

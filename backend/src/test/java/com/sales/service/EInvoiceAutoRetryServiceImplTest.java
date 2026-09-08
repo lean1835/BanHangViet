@@ -307,4 +307,36 @@ class EInvoiceAutoRetryServiceImplTest {
         assertEquals(0, summary.getTotalProcessed());
         verify(eInvoiceRepository).findEligibleForAutoRetry(any(), any(Pageable.class));
     }
+
+    @Test
+    @DisplayName("HIGH-02 (P1): Hóa đơn cũ > 24h được gửi lại thủ công (sentToTaxAt mới) không bị kẹt ở MANUAL_PROCESSING")
+    void testProcessScheduledAutoRetry_ManualRetryOldInvoiceNotStuck() {
+        // Hóa đơn khởi tạo từ 30 giờ trước nhưng vừa được bấm gửi lại thủ công (sentToTaxAt = 5 phút trước)
+        EInvoice resentOldInvoice = EInvoice.builder()
+                .id("inv-old-100")
+                .household(household)
+                .status("WAITING_TAX_CODE")
+                .retryCount(0)
+                .createdAt(LocalDateTime.now().minusHours(30))
+                .sentToTaxAt(LocalDateTime.now().minusMinutes(5))
+                .build();
+
+        when(eInvoiceRepository.findEligibleForAutoRetry(any(), any(Pageable.class))).thenReturn(List.of(resentOldInvoice));
+        when(eInvoiceRepository.findById("inv-old-100")).thenReturn(Optional.of(resentOldInvoice));
+        when(settingsRepository.findByHouseholdId("hh-100")).thenReturn(Optional.of(settings));
+
+        when(eInvoiceService.approveInvoiceByTax(eq(null), eq("inv-old-100"), anyString()))
+                .thenAnswer(inv -> {
+                    resentOldInvoice.setStatus("ISSUED");
+                    return InvoiceResponse.builder().id("inv-old-100").status("ISSUED").build();
+                });
+
+        InvoiceAutoRetrySummaryResponse summary = autoRetryService.processScheduledAutoRetry();
+
+        assertNotNull(summary);
+        assertEquals(1, summary.getTotalProcessed());
+        assertEquals(1, summary.getSuccessCount());
+        assertEquals(0, summary.getMovedToManualCount());
+        assertEquals("ISSUED", resentOldInvoice.getStatus());
+    }
 }

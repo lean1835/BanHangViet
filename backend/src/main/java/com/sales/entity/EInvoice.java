@@ -12,7 +12,7 @@ import java.util.List;
 
 @Entity
 @Table(name = "e_invoices", indexes = {
-    @Index(name = "idx_invoices_auto_retry", columnList = "status, next_retry_at, retry_count")
+    @Index(name = "idx_invoices_auto_retry", columnList = "household_id, status, next_retry_at")
 })
 @Getter
 @Setter
