@@ -13,6 +13,8 @@ import com.sales.exception.ErrorCode;
 import com.sales.repository.*;
 import com.sales.service.interfaces.EInvoiceService;
 import com.sales.service.interfaces.EmailService;
+import com.sales.service.interfaces.InvoiceNumberRangeService;
+import com.sales.service.interfaces.TaxConnectionService;
 import jakarta.persistence.criteria.JoinType;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.servlet.http.HttpServletRequest;
@@ -57,6 +59,8 @@ public class EInvoiceServiceImpl implements EInvoiceService {
     private final EmailService emailService;
     private final ObjectMapper objectMapper;
     private final TransactionTemplate transactionTemplate;
+    private final InvoiceNumberRangeService invoiceNumberRangeService;
+    private final TaxConnectionService taxConnectionService;
 
     @Value("${app.frontend-url:http://localhost:3000}")
     private String frontendUrl;
@@ -838,20 +842,43 @@ public class EInvoiceServiceImpl implements EInvoiceService {
 
         String oldStatus = invoice.getStatus();
 
-        // Sequential numbering
+        // Sequential numbering using InvoiceNumberRangeService (NCL-04-CN-009)
         String householdId = invoice.getHousehold().getId();
-        String pattern = invoice.getInvoicePattern();
-        String symbol = invoice.getInvoiceSymbol();
-        Optional<String> maxNumOpt = eInvoiceRepository.findMaxInvoiceNumber(householdId, pattern, symbol);
-        int nextNum = 1;
-        if (maxNumOpt.isPresent() && maxNumOpt.get() != null) {
+        String invoiceNum;
+        if (invoiceNumberRangeService != null) {
             try {
-                nextNum = Integer.parseInt(maxNumOpt.get()) + 1;
-            } catch (NumberFormatException e) {
-                // Ignore and keep 1
+                invoiceNum = invoiceNumberRangeService.allocateNextInvoiceNumber(householdId);
+            } catch (AppException e) {
+                if (ErrorCode.INVOICE_RANGE_EXHAUSTED.equals(e.getErrorCode())) {
+                    throw e; // NCL-04-CN-009-TC-03: Block issuance if range is exhausted
+                }
+                String pattern = invoice.getInvoicePattern();
+                String symbol = invoice.getInvoiceSymbol();
+                Optional<String> maxNumOpt = eInvoiceRepository.findMaxInvoiceNumber(householdId, pattern, symbol);
+                int nextNum = 1;
+                if (maxNumOpt.isPresent() && maxNumOpt.get() != null) {
+                    try {
+                        nextNum = Integer.parseInt(maxNumOpt.get()) + 1;
+                    } catch (NumberFormatException ex) {
+                        // Ignore
+                    }
+                }
+                invoiceNum = String.format("%08d", nextNum);
             }
+        } else {
+            String pattern = invoice.getInvoicePattern();
+            String symbol = invoice.getInvoiceSymbol();
+            Optional<String> maxNumOpt = eInvoiceRepository.findMaxInvoiceNumber(householdId, pattern, symbol);
+            int nextNum = 1;
+            if (maxNumOpt.isPresent() && maxNumOpt.get() != null) {
+                try {
+                    nextNum = Integer.parseInt(maxNumOpt.get()) + 1;
+                } catch (NumberFormatException e) {
+                    // Ignore
+                }
+            }
+            invoiceNum = String.format("%07d", nextNum);
         }
-        String invoiceNum = String.format("%07d", nextNum);
 
         invoice.setStatus("ISSUED");
         invoice.setInvoiceNumber(invoiceNum);
@@ -860,6 +887,14 @@ public class EInvoiceServiceImpl implements EInvoiceService {
         invoice.setTaxResponseAt(LocalDateTime.now());
 
         EInvoice saved = eInvoiceRepository.save(invoice);
+
+        if (taxConnectionService != null) {
+            try {
+                taxConnectionService.recordConnectionEvent(householdId, "ONLINE", 120, null);
+            } catch (Exception e) {
+                log.warn("Lỗi ghi log kết nối cơ quan thuế: {}", e.getMessage());
+            }
+        }
 
         String actorName = currentUser != null ? currentUser.getUsername() : "Hệ thống tự động";
         invoiceStatusLogRepository.save(InvoiceStatusLog.builder()
@@ -904,6 +939,14 @@ public class EInvoiceServiceImpl implements EInvoiceService {
         invoice.setTaxResponseAt(LocalDateTime.now());
 
         EInvoice saved = eInvoiceRepository.save(invoice);
+
+        if (taxConnectionService != null) {
+            try {
+                taxConnectionService.recordConnectionEvent(invoice.getHousehold().getId(), "SLOW", 500, errorMessage);
+            } catch (Exception e) {
+                log.warn("Lỗi ghi log kết nối cơ quan thuế: {}", e.getMessage());
+            }
+        }
 
         String actorName = currentUser != null ? currentUser.getUsername() : "Hệ thống tự động";
         invoiceStatusLogRepository.save(InvoiceStatusLog.builder()
@@ -1645,5 +1688,124 @@ public class EInvoiceServiceImpl implements EInvoiceService {
 
     private String escHtml(String val) {
         return org.apache.commons.text.StringEscapeUtils.escapeHtml4(val != null ? val : "");
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public DailyInvoiceControlResponse getDailyInvoiceControl(String currentUsername, LocalDate date) {
+        User currentUser = getAuthenticatedUser(currentUsername);
+        if (currentUser.getHousehold() == null) {
+            throw new AppException(ErrorCode.FORBIDDEN);
+        }
+
+        // QTN-10: Chỉ VT-01 (Chủ hộ) và VT-03 (Kế toán) được truy cập
+        String roleCode = currentUser.getRole() != null ? currentUser.getRole().getCode() : "";
+        if (!"VT-01".equals(roleCode) && !"VT-03".equals(roleCode)) {
+            throw new AppException(ErrorCode.FORBIDDEN);
+        }
+
+        String householdId = currentUser.getHousehold().getId();
+        LocalDate controlDate = date != null ? date : LocalDate.now();
+        LocalDateTime startOfDay = controlDate.atStartOfDay();
+        LocalDateTime endOfDay = controlDate.atTime(LocalTime.MAX);
+        LocalDateTime now = LocalDateTime.now();
+
+        // 1. Uninvoiced Orders (Đơn đã thanh toán nhưng chưa có hóa đơn hợp lệ)
+        List<Order> paidOrders = orderRepository.findByHouseholdIdAndStatusAndPaymentStatusAndDeletedAtIsNull(
+                householdId, "COMPLETED", "PAID");
+
+        List<UninvoicedOrderSummaryResponse> uninvoicedOrders = paidOrders.stream()
+                .filter(order -> {
+                    LocalDateTime orderTime = order.getCreatedAt();
+                    if (orderTime == null || orderTime.isBefore(startOfDay) || orderTime.isAfter(endOfDay)) {
+                        return false;
+                    }
+                    Optional<EInvoice> invOpt = eInvoiceRepository.findByOrderIdAndDeletedAtIsNull(order.getId());
+                    return invOpt.isEmpty() || "CANCELED".equals(invOpt.get().getStatus());
+                })
+                .map(order -> {
+                    long durationHours = java.time.Duration.between(order.getCreatedAt(), now).toHours();
+                    long durationDays = java.time.Duration.between(order.getCreatedAt(), now).toDays();
+                    return UninvoicedOrderSummaryResponse.builder()
+                            .orderId(order.getId())
+                            .orderNumber(order.getOrderNumber())
+                            .createdAt(order.getCreatedAt())
+                            .createdByUsername(order.getCreatedByUser() != null ? order.getCreatedByUser().getUsername() : null)
+                            .createdByFullName(order.getCreatedByUser() != null ? order.getCreatedByUser().getFullName() : null)
+                            .finalAmount(order.getFinalAmount())
+                            .pendingDurationHours(durationHours)
+                            .pendingDurationDays(durationDays)
+                            .build();
+                })
+                .sorted(Comparator.comparing(UninvoicedOrderSummaryResponse::getPendingDurationHours).reversed())
+                .collect(Collectors.toList());
+
+        // 2. Pending Invoices (Hóa đơn đang treo chờ cấp mã WAITING_TAX_CODE)
+        List<EInvoice> allInvoices = eInvoiceRepository.findByHouseholdIdAndDeletedAtIsNullOrderByCreatedAtDesc(householdId);
+
+        List<PendingTaxInvoiceSummaryResponse> pendingInvoices = allInvoices.stream()
+                .filter(inv -> "WAITING_TAX_CODE".equals(inv.getStatus()) &&
+                        inv.getCreatedAt() != null &&
+                        !inv.getCreatedAt().isBefore(startOfDay) &&
+                        !inv.getCreatedAt().isAfter(endOfDay))
+                .map(inv -> {
+                    long durationHours = java.time.Duration.between(inv.getCreatedAt(), now).toHours();
+                    long durationDays = java.time.Duration.between(inv.getCreatedAt(), now).toDays();
+                    return PendingTaxInvoiceSummaryResponse.builder()
+                            .invoiceId(inv.getId())
+                            .invoiceNumber(inv.getInvoiceNumber())
+                            .orderNumber(inv.getOrder() != null ? inv.getOrder().getOrderNumber() : null)
+                            .createdAt(inv.getCreatedAt())
+                            .createdByUsername(inv.getCreatedByUser() != null ? inv.getCreatedByUser().getUsername() : null)
+                            .createdByFullName(inv.getCreatedByUser() != null ? inv.getCreatedByUser().getFullName() : null)
+                            .finalAmount(inv.getFinalAmount())
+                            .status(inv.getStatus())
+                            .pendingDurationHours(durationHours)
+                            .pendingDurationDays(durationDays)
+                            .build();
+                })
+                .sorted(Comparator.comparing(PendingTaxInvoiceSummaryResponse::getPendingDurationHours).reversed())
+                .collect(Collectors.toList());
+
+        // 3. Failed Invoices (Hóa đơn gửi lỗi SEND_ERROR hoặc MANUAL_PROCESSING)
+        List<FailedInvoiceSummaryResponse> failedInvoices = allInvoices.stream()
+                .filter(inv -> ("SEND_ERROR".equals(inv.getStatus()) || "MANUAL_PROCESSING".equals(inv.getStatus())) &&
+                        inv.getCreatedAt() != null &&
+                        !inv.getCreatedAt().isBefore(startOfDay) &&
+                        !inv.getCreatedAt().isAfter(endOfDay))
+                .map(inv -> {
+                    long durationHours = java.time.Duration.between(inv.getCreatedAt(), now).toHours();
+                    long durationDays = java.time.Duration.between(inv.getCreatedAt(), now).toDays();
+                    return FailedInvoiceSummaryResponse.builder()
+                            .invoiceId(inv.getId())
+                            .invoiceNumber(inv.getInvoiceNumber())
+                            .orderNumber(inv.getOrder() != null ? inv.getOrder().getOrderNumber() : null)
+                            .createdAt(inv.getCreatedAt())
+                            .createdByUsername(inv.getCreatedByUser() != null ? inv.getCreatedByUser().getUsername() : null)
+                            .createdByFullName(inv.getCreatedByUser() != null ? inv.getCreatedByUser().getFullName() : null)
+                            .finalAmount(inv.getFinalAmount())
+                            .status(inv.getStatus())
+                            .taxAuthorityResponse(inv.getTaxAuthorityResponse())
+                            .errorCategory(inv.getErrorCategory())
+                            .retryCount(inv.getRetryCount())
+                            .pendingDurationHours(durationHours)
+                            .pendingDurationDays(durationDays)
+                            .build();
+                })
+                .sorted(Comparator.comparing(FailedInvoiceSummaryResponse::getPendingDurationHours).reversed())
+                .collect(Collectors.toList());
+
+        boolean isClean = uninvoicedOrders.isEmpty() && pendingInvoices.isEmpty() && failedInvoices.isEmpty();
+
+        return DailyInvoiceControlResponse.builder()
+                .controlDate(controlDate)
+                .isCleanDay(isClean)
+                .totalUninvoicedOrders(uninvoicedOrders.size())
+                .totalPendingInvoices(pendingInvoices.size())
+                .totalFailedInvoices(failedInvoices.size())
+                .uninvoicedOrders(uninvoicedOrders)
+                .pendingInvoices(pendingInvoices)
+                .failedInvoices(failedInvoices)
+                .build();
     }
 }

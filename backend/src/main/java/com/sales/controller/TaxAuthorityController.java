@@ -63,6 +63,34 @@ public class TaxAuthorityController {
         return ResponseEntity.ok(response);
     }
 
+    private final com.sales.service.interfaces.TaxConnectionService taxConnectionService;
+
+    @GetMapping("/connection-status")
+    @PreAuthorize("hasAnyRole('VT-01', 'VT-02', 'VT-03', 'VT-05')")
+    public ResponseEntity<ApiResponse<com.sales.dto.response.TaxConnectionStatusResponse>> getConnectionStatus(Principal principal) {
+        com.sales.dto.response.TaxConnectionStatusResponse result = taxConnectionService.getTaxConnectionStatus(principal != null ? principal.getName() : null);
+        ApiResponse<com.sales.dto.response.TaxConnectionStatusResponse> response = ApiResponse.<com.sales.dto.response.TaxConnectionStatusResponse>builder()
+                .code(1000)
+                .message("Lấy trạng thái kết nối cơ quan thuế thành công")
+                .result(result)
+                .build();
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/connection-history")
+    @PreAuthorize("hasAnyRole('VT-01', 'VT-03', 'VT-05')")
+    public ResponseEntity<ApiResponse<com.sales.dto.response.TaxConnectionHistoryResponse>> getConnectionHistory(
+            Principal principal,
+            @RequestParam(defaultValue = "7") int days) {
+        com.sales.dto.response.TaxConnectionHistoryResponse result = taxConnectionService.getTaxConnectionHistory(principal != null ? principal.getName() : null, days);
+        ApiResponse<com.sales.dto.response.TaxConnectionHistoryResponse> response = ApiResponse.<com.sales.dto.response.TaxConnectionHistoryResponse>builder()
+                .code(1000)
+                .message("Lấy lịch sử kết nối cơ quan thuế thành công")
+                .result(result)
+                .build();
+        return ResponseEntity.ok(response);
+    }
+
     @PostMapping("/{invoiceId}/reject")
     @PreAuthorize("hasRole('VT-05')")
     public ResponseEntity<ApiResponse<InvoiceResponse>> rejectInvoice(

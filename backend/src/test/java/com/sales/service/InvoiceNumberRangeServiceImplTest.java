@@ -1,0 +1,173 @@
+package com.sales.service;
+
+import com.sales.dto.request.CreateInvoiceNumberRangeRequest;
+import com.sales.dto.response.InvoiceNumberRangeResponse;
+import com.sales.entity.BusinessHousehold;
+import com.sales.entity.InvoiceNumberRange;
+import com.sales.entity.Role;
+import com.sales.entity.User;
+import com.sales.exception.AppException;
+import com.sales.exception.ErrorCode;
+import com.sales.repository.EInvoiceRepository;
+import com.sales.repository.InvoiceNumberRangeRepository;
+import com.sales.repository.UserRepository;
+import com.sales.service.classes.InvoiceNumberRangeServiceImpl;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+import java.util.Collections;
+import java.util.List;
+import java.util.Optional;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
+
+@ExtendWith(MockitoExtension.class)
+class InvoiceNumberRangeServiceImplTest {
+
+    @Mock
+    private InvoiceNumberRangeRepository rangeRepository;
+
+    @Mock
+    private UserRepository userRepository;
+
+    @Mock
+    private EInvoiceRepository eInvoiceRepository;
+
+    @InjectMocks
+    private InvoiceNumberRangeServiceImpl rangeService;
+
+    private User ownerUser;
+    private User staffUser;
+    private BusinessHousehold household;
+    private InvoiceNumberRange activeRange;
+
+    @BeforeEach
+    void setUp() {
+        household = BusinessHousehold.builder()
+                .id("house-001")
+                .name("Hộ Tạp Hóa Việt")
+                .taxCode("0123456789")
+                .build();
+
+        Role roleOwner = Role.builder().id(1).code("VT-01").name("Chủ hộ").build();
+        Role roleStaff = Role.builder().id(2).code("VT-02").name("Nhân viên").build();
+
+        ownerUser = User.builder()
+                .id("user-001")
+                .username("chuho")
+                .household(household)
+                .role(roleOwner)
+                .build();
+
+        staffUser = User.builder()
+                .id("user-002")
+                .username("nhanvien")
+                .household(household)
+                .role(roleStaff)
+                .build();
+
+        activeRange = InvoiceNumberRange.builder()
+                .id("range-001")
+                .household(household)
+                .invoicePattern("1")
+                .invoiceSymbol("C26TAA")
+                .startNumber(1)
+                .endNumber(100)
+                .currentNumber(10)
+                .warningThreshold(20)
+                .status("ACTIVE")
+                .build();
+    }
+
+    @Test
+    @DisplayName("NCL-04-CN-009-TC-01: Khai báo dải số hợp lệ bởi Chủ hộ (VT-01)")
+    void createRange_Success() {
+        when(userRepository.findByUsername("chuho")).thenReturn(Optional.of(ownerUser));
+        when(rangeRepository.findActiveRangesByHouseholdId("house-001")).thenReturn(Collections.emptyList());
+        when(rangeRepository.save(any(InvoiceNumberRange.class))).thenAnswer(inv -> {
+            InvoiceNumberRange r = inv.getArgument(0);
+            r.setId("range-new");
+            return r;
+        });
+
+        CreateInvoiceNumberRangeRequest req = CreateInvoiceNumberRangeRequest.builder()
+                .invoicePattern("1")
+                .invoiceSymbol("C26TAA")
+                .startNumber(1)
+                .endNumber(500)
+                .warningThreshold(50)
+                .build();
+
+        InvoiceNumberRangeResponse response = rangeService.createRange("chuho", req);
+
+        assertThat(response).isNotNull();
+        assertThat(response.getStartNumber()).isEqualTo(1);
+        assertThat(response.getEndNumber()).isEqualTo(500);
+        assertThat(response.getRemainingCount()).isEqualTo(500);
+        assertThat(response.getStatus()).isEqualTo("ACTIVE");
+    }
+
+    @Test
+    @DisplayName("NCL-04-CN-009: Nhân viên bán hàng (VT-02) khai báo dải số -> Bị chặn 403 FORBIDDEN")
+    void createRange_StaffForbidden() {
+        when(userRepository.findByUsername("nhanvien")).thenReturn(Optional.of(staffUser));
+
+        CreateInvoiceNumberRangeRequest req = CreateInvoiceNumberRangeRequest.builder()
+                .invoicePattern("1")
+                .invoiceSymbol("C26TAA")
+                .startNumber(1)
+                .endNumber(500)
+                .warningThreshold(50)
+                .build();
+
+        assertThatThrownBy(() -> rangeService.createRange("nhanvien", req))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining(ErrorCode.FORBIDDEN.getMessage());
+    }
+
+    @Test
+    @DisplayName("NCL-04-CN-009-TC-01: Cấp số tuần tự và giảm số còn lại khi dải số bình thường")
+    void allocateNextInvoiceNumber_Success() {
+        when(rangeRepository.findActiveRangesByHouseholdId("house-001")).thenReturn(List.of(activeRange));
+        when(rangeRepository.save(any(InvoiceNumberRange.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        String invoiceNumber = rangeService.allocateNextInvoiceNumber("house-001");
+
+        assertThat(invoiceNumber).isEqualTo("00000011");
+        assertThat(activeRange.getCurrentNumber()).isEqualTo(11);
+        assertThat(activeRange.getStatus()).isEqualTo("ACTIVE");
+    }
+
+    @Test
+    @DisplayName("NCL-04-CN-009-TC-02: Số còn lại <= warningThreshold -> Chuyển trạng thái WARNING_LOW")
+    void allocateNextInvoiceNumber_WarningLow() {
+        // Range 1 to 100, current = 80 -> next = 81 -> remaining = 19 <= 20
+        activeRange.setCurrentNumber(80);
+        when(rangeRepository.findActiveRangesByHouseholdId("house-001")).thenReturn(List.of(activeRange));
+
+        String invoiceNumber = rangeService.allocateNextInvoiceNumber("house-001");
+
+        assertThat(invoiceNumber).isEqualTo("00000081");
+        assertThat(activeRange.getStatus()).isEqualTo("WARNING_LOW");
+    }
+
+    @Test
+    @DisplayName("NCL-04-CN-009-TC-03: Dải số đã hết -> Ném exception INVOICE_RANGE_EXHAUSTED và chặn phát hành")
+    void allocateNextInvoiceNumber_Exhausted() {
+        activeRange.setCurrentNumber(100);
+        activeRange.setStatus("EXHAUSTED");
+        when(rangeRepository.findActiveRangesByHouseholdId("house-001")).thenReturn(List.of(activeRange));
+
+        assertThatThrownBy(() -> rangeService.allocateNextInvoiceNumber("house-001"))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining(ErrorCode.INVOICE_RANGE_EXHAUSTED.getMessage());
+    }
+}

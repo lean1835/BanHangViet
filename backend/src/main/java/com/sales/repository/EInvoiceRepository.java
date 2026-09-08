@@ -118,4 +118,6 @@ public interface EInvoiceRepository extends JpaRepository<EInvoice, String>, Jpa
             @Param("householdId") String householdId,
             @Param("now") LocalDateTime now,
             Pageable pageable);
+
+    long countByHouseholdIdAndCreatedAtAfter(String householdId, LocalDateTime createdAt);
 }

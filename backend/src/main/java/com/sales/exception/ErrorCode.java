@@ -61,6 +61,10 @@ public enum ErrorCode {
     INVOICE_ALREADY_ADJUSTED_OR_CANCELED(4011, "Hóa đơn đã bị điều chỉnh hoặc hủy trước đó", HttpStatus.BAD_REQUEST),
     FEATURE_NOT_ENABLED(4012, "Chức năng hóa đơn điện tử chưa được kích hoạt cho hộ kinh doanh", HttpStatus.BAD_REQUEST),
     INVOICE_DELIVERY_NOT_ALLOWED(4013, "Chỉ được phép gửi thư điện tử cho hóa đơn đã phát hành (ISSUED)", HttpStatus.BAD_REQUEST),
+    INVOICE_RANGE_EXHAUSTED(4030, "Dải số hóa đơn đã dùng hết. Vui lòng khai báo dải số mới trước khi phát hành hóa đơn.", HttpStatus.BAD_REQUEST),
+    INVOICE_RANGE_INVALID(4031, "Dải số hóa đơn khai báo không hợp lệ (Số kết thúc phải lớn hơn số bắt đầu).", HttpStatus.BAD_REQUEST),
+    INVOICE_RANGE_OVERLAP(4032, "Dải số hóa đơn khai báo bị trùng lặp với dải số hiện có.", HttpStatus.BAD_REQUEST),
+    INVOICE_RANGE_NOT_FOUND(4033, "Không tìm thấy dải số hóa đơn cho hộ kinh doanh.", HttpStatus.NOT_FOUND),
 
     // NCL-09 Import & Export Excel & POS Print Settings
     EMPTY_IMPORT_FILE(2014, "Tệp import rỗng không chứa dòng dữ liệu nào", HttpStatus.BAD_REQUEST),

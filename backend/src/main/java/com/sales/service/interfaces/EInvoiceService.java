@@ -59,5 +59,8 @@ public interface EInvoiceService {
     // Nghiệp vụ tra cứu & tải lại công khai dành cho khách hàng
     PublicInvoiceResponse lookupInvoicePublicly(String lookupCode);
     byte[] downloadInvoiceFilePublicly(String lookupCode, String format);
+
+    // Nghiệp vụ kiểm soát cuối ngày (NCL-04-CN-008)
+    DailyInvoiceControlResponse getDailyInvoiceControl(String currentUsername, LocalDate date);
 }
 

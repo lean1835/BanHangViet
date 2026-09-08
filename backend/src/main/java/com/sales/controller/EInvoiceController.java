@@ -246,5 +246,19 @@ public class EInvoiceController {
                 .build();
         return ResponseEntity.ok(response);
     }
+
+    @GetMapping("/daily-control")
+    @PreAuthorize("hasAnyRole('VT-01', 'VT-03')")
+    public ResponseEntity<ApiResponse<com.sales.dto.response.DailyInvoiceControlResponse>> getDailyControl(
+            Principal principal,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+        com.sales.dto.response.DailyInvoiceControlResponse result = eInvoiceService.getDailyInvoiceControl(principal.getName(), date);
+        ApiResponse<com.sales.dto.response.DailyInvoiceControlResponse> response = ApiResponse.<com.sales.dto.response.DailyInvoiceControlResponse>builder()
+                .code(1000)
+                .message("Lấy báo cáo kiểm soát hóa đơn cuối ngày thành công")
+                .result(result)
+                .build();
+        return ResponseEntity.ok(response);
+    }
 }
 
