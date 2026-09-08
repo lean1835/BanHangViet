@@ -15,6 +15,11 @@ export const SETTINGS_NAVIGATION_ITEMS: readonly ISettingsNavigationItem[] = [
     allowedRoles: [USER_ROLES.OWNER, USER_ROLES.CASHIER, USER_ROLES.ACCOUNTANT],
   },
   {
+    path: APP_ROUTES.SETTINGS_SESSIONS,
+    label: "Phiên đăng nhập",
+    allowedRoles: [USER_ROLES.OWNER, USER_ROLES.CASHIER, USER_ROLES.ACCOUNTANT],
+  },
+  {
     path: APP_ROUTES.SETTINGS_POINTS_OF_SALE,
     label: "Điểm bán (Chi nhánh)",
     allowedRoles: [USER_ROLES.OWNER],

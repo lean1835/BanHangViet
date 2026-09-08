@@ -91,7 +91,7 @@ public class UserSessionServiceImpl implements UserSessionService {
 
         LocalDateTime now = LocalDateTime.now();
 
-        // Kiểm tra thời hạn tuyệt đối theo expiresAt của token JWT
+        // Kiểm tra thời hạn tuyệt đối theo expiresAt của token JWT (24 giờ)
         if (session.getExpiresAt() != null && session.getExpiresAt().isBefore(now)) {
             session.setIsRevoked(true);
             session.setRevokedAt(now);
@@ -100,8 +100,10 @@ public class UserSessionServiceImpl implements UserSessionService {
             return false;
         }
 
+        // Tự động hết hạn phiên khi vượt quá thời gian không thao tác của hộ (mặc định 60 phút, tối thiểu 5 phút)
         int timeoutMinutes = 60;
-        if (session.getHousehold() != null && session.getHousehold().getSessionTimeoutMinutes() != null) {
+        if (session.getHousehold() != null && session.getHousehold().getSessionTimeoutMinutes() != null
+                && session.getHousehold().getSessionTimeoutMinutes() >= 5) {
             timeoutMinutes = session.getHousehold().getSessionTimeoutMinutes();
         }
 
@@ -136,7 +138,8 @@ public class UserSessionServiceImpl implements UserSessionService {
             sessions = userSessionRepository.findActiveSessionsByUserId(user.getId());
         }
 
-        int timeoutMinutes = (user.getHousehold() != null && user.getHousehold().getSessionTimeoutMinutes() != null)
+        int timeoutMinutes = (user.getHousehold() != null && user.getHousehold().getSessionTimeoutMinutes() != null
+                && user.getHousehold().getSessionTimeoutMinutes() >= 5)
                 ? user.getHousehold().getSessionTimeoutMinutes() : 60;
         LocalDateTime now = LocalDateTime.now();
 
@@ -251,7 +254,7 @@ public class UserSessionServiceImpl implements UserSessionService {
 
         return SessionSettingsResponse.builder()
                 .householdId(household.getId())
-                .sessionTimeoutMinutes(household.getSessionTimeoutMinutes() != null ? household.getSessionTimeoutMinutes() : 60)
+                .sessionTimeoutMinutes(household.getSessionTimeoutMinutes() != null && household.getSessionTimeoutMinutes() >= 5 ? household.getSessionTimeoutMinutes() : 60)
                 .build();
     }
 

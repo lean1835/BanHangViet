@@ -305,6 +305,7 @@ public class ProfileServiceImpl implements ProfileService {
                 .username(user.getUsername())
                 .fullName(user.getFullName())
                 .phoneNumber(user.getPhoneNumber())
+                .email(user.getEmail())
                 .roleCode(user.getRole() != null ? user.getRole().getCode() : null)
                 .roleName(user.getRole() != null ? user.getRole().getName() : null)
                 .householdId(user.getHousehold() != null ? user.getHousehold().getId() : null)

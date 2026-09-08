@@ -215,7 +215,8 @@ public enum ErrorCode {
     SESSION_ALREADY_REVOKED(2046, "Phiên đăng nhập này đã bị đăng xuất trước đó", HttpStatus.BAD_REQUEST),
     CANNOT_REVOKE_OTHER_USER_SESSION(2047, "Bạn không có quyền đăng xuất phiên của người dùng khác", HttpStatus.FORBIDDEN),
     SESSION_TIMEOUT_INVALID(2048, "Thời gian tự hết hạn phiên không hợp lệ (tối thiểu 5 phút, tối đa 1440 phút)", HttpStatus.BAD_REQUEST),
-    SESSION_REVOKED(2049, "Phiên đăng nhập của bạn đã bị đăng xuất từ xa hoặc đã hết hạn", HttpStatus.UNAUTHORIZED);
+    SESSION_REVOKED(2049, "Phiên đăng nhập của bạn đã bị đăng xuất từ xa hoặc đã hết hạn", HttpStatus.UNAUTHORIZED),
+    EMAIL_NOT_FOUND(2050, "Địa chỉ email chưa được đăng ký trong hệ thống", HttpStatus.NOT_FOUND);
 
     private final int code;
     private final String message;

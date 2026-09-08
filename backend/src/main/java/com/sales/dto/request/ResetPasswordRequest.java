@@ -13,8 +13,9 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class ResetPasswordRequest {
 
-    @NotBlank(message = "Số điện thoại không được để trống")
     private String phoneNumber;
+
+    private String email;
 
     @NotBlank(message = "Mã xác thực không được để trống")
     private String otpCode;
