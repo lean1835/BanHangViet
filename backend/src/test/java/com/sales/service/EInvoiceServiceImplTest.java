@@ -329,6 +329,59 @@ class EInvoiceServiceImplTest {
     }
 
     @Test
+    @DisplayName("NCL-02-CN-007: Xuất hóa đơn từ đơn hàng có đơn vị quy đổi (Thùng) -> Hóa đơn mang đúng tên đơn vị quy đổi và giá bán")
+    void testCreateInvoiceFromOrder_WithUnitConversion() {
+        household.setRevenueThresholdEnabled(true);
+        com.sales.entity.Order order = com.sales.entity.Order.builder()
+                .id("ord-conv-1")
+                .household(household)
+                .createdByUser(currentUser)
+                .status("COMPLETED")
+                .paymentStatus("PAID")
+                .discountAmount(BigDecimal.ZERO)
+                .finalAmount(new BigDecimal("280000.00"))
+                .items(new ArrayList<>())
+                .build();
+
+        com.sales.entity.OrderItem item = com.sales.entity.OrderItem.builder()
+                .id("item-1")
+                .order(order)
+                .productName("Bia Heineken")
+                .unitName("Thùng")
+                .conversionFactor(new BigDecimal("24"))
+                .baseQuantity(new BigDecimal("24"))
+                .quantity(new BigDecimal("1"))
+                .unitPrice(new BigDecimal("280000.00"))
+                .discountAmount(BigDecimal.ZERO)
+                .taxRatePercentage(BigDecimal.ZERO)
+                .taxAmount(BigDecimal.ZERO)
+                .build();
+        order.getItems().add(item);
+
+        when(userRepository.findByUsername("seller1")).thenReturn(Optional.of(currentUser));
+        when(orderRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("ord-conv-1", "hh-100"))
+                .thenReturn(Optional.of(order));
+        when(eInvoiceRepository.findByOrderIdAndDeletedAtIsNull("ord-conv-1"))
+                .thenReturn(Optional.empty());
+        when(invoiceTemplateRepository.findByHouseholdId("hh-100"))
+                .thenReturn(Optional.empty());
+        when(invoiceTemplateRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(eInvoiceRepository.save(any(EInvoice.class))).thenAnswer(inv -> {
+            EInvoice invObj = inv.getArgument(0);
+            invObj.setId("inv-100");
+            return invObj;
+        });
+
+        InvoiceResponse response = eInvoiceService.createInvoiceDraft("seller1", "ord-conv-1");
+
+        assertNotNull(response);
+        assertEquals(1, response.getItems().size());
+        assertEquals("Thùng", response.getItems().get(0).getUnit());
+        assertEquals(new BigDecimal("280000.00"), response.getItems().get(0).getUnitPrice());
+        assertEquals(new BigDecimal("1"), response.getItems().get(0).getQuantity());
+    }
+
+    @Test
     @DisplayName("NCL-04-CN-006: Đồng bộ hồ sơ khách hàng - Cập nhật tên thực tế khi tên cũ là mặc định và làm sạch SĐT")
     void testUpdateInvoice_SyncCustomerProfile_UpdatesNameAndCleansPhone() {
         // Arrange
@@ -485,3 +538,4 @@ class EInvoiceServiceImplTest {
         assertEquals("fresh@corp.vn", createdCust.getEmail());
     }
 }
+

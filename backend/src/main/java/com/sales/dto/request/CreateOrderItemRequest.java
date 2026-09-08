@@ -15,12 +15,16 @@ public class CreateOrderItemRequest {
     @Size(max = 36, message = "Mã hàng hóa không vượt quá 36 ký tự")
     private String productId;
 
-    @NotNull(message = "Số lượng không được để trống")
     @DecimalMin(value = "0.001", message = "Số lượng bán phải lớn hơn 0")
     private BigDecimal quantity;
+
+    @DecimalMin(value = "1.0", message = "Số tiền mua phải lớn hơn 0")
+    private BigDecimal buyAmount;
 
     private String promotionId;
 
     @Builder.Default
     private Boolean bypassPromotion = false;
+
+    private String unitConversionId;
 }

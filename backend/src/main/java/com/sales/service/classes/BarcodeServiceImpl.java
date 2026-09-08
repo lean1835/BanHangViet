@@ -9,10 +9,12 @@ import com.sales.dto.response.OrderResponse;
 import com.sales.dto.response.PromotionItemResultResponse;
 import com.sales.entity.BusinessHousehold;
 import com.sales.entity.Product;
+import com.sales.entity.ProductUnitConversion;
 import com.sales.entity.User;
 import com.sales.exception.AppException;
 import com.sales.exception.ErrorCode;
 import com.sales.repository.ProductRepository;
+import com.sales.repository.ProductUnitConversionRepository;
 import com.sales.repository.UserRepository;
 import com.sales.service.interfaces.BarcodeService;
 import com.sales.service.interfaces.OrderService;
@@ -45,6 +47,7 @@ public class BarcodeServiceImpl implements BarcodeService {
     private final ProductRepository productRepository;
     private final PromotionService promotionService;
     private final OrderService orderService;
+    private final ProductUnitConversionRepository productUnitConversionRepository;
 
     private final Random random = new Random();
 
@@ -84,11 +87,26 @@ public class BarcodeServiceImpl implements BarcodeService {
         String householdId = user.getHousehold().getId();
         String scannedCode = request.getBarcode() != null ? request.getBarcode().trim() : "";
 
+        Product product = null;
+        ProductUnitConversion conversion = null;
+
         // 1. Tra cứu sản phẩm theo mã vạch (barcode) hoặc SKU trong Hộ kinh doanh
         List<Product> products = productRepository.findByHouseholdIdAndBarcodeOrSku(householdId, scannedCode);
+        if (!products.isEmpty()) {
+            product = products.stream()
+                    .filter(p -> scannedCode.equalsIgnoreCase(p.getBarcode()))
+                    .findFirst()
+                    .orElse(products.get(0));
+        } else if (productUnitConversionRepository != null) {
+            // 2. Tra cứu mã vạch trong bảng đơn vị quy đổi
+            conversion = productUnitConversionRepository.findByHouseholdIdAndBarcode(householdId, scannedCode).orElse(null);
+            if (conversion != null) {
+                product = conversion.getProduct();
+            }
+        }
 
-        // 2. Trường hợp không tìm thấy sản phẩm
-        if (products.isEmpty()) {
+        // 3. Trường hợp không tìm thấy sản phẩm
+        if (product == null) {
             log.info("Barcode scan failed: code '{}' not found in household '{}'", scannedCode, householdId);
             return BarcodeScanResponse.builder()
                     .found(false)
@@ -98,27 +116,27 @@ public class BarcodeServiceImpl implements BarcodeService {
                     .build();
         }
 
-        // Lựa chọn sản phẩm khớp ưu tiên barcode trước SKU
-        Product product = products.stream()
-                .filter(p -> scannedCode.equalsIgnoreCase(p.getBarcode()))
-                .findFirst()
-                .orElse(products.get(0));
-
         BigDecimal scanQty = (request.getQuantity() != null && request.getQuantity().compareTo(BigDecimal.ZERO) > 0)
                 ? request.getQuantity() : BigDecimal.ONE;
 
-        // 3. Tính toán khuyến mại tự động áp dụng cho mặt hàng để xem trước thông tin
+        BigDecimal unitPrice = (conversion != null && conversion.getPrice() != null)
+                ? conversion.getPrice()
+                : (conversion != null ? product.getPrice().multiply(conversion.getConversionFactor()) : product.getPrice());
+        String unitName = conversion != null ? conversion.getUnitName() : product.getUnit();
+
+        // 4. Tính toán khuyến mại tự động áp dụng cho mặt hàng để xem trước thông tin
         PromotionItemResultResponse promoResult = promotionService.calculateItemPromotion(
-                user, product, scanQty, product.getPrice(), false
+                user, product, scanQty, unitPrice, false
         );
 
         OrderResponse updatedOrderResponse = null;
 
-        // 4. Nếu có truyền orderId -> Ủy quyền cho OrderService thực hiện thêm/cộng dồn số lượng
+        // 5. Nếu có truyền orderId -> Ủy quyền cho OrderService thực hiện thêm/cộng dồn số lượng
         if (request.getOrderId() != null && !request.getOrderId().trim().isEmpty()) {
             CreateOrderItemRequest itemRequest = CreateOrderItemRequest.builder()
                     .productId(product.getId())
                     .quantity(scanQty)
+                    .unitConversionId(conversion != null ? conversion.getId() : null)
                     .bypassPromotion(false)
                     .build();
 
@@ -132,8 +150,8 @@ public class BarcodeServiceImpl implements BarcodeService {
                 .productId(product.getId())
                 .productSku(product.getSku())
                 .productName(product.getName())
-                .unit(product.getUnit())
-                .unitPrice(product.getPrice())
+                .unit(unitName)
+                .unitPrice(unitPrice)
                 .stockQuantity(product.getStockQuantity())
                 .scannedQuantity(scanQty)
                 .discountAmount(promoResult.getDiscountAmount())

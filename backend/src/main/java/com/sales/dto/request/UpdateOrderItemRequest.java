@@ -11,7 +11,11 @@ import java.math.BigDecimal;
 @AllArgsConstructor
 public class UpdateOrderItemRequest {
 
-    @NotNull(message = "Số lượng không được để trống")
     @DecimalMin(value = "0.001", message = "Số lượng bán phải lớn hơn 0")
     private BigDecimal quantity;
+
+    @DecimalMin(value = "1.0", message = "Số tiền mua phải lớn hơn 0")
+    private BigDecimal buyAmount;
+
+    private String unitConversionId;
 }

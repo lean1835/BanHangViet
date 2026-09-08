@@ -45,6 +45,7 @@ public class GoodsReceiptServiceImpl implements GoodsReceiptService {
     private final GoodsReceiptRepository goodsReceiptRepository;
     private final GoodsReceiptDetailRepository goodsReceiptDetailRepository;
     private final ProductRepository productRepository;
+    private final ProductUnitConversionRepository productUnitConversionRepository;
     private final SupplierRepository supplierRepository;
     private final ActivityLogHelper activityLogHelper;
     private final SupplierDebtService supplierDebtService;
@@ -136,6 +137,11 @@ public class GoodsReceiptServiceImpl implements GoodsReceiptService {
                 .quantity(detail.getQuantity())
                 .purchasePrice(detail.getPurchasePrice())
                 .subtotal(subtotal)
+                .unitConversionId(detail.getUnitConversionId())
+                .unitName(detail.getUnitName() != null ? detail.getUnitName() : detail.getProduct().getUnit())
+                .conversionFactor(detail.getConversionFactor() != null ? detail.getConversionFactor() : BigDecimal.ONE)
+                .baseQuantity(detail.getBaseQuantity() != null ? detail.getBaseQuantity() : detail.getQuantity())
+                .basePurchasePrice(detail.getBasePurchasePrice() != null ? detail.getBasePurchasePrice() : detail.getPurchasePrice())
                 .build();
     }
 
@@ -184,12 +190,38 @@ public class GoodsReceiptServiceImpl implements GoodsReceiptService {
             }
         }
 
-        // Check for selling below cost warning (purchasePrice > product.price)
-        boolean containsSellingBelowCost = request.getDetails().stream().anyMatch(d -> {
+        // Batch pre-fetch all unit conversions to avoid N+1 queries in loops
+        Set<String> conversionIds = request.getDetails().stream()
+                .map(CreateGoodsReceiptDetailRequest::getUnitConversionId)
+                .filter(StringUtils::hasText)
+                .collect(Collectors.toSet());
+        Map<String, ProductUnitConversion> conversionMap = new HashMap<>();
+        if (!conversionIds.isEmpty()) {
+            List<ProductUnitConversion> conversions = productUnitConversionRepository.findAllById(conversionIds);
+            for (ProductUnitConversion c : conversions) {
+                conversionMap.put(c.getId(), c);
+            }
+        }
+
+        // Check for selling below cost warning (basePurchasePrice > product.price)
+        boolean containsSellingBelowCost = false;
+        for (CreateGoodsReceiptDetailRequest d : request.getDetails()) {
             Product p = productMap.get(d.getProductId());
-            return p != null && d.getPurchasePrice() != null && p.getPrice() != null
-                    && d.getPurchasePrice().compareTo(p.getPrice()) > 0;
-        });
+            if (p != null && d.getPurchasePrice() != null && p.getPrice() != null) {
+                BigDecimal basePurchasePrice = d.getPurchasePrice();
+                if (StringUtils.hasText(d.getUnitConversionId())) {
+                    ProductUnitConversion conversion = conversionMap.get(d.getUnitConversionId());
+                    if (conversion == null || conversion.getProduct() == null || !conversion.getProduct().getId().equals(p.getId())) {
+                        throw new AppException(ErrorCode.UNIT_CONVERSION_NOT_FOUND);
+                    }
+                    basePurchasePrice = d.getPurchasePrice().divide(conversion.getConversionFactor(), 4, RoundingMode.HALF_UP);
+                }
+                if (basePurchasePrice.compareTo(p.getPrice()) > 0) {
+                    containsSellingBelowCost = true;
+                    break;
+                }
+            }
+        }
 
         if (containsSellingBelowCost && !Boolean.TRUE.equals(request.getConfirmSellingBelowCost())) {
             throw new AppException(ErrorCode.SELLING_BELOW_COST_WARNING);
@@ -235,34 +267,56 @@ public class GoodsReceiptServiceImpl implements GoodsReceiptService {
         for (CreateGoodsReceiptDetailRequest detailRequest : request.getDetails()) {
             Product product = productMap.get(detailRequest.getProductId());
 
+            String unitName = product.getUnit();
+            BigDecimal conversionFactor = BigDecimal.ONE;
+            BigDecimal baseQty = detailRequest.getQuantity();
+            BigDecimal basePrice = detailRequest.getPurchasePrice();
+            String unitConversionId = null;
+
+            if (StringUtils.hasText(detailRequest.getUnitConversionId())) {
+                ProductUnitConversion conversion = conversionMap.get(detailRequest.getUnitConversionId());
+                if (conversion == null || conversion.getProduct() == null || !conversion.getProduct().getId().equals(product.getId())) {
+                    throw new AppException(ErrorCode.UNIT_CONVERSION_NOT_FOUND);
+                }
+                unitConversionId = conversion.getId();
+                unitName = conversion.getUnitName();
+                conversionFactor = conversion.getConversionFactor();
+                baseQty = detailRequest.getQuantity().multiply(conversionFactor);
+                basePrice = detailRequest.getPurchasePrice().divide(conversionFactor, 4, RoundingMode.HALF_UP);
+            }
+
             GoodsReceiptDetail detail = GoodsReceiptDetail.builder()
                     .receipt(receipt)
                     .product(product)
                     .quantity(detailRequest.getQuantity())
                     .purchasePrice(detailRequest.getPurchasePrice())
+                    .unitConversionId(unitConversionId)
+                    .unitName(unitName)
+                    .conversionFactor(conversionFactor)
+                    .baseQuantity(baseQty)
+                    .basePurchasePrice(basePrice.setScale(2, RoundingMode.HALF_UP))
                     .build();
 
             detailsToSave.add(detail);
 
-            // Calculate moving average cost price (QTN-23) & update stock quantity
+            // Calculate moving average cost price (QTN-23) & update stock quantity in base unit (TC-01)
             BigDecimal currentStock = product.getStockQuantity() != null ? product.getStockQuantity() : BigDecimal.ZERO;
             BigDecimal currentCost = product.getCostPrice() != null ? product.getCostPrice() : BigDecimal.ZERO;
-            BigDecimal importQty = detailRequest.getQuantity();
-            BigDecimal importPrice = detailRequest.getPurchasePrice();
+            BigDecimal importBaseQty = baseQty;
+            BigDecimal importTotalVal = detailRequest.getQuantity().multiply(detailRequest.getPurchasePrice());
 
             BigDecimal newCost;
-            BigDecimal combinedQty = currentStock.add(importQty);
+            BigDecimal combinedQty = currentStock.add(importBaseQty);
             if (currentStock.compareTo(BigDecimal.ZERO) > 0 && combinedQty.compareTo(BigDecimal.ZERO) > 0) {
                 BigDecimal currentTotalVal = currentStock.multiply(currentCost);
-                BigDecimal importTotalVal = importQty.multiply(importPrice);
                 BigDecimal combinedVal = currentTotalVal.add(importTotalVal);
                 newCost = combinedVal.divide(combinedQty, 2, RoundingMode.HALF_UP);
             } else {
-                newCost = importPrice.setScale(2, RoundingMode.HALF_UP);
+                newCost = basePrice.setScale(2, RoundingMode.HALF_UP);
             }
 
             product.setCostPrice(newCost);
-            product.setStockQuantity(currentStock.add(importQty));
+            product.setStockQuantity(currentStock.add(importBaseQty));
         }
 
         // Batch save details and products

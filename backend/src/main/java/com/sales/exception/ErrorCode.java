@@ -128,6 +128,16 @@ public enum ErrorCode {
     FORBIDDEN_BARCODE_MANAGEMENT(3058, "Chỉ chủ hộ kinh doanh mới có quyền thao tác mã vạch", HttpStatus.FORBIDDEN),
     BARCODE_GENERATION_FAILED(3059, "Không thể sinh mã vạch nội bộ", HttpStatus.INTERNAL_SERVER_ERROR),
 
+    // NCL-02-CN-006 Xem thẻ kho biến động tồn
+    INVALID_DATE_RANGE(3060, "Khoảng thời gian không hợp lệ (Từ ngày phải trước hoặc bằng Đến ngày)", HttpStatus.BAD_REQUEST),
+
+    // NCL-02-CN-007 Quản lý đơn vị tính và quy đổi đơn vị mua bán
+    UNIT_CONVERSION_NOT_FOUND(3070, "Đơn vị tính quy đổi không tồn tại", HttpStatus.NOT_FOUND),
+    CANNOT_MODIFY_CONVERSION_WITH_STOCK_MOVEMENT(3071, "Không thể sửa tỷ lệ quy đổi khi mặt hàng đã phát sinh biến động tồn kho (TC-03)", HttpStatus.BAD_REQUEST),
+    DUPLICATE_UNIT_CONVERSION_NAME(3072, "Tên đơn vị quy đổi đã tồn tại hoặc trùng với đơn vị tính cơ bản", HttpStatus.BAD_REQUEST),
+    INVALID_CONVERSION_FACTOR(3073, "Tỷ lệ quy đổi phải lớn hơn 0 và khác 1", HttpStatus.BAD_REQUEST),
+    CANNOT_DELETE_CONVERSION_IN_USE(3074, "Không thể xóa đơn vị quy đổi đã phát sinh giao dịch nhập xuất", HttpStatus.BAD_REQUEST),
+
     // NCL-12 Sổ sách & Hỗ trợ kê khai thuế theo kỳ
     NO_VALID_INVOICES_IN_PERIOD(5001, "Kỳ kê khai chưa có hóa đơn hợp lệ được cấp mã", HttpStatus.BAD_REQUEST),
     TAX_PERIOD_NOT_FOUND(5002, "Kỳ kê khai thuế không tồn tại", HttpStatus.NOT_FOUND),
@@ -217,7 +227,33 @@ public enum ErrorCode {
     CANNOT_REVOKE_OTHER_USER_SESSION(2047, "Bạn không có quyền đăng xuất phiên của người dùng khác", HttpStatus.FORBIDDEN),
     SESSION_TIMEOUT_INVALID(2048, "Thời gian tự hết hạn phiên không hợp lệ (tối thiểu 5 phút, tối đa 1440 phút)", HttpStatus.BAD_REQUEST),
     SESSION_REVOKED(2049, "Phiên đăng nhập của bạn đã bị đăng xuất từ xa hoặc đã hết hạn", HttpStatus.UNAUTHORIZED),
-    EMAIL_NOT_FOUND(2050, "Địa chỉ email chưa được đăng ký trong hệ thống", HttpStatus.NOT_FOUND);
+    EMAIL_NOT_FOUND(2050, "Địa chỉ email chưa được đăng ký trong hệ thống", HttpStatus.NOT_FOUND),
+
+    // NCL-02-CN-008 Bán hàng theo cân với số lượng thập phân
+    WEIGHT_STEP_INVALID(3080, "Số lượng nhập không hợp lệ (nhỏ hơn bước nhảy tối thiểu hoặc không đúng bội số bước nhảy)", HttpStatus.BAD_REQUEST),
+    DECIMAL_PLACES_EXCEEDED(3081, "Số chữ số thập phân của số lượng vượt quá số chữ số cho phép của mặt hàng", HttpStatus.BAD_REQUEST),
+    NON_WEIGHT_PRODUCT_DECIMAL_NOT_ALLOWED(3082, "Mặt hàng bán theo đơn vị nguyên không được nhập số lượng lẻ thập phân", HttpStatus.BAD_REQUEST),
+    INVALID_WEIGHT_CONFIG(3083, "Cấu hình hàng bán theo cân không hợp lệ (bước nhảy phải > 0, số chữ số thập phân từ 1-3)", HttpStatus.BAD_REQUEST),
+    ORDER_TOTAL_MISMATCH(3084, "Tổng tiền hóa đơn không khớp với tổng thành tiền các dòng hàng theo quy định QTN-07", HttpStatus.BAD_REQUEST),
+    BUY_AMOUNT_TOO_SMALL(3085, "Số tiền mua quá nhỏ, không đủ quy đổi ra bước nhảy tối thiểu của mặt hàng", HttpStatus.BAD_REQUEST),
+
+    // NCL-02-CN-009 Cập nhật giá bán hàng loạt theo nhóm hàng
+    PRICE_ADJUSTMENT_BATCH_NOT_FOUND(3090, "Đợt điều chỉnh giá không tồn tại trong hệ thống", HttpStatus.NOT_FOUND),
+    PRICE_ADJUSTMENT_ALREADY_REVERTED(3091, "Đợt điều chỉnh giá này đã được hoàn tác trước đó", HttpStatus.BAD_REQUEST),
+    PRICE_ADJUSTMENT_REVERT_EXPIRED(3092, "Đã quá thời hạn 24 giờ kể từ khi áp dụng, không thể hoàn tác đợt điều chỉnh giá này", HttpStatus.BAD_REQUEST),
+    PRICE_ADJUSTMENT_NO_PRODUCTS_SELECTED(3093, "Không tìm thấy mặt hàng nào phù hợp với điều kiện điều chỉnh giá đã chọn", HttpStatus.BAD_REQUEST),
+    PRICE_ADJUSTMENT_INVALID_VALUE(3094, "Giá trị điều chỉnh không hợp lệ (tỷ lệ phần trăm không được nhỏ hơn -100% hoặc giá mới không được âm)", HttpStatus.BAD_REQUEST),
+    PRICE_ADJUSTMENT_REVERT_REASON_REQUIRED(3095, "Vui lòng nhập lý do hoàn tác đợt điều chỉnh giá", HttpStatus.BAD_REQUEST),
+
+    // NCL-02-CN-010 Quản lý giá bán lẻ và giá bán sỉ theo mức số lượng
+    PRICE_TIER_NOT_FOUND(3100, "Bậc giá không tồn tại trong hệ thống", HttpStatus.NOT_FOUND),
+    PRICE_TIER_BELOW_COST_CONFIRMATION_REQUIRED(3101, "Giá bậc thấp hơn giá vốn bình quân (nguy cơ bán lỗ). Vui lòng xác nhận để tiếp tục lưu", HttpStatus.BAD_REQUEST),
+    PRICE_TIER_OVERLAPPING_QUANTITY(3102, "Khoảng số lượng của bậc giá bị trùng lặp với bậc giá khác đang hoạt động", HttpStatus.BAD_REQUEST),
+    PRICE_TIER_INVALID_QUANTITY_RANGE(3103, "Số lượng tối đa phải lớn hơn hoặc bằng số lượng tối thiểu", HttpStatus.BAD_REQUEST),
+    PRICE_TIER_MIN_QUANTITY_INVALID(3104, "Số lượng tối thiểu của bậc giá phải lớn hơn 0", HttpStatus.BAD_REQUEST),
+    PRICE_TIER_PRICE_NEGATIVE(3105, "Đơn giá bậc không được nhỏ hơn 0", HttpStatus.BAD_REQUEST),
+    PRICE_TIER_UNIT_CONVERSION_MISMATCH(3106, "Đơn vị quy đổi không thuộc về mặt hàng này", HttpStatus.BAD_REQUEST);
+
 
     private final int code;
     private final String message;

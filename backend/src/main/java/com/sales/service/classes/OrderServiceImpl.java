@@ -2,9 +2,11 @@ package com.sales.service.classes;
 
 import com.sales.constant.DebtStatus;
 import com.sales.constant.DebtType;
+import com.sales.constant.RoundingRule;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sales.constant.ShiftStatus;
 import com.sales.dto.request.*;
+import com.sales.dto.response.CalculateWeightResponse;
 import com.sales.dto.response.OrderItemResponse;
 import com.sales.dto.response.OrderResponse;
 import com.sales.entity.*;
@@ -50,6 +52,8 @@ public class OrderServiceImpl implements OrderService {
     private final com.sales.repository.PromotionRepository promotionRepository;
     private final PosInventoryRepository posInventoryRepository;
     private final PosInventoryService posInventoryService;
+    private final ProductUnitConversionRepository productUnitConversionRepository;
+    private final com.sales.service.interfaces.ProductPriceTierService productPriceTierService;
 
     private User getAuthenticatedUser(String username) {
         return userRepository.findByUsername(username)
@@ -133,6 +137,113 @@ public class OrderServiceImpl implements OrderService {
         return map;
     }
 
+    private RoundingRule resolveRoundingRule(BusinessHousehold household) {
+        if (household != null && household.getRoundingRule() != null) {
+            try {
+                return RoundingRule.valueOf(household.getRoundingRule());
+            } catch (Exception ignored) {
+                return RoundingRule.HALF_UP;
+            }
+        }
+        return RoundingRule.HALF_UP;
+    }
+
+    private BigDecimal resolveQuantity(Product product, BigDecimal inputQuantity, BigDecimal buyAmount, BigDecimal itemUnitPrice, BigDecimal conversionFactor) {
+        if (buyAmount != null && buyAmount.compareTo(BigDecimal.ZERO) > 0) {
+            if (!Boolean.TRUE.equals(product.getIsSoldByWeight())) {
+                throw new AppException(ErrorCode.NON_WEIGHT_PRODUCT_DECIMAL_NOT_ALLOWED);
+            }
+            if (itemUnitPrice == null || itemUnitPrice.compareTo(BigDecimal.ZERO) <= 0) {
+                throw new AppException(ErrorCode.INVALID_INPUT);
+            }
+            BigDecimal factor = (conversionFactor != null && conversionFactor.compareTo(BigDecimal.ZERO) > 0)
+                    ? conversionFactor
+                    : BigDecimal.ONE;
+            BigDecimal baseMinStep = product.getMinWeightStep() != null ? product.getMinWeightStep() : new BigDecimal("0.001");
+            BigDecimal minStep = baseMinStep.divide(factor, 6, RoundingMode.HALF_UP);
+            int maxDecimals = product.getDecimalPlaces() != null ? product.getDecimalPlaces() : 3;
+
+            BigDecimal rawQty = buyAmount.divide(itemUnitPrice, 8, RoundingMode.HALF_UP);
+            BigDecimal steps = rawQty.divide(minStep, 0, RoundingMode.HALF_UP);
+            if (steps.compareTo(BigDecimal.ZERO) <= 0) {
+                throw new AppException(ErrorCode.BUY_AMOUNT_TOO_SMALL);
+            }
+            return steps.multiply(minStep).setScale(maxDecimals, RoundingMode.HALF_UP);
+        }
+
+        if (inputQuantity == null || inputQuantity.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new AppException(ErrorCode.INVALID_INPUT);
+        }
+        return inputQuantity;
+    }
+
+    private void validateWeightQuantity(Product product, BigDecimal quantity, BigDecimal conversionFactor) {
+        if (Boolean.TRUE.equals(product.getIsSoldByWeight())) {
+            BigDecimal factor = (conversionFactor != null && conversionFactor.compareTo(BigDecimal.ZERO) > 0)
+                    ? conversionFactor
+                    : BigDecimal.ONE;
+
+            // Quy đổi số lượng về đơn vị cơ sở trước khi kiểm tra
+            BigDecimal baseQuantity = quantity.multiply(factor);
+            BigDecimal minStep = product.getMinWeightStep() != null ? product.getMinWeightStep() : new BigDecimal("0.001");
+            int maxDecimals = product.getDecimalPlaces() != null ? product.getDecimalPlaces() : 3;
+
+            // TC-02: Số lượng nhập nhỏ hơn bước nhảy tối thiểu
+            if (baseQuantity.compareTo(minStep) < 0) {
+                throw new AppException(ErrorCode.WEIGHT_STEP_INVALID);
+            }
+
+            // Kiểm tra số chữ số thập phân
+            BigDecimal stripped = baseQuantity.stripTrailingZeros();
+            if (stripped.scale() > maxDecimals) {
+                throw new AppException(ErrorCode.DECIMAL_PLACES_EXCEEDED);
+            }
+
+            // Kiểm tra bội số của bước nhảy tối thiểu
+            BigDecimal remainder = baseQuantity.remainder(minStep);
+            BigDecimal tolerance = new BigDecimal("0.00001");
+            if (remainder.compareTo(tolerance) > 0 && remainder.compareTo(minStep.subtract(tolerance)) < 0) {
+                throw new AppException(ErrorCode.WEIGHT_STEP_INVALID);
+            }
+        } else {
+            // Hàng thường không bán theo cân: bắt buộc số nguyên
+            if (quantity.remainder(BigDecimal.ONE).compareTo(BigDecimal.ZERO) != 0) {
+                throw new AppException(ErrorCode.NON_WEIGHT_PRODUCT_DECIMAL_NOT_ALLOWED);
+            }
+        }
+    }
+
+    private void calculateAndApplyLineRounding(OrderItem item, BusinessHousehold household, BigDecimal baseAmount, BigDecimal taxAmount) {
+        BigDecimal exactSubtotal = baseAmount.add(taxAmount);
+        RoundingRule rule = resolveRoundingRule(household);
+        BigDecimal roundedSubtotal = rule.applyRounding(exactSubtotal);
+        BigDecimal roundingDifference = roundedSubtotal.subtract(exactSubtotal).setScale(2, RoundingMode.HALF_UP);
+
+        item.setSubtotal(roundedSubtotal);
+        item.setRoundingDifference(roundingDifference);
+    }
+
+    private void validateOrderIntegrityQTN07(Order order) {
+        Set<String> seenIds = new HashSet<>();
+        BigDecimal sumSubtotals = BigDecimal.ZERO;
+        for (OrderItem item : order.getItems()) {
+            if (item.getId() != null) {
+                if (!seenIds.add(item.getId())) {
+                    continue;
+                }
+            }
+            BigDecimal sub = item.getSubtotal() != null ? item.getSubtotal() : BigDecimal.ZERO;
+            sumSubtotals = sumSubtotals.add(sub);
+        }
+        sumSubtotals = sumSubtotals.setScale(2, RoundingMode.HALF_UP);
+
+        if (order.getTotalAmount() == null || order.getTotalAmount().setScale(2, RoundingMode.HALF_UP).compareTo(sumSubtotals) != 0) {
+            log.error("QTN-07: Tổng tiền đơn hàng [{}] không khớp với tổng thành tiền các dòng hàng [{}]",
+                    order.getTotalAmount(), sumSubtotals);
+            throw new AppException(ErrorCode.ORDER_TOTAL_MISMATCH);
+        }
+    }
+
     private OrderResponse mapToResponse(Order order, List<String> warnings, BigDecimal changeAmount, String qrCodeUrl) {
         List<OrderItemResponse> itemResponses = order.getItems().stream()
                 .map(item -> OrderItemResponse.builder()
@@ -144,9 +255,19 @@ public class OrderServiceImpl implements OrderService {
                         .discountAmount(item.getDiscountAmount())
                         .promotionId(item.getPromotion() != null ? item.getPromotion().getId() : null)
                         .promotionName(item.getPromotionName())
+                        .priceTierId(item.getPriceTier() != null ? item.getPriceTier().getId() : null)
+                        .priceTierName(item.getPriceTierName())
                         .taxRatePercentage(item.getTaxRatePercentage())
                         .taxAmount(item.getTaxAmount())
+                        .roundingDifference(item.getRoundingDifference() != null ? item.getRoundingDifference() : BigDecimal.ZERO.setScale(2))
                         .subtotal(item.getSubtotal())
+                        .unitConversionId(item.getUnitConversionId())
+                        .unitName(item.getUnitName() != null ? item.getUnitName() : (item.getProduct() != null ? item.getProduct().getUnit() : null))
+                        .conversionFactor(item.getConversionFactor() != null ? item.getConversionFactor() : BigDecimal.ONE)
+                        .baseQuantity(item.getBaseQuantity() != null ? item.getBaseQuantity() : item.getQuantity())
+                        .isSoldByWeight(item.getProduct() != null ? item.getProduct().getIsSoldByWeight() : false)
+                        .decimalPlaces(item.getProduct() != null ? item.getProduct().getDecimalPlaces() : 0)
+                        .minWeightStep(item.getProduct() != null ? item.getProduct().getMinWeightStep() : BigDecimal.ONE)
                         .build())
                 .collect(Collectors.toList());
 
@@ -205,9 +326,10 @@ public class OrderServiceImpl implements OrderService {
         for (OrderItem item : order.getItems()) {
             if (item.getProduct() != null) {
                 Product product = item.getProduct();
-                if (item.getQuantity().compareTo(product.getStockQuantity()) > 0) {
+                BigDecimal reqQty = item.getBaseQuantity() != null ? item.getBaseQuantity() : item.getQuantity();
+                if (reqQty != null && product.getStockQuantity() != null && reqQty.compareTo(product.getStockQuantity()) > 0) {
                     warnings.add("Sản phẩm '" + product.getName() + "' vượt quá số lượng tồn kho khả dụng (Yêu cầu: " 
-                            + item.getQuantity() + ", Hiện có: " + product.getStockQuantity() + ")");
+                            + reqQty + ", Hiện có: " + product.getStockQuantity() + ")");
                 }
             }
         }
@@ -391,51 +513,105 @@ public class OrderServiceImpl implements OrderService {
             }
         }
 
+        ProductUnitConversion conversion = null;
+        if (org.springframework.util.StringUtils.hasText(request.getUnitConversionId())) {
+            conversion = productUnitConversionRepository.findByIdAndProductId(request.getUnitConversionId(), product.getId())
+                    .orElseThrow(() -> new AppException(ErrorCode.UNIT_CONVERSION_NOT_FOUND));
+        }
+
+        String unitConversionId = conversion != null ? conversion.getId() : null;
+        String unitName = conversion != null ? conversion.getUnitName() : product.getUnit();
+        BigDecimal conversionFactor = conversion != null ? conversion.getConversionFactor() : BigDecimal.ONE;
+        BigDecimal itemUnitPrice = (conversion != null && conversion.getPrice() != null)
+                ? conversion.getPrice()
+                : (conversion != null ? product.getPrice().multiply(conversion.getConversionFactor()) : product.getPrice());
+
         OrderItem existingItem = order.getItems().stream()
-                .filter(item -> item.getProduct() != null && item.getProduct().getId().equals(product.getId()))
+                .filter(item -> item.getProduct() != null 
+                        && item.getProduct().getId().equals(product.getId())
+                        && java.util.Objects.equals(item.getUnitConversionId(), unitConversionId))
                 .findFirst().orElse(null);
 
-        BigDecimal quantityToAdd = request.getQuantity();
+        BigDecimal quantityToAdd = resolveQuantity(product, request.getQuantity(), request.getBuyAmount(), itemUnitPrice, conversionFactor);
+        validateWeightQuantity(product, quantityToAdd, conversionFactor);
+
         BigDecimal targetQuantity = existingItem != null ? existingItem.getQuantity().add(quantityToAdd) : quantityToAdd;
+        validateWeightQuantity(product, targetQuantity, conversionFactor);
+        BigDecimal targetBaseQuantity = targetQuantity.multiply(conversionFactor);
+
+        ProductPriceTier matchedTier = (productPriceTierService != null && product != null)
+                ? productPriceTierService.matchPriceTier(household.getId(), product, targetQuantity, unitConversionId)
+                : null;
 
         com.sales.dto.response.PromotionItemResultResponse promoResult = promotionService.calculateItemPromotion(
                 currentUser,
                 product,
                 targetQuantity,
-                product.getPrice(),
+                itemUnitPrice,
                 request.getBypassPromotion()
         );
 
-        Promotion promoEntity = promoResult.getPromotionId() != null
-                ? promotionRepository.findById(promoResult.getPromotionId()).orElse(null)
+        com.sales.dto.response.PricingDecision decision = productPriceTierService != null
+                ? productPriceTierService.resolvePricingDecision(
+                        itemUnitPrice,
+                        matchedTier,
+                        promoResult,
+                        targetQuantity
+                )
                 : null;
 
+        BigDecimal effectiveUnitPrice = (decision != null && decision.getUnitPrice() != null) ? decision.getUnitPrice() : itemUnitPrice;
+        BigDecimal effectiveDiscount = (decision != null && decision.getDiscountAmount() != null)
+                ? decision.getDiscountAmount()
+                : (promoResult != null && promoResult.getDiscountAmount() != null ? promoResult.getDiscountAmount() : BigDecimal.ZERO);
+        String appliedPromoName = decision != null ? decision.getPromotionName() : (promoResult != null ? promoResult.getPromotionName() : null);
+        Promotion promoEntity = decision != null && decision.getPromotion() != null
+                ? decision.getPromotion()
+                : (appliedPromoName != null && promoResult != null && promoResult.getPromotionId() != null
+                        ? promotionRepository.findById(promoResult.getPromotionId()).orElse(null)
+                        : null);
+        ProductPriceTier appliedTier = decision != null ? decision.getPriceTier() : null;
+        String appliedTierName = decision != null ? decision.getPriceTierName() : null;
+
         BigDecimal taxRate = product.getTaxRate() != null ? product.getTaxRate().getRatePercentage() : BigDecimal.ZERO;
-        BigDecimal baseAmount = targetQuantity.multiply(product.getPrice()).subtract(promoResult.getDiscountAmount());
+        BigDecimal baseAmount = targetQuantity.multiply(effectiveUnitPrice).subtract(effectiveDiscount);
         BigDecimal taxAmount = baseAmount.multiply(taxRate).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
-        BigDecimal subtotal = baseAmount.add(taxAmount);
 
         if (existingItem != null) {
             existingItem.setQuantity(targetQuantity);
-            existingItem.setDiscountAmount(promoResult.getDiscountAmount());
+            existingItem.setBaseQuantity(targetBaseQuantity);
+            existingItem.setUnitPrice(effectiveUnitPrice);
+            existingItem.setUnitConversionId(unitConversionId);
+            existingItem.setUnitName(unitName);
+            existingItem.setConversionFactor(conversionFactor);
+            existingItem.setDiscountAmount(effectiveDiscount);
             existingItem.setPromotion(promoEntity);
-            existingItem.setPromotionName(promoResult.getPromotionName());
+            existingItem.setPromotionName(appliedPromoName);
+            existingItem.setPriceTier(appliedTier);
+            existingItem.setPriceTierName(appliedTierName);
             existingItem.setTaxAmount(taxAmount);
-            existingItem.setSubtotal(subtotal);
+            calculateAndApplyLineRounding(existingItem, household, baseAmount, taxAmount);
         } else {
             OrderItem newItem = OrderItem.builder()
                     .order(order)
                     .product(product)
                     .productName(product.getName())
                     .quantity(targetQuantity)
-                    .unitPrice(product.getPrice())
-                    .discountAmount(promoResult.getDiscountAmount())
+                    .baseQuantity(targetBaseQuantity)
+                    .unitPrice(effectiveUnitPrice)
+                    .unitConversionId(unitConversionId)
+                    .unitName(unitName)
+                    .conversionFactor(conversionFactor)
+                    .discountAmount(effectiveDiscount)
                     .promotion(promoEntity)
-                    .promotionName(promoResult.getPromotionName())
+                    .promotionName(appliedPromoName)
+                    .priceTier(appliedTier)
+                    .priceTierName(appliedTierName)
                     .taxRatePercentage(taxRate)
                     .taxAmount(taxAmount)
-                    .subtotal(subtotal)
+                    .subtotal(BigDecimal.ZERO)
                     .build();
+            calculateAndApplyLineRounding(newItem, household, baseAmount, taxAmount);
             order.getItems().add(newItem);
         }
 
@@ -474,36 +650,93 @@ public class OrderServiceImpl implements OrderService {
                 .orElseThrow(() -> new AppException(ErrorCode.ORDER_ITEM_NOT_FOUND));
 
         Product product = item.getProduct();
-        BigDecimal newQuantity = request.getQuantity();
+
+        BigDecimal regularUnitPrice = item.getUnitPrice();
+        if (request.getUnitConversionId() != null) {
+            if (org.springframework.util.StringUtils.hasText(request.getUnitConversionId())) {
+                ProductUnitConversion conversion = productUnitConversionRepository.findByIdAndProductId(request.getUnitConversionId(), product.getId())
+                        .orElseThrow(() -> new AppException(ErrorCode.UNIT_CONVERSION_NOT_FOUND));
+                item.setUnitConversionId(conversion.getId());
+                item.setUnitName(conversion.getUnitName());
+                item.setConversionFactor(conversion.getConversionFactor());
+                regularUnitPrice = conversion.getPrice() != null 
+                        ? conversion.getPrice() 
+                        : product.getPrice().multiply(conversion.getConversionFactor());
+                item.setUnitPrice(regularUnitPrice);
+            } else {
+                item.setUnitConversionId(null);
+                item.setUnitName(product != null ? product.getUnit() : null);
+                item.setConversionFactor(BigDecimal.ONE);
+                if (product != null) {
+                    regularUnitPrice = product.getPrice();
+                    item.setUnitPrice(regularUnitPrice);
+                }
+            }
+        } else {
+            if (item.getUnitConversionId() != null && product != null) {
+                ProductUnitConversion conversion = productUnitConversionRepository.findByIdAndProductId(item.getUnitConversionId(), product.getId()).orElse(null);
+                if (conversion != null) {
+                    regularUnitPrice = conversion.getPrice() != null ? conversion.getPrice() : product.getPrice().multiply(conversion.getConversionFactor());
+                }
+            } else if (product != null) {
+                regularUnitPrice = product.getPrice();
+            }
+        }
+
+        BigDecimal conversionFactor = item.getConversionFactor() != null ? item.getConversionFactor() : BigDecimal.ONE;
+        BigDecimal newQuantity = resolveQuantity(product, request.getQuantity(), request.getBuyAmount(), regularUnitPrice, conversionFactor);
+        validateWeightQuantity(product, newQuantity, conversionFactor);
+        item.setBaseQuantity(newQuantity.multiply(conversionFactor));
+
+        ProductPriceTier matchedTier = (productPriceTierService != null && product != null)
+                ? productPriceTierService.matchPriceTier(household.getId(), product, newQuantity, item.getUnitConversionId())
+                : null;
 
         com.sales.dto.response.PromotionItemResultResponse promoResult = product != null
                 ? promotionService.calculateItemPromotion(
                         currentUser,
                         product,
                         newQuantity,
-                        item.getUnitPrice(),
+                        regularUnitPrice,
                         false
                 )
                 : null;
 
-        Promotion promoEntity = (promoResult != null && promoResult.getPromotionId() != null)
-                ? promotionRepository.findById(promoResult.getPromotionId()).orElse(null)
+        com.sales.dto.response.PricingDecision decision = productPriceTierService != null
+                ? productPriceTierService.resolvePricingDecision(
+                        regularUnitPrice,
+                        matchedTier,
+                        promoResult,
+                        newQuantity
+                )
                 : null;
 
-        BigDecimal discountAmount = promoResult != null ? promoResult.getDiscountAmount() : BigDecimal.ZERO;
-        String promoName = promoResult != null ? promoResult.getPromotionName() : null;
+        BigDecimal effectiveUnitPrice = (decision != null && decision.getUnitPrice() != null) ? decision.getUnitPrice() : regularUnitPrice;
+        BigDecimal discountAmount = (decision != null && decision.getDiscountAmount() != null)
+                ? decision.getDiscountAmount()
+                : (promoResult != null && promoResult.getDiscountAmount() != null ? promoResult.getDiscountAmount() : BigDecimal.ZERO);
+        String promoName = decision != null ? decision.getPromotionName() : (promoResult != null ? promoResult.getPromotionName() : null);
+        Promotion promoEntity = decision != null && decision.getPromotion() != null
+                ? decision.getPromotion()
+                : (promoName != null && promoResult != null && promoResult.getPromotionId() != null
+                        ? promotionRepository.findById(promoResult.getPromotionId()).orElse(null)
+                        : null);
+        ProductPriceTier appliedTier = decision != null ? decision.getPriceTier() : null;
+        String appliedTierName = decision != null ? decision.getPriceTierName() : null;
 
         BigDecimal taxRate = item.getTaxRatePercentage() != null ? item.getTaxRatePercentage() : BigDecimal.ZERO;
-        BigDecimal baseAmount = newQuantity.multiply(item.getUnitPrice()).subtract(discountAmount);
+        BigDecimal baseAmount = newQuantity.multiply(effectiveUnitPrice).subtract(discountAmount);
         BigDecimal taxAmount = baseAmount.multiply(taxRate).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
-        BigDecimal subtotal = baseAmount.add(taxAmount);
 
         item.setQuantity(newQuantity);
+        item.setUnitPrice(effectiveUnitPrice);
         item.setDiscountAmount(discountAmount);
         item.setPromotion(promoEntity);
         item.setPromotionName(promoName);
+        item.setPriceTier(appliedTier);
+        item.setPriceTierName(appliedTierName);
         item.setTaxAmount(taxAmount);
-        item.setSubtotal(subtotal);
+        calculateAndApplyLineRounding(item, household, baseAmount, taxAmount);
 
         recalculateOrderTotals(order);
         order = orderRepository.save(order);
@@ -686,6 +919,9 @@ public class OrderServiceImpl implements OrderService {
             throw new AppException(ErrorCode.INVALID_INPUT);
         }
 
+        // QTN-07: Tổng tiền hóa đơn phải khớp các dòng hàng
+        validateOrderIntegrityQTN07(order);
+
         BigDecimal changeAmount = null;
 
         if ("CASH".equals(order.getPaymentMethod())) {
@@ -774,10 +1010,11 @@ public class OrderServiceImpl implements OrderService {
             if (item.getProduct() != null && item.getQuantity() != null && item.getQuantity().compareTo(BigDecimal.ZERO) > 0) {
                 Product product = item.getProduct();
                 productMap.put(product.getId(), product);
-                productDeductions.merge(product.getId(), item.getQuantity(), BigDecimal::add);
+                BigDecimal deductQty = item.getBaseQuantity() != null ? item.getBaseQuantity() : item.getQuantity();
+                productDeductions.merge(product.getId(), deductQty, BigDecimal::add);
 
                 if (order.getPointOfSale() != null) {
-                    posStockDeductions.merge(product.getId(), item.getQuantity(), BigDecimal::add);
+                    posStockDeductions.merge(product.getId(), deductQty, BigDecimal::add);
                 }
             }
         }
@@ -859,5 +1096,57 @@ public class OrderServiceImpl implements OrderService {
         return orders.stream()
                 .map(order -> mapToResponse(order, new ArrayList<>(), null, null))
                 .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public CalculateWeightResponse calculateWeight(String currentUsername, CalculateWeightRequest request) {
+        User currentUser = getAuthenticatedUser(currentUsername);
+        BusinessHousehold household = currentUser.getHousehold();
+        if (household == null) {
+            throw new AppException(ErrorCode.FORBIDDEN);
+        }
+
+        Product product = productRepository.findByIdAndHouseholdIdAndDeletedAtIsNull(request.getProductId(), household.getId())
+                .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_NOT_FOUND));
+
+        if (!Boolean.TRUE.equals(product.getIsSoldByWeight())) {
+            throw new AppException(ErrorCode.NON_WEIGHT_PRODUCT_DECIMAL_NOT_ALLOWED);
+        }
+
+        BigDecimal conversionFactor = BigDecimal.ONE;
+        String unitName = product.getUnit();
+        BigDecimal unitPrice = product.getPrice();
+
+        if (org.springframework.util.StringUtils.hasText(request.getUnitConversionId())) {
+            ProductUnitConversion conversion = productUnitConversionRepository.findByIdAndProductId(request.getUnitConversionId(), product.getId())
+                    .orElseThrow(() -> new AppException(ErrorCode.UNIT_CONVERSION_NOT_FOUND));
+            unitPrice = conversion.getPrice() != null ? conversion.getPrice() : product.getPrice().multiply(conversion.getConversionFactor());
+            unitName = conversion.getUnitName();
+            conversionFactor = conversion.getConversionFactor();
+        }
+
+        BigDecimal quantity = resolveQuantity(product, null, request.getBuyAmount(), unitPrice, conversionFactor);
+        validateWeightQuantity(product, quantity, conversionFactor);
+
+        BigDecimal exactSubtotal = quantity.multiply(unitPrice).setScale(2, RoundingMode.HALF_UP);
+        RoundingRule rule = resolveRoundingRule(household);
+        BigDecimal roundedSubtotal = rule.applyRounding(exactSubtotal);
+        BigDecimal roundingDifference = roundedSubtotal.subtract(exactSubtotal).setScale(2, RoundingMode.HALF_UP);
+
+        return CalculateWeightResponse.builder()
+                .productId(product.getId())
+                .productName(product.getName())
+                .buyAmount(request.getBuyAmount())
+                .unitPrice(unitPrice)
+                .calculatedQuantity(quantity)
+                .exactSubtotal(exactSubtotal)
+                .roundedSubtotal(roundedSubtotal)
+                .roundingDifference(roundingDifference)
+                .unitName(unitName)
+                .conversionFactor(conversionFactor)
+                .minWeightStep(product.getMinWeightStep())
+                .decimalPlaces(product.getDecimalPlaces())
+                .build();
     }
 }

@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -26,4 +27,65 @@ public interface InventoryAuditDetailRepository extends JpaRepository<InventoryA
             @Param("start") LocalDateTime start,
             @Param("end") LocalDateTime end
     );
+
+    @Query("SELECT d FROM InventoryAuditDetail d " +
+           "JOIN FETCH d.audit a " +
+           "LEFT JOIN FETCH a.createdByUser " +
+           "WHERE d.product.id = :productId " +
+           "AND a.household.id = :householdId " +
+           "AND a.status = 'COMPLETED' " +
+           "ORDER BY a.auditDate ASC, d.createdAt ASC")
+    List<InventoryAuditDetail> findStockMovementsByProduct(
+            @Param("productId") String productId,
+            @Param("householdId") String householdId
+    );
+
+    @Query("SELECT d FROM InventoryAuditDetail d " +
+           "JOIN FETCH d.audit a " +
+           "LEFT JOIN FETCH a.createdByUser " +
+           "WHERE d.product.id = :productId " +
+           "AND a.household.id = :householdId " +
+           "AND a.status = 'COMPLETED' " +
+           "AND (COALESCE(a.auditDate, d.createdAt) BETWEEN :startDateTime AND :endDateTime) " +
+           "ORDER BY COALESCE(a.auditDate, d.createdAt) ASC, d.createdAt ASC")
+    List<InventoryAuditDetail> findStockMovementsByProductInPeriod(
+            @Param("productId") String productId,
+            @Param("householdId") String householdId,
+            @Param("startDateTime") LocalDateTime startDateTime,
+            @Param("endDateTime") LocalDateTime endDateTime
+    );
+
+    @Query("SELECT COALESCE(SUM(d.differenceQuantity), 0) " +
+           "FROM InventoryAuditDetail d " +
+           "JOIN d.audit a " +
+           "WHERE d.product.id = :productId " +
+           "AND a.household.id = :householdId " +
+           "AND a.status = 'COMPLETED' " +
+           "AND COALESCE(a.auditDate, d.createdAt) < :startDateTime")
+    BigDecimal sumDifferenceBefore(
+            @Param("productId") String productId,
+            @Param("householdId") String householdId,
+            @Param("startDateTime") LocalDateTime startDateTime
+    );
+
+    @Query("SELECT COALESCE(SUM(d.differenceQuantity), 0) " +
+           "FROM InventoryAuditDetail d " +
+           "JOIN d.audit a " +
+           "WHERE d.product.id = :productId " +
+           "AND a.household.id = :householdId " +
+           "AND a.status = 'COMPLETED'")
+    BigDecimal sumDifferenceAllTime(
+            @Param("productId") String productId,
+            @Param("householdId") String householdId
+    );
+
+    @Query("SELECT COUNT(d) > 0 FROM InventoryAuditDetail d " +
+           "WHERE d.product.id = :productId " +
+           "AND d.audit.household.id = :householdId " +
+           "AND d.audit.status = 'COMPLETED'")
+    boolean hasStockMovementByProduct(
+            @Param("productId") String productId,
+            @Param("householdId") String householdId
+    );
 }
+

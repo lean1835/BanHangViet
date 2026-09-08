@@ -29,7 +29,7 @@ import java.util.Optional;
 @Repository
 public interface OrderRepository extends JpaRepository<Order, String> {
 
-    @EntityGraph(attributePaths = {"items", "items.product", "customer", "shift", "createdByUser", "household"})
+    @EntityGraph(attributePaths = {"items", "items.product", "items.priceTier", "customer", "shift", "createdByUser", "household"})
     Optional<Order> findByIdAndHouseholdIdAndDeletedAtIsNull(String id, String householdId);
 
     boolean existsByOrderNumber(String orderNumber);
@@ -40,7 +40,7 @@ public interface OrderRepository extends JpaRepository<Order, String> {
 
     Optional<Order> findByOrderNumberAndHouseholdIdAndDeletedAtIsNull(String orderNumber, String householdId);
 
-    @EntityGraph(attributePaths = {"items", "items.product", "customer", "shift", "createdByUser", "household"})
+    @EntityGraph(attributePaths = {"items", "items.product", "items.priceTier", "customer", "shift", "createdByUser", "household"})
     List<Order> findByOrderNumberInAndHouseholdIdAndDeletedAtIsNull(Collection<String> orderNumbers, String householdId);
 
     List<Order> findByShiftIdAndDeletedAtIsNull(String shiftId);
@@ -73,7 +73,7 @@ public interface OrderRepository extends JpaRepository<Order, String> {
 
     int countByShiftIdAndStatusAndDeletedAtIsNull(String shiftId, String status);
 
-    @EntityGraph(attributePaths = {"items", "items.product", "customer", "shift", "createdByUser", "household"})
+    @EntityGraph(attributePaths = {"items", "items.product", "items.priceTier", "customer", "shift", "createdByUser", "household"})
     List<Order> findByHouseholdIdAndDeletedAtIsNullOrderByCreatedAtDesc(String householdId);
 
     List<Order> findByHouseholdIdAndStatusAndDeletedAtIsNull(String householdId, String status);
@@ -88,7 +88,7 @@ public interface OrderRepository extends JpaRepository<Order, String> {
             @Param("end") LocalDateTime end
     );
 
-    @EntityGraph(attributePaths = {"items", "items.product", "customer", "shift", "createdByUser", "household"})
+    @EntityGraph(attributePaths = {"items", "items.product", "items.priceTier", "customer", "shift", "createdByUser", "household"})
     List<Order> findByHouseholdIdAndCreatedByUserIdAndDeletedAtIsNullOrderByCreatedAtDesc(String householdId, String userId);
 
     @EntityGraph(attributePaths = {"customer", "household"})
