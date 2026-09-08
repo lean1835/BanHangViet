@@ -37,4 +37,11 @@ public interface PasswordResetOtpRepository extends JpaRepository<PasswordResetO
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("UPDATE PasswordResetOtp o SET o.isUsed = true WHERE o.user.id = :userId AND o.type = :type AND o.isUsed = false")
     void invalidateAllPendingOtpsForUser(@Param("userId") String userId, @Param("type") String type);
+
+    Optional<PasswordResetOtp> findTopByEmailAndTypeAndIsUsedFalseOrderByCreatedAtDesc(String email, String type);
+    Optional<PasswordResetOtp> findTopByEmailAndTypeOrderByCreatedAtDesc(String email, String type);
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("UPDATE PasswordResetOtp o SET o.isUsed = true WHERE o.email = :email AND o.type = :type AND o.isUsed = false")
+    void invalidateAllPendingOtpsForEmail(@Param("email") String email, @Param("type") String type);
 }

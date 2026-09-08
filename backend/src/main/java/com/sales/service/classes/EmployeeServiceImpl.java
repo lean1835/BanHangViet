@@ -120,6 +120,7 @@ public class EmployeeServiceImpl implements EmployeeService {
         map.put("username", user.getUsername());
         map.put("fullName", user.getFullName());
         map.put("phoneNumber", user.getPhoneNumber());
+        map.put("email", user.getEmail());
         map.put("roleCode", user.getRole() != null ? user.getRole().getCode() : null);
         map.put("pointOfSaleId", user.getPointOfSale() != null ? user.getPointOfSale().getId() : null);
         map.put("isActive", user.getIsActive());
@@ -134,6 +135,7 @@ public class EmployeeServiceImpl implements EmployeeService {
                 .username(user.getUsername())
                 .fullName(user.getFullName())
                 .phoneNumber(user.getPhoneNumber())
+                .email(user.getEmail())
                 .roleCode(user.getRole().getCode())
                 .roleName(user.getRole().getName())
                 .pointOfSaleId(pos != null ? pos.getId() : null)
@@ -194,6 +196,7 @@ public class EmployeeServiceImpl implements EmployeeService {
                 .passwordHash(passwordEncoder.encode(request.getPassword()))
                 .fullName(request.getFullName())
                 .phoneNumber(request.getPhoneNumber())
+                .email(request.getEmail() != null && !request.getEmail().trim().isEmpty() ? request.getEmail().trim() : null)
                 .role(role)
                 .household(household)
                 .pointOfSale(pointOfSale)
@@ -254,6 +257,9 @@ public class EmployeeServiceImpl implements EmployeeService {
 
         employee.setFullName(request.getFullName());
         employee.setPhoneNumber(request.getPhoneNumber());
+        if (request.getEmail() != null) {
+            employee.setEmail(request.getEmail().trim().isEmpty() ? null : request.getEmail().trim());
+        }
         employee.setRole(role);
         employee.setIsActive(request.getIsActive());
 

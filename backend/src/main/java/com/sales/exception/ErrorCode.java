@@ -205,7 +205,15 @@ public enum ErrorCode {
     // NCL-01-CN-006 Đổi mật khẩu và cập nhật hồ sơ cá nhân
     NEW_PASSWORD_SAME_AS_CURRENT(2042, "Mật khẩu mới không được trùng với mật khẩu hiện tại", HttpStatus.BAD_REQUEST),
     PHONE_NUMBER_ALREADY_EXISTS(2043, "Số điện thoại này đã được sử dụng bởi tài khoản khác", HttpStatus.BAD_REQUEST),
-    PHONE_NUMBER_UNCHANGED(2044, "Số điện thoại mới trùng với số điện thoại hiện tại", HttpStatus.BAD_REQUEST);
+    PHONE_NUMBER_UNCHANGED(2044, "Số điện thoại mới trùng với số điện thoại hiện tại", HttpStatus.BAD_REQUEST),
+
+    // NCL-01-CN-007 Quản lý phiên đăng nhập và đăng xuất từ xa
+    SESSION_NOT_FOUND(2045, "Phiên đăng nhập không tồn tại hoặc đã kết thúc", HttpStatus.NOT_FOUND),
+    SESSION_ALREADY_REVOKED(2046, "Phiên đăng nhập này đã bị đăng xuất trước đó", HttpStatus.BAD_REQUEST),
+    CANNOT_REVOKE_OTHER_USER_SESSION(2047, "Bạn không có quyền đăng xuất phiên của người dùng khác", HttpStatus.FORBIDDEN),
+    SESSION_TIMEOUT_INVALID(2048, "Thời gian tự hết hạn phiên không hợp lệ (tối thiểu 5 phút, tối đa 1440 phút)", HttpStatus.BAD_REQUEST),
+    SESSION_REVOKED(2049, "Phiên đăng nhập của bạn đã bị đăng xuất từ xa hoặc đã hết hạn", HttpStatus.UNAUTHORIZED),
+    EMAIL_NOT_FOUND(2050, "Địa chỉ email chưa được đăng ký trong hệ thống", HttpStatus.NOT_FOUND);
 
     private final int code;
     private final String message;

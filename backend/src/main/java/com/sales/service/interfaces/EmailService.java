@@ -10,5 +10,6 @@ public interface EmailService {
     void sendDebtReminderEmailAsync(String debtId, String toEmail, String customerName, String householdName, BigDecimal debtAmount, LocalDateTime dueDate);
     void sendOverdueDebtReminderEmailAsync(String debtId, String toEmail, String customerName, String householdName, BigDecimal debtAmount, LocalDateTime dueDate);
     void sendCustomDebtReminderEmail(String toEmail, String customerName, String householdName, BigDecimal totalDebt, String messageContent);
+    void sendPasswordResetOtpEmail(String toEmail, String otpCode, String recipientName);
 }
 

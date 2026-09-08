@@ -12,6 +12,7 @@ public class EmployeeResponse {
     private String username;
     private String fullName;
     private String phoneNumber;
+    private String email;
     private String roleCode;
     private String roleName;
     private String pointOfSaleId;

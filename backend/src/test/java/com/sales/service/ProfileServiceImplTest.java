@@ -19,6 +19,7 @@ import com.sales.repository.UserRepository;
 import com.sales.service.classes.ActivityLogHelper;
 import com.sales.service.classes.ProfileServiceImpl;
 import com.sales.service.interfaces.JwtService;
+import com.sales.service.interfaces.UserSessionService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -64,6 +65,9 @@ class ProfileServiceImplTest {
 
     @Mock
     private JwtService jwtService;
+
+    @Mock
+    private UserSessionService userSessionService;
 
     @InjectMocks
     private ProfileServiceImpl profileService;

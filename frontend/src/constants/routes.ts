@@ -2,6 +2,7 @@ export const ROUTE_SEGMENTS = {
   AUTH: "auth",
   LOGIN: "login",
   REGISTER: "register",
+  FORGOT_PASSWORD: "forgot-password",
   DASHBOARD: "dashboard",
   PRODUCTS: "products",
   STOCK_ENTRY: "stock-entry",
@@ -44,6 +45,7 @@ export const ROUTE_SEGMENTS = {
   POS_REVENUE: "pos-revenue",
   PEAK_HOURS: "peak-hours",
   USER_PROFILE: "user-profile",
+  SESSIONS: "sessions",
   WILDCARD: "*",
 } as const;
 
@@ -59,6 +61,10 @@ export const APP_ROUTES = {
   AUTH: createRoute(ROUTE_SEGMENTS.AUTH),
   LOGIN: createRoute(ROUTE_SEGMENTS.AUTH, ROUTE_SEGMENTS.LOGIN),
   REGISTER: createRoute(ROUTE_SEGMENTS.AUTH, ROUTE_SEGMENTS.REGISTER),
+  FORGOT_PASSWORD: createRoute(
+    ROUTE_SEGMENTS.AUTH,
+    ROUTE_SEGMENTS.FORGOT_PASSWORD,
+  ),
   DASHBOARD: createRoute(ROUTE_SEGMENTS.DASHBOARD),
   PRODUCTS: createRoute(ROUTE_SEGMENTS.PRODUCTS),
   PRODUCT_STOCK_ENTRY: createRoute(
@@ -137,6 +143,10 @@ export const APP_ROUTES = {
   SETTINGS_USER_PROFILE: createRoute(
     ROUTE_SEGMENTS.SETTINGS,
     ROUTE_SEGMENTS.USER_PROFILE,
+  ),
+  SETTINGS_SESSIONS: createRoute(
+    ROUTE_SEGMENTS.SETTINGS,
+    ROUTE_SEGMENTS.SESSIONS,
   ),
   SETTINGS_POINTS_OF_SALE: createRoute(
     ROUTE_SEGMENTS.SETTINGS,

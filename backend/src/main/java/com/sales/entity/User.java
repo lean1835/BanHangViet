@@ -9,7 +9,8 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "users", indexes = {
-    @Index(name = "idx_users_phone_number", columnList = "phone_number")
+    @Index(name = "idx_users_phone_number", columnList = "phone_number"),
+    @Index(name = "idx_users_email", columnList = "email")
 })
 @Data
 @Builder
@@ -45,6 +46,9 @@ public class User {
 
     @Column(name = "phone_number", length = 20)
     private String phoneNumber;
+
+    @Column(length = 100)
+    private String email;
 
     @Column(name = "is_active", nullable = false)
     @Builder.Default

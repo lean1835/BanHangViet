@@ -15,6 +15,7 @@ export const EMPLOYEE_API_RESPONSE_FIELDS = {
   USERNAME: "username",
   FULL_NAME: "fullName",
   PHONE_NUMBER: "phoneNumber",
+  EMAIL: "email",
   ROLE_CODE: "roleCode",
   IS_ACTIVE: "isActive",
 } as const;
@@ -64,6 +65,7 @@ export const EMPLOYEE_VALIDATION = {
   USERNAME_MIN_LENGTH: 4,
   PASSWORD_MIN_LENGTH: 6,
   PHONE_PATTERN: /^[0-9+() -]{9,15}$/,
+  EMAIL_PATTERN: /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/,
 } as const;
 
 export const EMPLOYEE_VALIDATION_MESSAGES = {
@@ -73,6 +75,7 @@ export const EMPLOYEE_VALIDATION_MESSAGES = {
   PASSWORD_MIN_LENGTH: "Mật khẩu phải có ít nhất 6 ký tự",
   FULL_NAME_REQUIRED: "Vui lòng nhập họ và tên",
   PHONE_INVALID: "Số điện thoại không hợp lệ",
+  EMAIL_INVALID: "Địa chỉ email không hợp lệ",
   ROLE_REQUIRED: "Vui lòng chọn vai trò phân quyền",
 } as const;
 
@@ -81,6 +84,7 @@ export const EMPLOYEE_FORM_FIELDS = {
   PASSWORD: "password",
   FULL_NAME: "fullName",
   PHONE_NUMBER: "phoneNumber",
+  EMAIL: "email",
   ROLE_CODE: "roleCode",
 } as const;
 
@@ -127,6 +131,8 @@ export const EMPLOYEE_UI = {
     FULL_NAME_PLACEHOLDER: "Nhập đầy đủ họ và tên",
     PHONE_LABEL: "Số điện thoại liên hệ:",
     PHONE_PLACEHOLDER: "Ví dụ: 0988888888",
+    EMAIL_LABEL: "Địa chỉ Email (Gmail):",
+    EMAIL_PLACEHOLDER: "Ví dụ: nhanvien@gmail.com (dùng lấy lại MK)",
     ROLE_LABEL: "Vai trò phân quyền*:",
     ROLE_PLACEHOLDER: "Chọn vai trò",
     STATUS_LABEL: "Trạng thái hoạt động:",

@@ -47,6 +47,9 @@ public class BusinessHousehold {
     @Builder.Default
     private Integer offlineMaxHours = 24;
 
+    @Column(name = "session_timeout_minutes", nullable = false)
+    @Builder.Default
+    private Integer sessionTimeoutMinutes = 60;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)

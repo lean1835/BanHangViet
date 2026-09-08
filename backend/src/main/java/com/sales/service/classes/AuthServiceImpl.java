@@ -13,12 +13,17 @@ import com.sales.repository.BusinessHouseholdRepository;
 import com.sales.repository.RoleRepository;
 import com.sales.repository.UserRepository;
 import com.sales.constant.RoleCode;
+import com.sales.entity.UserSession;
 import com.sales.service.interfaces.AuthService;
 import com.sales.service.interfaces.JwtService;
+import com.sales.service.interfaces.UserSessionService;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 
 @Service
 @RequiredArgsConstructor
@@ -29,6 +34,7 @@ public class AuthServiceImpl implements AuthService {
     private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
+    private final UserSessionService userSessionService;
 
     @Override
     @Transactional
@@ -87,7 +93,7 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @Transactional(rollbackFor = Exception.class)
     public LoginResponse login(LoginRequest request) {
         // 1. Tìm người dùng theo username
         User user = userRepository.findByUsername(request.getUsername())
@@ -103,21 +109,44 @@ public class AuthServiceImpl implements AuthService {
             throw new AppException(ErrorCode.WRONG_PASSWORD);
         }
 
-        // 4. Tạo JWT token
-        String token = jwtService.generateToken(user);
+        // 4. Khởi tạo phiên đăng nhập mới (NCL-01-CN-007)
+        String clientIp = null;
+        String userAgent = null;
+        try {
+            ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+            if (attributes != null) {
+                HttpServletRequest httpRequest = attributes.getRequest();
+                String xForwardedFor = httpRequest.getHeader("X-Forwarded-For");
+                if (xForwardedFor != null && !xForwardedFor.isBlank()) {
+                    clientIp = xForwardedFor.split(",")[0].trim();
+                } else {
+                    clientIp = httpRequest.getRemoteAddr();
+                }
+                userAgent = httpRequest.getHeader("User-Agent");
+            }
+        } catch (Exception ignored) {
+        }
 
-        // 5. Trả về LoginResponse
+        UserSession session = userSessionService.createSession(user, clientIp, userAgent);
+
+        // 5. Tạo JWT token chứa sessionId
+        String token = jwtService.generateToken(user, session.getId());
+
+        // 6. Trả về LoginResponse
         return LoginResponse.builder()
                 .token(token)
                 .userId(user.getId())
                 .username(user.getUsername())
                 .fullName(user.getFullName())
+                .phoneNumber(user.getPhoneNumber())
+                .email(user.getEmail())
                 .roleCode(user.getRole().getCode())
                 .householdId(user.getHousehold() != null ? user.getHousehold().getId() : null)
                 .pointOfSaleId(user.getPointOfSale() != null ? user.getPointOfSale().getId() : null)
                 .pointOfSaleName(user.getPointOfSale() != null ? user.getPointOfSale().getName() : null)
                 .posCode(user.getPointOfSale() != null ? user.getPointOfSale().getPosCode() : null)
                 .mustChangePassword(Boolean.TRUE.equals(user.getMustChangePassword()))
+                .sessionId(session.getId())
                 .build();
     }
 }

@@ -17,6 +17,7 @@ import com.sales.repository.PasswordResetOtpRepository;
 import com.sales.repository.UserRepository;
 import com.sales.service.interfaces.JwtService;
 import com.sales.service.interfaces.ProfileService;
+import com.sales.service.interfaces.UserSessionService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -50,6 +51,7 @@ public class ProfileServiceImpl implements ProfileService {
     private final ObjectMapper objectMapper;
     private final CacheManager cacheManager;
     private final JwtService jwtService;
+    private final UserSessionService userSessionService;
 
     private final SecureRandom secureRandom = new SecureRandom();
 
@@ -116,8 +118,25 @@ public class ProfileServiceImpl implements ProfileService {
 
         evictUserCache(username);
 
-        // 5. Sinh token JWT mới cho phiên hiện tại (chứa pwdAt mới)
-        String newToken = jwtService.generateToken(user);
+        // 5. Thu hồi tất cả các phiên khác ngoại trừ phiên hiện tại
+        String currentSessionId = null;
+        try {
+            ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+            if (attributes != null) {
+                HttpServletRequest httpRequest = attributes.getRequest();
+                String authHeader = httpRequest.getHeader("Authorization");
+                if (authHeader != null && authHeader.startsWith("Bearer ")) {
+                    currentSessionId = jwtService.extractSessionId(authHeader.substring(7));
+                }
+            }
+        } catch (Exception ignored) {
+        }
+        userSessionService.revokeAllSessionsExcept(user.getId(), currentSessionId, "Vô hiệu hóa phiên do đổi mật khẩu", user);
+
+        // 6. Sinh token JWT mới cho phiên hiện tại (chứa pwdAt mới)
+        String newToken = currentSessionId != null
+                ? jwtService.generateToken(user, currentSessionId)
+                : jwtService.generateToken(user);
 
         logProfileActivity(user.getHousehold(), user, "CHANGE_PASSWORD", user.getId(),
                 null,
@@ -286,6 +305,7 @@ public class ProfileServiceImpl implements ProfileService {
                 .username(user.getUsername())
                 .fullName(user.getFullName())
                 .phoneNumber(user.getPhoneNumber())
+                .email(user.getEmail())
                 .roleCode(user.getRole() != null ? user.getRole().getCode() : null)
                 .roleName(user.getRole() != null ? user.getRole().getName() : null)
                 .householdId(user.getHousehold() != null ? user.getHousehold().getId() : null)
