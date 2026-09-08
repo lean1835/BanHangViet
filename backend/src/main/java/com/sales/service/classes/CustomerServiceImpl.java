@@ -134,11 +134,14 @@ public class CustomerServiceImpl implements CustomerService {
             throw new AppException(ErrorCode.FORBIDDEN);
         }
 
+        String trimmedTax = request.getTaxCode() != null ? request.getTaxCode().trim() : null;
+        String taxCode = (trimmedTax != null && !trimmedTax.isEmpty()) ? trimmedTax : null;
+
         Customer customer = Customer.builder()
                 .household(household)
                 .name(request.getName())
                 .phoneNumber(request.getPhoneNumber())
-                .taxCode(request.getTaxCode())
+                .taxCode(taxCode)
                 .email(request.getEmail())
                 .address(request.getAddress())
                 .creditLimit(creditLimit)

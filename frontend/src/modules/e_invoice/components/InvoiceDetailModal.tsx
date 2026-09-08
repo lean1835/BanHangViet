@@ -8,7 +8,8 @@ import { formatCurrency } from "@/utils/formatCurrency";
 import { formatDate } from "@/utils/dateFormatter";
 import type { IInvoice } from "../types/IInvoice";
 import { useNotification } from "@/hooks/useNotification";
-import { Search, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
+import { Search, CheckCircle2, AlertCircle, Loader2, Save } from "lucide-react";
+import { getApiErrorMessage } from "@/utils/getApiErrorMessage";
 import type { IDeliveryLog } from "../types/IInvoiceDelivery";
 import { CancelInvoiceModal } from "./CancelInvoiceModal";
 import { SendInvoiceModal } from "./SendInvoiceModal";
@@ -83,7 +84,8 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
   const [buyerPhone, setBuyerPhone] = useState(invoice.buyerPhone || "");
   const [buyerEmail, setBuyerEmail] = useState(invoice.buyerEmail || "");
 
-  const { showError, showInfo } = useNotification();
+  const { showError, showInfo, showSuccess } = useNotification();
+  const [isSavingBuyerInfo, setIsSavingBuyerInfo] = useState(false);
   const [lookupStatus, setLookupStatus] = useState<"IDLE" | "FOUND" | "NOT_FOUND">(
     invoice.buyerTaxCode ? "FOUND" : "IDLE"
   );
@@ -207,6 +209,27 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
       }
     } finally {
       setIsActionPending(false);
+    }
+  };
+
+  const handleSaveBuyerInfoOnly = async () => {
+    if (!validateBuyerData()) {
+      return;
+    }
+    setIsSavingBuyerInfo(true);
+    try {
+      await onUpdateInvoice(invoice.id, {
+        buyerName: buyerName.trim(),
+        buyerTaxCode: buyerTaxCode.trim(),
+        buyerAddress: buyerAddress.trim(),
+        buyerPhone: buyerPhone.trim(),
+        buyerEmail: buyerEmail.trim(),
+      });
+      showSuccess("Đã lưu thông tin người mua và đồng bộ danh bạ thành công!");
+    } catch (err: unknown) {
+      showError(getApiErrorMessage(err, "Không thể cập nhật thông tin người mua."));
+    } finally {
+      setIsSavingBuyerInfo(false);
     }
   };
 
@@ -357,7 +380,28 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
 
             {/* Buyer Info */}
             <div className="border-b pb-3 text-[10px] leading-relaxed text-slate-600">
-              <p className="font-extrabold text-slate-800 text-xs uppercase mb-1">Thông tin người mua hàng</p>
+              <div className="flex items-center justify-between mb-1.5">
+                <p className="font-extrabold text-slate-800 text-xs uppercase">
+                  Thông tin người mua hàng
+                </p>
+                {!isTaxAuthority &&
+                  (invoice.status === E_INVOICE_STATUS.DRAFT || invoice.status === E_INVOICE_STATUS.SEND_ERROR) && (
+                    <button
+                      type="button"
+                      onClick={handleSaveBuyerInfoOnly}
+                      disabled={isSavingBuyerInfo || isActionPending}
+                      className="flex items-center gap-1 px-2.5 py-1 rounded bg-slate-100 hover:bg-kv-blue-primary hover:text-white text-slate-700 text-[10px] font-bold transition-all disabled:opacity-50"
+                      title="Lưu thông tin người mua vào hóa đơn và đồng bộ danh bạ"
+                    >
+                      {isSavingBuyerInfo ? (
+                        <Loader2 size={12} className="animate-spin" />
+                      ) : (
+                        <Save size={12} />
+                      )}
+                      <span>Lưu thông tin</span>
+                    </button>
+                  )}
+              </div>
               {!isTaxAuthority && (invoice.status === E_INVOICE_STATUS.DRAFT || invoice.status === E_INVOICE_STATUS.SEND_ERROR) ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 mt-1">
                   {/* Tax Code */}

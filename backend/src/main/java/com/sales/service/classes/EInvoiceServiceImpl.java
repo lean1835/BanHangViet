@@ -932,10 +932,16 @@ public class EInvoiceServiceImpl implements EInvoiceService {
             return;
         }
         String trimmedTaxCode = taxCode.trim();
-        Optional<Customer> custOpt = customerRepository.findByHouseholdIdAndTaxCodeAndDeletedAtIsNull(household.getId(), trimmedTaxCode);
+        Optional<Customer> custOpt = customerRepository.findFirstByHouseholdIdAndTaxCodeAndDeletedAtIsNullOrderByCreatedAtDesc(household.getId(), trimmedTaxCode);
         if (custOpt.isPresent()) {
             Customer cust = custOpt.get();
             boolean updated = false;
+            if (name != null && !name.trim().isEmpty() && !"Khách lẻ".equals(name.trim())) {
+                if (cust.getName() == null || cust.getName().trim().isEmpty() || "Khách doanh nghiệp".equals(cust.getName().trim())) {
+                    cust.setName(name.trim());
+                    updated = true;
+                }
+            }
             if ((cust.getAddress() == null || cust.getAddress().trim().isEmpty()) && address != null && !address.trim().isEmpty()) {
                 cust.setAddress(address.trim());
                 updated = true;
@@ -954,7 +960,8 @@ public class EInvoiceServiceImpl implements EInvoiceService {
         } else {
             String digitsOnly = trimmedTaxCode.replaceAll("[^0-9]", "");
             String fallbackPhone = "09" + (digitsOnly + "00000000").substring(0, 8);
-            String custPhone = (phone != null && phone.trim().matches("^[0-9]{9,15}$")) ? phone.trim() : fallbackPhone;
+            String cleanedPhone = phone != null ? phone.replaceAll("[^0-9]", "") : "";
+            String custPhone = cleanedPhone.matches("^[0-9]{9,15}$") ? cleanedPhone : fallbackPhone;
             Customer newCust = Customer.builder()
                     .household(household)
                     .taxCode(trimmedTaxCode)
@@ -991,7 +998,7 @@ public class EInvoiceServiceImpl implements EInvoiceService {
 
         if (taxCode != null && !taxCode.isEmpty()) {
             validateBuyerTaxCode(taxCode);
-            Optional<Customer> existingCustOpt = customerRepository.findByHouseholdIdAndTaxCodeAndDeletedAtIsNull(
+            Optional<Customer> existingCustOpt = customerRepository.findFirstByHouseholdIdAndTaxCodeAndDeletedAtIsNullOrderByCreatedAtDesc(
                     currentUser.getHousehold().getId(), taxCode);
             if (existingCustOpt.isPresent()) {
                 Customer cust = existingCustOpt.get();
@@ -1043,7 +1050,7 @@ public class EInvoiceServiceImpl implements EInvoiceService {
         User currentUser = getAuthenticatedUser(currentUsername);
         validateBuyerTaxCode(taxCode);
         String trimmedTaxCode = taxCode != null ? taxCode.trim() : "";
-        Customer customer = customerRepository.findByHouseholdIdAndTaxCodeAndDeletedAtIsNull(
+        Customer customer = customerRepository.findFirstByHouseholdIdAndTaxCodeAndDeletedAtIsNullOrderByCreatedAtDesc(
                 currentUser.getHousehold().getId(), trimmedTaxCode)
                 .orElseThrow(() -> new AppException(ErrorCode.CUSTOMER_NOT_FOUND));
 

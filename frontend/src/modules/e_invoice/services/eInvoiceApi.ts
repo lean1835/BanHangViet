@@ -92,6 +92,7 @@ export const eInvoiceApi = baseApi.injectEndpoints({
       invalidatesTags: (_result, _error, { invoiceId }) => [
         { type: API_TAG_TYPES.INVOICE, id: invoiceId },
         { type: API_TAG_TYPES.INVOICE, id: "LIST" },
+        { type: API_TAG_TYPES.CUSTOMER, id: "LIST" },
       ],
     }),
     adjustInvoice: builder.mutation<IApiResponse<IInvoice>, IAdjustInvoiceParams>({
