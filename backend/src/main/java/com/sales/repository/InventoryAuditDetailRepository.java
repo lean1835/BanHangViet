@@ -38,4 +38,14 @@ public interface InventoryAuditDetailRepository extends JpaRepository<InventoryA
             @Param("productId") String productId,
             @Param("householdId") String householdId
     );
+
+    @Query("SELECT COUNT(d) > 0 FROM InventoryAuditDetail d " +
+           "WHERE d.product.id = :productId " +
+           "AND d.audit.household.id = :householdId " +
+           "AND d.audit.status = 'COMPLETED'")
+    boolean hasStockMovementByProduct(
+            @Param("productId") String productId,
+            @Param("householdId") String householdId
+    );
 }
+

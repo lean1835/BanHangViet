@@ -59,5 +59,15 @@ public interface ReturnTicketItemRepository extends JpaRepository<ReturnTicketIt
             @Param("productId") String productId,
             @Param("householdId") String householdId
     );
+
+    @Query("SELECT COUNT(rti) > 0 FROM ReturnTicketItem rti " +
+           "WHERE rti.product.id = :productId " +
+           "AND rti.returnTicket.household.id = :householdId " +
+           "AND rti.returnTicket.status = 'APPROVED'")
+    boolean hasStockMovementByProduct(
+            @Param("productId") String productId,
+            @Param("householdId") String householdId
+    );
 }
+
 

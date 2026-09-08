@@ -2,6 +2,7 @@ package com.sales.controller;
 
 import com.sales.dto.ApiResponse;
 import com.sales.dto.request.*;
+import com.sales.dto.response.CalculateWeightResponse;
 import com.sales.dto.response.OrderResponse;
 import com.sales.service.interfaces.OrderService;
 import jakarta.validation.Valid;
@@ -147,6 +148,20 @@ public class OrderController {
         ApiResponse<List<OrderResponse>> response = ApiResponse.<List<OrderResponse>>builder()
                 .code(1000)
                 .message("Lấy lịch sử đơn hàng thành công")
+                .result(result)
+                .build();
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/calculate-weight")
+    @PreAuthorize("hasAnyRole('VT-01', 'VT-02')")
+    public ResponseEntity<ApiResponse<CalculateWeightResponse>> calculateWeight(
+            Principal principal,
+            @Valid @RequestBody CalculateWeightRequest request) {
+        CalculateWeightResponse result = orderService.calculateWeight(principal.getName(), request);
+        ApiResponse<CalculateWeightResponse> response = ApiResponse.<CalculateWeightResponse>builder()
+                .code(1000)
+                .message("Tính toán trọng lượng từ số tiền thành công")
                 .result(result)
                 .build();
         return ResponseEntity.ok(response);

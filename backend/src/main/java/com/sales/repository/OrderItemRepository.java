@@ -16,6 +16,8 @@ public interface OrderItemRepository extends JpaRepository<OrderItem, String> {
 
     Optional<OrderItem> findByIdAndOrderId(String id, String orderId);
 
+    boolean existsByUnitConversionId(String unitConversionId);
+
     interface PromotionMetricsProjection {
         Long getTotalOrdersCount();
         BigDecimal getTotalQuantitySold();
@@ -102,4 +104,15 @@ public interface OrderItemRepository extends JpaRepository<OrderItem, String> {
             @Param("productId") String productId,
             @Param("householdId") String householdId
     );
+
+    @Query("SELECT COUNT(oi) > 0 FROM OrderItem oi " +
+           "WHERE oi.product.id = :productId " +
+           "AND oi.order.household.id = :householdId " +
+           "AND oi.order.status = 'COMPLETED' " +
+           "AND oi.order.deletedAt IS NULL")
+    boolean hasStockMovementByProduct(
+            @Param("productId") String productId,
+            @Param("householdId") String householdId
+    );
 }
+

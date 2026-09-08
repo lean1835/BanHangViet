@@ -70,6 +70,9 @@ class OrderServiceImplTest {
     @Mock
     private PosInventoryService posInventoryService;
 
+    @Mock
+    private ProductUnitConversionRepository productUnitConversionRepository;
+
     @InjectMocks
     private OrderServiceImpl orderService;
 
@@ -193,6 +196,7 @@ class OrderServiceImplTest {
                 .shift(activeShift)
                 .createdByUser(currentUser)
                 .customer(vipCustomer)
+                .totalAmount(new BigDecimal("180000.00"))
                 .finalAmount(new BigDecimal("171000.00"))
                 .status("CREATING")
                 .paymentStatus("PENDING")
@@ -291,6 +295,7 @@ class OrderServiceImplTest {
                 .status("CREATING")
                 .paymentStatus("PENDING")
                 .paymentMethod("CASH")
+                .totalAmount(new BigDecimal("50000.00"))
                 .finalAmount(new BigDecimal("50000.00"))
                 .items(new ArrayList<>())
                 .build();

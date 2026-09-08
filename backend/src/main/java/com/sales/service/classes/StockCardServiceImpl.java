@@ -16,6 +16,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -87,8 +88,14 @@ public class StockCardServiceImpl implements StockCardService {
             for (GoodsReceiptDetail grd : receiptDetails) {
                 GoodsReceipt gr = grd.getReceipt();
                 LocalDateTime ts = gr.getReceivedAt() != null ? gr.getReceivedAt() : grd.getCreatedAt();
-                BigDecimal qty = grd.getQuantity() != null ? grd.getQuantity() : BigDecimal.ZERO;
+                BigDecimal qty = grd.getBaseQuantity() != null ? grd.getBaseQuantity() : (grd.getQuantity() != null ? grd.getQuantity() : BigDecimal.ZERO);
                 String performer = resolvePerformer(gr.getCreatedByUser());
+
+                String receiptNotes = gr.getNotes();
+                if (grd.getConversionFactor() != null && grd.getConversionFactor().compareTo(BigDecimal.ONE) != 0 && grd.getUnitName() != null) {
+                    String convInfo = "[Quy đổi: " + grd.getQuantity() + " " + grd.getUnitName() + " x " + grd.getConversionFactor() + "]";
+                    receiptNotes = StringUtils.hasText(receiptNotes) ? receiptNotes + " " + convInfo : convInfo;
+                }
 
                 allMovements.add(StockMovementInternal.builder()
                         .id(grd.getId())
@@ -103,7 +110,7 @@ public class StockCardServiceImpl implements StockCardService {
                         .quantityOut(BigDecimal.ZERO)
                         .quantityChange(qty)
                         .performedBy(performer)
-                        .notes(gr.getNotes())
+                        .notes(receiptNotes)
                         .build());
             }
         }
@@ -115,8 +122,13 @@ public class StockCardServiceImpl implements StockCardService {
             for (OrderItem oi : orderItems) {
                 Order order = oi.getOrder();
                 LocalDateTime ts = order.getCreatedAt() != null ? order.getCreatedAt() : oi.getCreatedAt();
-                BigDecimal qty = oi.getQuantity() != null ? oi.getQuantity() : BigDecimal.ZERO;
+                BigDecimal qty = oi.getBaseQuantity() != null ? oi.getBaseQuantity() : (oi.getQuantity() != null ? oi.getQuantity() : BigDecimal.ZERO);
                 String performer = resolvePerformer(order.getCreatedByUser());
+
+                String orderNotes = "Bán hàng theo đơn " + order.getOrderNumber();
+                if (oi.getConversionFactor() != null && oi.getConversionFactor().compareTo(BigDecimal.ONE) != 0 && oi.getUnitName() != null) {
+                    orderNotes += " [Quy đổi: " + oi.getQuantity() + " " + oi.getUnitName() + " x " + oi.getConversionFactor() + "]";
+                }
 
                 allMovements.add(StockMovementInternal.builder()
                         .id(oi.getId())
@@ -131,7 +143,7 @@ public class StockCardServiceImpl implements StockCardService {
                         .quantityOut(qty)
                         .quantityChange(qty.negate())
                         .performedBy(performer)
-                        .notes("Bán hàng theo đơn " + order.getOrderNumber())
+                        .notes(orderNotes)
                         .build());
             }
         }

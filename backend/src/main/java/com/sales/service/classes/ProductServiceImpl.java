@@ -41,6 +41,7 @@ public class ProductServiceImpl implements ProductService {
     private final TaxRateRepository taxRateRepository;
     private final PosInventoryRepository posInventoryRepository;
     private final PosTransferItemRepository posTransferItemRepository;
+    private final ProductUnitConversionRepository productUnitConversionRepository;
     private final ActivityLogHelper activityLogHelper;
     private final ObjectMapper objectMapper;
 
@@ -66,6 +67,20 @@ public class ProductServiceImpl implements ProductService {
         }
     }
 
+    private void validateWeightConfig(Boolean isSoldByWeight, Integer decimalPlaces, BigDecimal minWeightStep) {
+        if (Boolean.TRUE.equals(isSoldByWeight)) {
+            if (decimalPlaces == null || decimalPlaces < 1 || decimalPlaces > 3) {
+                throw new AppException(ErrorCode.INVALID_WEIGHT_CONFIG);
+            }
+            if (minWeightStep == null || minWeightStep.compareTo(BigDecimal.ZERO) <= 0) {
+                throw new AppException(ErrorCode.INVALID_WEIGHT_CONFIG);
+            }
+            if (minWeightStep.stripTrailingZeros().scale() > decimalPlaces) {
+                throw new AppException(ErrorCode.INVALID_WEIGHT_CONFIG);
+            }
+        }
+    }
+
     private Map<String, Object> buildProductLogMap(Product product) {
         Map<String, Object> map = new HashMap<>();
         map.put("id", product.getId());
@@ -76,6 +91,9 @@ public class ProductServiceImpl implements ProductService {
         map.put("price", product.getPrice());
         map.put("stockQuantity", product.getStockQuantity());
         map.put("minStockQuantity", product.getMinStockQuantity());
+        map.put("isSoldByWeight", product.getIsSoldByWeight());
+        map.put("decimalPlaces", product.getDecimalPlaces());
+        map.put("minWeightStep", product.getMinWeightStep());
         map.put("status", product.getStatus());
         map.put("groupId", product.getGroup() != null ? product.getGroup().getId() : null);
         map.put("taxRateId", product.getTaxRate() != null ? product.getTaxRate().getId() : null);
@@ -100,6 +118,16 @@ public class ProductServiceImpl implements ProductService {
     }
 
     private ProductResponse mapToResponse(Product product, List<PosInventory> posInvs, BigDecimal inTransit, User currentUser) {
+        return mapToResponse(product, posInvs, inTransit, currentUser, null);
+    }
+
+    private ProductResponse mapToResponse(
+            Product product,
+            List<PosInventory> posInvs,
+            BigDecimal inTransit,
+            User currentUser,
+            List<com.sales.dto.response.ProductUnitConversionResponse> prefetchedConversions
+    ) {
         BigDecimal totalStock = product.getStockQuantity() != null ? product.getStockQuantity() : BigDecimal.ZERO;
         BigDecimal allocatedStock = posInvs != null
                 ? posInvs.stream()
@@ -134,6 +162,15 @@ public class ProductServiceImpl implements ProductService {
                     : BigDecimal.ZERO;
         }
 
+        List<com.sales.dto.response.ProductUnitConversionResponse> unitConversions = prefetchedConversions;
+        if (unitConversions == null && productUnitConversionRepository != null && product.getId() != null) {
+            unitConversions = productUnitConversionRepository.findByProductId(product.getId()).stream()
+                    .map(c -> mapConversionToResponse(c, product))
+                    .collect(Collectors.toList());
+        } else if (unitConversions == null) {
+            unitConversions = Collections.emptyList();
+        }
+
         return ProductResponse.builder()
                 .id(product.getId())
                 .sku(product.getSku())
@@ -143,6 +180,9 @@ public class ProductServiceImpl implements ProductService {
                 .price(product.getPrice())
                 .stockQuantity(displayedStock)
                 .minStockQuantity(product.getMinStockQuantity())
+                .isSoldByWeight(product.getIsSoldByWeight())
+                .decimalPlaces(product.getDecimalPlaces())
+                .minWeightStep(product.getMinWeightStep())
                 .status(product.getStatus())
                 .groupId(product.getGroup() != null ? product.getGroup().getId() : null)
                 .groupName(product.getGroup() != null ? product.getGroup().getName() : null)
@@ -152,8 +192,26 @@ public class ProductServiceImpl implements ProductService {
                 .warehouseStock(warehouseStock)
                 .allocatedStock(allocatedStock)
                 .posStocks(posStocks)
+                .unitConversions(unitConversions)
                 .createdAt(product.getCreatedAt())
                 .updatedAt(product.getUpdatedAt())
+                .build();
+    }
+
+    private com.sales.dto.response.ProductUnitConversionResponse mapConversionToResponse(ProductUnitConversion c, Product product) {
+        return com.sales.dto.response.ProductUnitConversionResponse.builder()
+                .id(c.getId())
+                .productId(product.getId())
+                .productName(product.getName())
+                .baseUnit(product.getUnit())
+                .unitName(c.getUnitName())
+                .conversionFactor(c.getConversionFactor())
+                .price(c.getPrice())
+                .barcode(c.getBarcode())
+                .isDefaultImport(c.getIsDefaultImport())
+                .isDefaultSale(c.getIsDefaultSale())
+                .createdAt(c.getCreatedAt())
+                .updatedAt(c.getUpdatedAt())
                 .build();
     }
 
@@ -171,8 +229,12 @@ public class ProductServiceImpl implements ProductService {
             throw new AppException(ErrorCode.PRODUCT_SKU_EXISTS);
         }
 
-        if (StringUtils.hasText(request.getBarcode()) && productRepository.existsByHouseholdIdAndBarcodeAndDeletedAtIsNull(household.getId(), request.getBarcode().trim())) {
-            throw new AppException(ErrorCode.BARCODE_ALREADY_EXISTS);
+        if (StringUtils.hasText(request.getBarcode())) {
+            String trimmedBarcode = request.getBarcode().trim();
+            if (productRepository.existsByHouseholdIdAndBarcodeAndDeletedAtIsNull(household.getId(), trimmedBarcode)
+                    || (productUnitConversionRepository != null && productUnitConversionRepository.existsByHouseholdIdAndBarcodeAndIdNot(household.getId(), trimmedBarcode, null))) {
+                throw new AppException(ErrorCode.BARCODE_ALREADY_EXISTS);
+            }
         }
 
         // Xác thực thuế suất đang hoạt động thuộc hộ kinh doanh
@@ -186,6 +248,13 @@ public class ProductServiceImpl implements ProductService {
                     .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_GROUP_NOT_FOUND));
         }
 
+        boolean isSoldByWeight = Boolean.TRUE.equals(request.getIsSoldByWeight());
+        int decimalPlaces = isSoldByWeight ? (request.getDecimalPlaces() != null ? request.getDecimalPlaces() : 3) : 0;
+        BigDecimal minWeightStep = isSoldByWeight
+                ? (request.getMinWeightStep() != null ? request.getMinWeightStep() : new BigDecimal("0.001"))
+                : BigDecimal.ONE;
+        validateWeightConfig(isSoldByWeight, decimalPlaces, minWeightStep);
+
         Product product = Product.builder()
                 .household(household)
                 .group(group)
@@ -197,6 +266,9 @@ public class ProductServiceImpl implements ProductService {
                 .price(request.getPrice())
                 .stockQuantity(request.getStockQuantity())
                 .minStockQuantity(request.getMinStockQuantity() != null ? request.getMinStockQuantity() : java.math.BigDecimal.ZERO)
+                .isSoldByWeight(isSoldByWeight)
+                .decimalPlaces(decimalPlaces)
+                .minWeightStep(minWeightStep)
                 .status(request.getStatus())
                 .build();
 
@@ -224,8 +296,12 @@ public class ProductServiceImpl implements ProductService {
             throw new AppException(ErrorCode.PRODUCT_SKU_EXISTS);
         }
 
-        if (StringUtils.hasText(request.getBarcode()) && productRepository.existsByHouseholdIdAndBarcodeAndIdNotAndDeletedAtIsNull(household.getId(), request.getBarcode().trim(), productId)) {
-            throw new AppException(ErrorCode.BARCODE_ALREADY_EXISTS);
+        if (StringUtils.hasText(request.getBarcode())) {
+            String trimmedBarcode = request.getBarcode().trim();
+            if (productRepository.existsByHouseholdIdAndBarcodeAndIdNotAndDeletedAtIsNull(household.getId(), trimmedBarcode, productId)
+                    || (productUnitConversionRepository != null && productUnitConversionRepository.existsByHouseholdIdAndBarcodeAndIdNot(household.getId(), trimmedBarcode, null))) {
+                throw new AppException(ErrorCode.BARCODE_ALREADY_EXISTS);
+            }
         }
 
         // Xác thực thuế suất đang hoạt động thuộc hộ kinh doanh
@@ -238,6 +314,13 @@ public class ProductServiceImpl implements ProductService {
             group = productGroupRepository.findByIdAndHouseholdIdAndDeletedAtIsNull(request.getGroupId(), household.getId())
                     .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_GROUP_NOT_FOUND));
         }
+
+        boolean isSoldByWeight = Boolean.TRUE.equals(request.getIsSoldByWeight());
+        int decimalPlaces = isSoldByWeight ? (request.getDecimalPlaces() != null ? request.getDecimalPlaces() : 3) : 0;
+        BigDecimal minWeightStep = isSoldByWeight
+                ? (request.getMinWeightStep() != null ? request.getMinWeightStep() : new BigDecimal("0.001"))
+                : BigDecimal.ONE;
+        validateWeightConfig(isSoldByWeight, decimalPlaces, minWeightStep);
 
         Map<String, Object> oldValue = buildProductLogMap(product);
 
@@ -256,6 +339,9 @@ public class ProductServiceImpl implements ProductService {
         if (request.getMinStockQuantity() != null) {
             product.setMinStockQuantity(request.getMinStockQuantity());
         }
+        product.setIsSoldByWeight(isSoldByWeight);
+        product.setDecimalPlaces(decimalPlaces);
+        product.setMinWeightStep(minWeightStep);
         product.setStatus(request.getStatus());
         product.setGroup(group);
         product.setTaxRate(taxRate);
@@ -331,6 +417,7 @@ public class ProductServiceImpl implements ProductService {
         Map<String, List<PosInventory>> posInvsByProduct = new HashMap<>();
         Map<String, BigDecimal> inTransitByProduct = new HashMap<>();
 
+        Map<String, List<com.sales.dto.response.ProductUnitConversionResponse>> conversionsByProduct = new HashMap<>();
         if (!productIds.isEmpty()) {
             List<PosInventory> allPosInvs = posInventoryRepository.findByHouseholdIdAndProductIdIn(household.getId(), productIds);
             for (PosInventory pi : allPosInvs) {
@@ -343,10 +430,20 @@ public class ProductServiceImpl implements ProductService {
             for (Object[] row : inTransitRows) {
                 inTransitByProduct.put((String) row[0], (BigDecimal) row[1]);
             }
+
+            if (productUnitConversionRepository != null) {
+                List<ProductUnitConversion> conversions = productUnitConversionRepository.findByProductIdIn(productIds);
+                for (ProductUnitConversion c : conversions) {
+                    if (c.getProduct() != null && c.getProduct().getId() != null) {
+                        conversionsByProduct.computeIfAbsent(c.getProduct().getId(), k -> new ArrayList<>())
+                                .add(mapConversionToResponse(c, c.getProduct()));
+                    }
+                }
+            }
         }
 
         List<ProductResponse> content = products.stream()
-                .map(p -> mapToResponse(p, posInvsByProduct.getOrDefault(p.getId(), Collections.emptyList()), inTransitByProduct.getOrDefault(p.getId(), BigDecimal.ZERO), currentUser))
+                .map(p -> mapToResponse(p, posInvsByProduct.getOrDefault(p.getId(), Collections.emptyList()), inTransitByProduct.getOrDefault(p.getId(), BigDecimal.ZERO), currentUser, conversionsByProduct.getOrDefault(p.getId(), Collections.emptyList())))
                 .collect(Collectors.toList());
 
         return PageResponse.<ProductResponse>builder()
@@ -378,6 +475,7 @@ public class ProductServiceImpl implements ProductService {
         List<String> productIds = products.stream().map(Product::getId).collect(Collectors.toList());
         Map<String, List<PosInventory>> posInvsByProduct = new HashMap<>();
         Map<String, BigDecimal> inTransitByProduct = new HashMap<>();
+        Map<String, List<com.sales.dto.response.ProductUnitConversionResponse>> conversionsByProduct = new HashMap<>();
 
         if (!productIds.isEmpty()) {
             List<PosInventory> allPosInvs = posInventoryRepository.findByHouseholdIdAndProductIdIn(household.getId(), productIds);
@@ -391,10 +489,20 @@ public class ProductServiceImpl implements ProductService {
             for (Object[] row : inTransitRows) {
                 inTransitByProduct.put((String) row[0], (BigDecimal) row[1]);
             }
+
+            if (productUnitConversionRepository != null) {
+                List<ProductUnitConversion> conversions = productUnitConversionRepository.findByProductIdIn(productIds);
+                for (ProductUnitConversion c : conversions) {
+                    if (c.getProduct() != null && c.getProduct().getId() != null) {
+                        conversionsByProduct.computeIfAbsent(c.getProduct().getId(), k -> new ArrayList<>())
+                                .add(mapConversionToResponse(c, c.getProduct()));
+                    }
+                }
+            }
         }
 
         return products.stream()
-                .map(p -> mapToResponse(p, posInvsByProduct.getOrDefault(p.getId(), Collections.emptyList()), inTransitByProduct.getOrDefault(p.getId(), BigDecimal.ZERO), currentUser))
+                .map(p -> mapToResponse(p, posInvsByProduct.getOrDefault(p.getId(), Collections.emptyList()), inTransitByProduct.getOrDefault(p.getId(), BigDecimal.ZERO), currentUser, conversionsByProduct.getOrDefault(p.getId(), Collections.emptyList())))
                 .collect(Collectors.toList());
     }
 }

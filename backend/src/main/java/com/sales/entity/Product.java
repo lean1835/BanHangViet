@@ -59,6 +59,18 @@ public class Product {
     @Builder.Default
     private BigDecimal minStockQuantity = BigDecimal.ZERO;
 
+    @Column(name = "is_sold_by_weight", nullable = false)
+    @Builder.Default
+    private Boolean isSoldByWeight = false;
+
+    @Column(name = "decimal_places", nullable = false)
+    @Builder.Default
+    private Integer decimalPlaces = 0;
+
+    @Column(name = "min_weight_step", nullable = false, precision = 12, scale = 3)
+    @Builder.Default
+    private BigDecimal minWeightStep = BigDecimal.ONE;
+
     @Column(nullable = false, length = 20)
     @Builder.Default
     private String status = "ACTIVE";

@@ -10,6 +10,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.math.BigDecimal;
 import java.util.Collection;
 import java.util.List;
 
@@ -18,6 +19,8 @@ public interface GoodsReceiptDetailRepository extends JpaRepository<GoodsReceipt
 
     @EntityGraph(attributePaths = {"product"})
     List<GoodsReceiptDetail> findByReceiptId(String receiptId);
+
+    boolean existsByUnitConversionId(String unitConversionId);
 
     @Query("SELECT grd.receipt.supplier FROM GoodsReceiptDetail grd WHERE grd.product.id = :productId AND grd.receipt.supplier IS NOT NULL ORDER BY grd.receipt.receivedAt DESC")
     List<Supplier> findLatestSupplierByProductId(@Param("productId") String productId, Pageable pageable);
@@ -48,4 +51,32 @@ public interface GoodsReceiptDetailRepository extends JpaRepository<GoodsReceipt
             @Param("productId") String productId,
             @Param("householdId") String householdId
     );
+
+    @Query("SELECT COUNT(grd) > 0 FROM GoodsReceiptDetail grd " +
+           "WHERE grd.product.id = :productId " +
+           "AND grd.receipt.household.id = :householdId")
+    boolean hasStockMovementByProduct(
+            @Param("productId") String productId,
+            @Param("householdId") String householdId
+    );
+
+    @Query("SELECT SUM(grd.quantity * grd.purchasePrice) / NULLIF(SUM(COALESCE(grd.baseQuantity, grd.quantity)), 0) " +
+           "FROM GoodsReceiptDetail grd " +
+           "WHERE grd.product.id = :productId " +
+           "AND grd.receipt.household.id = :householdId")
+    BigDecimal calculateWeightedAverageCostPrice(
+            @Param("productId") String productId,
+            @Param("householdId") String householdId
+    );
+
+    @Query("SELECT grd.product.id, SUM(grd.quantity * grd.purchasePrice) / NULLIF(SUM(COALESCE(grd.baseQuantity, grd.quantity)), 0) " +
+           "FROM GoodsReceiptDetail grd " +
+           "WHERE grd.product.id IN (:productIds) " +
+           "AND grd.receipt.household.id = :householdId " +
+           "GROUP BY grd.product.id")
+    List<Object[]> calculateWeightedAverageCostPrices(
+            @Param("productIds") Collection<String> productIds,
+            @Param("householdId") String householdId
+    );
 }
+

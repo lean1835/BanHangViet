@@ -43,6 +43,18 @@ public class OrderItem {
     @Column(name = "unit_price", nullable = false, precision = 15, scale = 2)
     private BigDecimal unitPrice;
 
+    @Column(name = "unit_conversion_id", length = 36)
+    private String unitConversionId;
+
+    @Column(name = "unit_name", length = 50)
+    private String unitName;
+
+    @Column(name = "conversion_factor", precision = 12, scale = 3)
+    private BigDecimal conversionFactor;
+
+    @Column(name = "base_quantity", precision = 12, scale = 3)
+    private BigDecimal baseQuantity;
+
     @Column(name = "discount_amount", nullable = false, precision = 15, scale = 2)
     @Builder.Default
     private BigDecimal discountAmount = BigDecimal.ZERO;
@@ -54,6 +66,14 @@ public class OrderItem {
     @Column(name = "promotion_name", length = 255)
     private String promotionName;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "price_tier_id")
+    private ProductPriceTier priceTier;
+
+    @Column(name = "price_tier_name", length = 100)
+    private String priceTierName;
+
+
     @Column(name = "tax_rate_percentage", nullable = false, precision = 5, scale = 2)
     @Builder.Default
     private BigDecimal taxRatePercentage = BigDecimal.ZERO;
@@ -61,6 +81,10 @@ public class OrderItem {
     @Column(name = "tax_amount", nullable = false, precision = 15, scale = 2)
     @Builder.Default
     private BigDecimal taxAmount = BigDecimal.ZERO;
+
+    @Column(name = "rounding_difference", nullable = false, precision = 15, scale = 2)
+    @Builder.Default
+    private BigDecimal roundingDifference = BigDecimal.ZERO;
 
     @Column(nullable = false, precision = 15, scale = 2)
     private BigDecimal subtotal;

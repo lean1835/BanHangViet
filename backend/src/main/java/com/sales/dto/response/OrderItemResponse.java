@@ -17,7 +17,18 @@ public class OrderItemResponse {
     private BigDecimal discountAmount;
     private String promotionId;
     private String promotionName;
+    private String priceTierId;
+    private String priceTierName;
+
     private BigDecimal taxRatePercentage;
     private BigDecimal taxAmount;
+    private BigDecimal roundingDifference;
     private BigDecimal subtotal;
+    private String unitConversionId;
+    private String unitName;
+    private BigDecimal conversionFactor;
+    private BigDecimal baseQuantity;
+    private Boolean isSoldByWeight;
+    private Integer decimalPlaces;
+    private BigDecimal minWeightStep;
 }

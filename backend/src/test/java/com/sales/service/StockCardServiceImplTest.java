@@ -486,4 +486,74 @@ class StockCardServiceImplTest {
         assertEquals("OUT", movements.get(1).getChangeType());
         assertEquals(0, new BigDecimal("80.000").compareTo(movements.get(1).getBalanceAfter()));
     }
+
+    @Test
+    @DisplayName("NCL-02-CN-007: Thẻ kho biến động chính xác theo đơn vị cơ sở khi giao dịch bằng đơn vị quy đổi (Nhập 1 Thùng = 24 lon, Bán 1 Thùng = 24 lon)")
+    void testStockCard_withUnitConversion_usesBaseQuantity() {
+        LocalDateTime t1 = LocalDateTime.of(2026, 9, 5, 10, 0);
+        LocalDateTime t2 = LocalDateTime.of(2026, 9, 6, 15, 0);
+
+        GoodsReceipt gr = GoodsReceipt.builder()
+                .id("gr-1")
+                .receiptNumber("NK-001")
+                .receivedAt(t1)
+                .createdByUser(testUser)
+                .notes("Nhập lô bia")
+                .build();
+        GoodsReceiptDetail grd = GoodsReceiptDetail.builder()
+                .id("grd-1")
+                .receipt(gr)
+                .product(testProduct)
+                .quantity(new BigDecimal("1")) // 1 Thùng
+                .unitName("Thùng")
+                .conversionFactor(new BigDecimal("24"))
+                .baseQuantity(new BigDecimal("24")) // = 24 Lon
+                .createdAt(t1)
+                .build();
+
+        Order order = Order.builder()
+                .id("ord-1")
+                .orderNumber("HD-001")
+                .createdAt(t2)
+                .createdByUser(testUser)
+                .status("COMPLETED")
+                .build();
+        OrderItem oi = OrderItem.builder()
+                .id("oi-1")
+                .order(order)
+                .product(testProduct)
+                .quantity(new BigDecimal("1")) // Bán 1 Thùng
+                .unitName("Thùng")
+                .conversionFactor(new BigDecimal("24"))
+                .baseQuantity(new BigDecimal("24")) // = 24 Lon
+                .createdAt(t2)
+                .build();
+
+        when(userRepository.findByUsername("owner")).thenReturn(Optional.of(testUser));
+        when(productRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("prod-1", "hh-1"))
+                .thenReturn(Optional.of(testProduct));
+        when(goodsReceiptDetailRepository.findStockMovementsByProduct("prod-1", "hh-1"))
+                .thenReturn(List.of(grd));
+        when(orderItemRepository.findStockMovementsByProduct("prod-1", "hh-1"))
+                .thenReturn(List.of(oi));
+        when(returnTicketItemRepository.findStockMovementsByProduct("prod-1", "hh-1")).thenReturn(Collections.emptyList());
+        when(inventoryAuditDetailRepository.findStockMovementsByProduct("prod-1", "hh-1")).thenReturn(Collections.emptyList());
+
+        StockCardResponse response = stockCardService.getStockCard(
+                "owner", "prod-1", LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 30), 0, 10);
+
+        List<StockMovementResponse> movements = response.getMovements().getContent();
+        assertEquals(2, movements.size());
+
+        // Nhập 1 thùng: quantityIn phải là 24 (lon), không phải 1
+        assertEquals(new BigDecimal("24"), movements.get(0).getQuantityIn());
+        assertEquals(new BigDecimal("24"), movements.get(0).getBalanceAfter());
+        assertTrue(movements.get(0).getNotes().contains("[Quy đổi: 1 Thùng x 24]"));
+
+        // Bán 1 thùng: quantityOut phải là 24 (lon), không phải 1
+        assertEquals(new BigDecimal("24"), movements.get(1).getQuantityOut());
+        assertEquals(new BigDecimal("0"), movements.get(1).getBalanceAfter());
+        assertTrue(movements.get(1).getNotes().contains("[Quy đổi: 1 Thùng x 24]"));
+    }
 }
+

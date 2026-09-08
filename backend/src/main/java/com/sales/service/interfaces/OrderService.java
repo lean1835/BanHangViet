@@ -15,4 +15,5 @@ public interface OrderService {
     OrderResponse completeOrder(String currentUsername, String orderId, CompleteOrderRequest request);
     OrderResponse getOrder(String currentUsername, String orderId);
     List<OrderResponse> getOrdersHistory(String currentUsername);
+    com.sales.dto.response.CalculateWeightResponse calculateWeight(String currentUsername, CalculateWeightRequest request);
 }

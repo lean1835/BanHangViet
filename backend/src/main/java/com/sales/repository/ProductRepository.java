@@ -92,5 +92,12 @@ public interface ProductRepository extends JpaRepository<Product, String>, JpaSp
     @Modifying(clearAutomatically = true)
     @Query("UPDATE Product p SET p.stockQuantity = p.stockQuantity + :quantity WHERE p.id = :id AND p.household.id = :householdId AND p.deletedAt IS NULL")
     int addStock(@Param("id") String id, @Param("householdId") String householdId, @Param("quantity") BigDecimal quantity);
+
+    @EntityGraph(attributePaths = {"group", "taxRate", "household"})
+    List<Product> findByGroupIdAndHouseholdIdAndDeletedAtIsNull(String groupId, String householdId);
+
+    @Modifying
+    @Query("UPDATE Product p SET p.price = :price, p.updatedAt = :updatedAt WHERE p.id = :id AND p.household.id = :householdId AND p.deletedAt IS NULL")
+    int updatePrice(@Param("id") String id, @Param("householdId") String householdId, @Param("price") BigDecimal price, @Param("updatedAt") LocalDateTime updatedAt);
 }
 
