@@ -229,6 +229,11 @@ public class EInvoiceServiceImpl implements EInvoiceService {
                 .sentToTaxAt(invoice.getSentToTaxAt())
                 .taxResponseAt(invoice.getTaxResponseAt())
                 .canceledAt(invoice.getCanceledAt())
+                .retryCount(invoice.getRetryCount())
+                .maxRetryCount(invoice.getMaxRetryCount())
+                .nextRetryAt(invoice.getNextRetryAt())
+                .lastRetryAt(invoice.getLastRetryAt())
+                .errorCategory(invoice.getErrorCategory())
                 .createdAt(invoice.getCreatedAt())
                 .updatedAt(invoice.getUpdatedAt())
                 .items(items)
@@ -594,13 +599,15 @@ public class EInvoiceServiceImpl implements EInvoiceService {
 
         checkInvoiceOwnership(invoice, currentUser);
 
-        if (!"SEND_ERROR".equals(invoice.getStatus())) {
+        if (!"SEND_ERROR".equals(invoice.getStatus()) && !"MANUAL_PROCESSING".equals(invoice.getStatus())) {
             throw new AppException(ErrorCode.INVOICE_NOT_SEND_ERROR);
         }
 
         String oldStatus = invoice.getStatus();
         invoice.setStatus("WAITING_TAX_CODE");
         invoice.setSentToTaxAt(LocalDateTime.now());
+        invoice.setNextRetryAt(null);
+        invoice.setErrorCategory(null);
         invoice.setTaxAuthorityResponse(null);
 
         EInvoice saved = eInvoiceRepository.save(invoice);
@@ -816,10 +823,8 @@ public class EInvoiceServiceImpl implements EInvoiceService {
     public synchronized InvoiceResponse approveInvoiceByTax(String currentUsername, String invoiceId, String taxCode) {
         User currentUser = currentUsername != null ? getAuthenticatedUser(currentUsername) : null;
         if (currentUser == null) {
-            currentUser = userRepository.findAll().stream()
-                    .filter(u -> u.getRole() != null && "VT-05".equals(u.getRole().getCode()))
-                    .findFirst()
-                    .orElseThrow(() -> new AppException(ErrorCode.UNAUTHORIZED));
+            currentUser = userRepository.findFirstByRole_CodeAndDeletedAtIsNull("VT-05")
+                    .orElse(null);
         }
 
         EInvoice invoice = eInvoiceRepository.findById(invoiceId)
@@ -856,12 +861,13 @@ public class EInvoiceServiceImpl implements EInvoiceService {
 
         EInvoice saved = eInvoiceRepository.save(invoice);
 
+        String actorName = currentUser != null ? currentUser.getUsername() : "Hệ thống tự động";
         invoiceStatusLogRepository.save(InvoiceStatusLog.builder()
                 .invoice(saved)
                 .fromStatus(oldStatus)
                 .toStatus("ISSUED")
                 .changedByUser(currentUser)
-                .notes("Cơ quan thuế " + currentUser.getUsername() + " đã phê duyệt cấp mã: "
+                .notes("Cơ quan thuế (" + actorName + ") đã phê duyệt cấp mã: "
                         + saved.getTaxAuthorityCode())
                 .build());
 
@@ -878,10 +884,8 @@ public class EInvoiceServiceImpl implements EInvoiceService {
     public InvoiceResponse rejectInvoiceByTax(String currentUsername, String invoiceId, String errorMessage) {
         User currentUser = currentUsername != null ? getAuthenticatedUser(currentUsername) : null;
         if (currentUser == null) {
-            currentUser = userRepository.findAll().stream()
-                    .filter(u -> u.getRole() != null && "VT-05".equals(u.getRole().getCode()))
-                    .findFirst()
-                    .orElseThrow(() -> new AppException(ErrorCode.UNAUTHORIZED));
+            currentUser = userRepository.findFirstByRole_CodeAndDeletedAtIsNull("VT-05")
+                    .orElse(null);
         }
 
         EInvoice invoice = eInvoiceRepository.findById(invoiceId)
@@ -901,12 +905,13 @@ public class EInvoiceServiceImpl implements EInvoiceService {
 
         EInvoice saved = eInvoiceRepository.save(invoice);
 
+        String actorName = currentUser != null ? currentUser.getUsername() : "Hệ thống tự động";
         invoiceStatusLogRepository.save(InvoiceStatusLog.builder()
                 .invoice(saved)
                 .fromStatus(oldStatus)
                 .toStatus("SEND_ERROR")
                 .changedByUser(currentUser)
-                .notes("Cơ quan thuế " + currentUser.getUsername() + " đã từ chối cấp mã: "
+                .notes("Cơ quan thuế (" + actorName + ") đã từ chối cấp mã: "
                         + saved.getTaxAuthorityResponse())
                 .build());
 
@@ -1010,7 +1015,7 @@ public class EInvoiceServiceImpl implements EInvoiceService {
 
         checkInvoiceOwnership(invoice, currentUser);
 
-        if (!"DRAFT".equals(invoice.getStatus()) && !"SEND_ERROR".equals(invoice.getStatus())) {
+        if (!"DRAFT".equals(invoice.getStatus()) && !"SEND_ERROR".equals(invoice.getStatus()) && !"MANUAL_PROCESSING".equals(invoice.getStatus())) {
             throw new AppException(ErrorCode.INVOICE_NOT_EDITABLE);
         }
 
