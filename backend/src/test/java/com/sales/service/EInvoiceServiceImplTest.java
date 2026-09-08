@@ -82,6 +82,12 @@ class EInvoiceServiceImplTest {
     @Mock
     private TransactionTemplate transactionTemplate;
 
+    @Mock
+    private com.sales.service.interfaces.InvoiceNumberRangeService invoiceNumberRangeService;
+
+    @Mock
+    private com.sales.service.interfaces.TaxConnectionService taxConnectionService;
+
     @InjectMocks
     private EInvoiceServiceImpl eInvoiceService;
 

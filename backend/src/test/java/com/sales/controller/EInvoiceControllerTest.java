@@ -69,6 +69,9 @@ public class EInvoiceControllerTest {
     private EInvoiceRepository eInvoiceRepository;
 
     @Autowired
+    private InvoiceNumberRangeRepository invoiceNumberRangeRepository;
+
+    @Autowired
     private JdbcTemplate jdbcTemplate;
 
     private BusinessHousehold testHousehold;
@@ -564,6 +567,8 @@ public class EInvoiceControllerTest {
         String invoiceId = objectMapper.readTree(content).path("result").path("id").asText();
         assertNotNull(invoiceId);
 
+        ensureActiveInvoiceNumberRangeForTest();
+
         // 4. Đẩy lên chờ duyệt thuế
         mockMvc.perform(post("/api/v1/invoices/" + invoiceId + "/submit")
                         .contentType(MediaType.APPLICATION_JSON))
@@ -608,6 +613,20 @@ public class EInvoiceControllerTest {
                         .content(objectMapper.writeValueAsString(req)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(1000));
+    }
+
+    private void ensureActiveInvoiceNumberRangeForTest() {
+        InvoiceNumberRange range = InvoiceNumberRange.builder()
+                .household(testHousehold)
+                .invoicePattern("1C26TAA")
+                .invoiceSymbol("C26TAA")
+                .startNumber(1)
+                .endNumber(100000)
+                .currentNumber(0)
+                .warningThreshold(50)
+                .status("ACTIVE")
+                .build();
+        invoiceNumberRangeRepository.save(range);
     }
 
     private void cancelInvoiceAsOwner(String invoiceId, CancelInvoiceRequest req) throws Exception {
