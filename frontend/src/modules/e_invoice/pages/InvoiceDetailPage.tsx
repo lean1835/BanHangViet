@@ -8,6 +8,11 @@ import {
   FileEdit,
   RotateCcw,
   Share2,
+  Search,
+  CheckCircle2,
+  AlertCircle,
+  Loader2,
+  Save,
 } from "lucide-react";
 import { useDashboardDemo } from "@/providers/DashboardDemoProvider";
 import { useNotification } from "@/hooks/useNotification";
@@ -31,6 +36,7 @@ import {
   useCancelInvoiceMutation,
   useUpdateInvoiceMutation,
   useGetInvoiceLogsQuery,
+  useLazyLookupBuyerInfoQuery,
 } from "../services/eInvoiceApi";
 import { CancelInvoiceModal } from "../components/CancelInvoiceModal";
 import { SendInvoiceModal } from "../components/SendInvoiceModal";
@@ -68,7 +74,7 @@ export const InvoiceDetailPage: React.FC = () => {
     addLogEntry,
     currentRole,
   } = useDashboardDemo();
-  const { showSuccess, showError } = useNotification();
+  const { showSuccess, showError, showInfo } = useNotification();
 
   const isOwnerOrAccountant =
     currentRole === USER_ROLES.OWNER || currentRole === USER_ROLES.ACCOUNTANT;
@@ -112,6 +118,101 @@ export const InvoiceDetailPage: React.FC = () => {
   const [buyerAddress, setBuyerAddress] = useState("");
   const [buyerPhone, setBuyerPhone] = useState("");
   const [buyerEmail, setBuyerEmail] = useState("");
+  const [lookupStatus, setLookupStatus] = useState<"IDLE" | "FOUND" | "NOT_FOUND">("IDLE");
+  const [isSavingBuyerInfo, setIsSavingBuyerInfo] = useState(false);
+
+  const [triggerLookup, { isFetching: isLookingUp }] = useLazyLookupBuyerInfoQuery();
+
+  const isTaxCodeValid = (code: string): boolean => {
+    return /^\d{10}$|^\d{13}$|^\d{10}-\d{3}$/.test(code.trim());
+  };
+
+  const handleLookupMst = async (taxCodeToQuery?: string, isManual = false) => {
+    const code = (taxCodeToQuery ?? buyerTaxCode).trim();
+    if (!code) {
+      if (isManual) showError("Vui lòng nhập Mã số thuế để tra cứu.");
+      return;
+    }
+    if (!isTaxCodeValid(code)) {
+      if (isManual) showError("Mã số thuế không đúng định dạng (phải gồm 10 hoặc 13 chữ số).");
+      return;
+    }
+    try {
+      const res = await triggerLookup(code).unwrap();
+      if (res?.result) {
+        if (res.result.buyerName) setBuyerName(res.result.buyerName);
+        if (res.result.buyerAddress) setBuyerAddress(res.result.buyerAddress);
+        if (res.result.buyerPhone) setBuyerPhone(res.result.buyerPhone);
+        if (res.result.buyerEmail) setBuyerEmail(res.result.buyerEmail);
+        setLookupStatus("FOUND");
+      } else {
+        setLookupStatus("NOT_FOUND");
+        if (isManual) showInfo("Chưa có thông tin doanh nghiệp trong CRM. Bạn có thể nhập tay để hệ thống tự động lưu mới.");
+      }
+    } catch {
+      setLookupStatus("NOT_FOUND");
+      if (isManual) showInfo("Chưa có thông tin doanh nghiệp trong CRM. Bạn có thể nhập tay để hệ thống tự động lưu mới.");
+    }
+  };
+
+  // Debounce auto-lookup when typing exactly 10 or 13 digits
+  useEffect(() => {
+    const code = buyerTaxCode.trim();
+    if (isTaxCodeValid(code) && code !== invoice?.buyerTaxCode) {
+      const timer = setTimeout(() => {
+        handleLookupMst(code, false);
+      }, 600);
+      return () => clearTimeout(timer);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [buyerTaxCode, invoice?.buyerTaxCode]);
+
+  const validateBuyerData = (): boolean => {
+    const trimmedTaxCode = buyerTaxCode.trim();
+    const trimmedName = buyerName.trim();
+    const trimmedAddress = buyerAddress.trim();
+
+    if (trimmedTaxCode) {
+      if (!isTaxCodeValid(trimmedTaxCode)) {
+        showError("Mã số thuế không đúng định dạng (phải gồm 10 hoặc 13 chữ số, ví dụ: 0101234567 hoặc 0101234567-001).");
+        return false;
+      }
+      if (!trimmedName) {
+        showError("Vui lòng nhập Tên người mua / Đơn vị khi hóa đơn có Mã số thuế.");
+        return false;
+      }
+      if (!trimmedAddress) {
+        showError("Theo Nghị định 123/2020/NĐ-CP, hóa đơn có Mã số thuế bắt buộc phải có Địa chỉ đơn vị.");
+        return false;
+      }
+    }
+    return true;
+  };
+
+  const handleSaveBuyerInfoOnly = async () => {
+    if (!invoice) return;
+    if (!validateBuyerData()) return;
+
+    setIsSavingBuyerInfo(true);
+    try {
+      if (isOnline) {
+        await updateInvoiceApi({
+          invoiceId: invoice.id,
+          buyerName: buyerName.trim(),
+          buyerTaxCode: buyerTaxCode.trim(),
+          buyerAddress: buyerAddress.trim(),
+          buyerPhone: buyerPhone.trim(),
+          buyerEmail: buyerEmail.trim(),
+        }).unwrap();
+      }
+      showSuccess("Đã lưu thông tin người mua và đồng bộ danh bạ thành công!");
+      refetch();
+    } catch (err: unknown) {
+      showError(getApiErrorMessage(err, "Không thể cập nhật thông tin người mua."));
+    } finally {
+      setIsSavingBuyerInfo(false);
+    }
+  };
 
   useEffect(() => {
     if (invoice) {
@@ -120,6 +221,9 @@ export const InvoiceDetailPage: React.FC = () => {
       setBuyerAddress(invoice.buyerAddress || "");
       setBuyerPhone(invoice.buyerPhone || "");
       setBuyerEmail(invoice.buyerEmail || "");
+      if (invoice.buyerTaxCode) {
+        setLookupStatus("FOUND");
+      }
       if (invoice.deliveryLogs) {
         setDeliveryLogs(invoice.deliveryLogs);
       }
@@ -172,6 +276,9 @@ export const InvoiceDetailPage: React.FC = () => {
   const canCancel = invoice.status === E_INVOICE_STATUS.ISSUED && isOwnerOrAccountant;
 
   const handleSendToTaxClick = async () => {
+    if (!validateBuyerData()) {
+      return;
+    }
     setIsActionPending(true);
     try {
       // 1. Save inputs
@@ -432,48 +539,129 @@ export const InvoiceDetailPage: React.FC = () => {
 
             {/* Buyer Info */}
             <div className="border-b pb-3 text-[10px] leading-relaxed text-slate-600">
-              <p className="font-extrabold text-slate-800 text-xs uppercase mb-1">
-                Thông tin người mua hàng
-              </p>
+              <div className="flex items-center justify-between mb-1.5">
+                <p className="font-extrabold text-slate-800 text-xs uppercase">
+                  Thông tin người mua hàng
+                </p>
+                {!isTaxAuthority &&
+                  (invoice.status === E_INVOICE_STATUS.DRAFT || invoice.status === E_INVOICE_STATUS.SEND_ERROR) && (
+                    <button
+                      type="button"
+                      onClick={handleSaveBuyerInfoOnly}
+                      disabled={isSavingBuyerInfo || isActionPending}
+                      className="flex items-center gap-1 px-2.5 py-1 rounded bg-slate-100 hover:bg-kv-blue-primary hover:text-white text-slate-700 text-[10px] font-bold transition-all disabled:opacity-50"
+                      title="Lưu thông tin người mua vào hóa đơn và đồng bộ danh bạ"
+                    >
+                      {isSavingBuyerInfo ? (
+                        <Loader2 size={12} className="animate-spin" />
+                      ) : (
+                        <Save size={12} />
+                      )}
+                      <span>Lưu thông tin</span>
+                    </button>
+                  )}
+              </div>
+
               {!isTaxAuthority &&
               (invoice.status === E_INVOICE_STATUS.DRAFT || invoice.status === E_INVOICE_STATUS.SEND_ERROR) ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 mt-1">
+                  {/* Tax Code */}
+                  <div className="flex flex-col gap-0.5">
+                    <div className="flex items-center justify-between">
+                      <label className="text-[9px] font-bold text-slate-400 uppercase">
+                        Mã số thuế
+                      </label>
+                      {lookupStatus === "FOUND" && (
+                        <span className="text-[9px] font-bold text-emerald-600 flex items-center gap-0.5">
+                          <CheckCircle2 size={10} /> Đã khớp CRM
+                        </span>
+                      )}
+                      {lookupStatus === "NOT_FOUND" && (
+                        <span className="text-[9px] font-bold text-amber-600 flex items-center gap-0.5">
+                          <AlertCircle size={10} /> Khách mới
+                        </span>
+                      )}
+                    </div>
+                    <div className="relative flex items-center">
+                      <input
+                        type="text"
+                        value={buyerTaxCode}
+                        onChange={(e) => {
+                          setBuyerTaxCode(e.target.value);
+                          if (lookupStatus !== "IDLE") setLookupStatus("IDLE");
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            handleLookupMst(undefined, true);
+                          }
+                        }}
+                        className={`w-full border rounded pl-2 pr-7 py-0.5 text-slate-800 text-[10px] font-semibold font-mono focus:outline-none focus:border-kv-blue-primary ${
+                          buyerTaxCode.trim() && !isTaxCodeValid(buyerTaxCode)
+                            ? "border-rose-400 bg-rose-50/30"
+                            : "border-slate-200"
+                        }`}
+                        placeholder="10 hoặc 13 chữ số (VD: 0101234567)"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleLookupMst(undefined, true)}
+                        disabled={isLookingUp || !buyerTaxCode.trim()}
+                        title="Tra cứu thông tin từ danh bạ khách hàng"
+                        className="absolute right-1 text-slate-400 hover:text-kv-blue-primary p-0.5 disabled:opacity-40 transition-colors"
+                      >
+                        {isLookingUp ? (
+                          <Loader2 size={12} className="animate-spin text-kv-blue-primary" />
+                        ) : (
+                          <Search size={12} />
+                        )}
+                      </button>
+                    </div>
+                    {buyerTaxCode.trim() && !isTaxCodeValid(buyerTaxCode) && (
+                      <span className="text-[9px] font-semibold text-rose-500">
+                        MST phải gồm 10 hoặc 13 chữ số (VD: 0101234567 hoặc 0101234567-001)
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Buyer Name */}
                   <div className="flex flex-col gap-0.5">
                     <label className="text-[9px] font-bold text-slate-400 uppercase">
-                      Họ tên người mua
+                      Họ tên người mua / Đơn vị {buyerTaxCode.trim() && <span className="text-rose-500">*</span>}
                     </label>
                     <input
                       type="text"
                       value={buyerName}
                       onChange={(e) => setBuyerName(e.target.value)}
                       className="border border-slate-200 rounded px-2 py-0.5 text-slate-800 text-[10px] font-semibold focus:outline-none focus:border-kv-blue-primary"
-                      placeholder="Khách vãng lai"
+                      placeholder={buyerTaxCode.trim() ? "Tên công ty / tổ chức..." : "Khách lẻ / Khách vãng lai"}
                     />
                   </div>
-                  <div className="flex flex-col gap-0.5">
-                    <label className="text-[9px] font-bold text-slate-400 uppercase">
-                      Mã số thuế
-                    </label>
-                    <input
-                      type="text"
-                      value={buyerTaxCode}
-                      onChange={(e) => setBuyerTaxCode(e.target.value)}
-                      className="border border-slate-200 rounded px-2 py-0.5 text-slate-800 text-[10px] font-semibold focus:outline-none focus:border-kv-blue-primary"
-                      placeholder="Mã số thuế..."
-                    />
-                  </div>
+
+                  {/* Address */}
                   <div className="flex flex-col gap-0.5 sm:col-span-2">
                     <label className="text-[9px] font-bold text-slate-400 uppercase">
-                      Địa chỉ
+                      Địa chỉ trụ sở / Liên hệ {buyerTaxCode.trim() && <span className="text-rose-500">* (Bắt buộc theo NĐ 123)</span>}
                     </label>
                     <input
                       type="text"
                       value={buyerAddress}
                       onChange={(e) => setBuyerAddress(e.target.value)}
-                      className="border border-slate-200 rounded px-2 py-0.5 text-slate-800 text-[10px] font-semibold focus:outline-none focus:border-kv-blue-primary"
-                      placeholder="Địa chỉ..."
+                      className={`border rounded px-2 py-0.5 text-slate-800 text-[10px] font-semibold focus:outline-none focus:border-kv-blue-primary ${
+                        buyerTaxCode.trim() && !buyerAddress.trim()
+                          ? "border-amber-400 bg-amber-50/20"
+                          : "border-slate-200"
+                      }`}
+                      placeholder="Địa chỉ trụ sở doanh nghiệp..."
                     />
+                    {buyerTaxCode.trim() && !buyerAddress.trim() && (
+                      <span className="text-[9px] font-semibold text-amber-600">
+                        Nghị định 123/2020/NĐ-CP yêu cầu hóa đơn có Mã số thuế phải có thông tin địa chỉ người mua
+                      </span>
+                    )}
                   </div>
+
+                  {/* Phone */}
                   <div className="flex flex-col gap-0.5">
                     <label className="text-[9px] font-bold text-slate-400 uppercase">
                       Điện thoại
@@ -486,16 +674,18 @@ export const InvoiceDetailPage: React.FC = () => {
                       placeholder="Số điện thoại..."
                     />
                   </div>
+
+                  {/* Email */}
                   <div className="flex flex-col gap-0.5">
                     <label className="text-[9px] font-bold text-slate-400 uppercase">
-                      Email
+                      Email nhận hóa đơn
                     </label>
                     <input
                       type="email"
                       value={buyerEmail}
                       onChange={(e) => setBuyerEmail(e.target.value)}
                       className="border border-slate-200 rounded px-2 py-0.5 text-slate-800 text-[10px] font-semibold focus:outline-none focus:border-kv-blue-primary"
-                      placeholder="Email..."
+                      placeholder="Email nhận HĐĐT..."
                     />
                   </div>
                 </div>

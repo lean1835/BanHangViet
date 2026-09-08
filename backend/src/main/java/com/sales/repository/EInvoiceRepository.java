@@ -23,6 +23,7 @@ public interface EInvoiceRepository extends JpaRepository<EInvoice, String>, Jpa
     Page<EInvoice> findAll(Specification<EInvoice> spec, Pageable pageable);
 
     @Override
+    @EntityGraph(attributePaths = {"items", "items.product", "createdByUser", "canceledByUser", "household", "order", "originalInvoice"})
     List<EInvoice> findAll(Specification<EInvoice> spec);
 
     @Override
@@ -93,4 +94,28 @@ public interface EInvoiceRepository extends JpaRepository<EInvoice, String>, Jpa
             @Param("endDateTime") LocalDateTime endDateTime,
             @Param("posId") String posId
     );
+
+    @EntityGraph(attributePaths = {"household", "createdByUser", "order"})
+    @Query("SELECT e FROM EInvoice e " +
+           "LEFT JOIN BusinessHouseholdSettings s ON s.household = e.household " +
+           "WHERE e.deletedAt IS NULL " +
+           "AND e.status IN ('WAITING_TAX_CODE', 'SEND_ERROR') " +
+           "AND (e.nextRetryAt IS NULL OR e.nextRetryAt <= :now) " +
+           "AND (s.autoRetryEnabled IS NULL OR s.autoRetryEnabled = true) " +
+           "ORDER BY e.createdAt ASC")
+    List<EInvoice> findEligibleForAutoRetry(@Param("now") LocalDateTime now, Pageable pageable);
+
+    @EntityGraph(attributePaths = {"household", "createdByUser", "order"})
+    @Query("SELECT e FROM EInvoice e " +
+           "LEFT JOIN BusinessHouseholdSettings s ON s.household = e.household " +
+           "WHERE e.deletedAt IS NULL " +
+           "AND e.household.id = :householdId " +
+           "AND e.status IN ('WAITING_TAX_CODE', 'SEND_ERROR') " +
+           "AND (e.nextRetryAt IS NULL OR e.nextRetryAt <= :now) " +
+           "AND (s.autoRetryEnabled IS NULL OR s.autoRetryEnabled = true) " +
+           "ORDER BY e.createdAt ASC")
+    List<EInvoice> findEligibleForAutoRetryByHousehold(
+            @Param("householdId") String householdId,
+            @Param("now") LocalDateTime now,
+            Pageable pageable);
 }

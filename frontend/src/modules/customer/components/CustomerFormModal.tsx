@@ -36,6 +36,14 @@ const customerSchema = z
         "Địa chỉ Email không đúng định dạng."
       )
       .optional(),
+    taxCode: z
+      .string()
+      .transform((val) => val.trim())
+      .refine(
+        (val) => !val || /^\d{10}$|^\d{13}$|^\d{10}-\d{3}$/.test(val),
+        "Mã số thuế không hợp lệ (phải gồm 10 hoặc 13 chữ số, ví dụ: 0101234567 hoặc 0101234567-001)."
+      )
+      .optional(),
     address: z
       .string()
       .transform((val) => val.trim())
@@ -121,6 +129,7 @@ export const CustomerFormModal: React.FC<CustomerFormModalProps> = ({
     defaultValues: {
       name: "",
       phone: "",
+      taxCode: "",
       email: "",
       address: "",
       creditLimit: CUSTOMER_FORM_DEFAULTS.CREDIT_LIMIT,
@@ -149,6 +158,7 @@ export const CustomerFormModal: React.FC<CustomerFormModalProps> = ({
       reset({
         name: customer.name || "",
         phone: customer.phone || customer.phoneNumber || "",
+        taxCode: customer.taxCode || "",
         email: customer.email || "",
         address: customer.address || "",
         creditLimit: val,
@@ -166,6 +176,7 @@ export const CustomerFormModal: React.FC<CustomerFormModalProps> = ({
       reset({
         name: "",
         phone: "",
+        taxCode: "",
         email: "",
         address: "",
         creditLimit: val,
@@ -211,6 +222,7 @@ export const CustomerFormModal: React.FC<CustomerFormModalProps> = ({
         name: values.name,
         phone: cleanPhone,
         phoneNumber: cleanPhone,
+        taxCode: values.taxCode ? values.taxCode.trim() : "",
         email: values.email || "",
         address: values.address || "",
         creditLimit: Number(values.creditLimit),
@@ -359,6 +371,39 @@ export const CustomerFormModal: React.FC<CustomerFormModalProps> = ({
               )}
             </div>
 
+            {/* Tax Code */}
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-bold text-slate-700">
+                Mã số thuế (Doanh nghiệp)
+              </label>
+              <input
+                type="text"
+                {...register("taxCode")}
+                placeholder="Ví dụ: 0101234567 hoặc 0101234567-001"
+                className={`h-9 px-3 rounded-lg border text-xs font-mono font-semibold text-slate-800 focus:outline-none focus:border-kv-blue-primary ${
+                  errors.taxCode ? "border-rose-400 bg-rose-50/30" : "border-slate-300"
+                }`}
+              />
+              {errors.taxCode && (
+                <span className="text-[11px] font-semibold text-rose-600">
+                  {errors.taxCode.message}
+                </span>
+              )}
+            </div>
+
+            {/* Address */}
+            <div className="flex flex-col gap-1 md:col-span-2">
+              <label className="text-xs font-bold text-slate-700">
+                Địa chỉ trụ sở / Liên hệ
+              </label>
+              <input
+                type="text"
+                {...register("address")}
+                placeholder="Nhập địa chỉ của khách hàng / doanh nghiệp..."
+                className="h-9 px-3 rounded-lg border border-slate-300 text-xs font-semibold text-slate-800 focus:outline-none focus:border-kv-blue-primary"
+              />
+            </div>
+
             {/* Credit Limit */}
             <div className="flex flex-col gap-1">
               <label className="text-xs font-bold text-slate-700">
@@ -433,19 +478,6 @@ export const CustomerFormModal: React.FC<CustomerFormModalProps> = ({
                   ngày
                 </span>
               </div>
-            </div>
-
-            {/* Address */}
-            <div className="flex flex-col gap-1 md:col-span-2">
-              <label className="text-xs font-bold text-slate-700">
-                {CUSTOMER_UI.MODAL.LABELS.ADDRESS}
-              </label>
-              <input
-                type="text"
-                {...register("address")}
-                placeholder={CUSTOMER_UI.MODAL.PLACEHOLDERS.ADDRESS}
-                className="h-9 px-3 rounded-lg border border-slate-300 text-xs font-semibold text-slate-800 focus:outline-none focus:border-kv-blue-primary"
-              />
             </div>
           </div>
 

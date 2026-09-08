@@ -35,7 +35,7 @@ public class InvoiceStatusLog {
     private String toStatus;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "changed_by_user_id", nullable = false)
+    @JoinColumn(name = "changed_by_user_id", nullable = true)
     @ToString.Exclude
     private User changedByUser;
 

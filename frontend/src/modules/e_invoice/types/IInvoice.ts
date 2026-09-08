@@ -86,6 +86,14 @@ export interface IUpdateInvoiceRequest {
   buyerEmail?: string;
 }
 
+export interface ICustomerTaxLookupResponse {
+  buyerName: string;
+  buyerTaxCode: string;
+  buyerAddress?: string;
+  buyerPhone?: string;
+  buyerEmail?: string;
+}
+
 export interface ICreateAdjustmentInvoiceItemRequest {
   productId?: string;
   productName: string;

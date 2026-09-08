@@ -6,6 +6,7 @@ import type {
   IBulkIssueInvoiceRequest,
   IBulkIssueInvoiceResult,
   ICancelInvoiceRequest,
+  ICustomerTaxLookupResponse,
   IGetInvoicesParams,
   IInvoice,
   IInvoiceStatusLog,
@@ -91,6 +92,7 @@ export const eInvoiceApi = baseApi.injectEndpoints({
       invalidatesTags: (_result, _error, { invoiceId }) => [
         { type: API_TAG_TYPES.INVOICE, id: invoiceId },
         { type: API_TAG_TYPES.INVOICE, id: "LIST" },
+        { type: API_TAG_TYPES.CUSTOMER, id: "LIST" },
       ],
     }),
     adjustInvoice: builder.mutation<IApiResponse<IInvoice>, IAdjustInvoiceParams>({
@@ -111,6 +113,13 @@ export const eInvoiceApi = baseApi.injectEndpoints({
       }),
       providesTags: (_result, _error, id) => [{ type: API_TAG_TYPES.INVOICE, id }],
     }),
+    lookupBuyerInfo: builder.query<IApiResponse<ICustomerTaxLookupResponse>, string>({
+      query: (taxCode) => ({
+        url: `/invoices/buyer-info/lookup`,
+        method: HTTP_METHODS.GET,
+        params: { taxCode },
+      }),
+    }),
   }),
   overrideExisting: false,
 });
@@ -127,4 +136,6 @@ export const {
   useCancelInvoiceMutation,
   useUpdateInvoiceMutation,
   useAdjustInvoiceMutation,
+  useLookupBuyerInfoQuery,
+  useLazyLookupBuyerInfoQuery,
 } = eInvoiceApi;

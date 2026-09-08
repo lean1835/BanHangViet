@@ -47,6 +47,11 @@ public class InvoiceResponse {
     private LocalDateTime sentToTaxAt;
     private LocalDateTime taxResponseAt;
     private LocalDateTime canceledAt;
+    private Integer retryCount;
+    private Integer maxRetryCount;
+    private LocalDateTime nextRetryAt;
+    private LocalDateTime lastRetryAt;
+    private String errorCategory;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private List<InvoiceItemResponse> items;

@@ -113,6 +113,7 @@ public class OrderSyncedEventListener {
                                 .title(title)
                                 .footerNote(footerNote)
                                 .buyerName(order.getCustomer() != null ? order.getCustomer().getName() : "Khách mua lẻ")
+                                .buyerTaxCode(order.getCustomer() != null ? order.getCustomer().getTaxCode() : null)
                                 .buyerPhone(order.getCustomer() != null ? order.getCustomer().getPhoneNumber() : null)
                                 .buyerEmail(order.getCustomer() != null ? order.getCustomer().getEmail() : null)
                                 .buyerAddress(order.getCustomer() != null ? order.getCustomer().getAddress() : null)
