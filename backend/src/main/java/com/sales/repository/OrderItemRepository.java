@@ -105,6 +105,54 @@ public interface OrderItemRepository extends JpaRepository<OrderItem, String> {
             @Param("householdId") String householdId
     );
 
+    @Query("""
+        SELECT oi FROM OrderItem oi
+        JOIN FETCH oi.order o
+        LEFT JOIN FETCH o.createdByUser
+        WHERE oi.product.id = :productId
+          AND o.household.id = :householdId
+          AND o.status = 'COMPLETED'
+          AND o.deletedAt IS NULL
+          AND (COALESCE(o.createdAt, oi.createdAt) BETWEEN :startDateTime AND :endDateTime)
+        ORDER BY o.createdAt ASC, oi.createdAt ASC
+    """)
+    List<OrderItem> findStockMovementsByProductInPeriod(
+            @Param("productId") String productId,
+            @Param("householdId") String householdId,
+            @Param("startDateTime") LocalDateTime startDateTime,
+            @Param("endDateTime") LocalDateTime endDateTime
+    );
+
+    @Query("""
+        SELECT COALESCE(SUM(COALESCE(oi.baseQuantity, oi.quantity)), 0)
+        FROM OrderItem oi
+        JOIN oi.order o
+        WHERE oi.product.id = :productId
+          AND o.household.id = :householdId
+          AND o.status = 'COMPLETED'
+          AND o.deletedAt IS NULL
+          AND COALESCE(o.createdAt, oi.createdAt) < :startDateTime
+    """)
+    BigDecimal sumQuantityBefore(
+            @Param("productId") String productId,
+            @Param("householdId") String householdId,
+            @Param("startDateTime") LocalDateTime startDateTime
+    );
+
+    @Query("""
+        SELECT COALESCE(SUM(COALESCE(oi.baseQuantity, oi.quantity)), 0)
+        FROM OrderItem oi
+        JOIN oi.order o
+        WHERE oi.product.id = :productId
+          AND o.household.id = :householdId
+          AND o.status = 'COMPLETED'
+          AND o.deletedAt IS NULL
+    """)
+    BigDecimal sumQuantityAllTime(
+            @Param("productId") String productId,
+            @Param("householdId") String householdId
+    );
+
     @Query("SELECT COUNT(oi) > 0 FROM OrderItem oi " +
            "WHERE oi.product.id = :productId " +
            "AND oi.order.household.id = :householdId " +

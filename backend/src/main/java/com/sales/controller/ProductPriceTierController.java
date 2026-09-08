@@ -12,11 +12,14 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+@Tag(name = "Product Price Tiers", description = "Quản lý giá bán lẻ và giá bán sỉ theo mức số lượng (NCL-02-CN-010)")
 @RestController
 @RequestMapping("/api/v1/products/{productId}/price-tiers")
 @RequiredArgsConstructor
@@ -24,8 +27,9 @@ public class ProductPriceTierController {
 
     private final ProductPriceTierService productPriceTierService;
 
+    @Operation(summary = "Lấy danh sách các bậc giá của sản phẩm")
     @GetMapping
-    @PreAuthorize("hasAnyRole('VT-01', 'VT-02', 'VT-03', 'STORE_OWNER', 'OWNER')")
+    @PreAuthorize("hasAnyRole('VT-01', 'VT-02', 'VT-03')")
     public ResponseEntity<ApiResponse<List<ProductPriceTierResponse>>> getProductPriceTiers(
             Authentication authentication,
             @PathVariable String productId
@@ -38,8 +42,9 @@ public class ProductPriceTierController {
                 .build());
     }
 
+    @Operation(summary = "Tạo mới một bậc giá")
     @PostMapping
-    @PreAuthorize("hasAnyRole('VT-01', 'STORE_OWNER', 'OWNER')")
+    @PreAuthorize("hasRole('VT-01')")
     public ResponseEntity<ApiResponse<ProductPriceTierResponse>> createPriceTier(
             Authentication authentication,
             @PathVariable String productId,
@@ -53,8 +58,9 @@ public class ProductPriceTierController {
                 .build());
     }
 
+    @Operation(summary = "Cập nhật thông tin bậc giá")
     @PutMapping("/{tierId}")
-    @PreAuthorize("hasAnyRole('VT-01', 'STORE_OWNER', 'OWNER')")
+    @PreAuthorize("hasRole('VT-01')")
     public ResponseEntity<ApiResponse<ProductPriceTierResponse>> updatePriceTier(
             Authentication authentication,
             @PathVariable String productId,
@@ -69,8 +75,9 @@ public class ProductPriceTierController {
                 .build());
     }
 
+    @Operation(summary = "Xóa bậc giá")
     @DeleteMapping("/{tierId}")
-    @PreAuthorize("hasAnyRole('VT-01', 'STORE_OWNER', 'OWNER')")
+    @PreAuthorize("hasRole('VT-01')")
     public ResponseEntity<ApiResponse<Void>> deletePriceTier(
             Authentication authentication,
             @PathVariable String productId,
@@ -83,8 +90,9 @@ public class ProductPriceTierController {
                 .build());
     }
 
+    @Operation(summary = "Đồng bộ lưu hàng loạt danh sách bậc giá")
     @PutMapping("/batch")
-    @PreAuthorize("hasAnyRole('VT-01', 'STORE_OWNER', 'OWNER')")
+    @PreAuthorize("hasRole('VT-01')")
     public ResponseEntity<ApiResponse<List<ProductPriceTierResponse>>> batchSavePriceTiers(
             Authentication authentication,
             @PathVariable String productId,
@@ -98,8 +106,9 @@ public class ProductPriceTierController {
                 .build());
     }
 
+    @Operation(summary = "Tính đơn giá áp dụng dựa theo bậc giá và số lượng")
     @PostMapping("/resolve")
-    @PreAuthorize("hasAnyRole('VT-01', 'VT-02', 'VT-03', 'STORE_OWNER', 'OWNER')")
+    @PreAuthorize("hasAnyRole('VT-01', 'VT-02', 'VT-03')")
     public ResponseEntity<ApiResponse<ResolveTierPriceResponse>> resolveTierPrice(
             Authentication authentication,
             @PathVariable String productId,

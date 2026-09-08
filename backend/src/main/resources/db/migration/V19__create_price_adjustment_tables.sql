@@ -1,4 +1,4 @@
--- Migration V16: Tạo bảng cho chức năng NCL-02-CN-009 Cập nhật giá bán hàng loạt theo nhóm hàng
+-- Migration V19: Tạo bảng cho chức năng NCL-02-CN-009 Cập nhật giá bán hàng loạt theo nhóm hàng
 
 CREATE TABLE IF NOT EXISTS price_adjustment_batches (
     id VARCHAR(36) NOT NULL PRIMARY KEY COMMENT 'UUID định danh đợt điều chỉnh giá',

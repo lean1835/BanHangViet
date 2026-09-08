@@ -9,6 +9,8 @@ import com.sales.dto.response.PageResponse;
 import com.sales.dto.response.PriceAdjustmentBatchResponse;
 import com.sales.dto.response.PriceAdjustmentPreviewResponse;
 import com.sales.service.interfaces.PriceAdjustmentService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -17,6 +19,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.security.Principal;
 
+@Tag(name = "Price Adjustments", description = "Cập nhật giá bán hàng loạt theo nhóm hàng (NCL-02-CN-009)")
 @RestController
 @RequestMapping("/api/v1/price-adjustments")
 @RequiredArgsConstructor
@@ -24,6 +27,7 @@ public class PriceAdjustmentController {
 
     private final PriceAdjustmentService priceAdjustmentService;
 
+    @Operation(summary = "Xem trước điều chỉnh giá hàng loạt")
     @PostMapping("/preview")
     @PreAuthorize("hasRole('VT-01')")
     public ResponseEntity<ApiResponse<PriceAdjustmentPreviewResponse>> previewPriceAdjustment(
@@ -38,6 +42,7 @@ public class PriceAdjustmentController {
                 .build());
     }
 
+    @Operation(summary = "Áp dụng cập nhật giá bán hàng loạt")
     @PostMapping("/apply")
     @PreAuthorize("hasRole('VT-01')")
     public ResponseEntity<ApiResponse<PriceAdjustmentBatchResponse>> applyPriceAdjustment(
@@ -52,6 +57,7 @@ public class PriceAdjustmentController {
                 .build());
     }
 
+    @Operation(summary = "Hoàn tác đợt điều chỉnh giá trong vòng 24 giờ")
     @PostMapping("/{batchId}/revert")
     @PreAuthorize("hasRole('VT-01')")
     public ResponseEntity<ApiResponse<PriceAdjustmentBatchResponse>> revertPriceAdjustment(
@@ -67,6 +73,7 @@ public class PriceAdjustmentController {
                 .build());
     }
 
+    @Operation(summary = "Lấy danh sách các đợt điều chỉnh giá")
     @GetMapping
     @PreAuthorize("hasRole('VT-01')")
     public ResponseEntity<ApiResponse<PageResponse<PriceAdjustmentBatchResponse>>> getPriceAdjustmentBatches(
@@ -83,6 +90,7 @@ public class PriceAdjustmentController {
                 .build());
     }
 
+    @Operation(summary = "Lấy chi tiết đợt điều chỉnh giá theo ID")
     @GetMapping("/{batchId}")
     @PreAuthorize("hasRole('VT-01')")
     public ResponseEntity<ApiResponse<PriceAdjustmentBatchResponse>> getPriceAdjustmentBatchById(

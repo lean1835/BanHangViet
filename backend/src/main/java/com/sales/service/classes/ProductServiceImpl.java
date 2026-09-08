@@ -265,6 +265,7 @@ public class ProductServiceImpl implements ProductService {
                 .unit(request.getUnit())
                 .price(request.getPrice())
                 .stockQuantity(request.getStockQuantity())
+                .initialStockQuantity(request.getStockQuantity() != null ? request.getStockQuantity() : java.math.BigDecimal.ZERO)
                 .minStockQuantity(request.getMinStockQuantity() != null ? request.getMinStockQuantity() : java.math.BigDecimal.ZERO)
                 .isSoldByWeight(isSoldByWeight)
                 .decimalPlaces(decimalPlaces)

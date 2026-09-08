@@ -555,5 +555,47 @@ class StockCardServiceImplTest {
         assertEquals(new BigDecimal("0"), movements.get(1).getBalanceAfter());
         assertTrue(movements.get(1).getNotes().contains("[Quy đổi: 1 Thùng x 24]"));
     }
+
+    @Test
+    @DisplayName("F-04: Sản phẩm có tồn kho ban đầu khi tạo (initialStockQuantity > 0) không bị cảnh báo sai lệch giả mạo")
+    void testProductWithInitialStock_NoFalseDiscrepancy() {
+        testProduct.setInitialStockQuantity(new BigDecimal("50.000"));
+        testProduct.setStockQuantity(new BigDecimal("45.000"));
+
+        when(userRepository.findByUsername("owner")).thenReturn(Optional.of(testUser));
+        when(productRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("prod-1", "hh-1"))
+                .thenReturn(Optional.of(testProduct));
+
+        Order order = Order.builder()
+                .id("ord-1")
+                .orderNumber("HD-001")
+                .createdAt(LocalDateTime.of(2026, 9, 5, 10, 0))
+                .createdByUser(testUser)
+                .status("COMPLETED")
+                .build();
+        OrderItem oi = OrderItem.builder()
+                .id("oi-1")
+                .order(order)
+                .product(testProduct)
+                .quantity(new BigDecimal("5.000"))
+                .createdAt(LocalDateTime.of(2026, 9, 5, 10, 0))
+                .build();
+
+        when(orderItemRepository.findStockMovementsByProduct("prod-1", "hh-1")).thenReturn(List.of(oi));
+        when(goodsReceiptDetailRepository.findStockMovementsByProduct("prod-1", "hh-1")).thenReturn(Collections.emptyList());
+        when(returnTicketItemRepository.findStockMovementsByProduct("prod-1", "hh-1")).thenReturn(Collections.emptyList());
+        when(inventoryAuditDetailRepository.findStockMovementsByProduct("prod-1", "hh-1")).thenReturn(Collections.emptyList());
+
+        StockCardResponse response = stockCardService.getStockCard(
+                "owner", "prod-1", LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 30), 0, 10);
+
+        assertNotNull(response);
+        assertEquals(0, new BigDecimal("50.000").compareTo(response.getOpeningStock()));
+        assertEquals(0, new BigDecimal("5.000").compareTo(response.getTotalQuantityOut()));
+        assertEquals(0, new BigDecimal("45.000").compareTo(response.getClosingStock()));
+        assertEquals(0, new BigDecimal("45.000").compareTo(response.getCurrentStock()));
+        assertFalse(response.getIsDiscrepancy(), "Không được báo động sai lệch tồn kho khi sản phẩm có tồn ban đầu");
+        assertNull(response.getWarning());
+    }
 }
 

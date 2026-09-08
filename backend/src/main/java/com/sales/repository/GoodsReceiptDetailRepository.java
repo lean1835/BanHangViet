@@ -11,6 +11,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 
@@ -48,6 +49,42 @@ public interface GoodsReceiptDetailRepository extends JpaRepository<GoodsReceipt
            "AND gr.household.id = :householdId " +
            "ORDER BY gr.receivedAt ASC, grd.createdAt ASC")
     List<GoodsReceiptDetail> findStockMovementsByProduct(
+            @Param("productId") String productId,
+            @Param("householdId") String householdId
+    );
+
+    @Query("SELECT grd FROM GoodsReceiptDetail grd " +
+           "JOIN FETCH grd.receipt gr " +
+           "LEFT JOIN FETCH gr.createdByUser " +
+           "WHERE grd.product.id = :productId " +
+           "AND gr.household.id = :householdId " +
+           "AND (COALESCE(gr.receivedAt, grd.createdAt) BETWEEN :startDateTime AND :endDateTime) " +
+           "ORDER BY COALESCE(gr.receivedAt, grd.createdAt) ASC, grd.createdAt ASC")
+    List<GoodsReceiptDetail> findStockMovementsByProductInPeriod(
+            @Param("productId") String productId,
+            @Param("householdId") String householdId,
+            @Param("startDateTime") LocalDateTime startDateTime,
+            @Param("endDateTime") LocalDateTime endDateTime
+    );
+
+    @Query("SELECT COALESCE(SUM(COALESCE(grd.baseQuantity, grd.quantity)), 0) " +
+           "FROM GoodsReceiptDetail grd " +
+           "JOIN grd.receipt gr " +
+           "WHERE grd.product.id = :productId " +
+           "AND gr.household.id = :householdId " +
+           "AND COALESCE(gr.receivedAt, grd.createdAt) < :startDateTime")
+    BigDecimal sumQuantityBefore(
+            @Param("productId") String productId,
+            @Param("householdId") String householdId,
+            @Param("startDateTime") LocalDateTime startDateTime
+    );
+
+    @Query("SELECT COALESCE(SUM(COALESCE(grd.baseQuantity, grd.quantity)), 0) " +
+           "FROM GoodsReceiptDetail grd " +
+           "JOIN grd.receipt gr " +
+           "WHERE grd.product.id = :productId " +
+           "AND gr.household.id = :householdId")
+    BigDecimal sumQuantityAllTime(
             @Param("productId") String productId,
             @Param("householdId") String householdId
     );

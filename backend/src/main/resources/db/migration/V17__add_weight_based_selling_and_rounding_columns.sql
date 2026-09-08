@@ -1,4 +1,4 @@
--- V15: Add columns and constraints for weight-based selling and rounding rules
+-- V17: Add columns and constraints for weight-based selling and rounding rules
 -- NCL-02-CN-008: Bán hàng theo cân với số lượng thập phân
 -- Tuân thủ theo Structure Data/database_design.sql
 
@@ -7,6 +7,7 @@ ALTER TABLE products
     ADD COLUMN is_sold_by_weight BOOLEAN NOT NULL DEFAULT FALSE,
     ADD COLUMN decimal_places INT NOT NULL DEFAULT 0,
     ADD COLUMN min_weight_step DECIMAL(12,3) NOT NULL DEFAULT 1.000,
+    ADD COLUMN initial_stock_quantity DECIMAL(12,3) NOT NULL DEFAULT 0.000,
     ADD CONSTRAINT chk_product_decimal_places CHECK (decimal_places >= 0 AND decimal_places <= 3),
     ADD CONSTRAINT chk_product_min_weight_step CHECK (min_weight_step > 0.000);
 

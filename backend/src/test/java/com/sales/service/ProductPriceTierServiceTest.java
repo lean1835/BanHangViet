@@ -408,6 +408,7 @@ public class ProductPriceTierServiceTest {
         when(productRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("prod-1", "household-1")).thenReturn(Optional.of(product));
         when(productUnitConversionRepository.findByProductId("prod-1")).thenReturn(Collections.emptyList());
         when(goodsReceiptDetailRepository.calculateWeightedAverageCostPrice("prod-1", "household-1")).thenReturn(new BigDecimal("9500.00"));
+        when(productPriceTierRepository.findByProductIdAndHouseholdIdOrderByMinQuantityAsc("prod-1", "household-1")).thenReturn(Collections.emptyList());
 
         BatchSavePriceTiersRequest request = BatchSavePriceTiersRequest.builder()
                 .tiers(List.of(
@@ -438,7 +439,6 @@ public class ProductPriceTierServiceTest {
 
         assertNotNull(responses);
         assertEquals(2, responses.size());
-        verify(productPriceTierRepository, times(1)).deleteByProductIdAndHouseholdId("prod-1", "household-1");
         verify(productPriceTierRepository, times(1)).saveAll(anyList());
     }
 

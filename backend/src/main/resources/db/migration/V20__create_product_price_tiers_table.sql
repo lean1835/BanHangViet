@@ -1,4 +1,4 @@
--- Migration V17: Tạo bảng product_price_tiers và bổ sung cột cho order_items
+-- Migration V20: Tạo bảng product_price_tiers và bổ sung cột cho order_items
 -- Phục vụ chức năng NCL-02-CN-010: Quản lý giá bán lẻ và giá bán sỉ theo mức số lượng
 
 CREATE TABLE IF NOT EXISTS product_price_tiers (

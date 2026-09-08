@@ -3,6 +3,8 @@ package com.sales.controller;
 import com.sales.dto.ApiResponse;
 import com.sales.dto.response.StockCardResponse;
 import com.sales.service.interfaces.StockCardService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
@@ -15,6 +17,7 @@ import org.springframework.web.bind.annotation.*;
 import java.security.Principal;
 import java.time.LocalDate;
 
+@Tag(name = "Stock Card", description = "Quản lý và tra cứu thẻ kho biến động tồn theo mặt hàng (NCL-02-CN-006)")
 @RestController
 @RequestMapping("/api/v1/products")
 @RequiredArgsConstructor
@@ -23,6 +26,7 @@ public class StockCardController {
 
     private final StockCardService stockCardService;
 
+    @Operation(summary = "Xem thẻ kho biến động tồn theo mặt hàng", description = "Liệt kê chi tiết các biến động nhập, xuất, trả hàng, kiểm kê và số dư tồn lũy kế trong kỳ")
     @GetMapping("/{productId}/stock-card")
     @PreAuthorize("hasAnyRole('VT-01', 'VT-03')")
     public ResponseEntity<ApiResponse<StockCardResponse>> getStockCard(

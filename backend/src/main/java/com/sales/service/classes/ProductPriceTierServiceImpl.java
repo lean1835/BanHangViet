@@ -232,25 +232,59 @@ public class ProductPriceTierServiceImpl implements ProductPriceTierService {
             }
         }
 
-        // 2. Remove old tiers and save new tiers
-        productPriceTierRepository.deleteByProductIdAndHouseholdId(product.getId(), household.getId());
+        // 2. Fetch existing tiers for this product to preserve foreign keys
+        List<ProductPriceTier> existingTiers = productPriceTierRepository
+                .findByProductIdAndHouseholdIdOrderByMinQuantityAsc(product.getId(), household.getId());
 
         List<ProductPriceTier> entitiesToSave = new ArrayList<>();
+        Set<String> matchedExistingTierIds = new HashSet<>();
+
         for (CreatePriceTierRequest tr : tierRequests) {
             ProductUnitConversion conv = StringUtils.hasText(tr.getUnitConversionId())
                     ? conversionMap.get(tr.getUnitConversionId())
                     : null;
 
-            entitiesToSave.add(ProductPriceTier.builder()
-                    .household(household)
-                    .product(product)
-                    .unitConversion(conv)
-                    .tierName(tr.getTierName().trim())
-                    .minQuantity(tr.getMinQuantity())
-                    .maxQuantity(tr.getMaxQuantity())
-                    .price(tr.getPrice())
-                    .isActive(tr.getIsActive() != null ? tr.getIsActive() : true)
-                    .build());
+            // Try to match an existing tier with same conversion and minQuantity
+            ProductPriceTier matchedTier = existingTiers.stream()
+                    .filter(et -> !matchedExistingTierIds.contains(et.getId()))
+                    .filter(et -> {
+                        boolean sameConv = (conv == null && et.getUnitConversion() == null)
+                                || (conv != null && et.getUnitConversion() != null && conv.getId().equals(et.getUnitConversion().getId()));
+                        boolean sameMin = tr.getMinQuantity() != null && et.getMinQuantity() != null
+                                && tr.getMinQuantity().compareTo(et.getMinQuantity()) == 0;
+                        return sameConv && sameMin;
+                    })
+                    .findFirst()
+                    .orElse(null);
+
+            if (matchedTier != null) {
+                matchedExistingTierIds.add(matchedTier.getId());
+                matchedTier.setTierName(tr.getTierName().trim());
+                matchedTier.setMinQuantity(tr.getMinQuantity());
+                matchedTier.setMaxQuantity(tr.getMaxQuantity());
+                matchedTier.setPrice(tr.getPrice());
+                matchedTier.setIsActive(tr.getIsActive() != null ? tr.getIsActive() : true);
+                entitiesToSave.add(matchedTier);
+            } else {
+                entitiesToSave.add(ProductPriceTier.builder()
+                        .household(household)
+                        .product(product)
+                        .unitConversion(conv)
+                        .tierName(tr.getTierName().trim())
+                        .minQuantity(tr.getMinQuantity())
+                        .maxQuantity(tr.getMaxQuantity())
+                        .price(tr.getPrice())
+                        .isActive(tr.getIsActive() != null ? tr.getIsActive() : true)
+                        .build());
+            }
+        }
+
+        // Soft-deactivate existing tiers that are omitted in the new request to prevent fk breaking
+        for (ProductPriceTier et : existingTiers) {
+            if (!matchedExistingTierIds.contains(et.getId())) {
+                et.setIsActive(false);
+                entitiesToSave.add(et);
+            }
         }
 
         List<ProductPriceTier> savedEntities = productPriceTierRepository.saveAll(entitiesToSave);
@@ -259,6 +293,7 @@ public class ProductPriceTierServiceImpl implements ProductPriceTierService {
                 Map.of("productId", product.getId(), "tierCount", savedEntities.size()));
 
         return savedEntities.stream()
+                .filter(tier -> Boolean.TRUE.equals(tier.getIsActive()))
                 .map(tier -> {
                     BigDecimal cost = calculateCostForConversion(baseCostPrice, tier.getUnitConversion());
                     return mapToResponse(tier, product, cost);

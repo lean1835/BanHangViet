@@ -177,24 +177,30 @@ public class OrderServiceImpl implements OrderService {
         return inputQuantity;
     }
 
-    private void validateWeightQuantity(Product product, BigDecimal quantity) {
+    private void validateWeightQuantity(Product product, BigDecimal quantity, BigDecimal conversionFactor) {
         if (Boolean.TRUE.equals(product.getIsSoldByWeight())) {
+            BigDecimal factor = (conversionFactor != null && conversionFactor.compareTo(BigDecimal.ZERO) > 0)
+                    ? conversionFactor
+                    : BigDecimal.ONE;
+
+            // Quy đổi số lượng về đơn vị cơ sở trước khi kiểm tra
+            BigDecimal baseQuantity = quantity.multiply(factor);
             BigDecimal minStep = product.getMinWeightStep() != null ? product.getMinWeightStep() : new BigDecimal("0.001");
             int maxDecimals = product.getDecimalPlaces() != null ? product.getDecimalPlaces() : 3;
 
             // TC-02: Số lượng nhập nhỏ hơn bước nhảy tối thiểu
-            if (quantity.compareTo(minStep) < 0) {
+            if (baseQuantity.compareTo(minStep) < 0) {
                 throw new AppException(ErrorCode.WEIGHT_STEP_INVALID);
             }
 
             // Kiểm tra số chữ số thập phân
-            BigDecimal stripped = quantity.stripTrailingZeros();
+            BigDecimal stripped = baseQuantity.stripTrailingZeros();
             if (stripped.scale() > maxDecimals) {
                 throw new AppException(ErrorCode.DECIMAL_PLACES_EXCEEDED);
             }
 
             // Kiểm tra bội số của bước nhảy tối thiểu
-            BigDecimal remainder = quantity.remainder(minStep);
+            BigDecimal remainder = baseQuantity.remainder(minStep);
             BigDecimal tolerance = new BigDecimal("0.00001");
             if (remainder.compareTo(tolerance) > 0 && remainder.compareTo(minStep.subtract(tolerance)) < 0) {
                 throw new AppException(ErrorCode.WEIGHT_STEP_INVALID);
@@ -527,10 +533,10 @@ public class OrderServiceImpl implements OrderService {
                 .findFirst().orElse(null);
 
         BigDecimal quantityToAdd = resolveQuantity(product, request.getQuantity(), request.getBuyAmount(), itemUnitPrice, conversionFactor);
-        validateWeightQuantity(product, quantityToAdd);
+        validateWeightQuantity(product, quantityToAdd, conversionFactor);
 
         BigDecimal targetQuantity = existingItem != null ? existingItem.getQuantity().add(quantityToAdd) : quantityToAdd;
-        validateWeightQuantity(product, targetQuantity);
+        validateWeightQuantity(product, targetQuantity, conversionFactor);
         BigDecimal targetBaseQuantity = targetQuantity.multiply(conversionFactor);
 
         ProductPriceTier matchedTier = (productPriceTierService != null && product != null)
@@ -679,7 +685,7 @@ public class OrderServiceImpl implements OrderService {
 
         BigDecimal conversionFactor = item.getConversionFactor() != null ? item.getConversionFactor() : BigDecimal.ONE;
         BigDecimal newQuantity = resolveQuantity(product, request.getQuantity(), request.getBuyAmount(), regularUnitPrice, conversionFactor);
-        validateWeightQuantity(product, newQuantity);
+        validateWeightQuantity(product, newQuantity, conversionFactor);
         item.setBaseQuantity(newQuantity.multiply(conversionFactor));
 
         ProductPriceTier matchedTier = (productPriceTierService != null && product != null)
@@ -1121,7 +1127,7 @@ public class OrderServiceImpl implements OrderService {
         }
 
         BigDecimal quantity = resolveQuantity(product, null, request.getBuyAmount(), unitPrice, conversionFactor);
-        validateWeightQuantity(product, quantity);
+        validateWeightQuantity(product, quantity, conversionFactor);
 
         BigDecimal exactSubtotal = quantity.multiply(unitPrice).setScale(2, RoundingMode.HALF_UP);
         RoundingRule rule = resolveRoundingRule(household);

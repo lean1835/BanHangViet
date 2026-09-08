@@ -12,9 +12,12 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import java.security.Principal;
 import java.util.List;
 
+@Tag(name = "Product Unit Conversions", description = "Quản lý đơn vị tính và quy đổi đơn vị mua bán (NCL-02-CN-007)")
 @RestController
 @RequestMapping("/api/v1/products/{productId}/unit-conversions")
 @RequiredArgsConstructor
@@ -22,8 +25,9 @@ public class ProductUnitConversionController {
 
     private final ProductUnitConversionService productUnitConversionService;
 
+    @Operation(summary = "Lấy danh sách đơn vị quy đổi của sản phẩm")
     @GetMapping
-    @PreAuthorize("hasAnyRole('VT-01', 'VT-02', 'VT-03', 'STORE_OWNER', 'OWNER')")
+    @PreAuthorize("hasAnyRole('VT-01', 'VT-02', 'VT-03')")
     public ResponseEntity<ApiResponse<List<ProductUnitConversionResponse>>> getUnitConversions(
             Principal principal,
             @PathVariable("productId") String productId
@@ -37,8 +41,9 @@ public class ProductUnitConversionController {
         return ResponseEntity.ok(response);
     }
 
+    @Operation(summary = "Tạo mới đơn vị quy đổi cho sản phẩm")
     @PostMapping
-    @PreAuthorize("hasAnyRole('VT-01', 'STORE_OWNER', 'OWNER')")
+    @PreAuthorize("hasRole('VT-01')")
     public ResponseEntity<ApiResponse<ProductUnitConversionResponse>> createUnitConversion(
             Principal principal,
             @PathVariable("productId") String productId,
@@ -53,8 +58,9 @@ public class ProductUnitConversionController {
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
+    @Operation(summary = "Cập nhật đơn vị quy đổi")
     @PutMapping("/{conversionId}")
-    @PreAuthorize("hasAnyRole('VT-01', 'STORE_OWNER', 'OWNER')")
+    @PreAuthorize("hasRole('VT-01')")
     public ResponseEntity<ApiResponse<ProductUnitConversionResponse>> updateUnitConversion(
             Principal principal,
             @PathVariable("productId") String productId,
@@ -70,8 +76,9 @@ public class ProductUnitConversionController {
         return ResponseEntity.ok(response);
     }
 
+    @Operation(summary = "Xóa đơn vị quy đổi")
     @DeleteMapping("/{conversionId}")
-    @PreAuthorize("hasAnyRole('VT-01', 'STORE_OWNER', 'OWNER')")
+    @PreAuthorize("hasRole('VT-01')")
     public ResponseEntity<ApiResponse<Void>> deleteUnitConversion(
             Principal principal,
             @PathVariable("productId") String productId,

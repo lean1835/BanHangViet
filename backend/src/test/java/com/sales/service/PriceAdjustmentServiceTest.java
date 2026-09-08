@@ -271,6 +271,8 @@ public class PriceAdjustmentServiceTest {
                 .items(new ArrayList<>())
                 .build();
 
+        product1.setPrice(new BigDecimal("12000.00"));
+
         PriceAdjustmentItem item = PriceAdjustmentItem.builder()
                 .id("item-001")
                 .batch(batch)
@@ -300,6 +302,55 @@ public class PriceAdjustmentServiceTest {
 
         // Kiểm tra khôi phục lại giá cũ
         verify(productRepository, times(1)).updatePrice(eq("prod-001"), eq("household-001"), eq(new BigDecimal("10000.00")), any(LocalDateTime.class));
+    }
+
+    @Test
+    @DisplayName("Safeguard: Bỏ qua khôi phục giá nếu sản phẩm đã bị thay đổi giá thủ công sau đợt")
+    void revertPriceAdjustment_productPriceChangedAfterBatch_skipsRevert() {
+        when(userRepository.findByUsername("owner")).thenReturn(Optional.of(ownerUser));
+
+        // Giá hiện tại là 15000 (đã bị sửa thủ công sau khi áp dụng giá 12000)
+        product1.setPrice(new BigDecimal("15000.00"));
+
+        PriceAdjustmentBatch batch = PriceAdjustmentBatch.builder()
+                .id("batch-001")
+                .batchCode("PADJ-20260908-001")
+                .name("Đợt điều chỉnh giá mẫu")
+                .householdId("household-001")
+                .status(BatchStatus.APPLIED)
+                .appliedBy("user-owner-001")
+                .appliedAt(LocalDateTime.now().minusHours(2))
+                .totalItems(1)
+                .items(new ArrayList<>())
+                .build();
+
+        PriceAdjustmentItem item = PriceAdjustmentItem.builder()
+                .id("item-001")
+                .batch(batch)
+                .product(product1)
+                .oldPrice(new BigDecimal("10000.00"))
+                .newPrice(new BigDecimal("12000.00"))
+                .priceDifference(new BigDecimal("2000.00"))
+                .costPrice(new BigDecimal("8000.00"))
+                .isBelowCost(false)
+                .build();
+        batch.getItems().add(item);
+
+        when(batchRepository.findWithItemsByIdAndHouseholdId("batch-001", "household-001"))
+                .thenReturn(Optional.of(batch));
+        when(batchRepository.save(any(PriceAdjustmentBatch.class))).thenReturn(batch);
+
+        RevertPriceAdjustmentRequest revertRequest = RevertPriceAdjustmentRequest.builder()
+                .revertReason("Áp nhầm tỷ lệ điều chỉnh giá")
+                .build();
+
+        PriceAdjustmentBatchResponse response = priceAdjustmentService.revertPriceAdjustment("owner", "batch-001", revertRequest);
+
+        assertNotNull(response);
+        assertEquals(BatchStatus.REVERTED, response.getStatus());
+
+        // Do giá sản phẩm đã bị đổi sang 15000 khác với 12000, không được ghi đè về giá cũ 10000
+        verify(productRepository, never()).updatePrice(eq("prod-001"), anyString(), any(), any());
     }
 
     @Test

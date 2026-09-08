@@ -241,6 +241,13 @@ public class PriceAdjustmentServiceImpl implements PriceAdjustmentService {
         for (PriceAdjustmentItem item : batch.getItems()) {
             Product product = item.getProduct();
             if (product != null) {
+                // Kiểm tra an toàn: Nếu giá hiện tại đã bị thay đổi sau đợt này thì không đè ngược lại
+                if (product.getPrice() != null && product.getPrice().compareTo(item.getNewPrice()) != 0) {
+                    log.warn("Bỏ qua hoàn tác giá cho sản phẩm id={}, sku={} do giá hiện tại ({}) khác với giá đã áp dụng trong đợt ({})",
+                            product.getId(), product.getSku(), product.getPrice(), item.getNewPrice());
+                    continue;
+                }
+
                 product.setPrice(item.getOldPrice());
                 product.setUpdatedAt(now);
                 productRepository.updatePrice(product.getId(), household.getId(), item.getOldPrice(), now);

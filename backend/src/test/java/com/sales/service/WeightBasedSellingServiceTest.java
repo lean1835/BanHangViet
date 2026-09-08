@@ -470,4 +470,45 @@ class WeightBasedSellingServiceTest {
         assertFalse(res.getWarningMessages().isEmpty());
         assertTrue(res.getWarningMessages().get(0).contains("tồn kho khả dụng"));
     }
+
+    @Test
+    @DisplayName("F-05: Bán hàng theo cân kết hợp đơn vị quy đổi (0.5 Yến = 5 kg >= minWeightStep 1 kg) không bị chặn oan")
+    void addOrderItem_weightProductWithUnitConversion_validBaseQuantity_success() {
+        weightProduct.setMinWeightStep(BigDecimal.ONE); // 1.000 kg
+        weightProduct.setDecimalPlaces(3);
+
+        ProductUnitConversion yenConversion = ProductUnitConversion.builder()
+                .id("conv-yen")
+                .product(weightProduct)
+                .unitName("Yến")
+                .conversionFactor(new BigDecimal("10.000")) // 1 Yến = 10 kg
+                .price(new BigDecimal("150000.00"))
+                .build();
+
+        CreateOrderItemRequest req = CreateOrderItemRequest.builder()
+                .productId("prod-weight-1")
+                .unitConversionId("conv-yen")
+                .quantity(new BigDecimal("0.500")) // 0.500 Yến (= 5.000 kg >= 1.000 kg min step)
+                .build();
+
+        when(userRepository.findByUsername("cashier")).thenReturn(Optional.of(currentUser));
+        when(orderRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("ord-1", "hh-1"))
+                .thenReturn(Optional.of(order));
+        when(productRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("prod-weight-1", "hh-1"))
+                .thenReturn(Optional.of(weightProduct));
+        when(productUnitConversionRepository.findByIdAndProductId("conv-yen", "prod-weight-1"))
+                .thenReturn(Optional.of(yenConversion));
+        when(promotionService.calculateItemPromotion(any(User.class), any(Product.class), any(), any(), any()))
+                .thenReturn(PromotionItemResultResponse.builder()
+                        .discountAmount(BigDecimal.ZERO)
+                        .build());
+        when(orderRepository.save(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        OrderResponse res = orderService.addOrderItem("cashier", "ord-1", req);
+
+        assertNotNull(res);
+        assertEquals(1, res.getItems().size());
+        assertEquals(new BigDecimal("0.500"), res.getItems().get(0).getQuantity());
+        assertEquals(0, new BigDecimal("5.000").compareTo(res.getItems().get(0).getBaseQuantity()));
+    }
 }
