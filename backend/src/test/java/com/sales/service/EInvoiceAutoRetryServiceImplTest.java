@@ -238,4 +238,73 @@ class EInvoiceAutoRetryServiceImplTest {
         // Đảm bảo không gọi eInvoiceService.getInvoice trong vòng lặp (tránh N+1)
         verify(eInvoiceService, never()).getInvoice(anyString(), anyString());
     }
+
+    @Test
+    @DisplayName("CRIT-01 (P0): handleRetryResult bảo vệ hóa đơn đã ISSUED từ luồng khác không bị đè về SEND_ERROR")
+    void testHandleRetryResult_RaceConditionProtection() {
+        EInvoice issuedInvoice = EInvoice.builder()
+                .id("inv-100")
+                .household(household)
+                .status("ISSUED")
+                .retryCount(1)
+                .createdAt(LocalDateTime.now().minusHours(1))
+                .build();
+
+        when(eInvoiceRepository.findEligibleForAutoRetry(any(), any(Pageable.class))).thenReturn(List.of(waitingInvoice));
+        // Lần 1 (prepare): trả về waitingInvoice (SEND_ERROR). Lần 2 (handleRetryResult): trả về issuedInvoice (ISSUED)
+        when(eInvoiceRepository.findById("inv-100"))
+                .thenReturn(Optional.of(waitingInvoice))
+                .thenReturn(Optional.of(issuedInvoice));
+        when(settingsRepository.findByHouseholdId("hh-100")).thenReturn(Optional.of(settings));
+
+        // Giả lập approveInvoiceByTax bị lỗi do status đã thành ISSUED từ luồng khác
+        doThrow(new RuntimeException("Hóa đơn đã ở trạng thái ISSUED"))
+                .when(eInvoiceService).approveInvoiceByTax(any(), eq("inv-100"), any());
+
+        InvoiceAutoRetrySummaryResponse summary = autoRetryService.processScheduledAutoRetry();
+
+        assertNotNull(summary);
+        // Trạng thái hóa đơn phải được giữ nguyên là ISSUED
+        assertEquals("ISSUED", issuedInvoice.getStatus());
+    }
+
+    @Test
+    @DisplayName("HIGH-02 (P1): retryInvoiceSingle reset retryCount về 0 khi người dùng gửi lại thủ công")
+    void testRetryInvoiceSingle_ResetsRetryCount() {
+        waitingInvoice.setStatus("MANUAL_PROCESSING");
+        waitingInvoice.setRetryCount(3);
+        waitingInvoice.setErrorCategory("DEADLINE_OR_MAX_RETRY_EXCEEDED");
+
+        when(userRepository.findByUsername("chuho_test")).thenReturn(Optional.of(testUser));
+        when(eInvoiceRepository.findById("inv-100")).thenReturn(Optional.of(waitingInvoice));
+        when(eInvoiceRepository.save(any(EInvoice.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        InvoiceResponse response = autoRetryService.retryInvoiceSingle("chuho_test", "inv-100");
+
+        assertNotNull(response);
+        assertEquals("WAITING_TAX_CODE", waitingInvoice.getStatus());
+        assertEquals(0, waitingInvoice.getRetryCount());
+        assertNull(waitingInvoice.getErrorCategory());
+    }
+
+    @Test
+    @DisplayName("MED-04 (P2): VT-04 Admin không có household vẫn có thể gọi processManualAutoRetryForUser")
+    void testProcessManualAutoRetryForUser_VT04Admin() {
+        Role adminRole = Role.builder().id(4).code("VT-04").name("Quản trị hệ thống").build();
+        User adminUser = User.builder()
+                .id("admin-1")
+                .username("admin_system")
+                .household(null)
+                .role(adminRole)
+                .build();
+
+        when(userRepository.findByUsername("admin_system")).thenReturn(Optional.of(adminUser));
+        when(eInvoiceRepository.findEligibleForAutoRetry(any(), any(Pageable.class))).thenReturn(Collections.emptyList());
+
+        InvoiceAutoRetrySummaryResponse summary = autoRetryService.processManualAutoRetryForUser("admin_system");
+
+        assertNotNull(summary);
+        assertEquals(0, summary.getTotalProcessed());
+        verify(eInvoiceRepository).findEligibleForAutoRetry(any(), any(Pageable.class));
+    }
 }

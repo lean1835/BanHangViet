@@ -86,6 +86,9 @@ public class EInvoiceAutoRetryServiceImpl implements EInvoiceAutoRetryService {
     public InvoiceAutoRetrySummaryResponse processManualAutoRetryForUser(String currentUsername) {
         User currentUser = getAuthenticatedUser(currentUsername);
         if (currentUser.getHousehold() == null) {
+            if (currentUser.getRole() != null && "VT-04".equals(currentUser.getRole().getCode())) {
+                return processAutoRetryInternal(null);
+            }
             throw new AppException(ErrorCode.FORBIDDEN);
         }
         return processAutoRetryInternal(currentUser.getHousehold().getId());
@@ -207,7 +210,7 @@ public class EInvoiceAutoRetryServiceImpl implements EInvoiceAutoRetryService {
 
     private PrepareResult prepareInvoiceForRetry(String invoiceId, LocalDateTime now) {
         EInvoice invoice = eInvoiceRepository.findById(invoiceId).orElse(null);
-        if (invoice == null) {
+        if (invoice == null || "ISSUED".equals(invoice.getStatus()) || "CANCELED".equals(invoice.getStatus())) {
             return PrepareResult.skipped();
         }
 
@@ -300,6 +303,12 @@ public class EInvoiceAutoRetryServiceImpl implements EInvoiceAutoRetryService {
             return RetryExecutionResult.SKIPPED;
         }
 
+        // P0 Race condition protection: Nếu hóa đơn đã được cấp mã ISSUED từ luồng khác, không được đè về trạng thái lỗi
+        if ("ISSUED".equals(invoice.getStatus())) {
+            log.warn("HĐĐT ID={} đã ở trạng thái ISSUED, bỏ qua cập nhật lỗi từ tiến trình thử lại.", invoiceId);
+            return RetryExecutionResult.SUCCESS;
+        }
+
         if (isSuccess) {
             invoice.setNextRetryAt(null);
             invoice.setErrorCategory(null);
@@ -355,6 +364,13 @@ public class EInvoiceAutoRetryServiceImpl implements EInvoiceAutoRetryService {
             throw new AppException(ErrorCode.FORBIDDEN);
         }
 
+        // Phân quyền cho nhân viên bán hàng (VT-02): chỉ được gửi lại hóa đơn do chính mình tạo
+        if (currentUser.getRole() != null && "VT-02".equals(currentUser.getRole().getCode())) {
+            if (invoice.getCreatedByUser() != null && !currentUser.getId().equals(invoice.getCreatedByUser().getId())) {
+                throw new AppException(ErrorCode.FORBIDDEN);
+            }
+        }
+
         if (!"SEND_ERROR".equals(invoice.getStatus()) && !"MANUAL_PROCESSING".equals(invoice.getStatus())) {
             throw new AppException(ErrorCode.INVOICE_NOT_SEND_ERROR);
         }
@@ -364,6 +380,8 @@ public class EInvoiceAutoRetryServiceImpl implements EInvoiceAutoRetryService {
         invoice.setSentToTaxAt(LocalDateTime.now());
         invoice.setNextRetryAt(null);
         invoice.setTaxAuthorityResponse(null);
+        invoice.setRetryCount(0);
+        invoice.setErrorCategory(null);
 
         EInvoice saved = eInvoiceRepository.save(invoice);
 

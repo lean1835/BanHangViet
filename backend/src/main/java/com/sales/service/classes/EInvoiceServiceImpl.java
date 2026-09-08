@@ -824,7 +824,7 @@ public class EInvoiceServiceImpl implements EInvoiceService {
         User currentUser = currentUsername != null ? getAuthenticatedUser(currentUsername) : null;
         if (currentUser == null) {
             currentUser = userRepository.findFirstByRole_CodeAndDeletedAtIsNull("VT-05")
-                    .orElseThrow(() -> new AppException(ErrorCode.UNAUTHORIZED));
+                    .orElse(null);
         }
 
         EInvoice invoice = eInvoiceRepository.findById(invoiceId)
@@ -861,12 +861,13 @@ public class EInvoiceServiceImpl implements EInvoiceService {
 
         EInvoice saved = eInvoiceRepository.save(invoice);
 
+        String actorName = currentUser != null ? currentUser.getUsername() : "Hệ thống tự động";
         invoiceStatusLogRepository.save(InvoiceStatusLog.builder()
                 .invoice(saved)
                 .fromStatus(oldStatus)
                 .toStatus("ISSUED")
                 .changedByUser(currentUser)
-                .notes("Cơ quan thuế " + currentUser.getUsername() + " đã phê duyệt cấp mã: "
+                .notes("Cơ quan thuế (" + actorName + ") đã phê duyệt cấp mã: "
                         + saved.getTaxAuthorityCode())
                 .build());
 
@@ -884,7 +885,7 @@ public class EInvoiceServiceImpl implements EInvoiceService {
         User currentUser = currentUsername != null ? getAuthenticatedUser(currentUsername) : null;
         if (currentUser == null) {
             currentUser = userRepository.findFirstByRole_CodeAndDeletedAtIsNull("VT-05")
-                    .orElseThrow(() -> new AppException(ErrorCode.UNAUTHORIZED));
+                    .orElse(null);
         }
 
         EInvoice invoice = eInvoiceRepository.findById(invoiceId)
@@ -904,12 +905,13 @@ public class EInvoiceServiceImpl implements EInvoiceService {
 
         EInvoice saved = eInvoiceRepository.save(invoice);
 
+        String actorName = currentUser != null ? currentUser.getUsername() : "Hệ thống tự động";
         invoiceStatusLogRepository.save(InvoiceStatusLog.builder()
                 .invoice(saved)
                 .fromStatus(oldStatus)
                 .toStatus("SEND_ERROR")
                 .changedByUser(currentUser)
-                .notes("Cơ quan thuế " + currentUser.getUsername() + " đã từ chối cấp mã: "
+                .notes("Cơ quan thuế (" + actorName + ") đã từ chối cấp mã: "
                         + saved.getTaxAuthorityResponse())
                 .build());
 

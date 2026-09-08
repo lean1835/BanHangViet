@@ -96,18 +96,22 @@ public interface EInvoiceRepository extends JpaRepository<EInvoice, String>, Jpa
 
     @EntityGraph(attributePaths = {"household", "createdByUser", "order"})
     @Query("SELECT e FROM EInvoice e " +
+           "LEFT JOIN BusinessHouseholdSettings s ON s.household = e.household " +
            "WHERE e.deletedAt IS NULL " +
            "AND e.status IN ('WAITING_TAX_CODE', 'SEND_ERROR') " +
            "AND (e.nextRetryAt IS NULL OR e.nextRetryAt <= :now) " +
+           "AND (s.autoRetryEnabled IS NULL OR s.autoRetryEnabled = true) " +
            "ORDER BY e.createdAt ASC")
     List<EInvoice> findEligibleForAutoRetry(@Param("now") LocalDateTime now, Pageable pageable);
 
     @EntityGraph(attributePaths = {"household", "createdByUser", "order"})
     @Query("SELECT e FROM EInvoice e " +
+           "LEFT JOIN BusinessHouseholdSettings s ON s.household = e.household " +
            "WHERE e.deletedAt IS NULL " +
            "AND e.household.id = :householdId " +
            "AND e.status IN ('WAITING_TAX_CODE', 'SEND_ERROR') " +
            "AND (e.nextRetryAt IS NULL OR e.nextRetryAt <= :now) " +
+           "AND (s.autoRetryEnabled IS NULL OR s.autoRetryEnabled = true) " +
            "ORDER BY e.createdAt ASC")
     List<EInvoice> findEligibleForAutoRetryByHousehold(
             @Param("householdId") String householdId,
