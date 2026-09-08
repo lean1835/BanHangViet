@@ -11,6 +11,7 @@ export interface CreateCustomerPayload {
   name: string;
   phone?: string;
   phoneNumber?: string;
+  taxCode?: string;
   email?: string;
   address?: string;
   creditLimit: number;
@@ -26,6 +27,7 @@ export interface UpdateCustomerPayload {
   name: string;
   phone?: string;
   phoneNumber?: string;
+  taxCode?: string;
   email?: string;
   address?: string;
   creditLimit: number;
@@ -86,6 +88,7 @@ const mapCustomer = (raw: unknown): ICustomer => {
     name: String(item.name || ""),
     phone: phoneVal,
     phoneNumber: phoneVal,
+    taxCode: item.taxCode ? String(item.taxCode) : undefined,
     email: String(item.email || ""),
     address: item.address ? String(item.address) : "",
     creditLimit: creditVal,
@@ -164,6 +167,7 @@ export const customerApi = baseApi.injectEndpoints({
         body: {
           name: payload.name,
           phoneNumber: payload.phoneNumber || payload.phone || "",
+          taxCode: payload.taxCode,
           email: payload.email || "",
           address: payload.address || "",
           creditLimit: payload.creditLimit,
@@ -187,6 +191,7 @@ export const customerApi = baseApi.injectEndpoints({
         body: {
           name: payload.name,
           phoneNumber: payload.phoneNumber || payload.phone || "",
+          taxCode: payload.taxCode,
           email: payload.email || "",
           address: payload.address || "",
           creditLimit: payload.creditLimit,

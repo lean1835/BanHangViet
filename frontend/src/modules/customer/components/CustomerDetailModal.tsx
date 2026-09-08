@@ -167,6 +167,18 @@ export const CustomerDetailModal: React.FC<CustomerDetailModalProps> = ({
                     {customer.email}
                   </span>
                 )}
+                {customer.taxCode && (
+                  <span className="flex items-center gap-1 font-mono text-kv-blue-primary bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100">
+                    <FileText size={12} className="text-kv-blue-primary shrink-0" />
+                    MST: {customer.taxCode}
+                  </span>
+                )}
+                {customer.address && (
+                  <span className="flex items-center gap-1">
+                    <MapPin size={12} className="text-slate-400 shrink-0" />
+                    {customer.address}
+                  </span>
+                )}
               </div>
             </div>
           </div>

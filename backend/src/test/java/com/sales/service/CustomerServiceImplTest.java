@@ -365,4 +365,87 @@ class CustomerServiceImplTest {
 
         assertEquals(ErrorCode.FORBIDDEN, exception.getErrorCode());
     }
+
+    @Test
+    @DisplayName("NCL-04-CN-006: Cập nhật thông tin khách hàng có Mã số thuế thành công")
+    void updateCustomer_WithTaxCode_Success() {
+        UpdateCustomerRequest request = UpdateCustomerRequest.builder()
+                .name("Công ty TNHH Giải Pháp Alpha")
+                .phoneNumber("0912345678")
+                .taxCode("0101234567")
+                .address("Hà Nội")
+                .build();
+
+        when(userRepository.findByUsername("chuho")).thenReturn(Optional.of(currentUser));
+        when(customerRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("cust-001", "house-001"))
+                .thenReturn(Optional.of(customerWithDebt));
+        when(customerRepository.save(any(Customer.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        CustomerResponse response = customerService.updateCustomer("chuho", "cust-001", request);
+
+        assertNotNull(response);
+        assertEquals("0101234567", response.getTaxCode());
+        assertEquals("Công ty TNHH Giải Pháp Alpha", response.getName());
+    }
+
+    @Test
+    @DisplayName("NCL-04-CN-006: Cập nhật khách hàng xóa Mã số thuế (để trống) sẽ lưu null")
+    void updateCustomer_ClearTaxCode_Success() {
+        customerWithDebt.setTaxCode("0101234567");
+        UpdateCustomerRequest request = UpdateCustomerRequest.builder()
+                .name("Nguyễn Văn A")
+                .phoneNumber("0912345678")
+                .taxCode("")
+                .build();
+
+        when(userRepository.findByUsername("chuho")).thenReturn(Optional.of(currentUser));
+        when(customerRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("cust-001", "house-001"))
+                .thenReturn(Optional.of(customerWithDebt));
+        when(customerRepository.save(any(Customer.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        CustomerResponse response = customerService.updateCustomer("chuho", "cust-001", request);
+
+        assertNotNull(response);
+        assertNull(response.getTaxCode());
+    }
+
+    @Test
+    @DisplayName("NCL-04-CN-006: Tạo khách hàng mới với taxCode rỗng hoặc khoảng trắng sẽ chuẩn hóa lưu null")
+    void createCustomer_EmptyTaxCode_SavesNull() {
+        CreateCustomerRequest request = CreateCustomerRequest.builder()
+                .name("Khách Lẻ Không MST")
+                .phoneNumber("0911223344")
+                .taxCode("   ")
+                .build();
+
+        when(userRepository.findByUsername("chuho")).thenReturn(Optional.of(currentUser));
+        when(customerRepository.findByPhoneNumberAndHouseholdIdAndDeletedAtIsNull("0911223344", "house-001"))
+                .thenReturn(Optional.empty());
+        when(customerRepository.save(any(Customer.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        CustomerResponse response = customerService.createCustomer("chuho", request);
+
+        assertNotNull(response);
+        assertNull(response.getTaxCode());
+    }
+
+    @Test
+    @DisplayName("NCL-04-CN-006: Tạo khách hàng mới với taxCode hợp lệ sẽ trim và lưu thành công")
+    void createCustomer_ValidTaxCode_Success() {
+        CreateCustomerRequest request = CreateCustomerRequest.builder()
+                .name("Công ty Mới")
+                .phoneNumber("0922334455")
+                .taxCode(" 0101234567 ")
+                .build();
+
+        when(userRepository.findByUsername("chuho")).thenReturn(Optional.of(currentUser));
+        when(customerRepository.findByPhoneNumberAndHouseholdIdAndDeletedAtIsNull("0922334455", "house-001"))
+                .thenReturn(Optional.empty());
+        when(customerRepository.save(any(Customer.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        CustomerResponse response = customerService.createCustomer("chuho", request);
+
+        assertNotNull(response);
+        assertEquals("0101234567", response.getTaxCode());
+    }
 }

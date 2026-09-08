@@ -932,36 +932,72 @@ public class EInvoiceServiceImpl implements EInvoiceService {
             return;
         }
         String trimmedTaxCode = taxCode.trim();
-        Optional<Customer> custOpt = customerRepository.findByHouseholdIdAndTaxCodeAndDeletedAtIsNull(household.getId(), trimmedTaxCode);
+        Optional<Customer> custOpt = customerRepository.findFirstByHouseholdIdAndTaxCodeAndDeletedAtIsNullOrderByCreatedAtDesc(household.getId(), trimmedTaxCode);
         if (custOpt.isPresent()) {
             Customer cust = custOpt.get();
             boolean updated = false;
-            if ((cust.getAddress() == null || cust.getAddress().trim().isEmpty()) && address != null && !address.trim().isEmpty()) {
-                cust.setAddress(address.trim());
-                updated = true;
+            if (name != null && !name.trim().isEmpty() && !"Khách lẻ".equals(name.trim())) {
+                if (!name.trim().equals(cust.getName())) {
+                    cust.setName(name.trim());
+                    updated = true;
+                }
             }
-            if ((cust.getEmail() == null || cust.getEmail().trim().isEmpty()) && email != null && !email.trim().isEmpty()) {
-                cust.setEmail(email.trim());
-                updated = true;
+            if (address != null && !address.trim().isEmpty()) {
+                if (!address.trim().equals(cust.getAddress())) {
+                    cust.setAddress(address.trim());
+                    updated = true;
+                }
             }
-            if ((cust.getPhoneNumber() == null || cust.getPhoneNumber().trim().isEmpty()) && phone != null && !phone.trim().isEmpty()) {
-                cust.setPhoneNumber(phone.trim());
-                updated = true;
+            if (email != null && !email.trim().isEmpty()) {
+                if (!email.trim().equals(cust.getEmail())) {
+                    cust.setEmail(email.trim());
+                    updated = true;
+                }
+            }
+            if (phone != null && !phone.trim().isEmpty()) {
+                String cleanedPhone = phone.replaceAll("[^0-9]", "");
+                if (cleanedPhone.matches("^[0-9]{9,15}$") && !cleanedPhone.equals(cust.getPhoneNumber())) {
+                    Optional<Customer> phoneCustOpt = customerRepository.findFirstByPhoneNumberAndHouseholdIdAndDeletedAtIsNullOrderByCreatedAtDesc(cleanedPhone, household.getId());
+                    if (phoneCustOpt.isEmpty() || (phoneCustOpt.get().getId() != null && phoneCustOpt.get().getId().equals(cust.getId()))) {
+                        cust.setPhoneNumber(cleanedPhone);
+                        updated = true;
+                    }
+                }
             }
             if (updated) {
                 customerRepository.save(cust);
             }
         } else {
-            String custPhone = (phone != null && !phone.trim().isEmpty()) ? phone.trim() : "MST-" + trimmedTaxCode;
-            Customer newCust = Customer.builder()
-                    .household(household)
-                    .taxCode(trimmedTaxCode)
-                    .name(name != null && !name.trim().isEmpty() ? name.trim() : "Khách doanh nghiệp")
-                    .phoneNumber(custPhone)
-                    .address(address != null ? address.trim() : null)
-                    .email(email != null ? email.trim() : null)
-                    .build();
-            customerRepository.save(newCust);
+            String digitsOnly = trimmedTaxCode.replaceAll("[^0-9]", "");
+            String fallbackPhone = "09" + (digitsOnly + "00000000").substring(0, 8);
+            String cleanedPhone = phone != null ? phone.replaceAll("[^0-9]", "") : "";
+            String custPhone = cleanedPhone.matches("^[0-9]{9,15}$") ? cleanedPhone : fallbackPhone;
+
+            Optional<Customer> phoneCustOpt = customerRepository.findFirstByPhoneNumberAndHouseholdIdAndDeletedAtIsNullOrderByCreatedAtDesc(custPhone, household.getId());
+            if (phoneCustOpt.isPresent()) {
+                Customer existingCust = phoneCustOpt.get();
+                existingCust.setTaxCode(trimmedTaxCode);
+                if (name != null && !name.trim().isEmpty() && !"Khách lẻ".equals(name.trim())) {
+                    existingCust.setName(name.trim());
+                }
+                if (address != null && !address.trim().isEmpty()) {
+                    existingCust.setAddress(address.trim());
+                }
+                if (email != null && !email.trim().isEmpty()) {
+                    existingCust.setEmail(email.trim());
+                }
+                customerRepository.save(existingCust);
+            } else {
+                Customer newCust = Customer.builder()
+                        .household(household)
+                        .taxCode(trimmedTaxCode)
+                        .name(name != null && !name.trim().isEmpty() ? name.trim() : "Khách doanh nghiệp")
+                        .phoneNumber(custPhone)
+                        .address(address != null ? address.trim() : null)
+                        .email(email != null ? email.trim() : null)
+                        .build();
+                customerRepository.save(newCust);
+            }
         }
     }
 
@@ -989,7 +1025,7 @@ public class EInvoiceServiceImpl implements EInvoiceService {
 
         if (taxCode != null && !taxCode.isEmpty()) {
             validateBuyerTaxCode(taxCode);
-            Optional<Customer> existingCustOpt = customerRepository.findByHouseholdIdAndTaxCodeAndDeletedAtIsNull(
+            Optional<Customer> existingCustOpt = customerRepository.findFirstByHouseholdIdAndTaxCodeAndDeletedAtIsNullOrderByCreatedAtDesc(
                     currentUser.getHousehold().getId(), taxCode);
             if (existingCustOpt.isPresent()) {
                 Customer cust = existingCustOpt.get();
@@ -1041,7 +1077,7 @@ public class EInvoiceServiceImpl implements EInvoiceService {
         User currentUser = getAuthenticatedUser(currentUsername);
         validateBuyerTaxCode(taxCode);
         String trimmedTaxCode = taxCode != null ? taxCode.trim() : "";
-        Customer customer = customerRepository.findByHouseholdIdAndTaxCodeAndDeletedAtIsNull(
+        Customer customer = customerRepository.findFirstByHouseholdIdAndTaxCodeAndDeletedAtIsNullOrderByCreatedAtDesc(
                 currentUser.getHousehold().getId(), trimmedTaxCode)
                 .orElseThrow(() -> new AppException(ErrorCode.CUSTOMER_NOT_FOUND));
 

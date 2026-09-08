@@ -141,7 +141,7 @@ class EInvoiceServiceImplTest {
         // Arrange
         when(userRepository.findByUsername("seller1")).thenReturn(Optional.of(currentUser));
         when(eInvoiceRepository.findById("inv-draft-1")).thenReturn(Optional.of(draftInvoice));
-        when(customerRepository.findByHouseholdIdAndTaxCodeAndDeletedAtIsNull("hh-100", "0101234567"))
+        when(customerRepository.findFirstByHouseholdIdAndTaxCodeAndDeletedAtIsNullOrderByCreatedAtDesc("hh-100", "0101234567"))
                 .thenReturn(Optional.empty());
         when(eInvoiceRepository.save(any(EInvoice.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -173,7 +173,7 @@ class EInvoiceServiceImplTest {
         // Arrange
         when(userRepository.findByUsername("seller1")).thenReturn(Optional.of(currentUser));
         when(eInvoiceRepository.findById("inv-draft-1")).thenReturn(Optional.of(draftInvoice));
-        when(customerRepository.findByHouseholdIdAndTaxCodeAndDeletedAtIsNull("hh-100", "0101234567-001"))
+        when(customerRepository.findFirstByHouseholdIdAndTaxCodeAndDeletedAtIsNullOrderByCreatedAtDesc("hh-100", "0101234567-001"))
                 .thenReturn(Optional.empty());
         when(eInvoiceRepository.save(any(EInvoice.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -249,7 +249,7 @@ class EInvoiceServiceImplTest {
 
         when(userRepository.findByUsername("seller1")).thenReturn(Optional.of(currentUser));
         when(eInvoiceRepository.findById("inv-draft-1")).thenReturn(Optional.of(draftInvoice));
-        when(customerRepository.findByHouseholdIdAndTaxCodeAndDeletedAtIsNull("hh-100", "0101234567"))
+        when(customerRepository.findFirstByHouseholdIdAndTaxCodeAndDeletedAtIsNullOrderByCreatedAtDesc("hh-100", "0101234567"))
                 .thenReturn(Optional.of(existingCust));
         when(eInvoiceRepository.save(any(EInvoice.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -307,7 +307,7 @@ class EInvoiceServiceImplTest {
                 .build();
 
         when(userRepository.findByUsername("seller1")).thenReturn(Optional.of(currentUser));
-        when(customerRepository.findByHouseholdIdAndTaxCodeAndDeletedAtIsNull("hh-100", "0101234567"))
+        when(customerRepository.findFirstByHouseholdIdAndTaxCodeAndDeletedAtIsNullOrderByCreatedAtDesc("hh-100", "0101234567"))
                 .thenReturn(Optional.of(existingCust));
 
         // Act
@@ -320,5 +320,162 @@ class EInvoiceServiceImplTest {
         assertEquals("200 Trần Duy Hưng", lookup.getBuyerAddress());
         assertEquals("contact@tracuu.vn", lookup.getBuyerEmail());
         assertEquals("0977665544", lookup.getBuyerPhone());
+    }
+
+    @Test
+    @DisplayName("NCL-04-CN-006: Đồng bộ hồ sơ khách hàng - Cập nhật tên thực tế khi tên cũ là mặc định và làm sạch SĐT")
+    void testUpdateInvoice_SyncCustomerProfile_UpdatesNameAndCleansPhone() {
+        // Arrange
+        Customer existingCust = Customer.builder()
+                .id("cust-default")
+                .household(household)
+                .taxCode("0101234567")
+                .name("Khách doanh nghiệp")
+                .address("Cũ")
+                .phoneNumber("0911223344")
+                .build();
+
+        when(userRepository.findByUsername("seller1")).thenReturn(Optional.of(currentUser));
+        when(eInvoiceRepository.findById("inv-draft-1")).thenReturn(Optional.of(draftInvoice));
+        when(customerRepository.findFirstByHouseholdIdAndTaxCodeAndDeletedAtIsNullOrderByCreatedAtDesc("hh-100", "0101234567"))
+                .thenReturn(Optional.of(existingCust));
+        when(eInvoiceRepository.save(any(EInvoice.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        UpdateInvoiceRequest request = UpdateInvoiceRequest.builder()
+                .buyerName("Công ty TNHH Phần Mềm Mới")
+                .buyerTaxCode("0101234567")
+                .buyerAddress("456 Cầu Giấy")
+                .buyerPhone("024-3888-9999")
+                .build();
+
+        // Act
+        InvoiceResponse response = eInvoiceService.updateInvoice("seller1", "inv-draft-1", request);
+
+        // Assert
+        assertNotNull(response);
+        assertEquals("Công ty TNHH Phần Mềm Mới", existingCust.getName());
+        assertEquals("456 Cầu Giấy", existingCust.getAddress());
+        assertEquals("02438889999", existingCust.getPhoneNumber());
+        verify(customerRepository, atLeastOnce()).save(existingCust);
+    }
+
+    @Test
+    @DisplayName("NCL-04-CN-006 [P0]: MST mới nhưng SĐT đã thuộc về khách hàng khác -> Cập nhật khách hàng hiện có, không tạo duplicate SĐT gây sập POS")
+    void testUpdateInvoice_SyncCustomerProfile_PhoneAlreadyExists_UpdatesExistingCustomerInsteadOfDuplicate() {
+        // Arrange
+        Customer existingPhoneCust = Customer.builder()
+                .id("cust-phone-1")
+                .household(household)
+                .name("Anh Nam Khách Lẻ")
+                .phoneNumber("0988889999")
+                .address("Địa chỉ cũ của anh Nam")
+                .email("nam@retail.vn")
+                .build();
+
+        when(userRepository.findByUsername("seller1")).thenReturn(Optional.of(currentUser));
+        when(eInvoiceRepository.findById("inv-draft-1")).thenReturn(Optional.of(draftInvoice));
+        when(eInvoiceRepository.save(any(EInvoice.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        // MST chưa có trong CRM
+        when(customerRepository.findFirstByHouseholdIdAndTaxCodeAndDeletedAtIsNullOrderByCreatedAtDesc("hh-100", "0109998888"))
+                .thenReturn(Optional.empty());
+        // Nhưng SĐT đã tồn tại
+        when(customerRepository.findFirstByPhoneNumberAndHouseholdIdAndDeletedAtIsNullOrderByCreatedAtDesc("0988889999", "hh-100"))
+                .thenReturn(Optional.of(existingPhoneCust));
+
+        UpdateInvoiceRequest request = UpdateInvoiceRequest.builder()
+                .buyerName("Công ty TNHH Xây Dựng Á Châu")
+                .buyerTaxCode("0109998888")
+                .buyerAddress("Tòa nhà Landmark 81, TP.HCM")
+                .buyerPhone("0988889999")
+                .buyerEmail("ketoan@achau.vn")
+                .build();
+
+        // Act
+        InvoiceResponse response = eInvoiceService.updateInvoice("seller1", "inv-draft-1", request);
+
+        // Assert
+        assertNotNull(response);
+        assertEquals("0109998888", existingPhoneCust.getTaxCode());
+        assertEquals("Công ty TNHH Xây Dựng Á Châu", existingPhoneCust.getName());
+        assertEquals("Tòa nhà Landmark 81, TP.HCM", existingPhoneCust.getAddress());
+        assertEquals("ketoan@achau.vn", existingPhoneCust.getEmail());
+        assertEquals("0988889999", existingPhoneCust.getPhoneNumber());
+
+        verify(customerRepository, atLeastOnce()).save(existingPhoneCust);
+    }
+
+    @Test
+    @DisplayName("NCL-04-CN-006 [P1]: Khắc phục Freeze Sync - Cho phép ghi đè địa chỉ và email mới khi khách hàng đã có dữ liệu cũ trong CRM")
+    void testUpdateInvoice_SyncCustomerProfile_FreezeSyncFixed_OverwritesNewAddressAndEmail() {
+        // Arrange
+        Customer existingCust = Customer.builder()
+                .id("cust-corp-1")
+                .household(household)
+                .taxCode("0101234567")
+                .name("Công ty Cũ")
+                .address("Địa chỉ Trụ Sở Cũ")
+                .email("old-tax@company.com")
+                .phoneNumber("0911223344")
+                .build();
+
+        when(userRepository.findByUsername("seller1")).thenReturn(Optional.of(currentUser));
+        when(eInvoiceRepository.findById("inv-draft-1")).thenReturn(Optional.of(draftInvoice));
+        when(customerRepository.findFirstByHouseholdIdAndTaxCodeAndDeletedAtIsNullOrderByCreatedAtDesc("hh-100", "0101234567"))
+                .thenReturn(Optional.of(existingCust));
+        when(eInvoiceRepository.save(any(EInvoice.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        UpdateInvoiceRequest request = UpdateInvoiceRequest.builder()
+                .buyerName("Công ty TNHH Đổi Tên")
+                .buyerTaxCode("0101234567")
+                .buyerAddress("Địa chỉ Trụ Sở Mới 999 Kim Mã")
+                .buyerEmail("new-tax@company.com")
+                .buyerPhone("0911223344")
+                .build();
+
+        // Act
+        InvoiceResponse response = eInvoiceService.updateInvoice("seller1", "inv-draft-1", request);
+
+        // Assert
+        assertNotNull(response);
+        assertEquals("Công ty TNHH Đổi Tên", existingCust.getName());
+        assertEquals("Địa chỉ Trụ Sở Mới 999 Kim Mã", existingCust.getAddress());
+        assertEquals("new-tax@company.com", existingCust.getEmail());
+        verify(customerRepository, atLeastOnce()).save(existingCust);
+    }
+
+    @Test
+    @DisplayName("NCL-04-CN-006: Tạo mới Customer an toàn khi cả MST lẫn SĐT đều chưa có trong hệ thống")
+    void testUpdateInvoice_SyncCustomerProfile_NewCustomer_CreatesNewCustomerWhenPhoneNotExists() {
+        // Arrange
+        when(userRepository.findByUsername("seller1")).thenReturn(Optional.of(currentUser));
+        when(eInvoiceRepository.findById("inv-draft-1")).thenReturn(Optional.of(draftInvoice));
+        when(customerRepository.findFirstByHouseholdIdAndTaxCodeAndDeletedAtIsNullOrderByCreatedAtDesc("hh-100", "0108889999"))
+                .thenReturn(Optional.empty());
+        when(customerRepository.findFirstByPhoneNumberAndHouseholdIdAndDeletedAtIsNullOrderByCreatedAtDesc("0933334444", "hh-100"))
+                .thenReturn(Optional.empty());
+        when(eInvoiceRepository.save(any(EInvoice.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        UpdateInvoiceRequest request = UpdateInvoiceRequest.builder()
+                .buyerName("Doanh Nghiệp Mới Tinh")
+                .buyerTaxCode("0108889999")
+                .buyerAddress("Quận 1, TP.HCM")
+                .buyerEmail("fresh@corp.vn")
+                .buyerPhone("0933334444")
+                .build();
+
+        // Act
+        InvoiceResponse response = eInvoiceService.updateInvoice("seller1", "inv-draft-1", request);
+
+        // Assert
+        assertNotNull(response);
+        org.mockito.ArgumentCaptor<Customer> captor = org.mockito.ArgumentCaptor.forClass(Customer.class);
+        verify(customerRepository, atLeastOnce()).save(captor.capture());
+        Customer createdCust = captor.getValue();
+        assertEquals("0108889999", createdCust.getTaxCode());
+        assertEquals("Doanh Nghiệp Mới Tinh", createdCust.getName());
+        assertEquals("0933334444", createdCust.getPhoneNumber());
+        assertEquals("Quận 1, TP.HCM", createdCust.getAddress());
+        assertEquals("fresh@corp.vn", createdCust.getEmail());
     }
 }

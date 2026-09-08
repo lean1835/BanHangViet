@@ -4,6 +4,7 @@ export interface ICustomer {
   name: string;
   phone: string;
   phoneNumber?: string;
+  taxCode?: string;
   email: string;
   address?: string;
   creditLimit: number;
