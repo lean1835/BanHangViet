@@ -937,22 +937,32 @@ public class EInvoiceServiceImpl implements EInvoiceService {
             Customer cust = custOpt.get();
             boolean updated = false;
             if (name != null && !name.trim().isEmpty() && !"Khách lẻ".equals(name.trim())) {
-                if (cust.getName() == null || cust.getName().trim().isEmpty() || "Khách doanh nghiệp".equals(cust.getName().trim())) {
+                if (!name.trim().equals(cust.getName())) {
                     cust.setName(name.trim());
                     updated = true;
                 }
             }
-            if ((cust.getAddress() == null || cust.getAddress().trim().isEmpty()) && address != null && !address.trim().isEmpty()) {
-                cust.setAddress(address.trim());
-                updated = true;
+            if (address != null && !address.trim().isEmpty()) {
+                if (!address.trim().equals(cust.getAddress())) {
+                    cust.setAddress(address.trim());
+                    updated = true;
+                }
             }
-            if ((cust.getEmail() == null || cust.getEmail().trim().isEmpty()) && email != null && !email.trim().isEmpty()) {
-                cust.setEmail(email.trim());
-                updated = true;
+            if (email != null && !email.trim().isEmpty()) {
+                if (!email.trim().equals(cust.getEmail())) {
+                    cust.setEmail(email.trim());
+                    updated = true;
+                }
             }
-            if ((cust.getPhoneNumber() == null || cust.getPhoneNumber().trim().isEmpty()) && phone != null && !phone.trim().isEmpty()) {
-                cust.setPhoneNumber(phone.trim());
-                updated = true;
+            if (phone != null && !phone.trim().isEmpty()) {
+                String cleanedPhone = phone.replaceAll("[^0-9]", "");
+                if (cleanedPhone.matches("^[0-9]{9,15}$") && !cleanedPhone.equals(cust.getPhoneNumber())) {
+                    Optional<Customer> phoneCustOpt = customerRepository.findFirstByPhoneNumberAndHouseholdIdAndDeletedAtIsNullOrderByCreatedAtDesc(cleanedPhone, household.getId());
+                    if (phoneCustOpt.isEmpty() || (phoneCustOpt.get().getId() != null && phoneCustOpt.get().getId().equals(cust.getId()))) {
+                        cust.setPhoneNumber(cleanedPhone);
+                        updated = true;
+                    }
+                }
             }
             if (updated) {
                 customerRepository.save(cust);
@@ -962,15 +972,32 @@ public class EInvoiceServiceImpl implements EInvoiceService {
             String fallbackPhone = "09" + (digitsOnly + "00000000").substring(0, 8);
             String cleanedPhone = phone != null ? phone.replaceAll("[^0-9]", "") : "";
             String custPhone = cleanedPhone.matches("^[0-9]{9,15}$") ? cleanedPhone : fallbackPhone;
-            Customer newCust = Customer.builder()
-                    .household(household)
-                    .taxCode(trimmedTaxCode)
-                    .name(name != null && !name.trim().isEmpty() ? name.trim() : "Khách doanh nghiệp")
-                    .phoneNumber(custPhone)
-                    .address(address != null ? address.trim() : null)
-                    .email(email != null ? email.trim() : null)
-                    .build();
-            customerRepository.save(newCust);
+
+            Optional<Customer> phoneCustOpt = customerRepository.findFirstByPhoneNumberAndHouseholdIdAndDeletedAtIsNullOrderByCreatedAtDesc(custPhone, household.getId());
+            if (phoneCustOpt.isPresent()) {
+                Customer existingCust = phoneCustOpt.get();
+                existingCust.setTaxCode(trimmedTaxCode);
+                if (name != null && !name.trim().isEmpty() && !"Khách lẻ".equals(name.trim())) {
+                    existingCust.setName(name.trim());
+                }
+                if (address != null && !address.trim().isEmpty()) {
+                    existingCust.setAddress(address.trim());
+                }
+                if (email != null && !email.trim().isEmpty()) {
+                    existingCust.setEmail(email.trim());
+                }
+                customerRepository.save(existingCust);
+            } else {
+                Customer newCust = Customer.builder()
+                        .household(household)
+                        .taxCode(trimmedTaxCode)
+                        .name(name != null && !name.trim().isEmpty() ? name.trim() : "Khách doanh nghiệp")
+                        .phoneNumber(custPhone)
+                        .address(address != null ? address.trim() : null)
+                        .email(email != null ? email.trim() : null)
+                        .build();
+                customerRepository.save(newCust);
+            }
         }
     }
 
