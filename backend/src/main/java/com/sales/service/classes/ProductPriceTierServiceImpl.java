@@ -51,7 +51,7 @@ public class ProductPriceTierServiceImpl implements ProductPriceTierService {
         BigDecimal baseCostPrice = resolveCostPrice(product, household.getId());
 
         List<ProductPriceTier> tiers = productPriceTierRepository
-                .findByProductIdAndHouseholdIdOrderByMinQuantityAsc(productId, household.getId());
+                .findByProductIdAndHouseholdIdAndIsActiveTrueOrderByMinQuantityAsc(productId, household.getId());
 
         return tiers.stream()
                 .map(tier -> mapToResponse(tier, product, baseCostPrice))

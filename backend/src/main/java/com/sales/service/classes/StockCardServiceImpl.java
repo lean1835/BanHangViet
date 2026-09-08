@@ -22,7 +22,9 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -69,7 +71,7 @@ public class StockCardServiceImpl implements StockCardService {
         if (fromDate == null) {
             fromDate = toDate.minusDays(30);
         }
-        if (fromDate.isAfter(toDate)) {
+        if (fromDate.isAfter(toDate) || ChronoUnit.DAYS.between(fromDate, toDate) > 365) {
             throw new AppException(ErrorCode.INVALID_DATE_RANGE);
         }
 
@@ -83,69 +85,29 @@ public class StockCardServiceImpl implements StockCardService {
         BigDecimal initialStock = product.getInitialStockQuantity() != null ? product.getInitialStockQuantity() : BigDecimal.ZERO;
 
         BigDecimal openingIn = goodsReceiptDetailRepository.sumQuantityBefore(product.getId(), household.getId(), startDateTime);
-        if (openingIn == null || openingIn.compareTo(BigDecimal.ZERO) == 0) {
-            List<GoodsReceiptDetail> all = goodsReceiptDetailRepository.findStockMovementsByProduct(product.getId(), household.getId());
-            if (all != null && !all.isEmpty()) {
-                openingIn = all.stream()
-                        .filter(grd -> {
-                            LocalDateTime ts = grd.getReceipt() != null && grd.getReceipt().getReceivedAt() != null
-                                    ? grd.getReceipt().getReceivedAt() : grd.getCreatedAt();
-                            return ts != null && ts.isBefore(startDateTime);
-                        })
-                        .map(grd -> grd.getBaseQuantity() != null ? grd.getBaseQuantity() : (grd.getQuantity() != null ? grd.getQuantity() : BigDecimal.ZERO))
-                        .reduce(BigDecimal.ZERO, BigDecimal::add);
-            }
+        if (openingIn == null) {
+            openingIn = BigDecimal.ZERO;
         }
 
         BigDecimal openingOut = orderItemRepository.sumQuantityBefore(product.getId(), household.getId(), startDateTime);
-        if (openingOut == null || openingOut.compareTo(BigDecimal.ZERO) == 0) {
-            List<OrderItem> all = orderItemRepository.findStockMovementsByProduct(product.getId(), household.getId());
-            if (all != null && !all.isEmpty()) {
-                openingOut = all.stream()
-                        .filter(oi -> {
-                            LocalDateTime ts = oi.getOrder() != null && oi.getOrder().getCreatedAt() != null
-                                    ? oi.getOrder().getCreatedAt() : oi.getCreatedAt();
-                            return ts != null && ts.isBefore(startDateTime);
-                        })
-                        .map(oi -> oi.getBaseQuantity() != null ? oi.getBaseQuantity() : (oi.getQuantity() != null ? oi.getQuantity() : BigDecimal.ZERO))
-                        .reduce(BigDecimal.ZERO, BigDecimal::add);
-            }
+        if (openingOut == null) {
+            openingOut = BigDecimal.ZERO;
         }
 
         BigDecimal openingReturn = returnTicketItemRepository.sumQuantityBefore(product.getId(), household.getId(), startDateTime);
-        if (openingReturn == null || openingReturn.compareTo(BigDecimal.ZERO) == 0) {
-            List<ReturnTicketItem> all = returnTicketItemRepository.findStockMovementsByProduct(product.getId(), household.getId());
-            if (all != null && !all.isEmpty()) {
-                openingReturn = all.stream()
-                        .filter(rti -> {
-                            LocalDateTime ts = rti.getReturnTicket() != null && rti.getReturnTicket().getApprovedAt() != null
-                                    ? rti.getReturnTicket().getApprovedAt() : rti.getCreatedAt();
-                            return ts != null && ts.isBefore(startDateTime);
-                        })
-                        .map(rti -> rti.getQuantity() != null ? rti.getQuantity() : BigDecimal.ZERO)
-                        .reduce(BigDecimal.ZERO, BigDecimal::add);
-            }
+        if (openingReturn == null) {
+            openingReturn = BigDecimal.ZERO;
         }
 
         BigDecimal openingAudit = inventoryAuditDetailRepository.sumDifferenceBefore(product.getId(), household.getId(), startDateTime);
-        if (openingAudit == null || openingAudit.compareTo(BigDecimal.ZERO) == 0) {
-            List<InventoryAuditDetail> all = inventoryAuditDetailRepository.findStockMovementsByProduct(product.getId(), household.getId());
-            if (all != null && !all.isEmpty()) {
-                openingAudit = all.stream()
-                        .filter(iad -> {
-                            LocalDateTime ts = iad.getAudit() != null && iad.getAudit().getAuditDate() != null
-                                    ? iad.getAudit().getAuditDate() : iad.getCreatedAt();
-                            return ts != null && ts.isBefore(startDateTime);
-                        })
-                        .map(iad -> iad.getDifferenceQuantity() != null ? iad.getDifferenceQuantity() : BigDecimal.ZERO)
-                        .reduce(BigDecimal.ZERO, BigDecimal::add);
-            }
+        if (openingAudit == null) {
+            openingAudit = BigDecimal.ZERO;
         }
 
-        BigDecimal openingMovements = (openingIn != null ? openingIn : BigDecimal.ZERO)
-                .subtract(openingOut != null ? openingOut : BigDecimal.ZERO)
-                .add(openingReturn != null ? openingReturn : BigDecimal.ZERO)
-                .add(openingAudit != null ? openingAudit : BigDecimal.ZERO);
+        BigDecimal openingMovements = openingIn
+                .subtract(openingOut)
+                .add(openingReturn)
+                .add(openingAudit);
 
         LocalDateTime productCreatedAt = product.getCreatedAt();
         BigDecimal openingStock;
@@ -183,17 +145,8 @@ public class StockCardServiceImpl implements StockCardService {
         // 5.1 Goods receipts in period (IN)
         List<GoodsReceiptDetail> receiptDetails = goodsReceiptDetailRepository
                 .findStockMovementsByProductInPeriod(product.getId(), household.getId(), startDateTime, endDateTime);
-        if (receiptDetails == null || receiptDetails.isEmpty()) {
-            List<GoodsReceiptDetail> all = goodsReceiptDetailRepository.findStockMovementsByProduct(product.getId(), household.getId());
-            if (all != null && !all.isEmpty()) {
-                receiptDetails = all.stream()
-                        .filter(grd -> {
-                            LocalDateTime ts = grd.getReceipt() != null && grd.getReceipt().getReceivedAt() != null
-                                    ? grd.getReceipt().getReceivedAt() : grd.getCreatedAt();
-                            return ts != null && !ts.isBefore(startDateTime) && !ts.isAfter(endDateTime);
-                        })
-                        .collect(Collectors.toList());
-            }
+        if (receiptDetails == null) {
+            receiptDetails = Collections.emptyList();
         }
         if (receiptDetails != null) {
             for (GoodsReceiptDetail grd : receiptDetails) {
@@ -229,17 +182,8 @@ public class StockCardServiceImpl implements StockCardService {
         // 5.2 Sale orders in period (OUT)
         List<OrderItem> orderItems = orderItemRepository
                 .findStockMovementsByProductInPeriod(product.getId(), household.getId(), startDateTime, endDateTime);
-        if (orderItems == null || orderItems.isEmpty()) {
-            List<OrderItem> all = orderItemRepository.findStockMovementsByProduct(product.getId(), household.getId());
-            if (all != null && !all.isEmpty()) {
-                orderItems = all.stream()
-                        .filter(oi -> {
-                            LocalDateTime ts = oi.getOrder() != null && oi.getOrder().getCreatedAt() != null
-                                    ? oi.getOrder().getCreatedAt() : oi.getCreatedAt();
-                            return ts != null && !ts.isBefore(startDateTime) && !ts.isAfter(endDateTime);
-                        })
-                        .collect(Collectors.toList());
-            }
+        if (orderItems == null) {
+            orderItems = Collections.emptyList();
         }
         if (orderItems != null) {
             for (OrderItem oi : orderItems) {
@@ -274,17 +218,8 @@ public class StockCardServiceImpl implements StockCardService {
         // 5.3 Customer returns in period (IN)
         List<ReturnTicketItem> returnItems = returnTicketItemRepository
                 .findStockMovementsByProductInPeriod(product.getId(), household.getId(), startDateTime, endDateTime);
-        if (returnItems == null || returnItems.isEmpty()) {
-            List<ReturnTicketItem> all = returnTicketItemRepository.findStockMovementsByProduct(product.getId(), household.getId());
-            if (all != null && !all.isEmpty()) {
-                returnItems = all.stream()
-                        .filter(rti -> {
-                            LocalDateTime ts = rti.getReturnTicket() != null && rti.getReturnTicket().getApprovedAt() != null
-                                    ? rti.getReturnTicket().getApprovedAt() : rti.getCreatedAt();
-                            return ts != null && !ts.isBefore(startDateTime) && !ts.isAfter(endDateTime);
-                        })
-                        .collect(Collectors.toList());
-            }
+        if (returnItems == null) {
+            returnItems = Collections.emptyList();
         }
         if (returnItems != null) {
             for (ReturnTicketItem rti : returnItems) {
@@ -316,17 +251,8 @@ public class StockCardServiceImpl implements StockCardService {
         // 5.4 Inventory audits in period (ADJUST)
         List<InventoryAuditDetail> auditDetails = inventoryAuditDetailRepository
                 .findStockMovementsByProductInPeriod(product.getId(), household.getId(), startDateTime, endDateTime);
-        if (auditDetails == null || auditDetails.isEmpty()) {
-            List<InventoryAuditDetail> all = inventoryAuditDetailRepository.findStockMovementsByProduct(product.getId(), household.getId());
-            if (all != null && !all.isEmpty()) {
-                auditDetails = all.stream()
-                        .filter(iad -> {
-                            LocalDateTime ts = iad.getAudit() != null && iad.getAudit().getAuditDate() != null
-                                    ? iad.getAudit().getAuditDate() : iad.getCreatedAt();
-                            return ts != null && !ts.isBefore(startDateTime) && !ts.isAfter(endDateTime);
-                        })
-                        .collect(Collectors.toList());
-            }
+        if (auditDetails == null) {
+            auditDetails = Collections.emptyList();
         }
         if (auditDetails != null) {
             for (InventoryAuditDetail iad : auditDetails) {
@@ -407,50 +333,30 @@ public class StockCardServiceImpl implements StockCardService {
 
         // 8. Verify data integrity against actual DB stockQuantity (TC-03)
         BigDecimal totalInAll = goodsReceiptDetailRepository.sumQuantityAllTime(product.getId(), household.getId());
-        if (totalInAll == null || totalInAll.compareTo(BigDecimal.ZERO) == 0) {
-            List<GoodsReceiptDetail> all = goodsReceiptDetailRepository.findStockMovementsByProduct(product.getId(), household.getId());
-            if (all != null && !all.isEmpty()) {
-                totalInAll = all.stream()
-                        .map(grd -> grd.getBaseQuantity() != null ? grd.getBaseQuantity() : (grd.getQuantity() != null ? grd.getQuantity() : BigDecimal.ZERO))
-                        .reduce(BigDecimal.ZERO, BigDecimal::add);
-            }
+        if (totalInAll == null) {
+            totalInAll = BigDecimal.ZERO;
         }
 
         BigDecimal totalOutAll = orderItemRepository.sumQuantityAllTime(product.getId(), household.getId());
-        if (totalOutAll == null || totalOutAll.compareTo(BigDecimal.ZERO) == 0) {
-            List<OrderItem> all = orderItemRepository.findStockMovementsByProduct(product.getId(), household.getId());
-            if (all != null && !all.isEmpty()) {
-                totalOutAll = all.stream()
-                        .map(oi -> oi.getBaseQuantity() != null ? oi.getBaseQuantity() : (oi.getQuantity() != null ? oi.getQuantity() : BigDecimal.ZERO))
-                        .reduce(BigDecimal.ZERO, BigDecimal::add);
-            }
+        if (totalOutAll == null) {
+            totalOutAll = BigDecimal.ZERO;
         }
 
         BigDecimal totalReturnAll = returnTicketItemRepository.sumQuantityAllTime(product.getId(), household.getId());
-        if (totalReturnAll == null || totalReturnAll.compareTo(BigDecimal.ZERO) == 0) {
-            List<ReturnTicketItem> all = returnTicketItemRepository.findStockMovementsByProduct(product.getId(), household.getId());
-            if (all != null && !all.isEmpty()) {
-                totalReturnAll = all.stream()
-                        .map(rti -> rti.getQuantity() != null ? rti.getQuantity() : BigDecimal.ZERO)
-                        .reduce(BigDecimal.ZERO, BigDecimal::add);
-            }
+        if (totalReturnAll == null) {
+            totalReturnAll = BigDecimal.ZERO;
         }
 
         BigDecimal totalAuditAll = inventoryAuditDetailRepository.sumDifferenceAllTime(product.getId(), household.getId());
-        if (totalAuditAll == null || totalAuditAll.compareTo(BigDecimal.ZERO) == 0) {
-            List<InventoryAuditDetail> all = inventoryAuditDetailRepository.findStockMovementsByProduct(product.getId(), household.getId());
-            if (all != null && !all.isEmpty()) {
-                totalAuditAll = all.stream()
-                        .map(iad -> iad.getDifferenceQuantity() != null ? iad.getDifferenceQuantity() : BigDecimal.ZERO)
-                        .reduce(BigDecimal.ZERO, BigDecimal::add);
-            }
+        if (totalAuditAll == null) {
+            totalAuditAll = BigDecimal.ZERO;
         }
 
         BigDecimal expectedCurrentStock = initialStock
-                .add(totalInAll != null ? totalInAll : BigDecimal.ZERO)
-                .subtract(totalOutAll != null ? totalOutAll : BigDecimal.ZERO)
-                .add(totalReturnAll != null ? totalReturnAll : BigDecimal.ZERO)
-                .add(totalAuditAll != null ? totalAuditAll : BigDecimal.ZERO);
+                .add(totalInAll)
+                .subtract(totalOutAll)
+                .add(totalReturnAll)
+                .add(totalAuditAll);
 
         BigDecimal currentDbStock = product.getStockQuantity() != null ? product.getStockQuantity() : BigDecimal.ZERO;
         boolean isDiscrepancy = expectedCurrentStock.compareTo(currentDbStock) != 0;

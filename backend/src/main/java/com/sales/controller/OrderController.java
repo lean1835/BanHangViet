@@ -5,6 +5,7 @@ import com.sales.dto.request.*;
 import com.sales.dto.response.CalculateWeightResponse;
 import com.sales.dto.response.OrderResponse;
 import com.sales.service.interfaces.OrderService;
+import io.swagger.v3.oas.annotations.Operation;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -153,6 +154,7 @@ public class OrderController {
         return ResponseEntity.ok(response);
     }
 
+    @Operation(summary = "Tính toán trọng lượng từ số tiền mua")
     @PostMapping("/calculate-weight")
     @PreAuthorize("hasAnyRole('VT-01', 'VT-02')")
     public ResponseEntity<ApiResponse<CalculateWeightResponse>> calculateWeight(

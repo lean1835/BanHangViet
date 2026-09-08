@@ -250,8 +250,9 @@ public class PriceAdjustmentServiceTest {
         assertEquals(1, response.getTotalItems());
         assertTrue(response.getCanRevert());
 
-        // Kiểm tra gọi updatePrice trên productRepository
-        verify(productRepository, times(1)).updatePrice(eq("prod-001"), eq("household-001"), eq(new BigDecimal("11000.00")), any(LocalDateTime.class));
+        // Kiểm tra gọi batch saveAll trên productRepository
+        verify(productRepository, times(1)).saveAll(anyList());
+        assertEquals(new BigDecimal("11000.00"), product1.getPrice());
     }
 
     @Test
@@ -300,8 +301,9 @@ public class PriceAdjustmentServiceTest {
         assertEquals("Áp nhầm tỷ lệ điều chỉnh giá", response.getRevertReason());
         assertFalse(response.getCanRevert());
 
-        // Kiểm tra khôi phục lại giá cũ
-        verify(productRepository, times(1)).updatePrice(eq("prod-001"), eq("household-001"), eq(new BigDecimal("10000.00")), any(LocalDateTime.class));
+        // Kiểm tra khôi phục lại giá cũ qua batch saveAll
+        verify(productRepository, times(1)).saveAll(anyList());
+        assertEquals(new BigDecimal("10000.00"), product1.getPrice());
     }
 
     @Test
@@ -350,7 +352,7 @@ public class PriceAdjustmentServiceTest {
         assertEquals(BatchStatus.REVERTED, response.getStatus());
 
         // Do giá sản phẩm đã bị đổi sang 15000 khác với 12000, không được ghi đè về giá cũ 10000
-        verify(productRepository, never()).updatePrice(eq("prod-001"), anyString(), any(), any());
+        verify(productRepository, never()).saveAll(anyList());
     }
 
     @Test
@@ -381,7 +383,7 @@ public class PriceAdjustmentServiceTest {
                 priceAdjustmentService.revertPriceAdjustment("owner", "batch-001", revertRequest));
 
         assertEquals(ErrorCode.PRICE_ADJUSTMENT_REVERT_EXPIRED, ex.getErrorCode());
-        verify(productRepository, never()).updatePrice(anyString(), anyString(), any(), any());
+        verify(productRepository, never()).saveAll(anyList());
     }
 
     @Test

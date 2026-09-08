@@ -463,4 +463,33 @@ public class ProductPriceTierServiceTest {
 
         verify(productPriceTierRepository, times(1)).delete(tier);
     }
+
+    @Test
+    @DisplayName("P2 - Medium: API lấy danh sách bậc giá chỉ trả về các bậc giá đang có hiệu lực (isActive = true)")
+    void testGetProductPriceTiers_FiltersActiveOnly() {
+        when(userRepository.findByUsername("owner")).thenReturn(Optional.of(ownerUser));
+        when(productRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("prod-1", "household-1")).thenReturn(Optional.of(product));
+        when(goodsReceiptDetailRepository.calculateWeightedAverageCostPrice("prod-1", "household-1")).thenReturn(new BigDecimal("9500.00"));
+
+        ProductPriceTier activeTier = ProductPriceTier.builder()
+                .id("tier-active")
+                .product(product)
+                .household(household)
+                .tierName("Giá sỉ đang hoạt động")
+                .minQuantity(new BigDecimal("10.000"))
+                .price(new BigDecimal("10500.00"))
+                .isActive(true)
+                .build();
+
+        when(productPriceTierRepository.findByProductIdAndHouseholdIdAndIsActiveTrueOrderByMinQuantityAsc("prod-1", "household-1"))
+                .thenReturn(List.of(activeTier));
+
+        List<ProductPriceTierResponse> responses = productPriceTierService.getProductPriceTiers("owner", "prod-1");
+
+        assertNotNull(responses);
+        assertEquals(1, responses.size());
+        assertEquals("tier-active", responses.get(0).getId());
+        verify(productPriceTierRepository, times(1))
+                .findByProductIdAndHouseholdIdAndIsActiveTrueOrderByMinQuantityAsc("prod-1", "household-1");
+    }
 }

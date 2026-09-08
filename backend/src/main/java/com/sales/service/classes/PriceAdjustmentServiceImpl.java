@@ -174,10 +174,9 @@ public class PriceAdjustmentServiceImpl implements PriceAdjustmentService {
                     .build();
             items.add(item);
 
-            // Cập nhật giá sản phẩm trong database và managed entity
+            // Cập nhật giá sản phẩm trong entity
             product.setPrice(newPrice);
             product.setUpdatedAt(now);
-            productRepository.updatePrice(product.getId(), household.getId(), newPrice, now);
 
             // Ghi nhận ActivityLog cho từng sản phẩm
             logActivity(household, user, "UPDATE_PRICE", product.getId(),
@@ -197,6 +196,9 @@ public class PriceAdjustmentServiceImpl implements PriceAdjustmentService {
                     .isBelowCost(isBelowCost)
                     .build());
         }
+
+        // Batch update giá cho tất cả sản phẩm, loại bỏ N+1 query
+        productRepository.saveAll(products);
 
         batch.setTotalItems(products.size());
         batch.setBelowCostItems(belowCostCount);
@@ -236,6 +238,7 @@ public class PriceAdjustmentServiceImpl implements PriceAdjustmentService {
         }
 
         LocalDateTime now = LocalDateTime.now();
+        List<Product> productsToRevert = new ArrayList<>();
 
         // Khôi phục giá cũ cho từng sản phẩm
         for (PriceAdjustmentItem item : batch.getItems()) {
@@ -250,12 +253,17 @@ public class PriceAdjustmentServiceImpl implements PriceAdjustmentService {
 
                 product.setPrice(item.getOldPrice());
                 product.setUpdatedAt(now);
-                productRepository.updatePrice(product.getId(), household.getId(), item.getOldPrice(), now);
+                productsToRevert.add(product);
 
                 // Ghi nhận ActivityLog hoàn tác giá
                 logActivity(household, user, "REVERT_PRICE", product.getId(),
                         Map.of("price", item.getNewPrice()), Map.of("price", item.getOldPrice(), "batchCode", batch.getBatchCode()));
             }
+        }
+
+        // Batch update hoàn tác giá một lần duy nhất ngoài vòng lặp
+        if (!productsToRevert.isEmpty()) {
+            productRepository.saveAll(productsToRevert);
         }
 
         batch.setStatus(BatchStatus.REVERTED);

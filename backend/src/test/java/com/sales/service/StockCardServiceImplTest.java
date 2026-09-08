@@ -23,6 +23,8 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -99,8 +101,6 @@ class StockCardServiceImplTest {
                 .quantity(new BigDecimal("100.000"))
                 .createdAt(LocalDateTime.of(2026, 9, 2, 8, 0))
                 .build();
-        when(goodsReceiptDetailRepository.findStockMovementsByProduct("prod-1", "hh-1"))
-                .thenReturn(List.of(receiptDetail));
 
         // 2. Sale order: -20 at 2026-09-05
         Order order = Order.builder()
@@ -117,8 +117,6 @@ class StockCardServiceImplTest {
                 .quantity(new BigDecimal("20.000"))
                 .createdAt(LocalDateTime.of(2026, 9, 5, 10, 30))
                 .build();
-        when(orderItemRepository.findStockMovementsByProduct("prod-1", "hh-1"))
-                .thenReturn(List.of(orderItem));
 
         // 3. Customer return: +5 at 2026-09-08
         ReturnTicket returnTicket = ReturnTicket.builder()
@@ -136,8 +134,6 @@ class StockCardServiceImplTest {
                 .quantity(new BigDecimal("5.000"))
                 .createdAt(LocalDateTime.of(2026, 9, 8, 14, 0))
                 .build();
-        when(returnTicketItemRepository.findStockMovementsByProduct("prod-1", "hh-1"))
-                .thenReturn(List.of(returnItem));
 
         // 4. Inventory audit: diff +45 at 2026-09-15
         InventoryAudit audit = InventoryAudit.builder()
@@ -157,8 +153,24 @@ class StockCardServiceImplTest {
                 .reason("Kiểm kê định kỳ thừa hàng")
                 .createdAt(LocalDateTime.of(2026, 9, 15, 16, 0))
                 .build();
-        when(inventoryAuditDetailRepository.findStockMovementsByProduct("prod-1", "hh-1"))
+
+        when(goodsReceiptDetailRepository.findStockMovementsByProductInPeriod(eq("prod-1"), eq("hh-1"), any(), any()))
+                .thenReturn(List.of(receiptDetail));
+        when(orderItemRepository.findStockMovementsByProductInPeriod(eq("prod-1"), eq("hh-1"), any(), any()))
+                .thenReturn(List.of(orderItem));
+        when(returnTicketItemRepository.findStockMovementsByProductInPeriod(eq("prod-1"), eq("hh-1"), any(), any()))
+                .thenReturn(List.of(returnItem));
+        when(inventoryAuditDetailRepository.findStockMovementsByProductInPeriod(eq("prod-1"), eq("hh-1"), any(), any()))
                 .thenReturn(List.of(auditDetail));
+
+        when(goodsReceiptDetailRepository.sumQuantityAllTime("prod-1", "hh-1"))
+                .thenReturn(new BigDecimal("100.000"));
+        when(orderItemRepository.sumQuantityAllTime("prod-1", "hh-1"))
+                .thenReturn(new BigDecimal("20.000"));
+        when(returnTicketItemRepository.sumQuantityAllTime("prod-1", "hh-1"))
+                .thenReturn(new BigDecimal("5.000"));
+        when(inventoryAuditDetailRepository.sumDifferenceAllTime("prod-1", "hh-1"))
+                .thenReturn(new BigDecimal("45.000"));
 
         // Execute service call
         LocalDate fromDate = LocalDate.of(2026, 9, 1);
@@ -221,12 +233,11 @@ class StockCardServiceImplTest {
                 .product(testProduct)
                 .quantity(new BigDecimal("130.000"))
                 .build();
-        when(goodsReceiptDetailRepository.findStockMovementsByProduct("prod-1", "hh-1"))
-                .thenReturn(List.of(receiptDetail));
 
-        when(orderItemRepository.findStockMovementsByProduct("prod-1", "hh-1")).thenReturn(Collections.emptyList());
-        when(returnTicketItemRepository.findStockMovementsByProduct("prod-1", "hh-1")).thenReturn(Collections.emptyList());
-        when(inventoryAuditDetailRepository.findStockMovementsByProduct("prod-1", "hh-1")).thenReturn(Collections.emptyList());
+        when(goodsReceiptDetailRepository.findStockMovementsByProductInPeriod(eq("prod-1"), eq("hh-1"), any(), any()))
+                .thenReturn(List.of(receiptDetail));
+        when(goodsReceiptDetailRepository.sumQuantityAllTime("prod-1", "hh-1"))
+                .thenReturn(new BigDecimal("130.000"));
 
         StockCardResponse response = stockCardService.getStockCard(
                 "owner", "prod-1", LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 30), 0, 10);
@@ -263,11 +274,11 @@ class StockCardServiceImplTest {
                 .product(testProduct)
                 .quantity(new BigDecimal("100.000"))
                 .build();
-        when(goodsReceiptDetailRepository.findStockMovementsByProduct("prod-1", "hh-1"))
+
+        when(goodsReceiptDetailRepository.findStockMovementsByProductInPeriod(eq("prod-1"), eq("hh-1"), any(), any()))
                 .thenReturn(List.of(receiptDetail));
-        when(orderItemRepository.findStockMovementsByProduct("prod-1", "hh-1")).thenReturn(Collections.emptyList());
-        when(returnTicketItemRepository.findStockMovementsByProduct("prod-1", "hh-1")).thenReturn(Collections.emptyList());
-        when(inventoryAuditDetailRepository.findStockMovementsByProduct("prod-1", "hh-1")).thenReturn(Collections.emptyList());
+        when(goodsReceiptDetailRepository.sumQuantityAllTime("prod-1", "hh-1"))
+                .thenReturn(new BigDecimal("100.000"));
 
         StockCardResponse response = stockCardService.getStockCard(
                 "owner", "prod-1", LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 30), 0, 10);
@@ -287,22 +298,6 @@ class StockCardServiceImplTest {
         when(productRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("prod-1", "hh-1"))
                 .thenReturn(Optional.of(testProduct));
 
-        // Prior movement before September 2026 (August 2026): +100
-        GoodsReceipt receipt = GoodsReceipt.builder()
-                .id("gr-old")
-                .receiptNumber("PN-OLD")
-                .receivedAt(LocalDateTime.of(2026, 8, 15, 10, 0))
-                .createdByUser(testUser)
-                .build();
-        GoodsReceiptDetail receiptDetail = GoodsReceiptDetail.builder()
-                .id("grd-old")
-                .receipt(receipt)
-                .product(testProduct)
-                .quantity(new BigDecimal("100.000"))
-                .build();
-        when(goodsReceiptDetailRepository.findStockMovementsByProduct("prod-1", "hh-1"))
-                .thenReturn(List.of(receiptDetail));
-
         // In-period movement (September 2026): -20
         Order order = Order.builder()
                 .id("ord-1")
@@ -317,11 +312,15 @@ class StockCardServiceImplTest {
                 .product(testProduct)
                 .quantity(new BigDecimal("20.000"))
                 .build();
-        when(orderItemRepository.findStockMovementsByProduct("prod-1", "hh-1"))
-                .thenReturn(List.of(orderItem));
 
-        when(returnTicketItemRepository.findStockMovementsByProduct("prod-1", "hh-1")).thenReturn(Collections.emptyList());
-        when(inventoryAuditDetailRepository.findStockMovementsByProduct("prod-1", "hh-1")).thenReturn(Collections.emptyList());
+        when(goodsReceiptDetailRepository.sumQuantityBefore(eq("prod-1"), eq("hh-1"), any()))
+                .thenReturn(new BigDecimal("100.000"));
+        when(orderItemRepository.findStockMovementsByProductInPeriod(eq("prod-1"), eq("hh-1"), any(), any()))
+                .thenReturn(List.of(orderItem));
+        when(goodsReceiptDetailRepository.sumQuantityAllTime("prod-1", "hh-1"))
+                .thenReturn(new BigDecimal("100.000"));
+        when(orderItemRepository.sumQuantityAllTime("prod-1", "hh-1"))
+                .thenReturn(new BigDecimal("20.000"));
 
         StockCardResponse response = stockCardService.getStockCard(
                 "owner", "prod-1", LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 30), 0, 10);
@@ -343,6 +342,22 @@ class StockCardServiceImplTest {
 
         LocalDate fromDate = LocalDate.of(2026, 9, 30);
         LocalDate toDate = LocalDate.of(2026, 9, 1);
+
+        AppException ex = assertThrows(AppException.class, () ->
+                stockCardService.getStockCard("owner", "prod-1", fromDate, toDate, 0, 10));
+
+        assertEquals(ErrorCode.INVALID_DATE_RANGE, ex.getErrorCode());
+    }
+
+    @Test
+    @DisplayName("Ngoại lệ: Khoảng cách ngày vượt quá giới hạn 365 ngày (P2 - Medium)")
+    void testInvalidDateRange_Exceeds365Days_ThrowsException() {
+        when(userRepository.findByUsername("owner")).thenReturn(Optional.of(testUser));
+        when(productRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("prod-1", "hh-1"))
+                .thenReturn(Optional.of(testProduct));
+
+        LocalDate fromDate = LocalDate.of(2024, 1, 1);
+        LocalDate toDate = LocalDate.of(2026, 1, 1);
 
         AppException ex = assertThrows(AppException.class, () ->
                 stockCardService.getStockCard("owner", "prod-1", fromDate, toDate, 0, 10));
@@ -383,8 +398,6 @@ class StockCardServiceImplTest {
                 .product(testProduct)
                 .quantity(new BigDecimal("100.000"))
                 .build();
-        when(goodsReceiptDetailRepository.findStockMovementsByProduct("prod-1", "hh-1"))
-                .thenReturn(List.of(receiptDetail));
 
         InventoryAudit audit = InventoryAudit.builder()
                 .id("aud-1")
@@ -402,11 +415,15 @@ class StockCardServiceImplTest {
                 .differenceQuantity(new BigDecimal("-30.000"))
                 .reason("Hàng hư hỏng vứt bỏ")
                 .build();
-        when(inventoryAuditDetailRepository.findStockMovementsByProduct("prod-1", "hh-1"))
-                .thenReturn(List.of(auditDetail));
 
-        when(orderItemRepository.findStockMovementsByProduct("prod-1", "hh-1")).thenReturn(Collections.emptyList());
-        when(returnTicketItemRepository.findStockMovementsByProduct("prod-1", "hh-1")).thenReturn(Collections.emptyList());
+        when(goodsReceiptDetailRepository.findStockMovementsByProductInPeriod(eq("prod-1"), eq("hh-1"), any(), any()))
+                .thenReturn(List.of(receiptDetail));
+        when(inventoryAuditDetailRepository.findStockMovementsByProductInPeriod(eq("prod-1"), eq("hh-1"), any(), any()))
+                .thenReturn(List.of(auditDetail));
+        when(goodsReceiptDetailRepository.sumQuantityAllTime("prod-1", "hh-1"))
+                .thenReturn(new BigDecimal("100.000"));
+        when(inventoryAuditDetailRepository.sumDifferenceAllTime("prod-1", "hh-1"))
+                .thenReturn(new BigDecimal("-30.000"));
 
         StockCardResponse response = stockCardService.getStockCard(
                 "owner", "prod-1", LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 30), 0, 10);
@@ -432,7 +449,6 @@ class StockCardServiceImplTest {
         when(productRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("prod-1", "hh-1"))
                 .thenReturn(Optional.of(testProduct));
 
-        // Goods receipt: +100 at sameTimestamp, but created with ID "z-id" (alphabetically after "a-id")
         GoodsReceipt receipt = GoodsReceipt.builder()
                 .id("gr-1")
                 .receiptNumber("PN001")
@@ -446,10 +462,7 @@ class StockCardServiceImplTest {
                 .quantity(new BigDecimal("100.000"))
                 .createdAt(sameTimestamp)
                 .build();
-        when(goodsReceiptDetailRepository.findStockMovementsByProduct("prod-1", "hh-1"))
-                .thenReturn(List.of(receiptDetail));
 
-        // Sale order: -20 at sameTimestamp, with ID "a-id" (alphabetically before "z-id")
         Order order = Order.builder()
                 .id("ord-1")
                 .orderNumber("HD001")
@@ -464,11 +477,15 @@ class StockCardServiceImplTest {
                 .quantity(new BigDecimal("20.000"))
                 .createdAt(sameTimestamp)
                 .build();
-        when(orderItemRepository.findStockMovementsByProduct("prod-1", "hh-1"))
-                .thenReturn(List.of(orderItem));
 
-        when(returnTicketItemRepository.findStockMovementsByProduct("prod-1", "hh-1")).thenReturn(Collections.emptyList());
-        when(inventoryAuditDetailRepository.findStockMovementsByProduct("prod-1", "hh-1")).thenReturn(Collections.emptyList());
+        when(goodsReceiptDetailRepository.findStockMovementsByProductInPeriod(eq("prod-1"), eq("hh-1"), any(), any()))
+                .thenReturn(List.of(receiptDetail));
+        when(orderItemRepository.findStockMovementsByProductInPeriod(eq("prod-1"), eq("hh-1"), any(), any()))
+                .thenReturn(List.of(orderItem));
+        when(goodsReceiptDetailRepository.sumQuantityAllTime("prod-1", "hh-1"))
+                .thenReturn(new BigDecimal("100.000"));
+        when(orderItemRepository.sumQuantityAllTime("prod-1", "hh-1"))
+                .thenReturn(new BigDecimal("20.000"));
 
         StockCardResponse response = stockCardService.getStockCard(
                 "owner", "prod-1", LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 30), 0, 10);
@@ -532,12 +549,14 @@ class StockCardServiceImplTest {
         when(userRepository.findByUsername("owner")).thenReturn(Optional.of(testUser));
         when(productRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("prod-1", "hh-1"))
                 .thenReturn(Optional.of(testProduct));
-        when(goodsReceiptDetailRepository.findStockMovementsByProduct("prod-1", "hh-1"))
+        when(goodsReceiptDetailRepository.findStockMovementsByProductInPeriod(eq("prod-1"), eq("hh-1"), any(), any()))
                 .thenReturn(List.of(grd));
-        when(orderItemRepository.findStockMovementsByProduct("prod-1", "hh-1"))
+        when(orderItemRepository.findStockMovementsByProductInPeriod(eq("prod-1"), eq("hh-1"), any(), any()))
                 .thenReturn(List.of(oi));
-        when(returnTicketItemRepository.findStockMovementsByProduct("prod-1", "hh-1")).thenReturn(Collections.emptyList());
-        when(inventoryAuditDetailRepository.findStockMovementsByProduct("prod-1", "hh-1")).thenReturn(Collections.emptyList());
+        when(goodsReceiptDetailRepository.sumQuantityAllTime("prod-1", "hh-1"))
+                .thenReturn(new BigDecimal("24"));
+        when(orderItemRepository.sumQuantityAllTime("prod-1", "hh-1"))
+                .thenReturn(new BigDecimal("24"));
 
         StockCardResponse response = stockCardService.getStockCard(
                 "owner", "prod-1", LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 30), 0, 10);
@@ -581,10 +600,10 @@ class StockCardServiceImplTest {
                 .createdAt(LocalDateTime.of(2026, 9, 5, 10, 0))
                 .build();
 
-        when(orderItemRepository.findStockMovementsByProduct("prod-1", "hh-1")).thenReturn(List.of(oi));
-        when(goodsReceiptDetailRepository.findStockMovementsByProduct("prod-1", "hh-1")).thenReturn(Collections.emptyList());
-        when(returnTicketItemRepository.findStockMovementsByProduct("prod-1", "hh-1")).thenReturn(Collections.emptyList());
-        when(inventoryAuditDetailRepository.findStockMovementsByProduct("prod-1", "hh-1")).thenReturn(Collections.emptyList());
+        when(orderItemRepository.findStockMovementsByProductInPeriod(eq("prod-1"), eq("hh-1"), any(), any()))
+                .thenReturn(List.of(oi));
+        when(orderItemRepository.sumQuantityAllTime("prod-1", "hh-1"))
+                .thenReturn(new BigDecimal("5.000"));
 
         StockCardResponse response = stockCardService.getStockCard(
                 "owner", "prod-1", LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 30), 0, 10);
@@ -598,4 +617,3 @@ class StockCardServiceImplTest {
         assertNull(response.getWarning());
     }
 }
-
