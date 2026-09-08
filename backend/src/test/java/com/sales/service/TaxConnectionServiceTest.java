@@ -140,4 +140,37 @@ class TaxConnectionServiceTest {
         assertThat(response.getTotalLogs()).isEqualTo(1);
         assertThat(response.getHistoryLogs().get(0).getStatus()).isEqualTo("ONLINE");
     }
+
+    @Test
+    @DisplayName("NCL-04-CN-010-TC-02: 3 lần gửi lỗi liên tiếp -> Tự động chuyển sang trạng thái OFFLINE (F-06)")
+    void recordConnectionEvent_AutoTransitionToOffline() {
+        TaxConnectionLog failed1 = TaxConnectionLog.builder().id("l1").status("SLOW").errorMessage("Lỗi 1").build();
+        TaxConnectionLog failed2 = TaxConnectionLog.builder().id("l2").status("SLOW").errorMessage("Lỗi 2").build();
+
+        when(logRepository.findTop2ByHouseholdIdOrderByCreatedAtDesc("house-001"))
+                .thenReturn(List.of(failed1, failed2));
+
+        taxConnectionService.recordConnectionEvent("house-001", "SLOW", 500, "Lỗi lần 3");
+
+        org.mockito.ArgumentCaptor<TaxConnectionLog> captor = org.mockito.ArgumentCaptor.forClass(TaxConnectionLog.class);
+        verify(logRepository).save(captor.capture());
+
+        TaxConnectionLog savedLog = captor.getValue();
+        assertThat(savedLog.getStatus()).isEqualTo("OFFLINE");
+    }
+
+    @Test
+    @DisplayName("NCL-04-CN-010: Không giả mạo timestamp (F-06) -> Trả về null khi chưa từng phản hồi thành công")
+    void getTaxConnectionStatus_NoFakeTimestamp() {
+        when(userRepository.findByUsername("chuho")).thenReturn(Optional.of(ownerUser));
+        when(logRepository.findLatestLogByHousehold(eq("house-001"), any(Pageable.class)))
+                .thenReturn(List.of());
+        when(logRepository.findFirstByHouseholdIdAndLastSuccessfulResponseAtIsNotNullOrderByCreatedAtDesc("house-001"))
+                .thenReturn(Optional.empty());
+
+        TaxConnectionStatusResponse response = taxConnectionService.getTaxConnectionStatus("chuho");
+
+        assertThat(response).isNotNull();
+        assertThat(response.getLastSuccessfulResponseAt()).isNull();
+    }
 }

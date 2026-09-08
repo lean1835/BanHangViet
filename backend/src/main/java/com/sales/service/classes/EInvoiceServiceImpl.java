@@ -590,6 +590,10 @@ public class EInvoiceServiceImpl implements EInvoiceService {
         logActivity(invoice.getHousehold(), currentUser, "SUBMIT_TAX", saved.getId(), oldVal,
                 buildInvoiceLogMap(saved));
 
+        if (taxConnectionService != null && invoice.getHousehold() != null) {
+            taxConnectionService.recordConnectionEvent(invoice.getHousehold().getId(), "ONLINE", 120, null);
+        }
+
         log.info("HĐĐT ID={} được đưa vào hàng đợi chờ Cơ quan Thuế duyệt cấp mã.", invoiceId);
         return mapToInvoiceResponse(saved);
     }
@@ -623,6 +627,10 @@ public class EInvoiceServiceImpl implements EInvoiceService {
                 .changedByUser(currentUser)
                 .notes("Gửi lại hóa đơn điện tử bị lỗi lên cơ quan thuế")
                 .build());
+
+        if (taxConnectionService != null && invoice.getHousehold() != null) {
+            taxConnectionService.recordConnectionEvent(invoice.getHousehold().getId(), "ONLINE", 120, null);
+        }
 
         log.info("Gửi lại HĐĐT bị lỗi ID={} lên Cơ quan Thuế thành công.", invoiceId);
         return mapToInvoiceResponse(saved);
@@ -847,7 +855,8 @@ public class EInvoiceServiceImpl implements EInvoiceService {
         String invoiceNum;
         if (invoiceNumberRangeService != null) {
             try {
-                invoiceNum = invoiceNumberRangeService.allocateNextInvoiceNumber(householdId);
+                invoiceNum = invoiceNumberRangeService.allocateNextInvoiceNumber(
+                        householdId, invoice.getInvoicePattern(), invoice.getInvoiceSymbol());
             } catch (AppException e) {
                 if (ErrorCode.INVOICE_RANGE_EXHAUSTED.equals(e.getErrorCode())) {
                     throw e; // NCL-04-CN-009-TC-03: Block issuance if range is exhausted
@@ -877,7 +886,7 @@ public class EInvoiceServiceImpl implements EInvoiceService {
                     // Ignore
                 }
             }
-            invoiceNum = String.format("%07d", nextNum);
+            invoiceNum = String.format("%08d", nextNum);
         }
 
         invoice.setStatus("ISSUED");
@@ -1706,23 +1715,13 @@ public class EInvoiceServiceImpl implements EInvoiceService {
 
         String householdId = currentUser.getHousehold().getId();
         LocalDate controlDate = date != null ? date : LocalDate.now();
-        LocalDateTime startOfDay = controlDate.atStartOfDay();
         LocalDateTime endOfDay = controlDate.atTime(LocalTime.MAX);
         LocalDateTime now = LocalDateTime.now();
 
-        // 1. Uninvoiced Orders (Đơn đã thanh toán nhưng chưa có hóa đơn hợp lệ)
-        List<Order> paidOrders = orderRepository.findByHouseholdIdAndStatusAndPaymentStatusAndDeletedAtIsNull(
-                householdId, "COMPLETED", "PAID");
+        // 1. Uninvoiced Orders (Đơn đã thanh toán nhưng chưa có hóa đơn hợp lệ up to controlDate - NCL-04-CN-008 / F-03 & F-04)
+        List<Order> paidOrders = orderRepository.findUninvoicedOrdersUpToDate(householdId, endOfDay);
 
         List<UninvoicedOrderSummaryResponse> uninvoicedOrders = paidOrders.stream()
-                .filter(order -> {
-                    LocalDateTime orderTime = order.getCreatedAt();
-                    if (orderTime == null || orderTime.isBefore(startOfDay) || orderTime.isAfter(endOfDay)) {
-                        return false;
-                    }
-                    Optional<EInvoice> invOpt = eInvoiceRepository.findByOrderIdAndDeletedAtIsNull(order.getId());
-                    return invOpt.isEmpty() || "CANCELED".equals(invOpt.get().getStatus());
-                })
                 .map(order -> {
                     long durationHours = java.time.Duration.between(order.getCreatedAt(), now).toHours();
                     long durationDays = java.time.Duration.between(order.getCreatedAt(), now).toDays();
@@ -1740,14 +1739,11 @@ public class EInvoiceServiceImpl implements EInvoiceService {
                 .sorted(Comparator.comparing(UninvoicedOrderSummaryResponse::getPendingDurationHours).reversed())
                 .collect(Collectors.toList());
 
-        // 2. Pending Invoices (Hóa đơn đang treo chờ cấp mã WAITING_TAX_CODE)
-        List<EInvoice> allInvoices = eInvoiceRepository.findByHouseholdIdAndDeletedAtIsNullOrderByCreatedAtDesc(householdId);
+        // 2. Pending Invoices (Hóa đơn đang treo chờ duyệt/cấp mã: WAITING_TAX_CODE và DRAFT - F-04)
+        List<EInvoice> pendingRawInvoices = eInvoiceRepository.findByHouseholdIdAndStatusInAndCreatedAtBefore(
+                householdId, List.of("WAITING_TAX_CODE", "DRAFT"), endOfDay);
 
-        List<PendingTaxInvoiceSummaryResponse> pendingInvoices = allInvoices.stream()
-                .filter(inv -> "WAITING_TAX_CODE".equals(inv.getStatus()) &&
-                        inv.getCreatedAt() != null &&
-                        !inv.getCreatedAt().isBefore(startOfDay) &&
-                        !inv.getCreatedAt().isAfter(endOfDay))
+        List<PendingTaxInvoiceSummaryResponse> pendingInvoices = pendingRawInvoices.stream()
                 .map(inv -> {
                     long durationHours = java.time.Duration.between(inv.getCreatedAt(), now).toHours();
                     long durationDays = java.time.Duration.between(inv.getCreatedAt(), now).toDays();
@@ -1767,12 +1763,11 @@ public class EInvoiceServiceImpl implements EInvoiceService {
                 .sorted(Comparator.comparing(PendingTaxInvoiceSummaryResponse::getPendingDurationHours).reversed())
                 .collect(Collectors.toList());
 
-        // 3. Failed Invoices (Hóa đơn gửi lỗi SEND_ERROR hoặc MANUAL_PROCESSING)
-        List<FailedInvoiceSummaryResponse> failedInvoices = allInvoices.stream()
-                .filter(inv -> ("SEND_ERROR".equals(inv.getStatus()) || "MANUAL_PROCESSING".equals(inv.getStatus())) &&
-                        inv.getCreatedAt() != null &&
-                        !inv.getCreatedAt().isBefore(startOfDay) &&
-                        !inv.getCreatedAt().isAfter(endOfDay))
+        // 3. Failed Invoices (Hóa đơn gửi lỗi: SEND_ERROR hoặc MANUAL_PROCESSING)
+        List<EInvoice> failedRawInvoices = eInvoiceRepository.findByHouseholdIdAndStatusInAndCreatedAtBefore(
+                householdId, List.of("SEND_ERROR", "MANUAL_PROCESSING"), endOfDay);
+
+        List<FailedInvoiceSummaryResponse> failedInvoices = failedRawInvoices.stream()
                 .map(inv -> {
                     long durationHours = java.time.Duration.between(inv.getCreatedAt(), now).toHours();
                     long durationDays = java.time.Duration.between(inv.getCreatedAt(), now).toDays();

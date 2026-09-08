@@ -49,6 +49,17 @@ public interface EInvoiceRepository extends JpaRepository<EInvoice, String>, Jpa
     @EntityGraph(attributePaths = {"originalInvoice", "returnTicket"})
     List<EInvoice> findByHouseholdIdAndDeletedAtIsNullOrderByCreatedAtDesc(String householdId);
 
+    @EntityGraph(attributePaths = {"order", "createdByUser"})
+    @Query("SELECT e FROM EInvoice e WHERE e.household.id = :householdId " +
+           "AND e.status IN :statuses " +
+           "AND e.deletedAt IS NULL " +
+           "AND e.createdAt <= :endOfDay " +
+           "ORDER BY e.createdAt DESC")
+    List<EInvoice> findByHouseholdIdAndStatusInAndCreatedAtBefore(
+            @Param("householdId") String householdId,
+            @Param("statuses") List<String> statuses,
+            @Param("endOfDay") LocalDateTime endOfDay);
+
     @EntityGraph(attributePaths = {"originalInvoice", "returnTicket"})
     @Query("SELECT e FROM EInvoice e " +
            "WHERE e.household.id = :householdId " +

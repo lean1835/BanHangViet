@@ -91,7 +91,7 @@ class InvoiceNumberRangeServiceImplTest {
     @DisplayName("NCL-04-CN-009-TC-01: Khai báo dải số hợp lệ bởi Chủ hộ (VT-01)")
     void createRange_Success() {
         when(userRepository.findByUsername("chuho")).thenReturn(Optional.of(ownerUser));
-        when(rangeRepository.findActiveRangesByHouseholdId("house-001")).thenReturn(Collections.emptyList());
+        when(rangeRepository.findOverlappingRanges("house-001", "1", "C26TAA")).thenReturn(Collections.emptyList());
         when(rangeRepository.save(any(InvoiceNumberRange.class))).thenAnswer(inv -> {
             InvoiceNumberRange r = inv.getArgument(0);
             r.setId("range-new");
@@ -116,6 +116,25 @@ class InvoiceNumberRangeServiceImplTest {
     }
 
     @Test
+    @DisplayName("NCL-04-CN-009: Khai báo dải số bị trùng lặp -> Ném exception INVOICE_RANGE_OVERLAP (F-05)")
+    void createRange_Overlapping_ThrowsException() {
+        when(userRepository.findByUsername("chuho")).thenReturn(Optional.of(ownerUser));
+        when(rangeRepository.findOverlappingRanges("house-001", "1", "C26TAA")).thenReturn(List.of(activeRange));
+
+        CreateInvoiceNumberRangeRequest req = CreateInvoiceNumberRangeRequest.builder()
+                .invoicePattern("1")
+                .invoiceSymbol("C26TAA")
+                .startNumber(50)
+                .endNumber(150)
+                .warningThreshold(50)
+                .build();
+
+        assertThatThrownBy(() -> rangeService.createRange("chuho", req))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining(ErrorCode.INVOICE_RANGE_OVERLAP.getMessage());
+    }
+
+    @Test
     @DisplayName("NCL-04-CN-009: Nhân viên bán hàng (VT-02) khai báo dải số -> Bị chặn 403 FORBIDDEN")
     void createRange_StaffForbidden() {
         when(userRepository.findByUsername("nhanvien")).thenReturn(Optional.of(staffUser));
@@ -136,10 +155,23 @@ class InvoiceNumberRangeServiceImplTest {
     @Test
     @DisplayName("NCL-04-CN-009-TC-01: Cấp số tuần tự và giảm số còn lại khi dải số bình thường")
     void allocateNextInvoiceNumber_Success() {
-        when(rangeRepository.findActiveRangesByHouseholdId("house-001")).thenReturn(List.of(activeRange));
+        when(rangeRepository.findActiveRangesForUpdate("house-001")).thenReturn(List.of(activeRange));
         when(rangeRepository.save(any(InvoiceNumberRange.class))).thenAnswer(inv -> inv.getArgument(0));
 
         String invoiceNumber = rangeService.allocateNextInvoiceNumber("house-001");
+
+        assertThat(invoiceNumber).isEqualTo("00000011");
+        assertThat(activeRange.getCurrentNumber()).isEqualTo(11);
+        assertThat(activeRange.getStatus()).isEqualTo("ACTIVE");
+    }
+
+    @Test
+    @DisplayName("NCL-04-CN-009: Cấp số theo Pattern và Symbol chính xác (F-05)")
+    void allocateNextInvoiceNumber_WithPatternAndSymbol_Success() {
+        when(rangeRepository.findActiveRangesForUpdate("house-001", "1", "C26TAA")).thenReturn(List.of(activeRange));
+        when(rangeRepository.save(any(InvoiceNumberRange.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        String invoiceNumber = rangeService.allocateNextInvoiceNumber("house-001", "1", "C26TAA");
 
         assertThat(invoiceNumber).isEqualTo("00000011");
         assertThat(activeRange.getCurrentNumber()).isEqualTo(11);
@@ -151,7 +183,7 @@ class InvoiceNumberRangeServiceImplTest {
     void allocateNextInvoiceNumber_WarningLow() {
         // Range 1 to 100, current = 80 -> next = 81 -> remaining = 19 <= 20
         activeRange.setCurrentNumber(80);
-        when(rangeRepository.findActiveRangesByHouseholdId("house-001")).thenReturn(List.of(activeRange));
+        when(rangeRepository.findActiveRangesForUpdate("house-001")).thenReturn(List.of(activeRange));
 
         String invoiceNumber = rangeService.allocateNextInvoiceNumber("house-001");
 
@@ -164,7 +196,7 @@ class InvoiceNumberRangeServiceImplTest {
     void allocateNextInvoiceNumber_Exhausted() {
         activeRange.setCurrentNumber(100);
         activeRange.setStatus("EXHAUSTED");
-        when(rangeRepository.findActiveRangesByHouseholdId("house-001")).thenReturn(List.of(activeRange));
+        when(rangeRepository.findActiveRangesForUpdate("house-001")).thenReturn(List.of(activeRange));
 
         assertThatThrownBy(() -> rangeService.allocateNextInvoiceNumber("house-001"))
                 .isInstanceOf(AppException.class)

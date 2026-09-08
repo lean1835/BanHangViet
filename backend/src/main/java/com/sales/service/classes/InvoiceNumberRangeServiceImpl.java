@@ -64,12 +64,12 @@ public class InvoiceNumberRangeServiceImpl implements InvoiceNumberRangeService 
             throw new AppException(ErrorCode.INVOICE_RANGE_INVALID);
         }
 
-        // Deactivate previous active ranges if any
-        List<InvoiceNumberRange> activeRanges = rangeRepository.findActiveRangesByHouseholdId(household.getId());
-        for (InvoiceNumberRange oldRange : activeRanges) {
-            if (!"EXHAUSTED".equals(oldRange.getStatus())) {
-                oldRange.setStatus("INACTIVE");
-                rangeRepository.save(oldRange);
+        // Validate overlapping ranges with same pattern and symbol (F-05)
+        List<InvoiceNumberRange> overlapping = rangeRepository.findOverlappingRanges(
+                household.getId(), request.getInvoicePattern(), request.getInvoiceSymbol());
+        for (InvoiceNumberRange existing : overlapping) {
+            if (request.getStartNumber() <= existing.getEndNumber() && request.getEndNumber() >= existing.getStartNumber()) {
+                throw new AppException(ErrorCode.INVOICE_RANGE_OVERLAP);
             }
         }
 
@@ -142,16 +142,30 @@ public class InvoiceNumberRangeServiceImpl implements InvoiceNumberRangeService 
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public String allocateNextInvoiceNumber(String householdId) {
-        List<InvoiceNumberRange> ranges = rangeRepository.findActiveRangesByHouseholdId(householdId);
-        if (ranges.isEmpty()) {
+    public String allocateNextInvoiceNumber(String householdId, String pattern, String symbol) {
+        List<InvoiceNumberRange> ranges;
+        if (pattern != null && symbol != null) {
+            ranges = rangeRepository.findActiveRangesForUpdate(householdId, pattern, symbol);
+        } else {
+            ranges = rangeRepository.findActiveRangesForUpdate(householdId);
+        }
+
+        if (ranges == null || ranges.isEmpty()) {
             throw new AppException(ErrorCode.INVOICE_RANGE_EXHAUSTED);
         }
 
-        InvoiceNumberRange range = ranges.get(0);
-        if (range.getCurrentNumber() >= range.getEndNumber() || "EXHAUSTED".equals(range.getStatus())) {
-            range.setStatus("EXHAUSTED");
-            rangeRepository.save(range);
+        InvoiceNumberRange range = null;
+        for (InvoiceNumberRange r : ranges) {
+            if (r.getCurrentNumber() < r.getEndNumber() && !"EXHAUSTED".equals(r.getStatus())) {
+                range = r;
+                break;
+            } else {
+                r.setStatus("EXHAUSTED");
+                rangeRepository.save(r);
+            }
+        }
+
+        if (range == null) {
             throw new AppException(ErrorCode.INVOICE_RANGE_EXHAUSTED);
         }
 
@@ -168,6 +182,12 @@ public class InvoiceNumberRangeServiceImpl implements InvoiceNumberRangeService 
         rangeRepository.save(range);
 
         return String.format("%08d", nextNumber);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public String allocateNextInvoiceNumber(String householdId) {
+        return allocateNextInvoiceNumber(householdId, null, null);
     }
 
     private InvoiceNumberRangeResponse mapToResponse(InvoiceNumberRange range) {

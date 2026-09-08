@@ -94,10 +94,11 @@ class DailyInvoiceControlTest {
                 .createdAt(LocalDateTime.now().minusHours(2))
                 .build();
 
-        when(orderRepository.findByHouseholdIdAndStatusAndPaymentStatusAndDeletedAtIsNull("house-001", "COMPLETED", "PAID"))
+        when(orderRepository.findUninvoicedOrdersUpToDate(eq("house-001"), any(LocalDateTime.class)))
                 .thenReturn(List.of(order));
-        when(eInvoiceRepository.findByOrderIdAndDeletedAtIsNull("order-101")).thenReturn(Optional.empty());
-        when(eInvoiceRepository.findByHouseholdIdAndDeletedAtIsNullOrderByCreatedAtDesc("house-001"))
+        when(eInvoiceRepository.findByHouseholdIdAndStatusInAndCreatedAtBefore(eq("house-001"), eq(List.of("WAITING_TAX_CODE", "DRAFT")), any(LocalDateTime.class)))
+                .thenReturn(Collections.emptyList());
+        when(eInvoiceRepository.findByHouseholdIdAndStatusInAndCreatedAtBefore(eq("house-001"), eq(List.of("SEND_ERROR", "MANUAL_PROCESSING")), any(LocalDateTime.class)))
                 .thenReturn(Collections.emptyList());
 
         DailyInvoiceControlResponse response = eInvoiceService.getDailyInvoiceControl("chuho", LocalDate.now());
@@ -109,12 +110,57 @@ class DailyInvoiceControlTest {
     }
 
     @Test
+    @DisplayName("NCL-04-CN-008: Gom toàn bộ đơn tồn quá khứ & hóa đơn DRAFT vào diện theo dõi (F-04)")
+    void getDailyInvoiceControl_WithPastOrdersAndDraftInvoices() {
+        when(userRepository.findByUsername("chuho")).thenReturn(Optional.of(ownerUser));
+
+        Order pastOrder = Order.builder()
+                .id("order-old")
+                .orderNumber("ORD-OLD")
+                .household(household)
+                .status("COMPLETED")
+                .paymentStatus("PAID")
+                .finalAmount(BigDecimal.valueOf(200000))
+                .createdByUser(staffUser)
+                .createdAt(LocalDateTime.now().minusDays(3))
+                .build();
+
+        EInvoice draftInvoice = EInvoice.builder()
+                .id("inv-draft")
+                .invoiceNumber(null)
+                .household(household)
+                .status("DRAFT")
+                .finalAmount(BigDecimal.valueOf(300000))
+                .createdByUser(staffUser)
+                .createdAt(LocalDateTime.now().minusHours(1))
+                .build();
+
+        when(orderRepository.findUninvoicedOrdersUpToDate(eq("house-001"), any(LocalDateTime.class)))
+                .thenReturn(List.of(pastOrder));
+        when(eInvoiceRepository.findByHouseholdIdAndStatusInAndCreatedAtBefore(eq("house-001"), eq(List.of("WAITING_TAX_CODE", "DRAFT")), any(LocalDateTime.class)))
+                .thenReturn(List.of(draftInvoice));
+        when(eInvoiceRepository.findByHouseholdIdAndStatusInAndCreatedAtBefore(eq("house-001"), eq(List.of("SEND_ERROR", "MANUAL_PROCESSING")), any(LocalDateTime.class)))
+                .thenReturn(Collections.emptyList());
+
+        DailyInvoiceControlResponse response = eInvoiceService.getDailyInvoiceControl("chuho", LocalDate.now());
+
+        assertThat(response).isNotNull();
+        assertThat(response.getIsCleanDay()).isFalse();
+        assertThat(response.getTotalUninvoicedOrders()).isEqualTo(1);
+        assertThat(response.getUninvoicedOrders().get(0).getPendingDurationDays()).isGreaterThanOrEqualTo(3);
+        assertThat(response.getTotalPendingInvoices()).isEqualTo(1);
+        assertThat(response.getPendingInvoices().get(0).getStatus()).isEqualTo("DRAFT");
+    }
+
+    @Test
     @DisplayName("NCL-04-CN-008-TC-02: Mọi đơn đã có hóa đơn -> Trả về isCleanDay = true")
     void getDailyInvoiceControl_CleanDay() {
         when(userRepository.findByUsername("chuho")).thenReturn(Optional.of(ownerUser));
-        when(orderRepository.findByHouseholdIdAndStatusAndPaymentStatusAndDeletedAtIsNull("house-001", "COMPLETED", "PAID"))
+        when(orderRepository.findUninvoicedOrdersUpToDate(eq("house-001"), any(LocalDateTime.class)))
                 .thenReturn(Collections.emptyList());
-        when(eInvoiceRepository.findByHouseholdIdAndDeletedAtIsNullOrderByCreatedAtDesc("house-001"))
+        when(eInvoiceRepository.findByHouseholdIdAndStatusInAndCreatedAtBefore(eq("house-001"), eq(List.of("WAITING_TAX_CODE", "DRAFT")), any(LocalDateTime.class)))
+                .thenReturn(Collections.emptyList());
+        when(eInvoiceRepository.findByHouseholdIdAndStatusInAndCreatedAtBefore(eq("house-001"), eq(List.of("SEND_ERROR", "MANUAL_PROCESSING")), any(LocalDateTime.class)))
                 .thenReturn(Collections.emptyList());
 
         DailyInvoiceControlResponse response = eInvoiceService.getDailyInvoiceControl("chuho", LocalDate.now());

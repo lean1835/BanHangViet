@@ -12,7 +12,9 @@ import com.sales.dto.response.InvoiceStatusLogResponse;
 import com.sales.dto.response.PageResponse;
 import com.sales.dto.response.InvoiceQrResponse;
 import com.sales.dto.response.CustomerTaxLookupResponse;
+import com.sales.dto.response.DailyInvoiceControlResponse;
 import com.sales.dto.response.InvoicePrintResponse;
+import io.swagger.v3.oas.annotations.Operation;
 
 import com.sales.service.interfaces.EInvoiceService;
 import jakarta.validation.Valid;
@@ -249,11 +251,12 @@ public class EInvoiceController {
 
     @GetMapping("/daily-control")
     @PreAuthorize("hasAnyRole('VT-01', 'VT-03')")
-    public ResponseEntity<ApiResponse<com.sales.dto.response.DailyInvoiceControlResponse>> getDailyControl(
+    @Operation(summary = "Kiểm soát hóa đơn cuối ngày (NCL-04-CN-008)")
+    public ResponseEntity<ApiResponse<DailyInvoiceControlResponse>> getDailyControl(
             Principal principal,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
-        com.sales.dto.response.DailyInvoiceControlResponse result = eInvoiceService.getDailyInvoiceControl(principal.getName(), date);
-        ApiResponse<com.sales.dto.response.DailyInvoiceControlResponse> response = ApiResponse.<com.sales.dto.response.DailyInvoiceControlResponse>builder()
+        DailyInvoiceControlResponse result = eInvoiceService.getDailyInvoiceControl(principal.getName(), date);
+        ApiResponse<DailyInvoiceControlResponse> response = ApiResponse.<DailyInvoiceControlResponse>builder()
                 .code(1000)
                 .message("Lấy báo cáo kiểm soát hóa đơn cuối ngày thành công")
                 .result(result)

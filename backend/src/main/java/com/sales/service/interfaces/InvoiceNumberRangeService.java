@@ -13,4 +13,6 @@ public interface InvoiceNumberRangeService {
     PageResponse<InvoiceNumberRangeResponse> getAllRanges(String currentUsername, int page, int size);
 
     String allocateNextInvoiceNumber(String householdId);
+
+    String allocateNextInvoiceNumber(String householdId, String pattern, String symbol);
 }

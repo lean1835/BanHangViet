@@ -16,10 +16,12 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -50,9 +52,17 @@ public class TaxConnectionServiceImpl implements TaxConnectionService {
 
         String status = latest != null ? latest.getStatus() : "ONLINE";
         Integer responseTimeMs = (latest != null && latest.getResponseTimeMs() != null) ? latest.getResponseTimeMs() : 0;
-        LocalDateTime lastSuccessfulAt = latest != null && latest.getLastSuccessfulResponseAt() != null
-                ? latest.getLastSuccessfulResponseAt()
-                : LocalDateTime.now().minusMinutes(5);
+        
+        LocalDateTime lastSuccessfulAt = null;
+        if (latest != null && latest.getLastSuccessfulResponseAt() != null) {
+            lastSuccessfulAt = latest.getLastSuccessfulResponseAt();
+        } else if (householdId != null) {
+            Optional<TaxConnectionLog> lastSuccessLog = logRepository
+                    .findFirstByHouseholdIdAndLastSuccessfulResponseAtIsNotNullOrderByCreatedAtDesc(householdId);
+            if (lastSuccessLog.isPresent()) {
+                lastSuccessfulAt = lastSuccessLog.get().getLastSuccessfulResponseAt();
+            }
+        }
 
         // Count pending invoices waiting in queue (status = WAITING_TAX_CODE)
         long pendingCount = householdId != null
@@ -110,14 +120,33 @@ public class TaxConnectionServiceImpl implements TaxConnectionService {
     }
 
     @Override
-    @Transactional(rollbackFor = Exception.class)
+    @Transactional(propagation = Propagation.REQUIRES_NEW, rollbackFor = Exception.class)
     public void recordConnectionEvent(String householdId, String status, Integer responseTimeMs, String errorMessage) {
         BusinessHousehold household = householdId != null
                 ? householdRepository.findById(householdId).orElse(null)
                 : null;
 
         LocalDateTime now = LocalDateTime.now();
-        LocalDateTime lastSuccess = "ONLINE".equalsIgnoreCase(status) ? now : null;
+        String resolvedStatus = status != null ? status : "ONLINE";
+
+        // Tự động chuyển sang OFFLINE khi phát hiện 3 lần lỗi liên tiếp (NCL-04-CN-010-TC-02 / F-06)
+        if (!"ONLINE".equalsIgnoreCase(resolvedStatus) && householdId != null) {
+            List<TaxConnectionLog> recentLogs = logRepository.findTop2ByHouseholdIdOrderByCreatedAtDesc(householdId);
+            boolean recentAllFailed = recentLogs.size() >= 2 && recentLogs.stream()
+                    .allMatch(l -> !"ONLINE".equalsIgnoreCase(l.getStatus()) || l.getErrorMessage() != null);
+            if (recentAllFailed) {
+                resolvedStatus = "OFFLINE";
+            }
+        }
+
+        LocalDateTime lastSuccess = null;
+        if ("ONLINE".equalsIgnoreCase(resolvedStatus)) {
+            lastSuccess = now;
+        } else if (householdId != null) {
+            Optional<TaxConnectionLog> lastSuccessLog = logRepository
+                    .findFirstByHouseholdIdAndLastSuccessfulResponseAtIsNotNullOrderByCreatedAtDesc(householdId);
+            lastSuccess = lastSuccessLog.map(TaxConnectionLog::getLastSuccessfulResponseAt).orElse(null);
+        }
 
         long pendingCount = householdId != null
                 ? eInvoiceRepository.countByHouseholdIdAndStatusAndDeletedAtIsNullAndCreatedAtBetween(
@@ -126,7 +155,7 @@ public class TaxConnectionServiceImpl implements TaxConnectionService {
 
         TaxConnectionLog logItem = TaxConnectionLog.builder()
                 .household(household)
-                .status(status)
+                .status(resolvedStatus)
                 .responseTimeMs(responseTimeMs)
                 .lastSuccessfulResponseAt(lastSuccess)
                 .pendingQueueCount((int) pendingCount)
@@ -134,6 +163,7 @@ public class TaxConnectionServiceImpl implements TaxConnectionService {
                 .build();
 
         logRepository.save(logItem);
-        log.info("Đã ghi nhận nhật ký kết nối cơ quan thuế: status={}, householdId={}", status, householdId);
+        log.info("Đã ghi nhận nhật ký kết nối cơ quan thuế: status={}, resolvedStatus={}, householdId={}",
+                status, resolvedStatus, householdId);
     }
 }

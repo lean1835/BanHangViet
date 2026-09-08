@@ -16,6 +16,7 @@ import com.sales.repository.InvoiceStatusLogRepository;
 import com.sales.repository.UserRepository;
 import com.sales.service.interfaces.EInvoiceAutoRetryService;
 import com.sales.service.interfaces.EInvoiceService;
+import com.sales.service.interfaces.TaxConnectionService;
 import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -46,6 +47,8 @@ public class EInvoiceAutoRetryServiceImpl implements EInvoiceAutoRetryService {
     private final BusinessHouseholdSettingsRepository settingsRepository;
     private final EInvoiceService eInvoiceService;
     private final TransactionTemplate transactionTemplate;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private TaxConnectionService taxConnectionService;
 
     private static final int BATCH_SIZE = 100;
 
@@ -315,8 +318,15 @@ public class EInvoiceAutoRetryServiceImpl implements EInvoiceAutoRetryService {
             invoice.setNextRetryAt(null);
             invoice.setErrorCategory(null);
             eInvoiceRepository.save(invoice);
+            if (taxConnectionService != null && invoice.getHousehold() != null) {
+                taxConnectionService.recordConnectionEvent(invoice.getHousehold().getId(), "ONLINE", 150, null);
+            }
             log.info("Tự động gửi lại HĐĐT ID={} thành công. Mã CQT={}", invoice.getId(), invoice.getTaxAuthorityCode());
             return RetryExecutionResult.SUCCESS;
+        }
+
+        if (taxConnectionService != null && invoice.getHousehold() != null) {
+            taxConnectionService.recordConnectionEvent(invoice.getHousehold().getId(), "SLOW", 500, errorMessage);
         }
 
         if (isNonRetryableError(errorMessage)) {
