@@ -168,8 +168,27 @@ export const CustomerList: React.FC<CustomerListProps> = ({
                           ) : null}
                         </div>
                       </td>
-                      <td className="p-3 font-mono font-semibold text-slate-800">
-                        {customer.phone}
+                      <td className="p-3">
+                        <div className="font-mono font-semibold text-slate-800">
+                          {customer.phone}
+                        </div>
+                        {customer.defaultInvoiceChannel && (
+                          <div className="mt-0.5">
+                            {customer.defaultInvoiceChannel === "EMAIL" ? (
+                              <span className="inline-flex items-center px-1.5 py-0.2 rounded text-[9.5px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                Nhận HĐ: Email
+                              </span>
+                            ) : customer.defaultInvoiceChannel === "ZALO" ? (
+                              <span className="inline-flex items-center px-1.5 py-0.2 rounded text-[9.5px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                                Nhận HĐ: Zalo
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center px-1.5 py-0.2 rounded text-[9.5px] font-bold bg-slate-100 text-slate-600 border border-slate-200">
+                                Nhận HĐ: QR
+                              </span>
+                            )}
+                          </div>
+                        )}
                       </td>
                       <td className="p-3 text-slate-600 max-w-[220px] truncate" title={customer.address}>
                         {customer.address || CUSTOMER_UI.LIST.EMPTY_ADDRESS}

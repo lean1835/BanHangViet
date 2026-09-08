@@ -15,6 +15,9 @@ interface InvoiceSidebarProps {
   setToDate: (date: string) => void;
   searchQuery: string;
   setSearchQuery: (query: string) => void;
+  activeMainTab?: "ALL_INVOICES" | "FAILED_DELIVERIES";
+  setActiveMainTab?: (tab: "ALL_INVOICES" | "FAILED_DELIVERIES") => void;
+  failedCount?: number;
 }
 
 export const InvoiceSidebar: React.FC<InvoiceSidebarProps> = ({
@@ -28,6 +31,9 @@ export const InvoiceSidebar: React.FC<InvoiceSidebarProps> = ({
   setToDate,
   searchQuery,
   setSearchQuery,
+  activeMainTab = "ALL_INVOICES",
+  setActiveMainTab,
+  failedCount = 0,
 }) => {
   const selectedStatus = statusFilter.length === 0 ? "ALL" : statusFilter[0];
 
@@ -44,6 +50,40 @@ export const InvoiceSidebar: React.FC<InvoiceSidebarProps> = ({
       <div className="font-extrabold text-sm text-slate-800 border-b pb-2">
         {E_INVOICE_UI.SIDEBAR.TITLE}
       </div>
+
+      {/* Phân hệ chọn màn hình */}
+      {setActiveMainTab && (
+        <div className="flex flex-col gap-1.5 p-1 bg-slate-100 rounded-xl">
+          <button
+            type="button"
+            onClick={() => setActiveMainTab("ALL_INVOICES")}
+            className={`w-full py-2 px-3 rounded-lg text-xs font-bold flex items-center justify-between transition-all ${
+              activeMainTab === "ALL_INVOICES"
+                ? "bg-white text-kv-blue-primary shadow-sm font-extrabold"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
+          >
+            <span>Tất cả hóa đơn</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveMainTab("FAILED_DELIVERIES")}
+            className={`w-full py-2 px-3 rounded-lg text-xs font-bold flex items-center justify-between transition-all ${
+              activeMainTab === "FAILED_DELIVERIES"
+                ? "bg-white text-rose-600 shadow-sm font-extrabold"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
+          >
+            <span>Giao khách lỗi (NCL-06)</span>
+            {failedCount > 0 && (
+              <span className="px-1.5 py-0.5 rounded-full bg-rose-500 text-white text-[10px] font-black">
+                {failedCount}
+              </span>
+            )}
+          </button>
+        </div>
+      )}
 
       {/* Tìm kiếm */}
       <div className="flex flex-col gap-2">

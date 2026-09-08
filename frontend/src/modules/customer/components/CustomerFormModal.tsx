@@ -68,6 +68,8 @@ const customerSchema = z
       .max(365, "Tối đa 365 ngày")
       .optional(),
     dueDate: z.string().optional(),
+    defaultInvoiceChannel: z.enum(["QR", "EMAIL", "ZALO"]).optional(),
+    defaultInvoiceRecipient: z.string().optional(),
   })
   .refine(
     (data) => {
@@ -139,6 +141,8 @@ export const CustomerFormModal: React.FC<CustomerFormModalProps> = ({
       reminderDaysBefore: 3,
       reminderDaysAfter: 3,
       dueDate: "",
+      defaultInvoiceChannel: "QR",
+      defaultInvoiceRecipient: "",
     },
   });
 
@@ -168,6 +172,8 @@ export const CustomerFormModal: React.FC<CustomerFormModalProps> = ({
         reminderDaysBefore: customer.reminderDaysBefore ?? 3,
         reminderDaysAfter: customer.reminderDaysAfter ?? 3,
         dueDate: customer.dueDate || "",
+        defaultInvoiceChannel: customer.defaultInvoiceChannel || (customer.email ? "EMAIL" : customer.phone ? "ZALO" : "QR"),
+        defaultInvoiceRecipient: customer.defaultInvoiceRecipient || "",
       });
       setCreditLimitDisplay(formatNumber(val));
       setDiscountRateDisplay(discType === "CASH" ? formatNumber(rate) : String(rate));
@@ -186,6 +192,8 @@ export const CustomerFormModal: React.FC<CustomerFormModalProps> = ({
         reminderDaysBefore: 3,
         reminderDaysAfter: 3,
         dueDate: "",
+        defaultInvoiceChannel: "QR",
+        defaultInvoiceRecipient: "",
       });
       setCreditLimitDisplay(formatNumber(val));
       setDiscountRateDisplay("0");
@@ -402,6 +410,45 @@ export const CustomerFormModal: React.FC<CustomerFormModalProps> = ({
                 placeholder="Nhập địa chỉ của khách hàng / doanh nghiệp..."
                 className="h-9 px-3 rounded-lg border border-slate-300 text-xs font-semibold text-slate-800 focus:outline-none focus:border-kv-blue-primary"
               />
+            </div>
+
+            {/* Kênh nhận hóa đơn điện tử mặc định (NCL-06-CN-006) */}
+            <div className="flex flex-col gap-1.5 md:col-span-2 p-3 bg-blue-50/50 border border-blue-200/70 rounded-xl">
+              <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                <span>Kênh nhận hóa đơn điện tử mặc định (NCL-06-CN-006)</span>
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-0.5">
+                <label className="flex items-center gap-2 p-2 bg-white border border-slate-200 rounded-lg cursor-pointer text-xs font-semibold hover:border-kv-blue-primary transition-colors">
+                  <input
+                    type="radio"
+                    value="QR"
+                    {...register("defaultInvoiceChannel")}
+                    className="text-kv-blue-primary focus:ring-kv-blue-primary"
+                  />
+                  <span>Mã QR tại quầy</span>
+                </label>
+                <label className="flex items-center gap-2 p-2 bg-white border border-slate-200 rounded-lg cursor-pointer text-xs font-semibold hover:border-kv-blue-primary transition-colors">
+                  <input
+                    type="radio"
+                    value="EMAIL"
+                    {...register("defaultInvoiceChannel")}
+                    className="text-kv-blue-primary focus:ring-kv-blue-primary"
+                  />
+                  <span>Thư điện tử (Email)</span>
+                </label>
+                <label className="flex items-center gap-2 p-2 bg-white border border-slate-200 rounded-lg cursor-pointer text-xs font-semibold hover:border-kv-blue-primary transition-colors">
+                  <input
+                    type="radio"
+                    value="ZALO"
+                    {...register("defaultInvoiceChannel")}
+                    className="text-kv-blue-primary focus:ring-kv-blue-primary"
+                  />
+                  <span>Tin nhắn Zalo OA</span>
+                </label>
+              </div>
+              <p className="text-[11px] text-slate-500">
+                Khi thanh toán và xuất hóa đơn cho khách quen này, hệ thống sẽ tự động ưu tiên kênh đã chọn mà không cần hỏi lại.
+              </p>
             </div>
 
             {/* Credit Limit */}

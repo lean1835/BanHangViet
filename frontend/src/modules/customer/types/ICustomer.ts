@@ -18,6 +18,9 @@ export interface ICustomer {
   reminderDaysAfter?: number;
   dueDate?: string;
   debtCreatedAt?: string;
+  defaultInvoiceChannel?: "QR" | "EMAIL" | "ZALO";
+  defaultInvoiceRecipient?: string;
+  channelUpdatedAt?: string;
   createdAt?: string;
   updatedAt?: string;
 }

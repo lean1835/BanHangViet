@@ -1,4 +1,6 @@
-export type TDeliveryMethod = "QR" | "EMAIL" | "PRINT";
+export type TDeliveryMethod = "QR" | "EMAIL" | "ZALO" | "PRINT";
+
+export type TCustomerDeliveryStatus = "NOT_DELIVERED" | "DELIVERED" | "DELIVERY_FAILED";
 
 export interface IDeliveryLog {
   id: string;
@@ -8,6 +10,46 @@ export interface IDeliveryLog {
   sentAt: string;
   status: "SUCCESS" | "FAILED" | "PENDING";
   note?: string;
+  errorMessage?: string;
+}
+
+export interface IFailedDeliveryHistory {
+  attempt: number;
+  channel: TDeliveryMethod;
+  recipientAddress: string;
+  errorMessage: string;
+  sentAt: string;
+}
+
+export interface IFailedDeliveryItem {
+  id: string;
+  invoiceId: string;
+  invoiceNumber?: string;
+  lookupCode: string;
+  customerName?: string;
+  customerPhone?: string;
+  customerEmail?: string;
+  channel: "EMAIL" | "ZALO";
+  recipientAddress: string;
+  failureReason: string;
+  failureCode?: string;
+  lastAttemptAt: string;
+  attemptCount: number;
+  history: IFailedDeliveryHistory[];
+}
+
+export interface IRetryDeliveryRequest {
+  invoiceId: string;
+  channel: "EMAIL" | "ZALO";
+  recipientAddress: string;
+  saveAsCustomerDefault?: boolean;
+  customerId?: string;
+}
+
+export interface ISendZaloRequest {
+  invoiceId: string;
+  phoneNumber: string;
+  message?: string;
 }
 
 export interface ISendEmailRequest {

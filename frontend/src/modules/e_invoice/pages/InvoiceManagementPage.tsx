@@ -8,14 +8,19 @@ import { getApiErrorMessage } from "@/utils/getApiErrorMessage";
 import { normalizeDateToYYYYMMDD } from "@/utils/dateFormatter";
 import type { IInvoice, TInvoiceStatus } from "../types/IInvoice";
 import { useGetInvoicesQuery } from "../services/eInvoiceApi";
+import { useGetFailedDeliveriesQuery } from "../services/invoiceDeliveryApi";
 import { useGetInvoiceTemplateQuery } from "@/modules/settings/services/settingsApi";
 import { InvoiceSidebar, type TInvoiceVersionFilter } from "../components/InvoiceSidebar";
 import { InvoiceList } from "../components/InvoiceList";
+import { FailedDeliveryTable } from "../components/FailedDeliveryTable";
 
 export const InvoiceManagementPage = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const highlightedId = searchParams.get("id");
+
+  // Tab State: ALL_INVOICES or FAILED_DELIVERIES (NCL-06-CN-005)
+  const [activeMainTab, setActiveMainTab] = useState<"ALL_INVOICES" | "FAILED_DELIVERIES">("ALL_INVOICES");
 
   const {
     isOnline,
@@ -29,6 +34,10 @@ export const InvoiceManagementPage = () => {
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+
+  // Failed deliveries query (NCL-06-CN-005)
+  const { data: failedDeliveriesResponse } = useGetFailedDeliveriesQuery();
+  const failedDeliveriesCount = failedDeliveriesResponse?.result?.length || 0;
 
   // Invoice Template Query to get template updatedAt
   const { data: templateResponse } = useGetInvoiceTemplateQuery(undefined, { skip: !isOnline });
@@ -166,22 +175,82 @@ export const InvoiceManagementPage = () => {
           setToDate={setToDate}
           searchQuery={searchQuery}
           setSearchQuery={setSearchQuery}
+          activeMainTab={activeMainTab}
+          setActiveMainTab={setActiveMainTab}
+          failedCount={failedDeliveriesCount}
         />
       }
     >
-      <div className="grid grid-cols-1 gap-6 animate-page-fade">
-        {isOnline && apiError && (
-          <div className="bg-rose-50 border border-rose-200 text-rose-600 p-3 rounded-lg text-xs font-bold">
-            {getApiErrorMessage(apiError, "Không thể đồng bộ danh sách hóa đơn từ máy chủ.")}
-          </div>
-        )}
+      <div className="grid grid-cols-1 gap-5 animate-page-fade">
+        {/* Top Header Tab Switcher */}
+        <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setActiveMainTab("ALL_INVOICES")}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+                activeMainTab === "ALL_INVOICES"
+                  ? "bg-kv-blue-primary text-white shadow-sm shadow-blue-200"
+                  : "bg-white text-slate-600 hover:bg-slate-100 border border-slate-200"
+              }`}
+            >
+              <span>Tất cả hóa đơn</span>
+              <span
+                className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${
+                  activeMainTab === "ALL_INVOICES"
+                    ? "bg-white/20 text-white"
+                    : "bg-slate-100 text-slate-600"
+                }`}
+              >
+                {displayedInvoices.length}
+              </span>
+            </button>
 
-        {isOnline && isApiLoading ? (
-          <div className="bg-blue-50 border border-blue-100 text-blue-700 p-4 rounded-lg text-center font-bold text-xs animate-pulse">
-            Đang tải dữ liệu hóa đơn điện tử từ máy chủ...
+            <button
+              type="button"
+              onClick={() => setActiveMainTab("FAILED_DELIVERIES")}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+                activeMainTab === "FAILED_DELIVERIES"
+                  ? "bg-rose-600 text-white shadow-sm shadow-rose-200"
+                  : "bg-white text-slate-600 hover:bg-slate-100 border border-slate-200"
+              }`}
+            >
+              <span>Giao khách thất bại (NCL-06-CN-005)</span>
+              {failedDeliveriesCount > 0 && (
+                <span
+                  className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${
+                    activeMainTab === "FAILED_DELIVERIES"
+                      ? "bg-white/20 text-white"
+                      : "bg-rose-100 text-rose-700"
+                  }`}
+                >
+                  {failedDeliveriesCount}
+                </span>
+              )}
+            </button>
           </div>
+        </div>
+
+        {/* Tab 1: Failed Deliveries View */}
+        {activeMainTab === "FAILED_DELIVERIES" ? (
+          <FailedDeliveryTable />
         ) : (
-          <InvoiceList invoices={displayedInvoices} onSelectInvoice={handleSelectInvoice} />
+          /* Tab 2: All Invoices Normal View */
+          <>
+            {isOnline && apiError && (
+              <div className="bg-rose-50 border border-rose-200 text-rose-600 p-3 rounded-lg text-xs font-bold">
+                {getApiErrorMessage(apiError, "Không thể đồng bộ danh sách hóa đơn từ máy chủ.")}
+              </div>
+            )}
+
+            {isOnline && isApiLoading ? (
+              <div className="bg-blue-50 border border-blue-100 text-blue-700 p-4 rounded-lg text-center font-bold text-xs animate-pulse">
+                Đang tải dữ liệu hóa đơn điện tử từ máy chủ...
+              </div>
+            ) : (
+              <InvoiceList invoices={displayedInvoices} onSelectInvoice={handleSelectInvoice} />
+            )}
+          </>
         )}
       </div>
     </DashboardWorkspaceLayout>
