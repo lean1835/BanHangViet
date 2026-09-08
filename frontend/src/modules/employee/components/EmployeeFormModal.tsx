@@ -32,6 +32,7 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
+  const [email, setEmail] = useState("");
   const [roleCode, setRoleCode] = useState("");
   const [isActive, setIsActive] = useState(true);
 
@@ -49,6 +50,7 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({
       setPassword(""); // Mật khẩu để trống khi cập nhật trừ khi muốn đổi
       setFullName(employee.fullName || "");
       setPhoneNumber(employee.phoneNumber || "");
+      setEmail(employee.email || "");
       setRoleCode(employee.roleCode || "");
       setIsActive(employee.isActive !== false);
     } else {
@@ -56,6 +58,7 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({
       setPassword("");
       setFullName("");
       setPhoneNumber("");
+      setEmail("");
       // Mặc định chọn vai trò nhân viên bán hàng đầu tiên nếu có
       const defaultRole =
         roles.find((role) => role.code === DEFAULT_EMPLOYEE_ROLE_CODE)?.code ||
@@ -105,6 +108,11 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({
         EMPLOYEE_VALIDATION_MESSAGES.PHONE_INVALID;
     }
 
+    if (email.trim() && !EMPLOYEE_VALIDATION.EMAIL_PATTERN.test(email.trim())) {
+      newErrors[EMPLOYEE_FORM_FIELDS.EMAIL] =
+        EMPLOYEE_VALIDATION_MESSAGES.EMAIL_INVALID;
+    }
+
     if (!roleCode) {
       newErrors[EMPLOYEE_FORM_FIELDS.ROLE_CODE] =
         EMPLOYEE_VALIDATION_MESSAGES.ROLE_REQUIRED;
@@ -123,6 +131,7 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({
       username: username.trim(),
       fullName: fullName.trim(),
       phoneNumber: phoneNumber.trim() || undefined,
+      email: email.trim() || undefined,
       roleCode,
       isActive,
       ...(password.trim() ? { password: password.trim() } : {}),
@@ -267,6 +276,26 @@ export const EmployeeFormModal: React.FC<EmployeeFormModalProps> = ({
               {errors[EMPLOYEE_FORM_FIELDS.PHONE_NUMBER] && (
                 <span className="text-[10px] text-rose-500 font-bold">
                   {errors[EMPLOYEE_FORM_FIELDS.PHONE_NUMBER]}
+                </span>
+              )}
+            </div>
+
+            {/* Địa chỉ Email (Gmail) */}
+            <div className="flex flex-col gap-1">
+              <label className="text-slate-600">
+                {EMPLOYEE_UI.FORM.EMAIL_LABEL}
+              </label>
+              <input
+                type="email"
+                placeholder={EMPLOYEE_UI.FORM.EMAIL_PLACEHOLDER}
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className={`border ${errors[EMPLOYEE_FORM_FIELDS.EMAIL] ? "border-rose-500" : "border-slate-300"
+                  } h-9 px-3 rounded-lg focus:outline-none focus:border-kv-blue-primary text-xs`}
+              />
+              {errors[EMPLOYEE_FORM_FIELDS.EMAIL] && (
+                <span className="text-[10px] text-rose-500 font-bold">
+                  {errors[EMPLOYEE_FORM_FIELDS.EMAIL]}
                 </span>
               )}
             </div>
