@@ -19,7 +19,11 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 
+import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -201,5 +205,71 @@ class InvoiceNumberRangeServiceImplTest {
         assertThatThrownBy(() -> rangeService.allocateNextInvoiceNumber("house-001"))
                 .isInstanceOf(AppException.class)
                 .hasMessageContaining(ErrorCode.INVOICE_RANGE_EXHAUSTED.getMessage());
+    }
+
+    @Test
+    @DisplayName("NCL-04-CN-009: Khai báo dải số trùng với dải số cũ đã EXHAUSTED -> Vẫn chặn INVOICE_RANGE_OVERLAP (F-02)")
+    void createRange_OverlappingWithExhaustedRange_ThrowsException() {
+        when(userRepository.findByUsername("chuho")).thenReturn(Optional.of(ownerUser));
+
+        InvoiceNumberRange exhaustedRange = InvoiceNumberRange.builder()
+                .id("range-old")
+                .household(household)
+                .invoicePattern("1")
+                .invoiceSymbol("C26TAA")
+                .startNumber(1)
+                .endNumber(100)
+                .currentNumber(100)
+                .warningThreshold(10)
+                .status("EXHAUSTED")
+                .build();
+
+        when(rangeRepository.findOverlappingRanges("house-001", "1", "C26TAA")).thenReturn(List.of(exhaustedRange));
+
+        CreateInvoiceNumberRangeRequest req = CreateInvoiceNumberRangeRequest.builder()
+                .invoicePattern("1")
+                .invoiceSymbol("C26TAA")
+                .startNumber(50)
+                .endNumber(150)
+                .warningThreshold(20)
+                .build();
+
+        assertThatThrownBy(() -> rangeService.createRange("chuho", req))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining(ErrorCode.INVOICE_RANGE_OVERLAP.getMessage());
+    }
+
+    @Test
+    @DisplayName("NCL-04-CN-009: Lấy danh sách dải số phân trang -> Precompute dailyRate 1 lần duy nhất (F-03)")
+    void getAllRanges_PrecomputesDailyRateOnce() {
+        when(userRepository.findByUsername("chuho")).thenReturn(Optional.of(ownerUser));
+
+        InvoiceNumberRange range2 = InvoiceNumberRange.builder()
+                .id("range-002")
+                .household(household)
+                .invoicePattern("1")
+                .invoiceSymbol("C26TBB")
+                .startNumber(1)
+                .endNumber(200)
+                .currentNumber(50)
+                .warningThreshold(20)
+                .status("ACTIVE")
+                .build();
+
+        Page<InvoiceNumberRange> page = new PageImpl<>(List.of(activeRange, range2));
+        when(rangeRepository.findByHouseholdIdAndDeletedAtIsNull(eq("house-001"), any(Pageable.class)))
+                .thenReturn(page);
+        when(eInvoiceRepository.countByHouseholdIdAndCreatedAtAfter(eq("house-001"), any(LocalDateTime.class)))
+                .thenReturn(14L);
+
+        var response = rangeService.getAllRanges("chuho", 0, 10);
+
+        assertThat(response).isNotNull();
+        assertThat(response.getContent()).hasSize(2);
+        assertThat(response.getContent().get(0).getDailyConsumptionRate()).isEqualTo(2.0);
+        assertThat(response.getContent().get(1).getDailyConsumptionRate()).isEqualTo(2.0);
+
+        // Verify countByHouseholdIdAndCreatedAtAfter is called exactly once (prevent N+1 query)
+        verify(eInvoiceRepository, times(1)).countByHouseholdIdAndCreatedAtAfter(eq("house-001"), any(LocalDateTime.class));
     }
 }

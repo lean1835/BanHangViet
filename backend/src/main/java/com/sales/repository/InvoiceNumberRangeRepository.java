@@ -37,7 +37,7 @@ public interface InvoiceNumberRangeRepository extends JpaRepository<InvoiceNumbe
 
     Page<InvoiceNumberRange> findByHouseholdIdAndDeletedAtIsNull(String householdId, Pageable pageable);
 
-    @Query("SELECT r FROM InvoiceNumberRange r WHERE r.household.id = :householdId AND r.invoicePattern = :pattern AND r.invoiceSymbol = :symbol AND r.deletedAt IS NULL AND r.status <> 'EXHAUSTED'")
+    @Query("SELECT r FROM InvoiceNumberRange r WHERE r.household.id = :householdId AND r.invoicePattern = :pattern AND r.invoiceSymbol = :symbol AND r.deletedAt IS NULL")
     List<InvoiceNumberRange> findOverlappingRanges(@Param("householdId") String householdId,
                                                    @Param("pattern") String pattern,
                                                    @Param("symbol") String symbol);

@@ -15,15 +15,15 @@ import java.util.Optional;
 public interface TaxConnectionLogRepository extends JpaRepository<TaxConnectionLog, String> {
 
     @Query("SELECT l FROM TaxConnectionLog l WHERE " +
-           "(:householdId IS NOT NULL AND l.household.id = :householdId) OR " +
-           "(:householdId IS NULL AND l.household IS NULL) " +
+           "((:householdId IS NOT NULL AND l.household.id = :householdId) OR " +
+           "(:householdId IS NULL AND l.household IS NULL)) " +
            "AND l.createdAt >= :fromDate ORDER BY l.createdAt DESC")
     List<TaxConnectionLog> findLogsByHouseholdAndDateAfter(@Param("householdId") String householdId,
                                                           @Param("fromDate") LocalDateTime fromDate);
 
     @Query("SELECT l FROM TaxConnectionLog l WHERE " +
-           "(:householdId IS NOT NULL AND l.household.id = :householdId) OR " +
-           "(:householdId IS NULL AND l.household IS NULL) " +
+           "((:householdId IS NOT NULL AND l.household.id = :householdId) OR " +
+           "(:householdId IS NULL AND l.household IS NULL)) " +
            "ORDER BY l.createdAt DESC")
     List<TaxConnectionLog> findLatestLogByHousehold(@Param("householdId") String householdId, Pageable pageable);
 

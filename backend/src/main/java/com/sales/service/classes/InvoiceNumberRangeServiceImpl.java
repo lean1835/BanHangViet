@@ -122,12 +122,15 @@ public class InvoiceNumberRangeServiceImpl implements InvoiceNumberRangeService 
         if (household == null) {
             throw new AppException(ErrorCode.FORBIDDEN);
         }
-
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
         Page<InvoiceNumberRange> pageData = rangeRepository.findByHouseholdIdAndDeletedAtIsNull(household.getId(), pageable);
 
+        LocalDateTime sevenDaysAgo = LocalDateTime.now().minusDays(7);
+        long countLast7Days = eInvoiceRepository.countByHouseholdIdAndCreatedAtAfter(household.getId(), sevenDaysAgo);
+        double dailyRate = Math.round((countLast7Days / 7.0) * 100.0) / 100.0;
+
         List<InvoiceNumberRangeResponse> content = pageData.getContent().stream()
-                .map(this::mapToResponse)
+                .map(range -> mapToResponse(range, dailyRate))
                 .collect(Collectors.toList());
 
         return PageResponse.<InvoiceNumberRangeResponse>builder()
@@ -159,9 +162,6 @@ public class InvoiceNumberRangeServiceImpl implements InvoiceNumberRangeService 
             if (r.getCurrentNumber() < r.getEndNumber() && !"EXHAUSTED".equals(r.getStatus())) {
                 range = r;
                 break;
-            } else {
-                r.setStatus("EXHAUSTED");
-                rangeRepository.save(r);
             }
         }
 
@@ -191,6 +191,14 @@ public class InvoiceNumberRangeServiceImpl implements InvoiceNumberRangeService 
     }
 
     private InvoiceNumberRangeResponse mapToResponse(InvoiceNumberRange range) {
+        LocalDateTime sevenDaysAgo = LocalDateTime.now().minusDays(7);
+        long countLast7Days = eInvoiceRepository.countByHouseholdIdAndCreatedAtAfter(
+                range.getHousehold().getId(), sevenDaysAgo);
+        double dailyRate = Math.round((countLast7Days / 7.0) * 100.0) / 100.0;
+        return mapToResponse(range, dailyRate);
+    }
+
+    private InvoiceNumberRangeResponse mapToResponse(InvoiceNumberRange range, double dailyRate) {
         int remaining = Math.max(0, range.getEndNumber() - range.getCurrentNumber());
         String status = range.getStatus();
         if (remaining == 0) {
@@ -198,12 +206,6 @@ public class InvoiceNumberRangeServiceImpl implements InvoiceNumberRangeService 
         } else if (remaining <= range.getWarningThreshold() && !"EXHAUSTED".equals(status)) {
             status = "WARNING_LOW";
         }
-
-        // Calculate average daily consumption over last 7 days
-        LocalDateTime sevenDaysAgo = LocalDateTime.now().minusDays(7);
-        long countLast7Days = eInvoiceRepository.countByHouseholdIdAndCreatedAtAfter(
-                range.getHousehold().getId(), sevenDaysAgo);
-        double dailyRate = Math.round((countLast7Days / 7.0) * 100.0) / 100.0;
 
         String warningMessage = null;
         if ("EXHAUSTED".equals(status)) {
