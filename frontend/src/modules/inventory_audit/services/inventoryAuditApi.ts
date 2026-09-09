@@ -156,6 +156,9 @@ export const inventoryAuditApi = baseApi.injectEndpoints({
       invalidatesTags: [
         { type: API_TAG_TYPES.INVENTORY_AUDIT, id: "LIST" },
         { type: API_TAG_TYPES.PRODUCT, id: "LIST" },
+        { type: API_TAG_TYPES.PRODUCT },
+        { type: API_TAG_TYPES.STOCK_CARD },
+        { type: API_TAG_TYPES.STOCK_CARD, id: "LIST" },
         { type: API_TAG_TYPES.POS_INVENTORY, id: "LIST" },
         { type: API_TAG_TYPES.INVENTORY_WARNING, id: "LIST" },
       ],

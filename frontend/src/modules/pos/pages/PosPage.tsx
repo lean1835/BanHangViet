@@ -2,7 +2,10 @@ import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Clock, CalendarCheck } from "lucide-react";
 import { APP_ROUTES } from "@/constants/routes";
-import { useGetProductsQuery } from "@/modules/product/services/productApi";
+import {
+  useGetProductsQuery,
+  useResolveTierPriceMutation,
+} from "@/modules/product/services/productApi";
 import {
   useGetCustomersQuery,
   useCreateCustomerMutation,
@@ -46,6 +49,7 @@ import {
 import { PosHeader } from "../components/PosHeader";
 import { PosCartTable } from "../components/PosCartTable";
 import { PosPaymentSidebar } from "../components/PosPaymentSidebar";
+import { WeightScaleModal } from "../components/WeightScaleModal";
 import { CustomerFormModal } from "@/modules/customer/components/CustomerFormModal";
 import { OrderSuccessModal } from "../components/OrderSuccessModal";
 import { recordOrderDiscount } from "@/modules/anomaly_alert/utils/anomalyStorage";
@@ -111,6 +115,54 @@ export const PosPage = () => {
   const [createCustomer] = useCreateCustomerMutation();
   const [autoApplyPromotions] = useAutoApplyPromotionsMutation();
   const [scanBarcode] = useScanBarcodeMutation();
+  const [resolveTierPrice] = useResolveTierPriceMutation();
+
+  // Helper: Đồng bộ bậc giá sỉ & lẻ tự động từ server (NCL-02-CN-010, TC-01, TC-02)
+  const resolveTiersForItems = async (
+    items: IPosCartItem[]
+  ): Promise<IPosCartItem[]> => {
+    if (items.length === 0) return [];
+    if (isOnline === false) return items;
+
+    try {
+      const resolvedList = await Promise.all(
+        items.map(async (item) => {
+          try {
+            const res = await resolveTierPrice({
+              productId: item.product.id,
+              data: {
+                quantity: item.quantity,
+                unitConversionId: item.unitConversionId || null,
+              },
+            }).unwrap();
+
+            if (res) {
+              const appliedUnitPrice = res.appliedUnitPrice;
+              const matchedTierId = res.matchedTierId;
+              const matchedTierName = res.matchedTierName;
+              const baseRetailPrice = res.baseRetailPrice;
+
+              return {
+                ...item,
+                price: appliedUnitPrice,
+                priceTierId: matchedTierId,
+                priceTierName: matchedTierName,
+                baseRetailPrice,
+                lineTotal:
+                  item.quantity * appliedUnitPrice - (item.lineDiscount || 0),
+              };
+            }
+          } catch {
+            // Product has no price tiers or error, keep item as-is
+          }
+          return item;
+        })
+      );
+      return resolvedList;
+    } catch {
+      return items;
+    }
+  };
 
   // Helper: Đồng bộ khuyến mại tự động từ server (QTN-26, NCL-15-CN-002)
   const syncPromotionsForItems = async (
@@ -137,10 +189,31 @@ export const PosPage = () => {
         return items.map((item) => {
           const promoRes = res.items.find((r) => r.productId === item.product.id);
           if (promoRes) {
+            const promoDiscount = promoRes.discountAmount ?? 0;
+            const basePrice = item.baseRetailPrice ?? item.price;
+            const tierSaving = (basePrice - item.price) * item.quantity;
+
+            // QTN-26: So sánh ưu đãi có lợi nhất cho khách giữa bậc giá và khuyến mại
+            if (item.priceTierName && tierSaving >= promoDiscount) {
+              return {
+                ...item,
+                lineDiscount: 0,
+                lineTotal: item.quantity * item.price,
+                promotionId: null,
+                promotionName: null,
+                hasPromotion: false,
+                bypassPromotion: item.bypassPromotion,
+              };
+            }
+
             return {
               ...item,
-              lineDiscount: promoRes.discountAmount ?? 0,
-              lineTotal: promoRes.finalSubtotal ?? item.quantity * item.price,
+              price: item.priceTierName ? basePrice : item.price,
+              priceTierId: null,
+              priceTierName: null,
+              lineDiscount: promoDiscount,
+              lineTotal:
+                promoRes.finalSubtotal ?? item.quantity * item.price - promoDiscount,
               promotionId: promoRes.promotionId,
               promotionName: promoRes.promotionName,
               hasPromotion: promoRes.hasPromotion,
@@ -231,6 +304,8 @@ export const PosPage = () => {
   const [isScannerModalOpen, setIsScannerModalOpen] = useState<boolean>(false);
   const [isVoiceModalOpen, setIsVoiceModalOpen] = useState<boolean>(false);
   const [unrecognizedBarcode, setUnrecognizedBarcode] = useState<string | null>(null);
+  const [weightModalProduct, setWeightModalProduct] = useState<IProduct | null>(null);
+  const [weightModalItem, setWeightModalItem] = useState<IPosCartItem | null>(null);
   const [completedOrderData, setCompletedOrderData] = useState<{
     tab: IPosTab;
     changeAmount: number;
@@ -304,6 +379,17 @@ export const PosPage = () => {
     }
 
     const currentTab = tabs.find((t) => t.id === activeTabId) || tabs[0];
+    const existingItem = currentTab.items.find(
+      (item) => item.product.id === product.id
+    );
+
+    // If product is sold by weight, open WeightScaleModal for precise weighing or money purchase
+    if (product.isSoldByWeight) {
+      setWeightModalProduct(product);
+      setWeightModalItem(existingItem || null);
+      return;
+    }
+
     const existingItemIndex = currentTab.items.findIndex(
       (item) => item.product.id === product.id
     );
@@ -312,24 +398,33 @@ export const PosPage = () => {
 
     if (existingItemIndex > -1) {
       newItems = [...currentTab.items];
-      const existingItem = newItems[existingItemIndex];
-      const updatedQty = existingItem.quantity + 1;
+      const foundItem = newItems[existingItemIndex];
+      const updatedQty = foundItem.quantity + 1;
       newItems[existingItemIndex] = {
-        ...existingItem,
+        ...foundItem,
         quantity: updatedQty,
         lineTotal:
-          updatedQty * existingItem.price - (existingItem.lineDiscount || 0),
+          updatedQty * foundItem.price - (foundItem.lineDiscount || 0),
       };
     } else {
+      const defaultSale = product.unitConversions?.find((c) => c.isDefaultSale);
+      const initialPrice = defaultSale?.price ?? (defaultSale ? product.price * defaultSale.conversionFactor : product.price);
+      const initialUnitName = defaultSale ? defaultSale.unitName : (product.unit || "Cái");
+      const initialConvId = defaultSale ? defaultSale.id : undefined;
+      const initialFactor = defaultSale ? defaultSale.conversionFactor : 1;
+
       newItems = [
         ...currentTab.items,
         {
           id: product.id,
           product,
           quantity: 1,
-          price: product.price,
+          price: initialPrice,
+          unitConversionId: initialConvId,
+          unitName: initialUnitName,
+          conversionFactor: initialFactor,
           lineDiscount: 0,
-          lineTotal: product.price,
+          lineTotal: initialPrice,
         },
       ];
     }
@@ -343,8 +438,9 @@ export const PosPage = () => {
       )
     );
 
-    // Sync authoritative promotion discount from backend (QTN-26)
-    const syncedItems = await syncPromotionsForItems(newItems);
+    // Automatic price tier resolution followed by promotion sync (NCL-02-CN-010)
+    const itemsWithTiers = await resolveTiersForItems(newItems);
+    const syncedItems = await syncPromotionsForItems(itemsWithTiers);
     setTabs((prevTabs) =>
       prevTabs.map((t) =>
         t.id === activeTabId
@@ -453,7 +549,8 @@ export const PosPage = () => {
       )
     );
 
-    const syncedItems = await syncPromotionsForItems(newItems);
+    const itemsWithTiers = await resolveTiersForItems(newItems);
+    const syncedItems = await syncPromotionsForItems(itemsWithTiers);
     setTabs((prevTabs) =>
       prevTabs.map((t) =>
         t.id === activeTabId
@@ -527,6 +624,184 @@ export const PosPage = () => {
     updateActiveTab({ items: [], isSaved: false, backendOrderId: undefined });
   };
 
+  const handleOpenWeightModal = (item: IPosCartItem) => {
+    setWeightModalItem(item);
+    setWeightModalProduct(item.product);
+  };
+
+  const handleConfirmWeightModal = async ({
+    quantity,
+    buyAmount,
+    unitConversionId,
+    roundingDifference,
+    priceTierId,
+    priceTierName,
+    appliedUnitPrice,
+  }: {
+    quantity: number;
+    buyAmount?: number;
+    unitConversionId?: string;
+    roundingDifference?: number;
+    priceTierId?: string | null;
+    priceTierName?: string | null;
+    appliedUnitPrice?: number;
+  }) => {
+    if (!weightModalProduct) return;
+    const currentTab = tabs.find((t) => t.id === activeTabId) || tabs[0];
+
+    let effectiveUnitPrice = weightModalProduct.price;
+    let effectiveUnitName = weightModalProduct.unit || "Kg";
+    let effectiveFactor = 1;
+    let effectiveConvId: string | undefined = unitConversionId;
+
+    if (unitConversionId) {
+      const conv = weightModalProduct.unitConversions?.find(
+        (c) => c.id === unitConversionId
+      );
+      if (conv) {
+        effectiveUnitPrice =
+          conv.price != null && conv.price > 0
+            ? conv.price
+            : weightModalProduct.price * conv.conversionFactor;
+        effectiveUnitName = conv.unitName;
+        effectiveFactor = conv.conversionFactor;
+        effectiveConvId = conv.id;
+      }
+    }
+
+    const initialPrice = appliedUnitPrice ?? effectiveUnitPrice;
+
+    const existingItemIndex = currentTab.items.findIndex(
+      (item) =>
+        (weightModalItem && (item.id === weightModalItem.id || item.product.id === weightModalItem.product.id)) ||
+        item.product.id === weightModalProduct.id
+    );
+
+    let newItems: IPosCartItem[];
+    const lineTotal = quantity * initialPrice;
+
+    if (existingItemIndex > -1) {
+      newItems = [...currentTab.items];
+      newItems[existingItemIndex] = {
+        ...newItems[existingItemIndex],
+        quantity,
+        price: initialPrice,
+        baseRetailPrice: effectiveUnitPrice,
+        priceTierId,
+        priceTierName,
+        unitConversionId: effectiveConvId,
+        unitName: effectiveUnitName,
+        conversionFactor: effectiveFactor,
+        buyAmount,
+        roundingDifference,
+        lineTotal: lineTotal - (newItems[existingItemIndex].lineDiscount || 0),
+      };
+    } else {
+      newItems = [
+        ...currentTab.items,
+        {
+          id: weightModalProduct.id,
+          product: weightModalProduct,
+          quantity,
+          price: initialPrice,
+          baseRetailPrice: effectiveUnitPrice,
+          priceTierId,
+          priceTierName,
+          unitConversionId: effectiveConvId,
+          unitName: effectiveUnitName,
+          conversionFactor: effectiveFactor,
+          buyAmount,
+          roundingDifference,
+          lineDiscount: 0,
+          lineTotal,
+        },
+      ];
+    }
+
+    setWeightModalProduct(null);
+    setWeightModalItem(null);
+
+    // Immediate optimistic UI update
+    setTabs((prevTabs) =>
+      prevTabs.map((t) =>
+        t.id === activeTabId
+          ? { ...t, items: newItems, isSaved: false, backendOrderId: undefined }
+          : t
+      )
+    );
+
+    // Automatic price tier resolution followed by promotion sync (NCL-02-CN-010)
+    const itemsWithTiers = await resolveTiersForItems(newItems);
+    const syncedItems = await syncPromotionsForItems(itemsWithTiers);
+    setTabs((prevTabs) =>
+      prevTabs.map((t) =>
+        t.id === activeTabId
+          ? { ...t, items: syncedItems, isSaved: false, backendOrderId: undefined }
+          : t
+      )
+    );
+  };
+
+  // TC-02: Đổi đơn vị tính bán hàng trong giỏ hàng POS
+  const handleChangeUnit = async (itemId: string, unitConversionId: string) => {
+    const currentTab = tabs.find((t) => t.id === activeTabId) || tabs[0];
+    const targetItem = currentTab.items.find(
+      (i) => i.id === itemId || i.product.id === itemId
+    );
+    if (!targetItem) return;
+
+    let newUnitName = targetItem.product.unit || "Cái";
+    let newPrice = targetItem.product.price;
+    let newFactor = 1;
+    let newConversionId: string | undefined = undefined;
+
+    if (unitConversionId) {
+      const conv = targetItem.product.unitConversions?.find(
+        (c) => c.id === unitConversionId
+      );
+      if (conv) {
+        newUnitName = conv.unitName;
+        newPrice =
+          conv.price != null && conv.price > 0
+            ? conv.price
+            : targetItem.product.price * conv.conversionFactor;
+        newFactor = conv.conversionFactor;
+        newConversionId = conv.id;
+      }
+    }
+
+    const updatedItems = currentTab.items.map((item) => {
+      if (item.id !== itemId && item.product.id !== itemId) return item;
+      const lineTotal = item.quantity * newPrice - (item.lineDiscount || 0);
+      return {
+        ...item,
+        unitConversionId: newConversionId,
+        unitName: newUnitName,
+        conversionFactor: newFactor,
+        price: newPrice,
+        lineTotal,
+      };
+    });
+
+    setTabs((prevTabs) =>
+      prevTabs.map((t) =>
+        t.id === activeTabId
+          ? { ...t, items: updatedItems, isSaved: false, backendOrderId: undefined }
+          : t
+      )
+    );
+
+    const itemsWithTiers = await resolveTiersForItems(updatedItems);
+    const syncedItems = await syncPromotionsForItems(itemsWithTiers);
+    setTabs((prevTabs) =>
+      prevTabs.map((t) =>
+        t.id === activeTabId
+          ? { ...t, items: syncedItems, isSaved: false, backendOrderId: undefined }
+          : t
+      )
+    );
+  };
+
   // Add customer callback
   const handleSaveCustomer = async (
     customerData: Omit<ICustomer, "id" | "debt"> & { id?: string; debt?: number }
@@ -573,6 +848,7 @@ export const PosPage = () => {
             productId: item.product.id,
             quantity: item.quantity,
             bypassPromotion: item.bypassPromotion,
+            unitConversionId: item.unitConversionId || undefined,
           }).unwrap();
         }
 
@@ -797,7 +1073,9 @@ export const PosPage = () => {
             orderId: orderId!,
             productId: item.product.id,
             quantity: item.quantity,
+            buyAmount: item.buyAmount,
             bypassPromotion: item.bypassPromotion,
+            unitConversionId: item.unitConversionId || undefined,
           }).unwrap();
         }
 
@@ -951,6 +1229,8 @@ export const PosPage = () => {
           onClearCart={handleClearCart}
           canManage={canManage}
           onToggleBypass={handleToggleBypassPromotion}
+          onChangeUnit={handleChangeUnit}
+          onOpenWeightModal={handleOpenWeightModal}
         />
 
         {/* Right Area: Payment Sidebar */}
@@ -1018,6 +1298,22 @@ export const PosPage = () => {
             showToast(`Đã gán mã và thêm "${assignedProduct.name}" vào đơn!`);
           }}
           canManage={canManage}
+        />
+      )}
+
+      {/* Weight Scale Modal (Bán hàng theo cân & Mua theo tiền) */}
+      {weightModalProduct && (
+        <WeightScaleModal
+          isOpen={Boolean(weightModalProduct)}
+          onClose={() => {
+            setWeightModalProduct(null);
+            setWeightModalItem(null);
+          }}
+          product={weightModalProduct}
+          initialQuantity={weightModalItem ? weightModalItem.quantity : 1}
+          initialBuyAmount={weightModalItem?.buyAmount}
+          unitConversionId={weightModalItem?.unitConversionId}
+          onConfirm={handleConfirmWeightModal}
         />
       )}
 

@@ -414,8 +414,10 @@ export const GoodsReceiptDetailModal: React.FC<GoodsReceiptDetailModalProps> = (
                   </thead>
                   <tbody className="text-black font-normal">
                     {details.map((item, index) => {
-                      const unitName = productUnitMap.get(item.productId) || "Chiếc";
+                      const baseUnit = productUnitMap.get(item.productId) || "Chiếc";
+                      const displayUnit = item.unitName || baseUnit;
                       const itemSubtotal = Number(item.quantity) * Number(item.purchasePrice);
+                      const hasConversion = item.conversionFactor && item.conversionFactor > 1;
 
                       return (
                         <tr key={item.id || item.productId} className="border-b border-black">
@@ -423,8 +425,15 @@ export const GoodsReceiptDetailModal: React.FC<GoodsReceiptDetailModalProps> = (
                           <td className="p-1.5 border-r border-black text-center">
                             {item.productSku}
                           </td>
-                          <td className="p-1.5 border-r border-black text-left">{item.productName}</td>
-                          <td className="p-1.5 border-r border-black text-center">{unitName}</td>
+                          <td className="p-1.5 border-r border-black text-left">
+                            <span className="font-semibold">{item.productName}</span>
+                            {hasConversion && (
+                              <div className="text-[10px] text-slate-600 italic">
+                                Quy đổi: 1 {displayUnit} = {item.conversionFactor} {baseUnit}
+                              </div>
+                            )}
+                          </td>
+                          <td className="p-1.5 border-r border-black text-center">{displayUnit}</td>
                           <td className="p-1.5 border-r border-black text-right font-normal">
                             {formatNumber(Number(item.quantity))}
                           </td>

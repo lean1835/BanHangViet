@@ -341,7 +341,7 @@ export const CreateReturnTicketModal: React.FC<CreateReturnTicketModalProps> = (
                 Lập phiếu trả hàng từ hóa đơn đã cấp mã
               </h2>
               <p className="text-[11px] font-semibold text-slate-500">
-                Tuân thủ quy tắc QTN-18 (Hạn 7 ngày) & QTN-19 (Không vượt số lượng đã bán)
+                Hạn trả hàng trong vòng 7 ngày & Không vượt quá số lượng đã bán
               </p>
             </div>
           </div>
@@ -396,7 +396,7 @@ export const CreateReturnTicketModal: React.FC<CreateReturnTicketModalProps> = (
                   Danh sách hóa đơn đã cấp mã đủ điều kiện trả hàng
                 </h3>
                 <p className="text-[11px] text-slate-500 mt-0.5">
-                  Hệ thống tự động lọc các hóa đơn ở trạng thái <strong>ĐÃ CẤP MÃ (ISSUED)</strong> theo đúng quy tắc QTN-18.
+                  Hệ thống tự động lọc các hóa đơn ở trạng thái <strong>ĐÃ CẤP MÃ (ISSUED)</strong> hợp lệ.
                 </p>
               </div>
 
@@ -621,7 +621,7 @@ export const CreateReturnTicketModal: React.FC<CreateReturnTicketModalProps> = (
                           className="h-4 w-4 rounded border-amber-400 text-amber-700 focus:ring-amber-500"
                         />
                         <span className="font-bold text-amber-900">
-                          (Chủ hộ xác nhận) Cho phép trả hàng ngoại lệ theo quy tắc QTN-18
+                          (Chủ hộ xác nhận) Cho phép nhận trả hàng ngoại lệ (quá hạn 7 ngày)
                         </span>
                       </label>
                     ) : (
@@ -643,7 +643,7 @@ export const CreateReturnTicketModal: React.FC<CreateReturnTicketModalProps> = (
                     <span className="flex h-5 w-5 items-center justify-center rounded-full bg-kv-blue-primary text-white text-[10px]">
                       2
                     </span>
-                    Chọn các mặt hàng khách trả lại & Số lượng (QTN-19) <span className="text-rose-500">*</span>
+                    Chọn các mặt hàng khách trả lại & Số lượng <span className="text-rose-500">*</span>
                   </label>
                   <span className="text-[11px] text-slate-500 font-semibold">
                     Đã chọn: <strong className="text-kv-blue-primary">{activeItems.length}</strong> mặt hàng

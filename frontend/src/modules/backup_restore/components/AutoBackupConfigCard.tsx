@@ -161,7 +161,7 @@ export const AutoBackupConfigCard: React.FC<AutoBackupConfigCardProps> = ({
               </p>
             )}
             <p className="text-[11px] text-slate-400 font-medium">
-              Khi số bản vượt quá {retentionCount}, bản cũ nhất sẽ tự động dọn dẹp (TC-02).
+              Khi số bản vượt quá {retentionCount}, bản cũ nhất sẽ tự động dọn dẹp.
             </p>
           </div>
 

@@ -46,6 +46,8 @@ export const ROUTE_SEGMENTS = {
   PEAK_HOURS: "peak-hours",
   USER_PROFILE: "user-profile",
   SESSIONS: "sessions",
+  STOCK_CARD: "stock-card",
+  PRICE_ADJUSTMENTS: "price-adjustments",
   WILDCARD: "*",
 } as const;
 
@@ -91,6 +93,15 @@ export const APP_ROUTES = {
     ROUTE_SEGMENTS.PRODUCTS,
     ROUTE_SEGMENTS.SUPPLIERS,
   ),
+  PRODUCT_STOCK_CARD: createRoute(
+    ROUTE_SEGMENTS.PRODUCTS,
+    ROUTE_SEGMENTS.STOCK_CARD,
+  ),
+  PRODUCT_PRICE_ADJUSTMENTS: createRoute(
+    ROUTE_SEGMENTS.PRODUCTS,
+    ROUTE_SEGMENTS.PRICE_ADJUSTMENTS,
+  ),
+  PRODUCT_DETAIL: (id: string) => `${createRoute(ROUTE_SEGMENTS.PRODUCTS)}/${id}`,
   SUPPLIER_DETAIL: (id: string) =>
     `${createRoute(ROUTE_SEGMENTS.PRODUCTS, ROUTE_SEGMENTS.SUPPLIERS)}/${id}`,
   SHIFTS: createRoute(ROUTE_SEGMENTS.SHIFTS),

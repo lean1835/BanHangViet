@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import {
   PRODUCT_LOG_ACTIONS,
   PRODUCT_MESSAGES,
@@ -22,6 +22,7 @@ import { getApiErrorMessage } from "@/utils/getApiErrorMessage";
 import { useNotification } from "@/hooks/useNotification";
 
 export const StockEntryPage = () => {
+  const [searchParams] = useSearchParams();
   const { showSuccess, showError } = useNotification();
   const { currentRole, addLogEntry } = useDashboardDemo();
   const { data: productsData } = useGetProductsQuery({
@@ -64,6 +65,14 @@ export const StockEntryPage = () => {
   useEffect(() => {
     setPage(0);
   }, [stockEntrySearch]);
+
+  // Read id query param to automatically open receipt detail (NCL-02-CN-006 TC-02)
+  useEffect(() => {
+    const id = searchParams.get("id");
+    if (id) {
+      setSelectedReceiptId(id);
+    }
+  }, [searchParams]);
 
   // Filter goods receipts using useMemo for performance (mã phiếu, nhà cung cấp, ghi chú)
   const normalizedStockEntrySearch = stockEntrySearch.trim().toLocaleLowerCase("vi");

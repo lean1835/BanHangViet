@@ -16,6 +16,9 @@ export interface GoodsReceiptItemRow {
   productName: string;
   productSku: string;
   unit: string;
+  baseUnit?: string;
+  unitConversionId?: string;
+  conversionFactor?: number;
   currentStock: number;
   listedPrice: number;
   quantity: number;
@@ -82,12 +85,21 @@ export const GoodsReceiptModal: React.FC<GoodsReceiptModalProps> = ({
 
       const resolvedItems: GoodsReceiptItemRow[] = (initialItems || []).map((item) => {
         const matchingProduct = products.find((p) => p.id === item.productId);
-        const resolvedListedPrice =
-          item.listedPrice && item.listedPrice > 0
-            ? item.listedPrice
-            : matchingProduct?.price || 0;
+        const basePrice = matchingProduct?.price || 0;
+        const conv = matchingProduct?.unitConversions?.find((c) => c.id === item.unitConversionId);
+        let resolvedListedPrice = basePrice;
+        if (conv) {
+          resolvedListedPrice = conv.price && conv.price > 0 ? conv.price : basePrice * conv.conversionFactor;
+        } else if (item.conversionFactor && item.conversionFactor > 1) {
+          resolvedListedPrice = item.listedPrice && item.listedPrice > basePrice ? item.listedPrice : basePrice * item.conversionFactor;
+        } else if (item.listedPrice && item.listedPrice > 0) {
+          resolvedListedPrice = item.listedPrice;
+        }
+
         return {
           ...item,
+          baseUnit: item.baseUnit || matchingProduct?.unit || item.unit || "Cái",
+          conversionFactor: item.conversionFactor || 1,
           listedPrice: resolvedListedPrice,
         };
       });
@@ -191,15 +203,27 @@ export const GoodsReceiptModal: React.FC<GoodsReceiptModalProps> = ({
       );
     } else {
       const defaultPrice = 0;
+      const defaultConv = product.unitConversions?.find((c) => c.isDefaultImport);
+      const chosenUnit = defaultConv ? defaultConv.unitName : (product.unit || "Cái");
+      const chosenConvId = defaultConv ? defaultConv.id : undefined;
+      const chosenFactor = defaultConv ? defaultConv.conversionFactor : 1;
+      const basePrice = product.price || 0;
+      const resolvedListedPrice = defaultConv
+        ? (defaultConv.price && defaultConv.price > 0 ? defaultConv.price : basePrice * chosenFactor)
+        : basePrice;
+
       setItems((prev) => [
         ...prev,
         {
           productId: product.id,
           productName: product.name,
           productSku: product.sku,
-          unit: product.unit || "Cái",
+          unit: chosenUnit,
+          baseUnit: product.unit || "Cái",
+          unitConversionId: chosenConvId,
+          conversionFactor: chosenFactor,
           currentStock: product.stockQuantity || 0,
-          listedPrice: product.price || 0,
+          listedPrice: resolvedListedPrice,
           quantity: 1,
           purchasePrice: defaultPrice,
           purchasePriceDisplay: defaultPrice > 0 ? formatNumber(defaultPrice) : "0",
@@ -211,6 +235,44 @@ export const GoodsReceiptModal: React.FC<GoodsReceiptModalProps> = ({
     setIsProductDropdownOpen(false);
     setActiveProductIndex(-1);
     productSearchInputRef.current?.focus();
+  };
+
+  const handleUnitChange = (index: number, selectedValue: string) => {
+    setItems((prev) =>
+      prev.map((item, idx) => {
+        if (idx !== index) return item;
+        const matchingProduct = products.find((p) => p.id === item.productId);
+        if (!matchingProduct) return item;
+        const basePrice = matchingProduct.price || 0;
+
+        if (selectedValue === "BASE") {
+          return {
+            ...item,
+            unit: item.baseUnit || matchingProduct.unit || "Cái",
+            unitConversionId: undefined,
+            conversionFactor: 1,
+            listedPrice: basePrice,
+          };
+        }
+
+        const conv = matchingProduct.unitConversions?.find((c) => c.id === selectedValue);
+        if (conv) {
+          const resolvedListedPrice =
+            conv.price && conv.price > 0
+              ? conv.price
+              : basePrice * conv.conversionFactor;
+
+          return {
+            ...item,
+            unit: conv.unitName,
+            unitConversionId: conv.id,
+            conversionFactor: conv.conversionFactor,
+            listedPrice: resolvedListedPrice,
+          };
+        }
+        return item;
+      })
+    );
   };
 
   // Item row modifications
@@ -296,6 +358,7 @@ export const GoodsReceiptModal: React.FC<GoodsReceiptModalProps> = ({
         productId: item.productId,
         quantity: item.quantity,
         purchasePrice: item.purchasePrice,
+        unitConversionId: item.unitConversionId || undefined,
       })),
     };
 
@@ -647,17 +710,47 @@ export const GoodsReceiptModal: React.FC<GoodsReceiptModalProps> = ({
                               {index + 1}
                             </td>
 
-                            {/* 2. Tên hàng & SKU */}
+                            {/* 2. Tên hàng & SKU & ĐVT */}
                             <td className="p-3">
                               <span className="font-bold text-slate-800 block">{item.productName}</span>
-                              <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                              <div className="flex items-center gap-2 mt-1 flex-wrap">
                                 <span className="font-mono text-[10px] text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded whitespace-nowrap">
                                   {item.productSku}
                                 </span>
-                                <span className="text-[10px] text-slate-400 whitespace-nowrap">ĐVT: {item.unit}</span>
+
+                                {/* Đơn vị tính selector */}
+                                {(() => {
+                                  const matchingProduct = products.find((p) => p.id === item.productId);
+                                  const conversions = matchingProduct?.unitConversions || [];
+
+                                  if (conversions.length > 0) {
+                                    return (
+                                      <select
+                                        disabled={isSubmitting}
+                                        value={item.unitConversionId || "BASE"}
+                                        onChange={(e) => handleUnitChange(index, e.target.value)}
+                                        aria-label={`Chọn đơn vị nhập cho ${item.productName}`}
+                                        className="text-[11px] font-bold text-kv-blue-primary bg-sky-50 border border-sky-200 rounded-lg px-2 py-0.5 focus:outline-none focus:ring-1 focus:ring-kv-blue-primary cursor-pointer"
+                                      >
+                                        <option value="BASE">{item.baseUnit} (Cơ sở)</option>
+                                        {conversions.map((c) => (
+                                          <option key={c.id} value={c.id}>
+                                            {c.unitName} (x{c.conversionFactor} {item.baseUnit})
+                                          </option>
+                                        ))}
+                                      </select>
+                                    );
+                                  }
+                                  return (
+                                    <span className="text-[10px] text-slate-500 font-semibold bg-slate-50 border border-slate-200 px-1.5 py-0.5 rounded whitespace-nowrap">
+                                      ĐVT: {item.unit}
+                                    </span>
+                                  );
+                                })()}
+
                                 {isBelowCost && (
                                   <span
-                                    title={`Đơn giá nhập (${formatCurrency(item.purchasePrice)}) cao hơn giá bán (${formatCurrency(item.listedPrice)})`}
+                                    title={`Đơn giá nhập (${formatCurrency(item.purchasePrice)}/${item.unit}) cao hơn giá bán (${formatCurrency(item.listedPrice)}/${item.unit})`}
                                     className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300/80 inline-flex items-center whitespace-nowrap shrink-0"
                                   >
                                     Bán lỗ
@@ -672,8 +765,15 @@ export const GoodsReceiptModal: React.FC<GoodsReceiptModalProps> = ({
                             </td>
 
                             {/* 4. Giá niêm yết */}
-                            <td className="p-3 text-right font-normal text-slate-500">
-                              {formatCurrency(item.listedPrice)}
+                            <td className="p-3 text-right">
+                              <div className="font-semibold text-slate-700">
+                                {formatCurrency(item.listedPrice)}
+                              </div>
+                              {(item.conversionFactor ?? 1) > 1 && (
+                                <div className="text-[10px] text-slate-400 font-normal mt-0.5">
+                                  ({formatCurrency(products.find((p) => p.id === item.productId)?.price || 0)}/{item.baseUnit || "ĐVCS"})
+                                </div>
+                              )}
                             </td>
 
                             {/* 5. Số lượng nhập */}
@@ -819,7 +919,7 @@ export const GoodsReceiptModal: React.FC<GoodsReceiptModalProps> = ({
                 </svg>
                 <div className="text-xs">
                   <span className="font-bold block">
-                    Cảnh báo giá nhập cao hơn giá niêm yết (TC-02)
+                    Cảnh báo giá nhập cao hơn giá niêm yết
                   </span>
                   <span className="text-[11px] font-normal text-amber-800 leading-relaxed block mt-0.5">
                     Có {belowCostItems.length} mặt hàng có đơn giá nhập cao hơn giá bán đang niêm yết. Hệ thống sẽ yêu cầu xác nhận trước khi lưu.
@@ -910,10 +1010,10 @@ export const GoodsReceiptModal: React.FC<GoodsReceiptModalProps> = ({
                     </div>
                     <div className="text-right">
                       <div className="text-rose-600 font-bold">
-                        Nhập: {formatCurrency(item.purchasePrice)}
+                        Nhập: {formatCurrency(item.purchasePrice)}/{item.unit}
                       </div>
                       <div className="text-[10px] text-slate-500">
-                        Bán: {formatCurrency(item.listedPrice)}
+                        Bán: {formatCurrency(item.listedPrice)}/{item.unit}
                       </div>
                     </div>
                   </div>

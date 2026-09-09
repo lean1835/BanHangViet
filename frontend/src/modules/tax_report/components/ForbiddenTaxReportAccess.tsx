@@ -18,7 +18,7 @@ export const ForbiddenTaxReportAccess: React.FC = () => {
 
       <div>
         <span className="px-3 py-1 text-xs font-extrabold uppercase bg-rose-100 text-rose-800 rounded-full border border-rose-200">
-          Chặn truy cập bảo mật (TC-03)
+          Chặn truy cập bảo mật
         </span>
         <h2 className="text-xl font-black text-slate-800 tracking-tight mt-3">
           Không có quyền xem Tổng hợp doanh thu chịu thuế

@@ -8,6 +8,7 @@ import com.sales.entity.InvoiceNumberRange;
 import com.sales.entity.User;
 import com.sales.exception.AppException;
 import com.sales.exception.ErrorCode;
+import com.sales.repository.BusinessHouseholdRepository;
 import com.sales.repository.EInvoiceRepository;
 import com.sales.repository.InvoiceNumberRangeRepository;
 import com.sales.repository.UserRepository;
@@ -23,6 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -33,6 +35,7 @@ public class InvoiceNumberRangeServiceImpl implements InvoiceNumberRangeService 
     private final InvoiceNumberRangeRepository rangeRepository;
     private final UserRepository userRepository;
     private final EInvoiceRepository eInvoiceRepository;
+    private final BusinessHouseholdRepository householdRepository;
 
     private User getAuthenticatedUser(String username) {
         return userRepository.findByUsername(username)
@@ -154,7 +157,53 @@ public class InvoiceNumberRangeServiceImpl implements InvoiceNumberRangeService 
         }
 
         if (ranges == null || ranges.isEmpty()) {
-            throw new AppException(ErrorCode.INVOICE_RANGE_EXHAUSTED);
+            // Check if any range has EVER been declared for this household and pattern/symbol
+            List<InvoiceNumberRange> allRanges = (pattern != null && symbol != null)
+                    ? rangeRepository.findOverlappingRanges(householdId, pattern, symbol)
+                    : rangeRepository.findActiveRangesByHouseholdId(householdId);
+
+            if (allRanges != null && !allRanges.isEmpty()) {
+                // Ranges existed but all are exhausted/inactive -> Genuinely exhausted (TC-03)
+                throw new AppException(ErrorCode.INVOICE_RANGE_EXHAUSTED);
+            }
+
+            // If no range has ever existed at all (legacy data or initial bootstrap),
+            // auto-provision initial default active range so invoice issuance/approval is never blocked
+            String effectivePattern = pattern != null ? pattern : "1";
+            String effectiveSymbol = symbol != null ? symbol : "C26TAA";
+
+            Optional<String> maxNumOpt = eInvoiceRepository.findMaxInvoiceNumber(householdId, effectivePattern, effectiveSymbol);
+            int currentMax = 0;
+            if (maxNumOpt.isPresent() && maxNumOpt.get() != null) {
+                try {
+                    currentMax = Integer.parseInt(maxNumOpt.get());
+                } catch (NumberFormatException ex) {
+                    // Ignore
+                }
+            }
+
+            Optional<BusinessHousehold> householdOpt = householdRepository != null
+                    ? householdRepository.findById(householdId)
+                    : Optional.empty();
+
+            if (householdOpt.isPresent()) {
+                InvoiceNumberRange autoRange = InvoiceNumberRange.builder()
+                        .household(householdOpt.get())
+                        .invoicePattern(effectivePattern)
+                        .invoiceSymbol(effectiveSymbol)
+                        .startNumber(1)
+                        .endNumber(Math.max(100000, currentMax + 100000))
+                        .currentNumber(currentMax)
+                        .warningThreshold(50)
+                        .status("ACTIVE")
+                        .build();
+                InvoiceNumberRange saved = rangeRepository.save(autoRange);
+                ranges = List.of(saved);
+                log.info("Tự động khởi tạo dải số hóa đơn mặc định cho hộ {}: Mẫu={}, Ký hiệu={}, Hiện tại={}",
+                        householdId, effectivePattern, effectiveSymbol, currentMax);
+            } else {
+                throw new AppException(ErrorCode.INVOICE_RANGE_EXHAUSTED);
+            }
         }
 
         InvoiceNumberRange range = null;
