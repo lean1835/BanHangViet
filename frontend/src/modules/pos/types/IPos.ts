@@ -40,7 +40,18 @@ export interface IPosCartItem {
   promotionName?: string | null;
   hasPromotion?: boolean;
   bypassPromotion?: boolean;
+  priceTierId?: string | null;
+  priceTierName?: string | null;
+  baseRetailPrice?: number;
   originalSubtotal?: number;
+  unitConversionId?: string | null;
+  unitName?: string;
+  conversionFactor?: number;
+  buyAmount?: number;
+  roundingDifference?: number;
+  isSoldByWeight?: boolean;
+  decimalPlaces?: number;
+  minWeightStep?: number;
 }
 
 export interface IPosTab {

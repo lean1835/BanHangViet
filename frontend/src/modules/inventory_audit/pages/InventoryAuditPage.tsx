@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useOutletContext } from "react-router-dom";
+import { useOutletContext, useSearchParams } from "react-router-dom";
 import { USER_ROLES } from "@/constants/roles";
 import { useDashboardDemo } from "@/providers/DashboardDemoProvider";
 import { useAppSelector } from "@/hooks/useRedux";
@@ -47,6 +47,15 @@ export const InventoryAuditPage = () => {
   // Modals
   const [isCreateModalOpen, setIsCreateModalOpen] = useState<boolean>(false);
   const [selectedAuditId, setSelectedAuditId] = useState<string | null>(null);
+
+  // Read id query param to automatically open audit detail (NCL-02-CN-006 TC-02)
+  const [searchParams] = useSearchParams();
+  useEffect(() => {
+    const id = searchParams.get("id");
+    if (id) {
+      setSelectedAuditId(id);
+    }
+  }, [searchParams]);
 
   // Queries
   const {

@@ -27,6 +27,23 @@ import type {
   ILowStockWarningParams,
   IPurchaseSuggestionParams,
 } from "@/modules/product/types/IInventoryWarning";
+import type {
+  IStockCardResponse,
+  IGetStockCardParams,
+} from "@/modules/product/types/IStockCard";
+import type {
+  IProductUnitConversion,
+  ICreateUnitConversionRequest,
+  IUpdateUnitConversionRequest,
+} from "@/modules/product/types/IProductUnitConversion";
+import type {
+  IProductPriceTier,
+  ICreatePriceTierRequest,
+  IUpdatePriceTierRequest,
+  IBatchSavePriceTiersRequest,
+  IResolveTierPriceRequest,
+  IResolveTierPriceResponse,
+} from "@/modules/product/types/IProductPriceTier";
 import { isRecord } from "@/utils/typeGuards";
 import type { IPageResponse } from "@/types/api";
 
@@ -45,6 +62,71 @@ const readNumber = (value: unknown): number => {
 
 const readResult = (response: unknown): unknown =>
   isRecord(response) ? response.result : undefined;
+
+export const toProductUnitConversion = (value: unknown): IProductUnitConversion => {
+  const item = isRecord(value) ? value : {};
+  return {
+    id: readString(item.id),
+    productId: readString(item.productId),
+    productName: readString(item.productName),
+    baseUnit: readString(item.baseUnit),
+    unitName: readString(item.unitName),
+    conversionFactor: readNumber(item.conversionFactor),
+    price:
+      item.price !== undefined && item.price !== null
+        ? readNumber(item.price)
+        : null,
+    barcode: readNullableString(item.barcode),
+    isDefaultImport: Boolean(item.isDefaultImport),
+    isDefaultSale: Boolean(item.isDefaultSale),
+    hasStockMovement: Boolean(item.hasStockMovement),
+    createdAt: readString(item.createdAt),
+    updatedAt: readString(item.updatedAt),
+  };
+};
+
+export const toProductPriceTier = (value: unknown): IProductPriceTier => {
+  const item = isRecord(value) ? value : {};
+  return {
+    id: readString(item.id),
+    productId: readString(item.productId),
+    productName: readString(item.productName),
+    unitConversionId: readNullableString(item.unitConversionId),
+    unitName: readString(item.unitName),
+    tierName: readString(item.tierName),
+    minQuantity: readNumber(item.minQuantity),
+    maxQuantity:
+      item.maxQuantity !== undefined && item.maxQuantity !== null
+        ? readNumber(item.maxQuantity)
+        : null,
+    price: readNumber(item.price),
+    isActive: Boolean(item.isActive ?? true),
+    costPrice:
+      item.costPrice !== undefined && item.costPrice !== null
+        ? readNumber(item.costPrice)
+        : undefined,
+    isBelowCost: Boolean(item.isBelowCost),
+    createdAt: readString(item.createdAt),
+    updatedAt: readString(item.updatedAt),
+  };
+};
+
+export const toResolveTierPriceResponse = (value: unknown): IResolveTierPriceResponse => {
+  const item = isRecord(value) ? value : {};
+  return {
+    productId: readString(item.productId),
+    productName: readString(item.productName),
+    quantity: readNumber(item.quantity),
+    baseRetailPrice: readNumber(item.baseRetailPrice),
+    matchedTierId: readNullableString(item.matchedTierId),
+    matchedTierName: readNullableString(item.matchedTierName),
+    appliedUnitPrice: readNumber(item.appliedUnitPrice),
+    costPrice: readNumber(item.costPrice),
+    isBelowCost: Boolean(item.isBelowCost),
+    savingAmountPerUnit: readNumber(item.savingAmountPerUnit),
+    totalSavingAmount: readNumber(item.totalSavingAmount),
+  };
+};
 
 const toProduct = (value: unknown): IProduct => {
   const product = isRecord(value) ? value : {};
@@ -91,6 +173,21 @@ const toProduct = (value: unknown): IProduct => {
           };
         })
       : undefined,
+    unitConversions: Array.isArray(product.unitConversions)
+      ? product.unitConversions.map(toProductUnitConversion)
+      : undefined,
+    priceTiers: Array.isArray(product.priceTiers)
+      ? product.priceTiers.map(toProductPriceTier)
+      : undefined,
+    isSoldByWeight: Boolean(product.isSoldByWeight),
+    decimalPlaces:
+      product.decimalPlaces !== undefined && product.decimalPlaces !== null
+        ? readNumber(product.decimalPlaces)
+        : undefined,
+    minWeightStep:
+      product.minWeightStep !== undefined && product.minWeightStep !== null
+        ? readNumber(product.minWeightStep)
+        : undefined,
     createdAt: readString(product.createdAt),
     updatedAt: readString(product.updatedAt),
   };
@@ -153,6 +250,20 @@ const toGoodsReceiptDetail = (value: unknown): IGoodsReceiptDetail => {
     quantity,
     purchasePrice,
     subtotal: readNumber(detail.subtotal) || quantity * purchasePrice,
+    unitConversionId: readNullableString(detail.unitConversionId),
+    unitName: readNullableString(detail.unitName),
+    conversionFactor:
+      detail.conversionFactor !== undefined && detail.conversionFactor !== null
+        ? readNumber(detail.conversionFactor)
+        : null,
+    baseQuantity:
+      detail.baseQuantity !== undefined && detail.baseQuantity !== null
+        ? readNumber(detail.baseQuantity)
+        : null,
+    basePurchasePrice:
+      detail.basePurchasePrice !== undefined && detail.basePurchasePrice !== null
+        ? readNumber(detail.basePurchasePrice)
+        : null,
   };
 };
 
@@ -285,6 +396,57 @@ const toPurchaseSuggestionPage = (
   };
 };
 
+const toStockCardResponse = (response: unknown): IStockCardResponse => {
+  const result = readResult(response);
+  const data = isRecord(result) ? result : isRecord(response) ? response : {};
+  const movementsObj = isRecord(data.movements) ? data.movements : {};
+  const content = Array.isArray(movementsObj.content)
+    ? movementsObj.content.map((m: unknown) => {
+        const item = isRecord(m) ? m : {};
+        return {
+          id: readString(item.id),
+          documentId: readString(item.documentId),
+          documentType: readString(item.documentType),
+          documentTypeName: readString(item.documentTypeName),
+          documentNumber: readString(item.documentNumber),
+          documentUrl: readString(item.documentUrl),
+          timestamp: readString(item.timestamp),
+          changeType: readString(item.changeType),
+          quantityIn: readNumber(item.quantityIn),
+          quantityOut: readNumber(item.quantityOut),
+          quantityChange: readNumber(item.quantityChange),
+          balanceAfter: readNumber(item.balanceAfter),
+          performedBy: readString(item.performedBy),
+          notes: readNullableString(item.notes),
+        };
+      })
+    : [];
+
+  return {
+    productId: readString(data.productId),
+    productSku: readString(data.productSku),
+    productName: readString(data.productName),
+    unit: readString(data.unit),
+    fromDate: readString(data.fromDate),
+    toDate: readString(data.toDate),
+    openingStock: readNumber(data.openingStock),
+    totalQuantityIn: readNumber(data.totalQuantityIn),
+    totalQuantityOut: readNumber(data.totalQuantityOut),
+    closingStock: readNumber(data.closingStock),
+    currentStock: readNumber(data.currentStock),
+    isDiscrepancy: Boolean(data.isDiscrepancy),
+    warning: readNullableString(data.warning),
+    movements: {
+      content,
+      pageNumber: readNumber(movementsObj.pageNumber),
+      pageSize: readNumber(movementsObj.pageSize),
+      totalPages: readNumber(movementsObj.totalPages),
+      totalElements: readNumber(movementsObj.totalElements),
+      last: movementsObj.last !== false,
+    },
+  };
+};
+
 export const productApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
     getProducts: builder.query<
@@ -315,6 +477,17 @@ export const productApi = baseApi.injectEndpoints({
                 id: PRODUCT_API_TAG_IDS.LIST,
               },
             ],
+    }),
+    getProductById: builder.query<IProduct, string>({
+      query: (id) => ({
+        url: PRODUCT_API_ENDPOINTS.PRODUCT_BY_ID(id),
+        method: HTTP_METHODS.GET,
+      }),
+      transformResponse: (response: unknown): IProduct =>
+        toProduct(readResult(response)),
+      providesTags: (_result, _error, id) => [
+        { type: API_TAG_TYPES.PRODUCT, id },
+      ],
     }),
     createProduct: builder.mutation<IProduct, TProductPayload>({
       query: (productData) => ({
@@ -535,6 +708,16 @@ export const productApi = baseApi.injectEndpoints({
           id: PRODUCT_API_TAG_IDS.LIST,
         },
         {
+          type: API_TAG_TYPES.PRODUCT,
+        },
+        {
+          type: API_TAG_TYPES.STOCK_CARD,
+        },
+        {
+          type: API_TAG_TYPES.STOCK_CARD,
+          id: "LIST",
+        },
+        {
           type: API_TAG_TYPES.SUPPLIER,
           id: "LIST",
         },
@@ -596,6 +779,9 @@ export const productApi = baseApi.injectEndpoints({
       },
       invalidatesTags: [
         { type: API_TAG_TYPES.PRODUCT, id: PRODUCT_API_TAG_IDS.LIST },
+        { type: API_TAG_TYPES.PRODUCT },
+        { type: API_TAG_TYPES.STOCK_CARD },
+        { type: API_TAG_TYPES.STOCK_CARD, id: "LIST" },
         { type: API_TAG_TYPES.PRODUCT_GROUP, id: PRODUCT_API_TAG_IDS.LIST },
         {
           type: API_TAG_TYPES.INVENTORY_WARNING,
@@ -699,12 +885,188 @@ export const productApi = baseApi.injectEndpoints({
             ]
           : [{ type: API_TAG_TYPES.PRODUCT, id: PRODUCT_API_TAG_IDS.LIST }],
     }),
+    getStockCard: builder.query<IStockCardResponse, IGetStockCardParams>({
+      query: ({ productId, fromDate, toDate, page, size }) => ({
+        url: PRODUCT_API_ENDPOINTS.STOCK_CARD(productId),
+        method: HTTP_METHODS.GET,
+        params: {
+          ...(fromDate ? { fromDate } : {}),
+          ...(toDate ? { toDate } : {}),
+          ...(page !== undefined ? { page } : {}),
+          ...(size !== undefined ? { size } : {}),
+        },
+      }),
+      transformResponse: toStockCardResponse,
+      providesTags: (_result, _error, { productId }) => [
+        { type: API_TAG_TYPES.STOCK_CARD, id: productId },
+        { type: API_TAG_TYPES.STOCK_CARD, id: "LIST" },
+      ],
+    }),
+    getUnitConversions: builder.query<IProductUnitConversion[], string>({
+      query: (productId) => ({
+        url: `/products/${productId}/unit-conversions`,
+        method: HTTP_METHODS.GET,
+      }),
+      transformResponse: (response: unknown) => {
+        const raw = readResult(response);
+        return Array.isArray(raw) ? raw.map(toProductUnitConversion) : [];
+      },
+      providesTags: (_result, _error, productId) => [
+        { type: API_TAG_TYPES.PRODUCT_UNIT_CONVERSION, id: productId },
+        { type: API_TAG_TYPES.PRODUCT_UNIT_CONVERSION, id: "LIST" },
+      ],
+    }),
+    createUnitConversion: builder.mutation<
+      IProductUnitConversion,
+      { productId: string; data: ICreateUnitConversionRequest }
+    >({
+      query: ({ productId, data }) => ({
+        url: `/products/${productId}/unit-conversions`,
+        method: HTTP_METHODS.POST,
+        body: data,
+      }),
+      transformResponse: (response: unknown) =>
+        toProductUnitConversion(readResult(response)),
+      invalidatesTags: (_result, _error, { productId }) => [
+        { type: API_TAG_TYPES.PRODUCT_UNIT_CONVERSION, id: productId },
+        { type: API_TAG_TYPES.PRODUCT_UNIT_CONVERSION, id: "LIST" },
+        { type: API_TAG_TYPES.PRODUCT, id: productId },
+        { type: API_TAG_TYPES.PRODUCT, id: PRODUCT_API_TAG_IDS.LIST },
+      ],
+    }),
+    updateUnitConversion: builder.mutation<
+      IProductUnitConversion,
+      { productId: string; conversionId: string; data: IUpdateUnitConversionRequest }
+    >({
+      query: ({ productId, conversionId, data }) => ({
+        url: `/products/${productId}/unit-conversions/${conversionId}`,
+        method: HTTP_METHODS.PUT,
+        body: data,
+      }),
+      transformResponse: (response: unknown) =>
+        toProductUnitConversion(readResult(response)),
+      invalidatesTags: (_result, _error, { productId }) => [
+        { type: API_TAG_TYPES.PRODUCT_UNIT_CONVERSION, id: productId },
+        { type: API_TAG_TYPES.PRODUCT_UNIT_CONVERSION, id: "LIST" },
+        { type: API_TAG_TYPES.PRODUCT, id: productId },
+        { type: API_TAG_TYPES.PRODUCT, id: PRODUCT_API_TAG_IDS.LIST },
+      ],
+    }),
+    deleteUnitConversion: builder.mutation<
+      void,
+      { productId: string; conversionId: string }
+    >({
+      query: ({ productId, conversionId }) => ({
+        url: `/products/${productId}/unit-conversions/${conversionId}`,
+        method: HTTP_METHODS.DELETE,
+      }),
+      invalidatesTags: (_result, _error, { productId }) => [
+        { type: API_TAG_TYPES.PRODUCT_UNIT_CONVERSION, id: productId },
+        { type: API_TAG_TYPES.PRODUCT_UNIT_CONVERSION, id: "LIST" },
+        { type: API_TAG_TYPES.PRODUCT, id: productId },
+        { type: API_TAG_TYPES.PRODUCT, id: PRODUCT_API_TAG_IDS.LIST },
+      ],
+    }),
+    getPriceTiers: builder.query<IProductPriceTier[], string>({
+      query: (productId) => ({
+        url: `/products/${productId}/price-tiers`,
+        method: HTTP_METHODS.GET,
+      }),
+      transformResponse: (response: unknown) => {
+        const raw = readResult(response);
+        return Array.isArray(raw) ? raw.map(toProductPriceTier) : [];
+      },
+      providesTags: (_result, _error, productId) => [
+        { type: API_TAG_TYPES.PRODUCT_PRICE_TIER, id: productId },
+        { type: API_TAG_TYPES.PRODUCT_PRICE_TIER, id: "LIST" },
+      ],
+    }),
+    createPriceTier: builder.mutation<
+      IProductPriceTier,
+      { productId: string; data: ICreatePriceTierRequest }
+    >({
+      query: ({ productId, data }) => ({
+        url: `/products/${productId}/price-tiers`,
+        method: HTTP_METHODS.POST,
+        body: data,
+      }),
+      transformResponse: (response: unknown) =>
+        toProductPriceTier(readResult(response)),
+      invalidatesTags: (_result, _error, { productId }) => [
+        { type: API_TAG_TYPES.PRODUCT_PRICE_TIER, id: productId },
+        { type: API_TAG_TYPES.PRODUCT_PRICE_TIER, id: "LIST" },
+        { type: API_TAG_TYPES.PRODUCT, id: productId },
+      ],
+    }),
+    updatePriceTier: builder.mutation<
+      IProductPriceTier,
+      { productId: string; tierId: string; data: IUpdatePriceTierRequest }
+    >({
+      query: ({ productId, tierId, data }) => ({
+        url: `/products/${productId}/price-tiers/${tierId}`,
+        method: HTTP_METHODS.PUT,
+        body: data,
+      }),
+      transformResponse: (response: unknown) =>
+        toProductPriceTier(readResult(response)),
+      invalidatesTags: (_result, _error, { productId }) => [
+        { type: API_TAG_TYPES.PRODUCT_PRICE_TIER, id: productId },
+        { type: API_TAG_TYPES.PRODUCT_PRICE_TIER, id: "LIST" },
+        { type: API_TAG_TYPES.PRODUCT, id: productId },
+      ],
+    }),
+    deletePriceTier: builder.mutation<
+      void,
+      { productId: string; tierId: string }
+    >({
+      query: ({ productId, tierId }) => ({
+        url: `/products/${productId}/price-tiers/${tierId}`,
+        method: HTTP_METHODS.DELETE,
+      }),
+      invalidatesTags: (_result, _error, { productId }) => [
+        { type: API_TAG_TYPES.PRODUCT_PRICE_TIER, id: productId },
+        { type: API_TAG_TYPES.PRODUCT_PRICE_TIER, id: "LIST" },
+        { type: API_TAG_TYPES.PRODUCT, id: productId },
+      ],
+    }),
+    batchSavePriceTiers: builder.mutation<
+      IProductPriceTier[],
+      { productId: string; data: IBatchSavePriceTiersRequest }
+    >({
+      query: ({ productId, data }) => ({
+        url: `/products/${productId}/price-tiers/batch`,
+        method: HTTP_METHODS.PUT,
+        body: data,
+      }),
+      transformResponse: (response: unknown) => {
+        const raw = readResult(response);
+        return Array.isArray(raw) ? raw.map(toProductPriceTier) : [];
+      },
+      invalidatesTags: (_result, _error, { productId }) => [
+        { type: API_TAG_TYPES.PRODUCT_PRICE_TIER, id: productId },
+        { type: API_TAG_TYPES.PRODUCT_PRICE_TIER, id: "LIST" },
+        { type: API_TAG_TYPES.PRODUCT, id: productId },
+      ],
+    }),
+    resolveTierPrice: builder.mutation<
+      IResolveTierPriceResponse,
+      { productId: string; data: IResolveTierPriceRequest }
+    >({
+      query: ({ productId, data }) => ({
+        url: `/products/${productId}/price-tiers/resolve`,
+        method: HTTP_METHODS.POST,
+        body: data,
+      }),
+      transformResponse: (response: unknown) =>
+        toResolveTierPriceResponse(readResult(response)),
+    }),
   }),
   overrideExisting: API_CONFIG.OVERRIDE_EXISTING_ENDPOINTS,
 });
 
 export const {
   useGetProductsQuery,
+  useGetProductByIdQuery,
   useCreateProductMutation,
   useUpdateProductMutation,
   useDeleteProductMutation,
@@ -722,4 +1084,18 @@ export const {
   useUpdateMinStockMutation,
   useVoiceSearchProductsQuery,
   useLazyVoiceSearchProductsQuery,
+  useGetStockCardQuery,
+  useLazyGetStockCardQuery,
+  useGetUnitConversionsQuery,
+  useLazyGetUnitConversionsQuery,
+  useCreateUnitConversionMutation,
+  useUpdateUnitConversionMutation,
+  useDeleteUnitConversionMutation,
+  useGetPriceTiersQuery,
+  useLazyGetPriceTiersQuery,
+  useCreatePriceTierMutation,
+  useUpdatePriceTierMutation,
+  useDeletePriceTierMutation,
+  useBatchSavePriceTiersMutation,
+  useResolveTierPriceMutation,
 } = productApi;

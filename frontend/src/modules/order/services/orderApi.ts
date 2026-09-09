@@ -2,7 +2,11 @@ import { baseApi } from "@/stores/baseApi";
 import { API_CONFIG, API_TAG_TYPES, HTTP_METHODS } from "@/constants/api";
 import { ORDER_API_ENDPOINTS, ORDER_API_TAG_IDS } from "@/constants/order";
 import type { IApiResponse } from "@/types/api";
-import type { IOrderResponse } from "@/modules/order/types/IOrder";
+import type {
+  IOrderResponse,
+  ICalculateWeightRequest,
+  ICalculateWeightResponse,
+} from "@/modules/order/types/IOrder";
 import { notifyOrderCompleted } from "@/utils/orderEvents";
 
 export const orderApi = baseApi.injectEndpoints({
@@ -35,22 +39,39 @@ export const orderApi = baseApi.injectEndpoints({
     }),
     addOrderItem: builder.mutation<
       IApiResponse<IOrderResponse>,
-      { orderId: string; productId: string; quantity: number; bypassPromotion?: boolean }
+      {
+        orderId: string;
+        productId: string;
+        quantity?: number;
+        buyAmount?: number;
+        bypassPromotion?: boolean;
+        unitConversionId?: string;
+      }
     >({
-      query: ({ orderId, productId, quantity, bypassPromotion }) => ({
+      query: ({ orderId, productId, quantity, buyAmount, bypassPromotion, unitConversionId }) => ({
         url: `/orders/${orderId}/items`,
         method: HTTP_METHODS.POST,
-        body: { productId, quantity, bypassPromotion },
+        body: { productId, quantity, buyAmount, bypassPromotion, unitConversionId },
       }),
     }),
     updateOrderItem: builder.mutation<
       IApiResponse<IOrderResponse>,
-      { orderId: string; itemId: string; quantity: number }
+      { orderId: string; itemId: string; quantity?: number; buyAmount?: number }
     >({
-      query: ({ orderId, itemId, quantity }) => ({
+      query: ({ orderId, itemId, quantity, buyAmount }) => ({
         url: `/orders/${orderId}/items/${itemId}`,
         method: HTTP_METHODS.PUT,
-        body: { quantity },
+        body: { quantity, buyAmount },
+      }),
+    }),
+    calculateWeight: builder.mutation<
+      IApiResponse<ICalculateWeightResponse>,
+      ICalculateWeightRequest
+    >({
+      query: (body) => ({
+        url: "/orders/calculate-weight",
+        method: HTTP_METHODS.POST,
+        body,
       }),
     }),
     deleteOrderItem: builder.mutation<
@@ -117,6 +138,7 @@ export const {
   useCreateOrderMutation,
   useAddOrderItemMutation,
   useUpdateOrderItemMutation,
+  useCalculateWeightMutation,
   useDeleteOrderItemMutation,
   useApplyDiscountMutation,
   useSetPaymentMethodMutation,

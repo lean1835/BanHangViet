@@ -20,6 +20,11 @@ export interface IGoodsReceiptDetail {
   quantity: number;
   purchasePrice: number;
   subtotal?: number;
+  unitConversionId?: string | null;
+  unitName?: string | null;
+  conversionFactor?: number | null;
+  baseQuantity?: number | null;
+  basePurchasePrice?: number | null;
 }
 
 export interface IGoodsReceiptDetailInfo {
@@ -41,6 +46,7 @@ export interface ICreateGoodsReceiptDetailPayload {
   productId: string;
   quantity: number;
   purchasePrice: number;
+  unitConversionId?: string;
 }
 
 export interface ICreateGoodsReceiptPayload {

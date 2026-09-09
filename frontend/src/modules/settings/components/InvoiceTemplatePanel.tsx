@@ -14,6 +14,7 @@ import { useDashboardDemo } from "@/providers/DashboardDemoProvider";
 import { useAppSelector } from "@/hooks/useRedux";
 import { getApiErrorMessage } from "@/utils/getApiErrorMessage";
 import { Save, FileText, Eye, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
+import { InvoiceRangeSection } from "./InvoiceRangeSection";
 
 export const InvoiceTemplatePanel: React.FC = () => {
   const { showSuccess, showError } = useNotification();
@@ -97,8 +98,9 @@ export const InvoiceTemplatePanel: React.FC = () => {
   }
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-      {/* Form Settings (Left 6 Cols) */}
+    <div className="flex flex-col gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        {/* Form Settings (Left 6 Cols) */}
       <div className="lg:col-span-6 bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col gap-5">
         <div className="flex items-center gap-2 border-b border-slate-100 pb-4">
           <div className="p-2 bg-emerald-50 text-emerald-600 rounded-lg">
@@ -382,6 +384,13 @@ export const InvoiceTemplatePanel: React.FC = () => {
           </div>
         </div>
       </div>
+    </div>
+
+      {/* Invoice Number Range Management Section (NCL-04-CN-009) */}
+      <InvoiceRangeSection
+        currentPattern={watchedValues.invoicePattern}
+        currentSymbol={watchedValues.invoiceSymbol}
+      />
     </div>
   );
 };

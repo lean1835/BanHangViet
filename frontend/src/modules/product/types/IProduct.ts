@@ -1,5 +1,7 @@
 import type { TProductStatus } from "@/modules/product/types/TProductStatus";
 import type { TStockFilter } from "@/modules/product/types/TStockFilter";
+import type { IProductUnitConversion } from "@/modules/product/types/IProductUnitConversion";
+import type { IProductPriceTier } from "@/modules/product/types/IProductPriceTier";
 
 export interface IProduct {
   id: string;
@@ -26,6 +28,11 @@ export interface IProduct {
     stockQuantity: number;
     minStockQuantity: number;
   }>;
+  unitConversions?: IProductUnitConversion[];
+  priceTiers?: IProductPriceTier[];
+  isSoldByWeight?: boolean;
+  decimalPlaces?: number;
+  minWeightStep?: number;
   createdAt: string;
   updatedAt: string;
 }

@@ -12,12 +12,13 @@ import {
   PRODUCT_STATUS_OPTIONS,
   PRODUCT_STATUS_VALUES,
   PRODUCT_VALIDATION_MESSAGES,
+  WEIGHT_SELLING_CONSTANTS,
 } from "@/constants/product";
 import { useGetProductGroupsQuery } from "@/modules/product/services/productApi";
 import { useGetTaxRatesQuery } from "@/modules/settings/services/taxRateApi";
 import type { IProduct } from "@/modules/product/types/IProduct";
 import { useAccessibleDialog } from "@/hooks/useAccessibleDialog";
-import { Sparkles, Barcode } from "lucide-react";
+import { Sparkles, Barcode, Scale } from "lucide-react";
 import { useGenerateInternalBarcodeMutation } from "@/modules/barcode/services/barcodeApi";
 
 interface ProductFormModalProps {
@@ -94,6 +95,9 @@ const productSchema = z.object({
       PRODUCT_VALIDATION_MESSAGES.TAX_RATE_REQUIRED,
     ),
   status: z.enum(PRODUCT_STATUS_VALUES),
+  isSoldByWeight: z.boolean().optional(),
+  decimalPlaces: z.number().int().min(1).max(3).optional(),
+  minWeightStep: z.number().positive("Bước nhảy phải lớn hơn 0").optional(),
 });
 
 type ProductFormValues = z.infer<typeof productSchema>;
@@ -149,6 +153,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
     handleSubmit,
     setValue,
     reset,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm<ProductFormValues>({
     resolver: zodResolver(productSchema),
@@ -163,6 +168,9 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
       minStockQuantity: PRODUCT_FORM_DEFAULTS.MIN_STOCK_QUANTITY,
       taxRateId: PRODUCT_FORM_DEFAULTS.TAX_RATE_ID,
       status: PRODUCT_FORM_DEFAULTS.STATUS,
+      isSoldByWeight: false,
+      decimalPlaces: 3,
+      minWeightStep: 0.001,
     },
   });
   const dialogRef = useAccessibleDialog({
@@ -170,6 +178,8 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
     onClose,
     canClose: !isSubmitting,
   });
+
+  const watchIsSoldByWeight = watch("isSoldByWeight");
 
   // Explicitly register custom form field (price is updated manually to handle dynamic styling/dots formatting)
   useEffect(() => {
@@ -198,6 +208,9 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
           product.minStockQuantity ?? PRODUCT_FORM_DEFAULTS.MIN_STOCK_QUANTITY,
         taxRateId: defaultTaxRateId,
         status: product.status || PRODUCT_FORM_DEFAULTS.STATUS,
+        isSoldByWeight: Boolean(product.isSoldByWeight),
+        decimalPlaces: product.decimalPlaces ?? 3,
+        minWeightStep: product.minWeightStep ?? 0.001,
       });
       setPriceInput(
         product.price
@@ -216,6 +229,9 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         minStockQuantity: PRODUCT_FORM_DEFAULTS.MIN_STOCK_QUANTITY,
         taxRateId: defaultTaxRateId,
         status: PRODUCT_FORM_DEFAULTS.STATUS,
+        isSoldByWeight: false,
+        decimalPlaces: 3,
+        minWeightStep: 0.001,
       });
       setPriceInput(PRODUCT_FORM_DEFAULTS.EMPTY_TEXT);
     }
@@ -281,6 +297,9 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
       minStockQuantity: values.minStockQuantity ?? 0,
       taxRateId: values.taxRateId,
       status: values.status,
+      isSoldByWeight: Boolean(values.isSoldByWeight),
+      decimalPlaces: values.isSoldByWeight ? Number(values.decimalPlaces) : 3,
+      minWeightStep: values.isSoldByWeight ? Number(values.minWeightStep) : 0.001,
     };
 
     try {
@@ -497,6 +516,67 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                 <span className="text-[10px] text-amber-600 font-semibold mt-0.5">
                   * Chưa có mức thuế suất nào đang áp dụng cho hộ kinh doanh. Vui lòng vào Cấu hình &gt; Thuế suất để kích hoạt hoặc thêm mới.
                 </span>
+              )}
+            </div>
+
+            {/* Cấu hình bán theo cân / Số lượng thập phân */}
+            <div className="sm:col-span-2 rounded-lg border border-slate-200 bg-slate-50/70 p-3">
+              <div className="flex items-center justify-between">
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    {...register("isSoldByWeight")}
+                    className="h-4 w-4 rounded border-slate-300 text-kv-blue-primary focus:ring-kv-blue-primary"
+                  />
+                  <div className="flex items-center gap-1.5 font-bold text-slate-800">
+                    <Scale size={15} className="text-kv-blue-primary" />
+                    <span>Mặt hàng bán theo cân (cho phép số lượng thập phân)</span>
+                  </div>
+                </label>
+                <span className="text-[10px] text-slate-500 italic">Ví dụ: Thịt, cá, rau củ, trái cây...</span>
+              </div>
+
+              {watchIsSoldByWeight && (
+                <div className="mt-3 pt-3 border-t border-slate-200/80 grid grid-cols-1 sm:grid-cols-2 gap-3 animate-in fade-in duration-150">
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[11px] font-semibold text-slate-700">
+                      Số chữ số thập phân:
+                    </label>
+                    <select
+                      {...register("decimalPlaces", { valueAsNumber: true })}
+                      className="border border-slate-300 h-8 px-2 rounded-md bg-white text-xs focus:outline-none focus:border-kv-blue-primary"
+                    >
+                      {WEIGHT_SELLING_CONSTANTS.DECIMAL_PLACES_OPTIONS.map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </select>
+                    {errors.decimalPlaces && (
+                      <span className="text-[10px] text-rose-500 font-bold">{errors.decimalPlaces.message}</span>
+                    )}
+                  </div>
+
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[11px] font-semibold text-slate-700">
+                      Bước nhảy tối thiểu:
+                    </label>
+                    <input
+                      type="number"
+                      step="any"
+                      placeholder="0.001"
+                      {...register("minWeightStep", { valueAsNumber: true })}
+                      className="border border-slate-300 h-8 px-2 rounded-md bg-white text-xs focus:outline-none focus:border-kv-blue-primary font-mono"
+                    />
+                    {errors.minWeightStep && (
+                      <span className="text-[10px] text-rose-500 font-bold">{errors.minWeightStep.message}</span>
+                    )}
+                  </div>
+
+                  <div className="sm:col-span-2 text-[10px] text-slate-500 leading-relaxed">
+                    💡 Khi kích hoạt, tại màn hình thu ngân POS sẽ hỗ trợ nhập khối lượng lẻ thập phân và tính năng <span className="font-semibold text-slate-700">"Mua theo số tiền"</span> tự động quy đổi khối lượng.
+                  </div>
+                </div>
               )}
             </div>
           </div>
