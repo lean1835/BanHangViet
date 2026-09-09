@@ -9,4 +9,6 @@ import java.util.List;
 @Repository
 public interface InvoiceDeliveryLogRepository extends JpaRepository<InvoiceDeliveryLog, String> {
     List<InvoiceDeliveryLog> findByInvoiceIdOrderBySentAtDesc(String invoiceId);
+    long countByInvoiceId(String invoiceId);
+    java.util.Optional<InvoiceDeliveryLog> findFirstByInvoiceIdOrderBySentAtDesc(String invoiceId);
 }

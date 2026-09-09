@@ -90,6 +90,21 @@ public class CustomerController {
         return ResponseEntity.ok(response);
     }
 
+    @PutMapping("/{id}/delivery-channel")
+    @PreAuthorize("hasAnyRole('VT-01', 'VT-02')")
+    public ResponseEntity<ApiResponse<CustomerResponse>> updateCustomerDeliveryChannel(
+            Principal principal,
+            @PathVariable String id,
+            @Valid @RequestBody com.sales.dto.request.UpdateCustomerDeliveryChannelRequest request) {
+        CustomerResponse result = customerService.updateDefaultDeliveryChannel(principal.getName(), id, request);
+        ApiResponse<CustomerResponse> response = ApiResponse.<CustomerResponse>builder()
+                .code(1000)
+                .message("Cập nhật kênh nhận hóa đơn mặc định của khách hàng thành công")
+                .result(result)
+                .build();
+        return ResponseEntity.ok(response);
+    }
+
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('VT-01')")
     public ResponseEntity<ApiResponse<Void>> deleteCustomer(

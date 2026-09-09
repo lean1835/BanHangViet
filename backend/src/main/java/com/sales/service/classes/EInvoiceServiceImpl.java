@@ -5,6 +5,7 @@ import com.sales.dto.request.BulkIssueInvoiceRequest;
 import com.sales.dto.request.CancelInvoiceRequest;
 import com.sales.dto.request.CreateAdjustmentInvoiceItemRequest;
 import com.sales.dto.request.CreateAdjustmentInvoiceRequest;
+import com.sales.dto.request.ResendCustomerDeliveryRequest;
 import com.sales.dto.request.UpdateInvoiceRequest;
 import com.sales.dto.response.*;
 import com.sales.entity.*;
@@ -1804,5 +1805,159 @@ public class EInvoiceServiceImpl implements EInvoiceService {
                 .pendingInvoices(pendingInvoices)
                 .failedInvoices(failedInvoices)
                 .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PageResponse<FailedCustomerDeliveryInvoiceResponse> getFailedCustomerDeliveries(String currentUsername, int page, int size) {
+        User currentUser = getAuthenticatedUser(currentUsername);
+        BusinessHousehold household = currentUser.getHousehold();
+        if (household == null) {
+            throw new AppException(ErrorCode.FORBIDDEN);
+        }
+
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
+        Page<EInvoice> failedPage = eInvoiceRepository.findByHouseholdIdAndCustomerDeliveryStatusAndDeletedAtIsNull(
+                household.getId(), "FAILED", pageable);
+
+        List<FailedCustomerDeliveryInvoiceResponse> content = failedPage.getContent().stream().map(inv -> {
+            Optional<InvoiceDeliveryLog> lastLogOpt = invoiceDeliveryLogRepository.findFirstByInvoiceIdOrderBySentAtDesc(inv.getId());
+            long attemptCount = invoiceDeliveryLogRepository.countByInvoiceId(inv.getId());
+
+            return FailedCustomerDeliveryInvoiceResponse.builder()
+                    .invoiceId(inv.getId())
+                    .invoiceNumber(inv.getInvoiceNumber())
+                    .lookupCode(inv.getLookupCode())
+                    .buyerName(inv.getBuyerName())
+                    .buyerPhone(inv.getBuyerPhone())
+                    .buyerEmail(inv.getBuyerEmail())
+                    .finalAmount(inv.getFinalAmount())
+                    .status(inv.getStatus())
+                    .customerDeliveryStatus(inv.getCustomerDeliveryStatus())
+                    .lastChannel(lastLogOpt.map(InvoiceDeliveryLog::getChannel).orElse(null))
+                    .lastRecipientAddress(lastLogOpt.map(InvoiceDeliveryLog::getRecipientAddress).orElse(null))
+                    .lastErrorMessage(lastLogOpt.map(InvoiceDeliveryLog::getErrorMessage).orElse(null))
+                    .deliveryAttemptCount(attemptCount)
+                    .lastSentAt(lastLogOpt.map(InvoiceDeliveryLog::getSentAt).orElse(null))
+                    .createdAt(inv.getCreatedAt())
+                    .build();
+        }).collect(Collectors.toList());
+
+        return PageResponse.<FailedCustomerDeliveryInvoiceResponse>builder()
+                .content(content)
+                .pageNumber(failedPage.getNumber())
+                .pageSize(failedPage.getSize())
+                .totalElements(failedPage.getTotalElements())
+                .totalPages(failedPage.getTotalPages())
+                .last(failedPage.isLast())
+                .build();
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public InvoiceResponse resendCustomerDelivery(String currentUsername, String invoiceId, ResendCustomerDeliveryRequest request) {
+        User currentUser = getAuthenticatedUser(currentUsername);
+        EInvoice invoice = eInvoiceRepository.findById(invoiceId)
+                .orElseThrow(() -> new AppException(ErrorCode.INVOICE_NOT_FOUND));
+
+        checkInvoiceOwnership(invoice, currentUser);
+
+        if (Boolean.TRUE.equals(request.getUpdateCustomerDefaultChannel())) {
+            Customer customerToUpdate = null;
+            if (invoice.getOrder() != null && invoice.getOrder().getCustomer() != null) {
+                customerToUpdate = invoice.getOrder().getCustomer();
+            } else if (invoice.getHousehold() != null && invoice.getBuyerPhone() != null && !invoice.getBuyerPhone().isBlank()) {
+                customerToUpdate = customerRepository.findByPhoneNumberAndHouseholdIdAndDeletedAtIsNull(
+                        invoice.getBuyerPhone(), invoice.getHousehold().getId()).orElse(null);
+            }
+            if (customerToUpdate != null) {
+                customerToUpdate.setDefaultDeliveryChannel(request.getChannel());
+                if (request.getRecipientAddress() != null && !request.getRecipientAddress().isBlank()) {
+                    customerToUpdate.setDefaultDeliveryAddress(request.getRecipientAddress());
+                }
+                customerRepository.save(customerToUpdate);
+            }
+        }
+
+        String channel = request.getChannel().toUpperCase();
+        String recipient = request.getRecipientAddress();
+
+        if ("EMAIL".equalsIgnoreCase(channel)) {
+            invoice.setCustomerDeliveryStatus("PENDING");
+            eInvoiceRepository.save(invoice);
+
+            InvoiceDeliveryLog deliveryLog = InvoiceDeliveryLog.builder()
+                    .invoice(invoice)
+                    .channel("EMAIL")
+                    .recipientAddress(recipient)
+                    .status("PENDING")
+                    .build();
+            InvoiceDeliveryLog savedLog = invoiceDeliveryLogRepository.save(deliveryLog);
+
+            String lookupUrl = (frontendUrl != null ? frontendUrl : "http://localhost:3000") + "/lookup-invoice?code=" + invoice.getLookupCode();
+            emailService.sendInvoiceEmailAsync(savedLog.getId(), recipient, lookupUrl, invoice.getHousehold().getName(), invoice.getLookupCode(), invoice.getFinalAmount());
+        } else if ("ZALO".equalsIgnoreCase(channel)) {
+            boolean isValidZaloPhone = recipient != null && recipient.matches("^[0-9]{9,15}$");
+            String status = isValidZaloPhone ? "SUCCESS" : "FAILED";
+            String errorMsg = isValidZaloPhone ? null : "Số điện thoại Zalo không hợp lệ";
+
+            invoice.setCustomerDeliveryStatus(status);
+            eInvoiceRepository.save(invoice);
+
+            InvoiceDeliveryLog deliveryLog = InvoiceDeliveryLog.builder()
+                    .invoice(invoice)
+                    .channel("ZALO")
+                    .recipientAddress(recipient)
+                    .status(status)
+                    .errorMessage(errorMsg)
+                    .build();
+            invoiceDeliveryLogRepository.save(deliveryLog);
+        } else if ("QR".equalsIgnoreCase(channel)) {
+            invoice.setCustomerDeliveryStatus("SUCCESS");
+            eInvoiceRepository.save(invoice);
+
+            InvoiceDeliveryLog deliveryLog = InvoiceDeliveryLog.builder()
+                    .invoice(invoice)
+                    .channel("QR")
+                    .recipientAddress(recipient)
+                    .status("SUCCESS")
+                    .build();
+            invoiceDeliveryLogRepository.save(deliveryLog);
+        } else if ("PRINT".equalsIgnoreCase(channel)) {
+            invoice.setCustomerDeliveryStatus("SUCCESS");
+            eInvoiceRepository.save(invoice);
+
+            InvoiceDeliveryLog deliveryLog = InvoiceDeliveryLog.builder()
+                    .invoice(invoice)
+                    .channel("PRINT")
+                    .recipientAddress(recipient)
+                    .status("SUCCESS")
+                    .build();
+            invoiceDeliveryLogRepository.save(deliveryLog);
+        }
+
+        return mapToInvoiceResponse(invoice);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<InvoiceDeliveryLogResponse> getInvoiceDeliveryHistory(String currentUsername, String invoiceId) {
+        User currentUser = getAuthenticatedUser(currentUsername);
+        EInvoice invoice = eInvoiceRepository.findById(invoiceId)
+                .orElseThrow(() -> new AppException(ErrorCode.INVOICE_NOT_FOUND));
+
+        checkInvoiceOwnership(invoice, currentUser);
+
+        List<InvoiceDeliveryLog> logs = invoiceDeliveryLogRepository.findByInvoiceIdOrderBySentAtDesc(invoiceId);
+        return logs.stream().map(logRecord -> InvoiceDeliveryLogResponse.builder()
+                .id(logRecord.getId())
+                .invoiceId(invoice.getId())
+                .channel(logRecord.getChannel())
+                .recipientAddress(logRecord.getRecipientAddress())
+                .status(logRecord.getStatus())
+                .errorMessage(logRecord.getErrorMessage())
+                .sentAt(logRecord.getSentAt())
+                .createdAt(logRecord.getCreatedAt())
+                .build()).collect(Collectors.toList());
     }
 }

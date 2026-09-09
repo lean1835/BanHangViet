@@ -537,5 +537,60 @@ class EInvoiceServiceImplTest {
         assertEquals("Quận 1, TP.HCM", createdCust.getAddress());
         assertEquals("fresh@corp.vn", createdCust.getEmail());
     }
+
+    @Test
+    @DisplayName("NCL-06-CN-005: Gửi lại hóa đơn cho khách qua Email thành công và lưu trạng thái PENDING")
+    void resendCustomerDelivery_Email_Success() {
+        when(userRepository.findByUsername("seller1")).thenReturn(Optional.of(currentUser));
+        when(eInvoiceRepository.findById("inv-draft-1")).thenReturn(Optional.of(draftInvoice));
+        when(eInvoiceRepository.save(any(EInvoice.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(invoiceDeliveryLogRepository.save(any(com.sales.entity.InvoiceDeliveryLog.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        com.sales.dto.request.ResendCustomerDeliveryRequest request =
+                com.sales.dto.request.ResendCustomerDeliveryRequest.builder()
+                        .channel("EMAIL")
+                        .recipientAddress("test.customer@gmail.com")
+                        .updateCustomerDefaultChannel(false)
+                        .build();
+
+        InvoiceResponse response = eInvoiceService.resendCustomerDelivery("seller1", "inv-draft-1", request);
+
+        assertNotNull(response);
+        assertEquals("PENDING", draftInvoice.getCustomerDeliveryStatus());
+        verify(emailService, times(1)).sendInvoiceEmailAsync(any(), eq("test.customer@gmail.com"), any(), any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("NCL-06-CN-005 & NCL-06-CN-006: Gửi lại hóa đơn cho khách qua Zalo thành công và cập nhật kênh mặc định cho khách")
+    void resendCustomerDelivery_Zalo_UpdateCustomerDefault_Success() {
+        Customer customer = Customer.builder()
+                .id("cust-100")
+                .household(household)
+                .name("Khách Hàng Thân Thiết")
+                .phoneNumber("0912345678")
+                .build();
+        draftInvoice.setBuyerPhone("0912345678");
+
+        when(userRepository.findByUsername("seller1")).thenReturn(Optional.of(currentUser));
+        when(eInvoiceRepository.findById("inv-draft-1")).thenReturn(Optional.of(draftInvoice));
+        when(customerRepository.findByPhoneNumberAndHouseholdIdAndDeletedAtIsNull("0912345678", "hh-100"))
+                .thenReturn(Optional.of(customer));
+        when(eInvoiceRepository.save(any(EInvoice.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(customerRepository.save(any(Customer.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        com.sales.dto.request.ResendCustomerDeliveryRequest request =
+                com.sales.dto.request.ResendCustomerDeliveryRequest.builder()
+                        .channel("ZALO")
+                        .recipientAddress("0912345678")
+                        .updateCustomerDefaultChannel(true)
+                        .build();
+
+        InvoiceResponse response = eInvoiceService.resendCustomerDelivery("seller1", "inv-draft-1", request);
+
+        assertNotNull(response);
+        assertEquals("SUCCESS", draftInvoice.getCustomerDeliveryStatus());
+        assertEquals("ZALO", customer.getDefaultDeliveryChannel());
+        assertEquals("0912345678", customer.getDefaultDeliveryAddress());
+    }
 }
 

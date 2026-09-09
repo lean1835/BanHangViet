@@ -23,6 +23,7 @@ public class EmailServiceImpl implements EmailService {
 
     private final JavaMailSender mailSender;
     private final InvoiceDeliveryLogRepository invoiceDeliveryLogRepository;
+    private final com.sales.repository.EInvoiceRepository eInvoiceRepository;
 
     @Override
     @Async("taskExecutor")
@@ -80,6 +81,16 @@ public class EmailServiceImpl implements EmailService {
                 logRecord.setStatus(status);
                 logRecord.setErrorMessage(errorMsg);
                 invoiceDeliveryLogRepository.save(logRecord);
+
+                if (logRecord.getInvoice() != null) {
+                    com.sales.entity.EInvoice invoice = logRecord.getInvoice();
+                    if ("SUCCESS".equalsIgnoreCase(status)) {
+                        invoice.setCustomerDeliveryStatus("SUCCESS");
+                    } else if ("FAILED".equalsIgnoreCase(status)) {
+                        invoice.setCustomerDeliveryStatus("FAILED");
+                    }
+                    eInvoiceRepository.save(invoice);
+                }
             });
         } catch (Exception ex) {
             log.error("Lỗi khi cập nhật trạng thái giao nhận hóa đơn ID={}", logId, ex);

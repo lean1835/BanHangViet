@@ -72,6 +72,13 @@ public class Customer {
     @Builder.Default
     private Integer reminderDaysAfter = 3;
 
+    @Column(name = "default_delivery_channel", length = 20)
+    @Builder.Default
+    private String defaultDeliveryChannel = "QR";
+
+    @Column(name = "default_delivery_address", length = 255)
+    private String defaultDeliveryAddress;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

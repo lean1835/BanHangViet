@@ -448,4 +448,25 @@ class CustomerServiceImplTest {
         assertNotNull(response);
         assertEquals("0101234567", response.getTaxCode());
     }
+
+    @Test
+    @DisplayName("NCL-06-CN-006: Cập nhật kênh nhận hóa đơn mặc định của khách hàng thành công")
+    void updateDefaultDeliveryChannel_Success() {
+        com.sales.dto.request.UpdateCustomerDeliveryChannelRequest request =
+                com.sales.dto.request.UpdateCustomerDeliveryChannelRequest.builder()
+                        .defaultDeliveryChannel("ZALO")
+                        .defaultDeliveryAddress("0912345678")
+                        .build();
+
+        when(userRepository.findByUsername("chuho")).thenReturn(Optional.of(currentUser));
+        when(customerRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("cust-001", "house-001"))
+                .thenReturn(Optional.of(customerWithDebt));
+        when(customerRepository.save(any(Customer.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        CustomerResponse response = customerService.updateDefaultDeliveryChannel("chuho", "cust-001", request);
+
+        assertNotNull(response);
+        assertEquals("ZALO", response.getDefaultDeliveryChannel());
+        assertEquals("0912345678", response.getDefaultDeliveryAddress());
+    }
 }
