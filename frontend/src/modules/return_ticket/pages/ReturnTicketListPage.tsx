@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useEffect, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Plus } from "lucide-react";
 import { DashboardWorkspaceLayout } from "@/components/layouts/DashboardWorkspaceLayout";
 import { useDashboardDemo } from "@/providers/DashboardDemoProvider";
@@ -22,6 +22,7 @@ import { ReturnTicketPrintModal } from "../components/ReturnTicketPrintModal";
 import { ReturnTicketStatistics } from "../components/ReturnTicketStatistics";
 import { useNotification } from "@/hooks/useNotification";
 import { getApiErrorMessage } from "@/utils/getApiErrorMessage";
+import { notifyReturnTicketApproved } from "@/utils/returnTicketEvents";
 import type { IReturnTicket } from "../types/IReturnTicket";
 
 export const ReturnTicketListPage: React.FC = () => {
@@ -64,6 +65,19 @@ export const ReturnTicketListPage: React.FC = () => {
     size: pageSize,
   });
 
+  // Read id query param to automatically open ticket detail (NCL-02-CN-006 TC-02)
+  const [searchParams] = useSearchParams();
+  useEffect(() => {
+    const id = searchParams.get("id");
+    const tickets = data?.result?.content;
+    if (id && tickets) {
+      const found = tickets.find((t: IReturnTicket) => t.id === id);
+      if (found) {
+        setSelectedTicket(found);
+      }
+    }
+  }, [searchParams, data?.result?.content]);
+
   const [approveTicket] = useApproveReturnTicketMutation();
 
   const isOwnerOrAccountant =
@@ -86,7 +100,12 @@ export const ReturnTicketListPage: React.FC = () => {
 
   const handleApprove = async (ticketId: string) => {
     try {
-      await approveTicket(ticketId).unwrap();
+      const res = await approveTicket(ticketId).unwrap();
+      const productIds = res?.result?.items?.map((it) => it.productId).filter(Boolean) as string[];
+      notifyReturnTicketApproved({
+        ticketId,
+        productIds,
+      });
       showSuccess("Đã duyệt phiếu trả hàng và tự động cập nhật lại tồn kho!");
       refetch();
     } catch (err: unknown) {

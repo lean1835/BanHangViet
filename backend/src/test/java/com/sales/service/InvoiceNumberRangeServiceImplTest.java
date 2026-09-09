@@ -8,6 +8,7 @@ import com.sales.entity.Role;
 import com.sales.entity.User;
 import com.sales.exception.AppException;
 import com.sales.exception.ErrorCode;
+import com.sales.repository.BusinessHouseholdRepository;
 import com.sales.repository.EInvoiceRepository;
 import com.sales.repository.InvoiceNumberRangeRepository;
 import com.sales.repository.UserRepository;
@@ -44,6 +45,9 @@ class InvoiceNumberRangeServiceImplTest {
 
     @Mock
     private EInvoiceRepository eInvoiceRepository;
+
+    @Mock
+    private BusinessHouseholdRepository householdRepository;
 
     @InjectMocks
     private InvoiceNumberRangeServiceImpl rangeService;

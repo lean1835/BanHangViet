@@ -313,7 +313,7 @@ describe("NCL-12: Module Sổ sách & Kê khai thuế theo kỳ (Tax Report)", (
     it("renders security barrier screen with navigation actions (TC-04 & TC-03)", () => {
       renderWithProviders(<ForbiddenTaxReportAccess />);
 
-      expect(screen.getByText("Chặn truy cập bảo mật (TC-03)")).toBeInTheDocument();
+      expect(screen.getByText("Chặn truy cập bảo mật")).toBeInTheDocument();
       expect(
         screen.getByText("Không có quyền xem Tổng hợp doanh thu chịu thuế")
       ).toBeInTheDocument();

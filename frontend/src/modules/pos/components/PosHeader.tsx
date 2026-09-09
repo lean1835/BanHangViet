@@ -5,7 +5,12 @@ import { APP_FALLBACKS } from "@/constants/app";
 import { useGetProductsQuery } from "@/modules/product/services/productApi";
 import type { IProduct } from "@/modules/product/types/IProduct";
 import type { IPosTab } from "../types/IPos";
-import { Camera, Mic, Search } from "lucide-react";
+import {
+  Search,
+  Camera,
+  Mic,
+  Scale,
+} from "lucide-react";
 import { formatCurrency } from "@/utils/formatCurrency";
 import { useDebounce } from "@/hooks/useDebounce";
 import { PRODUCT_QUERY_CONFIG } from "@/constants/product";
@@ -219,8 +224,13 @@ export const PosHeader: React.FC<IPosHeaderProps> = ({
                         >
                           <div className="flex items-center gap-2.5">
                             <div>
-                              <div className="font-bold text-xs text-slate-800">
-                                {product.name}
+                              <div className="font-bold text-xs text-slate-800 flex items-center gap-1.5">
+                                <span>{product.name}</span>
+                                {product.isSoldByWeight && (
+                                  <span className="text-[9px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-1 py-0.2 rounded inline-flex items-center gap-0.5">
+                                    <Scale size={10} /> Cân
+                                  </span>
+                                )}
                               </div>
                               <div className="text-[10px] text-slate-400 font-medium flex items-center gap-2">
                                 <span>Mã: {product.sku || "N/A"}</span>

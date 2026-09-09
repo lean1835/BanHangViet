@@ -23,6 +23,13 @@ const DashboardOverviewPage = React.lazy(
 const ProductsLayout = React.lazy(() => import("@/modules/product/pages/ProductsLayout"));
 const ProductListPage = React.lazy(() => import("@/modules/product/pages/ProductListPage"));
 const StockEntryPage = React.lazy(() => import("@/modules/product/pages/StockEntryPage"));
+const StockCardPage = React.lazy(() => import("@/modules/product/pages/StockCardPage"));
+const PriceAdjustmentPage = React.lazy(
+  () => import("@/modules/product/pages/PriceAdjustmentPage")
+);
+const ProductDetailPage = React.lazy(
+  () => import("@/modules/product/pages/ProductDetailPage")
+);
 const InventoryAuditPage = React.lazy(
   () => import("@/modules/inventory_audit/pages/InventoryAuditPage")
 );
@@ -187,12 +194,22 @@ export const AppRouter = () => (
           >
             <Route index element={<ProductListPage />} />
             <Route path={ROUTE_SEGMENTS.STOCK_ENTRY} element={<StockEntryPage />} />
+            <Route path={ROUTE_SEGMENTS.STOCK_CARD} element={<StockCardPage />} />
+            <Route
+              path={ROUTE_SEGMENTS.PRICE_ADJUSTMENTS}
+              element={
+                <RoleRoute allowedRoles={[USER_ROLES.OWNER]}>
+                  <PriceAdjustmentPage />
+                </RoleRoute>
+              }
+            />
             <Route path={ROUTE_SEGMENTS.INVENTORY_AUDITS} element={<InventoryAuditPage />} />
             <Route path={ROUTE_SEGMENTS.INVENTORY_WARNINGS} element={<InventoryWarningPage />} />
             <Route path={ROUTE_SEGMENTS.POS_INVENTORIES} element={<PosInventoryPage />} />
             <Route path={ROUTE_SEGMENTS.POS_TRANSFERS} element={<PosTransferPage />} />
             <Route path={ROUTE_SEGMENTS.SUPPLIERS} element={<SupplierPage />} />
             <Route path={`${ROUTE_SEGMENTS.SUPPLIERS}/:id`} element={<SupplierDetailPage />} />
+            <Route path=":id" element={<ProductDetailPage />} />
           </Route>
 
           <Route

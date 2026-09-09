@@ -23,7 +23,7 @@ export const PosTransferPage: React.FC = () => {
   const [fromPosFilter, setFromPosFilter] = useState("");
   const [toPosFilter, setToPosFilter] = useState("");
   const [currentPage, setCurrentPage] = useState(0);
-  const pageSize = 10;
+  const pageSize = 8;
 
   // Active Modals
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);

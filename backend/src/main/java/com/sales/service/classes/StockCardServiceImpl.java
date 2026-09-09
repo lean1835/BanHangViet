@@ -369,7 +369,10 @@ public class StockCardServiceImpl implements StockCardService {
             );
         }
 
-        // 8. Paginate period movements
+        // 8. Reverse movements list to show newest first (DESC by timestamp)
+        Collections.reverse(periodMovementResponses);
+
+        // 9. Paginate period movements
         if (size <= 0) size = 20;
         if (page < 0) page = 0;
 

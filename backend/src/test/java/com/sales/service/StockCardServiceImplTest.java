@@ -189,29 +189,29 @@ class StockCardServiceImplTest {
         assertFalse(response.getIsDiscrepancy());
         assertNull(response.getWarning());
 
-        // Verify movements
+        // Verify movements (newest first)
         List<StockMovementResponse> movements = response.getMovements().getContent();
         assertEquals(4, movements.size());
 
-        // Movement 1: Goods Receipt
-        assertEquals("GOODS_RECEIPT", movements.get(0).getDocumentType());
-        assertEquals(0, new BigDecimal("100.000").compareTo(movements.get(0).getQuantityIn()));
-        assertEquals(0, new BigDecimal("100.000").compareTo(movements.get(0).getBalanceAfter()));
+        // Movement 1 (Newest): Inventory Audit
+        assertEquals("INVENTORY_AUDIT", movements.get(0).getDocumentType());
+        assertEquals(0, new BigDecimal("45.000").compareTo(movements.get(0).getQuantityIn()));
+        assertEquals(0, new BigDecimal("130.000").compareTo(movements.get(0).getBalanceAfter()));
 
-        // Movement 2: Order
-        assertEquals("SALE_ORDER", movements.get(1).getDocumentType());
-        assertEquals(0, new BigDecimal("20.000").compareTo(movements.get(1).getQuantityOut()));
-        assertEquals(0, new BigDecimal("80.000").compareTo(movements.get(1).getBalanceAfter()));
+        // Movement 2: Return
+        assertEquals("CUSTOMER_RETURN", movements.get(1).getDocumentType());
+        assertEquals(0, new BigDecimal("5.000").compareTo(movements.get(1).getQuantityIn()));
+        assertEquals(0, new BigDecimal("85.000").compareTo(movements.get(1).getBalanceAfter()));
 
-        // Movement 3: Return
-        assertEquals("CUSTOMER_RETURN", movements.get(2).getDocumentType());
-        assertEquals(0, new BigDecimal("5.000").compareTo(movements.get(2).getQuantityIn()));
-        assertEquals(0, new BigDecimal("85.000").compareTo(movements.get(2).getBalanceAfter()));
+        // Movement 3: Order
+        assertEquals("SALE_ORDER", movements.get(2).getDocumentType());
+        assertEquals(0, new BigDecimal("20.000").compareTo(movements.get(2).getQuantityOut()));
+        assertEquals(0, new BigDecimal("80.000").compareTo(movements.get(2).getBalanceAfter()));
 
-        // Movement 4: Inventory Audit
-        assertEquals("INVENTORY_AUDIT", movements.get(3).getDocumentType());
-        assertEquals(0, new BigDecimal("45.000").compareTo(movements.get(3).getQuantityIn()));
-        assertEquals(0, new BigDecimal("130.000").compareTo(movements.get(3).getBalanceAfter()));
+        // Movement 4 (Oldest): Goods Receipt
+        assertEquals("GOODS_RECEIPT", movements.get(3).getDocumentType());
+        assertEquals(0, new BigDecimal("100.000").compareTo(movements.get(3).getQuantityIn()));
+        assertEquals(0, new BigDecimal("100.000").compareTo(movements.get(3).getBalanceAfter()));
     }
 
     @Test
@@ -431,7 +431,7 @@ class StockCardServiceImplTest {
         assertEquals(0, new BigDecimal("30.000").compareTo(response.getTotalQuantityOut()));
         assertEquals(0, new BigDecimal("70.000").compareTo(response.getClosingStock()));
 
-        StockMovementResponse auditMovement = response.getMovements().getContent().get(1);
+        StockMovementResponse auditMovement = response.getMovements().getContent().get(0);
         assertEquals("OUT", auditMovement.getChangeType());
         assertEquals(0, new BigDecimal("30.000").compareTo(auditMovement.getQuantityOut()));
         assertEquals(0, new BigDecimal("70.000").compareTo(auditMovement.getBalanceAfter()));
@@ -493,15 +493,14 @@ class StockCardServiceImplTest {
         List<StockMovementResponse> movements = response.getMovements().getContent();
         assertEquals(2, movements.size());
 
-        // First item must be GOODS_RECEIPT (IN), even though its ID is "z-id"
-        assertEquals("GOODS_RECEIPT", movements.get(0).getDocumentType());
-        assertEquals("IN", movements.get(0).getChangeType());
-        assertEquals(0, new BigDecimal("100.000").compareTo(movements.get(0).getBalanceAfter()));
+        // Reversing list places SALE_ORDER (OUT) first and GOODS_RECEIPT (IN) second
+        assertEquals("SALE_ORDER", movements.get(0).getDocumentType());
+        assertEquals("OUT", movements.get(0).getChangeType());
+        assertEquals(0, new BigDecimal("80.000").compareTo(movements.get(0).getBalanceAfter()));
 
-        // Second item must be SALE_ORDER (OUT)
-        assertEquals("SALE_ORDER", movements.get(1).getDocumentType());
-        assertEquals("OUT", movements.get(1).getChangeType());
-        assertEquals(0, new BigDecimal("80.000").compareTo(movements.get(1).getBalanceAfter()));
+        assertEquals("GOODS_RECEIPT", movements.get(1).getDocumentType());
+        assertEquals("IN", movements.get(1).getChangeType());
+        assertEquals(0, new BigDecimal("100.000").compareTo(movements.get(1).getBalanceAfter()));
     }
 
     @Test
@@ -564,14 +563,14 @@ class StockCardServiceImplTest {
         List<StockMovementResponse> movements = response.getMovements().getContent();
         assertEquals(2, movements.size());
 
-        // Nhập 1 thùng: quantityIn phải là 24 (lon), không phải 1
-        assertEquals(new BigDecimal("24"), movements.get(0).getQuantityIn());
-        assertEquals(new BigDecimal("24"), movements.get(0).getBalanceAfter());
+        // Bán 1 thùng (2026-09-06, mới hơn) -> index 0
+        assertEquals(new BigDecimal("24"), movements.get(0).getQuantityOut());
+        assertEquals(new BigDecimal("0"), movements.get(0).getBalanceAfter());
         assertTrue(movements.get(0).getNotes().contains("[Quy đổi: 1 Thùng x 24]"));
 
-        // Bán 1 thùng: quantityOut phải là 24 (lon), không phải 1
-        assertEquals(new BigDecimal("24"), movements.get(1).getQuantityOut());
-        assertEquals(new BigDecimal("0"), movements.get(1).getBalanceAfter());
+        // Nhập 1 thùng (2026-09-05, cũ hơn) -> index 1
+        assertEquals(new BigDecimal("24"), movements.get(1).getQuantityIn());
+        assertEquals(new BigDecimal("24"), movements.get(1).getBalanceAfter());
         assertTrue(movements.get(1).getNotes().contains("[Quy đổi: 1 Thùng x 24]"));
     }
 

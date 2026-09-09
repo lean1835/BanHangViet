@@ -31,6 +31,7 @@ export const householdInfoSchema = z.object({
   offlineMaxOrders: z.coerce.number({ invalid_type_error: "Số đơn tối đa phải là số hợp lệ" }).optional(),
   limitHoursEnabled: z.boolean(),
   offlineMaxHours: z.coerce.number({ invalid_type_error: "Số giờ tối đa phải là số hợp lệ" }).optional(),
+  roundingRule: z.enum(["HALF_UP", "UP", "DOWN", "ROUND_TO_100", "ROUND_TO_1000"]).optional(),
 }).superRefine((data, ctx) => {
   if (data.limitOrdersEnabled) {
     const val = data.offlineMaxOrders;
