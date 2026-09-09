@@ -11,6 +11,10 @@ export const REPORT_NAVIGATION_ITEMS = [
     label: "Doanh thu theo điểm bán",
   },
   {
+    path: APP_ROUTES.REPORT_EMPLOYEE_SHIFTS,
+    label: "Doanh thu theo nhân viên & ca",
+  },
+  {
     path: APP_ROUTES.REPORT_PEAK_HOURS,
     label: "Giờ cao điểm & Ngày bán chạy",
   },
@@ -98,6 +102,16 @@ export const REPORT_UI = {
       USER: "Tài khoản thực hiện",
       ACTION: "Mã hành động",
       TARGET: "Mục tiêu tác động",
+    },
+  },
+  EMPLOYEE_SHIFTS: {
+    TITLE: "Báo cáo doanh thu theo nhân viên & ca",
+    DESCRIPTION:
+      "Theo dõi chi tiết hiệu quả bán hàng, cơ cấu doanh thu tiền mặt / chuyển khoản và kiểm soát chênh lệch két tiền theo từng ca làm việc.",
+    DEFAULT_THRESHOLD: 50000,
+    TABS: {
+      SHIFTS: "Chi tiết từng ca",
+      EMPLOYEES: "Tổng hợp theo nhân viên",
     },
   },
 } as const;

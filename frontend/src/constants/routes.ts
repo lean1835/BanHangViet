@@ -44,6 +44,7 @@ export const ROUTE_SEGMENTS = {
   POS_TRANSFERS: "pos-transfers",
   POS_REVENUE: "pos-revenue",
   PEAK_HOURS: "peak-hours",
+  EMPLOYEE_SHIFTS: "employee-shifts",
   USER_PROFILE: "user-profile",
   SESSIONS: "sessions",
   WILDCARD: "*",
@@ -138,6 +139,10 @@ export const APP_ROUTES = {
   REPORT_PEAK_HOURS: createRoute(
     ROUTE_SEGMENTS.REPORTS,
     ROUTE_SEGMENTS.PEAK_HOURS,
+  ),
+  REPORT_EMPLOYEE_SHIFTS: createRoute(
+    ROUTE_SEGMENTS.REPORTS,
+    ROUTE_SEGMENTS.EMPLOYEE_SHIFTS,
   ),
   SETTINGS: createRoute(ROUTE_SEGMENTS.SETTINGS),
   SETTINGS_USER_PROFILE: createRoute(

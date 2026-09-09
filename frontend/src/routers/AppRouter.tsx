@@ -101,6 +101,9 @@ const PosTransferPage = React.lazy(
 const PosRevenueReportPage = React.lazy(
   () => import("@/modules/report/pages/PosRevenueReportPage")
 );
+const EmployeeShiftReportPage = React.lazy(
+  () => import("@/modules/report/pages/EmployeeShiftReportPage")
+);
 const TaxRateSettingsPage = React.lazy(
   () => import("@/modules/settings/pages/TaxRateSettingsPage")
 );
@@ -303,6 +306,7 @@ export const AppRouter = () => (
             <Route index element={<Navigate to={ROUTE_SEGMENTS.REVENUE} replace />} />
             <Route path={ROUTE_SEGMENTS.REVENUE} element={<RevenueReportPage />} />
             <Route path={ROUTE_SEGMENTS.POS_REVENUE} element={<PosRevenueReportPage />} />
+            <Route path={ROUTE_SEGMENTS.EMPLOYEE_SHIFTS} element={<EmployeeShiftReportPage />} />
             <Route path={ROUTE_SEGMENTS.PEAK_HOURS} element={<PeakHoursAnalyticsPage />} />
             <Route path={ROUTE_SEGMENTS.COMPARISON} element={<RevenueComparisonPage />} />
             <Route path={ROUTE_SEGMENTS.TAX_DECLARATION} element={<TaxDeclarationPage />} />

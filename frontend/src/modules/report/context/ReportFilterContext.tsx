@@ -151,6 +151,36 @@ export const getPosRevenuePresetDates = (preset: "today" | "thisWeek" | "thisMon
 };
 
 // ==========================================
+// 6. EMPLOYEE SHIFT REVENUE REPORT FILTER
+// ==========================================
+export interface IEmployeeShiftFilterState {
+  fromDate: string;
+  toDate: string;
+  employeeId: string;
+  threshold: number;
+  onlyDiscrepancy: boolean;
+  activePreset: "today" | "thisWeek" | "thisMonth" | "custom";
+}
+
+export const getEmployeeShiftPresetDates = (preset: "today" | "thisWeek" | "thisMonth") => {
+  const now = new Date();
+  const todayStr = getLocalDateString(now);
+
+  if (preset === "today") {
+    return { fromDate: todayStr, toDate: todayStr };
+  }
+  if (preset === "thisWeek") {
+    const day = now.getDay();
+    const diff = now.getDate() - day + (day === 0 ? -6 : 1);
+    const monday = new Date(now.setDate(diff));
+    return { fromDate: getLocalDateString(monday), toDate: todayStr };
+  }
+  // thisMonth
+  const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+  return { fromDate: getLocalDateString(firstDay), toDate: todayStr };
+};
+
+// ==========================================
 // UNIFIED REPORT CONTEXT
 // ==========================================
 export interface IReportFilterContextType {
@@ -181,6 +211,12 @@ export interface IReportFilterContextType {
   setPosRevenueFilter: React.Dispatch<React.SetStateAction<IPosRevenueFilterState>>;
   setPosRevenuePreset: (preset: "today" | "thisWeek" | "thisMonth" | "thisQuarter") => void;
   resetPosRevenueFilter: () => void;
+
+  // Employee Shift Revenue (NCL-07-CN-010)
+  employeeShiftFilter: IEmployeeShiftFilterState;
+  setEmployeeShiftFilter: React.Dispatch<React.SetStateAction<IEmployeeShiftFilterState>>;
+  setEmployeeShiftPreset: (preset: "today" | "thisWeek" | "thisMonth") => void;
+  resetEmployeeShiftFilter: () => void;
 }
 
 export const ReportFilterContext = createContext<IReportFilterContextType | undefined>(undefined);
@@ -310,6 +346,39 @@ export const ReportFilterProvider: React.FC<{ children: ReactNode }> = ({ childr
     });
   }, []);
 
+  // 6. Employee Shift Revenue
+  const initialShiftDates = useMemo(() => getEmployeeShiftPresetDates("thisMonth"), []);
+  const [employeeShiftFilter, setEmployeeShiftFilter] = useState<IEmployeeShiftFilterState>({
+    fromDate: initialShiftDates.fromDate,
+    toDate: initialShiftDates.toDate,
+    employeeId: "",
+    threshold: 50000,
+    onlyDiscrepancy: false,
+    activePreset: "thisMonth",
+  });
+
+  const setEmployeeShiftPreset = useCallback((preset: "today" | "thisWeek" | "thisMonth") => {
+    const dates = getEmployeeShiftPresetDates(preset);
+    setEmployeeShiftFilter((prev) => ({
+      ...prev,
+      fromDate: dates.fromDate,
+      toDate: dates.toDate,
+      activePreset: preset,
+    }));
+  }, []);
+
+  const resetEmployeeShiftFilter = useCallback(() => {
+    const dates = getEmployeeShiftPresetDates("thisMonth");
+    setEmployeeShiftFilter({
+      fromDate: dates.fromDate,
+      toDate: dates.toDate,
+      employeeId: "",
+      threshold: 50000,
+      onlyDiscrepancy: false,
+      activePreset: "thisMonth",
+    });
+  }, []);
+
   const contextValue = useMemo(
     () => ({
       revenueFilter,
@@ -330,6 +399,10 @@ export const ReportFilterProvider: React.FC<{ children: ReactNode }> = ({ childr
       setPosRevenueFilter,
       setPosRevenuePreset,
       resetPosRevenueFilter,
+      employeeShiftFilter,
+      setEmployeeShiftFilter,
+      setEmployeeShiftPreset,
+      resetEmployeeShiftFilter,
     }),
     [
       revenueFilter,
@@ -345,6 +418,9 @@ export const ReportFilterProvider: React.FC<{ children: ReactNode }> = ({ childr
       posRevenueFilter,
       setPosRevenuePreset,
       resetPosRevenueFilter,
+      employeeShiftFilter,
+      setEmployeeShiftPreset,
+      resetEmployeeShiftFilter,
     ]
   );
 

@@ -8,6 +8,7 @@ import { AnomalyAlertSidebar } from "@/modules/anomaly_alert/components/AnomalyA
 import { PeakHoursSidebar } from "@/modules/sales_analytics/components/PeakHoursSidebar";
 import { RevenueReportSidebar } from "./RevenueReportSidebar";
 import { PosRevenueReportSidebar } from "./PosRevenueReportSidebar";
+import { EmployeeShiftReportSidebar } from "./EmployeeShiftReportSidebar";
 import { RevenueComparisonSidebar } from "./RevenueComparisonSidebar";
 import { ActivityLogSidebar } from "./ActivityLogSidebar";
 
@@ -29,6 +30,10 @@ export const ReportSidebar: React.FC = () => {
   const isPosRevenueRoute =
     location.pathname === APP_ROUTES.REPORT_POS_REVENUE ||
     location.pathname.startsWith("/reports/pos-revenue");
+
+  const isEmployeeShiftsRoute =
+    location.pathname === APP_ROUTES.REPORT_EMPLOYEE_SHIFTS ||
+    location.pathname.startsWith("/reports/employee-shifts");
 
   const isPeakHoursRoute =
     location.pathname === APP_ROUTES.REPORT_PEAK_HOURS ||
@@ -83,6 +88,13 @@ export const ReportSidebar: React.FC = () => {
       {isPosRevenueRoute && (
         <div className="pt-2 border-t border-slate-200">
           <PosRevenueReportSidebar />
+        </div>
+      )}
+
+      {/* 2.5 Employee Shifts Report Filter */}
+      {isEmployeeShiftsRoute && (
+        <div className="pt-2 border-t border-slate-200">
+          <EmployeeShiftReportSidebar />
         </div>
       )}
 
