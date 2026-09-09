@@ -57,6 +57,7 @@ export const API_TAG_TYPES = {
   SALES_ANALYTICS: "SalesAnalytics",
   USER_SESSION: "UserSession",
   SESSION_SETTINGS: "SessionSettings",
+  INVOICE_ERROR_NOTICE: "InvoiceErrorNotice",
 } as const;
 
 export const API_TAG_TYPE_VALUES = Object.values(API_TAG_TYPES);

@@ -254,6 +254,7 @@ public class InvoiceErrorNoticeServiceImpl implements InvoiceErrorNoticeService 
                 .cancelReason(invoice.getCancelReason())
                 .lookupCode(invoice.getLookupCode())
                 .createdAt(invoice.getCreatedAt())
+                .isErrorNotified(invoice.getIsErrorNotified())
                 .build();
     }
 }

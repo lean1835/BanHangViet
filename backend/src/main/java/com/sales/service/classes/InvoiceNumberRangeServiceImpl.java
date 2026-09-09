@@ -154,6 +154,12 @@ public class InvoiceNumberRangeServiceImpl implements InvoiceNumberRangeService 
         }
 
         if (ranges == null || ranges.isEmpty()) {
+            List<InvoiceNumberRange> allRanges = (pattern != null && symbol != null)
+                    ? rangeRepository.findOverlappingRanges(householdId, pattern, symbol)
+                    : rangeRepository.findActiveRangesByHouseholdId(householdId);
+            if (allRanges == null || allRanges.isEmpty()) {
+                throw new AppException(ErrorCode.INVOICE_RANGE_NOT_FOUND);
+            }
             throw new AppException(ErrorCode.INVOICE_RANGE_EXHAUSTED);
         }
 
