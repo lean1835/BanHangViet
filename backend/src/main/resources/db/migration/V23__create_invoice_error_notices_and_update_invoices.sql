@@ -1,4 +1,4 @@
--- V22: Create tables for invoice error notices (Mẫu 04/SS-HĐĐT - NCL-05-CN-005) and add is_error_notified column to e_invoices
+-- V23: Create tables for invoice error notices (Mẫu 04/SS-HĐĐT - NCL-05-CN-005) and add is_error_notified column to e_invoices
 
 ALTER TABLE e_invoices 
 ADD COLUMN is_error_notified BOOLEAN NOT NULL DEFAULT FALSE;
