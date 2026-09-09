@@ -34,6 +34,9 @@ public interface EInvoiceRepository extends JpaRepository<EInvoice, String>, Jpa
     Optional<EInvoice> findByIdAndHouseholdIdAndDeletedAtIsNull(String id, String householdId);
 
     @EntityGraph(attributePaths = {"items", "items.product", "createdByUser", "canceledByUser", "household", "order", "originalInvoice"})
+    List<EInvoice> findByHouseholdIdAndStatusAndDeletedAtIsNull(String householdId, String status);
+
+    @EntityGraph(attributePaths = {"items", "items.product", "createdByUser", "canceledByUser", "household", "order", "originalInvoice"})
     Optional<EInvoice> findByOrderIdAndDeletedAtIsNull(String orderId);
 
     @EntityGraph(attributePaths = {"items", "items.product", "createdByUser", "canceledByUser", "household", "order", "originalInvoice"})

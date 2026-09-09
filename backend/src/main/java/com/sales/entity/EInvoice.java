@@ -149,6 +149,10 @@ public class EInvoice {
     @Column(name = "error_category", length = 30)
     private String errorCategory;
 
+    @Column(name = "is_error_notified", nullable = false)
+    @Builder.Default
+    private Boolean isErrorNotified = false;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
