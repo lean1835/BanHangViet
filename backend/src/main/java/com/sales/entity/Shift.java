@@ -8,6 +8,8 @@ import org.hibernate.annotations.UpdateTimestamp;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "shifts", indexes = {
@@ -68,4 +70,10 @@ public class Shift {
     @UpdateTimestamp
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
+
+    @OneToMany(mappedBy = "shift", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @OrderBy("stageNumber ASC")
+    @Builder.Default
+    @ToString.Exclude
+    private List<ShiftHandover> handovers = new ArrayList<>();
 }

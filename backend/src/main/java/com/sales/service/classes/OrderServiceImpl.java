@@ -2,13 +2,12 @@ package com.sales.service.classes;
 
 import com.sales.constant.DebtStatus;
 import com.sales.constant.DebtType;
+import com.sales.constant.PaymentMethodConstant;
 import com.sales.constant.RoundingRule;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sales.constant.ShiftStatus;
 import com.sales.dto.request.*;
-import com.sales.dto.response.CalculateWeightResponse;
-import com.sales.dto.response.OrderItemResponse;
-import com.sales.dto.response.OrderResponse;
+import com.sales.dto.response.*;
 import com.sales.entity.*;
 import com.sales.exception.AppException;
 import com.sales.exception.ErrorCode;
@@ -25,12 +24,17 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -54,6 +58,17 @@ public class OrderServiceImpl implements OrderService {
     private final PosInventoryService posInventoryService;
     private final ProductUnitConversionRepository productUnitConversionRepository;
     private final com.sales.service.interfaces.ProductPriceTierService productPriceTierService;
+    private final DiningTableRepository diningTableRepository;
+    private final BusinessHouseholdSettingsRepository settingsRepository;
+    private final OrderPaymentRepository orderPaymentRepository;
+
+    private Integer getHouseholdMaxHoldingHours(String householdId) {
+        if (settingsRepository == null) return 4;
+        return settingsRepository.findByHouseholdId(householdId)
+                .map(BusinessHouseholdSettings::getMaxOrderHoldingHours)
+                .orElse(4);
+    }
+
 
     private User getAuthenticatedUser(String username) {
         return userRepository.findByUsername(username)
@@ -67,7 +82,11 @@ public class OrderServiceImpl implements OrderService {
                     && !currentUser.getPointOfSale().getId().equals(order.getPointOfSale().getId())) {
                 throw new AppException(ErrorCode.POS_EMPLOYEE_ACCESS_DENIED);
             }
-            if (!order.getCreatedByUser().getId().equals(currentUser.getId())) {
+            boolean isCreator = order.getCreatedByUser().getId().equals(currentUser.getId());
+            boolean isCurrentShiftCashier = order.getShift() != null
+                    && order.getShift().getStatus() == ShiftStatus.OPEN
+                    && order.getShift().getUser().getId().equals(currentUser.getId());
+            if (!isCreator && !isCurrentShiftCashier) {
                 throw new AppException(ErrorCode.FORBIDDEN);
             }
         }
@@ -245,6 +264,10 @@ public class OrderServiceImpl implements OrderService {
     }
 
     private OrderResponse mapToResponse(Order order, List<String> warnings, BigDecimal changeAmount, String qrCodeUrl) {
+        return mapToResponse(order, warnings, changeAmount, qrCodeUrl, null);
+    }
+
+    private OrderResponse mapToResponse(Order order, List<String> warnings, BigDecimal changeAmount, String qrCodeUrl, List<OrderPayment> preloadedPayments) {
         List<OrderItemResponse> itemResponses = order.getItems().stream()
                 .map(item -> OrderItemResponse.builder()
                         .id(item.getId())
@@ -290,6 +313,64 @@ public class OrderServiceImpl implements OrderService {
             paidAmount = order.getFinalAmount().add(changeAmount != null ? changeAmount : BigDecimal.ZERO);
         }
 
+        // NCL-03-CN-010 Đặt tên nhận diện và treo nhiều đơn theo bàn hoặc khách
+        String diningTableId = order.getDiningTable() != null ? order.getDiningTable().getId() : null;
+        String diningTableName = order.getDiningTable() != null ? order.getDiningTable().getName() : null;
+        String diningTableArea = order.getDiningTable() != null ? order.getDiningTable().getArea() : null;
+
+        Long holdingDurationMinutes = 0L;
+        boolean isOverdue = false;
+        if ("CREATING".equals(order.getStatus())) {
+            LocalDateTime createdAt = order.getCreatedAt() != null ? order.getCreatedAt() : LocalDateTime.now();
+            holdingDurationMinutes = Duration.between(createdAt, LocalDateTime.now()).toMinutes();
+            Integer maxHoldingHours = getHouseholdMaxHoldingHours(order.getHousehold().getId());
+            int limitHours = (maxHoldingHours != null && maxHoldingHours > 0) ? maxHoldingHours : 4;
+            isOverdue = holdingDurationMinutes >= (limitHours * 60L);
+            if (isOverdue) {
+                if (warnings == null) {
+                    warnings = new ArrayList<>();
+                }
+                warnings.add(String.format("Cảnh báo: Đơn hàng đã treo %d giờ %d phút (vượt quá giới hạn %d giờ). Vui lòng kiểm tra và thanh toán",
+                        holdingDurationMinutes / 60, holdingDurationMinutes % 60, limitHours));
+            }
+        }
+
+        List<OrderPaymentResponse> paymentResponses = null;
+        if (preloadedPayments != null) {
+            paymentResponses = preloadedPayments.stream()
+                    .map(this::mapPaymentToResponse)
+                    .collect(Collectors.toList());
+        } else if (order.getPayments() != null && !order.getPayments().isEmpty()) {
+            paymentResponses = order.getPayments().stream()
+                    .map(this::mapPaymentToResponse)
+                    .collect(Collectors.toList());
+        } else if (order.getId() != null && !"CREATING".equals(order.getStatus())) {
+            List<OrderPayment> dbPayments = orderPaymentRepository.findByOrderId(order.getId());
+            if (dbPayments != null && !dbPayments.isEmpty()) {
+                paymentResponses = dbPayments.stream()
+                        .map(this::mapPaymentToResponse)
+                        .collect(Collectors.toList());
+            }
+        }
+
+        if (changeAmount == null && paymentResponses != null) {
+            changeAmount = paymentResponses.stream()
+                    .filter(p -> "CASH".equals(p.getPaymentMethod()) && p.getChangeAmount() != null && p.getChangeAmount().compareTo(BigDecimal.ZERO) > 0)
+                    .map(OrderPaymentResponse::getChangeAmount)
+                    .findFirst()
+                    .orElse(null);
+        }
+
+        Boolean isBankTransferConfirmed = null;
+        if (paymentResponses != null && !paymentResponses.isEmpty()) {
+            boolean hasTransfer = paymentResponses.stream().anyMatch(p -> "BANK_TRANSFER".equals(p.getPaymentMethod()));
+            if (hasTransfer) {
+                isBankTransferConfirmed = paymentResponses.stream()
+                        .filter(p -> "BANK_TRANSFER".equals(p.getPaymentMethod()))
+                        .allMatch(p -> Boolean.TRUE.equals(p.getIsConfirmed()));
+            }
+        }
+
         return OrderResponse.builder()
                 .id(order.getId())
                 .orderNumber(order.getOrderNumber())
@@ -318,8 +399,45 @@ public class OrderServiceImpl implements OrderService {
                 .paidAmount(paidAmount)
                 .debtAmount(debtAmount)
                 .qrCodeUrl(qrCodeUrl)
+                .cancelReason(order.getCancelReason() != null ? order.getCancelReason().name() : null)
+                .cancelReasonDescription(order.getCancelReason() != null ? order.getCancelReason().getDescription() : null)
+                .cancelReasonNote(order.getCancelReasonNote())
+                .canceledByUserId(order.getCanceledByUser() != null ? order.getCanceledByUser().getId() : null)
+                .canceledByUsername(order.getCanceledByUser() != null ? order.getCanceledByUser().getUsername() : null)
+                .canceledByFullName(order.getCanceledByUser() != null ? order.getCanceledByUser().getFullName() : null)
+                .canceledAt(order.getCanceledAt())
+                .orderLabel(order.getOrderLabel())
+                .diningTableId(diningTableId)
+                .diningTableName(diningTableName)
+                .diningTableArea(diningTableArea)
+                .isOverdue(isOverdue)
+                .holdingDurationMinutes(holdingDurationMinutes)
+                .payments(paymentResponses)
+                .isBankTransferConfirmed(isBankTransferConfirmed)
                 .build();
     }
+
+    private OrderPaymentResponse mapPaymentToResponse(OrderPayment payment) {
+        if (payment == null) return null;
+        return OrderPaymentResponse.builder()
+                .id(payment.getId())
+                .orderId(payment.getOrder() != null ? payment.getOrder().getId() : null)
+                .householdId(payment.getHousehold() != null ? payment.getHousehold().getId() : null)
+                .paymentMethod(payment.getPaymentMethod())
+                .amount(payment.getAmount())
+                .amountGiven(payment.getAmountGiven())
+                .changeAmount(payment.getChangeAmount())
+                .transactionCode(payment.getTransactionCode())
+                .isConfirmed(payment.getIsConfirmed())
+                .confirmedAt(payment.getConfirmedAt())
+                .confirmedByUserId(payment.getConfirmedByUser() != null ? payment.getConfirmedByUser().getId() : null)
+                .confirmedByUsername(payment.getConfirmedByUser() != null ? payment.getConfirmedByUser().getUsername() : null)
+                .confirmedByFullName(payment.getConfirmedByUser() != null ? payment.getConfirmedByUser().getFullName() : null)
+                .notes(payment.getNotes())
+                .createdAt(payment.getCreatedAt())
+                .build();
+    }
+
 
     private List<String> checkStockWarnings(Order order) {
         List<String> warnings = new ArrayList<>();
@@ -460,6 +578,25 @@ public class OrderServiceImpl implements OrderService {
                 ? currentUser.getPointOfSale() 
                 : (activeShift != null ? activeShift.getPointOfSale() : null);
 
+        DiningTable diningTable = null;
+        if (request.getDiningTableId() != null && !request.getDiningTableId().trim().isEmpty()) {
+            String tableId = request.getDiningTableId().trim();
+            diningTable = diningTableRepository.findByIdAndHouseholdIdForUpdate(tableId, household.getId())
+                    .orElseThrow(() -> new AppException(ErrorCode.DINING_TABLE_NOT_FOUND));
+
+            if (!Boolean.TRUE.equals(diningTable.getIsActive())) {
+                throw new AppException(ErrorCode.DINING_TABLE_INACTIVE);
+            }
+
+            boolean occupied = orderRepository.existsByDiningTableIdAndStatusAndDeletedAtIsNull(tableId, "CREATING");
+            if (occupied) {
+                throw new AppException(ErrorCode.DINING_TABLE_OCCUPIED);
+            }
+        }
+
+        String orderLabel = (request.getOrderLabel() != null && !request.getOrderLabel().trim().isEmpty())
+                ? request.getOrderLabel().trim() : null;
+
         Order order = Order.builder()
                 .household(household)
                 .shift(activeShift)
@@ -467,6 +604,8 @@ public class OrderServiceImpl implements OrderService {
                 .createdByUser(currentUser)
                 .customer(customer)
                 .orderNumber(orderNumber)
+                .orderLabel(orderLabel)
+                .diningTable(diningTable)
                 .totalAmount(BigDecimal.ZERO)
                 .discountAmount(BigDecimal.ZERO)
                 .finalAmount(BigDecimal.ZERO)
@@ -483,6 +622,7 @@ public class OrderServiceImpl implements OrderService {
 
         return mapToResponse(order, new ArrayList<>(), null, null);
     }
+
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -840,7 +980,7 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public OrderResponse setPaymentMethod(String currentUsername, String orderId, OrderPaymentRequest request) {
+    public OrderResponse setPaymentMethod(String currentUsername, String orderId, SetPaymentMethodRequest request) {
         User currentUser = getAuthenticatedUser(currentUsername);
         BusinessHousehold household = currentUser.getHousehold();
         if (household == null) {
@@ -860,10 +1000,29 @@ public class OrderServiceImpl implements OrderService {
         String method = request.getPaymentMethod();
         String qrCodeUrl = null;
 
+        // Xóa các khoản thanh toán cũ chưa hoàn tất của đơn hàng này
+        List<OrderPayment> oldPayments = orderPaymentRepository.findByOrderIdAndHouseholdId(orderId, household.getId());
+        if (!oldPayments.isEmpty()) {
+            orderPaymentRepository.deleteAll(oldPayments);
+        }
+        if (order.getPayments() != null) {
+            order.getPayments().clear();
+        }
+
         if ("BANK_TRANSFER".equals(method)) {
             order.setPaymentMethod("BANK_TRANSFER");
             order.setPaymentStatus("PENDING");
             qrCodeUrl = generateQrCodeUrl(order);
+
+            OrderPayment bankPayment = OrderPayment.builder()
+                    .order(order)
+                    .household(household)
+                    .paymentMethod("BANK_TRANSFER")
+                    .amount(order.getFinalAmount() != null ? order.getFinalAmount() : BigDecimal.ZERO)
+                    .isConfirmed(false)
+                    .build();
+            bankPayment = orderPaymentRepository.save(bankPayment);
+            order.addPayment(bankPayment);
         } else if ("DEBT".equals(method)) {
             if (order.getCustomer() == null) {
                 throw new AppException(ErrorCode.CUSTOMER_REQUIRED_FOR_DEBT);
@@ -886,6 +1045,7 @@ public class OrderServiceImpl implements OrderService {
         }
 
         order = orderRepository.save(order);
+
 
         logActivity(household, currentUser, "SET_PAYMENT_METHOD", order.getId(), null, buildOrderLogMap(order));
 
@@ -911,10 +1071,6 @@ public class OrderServiceImpl implements OrderService {
             throw new AppException(ErrorCode.ORDER_ALREADY_PAID);
         }
 
-        if (order.getPaymentMethod() == null) {
-            throw new AppException(ErrorCode.PAYMENT_METHOD_NOT_SELECTED);
-        }
-
         if (order.getItems().isEmpty()) {
             throw new AppException(ErrorCode.INVALID_INPUT);
         }
@@ -923,75 +1079,252 @@ public class OrderServiceImpl implements OrderService {
         validateOrderIntegrityQTN07(order);
 
         BigDecimal changeAmount = null;
+        List<OrderPayment> paymentEntities = new ArrayList<>();
 
-        if ("CASH".equals(order.getPaymentMethod())) {
-            if (request == null || request.getAmountGiven() == null) {
-                throw new AppException(ErrorCode.INSUFFICIENT_PAYMENT);
+        if (request != null && request.getPayments() != null) {
+            if (request.getPayments().isEmpty()) {
+                throw new AppException(ErrorCode.PAYMENTS_EMPTY);
             }
-            BigDecimal amountGiven = request.getAmountGiven();
-            BigDecimal expectedFinalAmount = order.getFinalAmount() != null
-                    ? order.getFinalAmount()
-                    : BigDecimal.ZERO;
-
-            BigDecimal roundedAmountGiven = amountGiven.setScale(0, RoundingMode.HALF_UP);
-            BigDecimal roundedExpectedAmount = expectedFinalAmount.setScale(0, RoundingMode.HALF_UP);
-
-            // Kiểm tra số tiền khách trả phải đủ so với số tiền cần thanh toán theo QTN-03
-            if (roundedAmountGiven.compareTo(roundedExpectedAmount) < 0) {
-                throw new AppException(ErrorCode.INSUFFICIENT_PAYMENT);
+            Set<String> uniqueMethods = new HashSet<>();
+            BigDecimal sumPayments = BigDecimal.ZERO;
+            for (OrderPaymentRequest pr : request.getPayments()) {
+                if (pr.getPaymentMethod() == null || !PaymentMethodConstant.isValid(pr.getPaymentMethod())) {
+                    throw new AppException(ErrorCode.INVALID_PAYMENT_METHOD);
+                }
+                if (!uniqueMethods.add(pr.getPaymentMethod())) {
+                    throw new AppException(ErrorCode.DUPLICATE_PAYMENT_METHOD);
+                }
+                if (pr.getAmount() == null || pr.getAmount().compareTo(BigDecimal.ZERO) <= 0) {
+                    throw new AppException(ErrorCode.PAYMENT_AMOUNT_INVALID);
+                }
+                sumPayments = sumPayments.add(pr.getAmount());
             }
-            changeAmount = amountGiven.subtract(expectedFinalAmount);
-            if (changeAmount.compareTo(BigDecimal.ZERO) < 0) {
-                changeAmount = BigDecimal.ZERO;
-            }
-            order.setPaymentStatus("PAID");
-        } else if ("BANK_TRANSFER".equals(order.getPaymentMethod())) {
-            order.setPaymentStatus("PAID");
-        } else if ("DEBT".equals(order.getPaymentMethod())) {
-            Customer customer = order.getCustomer();
-            if (customer == null) {
-                throw new AppException(ErrorCode.CUSTOMER_REQUIRED_FOR_DEBT);
-            }
-            // Concurrency fix: lock the Customer entity for update
-            customer = customerRepository.findByIdAndHouseholdIdAndDeletedAtIsNullForUpdate(
-                    customer.getId(), household.getId())
-                    .orElseThrow(() -> new AppException(ErrorCode.CUSTOMER_NOT_FOUND));
 
-            BigDecimal paidAmount = (request != null && request.getAmountGiven() != null)
-                    ? request.getAmountGiven()
-                    : BigDecimal.ZERO;
-            if (paidAmount.compareTo(order.getFinalAmount()) > 0) {
-                paidAmount = order.getFinalAmount();
+            BigDecimal expectedFinalAmount = order.getFinalAmount() != null ? order.getFinalAmount() : BigDecimal.ZERO;
+            if (sumPayments.setScale(0, RoundingMode.HALF_UP).compareTo(expectedFinalAmount.setScale(0, RoundingMode.HALF_UP)) != 0) {
+                throw new AppException(ErrorCode.PAYMENT_TOTAL_MISMATCH);
             }
-            BigDecimal netDebtAmount = order.getFinalAmount().subtract(paidAmount);
 
-            BigDecimal potentialDebt = customer.getCurrentDebt().add(netDebtAmount);
-            if (potentialDebt.compareTo(customer.getCreditLimit()) > 0) {
-                throw new AppException(ErrorCode.CREDIT_LIMIT_EXCEEDED);
-            }
-            customer.setCurrentDebt(potentialDebt);
-            customerRepository.save(customer);
-            order.setCustomer(customer);
-            order.setPaymentStatus(netDebtAmount.compareTo(BigDecimal.ZERO) == 0 ? "PAID" : "DEBT");
-
-            if (netDebtAmount.compareTo(BigDecimal.ZERO) > 0) {
-                LocalDateTime debtDueDate = request != null && request.getDueDate() != null ? request.getDueDate() : LocalDateTime.now().plusDays(7);
-
-                // Tạo và lưu bản ghi công nợ customer_debts (DEBT_CREATED) với số tiền nợ thực tế
-                CustomerDebt debtRecord = CustomerDebt.builder()
-                        .household(household)
-                        .customer(customer)
+            boolean hasDebt = false;
+            for (OrderPaymentRequest pr : request.getPayments()) {
+                String method = pr.getPaymentMethod();
+                OrderPayment payment = OrderPayment.builder()
                         .order(order)
-                        .amount(netDebtAmount)
-                        .remainingAmount(netDebtAmount)
-                        .type(DebtType.DEBT_CREATED)
-                        .status(DebtStatus.PENDING)
-                        .dueDate(debtDueDate)
-                        .notes("Ghi nợ từ đơn hàng " + order.getOrderNumber() + (paidAmount.compareTo(BigDecimal.ZERO) > 0 ? " (Đã tạm trả: " + paidAmount + ")" : ""))
-                        .createdByUser(currentUser)
+                        .household(household)
+                        .paymentMethod(method)
+                        .amount(pr.getAmount())
+                        .transactionCode(pr.getTransactionCode())
+                        .notes(pr.getNotes())
                         .build();
-                customerDebtRepository.save(debtRecord);
+
+                if (PaymentMethodConstant.CASH.equals(method)) {
+                    BigDecimal given = pr.getAmountGiven() != null ? pr.getAmountGiven() : pr.getAmount();
+                    if (given.compareTo(pr.getAmount()) < 0) {
+                        throw new AppException(ErrorCode.CASH_GIVEN_LESS_THAN_AMOUNT);
+                    }
+                    changeAmount = given.subtract(pr.getAmount());
+                    payment.setAmountGiven(given);
+                    payment.setChangeAmount(changeAmount);
+                    payment.setIsConfirmed(true);
+                    payment.setConfirmedAt(LocalDateTime.now());
+                    payment.setConfirmedByUser(currentUser);
+                } else if (PaymentMethodConstant.BANK_TRANSFER.equals(method)) {
+                    if (!Boolean.TRUE.equals(pr.getIsConfirmed())) {
+                        throw new AppException(ErrorCode.BANK_TRANSFER_NOT_CONFIRMED);
+                    }
+                    if (pr.getTransactionCode() == null || pr.getTransactionCode().trim().isEmpty()) {
+                        throw new AppException(ErrorCode.PAYMENT_TRANSACTION_CODE_REQUIRED);
+                    }
+                    payment.setIsConfirmed(true);
+                    payment.setTransactionCode(pr.getTransactionCode().trim());
+                    payment.setConfirmedAt(LocalDateTime.now());
+                    payment.setConfirmedByUser(currentUser);
+                } else if (PaymentMethodConstant.DEBT.equals(method)) {
+
+                    hasDebt = true;
+                    Customer customer = order.getCustomer();
+                    if (customer == null) {
+                        throw new AppException(ErrorCode.CUSTOMER_REQUIRED_FOR_DEBT);
+                    }
+                    customer = customerRepository.findByIdAndHouseholdIdAndDeletedAtIsNullForUpdate(
+                            customer.getId(), household.getId())
+                            .orElseThrow(() -> new AppException(ErrorCode.CUSTOMER_NOT_FOUND));
+
+                    BigDecimal netDebtAmount = pr.getAmount();
+                    BigDecimal potentialDebt = customer.getCurrentDebt().add(netDebtAmount);
+                    if (potentialDebt.compareTo(customer.getCreditLimit()) > 0) {
+                        throw new AppException(ErrorCode.CREDIT_LIMIT_EXCEEDED);
+                    }
+                    customer.setCurrentDebt(potentialDebt);
+                    customerRepository.save(customer);
+                    order.setCustomer(customer);
+
+                    LocalDateTime debtDueDate = request.getDueDate() != null ? request.getDueDate() : LocalDateTime.now().plusDays(7);
+                    CustomerDebt debtRecord = CustomerDebt.builder()
+                            .household(household)
+                            .customer(customer)
+                            .order(order)
+                            .amount(netDebtAmount)
+                            .remainingAmount(netDebtAmount)
+                            .type(DebtType.DEBT_CREATED)
+                            .status(DebtStatus.PENDING)
+                            .dueDate(debtDueDate)
+                            .notes("Ghi nợ từ đơn hàng " + order.getOrderNumber())
+                            .createdByUser(currentUser)
+                            .build();
+                    customerDebtRepository.save(debtRecord);
+
+                    payment.setIsConfirmed(true);
+                    payment.setConfirmedAt(LocalDateTime.now());
+                    payment.setConfirmedByUser(currentUser);
+                }
+                paymentEntities.add(payment);
             }
+
+            if (paymentEntities.size() > 1) {
+                order.setPaymentMethod(PaymentMethodConstant.COMBINED);
+            } else if (!paymentEntities.isEmpty()) {
+                order.setPaymentMethod(paymentEntities.get(0).getPaymentMethod());
+            }
+
+            if (hasDebt) {
+                order.setPaymentStatus("DEBT");
+            } else {
+                order.setPaymentStatus("PAID");
+            }
+        } else {
+            if (order.getPaymentMethod() == null) {
+                throw new AppException(ErrorCode.PAYMENT_METHOD_NOT_SELECTED);
+            }
+
+            if ("CASH".equals(order.getPaymentMethod())) {
+                if (request == null || request.getAmountGiven() == null) {
+                    throw new AppException(ErrorCode.INSUFFICIENT_PAYMENT);
+                }
+                BigDecimal amountGiven = request.getAmountGiven();
+                BigDecimal expectedFinalAmount = order.getFinalAmount() != null
+                        ? order.getFinalAmount()
+                        : BigDecimal.ZERO;
+
+                BigDecimal roundedAmountGiven = amountGiven.setScale(0, RoundingMode.HALF_UP);
+                BigDecimal roundedExpectedAmount = expectedFinalAmount.setScale(0, RoundingMode.HALF_UP);
+
+                // Kiểm tra số tiền khách trả phải đủ so với số tiền cần thanh toán theo QTN-03
+                if (roundedAmountGiven.compareTo(roundedExpectedAmount) < 0) {
+                    throw new AppException(ErrorCode.INSUFFICIENT_PAYMENT);
+                }
+                changeAmount = amountGiven.subtract(expectedFinalAmount);
+                if (changeAmount.compareTo(BigDecimal.ZERO) < 0) {
+                    changeAmount = BigDecimal.ZERO;
+                }
+                order.setPaymentStatus("PAID");
+
+                OrderPayment p = OrderPayment.builder()
+                        .order(order)
+                        .household(household)
+                        .paymentMethod("CASH")
+                        .amount(expectedFinalAmount)
+                        .amountGiven(amountGiven)
+                        .changeAmount(changeAmount)
+                        .isConfirmed(true)
+                        .confirmedAt(LocalDateTime.now())
+                        .confirmedByUser(currentUser)
+                        .build();
+                paymentEntities.add(p);
+            } else if ("BANK_TRANSFER".equals(order.getPaymentMethod())) {
+                OrderPayment existingBankPayment = orderPaymentRepository
+                        .findFirstByOrderIdAndHouseholdIdAndPaymentMethod(order.getId(), household.getId(), "BANK_TRANSFER")
+                        .orElse(null);
+
+                if (existingBankPayment == null || !Boolean.TRUE.equals(existingBankPayment.getIsConfirmed())) {
+                    throw new AppException(ErrorCode.BANK_TRANSFER_NOT_CONFIRMED);
+                }
+
+                order.setPaymentStatus("PAID");
+                paymentEntities.add(existingBankPayment);
+            } else if ("DEBT".equals(order.getPaymentMethod())) {
+
+                Customer customer = order.getCustomer();
+                if (customer == null) {
+                    throw new AppException(ErrorCode.CUSTOMER_REQUIRED_FOR_DEBT);
+                }
+                // Concurrency fix: lock the Customer entity for update
+                customer = customerRepository.findByIdAndHouseholdIdAndDeletedAtIsNullForUpdate(
+                        customer.getId(), household.getId())
+                        .orElseThrow(() -> new AppException(ErrorCode.CUSTOMER_NOT_FOUND));
+
+                BigDecimal paidAmount = (request != null && request.getAmountGiven() != null)
+                        ? request.getAmountGiven()
+                        : BigDecimal.ZERO;
+                if (paidAmount.compareTo(order.getFinalAmount()) > 0) {
+                    paidAmount = order.getFinalAmount();
+                }
+                BigDecimal netDebtAmount = order.getFinalAmount().subtract(paidAmount);
+
+                BigDecimal potentialDebt = customer.getCurrentDebt().add(netDebtAmount);
+                if (potentialDebt.compareTo(customer.getCreditLimit()) > 0) {
+                    throw new AppException(ErrorCode.CREDIT_LIMIT_EXCEEDED);
+                }
+                customer.setCurrentDebt(potentialDebt);
+                customerRepository.save(customer);
+                order.setCustomer(customer);
+                order.setPaymentStatus(netDebtAmount.compareTo(BigDecimal.ZERO) == 0 ? "PAID" : "DEBT");
+
+                if (paidAmount.compareTo(BigDecimal.ZERO) > 0) {
+                    OrderPayment cashPart = OrderPayment.builder()
+                            .order(order)
+                            .household(household)
+                            .paymentMethod("CASH")
+                            .amount(paidAmount)
+                            .amountGiven(paidAmount)
+                            .changeAmount(BigDecimal.ZERO)
+                            .isConfirmed(true)
+                            .confirmedAt(LocalDateTime.now())
+                            .confirmedByUser(currentUser)
+                            .notes("Thanh toán tiền mặt đính kèm đơn nợ")
+                            .build();
+                    paymentEntities.add(cashPart);
+                }
+
+                if (netDebtAmount.compareTo(BigDecimal.ZERO) > 0) {
+                    LocalDateTime debtDueDate = request != null && request.getDueDate() != null ? request.getDueDate() : LocalDateTime.now().plusDays(7);
+
+                    // Tạo và lưu bản ghi công nợ customer_debts (DEBT_CREATED) với số tiền nợ thực tế
+                    CustomerDebt debtRecord = CustomerDebt.builder()
+                            .household(household)
+                            .customer(customer)
+                            .order(order)
+                            .amount(netDebtAmount)
+                            .remainingAmount(netDebtAmount)
+                            .type(DebtType.DEBT_CREATED)
+                            .status(DebtStatus.PENDING)
+                            .dueDate(debtDueDate)
+                            .notes("Ghi nợ từ đơn hàng " + order.getOrderNumber() + (paidAmount.compareTo(BigDecimal.ZERO) > 0 ? " (Đã tạm trả: " + paidAmount + ")" : ""))
+                            .createdByUser(currentUser)
+                            .build();
+                    customerDebtRepository.save(debtRecord);
+
+                    OrderPayment debtPart = OrderPayment.builder()
+                            .order(order)
+                            .household(household)
+                            .paymentMethod("DEBT")
+                            .amount(netDebtAmount)
+                            .isConfirmed(true)
+                            .confirmedAt(LocalDateTime.now())
+                            .confirmedByUser(currentUser)
+                            .notes("Ghi nợ đơn hàng " + order.getOrderNumber())
+                            .build();
+                    paymentEntities.add(debtPart);
+                }
+            }
+        }
+
+        if (!paymentEntities.isEmpty()) {
+            order.getPayments().clear();
+            for (OrderPayment payment : paymentEntities) {
+                order.addPayment(payment);
+            }
+            orderPaymentRepository.saveAll(paymentEntities);
         }
 
         // Get warnings before deduction
@@ -1093,8 +1426,16 @@ public class OrderServiceImpl implements OrderService {
             orders = orderRepository.findByHouseholdIdAndDeletedAtIsNullOrderByCreatedAtDesc(household.getId());
         }
 
+        List<String> orderIds = orders.stream().map(Order::getId).collect(Collectors.toList());
+        Map<String, List<OrderPayment>> paymentsByOrderId = new HashMap<>();
+        if (!orderIds.isEmpty()) {
+            paymentsByOrderId = orderPaymentRepository.findByOrderIdIn(orderIds).stream()
+                    .collect(Collectors.groupingBy(p -> p.getOrder() != null ? p.getOrder().getId() : ""));
+        }
+
+        Map<String, List<OrderPayment>> finalPaymentsByOrderId = paymentsByOrderId;
         return orders.stream()
-                .map(order -> mapToResponse(order, new ArrayList<>(), null, null))
+                .map(order -> mapToResponse(order, new ArrayList<>(), null, null, finalPaymentsByOrderId.get(order.getId())))
                 .collect(Collectors.toList());
     }
 
@@ -1149,4 +1490,458 @@ public class OrderServiceImpl implements OrderService {
                 .decimalPlaces(product.getDecimalPlaces())
                 .build();
     }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public OrderResponse cancelOrder(String currentUsername, String orderId, CancelOrderRequest request) {
+        User currentUser = getAuthenticatedUser(currentUsername);
+        BusinessHousehold household = currentUser.getHousehold();
+        if (household == null) {
+            throw new AppException(ErrorCode.FORBIDDEN);
+        }
+
+        Order order = orderRepository.findByIdAndHouseholdIdAndDeletedAtIsNull(orderId, household.getId())
+                .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));
+
+        checkOrderOwnership(order, currentUser);
+        validateShiftIsOpen(order);
+
+        // 1. Validate Order Status (TC-03 & QTN-03)
+        if ("COMPLETED".equalsIgnoreCase(order.getStatus())) {
+            throw new AppException(ErrorCode.ORDER_ALREADY_COMPLETED_CANNOT_CANCEL);
+        }
+        if ("CANCELED".equalsIgnoreCase(order.getStatus())) {
+            throw new AppException(ErrorCode.ORDER_ALREADY_CANCELED);
+        }
+        if (!"CREATING".equalsIgnoreCase(order.getStatus())) {
+            throw new AppException(ErrorCode.ORDER_CANCEL_NOT_CREATING_STATUS);
+        }
+
+        // 2. Validate Cancel Reason & Note (TC-02)
+        if (request == null || request.getCancelReason() == null) {
+            throw new AppException(ErrorCode.ORDER_CANCEL_REASON_REQUIRED);
+        }
+        if (request.getCancelReason() == OrderCancelReason.OTHER) {
+            if (request.getCancelReasonNote() == null || request.getCancelReasonNote().trim().isEmpty()) {
+                throw new AppException(ErrorCode.ORDER_CANCEL_NOTE_REQUIRED);
+            }
+        }
+
+        Map<String, Object> oldValues = buildOrderLogMap(order);
+
+        // 3. Update Order state (TC-01)
+        order.setStatus("CANCELED");
+        order.setCancelReason(request.getCancelReason());
+        order.setCancelReasonNote(request.getCancelReasonNote() != null ? request.getCancelReasonNote().trim() : null);
+        order.setCanceledByUser(currentUser);
+        order.setCanceledAt(LocalDateTime.now());
+
+        // Note on Inventory: Orders in CREATING status have not deducted physical stock yet.
+        // Therefore, canceling an order maintains stock neutrality (no stock deduction or return needed).
+
+        Order savedOrder = orderRepository.save(order);
+
+        // 4. Log Activity per QTN-09
+        Map<String, Object> newValues = buildOrderLogMap(savedOrder);
+        newValues.put("cancelReason", savedOrder.getCancelReason().name());
+        newValues.put("cancelReasonDescription", savedOrder.getCancelReason().getDescription());
+        newValues.put("cancelReasonNote", savedOrder.getCancelReasonNote());
+        newValues.put("canceledByUserId", currentUser.getId());
+        newValues.put("canceledByUsername", currentUser.getUsername());
+        newValues.put("canceledAt", savedOrder.getCanceledAt() != null ? savedOrder.getCanceledAt().toString() : null);
+
+        logActivity(household, currentUser, "CANCEL_ORDER", savedOrder.getId(), oldValues, newValues);
+
+        return mapToResponse(savedOrder, new ArrayList<>(), null, null);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<OrderCancelReasonDto> getCancelReasons() {
+        return Arrays.stream(OrderCancelReason.values())
+                .map(r -> OrderCancelReasonDto.builder()
+                        .code(r.name())
+                        .description(r.getDescription())
+                        .requiresNote(r == OrderCancelReason.OTHER)
+                        .build())
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public CanceledOrderStatisticsResponse getCanceledOrderStatistics(
+            String currentUsername,
+            String shiftId,
+            LocalDateTime fromDate,
+            LocalDateTime toDate) {
+        User currentUser = getAuthenticatedUser(currentUsername);
+        BusinessHousehold household = currentUser.getHousehold();
+        if (household == null) {
+            throw new AppException(ErrorCode.FORBIDDEN);
+        }
+
+        String effectiveShiftId = org.springframework.util.StringUtils.hasText(shiftId) ? shiftId.trim() : null;
+
+        Shift shift = null;
+        if (effectiveShiftId != null) {
+            shift = shiftRepository.findByIdAndHouseholdId(effectiveShiftId, household.getId()).orElse(null);
+        }
+
+        // QTN-10 & User Roles: Thu ngân VT-02 chỉ xem số liệu đơn hủy do chính mình lập
+        boolean isSalesperson = currentUser.getRole() != null && "VT-02".equals(currentUser.getRole().getCode());
+        String effectiveEmployeeId = isSalesperson ? currentUser.getId() : null;
+
+        List<Order> canceledOrders = orderRepository.findCanceledOrders(household.getId(), effectiveShiftId, effectiveEmployeeId, fromDate, toDate);
+
+        long totalCount = canceledOrders.size();
+        BigDecimal totalAmount = canceledOrders.stream()
+                .map(Order::getTotalAmount)
+                .filter(Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        // Group by cancel reason
+        Map<OrderCancelReason, Long> reasonCountMap = canceledOrders.stream()
+                .filter(o -> o.getCancelReason() != null)
+                .collect(Collectors.groupingBy(Order::getCancelReason, Collectors.counting()));
+
+        List<CancelReasonStatDto> byReason = Arrays.stream(OrderCancelReason.values())
+                .map(r -> {
+                    long cnt = reasonCountMap.getOrDefault(r, 0L);
+                    double pct = totalCount > 0 ? (cnt * 100.0 / totalCount) : 0.0;
+                    return CancelReasonStatDto.builder()
+                            .reasonCode(r.name())
+                            .reasonDescription(r.getDescription())
+                            .count(cnt)
+                            .percentage(BigDecimal.valueOf(pct).setScale(1, RoundingMode.HALF_UP).doubleValue())
+                            .build();
+                })
+                .collect(Collectors.toList());
+
+        // Group by employee ID (tránh rủi ro hashCode/equals và lazy load trên thực thể User)
+        Map<String, List<Order>> employeeOrderMap = canceledOrders.stream()
+                .filter(o -> o.getCanceledByUser() != null && o.getCanceledByUser().getId() != null)
+                .collect(Collectors.groupingBy(o -> o.getCanceledByUser().getId()));
+
+        List<EmployeeCancelStatDto> byEmployee = employeeOrderMap.values().stream()
+                .map(orders -> {
+                    User emp = orders.get(0).getCanceledByUser();
+                    BigDecimal empTotalAmount = orders.stream()
+                            .map(Order::getTotalAmount)
+                            .filter(Objects::nonNull)
+                            .reduce(BigDecimal.ZERO, BigDecimal::add);
+                    return EmployeeCancelStatDto.builder()
+                            .employeeId(emp.getId())
+                            .employeeUsername(emp.getUsername())
+                            .employeeFullName(emp.getFullName())
+                            .count(orders.size())
+                            .totalAmount(empTotalAmount)
+                            .build();
+                })
+                .sorted(Comparator.comparing(EmployeeCancelStatDto::getCount).reversed())
+                .collect(Collectors.toList());
+
+        // Top 10 recent canceled orders
+        List<CanceledOrderSummaryDto> recent = canceledOrders.stream()
+                .sorted(Comparator.comparing(Order::getCanceledAt, Comparator.nullsLast(Comparator.reverseOrder())))
+                .limit(10)
+                .map(o -> CanceledOrderSummaryDto.builder()
+                        .orderId(o.getId())
+                        .orderNumber(o.getOrderNumber())
+                        .totalAmount(o.getTotalAmount())
+                        .cancelReason(o.getCancelReason() != null ? o.getCancelReason().name() : null)
+                        .cancelReasonDescription(o.getCancelReason() != null ? o.getCancelReason().getDescription() : null)
+                        .cancelReasonNote(o.getCancelReasonNote())
+                        .canceledByFullName(o.getCanceledByUser() != null ? o.getCanceledByUser().getFullName() : null)
+                        .canceledAt(o.getCanceledAt())
+                        .build())
+                .collect(Collectors.toList());
+
+        String shiftName = null;
+        if (shift != null) {
+            String userName = (shift.getUser() != null && shift.getUser().getFullName() != null) ? shift.getUser().getFullName() : "";
+            shiftName = "Ca làm việc " + userName + (shift.getOpenedAt() != null ? " (" + shift.getOpenedAt() + ")" : "");
+        }
+
+        return CanceledOrderStatisticsResponse.builder()
+                .totalCanceledOrders(totalCount)
+                .totalCanceledAmount(totalAmount)
+                .shiftId(effectiveShiftId)
+                .shiftName(shiftName)
+                .fromDate(fromDate)
+                .toDate(toDate)
+                .byReason(byReason)
+                .byEmployee(byEmployee)
+                .recentCanceledOrders(recent)
+                .build();
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public OrderResponse holdOrder(String currentUsername, String orderId, HoldOrderRequest request) {
+        User currentUser = getAuthenticatedUser(currentUsername);
+        BusinessHousehold household = currentUser.getHousehold();
+        if (household == null) {
+            throw new AppException(ErrorCode.FORBIDDEN);
+        }
+
+        Order order = orderRepository.findByIdAndHouseholdIdAndDeletedAtIsNull(orderId, household.getId())
+                .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));
+
+        checkOrderOwnership(order, currentUser);
+        validateShiftIsOpen(order);
+
+        if (!"CREATING".equals(order.getStatus())) {
+            throw new AppException(ErrorCode.ORDER_CANNOT_BE_HELD);
+        }
+
+        String label = (request.getOrderLabel() != null && !request.getOrderLabel().trim().isEmpty())
+                ? request.getOrderLabel().trim() : null;
+        String tableId = (request.getDiningTableId() != null && !request.getDiningTableId().trim().isEmpty())
+                ? request.getDiningTableId().trim() : null;
+
+        if (label == null && tableId == null) {
+            throw new AppException(ErrorCode.ORDER_LABEL_OR_TABLE_REQUIRED);
+        }
+
+        DiningTable table = null;
+        if (tableId != null) {
+            table = diningTableRepository.findByIdAndHouseholdIdForUpdate(tableId, household.getId())
+                    .orElseThrow(() -> new AppException(ErrorCode.DINING_TABLE_NOT_FOUND));
+
+            if (!Boolean.TRUE.equals(table.getIsActive())) {
+                throw new AppException(ErrorCode.DINING_TABLE_INACTIVE);
+            }
+
+            boolean occupied = orderRepository.existsByDiningTableIdAndStatusAndIdNotAndDeletedAtIsNull(
+                    tableId, "CREATING", order.getId());
+            if (occupied) {
+                throw new AppException(ErrorCode.DINING_TABLE_OCCUPIED);
+            }
+        }
+
+        order.setOrderLabel(label);
+        order.setDiningTable(table);
+        Order savedOrder = orderRepository.save(order);
+
+        Map<String, Object> logDetails = new HashMap<>();
+        logDetails.put("orderLabel", label);
+        logDetails.put("tableName", table != null ? table.getName() : null);
+        logActivity(household, currentUser, "HOLD_ORDER", savedOrder.getId(), null, logDetails);
+
+        return mapToResponse(savedOrder, new ArrayList<>(), null, null);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public OrderResponse updateOrderLabel(String currentUsername, String orderId, UpdateOrderLabelRequest request) {
+        User currentUser = getAuthenticatedUser(currentUsername);
+        BusinessHousehold household = currentUser.getHousehold();
+        if (household == null) {
+            throw new AppException(ErrorCode.FORBIDDEN);
+        }
+
+        Order order = orderRepository.findByIdAndHouseholdIdAndDeletedAtIsNull(orderId, household.getId())
+                .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));
+
+        checkOrderOwnership(order, currentUser);
+        validateShiftIsOpen(order);
+
+        if (!"CREATING".equals(order.getStatus())) {
+            throw new AppException(ErrorCode.ORDER_CANNOT_BE_HELD);
+        }
+
+        order.setOrderLabel(request.getOrderLabel().trim());
+        Order savedOrder = orderRepository.save(order);
+
+        logActivity(household, currentUser, "UPDATE_ORDER_LABEL", savedOrder.getId(), null,
+                Map.of("orderLabel", request.getOrderLabel().trim()));
+
+        return mapToResponse(savedOrder, new ArrayList<>(), null, null);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public OrderResponse switchDiningTable(String currentUsername, String orderId, SwitchDiningTableRequest request) {
+        User currentUser = getAuthenticatedUser(currentUsername);
+        BusinessHousehold household = currentUser.getHousehold();
+        if (household == null) {
+            throw new AppException(ErrorCode.FORBIDDEN);
+        }
+
+        Order order = orderRepository.findByIdAndHouseholdIdAndDeletedAtIsNull(orderId, household.getId())
+                .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));
+
+        checkOrderOwnership(order, currentUser);
+        validateShiftIsOpen(order);
+
+        if (!"CREATING".equals(order.getStatus())) {
+            throw new AppException(ErrorCode.ORDER_CANNOT_BE_HELD);
+        }
+
+        String newTableId = request.getNewDiningTableId().trim();
+        if (order.getDiningTable() != null && order.getDiningTable().getId().equals(newTableId)) {
+            throw new AppException(ErrorCode.CANNOT_SWITCH_TO_SAME_TABLE);
+        }
+
+        DiningTable newTable = diningTableRepository.findByIdAndHouseholdIdForUpdate(newTableId, household.getId())
+                .orElseThrow(() -> new AppException(ErrorCode.DINING_TABLE_NOT_FOUND));
+
+        if (!Boolean.TRUE.equals(newTable.getIsActive())) {
+            throw new AppException(ErrorCode.DINING_TABLE_INACTIVE);
+        }
+
+        boolean occupied = orderRepository.existsByDiningTableIdAndStatusAndIdNotAndDeletedAtIsNull(
+                newTableId, "CREATING", order.getId());
+        if (occupied) {
+            throw new AppException(ErrorCode.DINING_TABLE_OCCUPIED);
+        }
+
+        String oldTableName = order.getDiningTable() != null ? order.getDiningTable().getName() : "Không có";
+        order.setDiningTable(newTable);
+        Order savedOrder = orderRepository.save(order);
+
+        logActivity(household, currentUser, "SWITCH_DINING_TABLE", savedOrder.getId(), null,
+                Map.of("oldTable", oldTableName, "newTable", newTable.getName()));
+
+        return mapToResponse(savedOrder, new ArrayList<>(), null, null);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<HeldOrderSummaryResponse> getHeldOrders(String currentUsername) {
+        User currentUser = getAuthenticatedUser(currentUsername);
+        BusinessHousehold household = currentUser.getHousehold();
+        if (household == null) {
+            throw new AppException(ErrorCode.FORBIDDEN);
+        }
+
+        Optional<Shift> activeShiftOpt = shiftRepository.findByUserIdAndStatus(currentUser.getId(), ShiftStatus.OPEN);
+        List<Order> heldOrders;
+        if (activeShiftOpt.isPresent()) {
+            heldOrders = orderRepository.findByHouseholdIdAndShiftIdAndStatusAndDeletedAtIsNullOrderByCreatedAtDesc(
+                    household.getId(), activeShiftOpt.get().getId(), "CREATING");
+        } else {
+            heldOrders = orderRepository.findByHouseholdIdAndStatusAndDeletedAtIsNullOrderByCreatedAtDesc(
+                    household.getId(), "CREATING");
+        }
+
+        Integer maxHoldingHours = getHouseholdMaxHoldingHours(household.getId());
+        int limitHours = (maxHoldingHours != null && maxHoldingHours > 0) ? maxHoldingHours : 4;
+        LocalDateTime now = LocalDateTime.now();
+
+        return heldOrders.stream().map(o -> {
+            LocalDateTime createdAt = o.getCreatedAt() != null ? o.getCreatedAt() : now;
+            long minutes = Duration.between(createdAt, now).toMinutes();
+            boolean isOverdue = minutes >= (limitHours * 60L);
+
+            return HeldOrderSummaryResponse.builder()
+                    .id(o.getId())
+                    .orderNumber(o.getOrderNumber())
+                    .orderLabel(o.getOrderLabel())
+                    .diningTableId(o.getDiningTable() != null ? o.getDiningTable().getId() : null)
+                    .diningTableName(o.getDiningTable() != null ? o.getDiningTable().getName() : null)
+                    .diningTableArea(o.getDiningTable() != null ? o.getDiningTable().getArea() : null)
+                    .customerId(o.getCustomer() != null ? o.getCustomer().getId() : null)
+                    .customerName(o.getCustomer() != null ? o.getCustomer().getName() : "Khách lẻ")
+                    .itemCount(o.getItems() != null ? o.getItems().size() : 0)
+                    .totalAmount(o.getTotalAmount())
+                    .createdAt(o.getCreatedAt())
+                    .holdingDurationMinutes(minutes)
+                    .isOverdue(isOverdue)
+                    .createdByUserId(o.getCreatedByUser() != null ? o.getCreatedByUser().getId() : null)
+                    .createdByUsername(o.getCreatedByUser() != null ? o.getCreatedByUser().getUsername() : null)
+                    .createdByFullName(o.getCreatedByUser() != null ? o.getCreatedByUser().getFullName() : null)
+                    .build();
+        }).collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public OrderResponse switchPaymentMethod(String currentUsername, String orderId, SwitchPaymentMethodRequest request) {
+        User currentUser = getAuthenticatedUser(currentUsername);
+        BusinessHousehold household = currentUser.getHousehold();
+        if (household == null) {
+            throw new AppException(ErrorCode.FORBIDDEN);
+        }
+
+        Order order = orderRepository.findByIdAndHouseholdIdAndDeletedAtIsNull(orderId, household.getId())
+                .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));
+
+        checkOrderOwnership(order, currentUser);
+        validateShiftIsOpen(order);
+
+        if (!"CREATING".equals(order.getStatus())) {
+            throw new AppException(ErrorCode.ORDER_ALREADY_COMPLETED_CANNOT_CHANGE_PAYMENT);
+        }
+
+        if (request == null || request.getNewPaymentMethod() == null) {
+            throw new AppException(ErrorCode.INVALID_INPUT);
+        }
+
+        String newMethod = request.getNewPaymentMethod().trim().toUpperCase();
+        if (!List.of("CASH", "BANK_TRANSFER", "DEBT").contains(newMethod)) {
+            throw new AppException(ErrorCode.INVALID_PAYMENT_SWITCH_METHOD);
+        }
+
+        // Xóa các khoản thanh toán cũ của đơn hàng
+        List<OrderPayment> oldPayments = orderPaymentRepository.findByOrderIdAndHouseholdId(orderId, household.getId());
+        if (!oldPayments.isEmpty()) {
+            orderPaymentRepository.deleteAll(oldPayments);
+        }
+        if (order.getPayments() != null) {
+            order.getPayments().clear();
+        }
+
+        String qrCodeUrl = null;
+        if ("BANK_TRANSFER".equals(newMethod)) {
+            order.setPaymentMethod("BANK_TRANSFER");
+            order.setPaymentStatus("PENDING");
+            qrCodeUrl = generateQrCodeUrl(order);
+
+            OrderPayment bankPayment = OrderPayment.builder()
+                    .order(order)
+                    .household(household)
+                    .paymentMethod("BANK_TRANSFER")
+                    .amount(order.getFinalAmount() != null ? order.getFinalAmount() : BigDecimal.ZERO)
+                    .isConfirmed(false)
+                    .notes(request.getNotes())
+                    .build();
+            bankPayment = orderPaymentRepository.save(bankPayment);
+            order.addPayment(bankPayment);
+        } else if ("DEBT".equals(newMethod)) {
+            String customerId = request.getCustomerId();
+            Customer customer = null;
+            if (customerId != null && !customerId.trim().isEmpty()) {
+                customer = customerRepository.findByIdAndHouseholdIdAndDeletedAtIsNullForUpdate(
+                        customerId.trim(), household.getId())
+                        .orElseThrow(() -> new AppException(ErrorCode.CUSTOMER_NOT_FOUND));
+            } else if (order.getCustomer() != null) {
+                customer = customerRepository.findByIdAndHouseholdIdAndDeletedAtIsNullForUpdate(
+                        order.getCustomer().getId(), household.getId())
+                        .orElseThrow(() -> new AppException(ErrorCode.CUSTOMER_NOT_FOUND));
+            } else {
+                throw new AppException(ErrorCode.CUSTOMER_REQUIRED_FOR_DEBT);
+            }
+
+            BigDecimal potentialDebt = customer.getCurrentDebt().add(order.getFinalAmount());
+            if (potentialDebt.compareTo(customer.getCreditLimit()) > 0) {
+                throw new AppException(ErrorCode.CREDIT_LIMIT_EXCEEDED);
+            }
+            order.setCustomer(customer);
+            order.setPaymentMethod("DEBT");
+            order.setPaymentStatus("DEBT");
+        } else {
+            // CASH
+            order.setPaymentMethod("CASH");
+            order.setPaymentStatus("PENDING");
+        }
+
+        order = orderRepository.save(order);
+
+        logActivity(household, currentUser, "SWITCH_PAYMENT_METHOD", order.getId(), null, buildOrderLogMap(order));
+
+        return mapToResponse(order, checkStockWarnings(order), null, qrCodeUrl);
+    }
 }
+
+

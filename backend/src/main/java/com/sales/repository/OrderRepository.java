@@ -29,7 +29,7 @@ import java.util.Optional;
 @Repository
 public interface OrderRepository extends JpaRepository<Order, String> {
 
-    @EntityGraph(attributePaths = {"items", "items.product", "items.priceTier", "customer", "shift", "createdByUser", "household"})
+    @EntityGraph(attributePaths = {"items", "items.product", "items.priceTier", "customer", "shift", "createdByUser", "household", "diningTable"})
     Optional<Order> findByIdAndHouseholdIdAndDeletedAtIsNull(String id, String householdId);
 
     boolean existsByOrderNumber(String orderNumber);
@@ -40,10 +40,27 @@ public interface OrderRepository extends JpaRepository<Order, String> {
 
     Optional<Order> findByOrderNumberAndHouseholdIdAndDeletedAtIsNull(String orderNumber, String householdId);
 
-    @EntityGraph(attributePaths = {"items", "items.product", "items.priceTier", "customer", "shift", "createdByUser", "household"})
+    @EntityGraph(attributePaths = {"items", "items.product", "items.priceTier", "customer", "shift", "createdByUser", "household", "diningTable"})
     List<Order> findByOrderNumberInAndHouseholdIdAndDeletedAtIsNull(Collection<String> orderNumbers, String householdId);
 
     List<Order> findByShiftIdAndDeletedAtIsNull(String shiftId);
+
+    // NCL-03-CN-010 Đặt tên nhận diện và treo nhiều đơn theo bàn hoặc khách
+    boolean existsByDiningTableIdAndStatusAndDeletedAtIsNull(String diningTableId, String status);
+
+    boolean existsByDiningTableIdAndStatusAndIdNotAndDeletedAtIsNull(String diningTableId, String status, String id);
+
+    Optional<Order> findFirstByDiningTableIdAndStatusAndDeletedAtIsNullOrderByCreatedAtDesc(String diningTableId, String status);
+
+    @EntityGraph(attributePaths = {"items", "items.product", "items.priceTier", "customer", "shift", "createdByUser", "household", "diningTable"})
+    List<Order> findByHouseholdIdAndShiftIdAndStatusAndDeletedAtIsNullOrderByCreatedAtDesc(String householdId, String shiftId, String status);
+
+    @EntityGraph(attributePaths = {"items", "items.product", "items.priceTier", "customer", "shift", "createdByUser", "household", "diningTable"})
+    List<Order> findByHouseholdIdAndStatusAndDeletedAtIsNullOrderByCreatedAtDesc(String householdId, String status);
+
+    @EntityGraph(attributePaths = {"diningTable"})
+    List<Order> findByHouseholdIdAndStatusAndDiningTableIsNotNullAndDeletedAtIsNullOrderByCreatedAtDesc(String householdId, String status);
+
 
     @Query("SELECT o FROM Order o LEFT JOIN FETCH o.createdByUser " +
            "WHERE o.household.id = :householdId AND o.status = 'COMPLETED' AND o.paymentStatus = 'PAID' " +
@@ -65,11 +82,36 @@ public interface OrderRepository extends JpaRepository<Order, String> {
     @Query("SELECT COALESCE(SUM(" +
            "  CASE " +
            "    WHEN o.paymentMethod = 'DEBT' THEN (o.finalAmount - COALESCE((SELECT cd.amount FROM CustomerDebt cd WHERE cd.order.id = o.id AND cd.type = 'DEBT_CREATED'), 0)) " +
+           "    WHEN o.paymentMethod = 'COMBINED' THEN COALESCE((SELECT SUM(op.amount) FROM OrderPayment op WHERE op.order.id = o.id AND op.paymentMethod = 'CASH'), 0) " +
            "    ELSE o.finalAmount " +
            "  END), 0) " +
            "FROM Order o " +
            "WHERE o.shift.id = :shiftId AND o.status = 'COMPLETED' AND o.deletedAt IS NULL")
     BigDecimal sumCollectedAmountByShiftId(@Param("shiftId") String shiftId);
+
+    @Query("SELECT COALESCE(SUM(" +
+           "  CASE " +
+           "    WHEN o.paymentMethod = 'DEBT' THEN (o.finalAmount - COALESCE((SELECT cd.amount FROM CustomerDebt cd WHERE cd.order.id = o.id AND cd.type = 'DEBT_CREATED'), 0)) " +
+           "    WHEN o.paymentMethod = 'COMBINED' THEN COALESCE((SELECT SUM(op.amount) FROM OrderPayment op WHERE op.order.id = o.id AND op.paymentMethod = 'CASH'), 0) " +
+           "    ELSE o.finalAmount " +
+           "  END), 0) " +
+           "FROM Order o " +
+           "WHERE o.shift.id = :shiftId AND o.status = 'COMPLETED' AND o.deletedAt IS NULL " +
+           "AND o.createdAt >= :startTime AND o.createdAt <= :endTime")
+    BigDecimal sumCollectedAmountByShiftIdAndTimeRange(
+            @Param("shiftId") String shiftId,
+            @Param("startTime") LocalDateTime startTime,
+            @Param("endTime") LocalDateTime endTime
+    );
+
+    @Query("SELECT COUNT(o) FROM Order o " +
+           "WHERE o.shift.id = :shiftId AND o.status = 'COMPLETED' AND o.deletedAt IS NULL " +
+           "AND o.createdAt >= :startTime AND o.createdAt <= :endTime")
+    int countCompletedOrdersByShiftIdAndTimeRange(
+            @Param("shiftId") String shiftId,
+            @Param("startTime") LocalDateTime startTime,
+            @Param("endTime") LocalDateTime endTime
+    );
 
     int countByShiftIdAndStatusAndDeletedAtIsNull(String shiftId, String status);
 
@@ -426,5 +468,24 @@ public interface OrderRepository extends JpaRepository<Order, String> {
             @Param("cutoffDateTime") LocalDateTime cutoffDateTime,
             @Param("groupId") String groupId,
             @Param("search") String search
+    );
+
+    @Query("SELECT o FROM Order o " +
+           "LEFT JOIN FETCH o.canceledByUser " +
+           "LEFT JOIN FETCH o.shift " +
+           "WHERE o.household.id = :householdId " +
+           "AND o.status = 'CANCELED' " +
+           "AND o.deletedAt IS NULL " +
+           "AND (:shiftId IS NULL OR :shiftId = '' OR o.shift.id = :shiftId) " +
+           "AND (:employeeId IS NULL OR :employeeId = '' OR o.canceledByUser.id = :employeeId) " +
+           "AND (:fromDate IS NULL OR o.canceledAt >= :fromDate) " +
+           "AND (:toDate IS NULL OR o.canceledAt <= :toDate) " +
+           "ORDER BY o.canceledAt DESC")
+    List<Order> findCanceledOrders(
+            @Param("householdId") String householdId,
+            @Param("shiftId") String shiftId,
+            @Param("employeeId") String employeeId,
+            @Param("fromDate") LocalDateTime fromDate,
+            @Param("toDate") LocalDateTime toDate
     );
 }

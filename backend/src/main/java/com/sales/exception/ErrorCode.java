@@ -252,7 +252,70 @@ public enum ErrorCode {
     PRICE_TIER_INVALID_QUANTITY_RANGE(3103, "Số lượng tối đa phải lớn hơn hoặc bằng số lượng tối thiểu", HttpStatus.BAD_REQUEST),
     PRICE_TIER_MIN_QUANTITY_INVALID(3104, "Số lượng tối thiểu của bậc giá phải lớn hơn 0", HttpStatus.BAD_REQUEST),
     PRICE_TIER_PRICE_NEGATIVE(3105, "Đơn giá bậc không được nhỏ hơn 0", HttpStatus.BAD_REQUEST),
-    PRICE_TIER_UNIT_CONVERSION_MISMATCH(3106, "Đơn vị quy đổi không thuộc về mặt hàng này", HttpStatus.BAD_REQUEST);
+    PRICE_TIER_UNIT_CONVERSION_MISMATCH(3106, "Đơn vị quy đổi không thuộc về mặt hàng này", HttpStatus.BAD_REQUEST),
+
+    // NCL-03-CN-009 Hủy đơn chưa thanh toán kèm lý do
+    ORDER_ALREADY_COMPLETED_CANNOT_CANCEL(3110, "Đơn hàng đã hoàn tất thanh toán. Vui lòng sử dụng chức năng Hủy hóa đơn hoặc Lập phiếu trả hàng", HttpStatus.BAD_REQUEST),
+    ORDER_CANCEL_REASON_REQUIRED(3111, "Vui lòng chọn lý do trước khi hủy đơn hàng", HttpStatus.BAD_REQUEST),
+    ORDER_CANCEL_NOTE_REQUIRED(3112, "Vui lòng nhập ghi chú chi tiết khi chọn lý do khác", HttpStatus.BAD_REQUEST),
+    ORDER_ALREADY_CANCELED(3113, "Đơn hàng đã ở trạng thái đã hủy trước đó", HttpStatus.BAD_REQUEST),
+    ORDER_CANCEL_NOT_CREATING_STATUS(3114, "Chỉ được phép hủy đơn hàng đang trong trạng thái khởi tạo (chưa thanh toán)", HttpStatus.BAD_REQUEST),
+
+    // NCL-03-CN-010 Đặt tên nhận diện và treo nhiều đơn theo bàn hoặc khách
+    DINING_TABLE_NOT_FOUND(3120, "Bàn ăn không tồn tại trong hệ thống", HttpStatus.NOT_FOUND),
+    DINING_TABLE_NAME_DUPLICATED(3121, "Tên bàn ăn đã tồn tại trong cùng khu vực của hộ kinh doanh", HttpStatus.BAD_REQUEST),
+    DINING_TABLE_IN_USE(3122, "Bàn ăn đang có đơn hàng chưa hoàn tất, không thể xóa hoặc vô hiệu hóa", HttpStatus.BAD_REQUEST),
+    ORDER_CANNOT_BE_HELD(3123, "Chỉ được phép thao tác đặt tên nhận diện hoặc treo đơn đối với đơn hàng đang tạo dở (CREATING)", HttpStatus.BAD_REQUEST),
+    ORDER_LABEL_OR_TABLE_REQUIRED(3124, "Vui lòng nhập tên nhận diện hoặc chọn bàn ăn để nhận diện đơn hàng", HttpStatus.BAD_REQUEST),
+    DINING_TABLE_OCCUPIED(3125, "Bàn ăn này đang phục vụ một đơn hàng khác chưa hoàn tất thanh toán", HttpStatus.BAD_REQUEST),
+    DINING_TABLE_INACTIVE(3126, "Bàn ăn hiện đang ngừng hoạt động, không thể gán đơn hàng mới", HttpStatus.BAD_REQUEST),
+    ORDER_HOLDING_HOURS_INVALID(3127, "Cấu hình thời gian treo đơn tối đa phải từ 1 đến 72 giờ", HttpStatus.BAD_REQUEST),
+    ORDER_NOT_HELD(3128, "Đơn hàng không ở trạng thái treo hoặc không tìm thấy", HttpStatus.BAD_REQUEST),
+    CANNOT_SWITCH_TO_SAME_TABLE(3129, "Bàn ăn chuyển đến không được trùng với bàn hiện tại của đơn hàng", HttpStatus.BAD_REQUEST),
+
+    // NCL-03-CN-011 Thanh toán kết hợp nhiều hình thức trên một đơn & NCL-03-CN-012 Xác nhận chuyển khoản
+    PAYMENTS_EMPTY(3130, "Danh sách hình thức thanh toán không được để trống", HttpStatus.BAD_REQUEST),
+    INVALID_PAYMENT_METHOD(3131, "Hình thức thanh toán không hợp lệ (chỉ chấp nhận CASH, BANK_TRANSFER, DEBT)", HttpStatus.BAD_REQUEST),
+    PAYMENT_AMOUNT_INVALID(3132, "Số tiền thanh toán của mỗi hình thức phải lớn hơn 0", HttpStatus.BAD_REQUEST),
+    PAYMENT_TOTAL_MISMATCH(3133, "Tổng tiền các hình thức thanh toán không khớp với số tiền cần thanh toán của đơn hàng theo QTN-03", HttpStatus.BAD_REQUEST),
+    DUPLICATE_PAYMENT_METHOD(3134, "Không được lặp lại cùng một hình thức thanh toán trong một đơn hàng", HttpStatus.BAD_REQUEST),
+    BANK_TRANSFER_NOT_CONFIRMED(3135, "Giao dịch chuyển khoản ngân hàng chưa được xác nhận thành công", HttpStatus.BAD_REQUEST),
+    CASH_GIVEN_LESS_THAN_AMOUNT(3136, "Số tiền khách đưa cho hình thức tiền mặt phải lớn hơn hoặc bằng số tiền thanh toán", HttpStatus.BAD_REQUEST),
+    ORDER_PAYMENT_NOT_FOUND(3137, "Không tìm thấy giao dịch thanh toán của đơn hàng", HttpStatus.NOT_FOUND),
+    PAYMENT_ALREADY_CONFIRMED(3138, "Giao dịch chuyển khoản ngân hàng này đã được xác nhận trước đó", HttpStatus.BAD_REQUEST),
+    NOT_BANK_TRANSFER_PAYMENT(3139, "Chỉ hình thức thanh toán chuyển khoản ngân hàng mới cần xác nhận", HttpStatus.BAD_REQUEST),
+    PAYMENT_TRANSACTION_CODE_REQUIRED(3140, "Mã giao dịch ngân hàng không được để trống khi xác nhận đã nhận tiền", HttpStatus.BAD_REQUEST),
+    ORDER_ALREADY_COMPLETED_CANNOT_CHANGE_PAYMENT(3141, "Đơn hàng đã hoàn thành, không thể thay đổi phương thức thanh toán", HttpStatus.BAD_REQUEST),
+    NO_BANK_TRANSFER_PAYMENT_FOUND(3142, "Không tìm thấy khoản thanh toán chuyển khoản nào trong đơn hàng này", HttpStatus.NOT_FOUND),
+    BANK_TRANSFER_TIMEOUT_INVALID(3143, "Thời gian chờ xác nhận chuyển khoản phải từ 1 đến 1440 phút (24 giờ)", HttpStatus.BAD_REQUEST),
+    INVALID_PAYMENT_SWITCH_METHOD(3144, "Phương thức thanh toán chuyển đổi không hợp lệ (chỉ hỗ trợ CASH, BANK_TRANSFER, DEBT)", HttpStatus.BAD_REQUEST),
+
+    // NCL-03-CN-013 Bàn giao ca giữa hai nhân viên
+    RECIPIENT_ALREADY_HAS_OPEN_SHIFT(3061, "Người nhận ca đang có một ca khác đang mở. Vui lòng yêu cầu đóng ca cũ trước khi nhận bàn giao", HttpStatus.BAD_REQUEST),
+    CANNOT_HANDOVER_TO_SELF(3062, "Không thể bàn giao ca cho chính bản thân mình", HttpStatus.BAD_REQUEST),
+    RECIPIENT_NOT_FOUND(3063, "Người nhận bàn giao không tồn tại hoặc không thuộc cùng hộ kinh doanh", HttpStatus.NOT_FOUND),
+    RECIPIENT_AUTHENTICATION_FAILED(3064, "Mật khẩu xác thực của người nhận ca không chính xác", HttpStatus.UNAUTHORIZED),
+    HANDOVER_DIFFERENCE_REASON_REQUIRED(3065, "Số tiền bàn giao thực tế lệch so với quỹ dự kiến. Bắt buộc phải nhập lý do chênh lệch", HttpStatus.BAD_REQUEST),
+    INVALID_HANDOVER_CASH(3066, "Số tiền mặt bàn giao thực tế không hợp lệ", HttpStatus.BAD_REQUEST),
+    RECIPIENT_NOT_AUTHORIZED_FOR_POS(3067, "Người nhận ca chưa được phân công quầy thu ngân hoặc không có quyền bán hàng", HttpStatus.BAD_REQUEST),
+
+    // NCL-03-CN-014 Ghi thu chi tiền mặt ngoài bán hàng trong ca
+    CASH_TRANSACTION_NOT_FOUND(3070, "Phiếu thu chi tiền mặt không tồn tại trong hệ thống", HttpStatus.NOT_FOUND),
+    CASH_TRANSACTION_SHIFT_NOT_OPEN(3071, "Chỉ được phép tạo phiếu thu chi đối với ca bán hàng đang mở", HttpStatus.BAD_REQUEST),
+    CASH_TRANSACTION_AMOUNT_INVALID(3072, "Số tiền thu chi phải lớn hơn 0", HttpStatus.BAD_REQUEST),
+    CASH_TRANSACTION_NOT_PENDING(3073, "Chỉ có thể phê duyệt hoặc từ chối phiếu chi đang ở trạng thái chờ duyệt", HttpStatus.BAD_REQUEST),
+    CASH_TRANSACTION_REJECTION_REASON_REQUIRED(3074, "Vui lòng nhập lý do khi từ chối phiếu chi", HttpStatus.BAD_REQUEST),
+    CASH_TRANSACTION_APPROVAL_DENIED(3075, "Chỉ chủ hộ kinh doanh mới có quyền phê duyệt hoặc từ chối phiếu chi", HttpStatus.FORBIDDEN),
+    SHIFT_HAS_PENDING_EXPENSES(3076, "Ca bán hàng còn khoản chi đang chờ duyệt. Vui lòng phê duyệt hoặc từ chối trước khi chốt ca", HttpStatus.BAD_REQUEST),
+    CASH_CATEGORY_NOT_FOUND(3077, "Loại thu chi không tồn tại trong hệ thống", HttpStatus.NOT_FOUND),
+    CASH_CATEGORY_NAME_DUPLICATE(3078, "Tên loại thu chi đã tồn tại trong danh mục của hộ kinh doanh", HttpStatus.BAD_REQUEST),
+    CASH_CATEGORY_IN_USE(3079, "Loại thu chi đã phát sinh phiếu giao dịch, không thể xóa", HttpStatus.BAD_REQUEST),
+    CASH_CATEGORY_TYPE_MISMATCH(3080, "Loại danh mục không khớp với phân loại phiếu (Thu hoặc Chi)", HttpStatus.BAD_REQUEST),
+    EXPENSE_THRESHOLD_INVALID(3081, "Hạn mức duyệt chi của hộ kinh doanh phải lớn hơn hoặc bằng 0", HttpStatus.BAD_REQUEST),
+    CASH_TRANSACTION_PERMISSION_DENIED(3082, "Bạn không có quyền thao tác trên phiếu thu chi này", HttpStatus.FORBIDDEN);
+
+
+
 
 
     private final int code;
