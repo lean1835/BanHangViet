@@ -1,4 +1,4 @@
--- V27: Tạo bảng danh mục thu chi và bảng phiếu thu chi tiền mặt ngoài bán hàng trong ca (NCL-03-CN-014)
+-- V28: Tạo bảng danh mục thu chi và bảng phiếu thu chi tiền mặt ngoài bán hàng trong ca (NCL-03-CN-014)
 
 -- 1. Bảng danh mục loại thu chi tiền mặt
 CREATE TABLE IF NOT EXISTS cash_transaction_categories (
@@ -13,7 +13,8 @@ CREATE TABLE IF NOT EXISTS cash_transaction_categories (
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     deleted_at TIMESTAMP NULL COMMENT 'Hỗ trợ Soft Delete',
     CONSTRAINT fk_ctc_household FOREIGN KEY (household_id) REFERENCES business_households(id) ON DELETE CASCADE,
-    CONSTRAINT chk_ctc_type CHECK (type IN ('INCOME', 'EXPENSE'))
+    CONSTRAINT chk_ctc_type CHECK (type IN ('INCOME', 'EXPENSE')),
+    CONSTRAINT uq_ctc_household_name_type UNIQUE (household_id, name, type)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Bảng danh mục loại thu chi tiền mặt ngoài bán hàng';
 
 CREATE INDEX idx_ctc_household ON cash_transaction_categories(household_id);

@@ -82,7 +82,12 @@ public class CashTransactionServiceImpl implements CashTransactionService {
                 nextSeq = 1;
             }
         }
-        return String.format("%s%04d", codePrefix, nextSeq);
+        String generatedCode = String.format("%s%04d", codePrefix, nextSeq);
+        while (transactionRepository.existsByHouseholdIdAndCode(householdId, generatedCode)) {
+            nextSeq++;
+            generatedCode = String.format("%s%04d", codePrefix, nextSeq);
+        }
+        return generatedCode;
     }
 
     private Shift resolveActiveShift(User currentUser, BusinessHousehold household, String explicitShiftId) {

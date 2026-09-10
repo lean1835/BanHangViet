@@ -82,7 +82,7 @@ public interface OrderRepository extends JpaRepository<Order, String> {
     @Query("SELECT COALESCE(SUM(" +
            "  CASE " +
            "    WHEN o.paymentMethod = 'DEBT' THEN (o.finalAmount - COALESCE((SELECT cd.amount FROM CustomerDebt cd WHERE cd.order.id = o.id AND cd.type = 'DEBT_CREATED'), 0)) " +
-           "    WHEN o.paymentMethod = 'COMBINED' THEN COALESCE((SELECT SUM(op.amount) FROM OrderPayment op WHERE op.order.id = o.id AND op.paymentMethod = 'CASH'), 0) " +
+           "    WHEN o.paymentMethod = 'COMBINED' THEN COALESCE((SELECT SUM(op.amount) FROM OrderPayment op WHERE op.order.id = o.id AND op.paymentMethod IN ('CASH', 'BANK_TRANSFER')), 0) " +
            "    ELSE o.finalAmount " +
            "  END), 0) " +
            "FROM Order o " +
@@ -92,7 +92,7 @@ public interface OrderRepository extends JpaRepository<Order, String> {
     @Query("SELECT COALESCE(SUM(" +
            "  CASE " +
            "    WHEN o.paymentMethod = 'DEBT' THEN (o.finalAmount - COALESCE((SELECT cd.amount FROM CustomerDebt cd WHERE cd.order.id = o.id AND cd.type = 'DEBT_CREATED'), 0)) " +
-           "    WHEN o.paymentMethod = 'COMBINED' THEN COALESCE((SELECT SUM(op.amount) FROM OrderPayment op WHERE op.order.id = o.id AND op.paymentMethod = 'CASH'), 0) " +
+           "    WHEN o.paymentMethod = 'COMBINED' THEN COALESCE((SELECT SUM(op.amount) FROM OrderPayment op WHERE op.order.id = o.id AND op.paymentMethod IN ('CASH', 'BANK_TRANSFER')), 0) " +
            "    ELSE o.finalAmount " +
            "  END), 0) " +
            "FROM Order o " +

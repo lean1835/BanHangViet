@@ -24,6 +24,8 @@ public interface CashTransactionRepository extends JpaRepository<CashTransaction
 
     boolean existsByCategoryId(String categoryId);
 
+    boolean existsByHouseholdIdAndCode(String householdId, String code);
+
     long countByShiftIdAndStatus(String shiftId, CashTransactionStatus status);
 
     @Query("SELECT MAX(c.code) FROM CashTransaction c WHERE c.household.id = :householdId AND c.code LIKE CONCAT(:prefix, '%')")

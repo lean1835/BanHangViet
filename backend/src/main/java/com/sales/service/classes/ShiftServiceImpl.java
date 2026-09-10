@@ -166,6 +166,7 @@ public class ShiftServiceImpl implements ShiftService {
         BigDecimal totalCashExpense = explicitExpense != null ? explicitExpense : BigDecimal.ZERO;
         int pendingExpenseCount = 0;
 
+        int currentStageNumber = 1;
         if (shift.getStatus() == ShiftStatus.OPEN) {
             if (cashTransactionRepository != null) {
                 totalCashIncome = cashTransactionRepository.sumAmountByShiftIdAndTypeAndStatus(
@@ -178,9 +179,13 @@ public class ShiftServiceImpl implements ShiftService {
 
             BigDecimal collectedSales = orderRepository.sumCollectedAmountByShiftId(shift.getId());
             expectedCash = shift.getOpeningCash().add(collectedSales).add(totalCashIncome).subtract(totalCashExpense);
-            if (shiftHandoverRepository != null) {
-                List<com.sales.entity.ShiftHandover> prevHandovers = shiftHandoverRepository.findByShiftIdOrderByStageNumberAsc(shift.getId());
-                if (!prevHandovers.isEmpty()) {
+        }
+
+        if (shiftHandoverRepository != null) {
+            List<com.sales.entity.ShiftHandover> prevHandovers = shiftHandoverRepository.findByShiftIdOrderByStageNumberAsc(shift.getId());
+            if (!prevHandovers.isEmpty()) {
+                currentStageNumber = prevHandovers.size() + 1;
+                if (shift.getStatus() == ShiftStatus.OPEN) {
                     BigDecimal totalHandoverDiff = prevHandovers.stream()
                             .map(com.sales.entity.ShiftHandover::getDifferenceAmount)
                             .filter(Objects::nonNull)
@@ -190,6 +195,7 @@ public class ShiftServiceImpl implements ShiftService {
                 }
             }
         }
+
         return ShiftResponse.builder()
                 .id(shift.getId())
                 .userId(shift.getUser().getId())
@@ -209,6 +215,7 @@ public class ShiftServiceImpl implements ShiftService {
                 .totalCashIncome(totalCashIncome)
                 .totalCashExpense(totalCashExpense)
                 .pendingExpenseCount(pendingExpenseCount)
+                .currentStageNumber(currentStageNumber)
                 .status(shift.getStatus().name())
                 .createdAt(shift.getCreatedAt())
                 .updatedAt(shift.getUpdatedAt())
