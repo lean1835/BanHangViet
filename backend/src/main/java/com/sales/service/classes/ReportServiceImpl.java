@@ -1,6 +1,9 @@
 package com.sales.service.classes;
 
 import com.sales.constant.DebtType;
+import com.sales.constant.ShiftStatus;
+import com.sales.constant.CashTransactionType;
+import com.sales.constant.CashTransactionStatus;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sales.dto.response.*;
 import com.sales.entity.*;
@@ -43,6 +46,9 @@ public class ReportServiceImpl implements ReportService {
     private final ShiftRepository shiftRepository;
     private final CustomerDebtRepository customerDebtRepository;
     private final OrderPaymentRepository orderPaymentRepository;
+    private final CashTransactionRepository cashTransactionRepository;
+    private final BusinessHouseholdSettingsRepository settingsRepository;
+    private final ShiftHandoverRepository shiftHandoverRepository;
     private final ObjectMapper objectMapper;
 
     private BusinessHousehold getHouseholdAndValidate(String username) {
@@ -529,6 +535,188 @@ public class ReportServiceImpl implements ReportService {
                 .householdSummary(householdSummary)
                 .posSummaries(posSummaries)
                 .dailyBreakdown(dailyBreakdown)
+                .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public EmployeeShiftReportResponse getEmployeeShiftReport(
+            String currentUsername,
+            LocalDate fromDate,
+            LocalDate toDate,
+            String userId,
+            BigDecimal customThreshold) {
+        BusinessHousehold household = getHouseholdAndValidate(currentUsername);
+
+        LocalDateTime start = fromDate != null ? fromDate.atStartOfDay() : LocalDate.now().minusDays(30).atStartOfDay();
+        LocalDateTime end = toDate != null ? toDate.atTime(LocalTime.MAX) : LocalDate.now().atTime(LocalTime.MAX);
+        if (start.isAfter(end)) {
+            throw new AppException(ErrorCode.INVALID_INPUT);
+        }
+
+        BigDecimal appliedThreshold = customThreshold;
+        if (appliedThreshold == null) {
+            appliedThreshold = settingsRepository.findByHouseholdId(household.getId())
+                    .map(BusinessHouseholdSettings::getShiftDifferenceThreshold)
+                    .orElse(BigDecimal.ZERO);
+        }
+        if (appliedThreshold == null || appliedThreshold.compareTo(BigDecimal.ZERO) < 0) {
+            appliedThreshold = BigDecimal.ZERO;
+        }
+
+        String filterUserId = (userId != null && !userId.trim().isEmpty()) ? userId.trim() : null;
+        List<Shift> closedShifts = shiftRepository.findClosedShiftsForReport(
+                household.getId(),
+                ShiftStatus.CLOSED,
+                start,
+                end,
+                filterUserId);
+
+        List<ShiftRevenueReportItemResponse> shiftItems = new ArrayList<>();
+        Map<String, List<ShiftRevenueReportItemResponse>> shiftsByUser = new HashMap<>();
+
+        BigDecimal totalCashRevAll = BigDecimal.ZERO;
+        BigDecimal totalBankRevAll = BigDecimal.ZERO;
+        BigDecimal totalRevAll = BigDecimal.ZERO;
+        int totalCompletedOrdersAll = 0;
+        int totalCanceledOrdersAll = 0;
+        BigDecimal totalDiffAmountAll = BigDecimal.ZERO;
+        int totalExceededShiftsAll = 0;
+
+        for (Shift s : closedShifts) {
+            BigDecimal cashRev = orderRepository.sumCashSalesAmountByShiftId(s.getId());
+            if (cashRev == null) cashRev = BigDecimal.ZERO;
+
+            BigDecimal bankRev = orderRepository.sumBankTransferSalesAmountByShiftId(s.getId());
+            if (bankRev == null) bankRev = BigDecimal.ZERO;
+
+            BigDecimal totalRev = cashRev.add(bankRev);
+
+            int completedOrders = (int) orderRepository.countByShiftIdAndStatusAndDeletedAtIsNull(s.getId(), "COMPLETED");
+            int canceledOrders = (int) orderRepository.countByShiftIdAndStatusAndDeletedAtIsNull(s.getId(), "CANCELED");
+
+            BigDecimal cashIncome = BigDecimal.ZERO;
+            BigDecimal cashExpense = BigDecimal.ZERO;
+            if (cashTransactionRepository != null) {
+                cashIncome = cashTransactionRepository.sumAmountByShiftIdAndTypeAndStatus(
+                        s.getId(), CashTransactionType.INCOME, CashTransactionStatus.APPROVED);
+                cashExpense = cashTransactionRepository.sumAmountByShiftIdAndTypeAndStatus(
+                        s.getId(), CashTransactionType.EXPENSE, CashTransactionStatus.APPROVED);
+            }
+
+            BigDecimal diffAmount = s.getDifferenceAmount() != null ? s.getDifferenceAmount() : BigDecimal.ZERO;
+            boolean isExceeded = diffAmount.abs().compareTo(appliedThreshold) > 0;
+            if (isExceeded) {
+                totalExceededShiftsAll++;
+            }
+
+            int handoversCount = shiftHandoverRepository != null ? shiftHandoverRepository.countByShiftId(s.getId()) : 0;
+
+            ShiftRevenueReportItemResponse item = ShiftRevenueReportItemResponse.builder()
+                    .shiftId(s.getId())
+                    .userId(s.getUser().getId())
+                    .username(s.getUser().getUsername())
+                    .employeeName(s.getUser().getFullName())
+                    .pointOfSaleId(s.getPointOfSale() != null ? s.getPointOfSale().getId() : null)
+                    .pointOfSaleName(s.getPointOfSale() != null ? s.getPointOfSale().getName() : null)
+                    .openedAt(s.getOpenedAt())
+                    .closedAt(s.getClosedAt())
+                    .openingCash(s.getOpeningCash())
+                    .closingCashExpected(s.getClosingCashExpected())
+                    .closingCashActual(s.getClosingCashActual())
+                    .cashRevenue(cashRev)
+                    .bankTransferRevenue(bankRev)
+                    .totalRevenue(totalRev)
+                    .totalOrders(completedOrders)
+                    .canceledOrders(canceledOrders)
+                    .cashIncome(cashIncome)
+                    .cashExpense(cashExpense)
+                    .differenceAmount(diffAmount)
+                    .differenceReason(s.getDifferenceReason())
+                    .isDifferenceExceeded(isExceeded)
+                    .handoversCount(handoversCount)
+                    .status(s.getStatus().name())
+                    .build();
+
+            shiftItems.add(item);
+            shiftsByUser.computeIfAbsent(s.getUser().getId(), k -> new ArrayList<>()).add(item);
+
+            totalCashRevAll = totalCashRevAll.add(cashRev);
+            totalBankRevAll = totalBankRevAll.add(bankRev);
+            totalRevAll = totalRevAll.add(totalRev);
+            totalCompletedOrdersAll += completedOrders;
+            totalCanceledOrdersAll += canceledOrders;
+            totalDiffAmountAll = totalDiffAmountAll.add(diffAmount);
+        }
+
+        List<EmployeeRevenueSummaryResponse> employeeSummaries = new ArrayList<>();
+        for (Map.Entry<String, List<ShiftRevenueReportItemResponse>> entry : shiftsByUser.entrySet()) {
+            List<ShiftRevenueReportItemResponse> userShifts = entry.getValue();
+            if (userShifts.isEmpty()) continue;
+
+            ShiftRevenueReportItemResponse first = userShifts.get(0);
+            int shiftsCount = userShifts.size();
+
+            BigDecimal userCashRev = BigDecimal.ZERO;
+            BigDecimal userBankRev = BigDecimal.ZERO;
+            BigDecimal userTotalRev = BigDecimal.ZERO;
+            int userOrders = 0;
+            int userCanceled = 0;
+            BigDecimal userDiff = BigDecimal.ZERO;
+            int userExceededCount = 0;
+
+            for (ShiftRevenueReportItemResponse it : userShifts) {
+                userCashRev = userCashRev.add(it.getCashRevenue());
+                userBankRev = userBankRev.add(it.getBankTransferRevenue());
+                userTotalRev = userTotalRev.add(it.getTotalRevenue());
+                userOrders += it.getTotalOrders();
+                userCanceled += it.getCanceledOrders();
+                userDiff = userDiff.add(it.getDifferenceAmount());
+                if (it.isDifferenceExceeded()) {
+                    userExceededCount++;
+                }
+            }
+
+            double avgOrders = shiftsCount > 0 ? (double) userOrders / shiftsCount : 0.0;
+            avgOrders = Math.round(avgOrders * 100.0) / 100.0;
+
+            BigDecimal avgRev = shiftsCount > 0
+                    ? userTotalRev.divide(BigDecimal.valueOf(shiftsCount), 2, RoundingMode.HALF_UP)
+                    : BigDecimal.ZERO;
+
+            employeeSummaries.add(EmployeeRevenueSummaryResponse.builder()
+                    .userId(first.getUserId())
+                    .username(first.getUsername())
+                    .employeeName(first.getEmployeeName())
+                    .totalShifts(shiftsCount)
+                    .totalCashRevenue(userCashRev)
+                    .totalBankTransferRevenue(userBankRev)
+                    .totalRevenue(userTotalRev)
+                    .totalOrders(userOrders)
+                    .totalCanceledOrders(userCanceled)
+                    .averageOrdersPerShift(avgOrders)
+                    .averageRevenuePerShift(avgRev)
+                    .totalDifferenceAmount(userDiff)
+                    .exceededShiftsCount(userExceededCount)
+                    .build());
+        }
+
+        employeeSummaries.sort((a, b) -> b.getTotalRevenue().compareTo(a.getTotalRevenue()));
+
+        return EmployeeShiftReportResponse.builder()
+                .fromDate(start.toLocalDate())
+                .toDate(end.toLocalDate())
+                .appliedThreshold(appliedThreshold)
+                .totalShiftsCount(shiftItems.size())
+                .totalExceededShiftsCount(totalExceededShiftsAll)
+                .totalCashRevenue(totalCashRevAll)
+                .totalBankTransferRevenue(totalBankRevAll)
+                .totalRevenue(totalRevAll)
+                .totalOrdersCount(totalCompletedOrdersAll)
+                .totalCanceledOrdersCount(totalCanceledOrdersAll)
+                .totalDifferenceAmount(totalDiffAmountAll)
+                .shifts(shiftItems)
+                .employeeSummaries(employeeSummaries)
                 .build();
     }
 }

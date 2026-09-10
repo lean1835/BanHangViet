@@ -73,6 +73,10 @@ public class BusinessHouseholdSettings {
     @Builder.Default
     private Boolean taxReminderEnabled = true;
 
+    @Column(name = "shift_difference_threshold", nullable = false, precision = 15, scale = 2)
+    @Builder.Default
+    private java.math.BigDecimal shiftDifferenceThreshold = java.math.BigDecimal.ZERO;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

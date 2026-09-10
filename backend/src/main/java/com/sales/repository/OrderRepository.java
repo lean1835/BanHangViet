@@ -92,6 +92,16 @@ public interface OrderRepository extends JpaRepository<Order, String> {
 
     @Query("SELECT COALESCE(SUM(" +
            "  CASE " +
+           "    WHEN o.paymentMethod = 'BANK_TRANSFER' THEN o.finalAmount " +
+           "    WHEN o.paymentMethod = 'COMBINED' THEN COALESCE((SELECT SUM(op.amount) FROM OrderPayment op WHERE op.order.id = o.id AND op.paymentMethod = 'BANK_TRANSFER'), 0) " +
+           "    ELSE 0 " +
+           "  END), 0) " +
+           "FROM Order o " +
+           "WHERE o.shift.id = :shiftId AND o.status = 'COMPLETED' AND o.deletedAt IS NULL")
+    BigDecimal sumBankTransferSalesAmountByShiftId(@Param("shiftId") String shiftId);
+
+    @Query("SELECT COALESCE(SUM(" +
+           "  CASE " +
            "    WHEN o.paymentMethod = 'CASH' THEN o.finalAmount " +
            "    WHEN o.paymentMethod = 'COMBINED' THEN COALESCE((SELECT SUM(op.amount) FROM OrderPayment op WHERE op.order.id = o.id AND op.paymentMethod = 'CASH'), 0) " +
            "    WHEN o.paymentMethod = 'DEBT' THEN (o.finalAmount - COALESCE((SELECT cd.amount FROM CustomerDebt cd WHERE cd.order.id = o.id AND cd.type = 'DEBT_CREATED'), 0)) " +

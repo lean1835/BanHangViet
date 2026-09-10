@@ -151,4 +151,21 @@ public class ReportController {
                 .build();
         return ResponseEntity.ok(response);
     }
+
+    @GetMapping("/employee-shifts")
+    public ResponseEntity<ApiResponse<EmployeeShiftReportResponse>> getEmployeeShiftReport(
+            Principal principal,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate,
+            @RequestParam(required = false) String userId,
+            @RequestParam(required = false) java.math.BigDecimal threshold) {
+        EmployeeShiftReportResponse result = reportService.getEmployeeShiftReport(
+                principal.getName(), fromDate, toDate, userId, threshold);
+        ApiResponse<EmployeeShiftReportResponse> response = ApiResponse.<EmployeeShiftReportResponse>builder()
+                .code(1000)
+                .message("Lấy báo cáo doanh thu theo nhân viên và theo ca thành công")
+                .result(result)
+                .build();
+        return ResponseEntity.ok(response);
+    }
 }
