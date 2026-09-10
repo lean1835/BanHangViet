@@ -209,7 +209,7 @@ public class EInvoiceServiceImpl implements EInvoiceService {
         }
 
         List<OrderPaymentResponse> paymentResponses = null;
-        if (includePayments && invoice.getOrder() != null) {
+        if (includePayments && invoice.getOrder() != null && orderPaymentRepository != null) {
             List<OrderPayment> orderPayments = orderPaymentRepository.findByOrderId(invoice.getOrder().getId());
             if (orderPayments != null && !orderPayments.isEmpty()) {
                 paymentResponses = orderPayments.stream()
@@ -1516,7 +1516,7 @@ public class EInvoiceServiceImpl implements EInvoiceService {
         }
 
         List<OrderPaymentResponse> paymentResponses = null;
-        if (invoice.getOrder() != null) {
+        if (invoice.getOrder() != null && orderPaymentRepository != null) {
             List<OrderPayment> orderPayments = orderPaymentRepository.findByOrderId(invoice.getOrder().getId());
             if (orderPayments != null && !orderPayments.isEmpty()) {
                 paymentResponses = orderPayments.stream()

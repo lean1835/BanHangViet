@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Clock, CalendarCheck } from "lucide-react";
 import { APP_ROUTES } from "@/constants/routes";
@@ -486,7 +486,6 @@ export const PosPage = () => {
   }, [isShiftOpen, heldOrdersData, customersList]);
 
   // Lazy load full order items when switching to a held tab that has no items in memory
-  const activeTabId = activeTab?.id;
   const activeBackendOrderId = activeTab?.backendOrderId;
   const activeItemsCount = activeTab?.items.length ?? 0;
 
