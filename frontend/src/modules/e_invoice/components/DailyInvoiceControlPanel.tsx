@@ -12,9 +12,11 @@ import {
   DollarSign,
   Percent,
   Layers,
+  Calendar,
+  Filter,
 } from "lucide-react";
 import { formatCurrency } from "@/utils/formatCurrency";
-import { formatDate } from "@/utils/dateFormatter";
+import { formatDate, getLocalDateString } from "@/utils/dateFormatter";
 import { useNotification } from "@/hooks/useNotification";
 import { getApiErrorMessage } from "@/utils/getApiErrorMessage";
 import { APP_ROUTES } from "@/constants/routes";
@@ -56,8 +58,8 @@ export const DailyInvoiceControlPanel: React.FC<DailyInvoiceControlPanelProps> =
   const navigate = useNavigate();
   const { showSuccess, showError } = useNotification();
 
-  // Mặc định chọn ngày hiện tại (YYYY-MM-DD) nếu không có prop
-  const todayStr = new Date().toISOString().split("T")[0];
+  // Mặc định chọn ngày hiện tại (YYYY-MM-DD) theo múi giờ địa phương
+  const todayStr = React.useMemo(() => getLocalDateString(new Date()), []);
   const selectedDate = propDate || todayStr;
 
   // Queries & Mutations
@@ -98,33 +100,19 @@ export const DailyInvoiceControlPanel: React.FC<DailyInvoiceControlPanelProps> =
     }
   }, [report, onSummaryChange]);
 
-  // Giá trị doanh thu & thuế trong ngày: lấy từ API report nếu có, hoặc dùng giá trị demo từ ảnh mẫu khi chưa có dữ liệu
-  const hasRealTaxData =
-    report?.totalTaxableRevenue !== undefined && report.totalTaxableRevenue > 0;
-
-  const totalTaxableRevenue = hasRealTaxData
-    ? report.totalTaxableRevenue!
-    : 759105000;
-
-  const totalTaxAmount = hasRealTaxData
-    ? (report.totalTaxAmount ?? totalTaxableRevenue * 0.015)
-    : 22592750;
-
-  const validInvoicesCount = hasRealTaxData
-    ? (report.validInvoicesCount ?? 0)
-    : 12;
+  // Giá trị doanh thu & thuế trong ngày: lấy chuẩn xác từ API report theo ngày đang chọn
+  const totalTaxableRevenue = report?.totalTaxableRevenue ?? 0;
+  const totalTaxAmount =
+    report?.totalTaxAmount ??
+    (totalTaxableRevenue > 0 ? totalTaxableRevenue * 0.015 : 0);
+  const validInvoicesCount = report?.validInvoicesCount ?? 0;
 
   // Tính thuế GTGT (1%) và TNCN (0.5%) ước tính cho hộ kinh doanh phương pháp kê khai
   // Theo Thông tư 40/2021/TT-BTC: GTGT = 1%, TNCN = 0.5%
-  const vatAmountEstimated = hasRealTaxData
-    ? totalTaxAmount * (1.0 / 1.5)
-    : 15061833;
+  const vatAmountEstimated = totalTaxAmount > 0 ? totalTaxAmount * (1.0 / 1.5) : 0;
+  const pitAmountEstimated = totalTaxAmount > 0 ? totalTaxAmount * (0.5 / 1.5) : 0;
 
-  const pitAmountEstimated = hasRealTaxData
-    ? totalTaxAmount * (0.5 / 1.5)
-    : 7530917;
-
-  const isCriticalDuration = (days: number, hours: number) => days > 0 || hours > 24;
+  const isCriticalDuration = (days?: number, hours?: number) => (days ?? 0) > 0 || (hours ?? 0) > 24;
 
   const filteredUninvoicedOrders = React.useMemo(() => {
     if (issueTypeFilter !== "ALL" && issueTypeFilter !== "UNINVOICED_ORDERS") return [];
@@ -229,7 +217,6 @@ export const DailyInvoiceControlPanel: React.FC<DailyInvoiceControlPanelProps> =
     );
   }
 
-
   const handleCreateInvoiceForOrder = async (orderId: string) => {
     try {
       const res = await createDraft({ orderId }).unwrap();
@@ -268,6 +255,12 @@ export const DailyInvoiceControlPanel: React.FC<DailyInvoiceControlPanelProps> =
             Đối chiếu toàn bộ đơn đã thu tiền và phát hiện các hóa đơn treo chưa được cấp mã
           </p>
         </div>
+        <div className="flex items-center gap-2">
+          <span className="px-3 py-1.5 rounded-lg bg-blue-50 text-kv-blue-primary border border-blue-200 text-xs font-bold flex items-center gap-1.5 shadow-2xs">
+            <Calendar className="w-3.5 h-3.5 text-kv-blue-primary" />
+            <span>Ngày kiểm soát: {selectedDate}</span>
+          </span>
+        </div>
       </div>
 
       {error && (
@@ -289,7 +282,11 @@ export const DailyInvoiceControlPanel: React.FC<DailyInvoiceControlPanelProps> =
             </div>
           </div>
           <div className="text-xl font-black text-slate-900 tracking-tight">
-            {formatCurrency(totalTaxableRevenue)}
+            {isLoading ? (
+              <div className="h-7 w-28 bg-slate-200/80 animate-pulse rounded-md" />
+            ) : (
+              formatCurrency(totalTaxableRevenue)
+            )}
           </div>
           <div className="mt-2 text-[11px] text-slate-400 font-medium">
             {validInvoicesCount} HĐ hợp lệ trong kỳ
@@ -307,7 +304,11 @@ export const DailyInvoiceControlPanel: React.FC<DailyInvoiceControlPanelProps> =
             </div>
           </div>
           <div className="text-xl font-black text-emerald-600 tracking-tight">
-            {formatCurrency(vatAmountEstimated)}
+            {isLoading ? (
+              <div className="h-7 w-24 bg-slate-200/80 animate-pulse rounded-md" />
+            ) : (
+              formatCurrency(vatAmountEstimated)
+            )}
           </div>
           <div className="mt-2 text-[11px] text-slate-400 font-medium">
             Tỷ lệ 1% trên doanh thu bán buôn/bán lẻ
@@ -325,7 +326,11 @@ export const DailyInvoiceControlPanel: React.FC<DailyInvoiceControlPanelProps> =
             </div>
           </div>
           <div className="text-xl font-black text-indigo-600 tracking-tight">
-            {formatCurrency(pitAmountEstimated)}
+            {isLoading ? (
+              <div className="h-7 w-24 bg-slate-200/80 animate-pulse rounded-md" />
+            ) : (
+              formatCurrency(pitAmountEstimated)
+            )}
           </div>
           <div className="mt-2 text-[11px] text-slate-400 font-medium">
             Tỷ lệ 0.5% trên doanh thu bán hàng hóa
@@ -343,7 +348,11 @@ export const DailyInvoiceControlPanel: React.FC<DailyInvoiceControlPanelProps> =
             </div>
           </div>
           <div className="text-xl font-black text-rose-600 tracking-tight">
-            {formatCurrency(totalTaxAmount)}
+            {isLoading ? (
+              <div className="h-7 w-28 bg-slate-200/80 animate-pulse rounded-md" />
+            ) : (
+              formatCurrency(totalTaxAmount)
+            )}
           </div>
           <div className="mt-2 text-[11px] text-rose-500 font-semibold">
             Tổng nghĩa vụ thuế vào NSNN
@@ -414,15 +423,15 @@ export const DailyInvoiceControlPanel: React.FC<DailyInvoiceControlPanelProps> =
                         <td className="p-3 text-center">
                           <span
                             className={`px-2 py-0.5 rounded text-[11px] font-bold inline-flex items-center gap-1 ${
-                              order.pendingDurationDays > 0
+                              (order.pendingDurationDays ?? 0) > 0
                                 ? "bg-rose-100 text-rose-700 font-extrabold"
                                 : "bg-slate-100 text-slate-600"
                             }`}
                           >
                             <Clock className="w-3 h-3" />
-                            {order.pendingDurationDays > 0
-                                ? `${order.pendingDurationDays} ngày`
-                                : `${order.pendingDurationHours} giờ`}
+                            {(order.pendingDurationDays ?? 0) > 0
+                              ? `${order.pendingDurationDays} ngày`
+                              : `${order.pendingDurationHours ?? 0} giờ`}
                           </span>
                         </td>
                         <td className="p-3 text-right">
@@ -459,6 +468,21 @@ export const DailyInvoiceControlPanel: React.FC<DailyInvoiceControlPanelProps> =
                   />
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Khi chọn riêng nhóm 1 nhưng không có bản ghi */}
+          {issueTypeFilter === "UNINVOICED_ORDERS" && filteredUninvoicedOrders.length === 0 && (
+            <div className="p-8 bg-white rounded-2xl border border-slate-200 text-center space-y-2">
+              <div className="w-10 h-10 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto">
+                <CheckCircle2 className="w-5 h-5" />
+              </div>
+              <h4 className="font-extrabold text-slate-800 text-sm">
+                Không có đơn hàng nào chưa xuất hóa đơn
+              </h4>
+              <p className="text-xs text-slate-500">
+                Toàn bộ đơn hàng đã thanh toán trong ngày kiểm soát {selectedDate} đều đã được phát hành hóa đơn hoặc không có phát sinh.
+              </p>
             </div>
           )}
 
@@ -517,9 +541,9 @@ export const DailyInvoiceControlPanel: React.FC<DailyInvoiceControlPanelProps> =
                         </td>
                         <td className="p-3 text-center">
                           <span className="px-2 py-0.5 rounded text-[11px] font-mono font-bold bg-slate-100 text-slate-600">
-                            {inv.pendingDurationDays > 0
+                            {(inv.pendingDurationDays ?? 0) > 0
                               ? `${inv.pendingDurationDays} ngày`
-                              : `${inv.pendingDurationHours} giờ`}
+                              : `${inv.pendingDurationHours ?? 0} giờ`}
                           </span>
                         </td>
                         <td className="p-3 text-right">
@@ -554,6 +578,21 @@ export const DailyInvoiceControlPanel: React.FC<DailyInvoiceControlPanelProps> =
                   />
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Khi chọn riêng nhóm 2 nhưng không có bản ghi */}
+          {issueTypeFilter === "PENDING_INVOICES" && filteredPendingInvoices.length === 0 && (
+            <div className="p-8 bg-white rounded-2xl border border-slate-200 text-center space-y-2">
+              <div className="w-10 h-10 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto">
+                <CheckCircle2 className="w-5 h-5" />
+              </div>
+              <h4 className="font-extrabold text-slate-800 text-sm">
+                Không có hóa đơn nào đang chờ cấp mã
+              </h4>
+              <p className="text-xs text-slate-500">
+                Toàn bộ hóa đơn phát hành trong ngày kiểm soát {selectedDate} đều đã được cấp mã hợp lệ hoặc không có hóa đơn treo.
+              </p>
             </div>
           )}
 
@@ -599,45 +638,35 @@ export const DailyInvoiceControlPanel: React.FC<DailyInvoiceControlPanelProps> =
                           <span className="font-semibold block text-[11px] truncate" title={inv.taxAuthorityResponse || "-"}>
                             {inv.taxAuthorityResponse || "Lỗi gửi Cơ quan Thuế"}
                           </span>
-                          {inv.errorCategory && (
-                            <span className="text-[10px] text-slate-400 font-mono">
-                              Nhóm: {inv.errorCategory}
-                            </span>
-                          )}
                         </td>
-                        <td className="p-3 text-center font-mono font-bold text-slate-600">
-                          {inv.retryCount ?? 0} lần
+                        <td className="p-3 text-center">
+                          <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-rose-50 text-rose-600 border border-rose-100">
+                            {inv.retryCount ?? 0} lần
+                          </span>
                         </td>
-                        <td className="p-3 text-right font-mono font-bold text-rose-600">
+                        <td className="p-3 text-right font-mono font-bold text-kv-blue-primary">
                           {formatCurrency(inv.finalAmount)}
                         </td>
                         <td className="p-3 text-center">
-                          <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-rose-100 text-rose-700">
-                            {inv.pendingDurationDays > 0
+                          <span className="px-2 py-0.5 rounded text-[11px] font-mono font-bold bg-slate-100 text-slate-600">
+                            {(inv.pendingDurationDays ?? 0) > 0
                               ? `${inv.pendingDurationDays} ngày`
-                              : `${inv.pendingDurationHours} giờ`}
+                              : `${inv.pendingDurationHours ?? 0} giờ`}
                           </span>
                         </td>
-                        <td className="p-3 text-right flex items-center justify-end gap-1.5">
+                        <td className="p-3 text-right">
                           <button
                             type="button"
                             onClick={() => handleResendFailedInvoice(inv.invoiceId)}
                             disabled={isResending}
-                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-kv-blue-primary hover:bg-kv-blue-dark text-white font-bold text-xs transition-colors cursor-pointer"
+                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs transition-colors cursor-pointer"
                           >
-                            <Send className="w-3 h-3" />
-                            <span>Gửi lại</span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              navigate(APP_ROUTES.E_INVOICE_DETAIL(inv.invoiceId), {
-                                state: { fromTab: "DAILY_CONTROL" },
-                              })
-                            }
-                            className="px-2.5 py-1.5 rounded-lg border border-slate-300 hover:bg-slate-50 text-slate-600 font-bold text-xs transition-colors cursor-pointer"
-                          >
-                            Xem
+                            {isResending ? (
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            ) : (
+                              <Send className="w-3.5 h-3.5" />
+                            )}
+                            <span>Gửi lại CQT</span>
                           </button>
                         </td>
                       </tr>
@@ -661,6 +690,40 @@ export const DailyInvoiceControlPanel: React.FC<DailyInvoiceControlPanelProps> =
               )}
             </div>
           )}
+
+          {/* Khi chọn riêng nhóm 3 nhưng không có bản ghi */}
+          {issueTypeFilter === "FAILED_INVOICES" && filteredFailedInvoices.length === 0 && (
+            <div className="p-8 bg-white rounded-2xl border border-slate-200 text-center space-y-2">
+              <div className="w-10 h-10 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto">
+                <CheckCircle2 className="w-5 h-5" />
+              </div>
+              <h4 className="font-extrabold text-slate-800 text-sm">
+                Không có hóa đơn nào bị gửi lỗi hoặc treo
+              </h4>
+              <p className="text-xs text-slate-500">
+                Không phát sinh lỗi kết nối với CQT hay sai sót dữ liệu cần xử lý trong ngày kiểm soát {selectedDate}.
+              </p>
+            </div>
+          )}
+
+          {/* Khi chọn Tất cả vấn đề nhưng tất cả nhóm đều rỗng do lọc mức độ thời gian treo */}
+          {issueTypeFilter === "ALL" &&
+            filteredUninvoicedOrders.length === 0 &&
+            filteredPendingInvoices.length === 0 &&
+            filteredFailedInvoices.length === 0 && (
+              <div className="p-8 bg-white rounded-2xl border border-slate-200 text-center space-y-3">
+                <div className="w-10 h-10 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mx-auto">
+                  <Filter className="w-5 h-5" />
+                </div>
+                <h4 className="font-extrabold text-slate-800 text-sm">
+                  Không tìm thấy dữ liệu phù hợp với bộ lọc thời gian treo
+                </h4>
+                <p className="text-xs text-slate-500 max-w-md mx-auto">
+                  Không có đơn hàng hoặc hóa đơn nào thỏa mãn tiêu chí mức độ thời gian treo đã chọn (
+                  {durationFilter === "CRITICAL" ? "Treo nguy cấp > 24 giờ" : "Trong ngày ≤ 24 giờ"}).
+                </p>
+              </div>
+            )}
         </div>
       )}
     </div>

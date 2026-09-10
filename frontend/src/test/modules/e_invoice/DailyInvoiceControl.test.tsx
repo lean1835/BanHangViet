@@ -21,7 +21,11 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-const renderComponent = (userRole: string = "VT-01") => {
+const renderComponent = (
+  userRole: string = "VT-01",
+  issueTypeFilter: any = "ALL",
+  durationFilter: any = "ALL"
+) => {
   const store = configureStore({
     reducer: {
       auth: (
@@ -43,7 +47,11 @@ const renderComponent = (userRole: string = "VT-01") => {
   return render(
     <Provider store={store}>
       <MemoryRouter>
-        <DailyInvoiceControlPanel userRole={userRole} />
+        <DailyInvoiceControlPanel
+          userRole={userRole}
+          issueTypeFilter={issueTypeFilter}
+          durationFilter={durationFilter}
+        />
       </MemoryRouter>
     </Provider>
   );
@@ -292,5 +300,75 @@ describe("NCL-04-CN-008: Kiểm soát cuối ngày đơn chưa có hóa đơn v�
     expect(rows[2]).toHaveTextContent("ORD-MID-03");
     expect(rows[3]).toHaveTextContent("ORD-OLD-01");
   });
+
+  it("NCL-04-CN-008-TC-06: Khi lọc phân loại vấn đề sang nhóm không có bản ghi -> Hiển thị thông báo rỗng thân thiện", async () => {
+    vi.spyOn(eInvoiceApiModule, "useGetDailyInvoiceControlQuery").mockReturnValue({
+      data: {
+        code: 1000,
+        message: "Success",
+        result: {
+          controlDate: "2026-09-10",
+          isCleanDay: false,
+          totalUninvoicedOrders: 10,
+          totalPendingInvoices: 0,
+          totalFailedInvoices: 0,
+          uninvoicedOrders: [
+            {
+              orderId: "order-1",
+              orderNumber: "ORD-01",
+              createdAt: "2026-09-10T10:00:00",
+              createdByUsername: "cashier1",
+              createdByFullName: "Nguyễn Văn A",
+              finalAmount: 100000,
+              pendingDurationHours: 4,
+              pendingDurationDays: 0,
+            },
+          ],
+          pendingInvoices: [],
+          failedInvoices: [],
+        },
+      },
+      isLoading: false,
+      isFetching: false,
+      refetch: vi.fn(),
+    } as any);
+
+    renderComponent("VT-01", "PENDING_INVOICES");
+
+    expect(screen.getByText("Không có hóa đơn nào đang chờ cấp mã")).toBeInTheDocument();
+    expect(screen.queryByText("1. Đơn đã thu tiền nhưng chưa phát hành hóa đơn")).not.toBeInTheDocument();
+  });
+
+  it("NCL-04-CN-008-TC-07: Hiển thị số liệu doanh thu và thuế thực tế theo API report (0 đ khi không có hóa đơn)", async () => {
+    vi.spyOn(eInvoiceApiModule, "useGetDailyInvoiceControlQuery").mockReturnValue({
+      data: {
+        code: 1000,
+        message: "Success",
+        result: {
+          controlDate: "2026-09-10",
+          isCleanDay: false,
+          totalUninvoicedOrders: 2,
+          totalPendingInvoices: 0,
+          totalFailedInvoices: 0,
+          totalTaxableRevenue: 0,
+          totalTaxAmount: 0,
+          validInvoicesCount: 0,
+          uninvoicedOrders: [],
+          pendingInvoices: [],
+          failedInvoices: [],
+        },
+      },
+      isLoading: false,
+      isFetching: false,
+      refetch: vi.fn(),
+    } as any);
+
+    renderComponent("VT-01");
+
+    // Doanh thu và thuế phải hiển thị 0 đ, không bị fallback số giả 759.105.000 đ
+    expect(screen.getByText("0 HĐ hợp lệ trong kỳ")).toBeInTheDocument();
+    expect(screen.queryByText("759.105.000 đ")).not.toBeInTheDocument();
+  });
 });
+
 

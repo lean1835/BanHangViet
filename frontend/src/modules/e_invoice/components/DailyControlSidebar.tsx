@@ -1,9 +1,11 @@
-import React from "react";
+import React, { useMemo } from "react";
 import {
   Calendar,
   RotateCw,
+  RotateCcw,
   ShieldCheck,
 } from "lucide-react";
+import { getLocalDateString } from "@/utils/dateFormatter";
 
 export type TDailyIssueType = "ALL" | "UNINVOICED_ORDERS" | "PENDING_INVOICES" | "FAILED_INVOICES";
 export type TDailyDurationFilter = "ALL" | "CRITICAL" | "IN_DAY";
@@ -23,6 +25,7 @@ interface DailyControlSidebarProps {
   };
   onRefresh?: () => void;
   isFetching?: boolean;
+  onResetFilters?: () => void;
 }
 
 export const DailyControlSidebar: React.FC<DailyControlSidebarProps> = ({
@@ -35,15 +38,32 @@ export const DailyControlSidebar: React.FC<DailyControlSidebarProps> = ({
   summary,
   onRefresh,
   isFetching,
+  onResetFilters,
 }) => {
-  const todayStr = new Date().toISOString().split("T")[0];
+  const todayStr = useMemo(() => getLocalDateString(new Date()), []);
+
+  const yesterdayStr = useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 1);
+    return getLocalDateString(d);
+  }, []);
+
+  const sevenDaysAgoStr = useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 7);
+    return getLocalDateString(d);
+  }, []);
 
   const handleQuickDate = (daysAgo: number) => {
     const d = new Date();
     d.setDate(d.getDate() - daysAgo);
-    setSelectedDate(d.toISOString().split("T")[0]);
+    setSelectedDate(getLocalDateString(d));
   };
 
+  const totalIssues =
+    (summary?.totalUninvoiced ?? 0) +
+    (summary?.totalPending ?? 0) +
+    (summary?.totalFailed ?? 0);
 
   return (
     <>
@@ -75,7 +95,11 @@ export const DailyControlSidebar: React.FC<DailyControlSidebarProps> = ({
           <input
             type="date"
             value={selectedDate}
-            onChange={(e) => setSelectedDate(e.target.value)}
+            onChange={(e) => {
+              if (e.target.value) {
+                setSelectedDate(e.target.value);
+              }
+            }}
             className="w-full text-xs font-bold text-slate-700 focus:outline-none cursor-pointer"
           />
         </div>
@@ -85,9 +109,9 @@ export const DailyControlSidebar: React.FC<DailyControlSidebarProps> = ({
           <button
             type="button"
             onClick={() => handleQuickDate(0)}
-            className={`px-2 py-1 rounded text-[10px] font-bold transition-all cursor-pointer ${
+            className={`px-2 py-1.5 rounded text-[10px] font-bold transition-all cursor-pointer ${
               selectedDate === todayStr
-                ? "bg-kv-blue-primary text-white"
+                ? "bg-kv-blue-primary text-white shadow-2xs"
                 : "bg-slate-100 text-slate-600 hover:bg-slate-200"
             }`}
           >
@@ -96,14 +120,22 @@ export const DailyControlSidebar: React.FC<DailyControlSidebarProps> = ({
           <button
             type="button"
             onClick={() => handleQuickDate(1)}
-            className="px-2 py-1 rounded text-[10px] font-bold bg-slate-100 text-slate-600 hover:bg-slate-200 transition-all cursor-pointer"
+            className={`px-2 py-1.5 rounded text-[10px] font-bold transition-all cursor-pointer ${
+              selectedDate === yesterdayStr
+                ? "bg-kv-blue-primary text-white shadow-2xs"
+                : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+            }`}
           >
             Hôm qua
           </button>
           <button
             type="button"
             onClick={() => handleQuickDate(7)}
-            className="px-2 py-1 rounded text-[10px] font-bold bg-slate-100 text-slate-600 hover:bg-slate-200 transition-all cursor-pointer"
+            className={`px-2 py-1.5 rounded text-[10px] font-bold transition-all cursor-pointer ${
+              selectedDate === sevenDaysAgoStr
+                ? "bg-kv-blue-primary text-white shadow-2xs"
+                : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+            }`}
           >
             7 ngày trước
           </button>
@@ -120,14 +152,17 @@ export const DailyControlSidebar: React.FC<DailyControlSidebarProps> = ({
           onChange={(e) => setIssueTypeFilter(e.target.value as TDailyIssueType)}
           className="w-full border border-slate-300 h-9 px-3 rounded-lg focus:outline-none focus:border-kv-blue-primary text-xs font-semibold bg-white text-slate-700 cursor-pointer"
         >
+          <option value="ALL">
+            Tất cả vấn đề {totalIssues > 0 ? `(${totalIssues})` : "(0)"}
+          </option>
           <option value="UNINVOICED_ORDERS">
-            Đơn chưa xuất HĐ {(summary?.totalUninvoiced ?? 0) > 0 ? `(${summary?.totalUninvoiced})` : ""}
+            Đơn chưa xuất HĐ ({summary?.totalUninvoiced ?? 0})
           </option>
           <option value="PENDING_INVOICES">
-            HĐ chờ cấp mã {(summary?.totalPending ?? 0) > 0 ? `(${summary?.totalPending})` : ""}
+            HĐ chờ cấp mã ({summary?.totalPending ?? 0})
           </option>
           <option value="FAILED_INVOICES">
-            HĐ gửi lỗi / Treo {(summary?.totalFailed ?? 0) > 0 ? `(${summary?.totalFailed})` : ""}
+            HĐ gửi lỗi / Treo ({summary?.totalFailed ?? 0})
           </option>
         </select>
       </div>
@@ -147,6 +182,20 @@ export const DailyControlSidebar: React.FC<DailyControlSidebarProps> = ({
           <option value="IN_DAY">Trong ngày (≤ 24 giờ)</option>
         </select>
       </div>
+
+      {/* Nút đặt lại bộ lọc */}
+      {onResetFilters && (
+        <div className="pt-2 border-t border-slate-200/80">
+          <button
+            type="button"
+            onClick={onResetFilters}
+            className="w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-600 hover:text-slate-800 text-xs font-bold transition-all cursor-pointer"
+          >
+            <RotateCcw className="w-3.5 h-3.5 text-slate-400" />
+            <span>Đặt lại bộ lọc</span>
+          </button>
+        </div>
+      )}
     </>
   );
 };

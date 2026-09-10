@@ -15,7 +15,7 @@ import { APP_ROUTES } from "@/constants/routes";
 import { STORAGE_KEYS } from "@/constants/app";
 import { USER_ROLES } from "@/constants/roles";
 import { getApiErrorMessage } from "@/utils/getApiErrorMessage";
-import { normalizeDateToYYYYMMDD } from "@/utils/dateFormatter";
+import { normalizeDateToYYYYMMDD, getLocalDateString } from "@/utils/dateFormatter";
 import type { IInvoice, TInvoiceStatus } from "../types/IInvoice";
 import { useGetInvoicesQuery, exportInvoicesToExcel } from "../services/eInvoiceApi";
 import { useGetInvoiceTemplateQuery } from "@/modules/settings/services/settingsApi";
@@ -157,9 +157,9 @@ export const InvoiceManagementPage = () => {
   const [isExporting, setIsExporting] = useState<boolean>(false);
 
   // Tab 3: Filters State (Kiểm soát cuối ngày NCL-04-CN-008)
-  const todayStr = useMemo(() => new Date().toISOString().split("T")[0], []);
+  const todayStr = useMemo(() => getLocalDateString(new Date()), []);
   const [dailyDate, setDailyDate] = useState<string>(todayStr);
-  const [dailyIssueType, setDailyIssueType] = useState<TDailyIssueType>("UNINVOICED_ORDERS");
+  const [dailyIssueType, setDailyIssueType] = useState<TDailyIssueType>("ALL");
   const [dailyDuration, setDailyDuration] = useState<TDailyDurationFilter>("ALL");
   const [dailySummary, setDailySummary] = useState<{
     isCleanDay: boolean;
@@ -167,6 +167,13 @@ export const InvoiceManagementPage = () => {
     totalPending: number;
     totalFailed: number;
   }>();
+
+  const handleResetDailyFilters = useCallback(() => {
+    const today = getLocalDateString(new Date());
+    setDailyDate(today);
+    setDailyIssueType("ALL");
+    setDailyDuration("ALL");
+  }, []);
 
   // Tab 4: Filters State (Hàng đợi lỗi & Gửi lại NCL-04-CN-007)
   const [retrySearchQuery, setRetrySearchQuery] = useState<string>("");
@@ -391,6 +398,7 @@ export const InvoiceManagementPage = () => {
             durationFilter={dailyDuration}
             setDurationFilter={setDailyDuration}
             summary={dailySummary}
+            onResetFilters={handleResetDailyFilters}
           />
         );
       case "AUTO_RETRY":
@@ -440,6 +448,7 @@ export const InvoiceManagementPage = () => {
     rangeStatusFilter,
     rangeSearchQuery,
     activeRange,
+    handleResetDailyFilters,
   ]);
 
   return (
