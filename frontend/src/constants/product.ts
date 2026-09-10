@@ -351,6 +351,8 @@ export const PRODUCT_API_ENDPOINTS = {
     `${GOODS_RECEIPT_API_BASE_ENDPOINT}/${receiptId}`,
   LOW_STOCK_WARNINGS: `${INVENTORY_API_BASE_ENDPOINT}/low-stock-warnings`,
   PURCHASE_SUGGESTIONS: `${INVENTORY_API_BASE_ENDPOINT}/purchase-suggestions`,
+  STOCK_CARD: (productId: string): string =>
+    `${PRODUCT_API_BASE_ENDPOINT}/${productId}/stock-card`,
 } as const;
 
 export const VOICE_SEARCH_CONFIG = {
@@ -461,3 +463,234 @@ export const TAX_RATES = [
     percentage: 5.0,
   },
 ] as const;
+
+// NCL-02-CN-006: Thẻ kho biến động tồn theo mặt hàng
+export const STOCK_MOVEMENT_TYPE = {
+  GOODS_RECEIPT: "GOODS_RECEIPT",
+  SALE_ORDER: "SALE_ORDER",
+  CUSTOMER_RETURN: "CUSTOMER_RETURN",
+  INVENTORY_AUDIT: "INVENTORY_AUDIT",
+  INITIAL_STOCK: "INITIAL_STOCK",
+  SUPPLIER_RETURN: "SUPPLIER_RETURN",
+} as const;
+
+export const STOCK_MOVEMENT_TYPE_LABELS: Record<string, string> = {
+  [STOCK_MOVEMENT_TYPE.GOODS_RECEIPT]: "Phiếu nhập kho",
+  [STOCK_MOVEMENT_TYPE.SALE_ORDER]: "Hóa đơn bán hàng",
+  [STOCK_MOVEMENT_TYPE.CUSTOMER_RETURN]: "Phiếu khách trả hàng",
+  [STOCK_MOVEMENT_TYPE.INVENTORY_AUDIT]: "Phiếu kiểm kê kho",
+  [STOCK_MOVEMENT_TYPE.INITIAL_STOCK]: "Tồn kho ban đầu",
+  [STOCK_MOVEMENT_TYPE.SUPPLIER_RETURN]: "Trả hàng nhà cung cấp",
+};
+
+export const STOCK_MOVEMENT_TYPE_COLORS: Record<string, { bg: string; text: string; border: string }> = {
+  [STOCK_MOVEMENT_TYPE.GOODS_RECEIPT]: {
+    bg: "bg-emerald-50",
+    text: "text-emerald-700",
+    border: "border-emerald-200",
+  },
+  [STOCK_MOVEMENT_TYPE.SALE_ORDER]: {
+    bg: "bg-blue-50",
+    text: "text-blue-700",
+    border: "border-blue-200",
+  },
+  [STOCK_MOVEMENT_TYPE.CUSTOMER_RETURN]: {
+    bg: "bg-teal-50",
+    text: "text-teal-700",
+    border: "border-teal-200",
+  },
+  [STOCK_MOVEMENT_TYPE.INVENTORY_AUDIT]: {
+    bg: "bg-purple-50",
+    text: "text-purple-700",
+    border: "border-purple-200",
+  },
+  [STOCK_MOVEMENT_TYPE.INITIAL_STOCK]: {
+    bg: "bg-slate-100",
+    text: "text-slate-700",
+    border: "border-slate-300",
+  },
+  [STOCK_MOVEMENT_TYPE.SUPPLIER_RETURN]: {
+    bg: "bg-rose-50",
+    text: "text-rose-700",
+    border: "border-rose-200",
+  },
+};
+
+export const STOCK_CARD_CONFIG = {
+  DEFAULT_PAGE_SIZE: 8,
+  DEFAULT_DAYS_RANGE: 30,
+  MAX_DAYS_RANGE: 365,
+} as const;
+
+export const STOCK_CARD_MESSAGES = {
+  TITLE: "Thẻ kho biến động tồn",
+  SUBTITLE: "Chi tiết toàn bộ biến động nhập, xuất, trả hàng, kiểm kê và tồn lũy kế theo thời gian",
+  LOADING: "Đang tải dữ liệu thẻ kho...",
+  NO_DATA: "Không có biến động tồn nào trong khoảng thời gian này.",
+  SELECT_PRODUCT_PROMPT: "Vui lòng chọn một mặt hàng để xem thẻ kho",
+  INVALID_DATE_RANGE: "Khoảng thời gian không hợp lệ: Từ ngày phải trước hoặc bằng Đến ngày và không quá 365 ngày.",
+  DISCREPANCY_ALERT_TITLE: "Phát hiện sai lệch số liệu tồn kho!",
+  FORBIDDEN_ROLE: "Chức năng xem Thẻ kho chỉ dành cho Chủ hộ kinh doanh (VT-01) và Kế toán (VT-03).",
+} as const;
+
+// NCL-02-CN-007: Quản lý đơn vị tính và quy đổi đơn vị mua bán
+export const UNIT_CONVERSION_ENDPOINTS = {
+  LIST: (productId: string) => `/products/${productId}/unit-conversions`,
+  DETAIL: (productId: string, conversionId: string) =>
+    `/products/${productId}/unit-conversions/${conversionId}`,
+} as const;
+
+export const UNIT_CONVERSION_MESSAGES = {
+  CREATE_SUCCESS: "Thêm đơn vị quy đổi thành công",
+  UPDATE_SUCCESS: "Cập nhật đơn vị quy đổi thành công",
+  DELETE_SUCCESS: "Xóa đơn vị quy đổi thành công",
+  DELETE_CONFIRM_TITLE: "Xác nhận xóa đơn vị quy đổi",
+  DELETE_CONFIRM_DESC: (unitName: string, _baseUnit?: string) =>
+    `Bạn có chắc chắn muốn xóa đơn vị quy đổi "${unitName}"? Thao tác này không thể hoàn tác.`,
+  OWNER_ONLY: "Chỉ chủ hộ kinh doanh mới có quyền quản lý đơn vị quy đổi.",
+  LOCKED_FACTOR_WARNING:
+    "Mặt hàng đã phát sinh biến động tồn kho (nhập, bán, kiểm kê). Để bảo toàn tính toàn vẹn của thẻ kho và lịch sử chứng từ, hệ số quy đổi không thể chỉnh sửa. Vui lòng tạo mặt hàng mới nếu quy cách đóng gói thay đổi.",
+  LOCKED_FACTOR_SHORT: "Đã có biến động tồn (Khóa tỷ lệ quy đổi)",
+  CANNOT_DELETE_IN_USE:
+    "Không thể xóa đơn vị quy đổi đã phát sinh giao dịch nhập xuất kho.",
+  DUPLICATE_NAME:
+    "Tên đơn vị quy đổi đã tồn tại hoặc trùng với đơn vị tính cơ bản.",
+  INVALID_FACTOR: "Tỷ lệ quy đổi phải lớn hơn 0 và khác 1.",
+} as const;
+
+export const UNIT_CONVERSION_COPY = {
+  TAB_TITLE: "Đơn vị quy đổi",
+  TAB_BADGE: "Quy đổi mua bán",
+  MODAL_CREATE_TITLE: "Thêm đơn vị quy đổi mới",
+  MODAL_EDIT_TITLE: "Chỉnh sửa đơn vị quy đổi",
+  UNIT_NAME_LABEL: "Tên đơn vị quy đổi",
+  UNIT_NAME_PLACEHOLDER: "Ví dụ: Thùng, Lốc, Bao, Két...",
+  FACTOR_LABEL: "Tỷ lệ quy đổi (so với đơn vị cơ sở)",
+  FACTOR_PLACEHOLDER: "Ví dụ: 24 (1 Thùng = 24 Lon)",
+  PRICE_LABEL: "Giá bán theo đơn vị quy đổi (VNĐ)",
+  PRICE_PLACEHOLDER: "Tự động gợi ý hoặc nhập giá bán riêng",
+  BARCODE_LABEL: "Mã vạch riêng của đơn vị này",
+  BARCODE_PLACEHOLDER: "Nhập mã vạch in trên thùng/lốc nếu có",
+  DEFAULT_IMPORT_LABEL: "Đặt làm đơn vị mặc định khi lập phiếu nhập",
+  DEFAULT_SALE_LABEL: "Đặt làm đơn vị mặc định khi bán hàng tại quầy",
+  EMPTY_CONVERSIONS_TITLE: "Chưa có đơn vị quy đổi nào",
+  EMPTY_CONVERSIONS_DESC:
+    "Khai báo thêm các đơn vị như Thùng, Lốc để tự động quy đổi tồn kho và giá vốn khi nhập hoặc bán hàng.",
+  ADD_BUTTON: "Thêm đơn vị quy đổi",
+  CONVERSION_PREVIEW: (unitName: string, factor: number | string, baseUnit: string) =>
+    `1 ${unitName || "..."} = ${factor || 1} ${baseUnit}`,
+} as const;
+
+// NCL-02-CN-008: Bán hàng theo cân với số lượng thập phân
+export const WEIGHT_SELLING_CONSTANTS = {
+  DECIMAL_PLACES_OPTIONS: [
+    { value: 1, label: "1 chữ số (0.1)" },
+    { value: 2, label: "2 chữ số (0.01)" },
+    { value: 3, label: "3 chữ số (0.001) - Khuyên dùng cho Kg" },
+  ],
+  DEFAULT_DECIMAL_PLACES: 3,
+  DEFAULT_MIN_WEIGHT_STEP: 0.001,
+  COMMON_WEIGHT_UNITS: ["Kg", "g", "Lít", "Mét", "Yến", "Tạ", "Tấn"],
+  QUICK_WEIGHT_AMOUNTS: [
+    { label: "+100g", value: 0.1 },
+    { label: "+200g", value: 0.2 },
+    { label: "+500g", value: 0.5 },
+    { label: "+1kg", value: 1.0 },
+    { label: "+2kg", value: 2.0 },
+  ],
+  QUICK_MONEY_AMOUNTS: [10000, 20000, 50000, 100000, 200000, 500000],
+} as const;
+
+export const ROUNDING_RULE_OPTIONS = [
+  {
+    value: "ROUND_TO_1000",
+    label: "Làm tròn đến 1.000đ gần nhất",
+    description: "Khuyên dùng cho thanh toán tiền mặt (ví dụ: 53.250đ -> 53.000đ)",
+  },
+  {
+    value: "HALF_UP",
+    label: "Làm tròn chuẩn (>= 0.5 lên 1, < 0.5 xuống 0)",
+    description: "Chuẩn kế toán và thuế thông dụng",
+  },
+  {
+    value: "ROUND_TO_100",
+    label: "Làm tròn đến 100đ gần nhất",
+    description: "Ví dụ: 53.250đ -> 53.300đ",
+  },
+  {
+    value: "UP",
+    label: "Luôn làm tròn lên đồng gần nhất",
+    description: "Làm tròn tăng lên số nguyên đồng",
+  },
+  {
+    value: "DOWN",
+    label: "Cắt phần lẻ (luôn làm tròn xuống)",
+    description: "Bỏ toàn bộ phần lẻ thập phân",
+  },
+] as const;
+
+export const WEIGHT_SELLING_MESSAGES = {
+  WEIGHT_STEP_INVALID:
+    "Số lượng nhập không hợp lệ (nhỏ hơn bước nhảy tối thiểu hoặc không đúng bội số bước nhảy).",
+  DECIMAL_PLACES_EXCEEDED:
+    "Số chữ số thập phân vượt quá giới hạn cấu hình của mặt hàng.",
+  NON_WEIGHT_PRODUCT_DECIMAL_NOT_ALLOWED:
+    "Mặt hàng bán theo đơn vị nguyên không được nhập số lượng lẻ thập phân.",
+  BUY_AMOUNT_TOO_SMALL:
+    "Số tiền mua quá nhỏ, không đủ quy đổi ra bước nhảy tối thiểu của mặt hàng.",
+  CALCULATE_WEIGHT_SUCCESS: "Tính toán trọng lượng quy đổi thành công.",
+} as const;
+
+// NCL-02-CN-010: Quản lý giá bán lẻ và giá bán sỉ theo mức số lượng
+export const PRICE_TIER_COPY = {
+  TAB_TITLE: "Bậc giá sỉ & lẻ",
+  BANNER_TITLE: "Quản lý bậc giá sỉ & lẻ theo số lượng mua",
+  BANNER_DESC:
+    "Thiết lập các mức giá sỉ tự động theo số lượng mua. Khi bán hàng tại quầy POS, hệ thống sẽ tự nhận diện số lượng để áp dụng giá sỉ và ghi nhận rõ tên bậc giá trên hóa đơn, giúp chủ hộ kiểm soát biên lãi chặt chẽ.",
+  ADD_TIER_BUTTON: "Thêm bậc giá mới",
+  EMPTY_TIERS_TITLE: "Chưa có bậc giá sỉ nào",
+  EMPTY_TIERS_DESC:
+    "Mặt hàng này hiện chỉ bán một mức giá niêm yết. Hãy thêm bậc giá để khách mua số lượng lớn được hưởng giá sỉ tự động mà nhân viên không cần bấm giảm giá tay.",
+  TIER_NAME_LABEL: "Tên bậc giá",
+  TIER_NAME_PLACEHOLDER: "Ví dụ: Giá sỉ (≥ 10), Giá đại lý (≥ 50)...",
+  MIN_QUANTITY_LABEL: "Số lượng tối thiểu",
+  MAX_QUANTITY_LABEL: "Số lượng tối đa (không bắt buộc)",
+  PRICE_LABEL: "Đơn giá bậc (VNĐ)",
+  DISCOUNT_PERCENT_LABEL: "% Giảm so với giá lẻ",
+  DISCOUNT_PERCENT_PLACEHOLDER: "Ví dụ: 10",
+  QUICK_DISCOUNTS: [5, 10, 15, 20],
+  UNIT_LABEL: "Đơn vị áp dụng",
+  ACTIVE_LABEL: "Kích hoạt áp dụng",
+  BELOW_COST_WARNING_TITLE: "Cảnh báo bán dưới giá vốn!",
+  BELOW_COST_WARNING_DESC:
+    "Đơn giá bậc bạn vừa nhập thấp hơn giá vốn bình quân của mặt hàng này. Nếu tiếp tục, hộ kinh doanh có thể bị bán lỗ!",
+  CONFIRM_BELOW_COST_CHECKBOX: "Tôi xác nhận và đồng ý bán bậc giá này dưới giá vốn",
+  MODAL_CREATE_TITLE: "Thêm bậc giá bán lẻ / sỉ",
+  MODAL_EDIT_TITLE: "Cập nhật bậc giá bán lẻ / sỉ",
+  SIMULATOR_TITLE: "Mô phỏng tính giá sỉ theo số lượng",
+  SIMULATOR_DESC: "Nhập số lượng để kiểm tra bậc giá và tổng tiền thanh toán dự tính tại quầy POS:",
+  QUICK_SUGGESTIONS: [
+    "Giá sỉ (≥ 10)",
+    "Giá buôn lớn (≥ 50)",
+    "Giá khách quen (≥ 5)",
+    "Giá sỉ theo lốc / thùng",
+  ],
+} as const;
+
+export const PRICE_TIER_MESSAGES = {
+  OWNER_ONLY: "Chỉ Chủ hộ kinh doanh mới có quyền thiết lập và chỉnh sửa bậc giá.",
+  CREATE_SUCCESS: "Thêm bậc giá thành công!",
+  UPDATE_SUCCESS: "Cập nhật bậc giá thành công!",
+  DELETE_SUCCESS: "Xóa bậc giá thành công!",
+  BATCH_SAVE_SUCCESS: "Đồng bộ lưu danh sách bậc giá thành công!",
+  OVERLAPPING_QUANTITY: "Khoảng số lượng của bậc giá bị trùng lặp với bậc giá khác đang hoạt động.",
+  INVALID_QUANTITY_RANGE: "Số lượng tối đa phải lớn hơn hoặc bằng số lượng tối thiểu.",
+  MIN_QUANTITY_INVALID: "Số lượng tối thiểu của bậc giá phải lớn hơn 0.",
+  PRICE_NEGATIVE: "Đơn giá bậc không được nhỏ hơn 0.",
+  BELOW_COST_CONFIRMATION_REQUIRED: "Giá bậc thấp hơn giá vốn bình quân (nguy cơ bán lỗ). Vui lòng tích chọn xác nhận để tiếp tục lưu.",
+  DELETE_CONFIRM_TITLE: "Xác nhận xóa bậc giá?",
+  DELETE_CONFIRM_DESC: "Bạn có chắc chắn muốn xóa bậc giá này? Sau khi xóa, các đơn hàng mới sẽ không áp dụng bậc giá này nữa.",
+} as const;
+
+
+

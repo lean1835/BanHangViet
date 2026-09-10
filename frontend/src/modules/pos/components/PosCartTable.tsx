@@ -1,5 +1,5 @@
 import React from "react";
-import { Tag, Trash2, Plus, Minus, ShoppingCart } from "lucide-react";
+import { Tag, Trash2, Plus, Minus, ShoppingCart, Scale, TrendingDown } from "lucide-react";
 import type { IPosCartItem } from "../types/IPos";
 import { formatCurrency } from "@/utils/formatCurrency";
 
@@ -10,6 +10,8 @@ interface IPosCartTableProps {
   onClearCart: () => void;
   canManage?: boolean;
   onToggleBypass?: (itemId: string) => void;
+  onChangeUnit?: (itemId: string, unitValue: string) => void;
+  onOpenWeightModal?: (item: IPosCartItem) => void;
 }
 
 export const PosCartTable: React.FC<IPosCartTableProps> = ({
@@ -19,6 +21,8 @@ export const PosCartTable: React.FC<IPosCartTableProps> = ({
   onClearCart,
   canManage = false,
   onToggleBypass,
+  onChangeUnit,
+  onOpenWeightModal,
 }) => {
   if (items.length === 0) {
     return (
@@ -101,6 +105,26 @@ export const PosCartTable: React.FC<IPosCartTableProps> = ({
                       Mã: {item.product.sku || "N/A"}
                     </div>
 
+                    {/* Weight-based selling badge & details */}
+                    {item.product.isSoldByWeight && (
+                      <div className="mt-1 flex items-center gap-1.5 flex-wrap">
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                          <Scale size={10} />
+                          <span>Hàng cân</span>
+                        </span>
+                        {item.buyAmount && item.buyAmount > 0 && (
+                          <span className="text-[10px] text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded font-semibold border border-emerald-200">
+                            Mua: {formatCurrency(item.buyAmount)}
+                          </span>
+                        )}
+                        {item.roundingDifference !== undefined && item.roundingDifference !== 0 && (
+                          <span className="text-[10px] text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded font-medium border border-amber-200">
+                            Lệch làm tròn: {item.roundingDifference > 0 ? "+" : ""}{formatCurrency(item.roundingDifference)}
+                          </span>
+                        )}
+                      </div>
+                    )}
+
                     {/* Active Promotion Badge (TC-01 & QTN-26) */}
                     {hasActivePromotion && item.promotionName && (
                       <div className="mt-1 flex items-center gap-1.5 flex-wrap">
@@ -110,6 +134,21 @@ export const PosCartTable: React.FC<IPosCartTableProps> = ({
                           {lineDiscount > 0 && (
                             <span className="font-extrabold text-emerald-800">
                               (-{formatCurrency(lineDiscount)})
+                            </span>
+                          )}
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Active Price Tier Badge (TC-01, TC-02, NCL-02-CN-010) */}
+                    {item.priceTierName && (
+                      <div className="mt-1 flex items-center gap-1.5 flex-wrap">
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-sky-50 text-sky-800 border border-sky-200">
+                          <TrendingDown size={11} className="text-kv-blue-primary shrink-0" />
+                          <span>Bậc: {item.priceTierName}</span>
+                          {item.baseRetailPrice && item.baseRetailPrice > item.price && (
+                            <span className="font-extrabold text-sky-900">
+                              (-{formatCurrency((item.baseRetailPrice - item.price) * item.quantity)})
                             </span>
                           )}
                         </span>
@@ -134,45 +173,101 @@ export const PosCartTable: React.FC<IPosCartTableProps> = ({
                         )}
                       </div>
                     )}
+
+                    {/* Quy đổi cơ sở nếu chọn bán theo đơn vị quy đổi (TC-02) */}
+                    {item.conversionFactor && item.conversionFactor > 1 && (
+                      <div className="mt-1">
+                        <span className="text-[10px] text-sky-700 bg-sky-50 border border-sky-200 px-1.5 py-0.5 rounded font-semibold inline-flex items-center gap-1">
+                          Quy đổi tồn: {Number((item.quantity * item.conversionFactor).toFixed(item.product.decimalPlaces || 3))} {item.product.unit || "Cái"}
+                        </span>
+                      </div>
+                    )}
                   </td>
-                  <td className="py-2.5 px-3 text-center text-slate-600 font-medium">
-                    {item.product.unit || "Cái"}
+                  <td className="py-2.5 px-3 text-center">
+                    {item.product.unitConversions && item.product.unitConversions.length > 0 ? (
+                      <select
+                        value={item.unitConversionId || "BASE"}
+                        onChange={(e) => onChangeUnit?.(item.id, e.target.value)}
+                        aria-label={`Chọn đơn vị tính cho ${item.product.name}`}
+                        className="bg-sky-50 text-kv-blue-primary border border-sky-200 rounded-lg px-2 py-1 text-[11px] font-bold focus:outline-none focus:ring-1 focus:ring-kv-blue-primary cursor-pointer max-w-[100px] truncate"
+                      >
+                        <option value="BASE">{item.product.unit || "Cơ sở"}</option>
+                        {item.product.unitConversions.map((conv) => (
+                          <option key={conv.id} value={conv.id}>
+                            {conv.unitName} (x{conv.conversionFactor})
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <span className="text-slate-600 font-medium">
+                        {item.product.unit || "Cái"}
+                      </span>
+                    )}
                   </td>
                   <td className="py-2.5 px-3">
                     <div className="flex items-center justify-center gap-1 bg-slate-50 border border-slate-200 rounded-lg p-0.5">
                       <button
                         type="button"
-                        onClick={() =>
-                          onUpdateQuantity(
-                            item.id,
-                            Math.max(1, item.quantity - 1)
-                          )
-                        }
-                        className="w-6 h-6 rounded bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 font-bold flex items-center justify-center transition-colors text-xs"
+                        onClick={() => {
+                          const step = item.product.isSoldByWeight
+                            ? (item.product.minWeightStep || 0.001)
+                            : 1;
+                          const dec = item.product.decimalPlaces || 3;
+                          const next = item.product.isSoldByWeight
+                            ? Math.max(step, Number((item.quantity - step).toFixed(dec)))
+                            : Math.max(1, item.quantity - 1);
+                          onUpdateQuantity(item.id, next);
+                        }}
+                        className="w-6 h-6 rounded bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 font-bold flex items-center justify-center transition-colors text-xs shrink-0"
                       >
                         <Minus size={11} />
                       </button>
                       <input
                         type="number"
-                        min={1}
+                        min={item.product.isSoldByWeight ? (item.product.minWeightStep || 0.001) : 1}
+                        step={item.product.isSoldByWeight ? (item.product.minWeightStep || 0.001) : 1}
                         value={item.quantity}
                         onChange={(e) => {
-                          const val = parseInt(e.target.value, 10);
-                          if (!isNaN(val) && val >= 1) {
-                            onUpdateQuantity(item.id, val);
+                          if (item.product.isSoldByWeight) {
+                            const val = parseFloat(e.target.value);
+                            if (!isNaN(val) && val > 0) {
+                              onUpdateQuantity(item.id, val);
+                            }
+                          } else {
+                            const val = parseInt(e.target.value, 10);
+                            if (!isNaN(val) && val >= 1) {
+                              onUpdateQuantity(item.id, val);
+                            }
                           }
                         }}
-                        className="w-12 text-center bg-transparent font-bold text-slate-800 focus:outline-none text-xs"
+                        className="w-14 text-center bg-transparent font-bold text-slate-800 focus:outline-none text-xs font-mono"
                       />
                       <button
                         type="button"
-                        onClick={() =>
-                          onUpdateQuantity(item.id, item.quantity + 1)
-                        }
-                        className="w-6 h-6 rounded bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 font-bold flex items-center justify-center transition-colors text-xs"
+                        onClick={() => {
+                          const step = item.product.isSoldByWeight
+                            ? (item.product.minWeightStep || 0.001)
+                            : 1;
+                          const dec = item.product.decimalPlaces || 3;
+                          const next = item.product.isSoldByWeight
+                            ? Number((item.quantity + step).toFixed(dec))
+                            : item.quantity + 1;
+                          onUpdateQuantity(item.id, next);
+                        }}
+                        className="w-6 h-6 rounded bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 font-bold flex items-center justify-center transition-colors text-xs shrink-0"
                       >
                         <Plus size={11} />
                       </button>
+                      {item.product.isSoldByWeight && onOpenWeightModal && (
+                        <button
+                          type="button"
+                          onClick={() => onOpenWeightModal(item)}
+                          title="Cân khối lượng hoặc mua theo tiền"
+                          className="w-6 h-6 rounded bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 flex items-center justify-center transition-colors text-xs shrink-0 ml-0.5"
+                        >
+                          <Scale size={11} />
+                        </button>
+                      )}
                     </div>
                   </td>
                   <td className="py-2.5 px-3 text-right">
@@ -183,6 +278,15 @@ export const PosCartTable: React.FC<IPosCartTableProps> = ({
                         </span>
                         <span className="font-bold text-emerald-600">
                           {formatCurrency(effectiveUnitPrice)}
+                        </span>
+                      </div>
+                    ) : item.baseRetailPrice && item.baseRetailPrice > item.price ? (
+                      <div>
+                        <span className="line-through text-slate-400 text-[10px] block">
+                          {formatCurrency(item.baseRetailPrice)}
+                        </span>
+                        <span className="font-bold text-kv-blue-primary">
+                          {formatCurrency(item.price)}
                         </span>
                       </div>
                     ) : (

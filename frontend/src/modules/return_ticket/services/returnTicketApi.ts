@@ -67,14 +67,28 @@ export const returnTicketApi = baseApi.injectEndpoints({
         method: HTTP_METHODS.POST,
         body,
       }),
-      invalidatesTags: [
-        { type: API_TAG_TYPES.RETURN_TICKET, id: "LIST" },
-        { type: API_TAG_TYPES.RETURN_TICKET, id: "STATISTICS" },
-        { type: API_TAG_TYPES.RETURN_TICKET, id: "TOP_PRODUCTS" },
-        { type: API_TAG_TYPES.INVOICE, id: "LIST" },
-        { type: API_TAG_TYPES.PRODUCT, id: "LIST" },
-        { type: API_TAG_TYPES.POS_INVENTORY, id: "LIST" },
-      ],
+      invalidatesTags: (result) => {
+        const tags: any[] = [
+          { type: API_TAG_TYPES.RETURN_TICKET, id: "LIST" },
+          { type: API_TAG_TYPES.RETURN_TICKET, id: "STATISTICS" },
+          { type: API_TAG_TYPES.RETURN_TICKET, id: "TOP_PRODUCTS" },
+          { type: API_TAG_TYPES.INVOICE, id: "LIST" },
+          { type: API_TAG_TYPES.PRODUCT, id: "LIST" },
+          { type: API_TAG_TYPES.PRODUCT },
+          { type: API_TAG_TYPES.STOCK_CARD },
+          { type: API_TAG_TYPES.STOCK_CARD, id: "LIST" },
+          { type: API_TAG_TYPES.POS_INVENTORY, id: "LIST" },
+        ];
+        if (result?.result?.items) {
+          result.result.items.forEach((item) => {
+            if (item.productId) {
+              tags.push({ type: API_TAG_TYPES.PRODUCT, id: item.productId });
+              tags.push({ type: API_TAG_TYPES.STOCK_CARD, id: item.productId });
+            }
+          });
+        }
+        return tags;
+      },
     }),
 
     approveReturnTicket: builder.mutation<
@@ -85,15 +99,29 @@ export const returnTicketApi = baseApi.injectEndpoints({
         url: `/return-tickets/${ticketId}/approve`,
         method: HTTP_METHODS.PUT,
       }),
-      invalidatesTags: (_result, _error, id) => [
-        { type: API_TAG_TYPES.RETURN_TICKET, id },
-        { type: API_TAG_TYPES.RETURN_TICKET, id: "LIST" },
-        { type: API_TAG_TYPES.RETURN_TICKET, id: "STATISTICS" },
-        { type: API_TAG_TYPES.RETURN_TICKET, id: "TOP_PRODUCTS" },
-        { type: API_TAG_TYPES.PRODUCT, id: "LIST" },
-        { type: API_TAG_TYPES.POS_INVENTORY, id: "LIST" },
-        { type: API_TAG_TYPES.DEBT, id: "LIST" },
-      ],
+      invalidatesTags: (result, _error, id) => {
+        const tags: any[] = [
+          { type: API_TAG_TYPES.RETURN_TICKET, id },
+          { type: API_TAG_TYPES.RETURN_TICKET, id: "LIST" },
+          { type: API_TAG_TYPES.RETURN_TICKET, id: "STATISTICS" },
+          { type: API_TAG_TYPES.RETURN_TICKET, id: "TOP_PRODUCTS" },
+          { type: API_TAG_TYPES.PRODUCT, id: "LIST" },
+          { type: API_TAG_TYPES.PRODUCT },
+          { type: API_TAG_TYPES.STOCK_CARD },
+          { type: API_TAG_TYPES.STOCK_CARD, id: "LIST" },
+          { type: API_TAG_TYPES.POS_INVENTORY, id: "LIST" },
+          { type: API_TAG_TYPES.DEBT, id: "LIST" },
+        ];
+        if (result?.result?.items) {
+          result.result.items.forEach((item) => {
+            if (item.productId) {
+              tags.push({ type: API_TAG_TYPES.PRODUCT, id: item.productId });
+              tags.push({ type: API_TAG_TYPES.STOCK_CARD, id: item.productId });
+            }
+          });
+        }
+        return tags;
+      },
     }),
 
     rejectReturnTicket: builder.mutation<
@@ -110,6 +138,10 @@ export const returnTicketApi = baseApi.injectEndpoints({
         { type: API_TAG_TYPES.RETURN_TICKET, id: "LIST" },
         { type: API_TAG_TYPES.RETURN_TICKET, id: "STATISTICS" },
         { type: API_TAG_TYPES.RETURN_TICKET, id: "TOP_PRODUCTS" },
+        { type: API_TAG_TYPES.PRODUCT, id: "LIST" },
+        { type: API_TAG_TYPES.PRODUCT },
+        { type: API_TAG_TYPES.STOCK_CARD },
+        { type: API_TAG_TYPES.STOCK_CARD, id: "LIST" },
       ],
     }),
 

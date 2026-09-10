@@ -171,9 +171,6 @@ export const UserSessionPanel: React.FC = () => {
             <h1 className="text-xl font-extrabold text-slate-800 tracking-tight">
               Quản lý phiên đăng nhập & Đăng xuất từ xa
             </h1>
-            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-blue-700">
-              NCL-01-CN-007
-            </span>
           </div>
           <p className="text-xs text-slate-500 mt-1">
             {isOwner

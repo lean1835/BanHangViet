@@ -31,7 +31,7 @@ export const RolloverAdjustmentNotice: React.FC<
         <div className="space-y-1">
           <div className="flex items-center gap-2">
             <h4 className="font-extrabold text-xs text-blue-950">
-              Quy tắc QTN-21: Xử lý giao dịch điều chỉnh phát sinh sau khi chốt kỳ
+              Xử lý giao dịch điều chỉnh phát sinh sau khi chốt kỳ
             </h4>
             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800">
               <ShieldCheck className="w-3 h-3" />

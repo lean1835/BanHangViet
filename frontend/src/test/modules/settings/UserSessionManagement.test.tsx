@@ -154,7 +154,6 @@ describe("NCL-01-CN-007: Quản lý phiên đăng nhập và đăng xuất từ 
     expect(
       screen.getByText("Quản lý phiên đăng nhập & Đăng xuất từ xa")
     ).toBeInTheDocument();
-    expect(screen.getByText("NCL-01-CN-007")).toBeInTheDocument();
 
     // Verify KPI Statistics
     expect(screen.getByText("Tổng phiên hoạt động")).toBeInTheDocument();

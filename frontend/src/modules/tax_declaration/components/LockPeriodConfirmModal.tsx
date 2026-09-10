@@ -44,7 +44,7 @@ export const LockPeriodConfirmModal: React.FC<ILockPeriodConfirmModalProps> = ({
                 Khóa số liệu & Chốt kỳ kê khai thuế
               </h2>
               <p className="text-[11px] text-rose-600 font-medium">
-                Áp dụng quy tắc toàn vẹn dữ liệu thuế QTN-21
+                Áp dụng quy tắc toàn vẹn dữ liệu thuế
               </p>
             </div>
           </div>

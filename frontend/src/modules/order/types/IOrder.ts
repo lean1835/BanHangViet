@@ -16,6 +16,37 @@ export interface IOrderItemResponse {
   taxRatePercentage: number;
   taxAmount: number;
   subtotal: number;
+  roundingDifference?: number;
+  priceTierId?: string | null;
+  priceTierName?: string | null;
+  unitConversionId?: string | null;
+  unitName?: string;
+  conversionFactor?: number;
+  baseQuantity?: number;
+  isSoldByWeight?: boolean;
+  decimalPlaces?: number;
+  minWeightStep?: number;
+}
+
+export interface ICalculateWeightRequest {
+  productId: string;
+  buyAmount: number;
+  unitConversionId?: string;
+}
+
+export interface ICalculateWeightResponse {
+  productId: string;
+  productName: string;
+  buyAmount: number;
+  unitPrice: number;
+  calculatedQuantity: number;
+  exactSubtotal: number;
+  roundedSubtotal: number;
+  roundingDifference: number;
+  unitName: string;
+  conversionFactor: number;
+  minWeightStep: number;
+  decimalPlaces: number;
 }
 
 export interface IOrderResponse {
