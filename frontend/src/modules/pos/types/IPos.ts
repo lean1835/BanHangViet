@@ -1,5 +1,6 @@
 import type { IProduct } from "@/modules/product/types/IProduct";
 import type { ICustomer } from "@/modules/customer/types/ICustomer";
+import type { IOrderPaymentRequest } from "@/modules/order/types/IOrder";
 
 export const SALE_MODES = {
   FAST: "FAST",
@@ -10,6 +11,7 @@ export const PAYMENT_METHODS = {
   CASH: "CASH",
   BANK_TRANSFER: "BANK_TRANSFER",
   DEBT: "DEBT",
+  COMBINED: "COMBINED",
 } as const;
 
 export const ORDER_STATUSES = {
@@ -69,4 +71,17 @@ export interface IPosTab {
   amountGiven: number;
   vatRate?: number; // Order VAT rate percentage (e.g. 0, 5, 8, 10)
   isSaved: boolean;
+  // NCL-03-CN-010: Đặt tên nhận diện và treo nhiều đơn theo bàn hoặc khách
+  orderLabel?: string;
+  diningTableId?: string;
+  diningTableName?: string;
+  diningTableArea?: string;
+  isOverdue?: boolean;
+  holdingDurationMinutes?: number;
+  // NCL-03-CN-011 & NCL-03-CN-012: Thanh toán kết hợp & Xác nhận chuyển khoản
+  combinedPayments?: IOrderPaymentRequest[];
+  dueDate?: string;
+  bankTransferConfirmed?: boolean;
+  bankTransferTxCode?: string;
+  qrCodeUrl?: string | null;
 }

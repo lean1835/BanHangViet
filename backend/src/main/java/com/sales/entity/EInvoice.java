@@ -108,6 +108,9 @@ public class EInvoice {
     @Builder.Default
     private BigDecimal finalAmount = BigDecimal.ZERO;
 
+    @Column(name = "payment_method", length = 30)
+    private String paymentMethod;
+
     @Column(nullable = false, length = 30)
     @Builder.Default
     private String status = "DRAFT"; // DRAFT, WAITING_TAX_CODE, ISSUED, SEND_ERROR, ADJUSTED, CANCELED

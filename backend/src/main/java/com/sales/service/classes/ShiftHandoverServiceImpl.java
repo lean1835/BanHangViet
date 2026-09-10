@@ -130,6 +130,14 @@ public class ShiftHandoverServiceImpl implements ShiftHandoverService {
         if (cashRevenue == null) {
             cashRevenue = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
         }
+        BigDecimal bankRevenue = orderRepository.sumBankSalesAmountByShiftIdAndTimeRange(shift.getId(), stageStartTime, now);
+        if (bankRevenue == null) {
+            bankRevenue = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+        }
+        BigDecimal totalRevenue = orderRepository.sumCollectedAmountByShiftIdAndTimeRange(shift.getId(), stageStartTime, now);
+        if (totalRevenue == null) {
+            totalRevenue = cashRevenue.add(bankRevenue).setScale(2, RoundingMode.HALF_UP);
+        }
 
         BigDecimal stageIncome = BigDecimal.ZERO;
         BigDecimal stageExpense = BigDecimal.ZERO;
@@ -151,7 +159,7 @@ public class ShiftHandoverServiceImpl implements ShiftHandoverService {
             }
         }
 
-        BigDecimal expectedCash = stageOpeningCash.add(cashRevenue).add(stageIncome).subtract(stageExpense).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal expectedCash = stageOpeningCash.add(totalRevenue).add(stageIncome).subtract(stageExpense).setScale(2, RoundingMode.HALF_UP);
 
         int completedOrdersCount = orderRepository.countCompletedOrdersByShiftIdAndTimeRange(shift.getId(), stageStartTime, now);
 
@@ -198,6 +206,8 @@ public class ShiftHandoverServiceImpl implements ShiftHandoverService {
                 .stageStartedAt(stageStartTime)
                 .openingCash(stageOpeningCash)
                 .cashRevenue(cashRevenue)
+                .bankRevenue(bankRevenue)
+                .totalRevenue(totalRevenue)
                 .expectedCash(expectedCash)
                 .completedOrdersCount(completedOrdersCount)
                 .pendingOrdersCount(pendingOrders.size())
@@ -317,6 +327,14 @@ public class ShiftHandoverServiceImpl implements ShiftHandoverService {
         if (cashRevenue == null) {
             cashRevenue = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
         }
+        BigDecimal bankRevenue = orderRepository.sumBankSalesAmountByShiftIdAndTimeRange(shift.getId(), stageStartTime, now);
+        if (bankRevenue == null) {
+            bankRevenue = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+        }
+        BigDecimal totalRevenue = orderRepository.sumCollectedAmountByShiftIdAndTimeRange(shift.getId(), stageStartTime, now);
+        if (totalRevenue == null) {
+            totalRevenue = cashRevenue.add(bankRevenue).setScale(2, RoundingMode.HALF_UP);
+        }
 
         BigDecimal stageIncome = BigDecimal.ZERO;
         BigDecimal stageExpense = BigDecimal.ZERO;
@@ -329,7 +347,7 @@ public class ShiftHandoverServiceImpl implements ShiftHandoverService {
             stageExpense = exp != null ? exp : BigDecimal.ZERO;
         }
 
-        BigDecimal expectedCash = stageOpeningCash.add(cashRevenue).add(stageIncome).subtract(stageExpense).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal expectedCash = stageOpeningCash.add(totalRevenue).add(stageIncome).subtract(stageExpense).setScale(2, RoundingMode.HALF_UP);
         BigDecimal actualCash = request.getActualCash().setScale(2, RoundingMode.HALF_UP);
         BigDecimal differenceAmount = actualCash.subtract(expectedCash).setScale(2, RoundingMode.HALF_UP);
 
@@ -351,7 +369,7 @@ public class ShiftHandoverServiceImpl implements ShiftHandoverService {
                 .handoverTime(now)
                 .stageNumber(stageNumber)
                 .openingCash(stageOpeningCash)
-                .cashRevenue(cashRevenue)
+                .cashRevenue(totalRevenue)
                 .expectedCash(expectedCash)
                 .actualCash(actualCash)
                 .differenceAmount(differenceAmount)
@@ -499,10 +517,14 @@ public class ShiftHandoverServiceImpl implements ShiftHandoverService {
             BigDecimal finalOpening = handovers.isEmpty() ? shift.getOpeningCash()
                     : handovers.get(handovers.size() - 1).getActualCash();
 
-            BigDecimal finalRevenue = orderRepository.sumCashSalesAmountByShiftIdAndTimeRange(
+            BigDecimal finalRevenue = orderRepository.sumCollectedAmountByShiftIdAndTimeRange(
                     shift.getId(), prevEndTime, shift.getClosedAt());
             if (finalRevenue == null) {
-                finalRevenue = BigDecimal.ZERO;
+                BigDecimal cash = orderRepository.sumCashSalesAmountByShiftIdAndTimeRange(shift.getId(), prevEndTime, shift.getClosedAt());
+                BigDecimal bank = orderRepository.sumBankSalesAmountByShiftIdAndTimeRange(shift.getId(), prevEndTime, shift.getClosedAt());
+                finalRevenue = (cash != null ? cash : BigDecimal.ZERO)
+                        .add(bank != null ? bank : BigDecimal.ZERO)
+                        .setScale(2, RoundingMode.HALF_UP);
             }
 
             BigDecimal finalIncome = BigDecimal.ZERO;
@@ -553,10 +575,14 @@ public class ShiftHandoverServiceImpl implements ShiftHandoverService {
                     : handovers.get(handovers.size() - 1).getActualCash();
 
             LocalDateTime now = LocalDateTime.now();
-            BigDecimal currentRevenue = orderRepository.sumCashSalesAmountByShiftIdAndTimeRange(
+            BigDecimal currentRevenue = orderRepository.sumCollectedAmountByShiftIdAndTimeRange(
                     shift.getId(), prevEndTime, now);
             if (currentRevenue == null) {
-                currentRevenue = BigDecimal.ZERO;
+                BigDecimal cash = orderRepository.sumCashSalesAmountByShiftIdAndTimeRange(shift.getId(), prevEndTime, now);
+                BigDecimal bank = orderRepository.sumBankSalesAmountByShiftIdAndTimeRange(shift.getId(), prevEndTime, now);
+                currentRevenue = (cash != null ? cash : BigDecimal.ZERO)
+                        .add(bank != null ? bank : BigDecimal.ZERO)
+                        .setScale(2, RoundingMode.HALF_UP);
             }
 
             BigDecimal currentIncome = BigDecimal.ZERO;

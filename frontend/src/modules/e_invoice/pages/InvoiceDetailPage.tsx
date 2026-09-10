@@ -797,39 +797,115 @@ export const InvoiceDetailPage: React.FC = () => {
             </div>
 
             {/* Total Area */}
-            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 flex flex-col gap-2 font-bold text-slate-700 text-xs">
-              <div className="flex justify-between text-[10px]">
-                <span className="font-semibold text-slate-500">Cộng tiền hàng (Chưa thuế):</span>
-                <span>{formatCurrency(invoice.totalAmountBeforeTax || invoice.amount)}</span>
-              </div>
-              <div className="flex justify-between text-[10px]">
-                <span className="font-semibold text-slate-500">Tổng tiền thuế GTGT:</span>
-                <span>{formatCurrency(invoice.taxAmount)}</span>
-              </div>
-              {invoice.discountAmount !== undefined && invoice.discountAmount > 0 && (
-                <div className="flex justify-between text-[10px] text-rose-500">
-                  <span className="font-semibold">Chiết khấu thương mại:</span>
-                  <span>-{formatCurrency(invoice.discountAmount)}</span>
+            {(() => {
+              const originalItemsTotal = invoice.items && invoice.items.length > 0
+                ? invoice.items.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0)
+                : ((invoice.totalAmountBeforeTax || invoice.amount || 0) + (invoice.discountAmount || 0));
+              const hasDiscount = Boolean(invoice.discountAmount && invoice.discountAmount > 0);
+
+              return (
+                <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 flex flex-col gap-2 font-bold text-slate-700 text-xs">
+                  {/* 1. Tiền gốc trước */}
+                  <div className="flex justify-between text-[10px]">
+                    <span className="font-semibold text-slate-500">
+                      {hasDiscount ? "Tổng tiền hàng (Tiền gốc):" : "Cộng tiền hàng (Chưa thuế):"}
+                    </span>
+                    <span className="text-slate-800">{formatCurrency(originalItemsTotal)}</span>
+                  </div>
+
+                  {/* 2. Tiền giảm giá / Chiết khấu */}
+                  {hasDiscount && (
+                    <div className="flex justify-between text-[10px] text-rose-600">
+                      <span className="font-semibold">Chiết khấu thương mại:</span>
+                      <span className="font-bold">-{formatCurrency(invoice.discountAmount || 0)}</span>
+                    </div>
+                  )}
+
+                  {/* 3. Cộng tiền hàng sau chiết khấu (chưa thuế) */}
+                  {hasDiscount && (
+                    <div className="flex justify-between text-[10px]">
+                      <span className="font-semibold text-slate-500">Cộng tiền hàng (Đã trừ CK, chưa thuế):</span>
+                      <span className="text-slate-700">
+                        {formatCurrency(invoice.totalAmountBeforeTax || (originalItemsTotal - (invoice.discountAmount || 0)))}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* 4. Tiền thuế GTGT */}
+                  <div className="flex justify-between text-[10px]">
+                    <span className="font-semibold text-slate-500">Tổng tiền thuế GTGT:</span>
+                    <span className="text-slate-800">{formatCurrency(invoice.taxAmount)}</span>
+                  </div>
+
+                  {/* 5. Tổng tiền thanh toán */}
+                  <div className="flex justify-between border-t border-slate-200 pt-2 text-[11px] text-slate-950">
+                    <span>Tổng tiền thanh toán:</span>
+                    <span className="font-extrabold text-kv-blue-primary">
+                      {formatCurrency(invoice.finalAmount)}
+                    </span>
+                  </div>
+
+                  {/* 6. Số tiền viết bằng chữ */}
+                  <div className="border-t border-dashed border-slate-200 pt-2 text-[9px] font-semibold text-slate-500 italic leading-relaxed">
+                    Số tiền viết bằng chữ:{" "}
+                    <span className="text-slate-800 font-bold not-italic">
+                      {convertNumberToWords(invoice.finalAmount)}
+                    </span>
+                  </div>
+
+                  {/* 7. Phân mục Phương thức thanh toán */}
+                  <div className="border-t border-slate-200 pt-2.5 mt-0.5 flex flex-col gap-1.5">
+                    <div className="flex justify-between items-center text-[10px]">
+                      <span className="font-bold text-slate-600">Phương thức thanh toán:</span>
+                      <span className="font-bold text-slate-800 px-2 py-0.5 bg-slate-200/80 rounded text-[9.5px]">
+                        {invoice.paymentMethod === "CASH"
+                          ? "Tiền mặt"
+                          : invoice.paymentMethod === "BANK_TRANSFER"
+                          ? "Chuyển khoản"
+                          : invoice.paymentMethod === "COMBINED"
+                          ? "Kết hợp"
+                          : invoice.paymentMethod === "DEBT"
+                          ? "Ghi nợ"
+                          : invoice.paymentMethod || "Tiền mặt / Chuyển khoản (TM/CK)"}
+                      </span>
+                    </div>
+
+                    {/* Chi tiết phân rã các khoản thanh toán */}
+                    {invoice.payments && invoice.payments.length > 0 && (
+                      <div className="bg-slate-100/80 rounded-lg p-2 flex flex-col gap-1 border border-slate-200/70 font-medium mt-0.5">
+                        {invoice.payments.map((pm, pIdx) => (
+                          <div key={pm.id || pIdx} className="flex justify-between items-center text-[9px]">
+                            <span className="text-slate-600 flex items-center gap-1.5">
+                              <span className="w-1.5 h-1.5 rounded-full bg-slate-400 inline-block" />
+                              <span>
+                                {pm.paymentMethod === "CASH"
+                                  ? "Tiền mặt"
+                                  : pm.paymentMethod === "BANK_TRANSFER"
+                                  ? "Chuyển khoản"
+                                  : pm.paymentMethod === "DEBT"
+                                  ? "Ghi nợ"
+                                  : pm.paymentMethod}
+                                {pm.transactionCode ? (
+                                  <span className="font-mono text-slate-400 ml-1">({pm.transactionCode})</span>
+                                ) : null}
+                              </span>
+                            </span>
+                            <span className="font-bold text-slate-800">{formatCurrency(pm.amount)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 8. Ghi chú cuối hóa đơn */}
+                  {invoice.footerNote && (
+                    <div className="border-t border-dashed border-slate-200 pt-2 text-[9px] font-semibold text-slate-500 italic text-center">
+                      {invoice.footerNote}
+                    </div>
+                  )}
                 </div>
-              )}
-              <div className="flex justify-between border-t border-slate-200 pt-2 text-[11px] text-slate-950">
-                <span>Tổng tiền thanh toán:</span>
-                <span className="font-extrabold text-kv-blue-primary">
-                  {formatCurrency(invoice.finalAmount)}
-                </span>
-              </div>
-              <div className="border-t border-dashed border-slate-200 pt-2 text-[9px] font-semibold text-slate-500 italic leading-relaxed">
-                Số tiền viết bằng chữ:{" "}
-                <span className="text-slate-800 font-bold not-italic">
-                  {convertNumberToWords(invoice.finalAmount)}
-                </span>
-              </div>
-              {invoice.footerNote && (
-                <div className="border-t border-dashed border-slate-200 pt-2 text-[9px] font-semibold text-slate-500 italic text-center">
-                  {invoice.footerNote}
-                </div>
-              )}
-            </div>
+              );
+            })()}
 
             {/* Digital Signatures Area */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mt-6 pt-4 border-t border-slate-100">

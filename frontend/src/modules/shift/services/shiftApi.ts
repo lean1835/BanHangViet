@@ -6,6 +6,11 @@ import type {
   ICloseShiftRequest,
   IOpenShiftRequest,
   IShiftResponse,
+  IBankTransferReconciliationResponse,
+  IShiftHandoverSummaryResponse,
+  IShiftHandoverRequest,
+  IShiftHandoverResponse,
+  IShiftStagesSummaryResponse,
 } from "@/modules/shift/types/IShift";
 
 const ACTIVE_SHIFT_NOT_FOUND_STATUS = 404;
@@ -137,6 +142,73 @@ export const shiftApi = baseApi.injectEndpoints({
         }
       },
     }),
+    // NCL-03-CN-012 & QTN-16: Đối soát giao dịch chuyển khoản ngân hàng trong ca
+    getBankTransferReconciliation: builder.query<
+      IApiResponse<IBankTransferReconciliationResponse>,
+      string
+    >({
+      query: (shiftId) => ({
+        url: SHIFT_API_ENDPOINTS.BANK_TRANSFER_RECONCILIATION(shiftId),
+        method: HTTP_METHODS.GET,
+      }),
+      providesTags: (_result, _error, shiftId) => [
+        { type: API_TAG_TYPES.SHIFT, id: `${shiftId}_BANK_RECONCILIATION` },
+      ],
+    }),
+    // NCL-03-CN-013: Lấy thông tin tóm tắt chặng hiện tại để chuẩn bị bàn giao ca
+    getHandoverSummary: builder.query<
+      IApiResponse<IShiftHandoverSummaryResponse>,
+      void
+    >({
+      query: () => ({
+        url: SHIFT_API_ENDPOINTS.HANDOVER_SUMMARY,
+        method: HTTP_METHODS.GET,
+      }),
+      providesTags: [
+        { type: API_TAG_TYPES.ACTIVE_SHIFT, id: "HANDOVER_SUMMARY" },
+      ],
+    }),
+    // NCL-03-CN-013: Thực hiện bàn giao ca giữa hai nhân viên
+    performShiftHandover: builder.mutation<
+      IApiResponse<IShiftHandoverResponse>,
+      IShiftHandoverRequest
+    >({
+      query: (body) => ({
+        url: SHIFT_API_ENDPOINTS.PERFORM_HANDOVER,
+        method: HTTP_METHODS.POST,
+        body,
+      }),
+      invalidatesTags: [
+        { type: API_TAG_TYPES.ACTIVE_SHIFT, id: SHIFT_API_TAG_IDS.ACTIVE },
+        { type: API_TAG_TYPES.SHIFT, id: SHIFT_API_TAG_IDS.LIST },
+      ],
+    }),
+    // NCL-03-CN-013: Lấy danh sách các lần bàn giao trong ca
+    getHandoversByShiftId: builder.query<
+      IApiResponse<IShiftHandoverResponse[]>,
+      string
+    >({
+      query: (shiftId) => ({
+        url: SHIFT_API_ENDPOINTS.SHIFT_HANDOVERS(shiftId),
+        method: HTTP_METHODS.GET,
+      }),
+      providesTags: (_result, _error, shiftId) => [
+        { type: API_TAG_TYPES.SHIFT, id: `${shiftId}_HANDOVERS` },
+      ],
+    }),
+    // NCL-03-CN-013: Lấy báo cáo chi tiết các chặng ca
+    getShiftStagesSummary: builder.query<
+      IApiResponse<IShiftStagesSummaryResponse>,
+      string
+    >({
+      query: (shiftId) => ({
+        url: SHIFT_API_ENDPOINTS.SHIFT_STAGES_SUMMARY(shiftId),
+        method: HTTP_METHODS.GET,
+      }),
+      providesTags: (_result, _error, shiftId) => [
+        { type: API_TAG_TYPES.SHIFT, id: `${shiftId}_STAGES` },
+      ],
+    }),
   }),
   overrideExisting: API_CONFIG.OVERRIDE_EXISTING_ENDPOINTS,
 });
@@ -146,4 +218,9 @@ export const {
   useGetActiveShiftQuery,
   useOpenShiftMutation,
   useCloseShiftMutation,
+  useGetBankTransferReconciliationQuery,
+  useGetHandoverSummaryQuery,
+  usePerformShiftHandoverMutation,
+  useGetHandoversByShiftIdQuery,
+  useGetShiftStagesSummaryQuery,
 } = shiftApi;

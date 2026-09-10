@@ -1,7 +1,6 @@
 import { useState, useMemo } from "react";
 import { formatCurrency } from "@/utils/formatCurrency";
 import type { IDailyRevenueProjection } from "@/modules/report/types/IReport";
-import { useAnimatedNumber } from "@/hooks/useAnimatedNumber";
 import { useProgressAnimation } from "@/hooks/useProgressAnimation";
 
 interface RevenueChartProps {
@@ -11,8 +10,7 @@ interface RevenueChartProps {
 
 export const RevenueChart = ({ totalRevenueToday, dailyRevenues }: RevenueChartProps) => {
   const [activeTab, setActiveTab] = useState<"today" | "week">("week");
-  const animatedRevenue = useAnimatedNumber(totalRevenueToday, 1800, 150);
-  const progress = useProgressAnimation([dailyRevenues, activeTab], 1800, 150);
+  const progress = useProgressAnimation([dailyRevenues, activeTab, totalRevenueToday], 1500, 100);
 
   const currentPoints = useMemo(() => {
     const rawList = activeTab === "today"
@@ -47,43 +45,66 @@ export const RevenueChart = ({ totalRevenueToday, dailyRevenues }: RevenueChartP
     });
   }, [dailyRevenues, activeTab]);
 
+  // Current total revenue for the active tab
+  const currentRevenueSum = useMemo(() => {
+    if (activeTab === "today") {
+      const slice7 = (dailyRevenues || []).slice(0, 7);
+      return slice7.reduce((sum, r) => sum + (r.netRevenue || 0), 0);
+    }
+    return totalRevenueToday;
+  }, [activeTab, dailyRevenues, totalRevenueToday]);
+
+  // Animated revenue synced in perfect lockstep with chart line draw progress
+  const animatedRevenue = Math.round(currentRevenueSum * progress);
+
   // Current sweep edge X from left (30) to right (450)
+  // For clipPath: reveals from 0 to 480
   const clipWidth = progress <= 0 ? 0 : progress >= 1 ? 480 : 30 + 420 * progress;
 
-  // Calculate tracer dot Y coordinate on the curve as it sweeps
-  const tracerY = useMemo(() => {
-    if (progress <= 0 || progress >= 1 || currentPoints.length < 2) return null;
+  const firstPoint = currentPoints[0];
+  const lastPoint = currentPoints[currentPoints.length - 1];
+
+  // Tracer dot position: precisely tracked along line segment
+  const tracerPos = useMemo(() => {
+    if (progress <= 0 || progress >= 1 || currentPoints.length < 2 || !firstPoint || !lastPoint) return null;
+
+    const clampedX = Math.min(Math.max(clipWidth, firstPoint.x), lastPoint.x);
+
     for (let i = 0; i < currentPoints.length - 1; i++) {
       const pA = currentPoints[i];
       const pB = currentPoints[i + 1];
-      if (clipWidth >= pA.x && clipWidth <= pB.x) {
-        const ratio = (clipWidth - pA.x) / Math.max(pB.x - pA.x, 1);
-        return pA.y + (pB.y - pA.y) * ratio;
+      if (clampedX >= pA.x && clampedX <= pB.x) {
+        const span = Math.max(pB.x - pA.x, 1);
+        const ratio = (clampedX - pA.x) / span;
+        return { x: clampedX, y: pA.y + (pB.y - pA.y) * ratio };
       }
     }
-    return currentPoints[currentPoints.length - 1]?.y ?? 170;
-  }, [progress, clipWidth, currentPoints]);
+    return { x: clampedX, y: lastPoint.y };
+  }, [progress, clipWidth, currentPoints, firstPoint, lastPoint]);
 
   // Render SVG Path D attributes
   const linePath = currentPoints
     .map((p, i) => `${i === 0 ? "M" : "L"} ${p.x} ${p.y}`)
     .join(" ");
 
-  const fillPath = `${linePath} L ${currentPoints[currentPoints.length - 1].x} 180 L ${currentPoints[0].x} 180 Z`;
+  const fillPath = `${linePath} L ${lastPoint?.x ?? 450} 180 L ${firstPoint?.x ?? 30} 180 Z`;
 
   return (
     <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col justify-between flex-1 min-h-[300px]">
-      <div className="p-4 border-b border-slate-100 flex items-center justify-between flex-wrap gap-2 shrink-0">
-        <span className="font-extrabold text-slate-800 text-sm">
-          Biểu đồ doanh thu kỳ:{" "}
-          <span className="text-kv-blue-primary tabular-nums transition-all">
-            {formatCurrency(animatedRevenue)}
+      {/* Header with constant 2-line layout to prevent abrupt wrap shift */}
+      <div className="p-4 border-b border-slate-100 flex flex-col gap-2 shrink-0">
+        <div className="flex items-center justify-between gap-2">
+          <span className="font-extrabold text-slate-800 text-sm">
+            Biểu đồ doanh thu kỳ:{" "}
+            <span className="text-kv-blue-primary tabular-nums">
+              {formatCurrency(animatedRevenue)}
+            </span>
           </span>
-        </span>
-        <div className="flex bg-slate-100 p-0.5 rounded-lg border text-[10px]">
+        </div>
+        <div className="flex bg-slate-100 p-0.5 rounded-lg border text-[10px] w-fit">
           <button
             onClick={() => setActiveTab("today")}
-            className={`px-3 py-0.5 font-bold rounded transition-all ${
+            className={`px-3 py-0.5 font-bold rounded transition-colors ${
               activeTab === "today"
                 ? "bg-white text-kv-blue-primary shadow-sm"
                 : "text-slate-500 hover:text-slate-700"
@@ -93,7 +114,7 @@ export const RevenueChart = ({ totalRevenueToday, dailyRevenues }: RevenueChartP
           </button>
           <button
             onClick={() => setActiveTab("week")}
-            className={`px-3 py-0.5 font-bold rounded transition-all ${
+            className={`px-3 py-0.5 font-bold rounded transition-colors ${
               activeTab === "week"
                 ? "bg-white text-kv-blue-primary shadow-sm"
                 : "text-slate-500 hover:text-slate-700"
@@ -104,9 +125,10 @@ export const RevenueChart = ({ totalRevenueToday, dailyRevenues }: RevenueChartP
         </div>
       </div>
 
-      <div className="p-5 flex-1 flex flex-col justify-end relative bg-slate-50/10 min-h-[220px]">
+      {/* SVG Chart Container with stable fixed height */}
+      <div className="p-5 flex-1 flex flex-col justify-end relative bg-slate-50/10 min-h-[220px] overflow-hidden">
         {/* SVG Line Chart */}
-        <svg className="w-full h-full" viewBox="0 0 480 200" preserveAspectRatio="none">
+        <svg className="w-full h-[200px]" viewBox="0 0 480 200" preserveAspectRatio="none">
           <defs>
             <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor="#0068FF" stopOpacity="0.25" />
@@ -149,21 +171,20 @@ export const RevenueChart = ({ totalRevenueToday, dailyRevenues }: RevenueChartP
             />
           </g>
 
-          {/* Glowing Tracer Dot at the cutting edge as it draws from left to right */}
-          {tracerY !== null && (
+          {/* Glowing Tracer Dot gliding along the line without CSS ping transform jitter */}
+          {tracerPos && (
             <g>
               <circle
-                cx={clipWidth}
-                cy={tracerY}
-                r="8"
+                cx={tracerPos.x}
+                cy={tracerPos.y}
+                r="7"
                 fill="#0068FF"
-                opacity="0.3"
-                className="animate-ping"
+                fillOpacity="0.25"
               />
               <circle
-                cx={clipWidth}
-                cy={tracerY}
-                r="5"
+                cx={tracerPos.x}
+                cy={tracerPos.y}
+                r="4.5"
                 fill="#0068FF"
                 stroke="#ffffff"
                 strokeWidth="2"
@@ -171,15 +192,19 @@ export const RevenueChart = ({ totalRevenueToday, dailyRevenues }: RevenueChartP
             </g>
           )}
 
-          {/* Points dots: Ban đầu KHÔNG CÓ CHẤM NÀO, chỉ xuất hiện khi nét vẽ chạy tới từ trái qua phải */}
+          {/* Points dots: Rendered with smooth opacity transition without DOM unmounting */}
           {currentPoints.map((p, idx) => {
             const isRevealed = progress === 1 || clipWidth >= p.x;
-            if (!isRevealed) return null; // K có chấm nào trước khi đường chạy tới!
 
             return (
               <g
                 key={idx}
                 className="group/dot cursor-pointer"
+                style={{
+                  opacity: isRevealed ? 1 : 0,
+                  transition: "opacity 180ms ease-out",
+                  pointerEvents: isRevealed ? "auto" : "none",
+                }}
               >
                 <circle
                   cx={p.x}
@@ -188,15 +213,15 @@ export const RevenueChart = ({ totalRevenueToday, dailyRevenues }: RevenueChartP
                   fill="#ffffff"
                   stroke="#0068FF"
                   strokeWidth="2.5"
-                  className="transition-all duration-150 hover:r-7"
+                  className="transition-transform duration-150 group-hover/dot:scale-125"
                 />
                 <circle
                   cx={p.x}
                   cy={p.y}
-                  r="10"
+                  r="12"
                   fill="#0068FF"
                   fillOpacity="0"
-                  className="hover:fill-opacity-10 transition-all duration-150"
+                  className="group-hover/dot:fill-opacity-10 transition-opacity duration-150"
                 />
                 {/* Tooltip on Hover */}
                 <title>{p.label}: {p.val.toLocaleString("vi-VN")} đ</title>
@@ -216,7 +241,7 @@ export const RevenueChart = ({ totalRevenueToday, dailyRevenues }: RevenueChartP
                 fontSize="9"
                 fontWeight="700"
                 textAnchor="middle"
-                className="transition-colors duration-200"
+                className="transition-colors duration-200 select-none"
               >
                 {p.label}
               </text>
