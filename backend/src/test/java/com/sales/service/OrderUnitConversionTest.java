@@ -74,6 +74,9 @@ class OrderUnitConversionTest {
     @Mock
     private ProductUnitConversionRepository productUnitConversionRepository;
 
+    @Mock
+    private OrderPaymentRepository orderPaymentRepository;
+
     @InjectMocks
     private OrderServiceImpl orderService;
 

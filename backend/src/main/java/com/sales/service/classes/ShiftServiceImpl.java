@@ -30,10 +30,10 @@ import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 @Service
-@RequiredArgsConstructor
 @Slf4j
 public class ShiftServiceImpl implements ShiftService {
 
@@ -43,8 +43,70 @@ public class ShiftServiceImpl implements ShiftService {
     private final OrderRepository orderRepository;
     private final PointOfSaleRepository pointOfSaleRepository;
     private final ObjectMapper objectMapper;
+    private final com.sales.repository.OrderPaymentRepository orderPaymentRepository;
+    private final com.sales.repository.BusinessHouseholdSettingsRepository settingsRepository;
+    private final com.sales.repository.ShiftHandoverRepository shiftHandoverRepository;
+    private final com.sales.repository.CashTransactionRepository cashTransactionRepository;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public ShiftServiceImpl(ShiftRepository shiftRepository,
+                            UserRepository userRepository,
+                            ActivityLogHelper activityLogHelper,
+                            OrderRepository orderRepository,
+                            PointOfSaleRepository pointOfSaleRepository,
+                            ObjectMapper objectMapper,
+                            com.sales.repository.OrderPaymentRepository orderPaymentRepository,
+                            com.sales.repository.BusinessHouseholdSettingsRepository settingsRepository,
+                            com.sales.repository.ShiftHandoverRepository shiftHandoverRepository,
+                            com.sales.repository.CashTransactionRepository cashTransactionRepository) {
+        this.shiftRepository = shiftRepository;
+        this.userRepository = userRepository;
+        this.activityLogHelper = activityLogHelper;
+        this.orderRepository = orderRepository;
+        this.pointOfSaleRepository = pointOfSaleRepository;
+        this.objectMapper = objectMapper;
+        this.orderPaymentRepository = orderPaymentRepository;
+        this.settingsRepository = settingsRepository;
+        this.shiftHandoverRepository = shiftHandoverRepository;
+        this.cashTransactionRepository = cashTransactionRepository;
+    }
+
+    public ShiftServiceImpl(ShiftRepository shiftRepository,
+                            UserRepository userRepository,
+                            ActivityLogHelper activityLogHelper,
+                            OrderRepository orderRepository,
+                            PointOfSaleRepository pointOfSaleRepository,
+                            ObjectMapper objectMapper,
+                            com.sales.repository.OrderPaymentRepository orderPaymentRepository,
+                            com.sales.repository.BusinessHouseholdSettingsRepository settingsRepository,
+                            com.sales.repository.ShiftHandoverRepository shiftHandoverRepository) {
+        this(shiftRepository, userRepository, activityLogHelper, orderRepository, pointOfSaleRepository, objectMapper, orderPaymentRepository, settingsRepository, shiftHandoverRepository, null);
+    }
+
+    public ShiftServiceImpl(ShiftRepository shiftRepository,
+                            UserRepository userRepository,
+                            ActivityLogHelper activityLogHelper,
+                            OrderRepository orderRepository,
+                            PointOfSaleRepository pointOfSaleRepository,
+                            ObjectMapper objectMapper,
+                            com.sales.repository.OrderPaymentRepository orderPaymentRepository,
+                            com.sales.repository.BusinessHouseholdSettingsRepository settingsRepository) {
+        this(shiftRepository, userRepository, activityLogHelper, orderRepository, pointOfSaleRepository, objectMapper, orderPaymentRepository, settingsRepository, null, null);
+    }
+
+    public ShiftServiceImpl(ShiftRepository shiftRepository,
+                            UserRepository userRepository,
+                            ActivityLogHelper activityLogHelper,
+                            OrderRepository orderRepository,
+                            PointOfSaleRepository pointOfSaleRepository,
+                            ObjectMapper objectMapper) {
+        this(shiftRepository, userRepository, activityLogHelper, orderRepository, pointOfSaleRepository, objectMapper, null, null, null, null);
+    }
+
 
     private User getAuthenticatedUser(String username) {
+
+
         return userRepository.findByUsername(username)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
     }
@@ -93,11 +155,47 @@ public class ShiftServiceImpl implements ShiftService {
     }
 
     private ShiftResponse mapToResponse(Shift shift) {
+        return mapToResponse(shift, null, null);
+    }
+
+    private ShiftResponse mapToResponse(Shift shift, BigDecimal explicitIncome, BigDecimal explicitExpense) {
         BigDecimal expectedCash = shift.getClosingCashExpected();
+        BigDecimal currentOpeningCash = shift.getOpeningCash();
+
+        BigDecimal totalCashIncome = explicitIncome != null ? explicitIncome : BigDecimal.ZERO;
+        BigDecimal totalCashExpense = explicitExpense != null ? explicitExpense : BigDecimal.ZERO;
+        int pendingExpenseCount = 0;
+
+        int currentStageNumber = 1;
         if (shift.getStatus() == ShiftStatus.OPEN) {
-            BigDecimal collectedSales = orderRepository.sumCollectedAmountByShiftId(shift.getId());
-            expectedCash = shift.getOpeningCash().add(collectedSales);
+            if (cashTransactionRepository != null) {
+                totalCashIncome = cashTransactionRepository.sumAmountByShiftIdAndTypeAndStatus(
+                        shift.getId(), com.sales.constant.CashTransactionType.INCOME, com.sales.constant.CashTransactionStatus.APPROVED);
+                totalCashExpense = cashTransactionRepository.sumAmountByShiftIdAndTypeAndStatus(
+                        shift.getId(), com.sales.constant.CashTransactionType.EXPENSE, com.sales.constant.CashTransactionStatus.APPROVED);
+                pendingExpenseCount = (int) cashTransactionRepository.countByShiftIdAndStatus(
+                        shift.getId(), com.sales.constant.CashTransactionStatus.PENDING_APPROVAL);
+            }
+
+            BigDecimal collectedSales = orderRepository.sumCashSalesAmountByShiftId(shift.getId());
+            expectedCash = shift.getOpeningCash().add(collectedSales).add(totalCashIncome).subtract(totalCashExpense);
         }
+
+        if (shiftHandoverRepository != null) {
+            List<com.sales.entity.ShiftHandover> prevHandovers = shiftHandoverRepository.findByShiftIdOrderByStageNumberAsc(shift.getId());
+            if (!prevHandovers.isEmpty()) {
+                currentStageNumber = prevHandovers.size() + 1;
+                if (shift.getStatus() == ShiftStatus.OPEN) {
+                    BigDecimal totalHandoverDiff = prevHandovers.stream()
+                            .map(com.sales.entity.ShiftHandover::getDifferenceAmount)
+                            .filter(Objects::nonNull)
+                            .reduce(BigDecimal.ZERO, BigDecimal::add);
+                    expectedCash = expectedCash.add(totalHandoverDiff);
+                    currentOpeningCash = prevHandovers.get(prevHandovers.size() - 1).getActualCash();
+                }
+            }
+        }
+
         return ShiftResponse.builder()
                 .id(shift.getId())
                 .userId(shift.getUser().getId())
@@ -109,11 +207,15 @@ public class ShiftServiceImpl implements ShiftService {
                 .posCode(shift.getPointOfSale() != null ? shift.getPointOfSale().getPosCode() : null)
                 .openedAt(shift.getOpenedAt())
                 .closedAt(shift.getClosedAt())
-                .openingCash(shift.getOpeningCash())
+                .openingCash(currentOpeningCash)
                 .closingCashExpected(expectedCash)
                 .closingCashActual(shift.getClosingCashActual())
                 .differenceAmount(shift.getDifferenceAmount())
                 .differenceReason(shift.getDifferenceReason())
+                .totalCashIncome(totalCashIncome)
+                .totalCashExpense(totalCashExpense)
+                .pendingExpenseCount(pendingExpenseCount)
+                .currentStageNumber(currentStageNumber)
                 .status(shift.getStatus().name())
                 .createdAt(shift.getCreatedAt())
                 .updatedAt(shift.getUpdatedAt())
@@ -214,9 +316,41 @@ public class ShiftServiceImpl implements ShiftService {
             throw new AppException(ErrorCode.SHIFT_HAS_PENDING_ORDER);
         }
 
-        // Calculate expected cash (unifying CASH, BANK_TRANSFER, and DEBT down payments)
-        BigDecimal collectedSales = orderRepository.sumCollectedAmountByShiftId(shiftId);
-        BigDecimal expectedCash = shift.getOpeningCash().add(collectedSales);
+        // NCL-03-CN-014: Kiểm tra còn khoản chi nào PENDING_APPROVAL không? Nếu còn -> chặn đóng ca
+        if (cashTransactionRepository != null) {
+            long pendingCount = cashTransactionRepository.countByShiftIdAndStatus(
+                    shiftId, com.sales.constant.CashTransactionStatus.PENDING_APPROVAL);
+            if (pendingCount > 0) {
+                log.warn("Cannot close shift ID: {} because it has {} pending approval expense(s).", shiftId, pendingCount);
+                throw new AppException(ErrorCode.SHIFT_HAS_PENDING_EXPENSES);
+            }
+        }
+
+        // Calculate expected cash (unifying CASH sales, CASH part in COMBINED/DEBT orders, and non-sales CASH transactions)
+        BigDecimal collectedSales = orderRepository.sumCashSalesAmountByShiftId(shiftId);
+        BigDecimal totalCashIncome = BigDecimal.ZERO;
+        BigDecimal totalCashExpense = BigDecimal.ZERO;
+        if (cashTransactionRepository != null) {
+            totalCashIncome = cashTransactionRepository.sumAmountByShiftIdAndTypeAndStatus(
+                    shiftId, com.sales.constant.CashTransactionType.INCOME, com.sales.constant.CashTransactionStatus.APPROVED);
+            totalCashExpense = cashTransactionRepository.sumAmountByShiftIdAndTypeAndStatus(
+                    shiftId, com.sales.constant.CashTransactionType.EXPENSE, com.sales.constant.CashTransactionStatus.APPROVED);
+        }
+
+        BigDecimal expectedCash = shift.getOpeningCash()
+                .add(collectedSales)
+                .add(totalCashIncome)
+                .subtract(totalCashExpense);
+
+        // NCL-03-CN-013: Trừ/cộng chênh lệch của các lần bàn giao trước đó để không đổ dồn chênh lệch lên người đóng ca cuối cùng
+        if (shiftHandoverRepository != null) {
+            List<com.sales.entity.ShiftHandover> prevHandovers = shiftHandoverRepository.findByShiftIdOrderByStageNumberAsc(shiftId);
+            BigDecimal totalHandoverDiff = prevHandovers.stream()
+                    .map(com.sales.entity.ShiftHandover::getDifferenceAmount)
+                    .filter(Objects::nonNull)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            expectedCash = expectedCash.add(totalHandoverDiff);
+        }
 
         BigDecimal actualCash = request.getClosingCashActual();
         BigDecimal difference = actualCash.subtract(expectedCash);
@@ -245,7 +379,7 @@ public class ShiftServiceImpl implements ShiftService {
 
         log.info("Shift ID: {} closed successfully. Discrepancy: {}", shiftId, difference);
 
-        return mapToResponse(shift);
+        return mapToResponse(shift, totalCashIncome, totalCashExpense);
     }
 
     @Override
@@ -269,4 +403,71 @@ public class ShiftServiceImpl implements ShiftService {
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
     }
+
+    @Override
+    @Transactional(readOnly = true)
+    public com.sales.dto.response.BankTransferReconciliationResponse getBankTransferReconciliation(String currentUsername, String shiftId) {
+        User user = getAuthenticatedUser(currentUsername);
+        String householdId = user.getHousehold().getId();
+
+        Shift shift = shiftRepository.findByIdAndHouseholdId(shiftId, householdId)
+                .orElseThrow(() -> new AppException(ErrorCode.ACTIVE_SHIFT_NOT_FOUND));
+
+        int timeout = settingsRepository != null
+                ? settingsRepository.findByHouseholdId(householdId)
+                        .map(s -> s.getBankTransferTimeoutMinutes() != null ? s.getBankTransferTimeoutMinutes() : 15)
+                        .orElse(15)
+                : 15;
+
+        List<com.sales.entity.OrderPayment> bankPayments = orderPaymentRepository.findBankTransfersByShiftIdAndHouseholdId(shiftId, householdId);
+
+        BigDecimal totalConfirmedAmount = BigDecimal.ZERO;
+        int unconfirmedCount = 0;
+        BigDecimal totalUnconfirmedAmount = BigDecimal.ZERO;
+        List<com.sales.dto.response.BankTransferItemResponse> items = new java.util.ArrayList<>();
+
+        for (com.sales.entity.OrderPayment p : bankPayments) {
+            boolean isConfirmed = Boolean.TRUE.equals(p.getIsConfirmed());
+            boolean isOverdue = false;
+            if (isConfirmed) {
+                totalConfirmedAmount = totalConfirmedAmount.add(p.getAmount() != null ? p.getAmount() : BigDecimal.ZERO);
+            } else {
+                unconfirmedCount++;
+                totalUnconfirmedAmount = totalUnconfirmedAmount.add(p.getAmount() != null ? p.getAmount() : BigDecimal.ZERO);
+                if (p.getCreatedAt() != null) {
+                    isOverdue = LocalDateTime.now().isAfter(p.getCreatedAt().plusMinutes(timeout));
+                }
+            }
+
+            items.add(com.sales.dto.response.BankTransferItemResponse.builder()
+                    .paymentId(p.getId())
+                    .orderId(p.getOrder() != null ? p.getOrder().getId() : null)
+                    .orderCode(p.getOrder() != null ? p.getOrder().getOrderNumber() : null)
+                    .amount(p.getAmount())
+                    .transactionCode(p.getTransactionCode())
+                    .isConfirmed(isConfirmed)
+                    .confirmedAt(p.getConfirmedAt())
+                    .confirmedByUserId(p.getConfirmedByUser() != null ? p.getConfirmedByUser().getId() : null)
+                    .confirmedByUsername(p.getConfirmedByUser() != null ? p.getConfirmedByUser().getUsername() : null)
+                    .confirmedByFullName(p.getConfirmedByUser() != null ? p.getConfirmedByUser().getFullName() : null)
+                    .confirmedByUserName(p.getConfirmedByUser() != null ? p.getConfirmedByUser().getFullName() : null)
+                    .notes(p.getNotes())
+                    .isTransferOverdue(isOverdue)
+                    .createdAt(p.getCreatedAt())
+                    .orderStatus(p.getOrder() != null ? p.getOrder().getStatus() : null)
+                    .build());
+        }
+
+        return com.sales.dto.response.BankTransferReconciliationResponse.builder()
+                .shiftId(shift.getId())
+                .shiftCode(shift.getId())
+                .totalTransactions(bankPayments.size())
+                .totalConfirmedAmount(totalConfirmedAmount)
+                .unconfirmedTransactionsCount(unconfirmedCount)
+                .totalUnconfirmedAmount(totalUnconfirmedAmount)
+                .transactions(items)
+                .build();
+    }
+
 }
+
