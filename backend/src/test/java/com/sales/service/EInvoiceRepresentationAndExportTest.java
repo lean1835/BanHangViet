@@ -160,8 +160,10 @@ class EInvoiceRepresentationAndExportTest {
         assertNull(response.getWatermarkText());
         assertFalse(response.isDraft());
         assertFalse(response.isCanceled());
+        assertEquals("Một trăm mười nghìn đồng", response.getAmountInWords());
         assertNotNull(response.getHtmlRepresentation());
         assertTrue(response.getHtmlRepresentation().contains("CQT-123456789"));
+        assertTrue(response.getHtmlRepresentation().contains("Một trăm mười nghìn đồng"));
     }
 
     @Test
@@ -176,5 +178,18 @@ class EInvoiceRepresentationAndExportTest {
         assertEquals("HÓA ĐƠN ĐÃ HỦY", response.getWatermarkText());
         assertTrue(response.isCanceled());
         assertTrue(response.getHtmlRepresentation().contains("HÓA ĐƠN ĐÃ HỦY"));
+    }
+
+    @Test
+    @DisplayName("NCL-05-CN-007: Tải bản thể hiện hóa đơn dạng file")
+    void testDownloadInvoiceRepresentation() {
+        when(userRepository.findByUsername("chuho01")).thenReturn(Optional.of(storeOwner));
+        when(eInvoiceRepository.findById("inv-issued")).thenReturn(Optional.of(issuedInvoice));
+
+        byte[] bytes = eInvoiceService.downloadInvoiceRepresentation("chuho01", "inv-issued");
+        assertNotNull(bytes);
+        assertTrue(bytes.length > 0);
+        String htmlContent = new String(bytes, java.nio.charset.StandardCharsets.UTF_8);
+        assertTrue(htmlContent.contains("Một trăm mười nghìn đồng"));
     }
 }

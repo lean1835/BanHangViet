@@ -33,4 +33,19 @@ public interface InvoiceErrorNoticeService {
      * Tra cứu danh sách thông báo sai sót của hộ kinh doanh
      */
     PageResponse<InvoiceErrorNoticeResponse> getNotices(String username, String status, int page, int size);
+
+    /**
+     * Mô phỏng Cơ quan thuế từ chối tiếp nhận thông báo sai sót (NCL-05-CN-005-TC-03)
+     */
+    InvoiceErrorNoticeResponse rejectNoticeByTaxAuthority(String username, String noticeId, String reason);
+
+    /**
+     * Đưa thông báo bị từ chối về trạng thái nháp để kế toán sửa và gửi lại (NCL-05-CN-005-TC-03)
+     */
+    InvoiceErrorNoticeResponse reopenNoticeToDraft(String username, String noticeId);
+
+    /**
+     * Cập nhật thông tin thông báo sai sót ở trạng thái DRAFT hoặc REJECTED
+     */
+    InvoiceErrorNoticeResponse updateErrorNotice(String username, String noticeId, CreateInvoiceErrorNoticeRequest request);
 }

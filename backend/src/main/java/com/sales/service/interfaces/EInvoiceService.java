@@ -69,5 +69,6 @@ public interface EInvoiceService {
     // NCL-05-CN-007: Xem và tải bản thể hiện hóa đơn
     InvoiceRepresentationResponse getInvoiceRepresentation(String currentUsername, String invoiceId);
     byte[] downloadInvoicePdf(String currentUsername, String invoiceId);
+    byte[] downloadInvoiceRepresentation(String currentUsername, String invoiceId);
 }
 

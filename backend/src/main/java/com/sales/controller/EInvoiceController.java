@@ -286,13 +286,13 @@ public class EInvoiceController {
         return ResponseEntity.ok(response);
     }
 
-    @GetMapping("/{id}/representation/pdf")
+    @GetMapping(value = {"/{id}/representation/download", "/{id}/representation/html", "/{id}/representation/pdf"})
     @PreAuthorize("hasAnyRole('VT-01', 'VT-02', 'VT-03')")
-    @Operation(summary = "Tải bản thể hiện hóa đơn dạng file (NCL-05-CN-007)")
-    public ResponseEntity<byte[]> downloadInvoicePdf(
+    @Operation(summary = "Tải bản thể hiện hóa đơn dạng file HTML (NCL-05-CN-007)")
+    public ResponseEntity<byte[]> downloadInvoiceRepresentation(
             Principal principal,
             @PathVariable String id) {
-        byte[] fileBytes = eInvoiceService.downloadInvoicePdf(principal.getName(), id);
+        byte[] fileBytes = eInvoiceService.downloadInvoiceRepresentation(principal.getName(), id);
         return ResponseEntity.ok()
                 .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"Hoa_don_" + id + ".html\"")
                 .contentType(org.springframework.http.MediaType.TEXT_HTML)

@@ -50,17 +50,8 @@ public class InvoiceErrorNoticeServiceImpl implements InvoiceErrorNoticeService 
         User user = getUserByUsername(username);
         BusinessHousehold household = user.getHousehold();
 
-        // Target: Invoices with status CANCELED or ADJUSTED that are not yet error notified
-        List<EInvoice> canceledInvoices = invoiceRepository.findByHouseholdIdAndStatusAndDeletedAtIsNull(household.getId(), "CANCELED");
-        List<EInvoice> adjustedInvoices = invoiceRepository.findByHouseholdIdAndStatusAndDeletedAtIsNull(household.getId(), "ADJUSTED");
-
-        List<EInvoice> allEligible = new ArrayList<>();
-        allEligible.addAll(canceledInvoices);
-        allEligible.addAll(adjustedInvoices);
-
-        return allEligible.stream()
-                .filter(inv -> Boolean.FALSE.equals(inv.getIsErrorNotified()))
-                .filter(inv -> !noticeRepository.isInvoiceInAcceptedNotice(inv.getId()))
+        List<EInvoice> eligible = invoiceRepository.findEligibleForErrorNotice(household.getId());
+        return eligible.stream()
                 .map(this::mapToInvoiceResponse)
                 .collect(Collectors.toList());
     }
@@ -198,6 +189,127 @@ public class InvoiceErrorNoticeServiceImpl implements InvoiceErrorNoticeService 
                 .last(noticePage.isLast())
                 .content(content)
                 .build();
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public InvoiceErrorNoticeResponse rejectNoticeByTaxAuthority(String username, String noticeId, String reason) {
+        InvoiceErrorNotice notice;
+        if (username != null) {
+            User user = getUserByUsername(username);
+            if (user.getRole() != null && "VT-05".equals(user.getRole().getCode())) {
+                notice = noticeRepository.findById(noticeId)
+                        .orElseThrow(() -> new AppException(ErrorCode.ERROR_NOTICE_NOT_FOUND));
+            } else {
+                notice = noticeRepository.findByIdAndHouseholdId(noticeId, user.getHousehold().getId())
+                        .orElseThrow(() -> new AppException(ErrorCode.ERROR_NOTICE_NOT_FOUND));
+            }
+        } else {
+            notice = noticeRepository.findById(noticeId)
+                    .orElseThrow(() -> new AppException(ErrorCode.ERROR_NOTICE_NOT_FOUND));
+        }
+
+        notice.setStatus("REJECTED");
+        notice.setTaxAuthorityCode(null);
+        String rejectReason = (reason != null && !reason.trim().isEmpty())
+                ? reason.trim()
+                : "Cơ quan thuế từ chối tiếp nhận thông báo sai sót: Sai lệch thông tin hóa đơn";
+        notice.setTaxAuthorityResponse(rejectReason);
+        notice.setTaxResponseAt(LocalDateTime.now());
+
+        // Invoices remain isErrorNotified = false because notice was rejected
+        if (notice.getItems() != null) {
+            for (InvoiceErrorNoticeItem item : notice.getItems()) {
+                EInvoice inv = item.getInvoice();
+                if (inv != null && Boolean.TRUE.equals(inv.getIsErrorNotified())) {
+                    inv.setIsErrorNotified(false);
+                    invoiceRepository.save(inv);
+                }
+            }
+        }
+
+        InvoiceErrorNotice saved = noticeRepository.save(notice);
+        log.info("InvoiceErrorNotice [{}] REJECTED by Tax Authority: {}", saved.getNoticeCode(), rejectReason);
+        return mapToNoticeResponse(saved);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public InvoiceErrorNoticeResponse reopenNoticeToDraft(String username, String noticeId) {
+        User user = getUserByUsername(username);
+        InvoiceErrorNotice notice = noticeRepository.findByIdAndHouseholdId(noticeId, user.getHousehold().getId())
+                .orElseThrow(() -> new AppException(ErrorCode.ERROR_NOTICE_NOT_FOUND));
+
+        if (!"REJECTED".equals(notice.getStatus())) {
+            throw new AppException(ErrorCode.ERROR_NOTICE_CANNOT_REOPEN);
+        }
+
+        notice.setStatus("DRAFT");
+        InvoiceErrorNotice saved = noticeRepository.save(notice);
+        log.info("InvoiceErrorNotice [{}] reopened to DRAFT by user [{}]", saved.getNoticeCode(), username);
+        return mapToNoticeResponse(saved);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public InvoiceErrorNoticeResponse updateErrorNotice(String username, String noticeId, CreateInvoiceErrorNoticeRequest request) {
+        User user = getUserByUsername(username);
+        BusinessHousehold household = user.getHousehold();
+
+        InvoiceErrorNotice notice = noticeRepository.findByIdAndHouseholdId(noticeId, household.getId())
+                .orElseThrow(() -> new AppException(ErrorCode.ERROR_NOTICE_NOT_FOUND));
+
+        if (!"DRAFT".equals(notice.getStatus()) && !"REJECTED".equals(notice.getStatus())) {
+            throw new AppException(ErrorCode.ERROR_NOTICE_CANNOT_UPDATE);
+        }
+
+        if (request.getItems() == null || request.getItems().isEmpty()) {
+            throw new AppException(ErrorCode.EMPTY_NOTICE_ITEMS);
+        }
+
+        if (request.getNoticePlace() != null) {
+            notice.setNoticePlace(request.getNoticePlace());
+        }
+        if (request.getTaxAuthorityName() != null) {
+            notice.setTaxAuthorityName(request.getTaxAuthorityName());
+        }
+
+        // Clear existing items and build new ones
+        notice.getItems().clear();
+
+        List<InvoiceErrorNoticeItem> newItems = new ArrayList<>();
+        for (InvoiceErrorNoticeItemRequest itemReq : request.getItems()) {
+            EInvoice invoice = invoiceRepository.findByIdAndHouseholdIdAndDeletedAtIsNull(itemReq.getInvoiceId(), household.getId())
+                    .orElseThrow(() -> new AppException(ErrorCode.INVOICE_NOT_FOUND));
+
+            if (!"CANCELED".equals(invoice.getStatus()) && !"ADJUSTED".equals(invoice.getStatus())) {
+                throw new AppException(ErrorCode.INVOICE_NOT_ELIGIBLE_FOR_ERROR_NOTICE);
+            }
+
+            if (Boolean.TRUE.equals(invoice.getIsErrorNotified()) || noticeRepository.isInvoiceInAcceptedNotice(invoice.getId())) {
+                throw new AppException(ErrorCode.INVOICE_ALREADY_NOTICE_ACCEPTED);
+            }
+
+            InvoiceErrorNoticeItem item = InvoiceErrorNoticeItem.builder()
+                    .notice(notice)
+                    .invoice(invoice)
+                    .invoiceNumber(invoice.getInvoiceNumber())
+                    .invoicePattern(invoice.getInvoicePattern())
+                    .invoiceSymbol(invoice.getInvoiceSymbol())
+                    .taxAuthorityCode(invoice.getTaxAuthorityCode())
+                    .handlingType(itemReq.getHandlingType())
+                    .reason(itemReq.getReason())
+                    .build();
+
+            newItems.add(item);
+        }
+
+        notice.getItems().addAll(newItems);
+        notice.setStatus("DRAFT");
+
+        InvoiceErrorNotice savedNotice = noticeRepository.save(notice);
+        log.info("Updated InvoiceErrorNotice [{}] with {} items by user [{}]", savedNotice.getNoticeCode(), newItems.size(), username);
+        return mapToNoticeResponse(savedNotice);
     }
 
     private User getUserByUsername(String username) {

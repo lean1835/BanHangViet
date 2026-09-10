@@ -27,6 +27,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -107,19 +108,18 @@ class InvoiceErrorNoticeServiceTest {
     }
 
     @Test
-    @DisplayName("NCL-05-CN-005: Lấy danh sách hóa đơn đủ điều kiện lập thông báo sai sót")
+    @DisplayName("NCL-05-CN-005: Lấy danh sách hóa đơn đủ điều kiện lập thông báo sai sót không bị N+1 query")
     void testGetEligibleInvoicesForNotice_Success() {
         when(userRepository.findByUsername("ketoan01")).thenReturn(Optional.of(ketoanUser));
-        when(invoiceRepository.findByHouseholdIdAndStatusAndDeletedAtIsNull("hh-1", "CANCELED"))
-                .thenReturn(List.of(canceledInvoice));
-        when(invoiceRepository.findByHouseholdIdAndStatusAndDeletedAtIsNull("hh-1", "ADJUSTED"))
-                .thenReturn(List.of(adjustedInvoice));
-        when(noticeRepository.isInvoiceInAcceptedNotice(anyString())).thenReturn(false);
+        when(invoiceRepository.findEligibleForErrorNotice("hh-1"))
+                .thenReturn(List.of(canceledInvoice, adjustedInvoice));
 
         List<InvoiceResponse> result = noticeService.getEligibleInvoicesForNotice("ketoan01");
 
         assertNotNull(result);
         assertEquals(2, result.size());
+        verify(invoiceRepository, times(1)).findEligibleForErrorNotice("hh-1");
+        verify(noticeRepository, never()).isInvoiceInAcceptedNotice(anyString());
     }
 
     @Test
@@ -207,5 +207,65 @@ class InvoiceErrorNoticeServiceTest {
         assertNotNull(response.getTaxAuthorityCode());
         assertTrue(canceledInvoice.getIsErrorNotified());
         verify(invoiceRepository, times(1)).save(canceledInvoice);
+    }
+
+    @Test
+    @DisplayName("NCL-05-CN-005-TC-03: CQT mô phỏng từ chối thông báo -> Đưa về nháp để kế toán sửa và gửi lại")
+    void testTaxAuthorityRejectNotice_AndReopenDraft_TC03() {
+        InvoiceErrorNotice notice = InvoiceErrorNotice.builder()
+                .id("notice-1")
+                .household(household)
+                .noticeCode("04SS-20260909")
+                .status("WAITING_TAX_RESPONSE")
+                .createdByUser(ketoanUser)
+                .items(new ArrayList<>(List.of(
+                        InvoiceErrorNoticeItem.builder()
+                                .id("item-1")
+                                .invoice(canceledInvoice)
+                                .handlingType("CANCEL")
+                                .reason("Hủy sai thông tin")
+                                .build()
+                )))
+                .build();
+
+        when(userRepository.findByUsername("ketoan01")).thenReturn(Optional.of(ketoanUser));
+        when(noticeRepository.findByIdAndHouseholdId("notice-1", "hh-1")).thenReturn(Optional.of(notice));
+        when(noticeRepository.save(any(InvoiceErrorNotice.class))).thenAnswer(i -> i.getArgument(0));
+
+        // Step 1: CQT từ chối
+        InvoiceErrorNoticeResponse rejectedResponse = noticeService.rejectNoticeByTaxAuthority("ketoan01", "notice-1", "Sai sót hình thức xử lý");
+        assertNotNull(rejectedResponse);
+        assertEquals("REJECTED", rejectedResponse.getStatus());
+        assertEquals("Sai sót hình thức xử lý", rejectedResponse.getTaxAuthorityResponse());
+
+        // Step 2: Kế toán đưa thông báo về nháp
+        InvoiceErrorNoticeResponse reopenedResponse = noticeService.reopenNoticeToDraft("ketoan01", "notice-1");
+        assertNotNull(reopenedResponse);
+        assertEquals("DRAFT", reopenedResponse.getStatus());
+
+        // Step 3: Kế toán sửa thông tin / lý do
+        when(invoiceRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("inv-canceled", "hh-1"))
+                .thenReturn(Optional.of(canceledInvoice));
+        when(noticeRepository.isInvoiceInAcceptedNotice("inv-canceled")).thenReturn(false);
+
+        CreateInvoiceErrorNoticeRequest updateReq = CreateInvoiceErrorNoticeRequest.builder()
+                .noticePlace("TP. Hồ Chí Minh")
+                .items(List.of(
+                        InvoiceErrorNoticeItemRequest.builder()
+                                .invoiceId("inv-canceled")
+                                .handlingType("CANCEL")
+                                .reason("Hủy do khách hàng đổi ý")
+                                .build()
+                ))
+                .build();
+
+        InvoiceErrorNoticeResponse updatedResponse = noticeService.updateErrorNotice("ketoan01", "notice-1", updateReq);
+        assertEquals("DRAFT", updatedResponse.getStatus());
+        assertEquals("Hủy do khách hàng đổi ý", updatedResponse.getItems().get(0).getReason());
+
+        // Step 4: Gửi lại thông báo sau khi sửa -> Thành công ACCEPTED
+        InvoiceErrorNoticeResponse resentResponse = noticeService.sendNoticeToTaxAuthority("ketoan01", "notice-1");
+        assertEquals("ACCEPTED", resentResponse.getStatus());
+        assertTrue(canceledInvoice.getIsErrorNotified());
     }
 }

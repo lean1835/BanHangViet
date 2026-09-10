@@ -1822,6 +1822,7 @@ public class EInvoiceServiceImpl implements EInvoiceService {
         Specification<EInvoice> spec = (root, query, cb) -> {
             if (query != null && !Long.class.equals(query.getResultType()) && !long.class.equals(query.getResultType())) {
                 root.fetch("items", JoinType.LEFT);
+                query.distinct(true);
             }
             List<Predicate> predicates = new ArrayList<>();
             predicates.add(cb.equal(root.get("household").get("id"), household.getId()));
@@ -2065,11 +2066,13 @@ public class EInvoiceServiceImpl implements EInvoiceService {
         return rep.getHtmlRepresentation().getBytes(java.nio.charset.StandardCharsets.UTF_8);
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public byte[] downloadInvoiceRepresentation(String currentUsername, String invoiceId) {
+        return downloadInvoicePdf(currentUsername, invoiceId);
+    }
+
     private String convertAmountToWords(BigDecimal amount) {
-        if (amount == null || amount.compareTo(BigDecimal.ZERO) == 0) {
-            return "Không đồng";
-        }
-        long longValue = amount.longValue();
-        return String.format("%,d đồng", longValue);
+        return com.sales.utils.VietnameseNumberToWordsUtil.convert(amount);
     }
 }
