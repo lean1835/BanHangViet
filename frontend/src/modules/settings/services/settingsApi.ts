@@ -45,7 +45,11 @@ export const settingsApi = baseApi.injectEndpoints({
         method: "PUT",
         body,
       }),
-      invalidatesTags: [API_TAG_TYPES.INVOICE_TEMPLATE],
+      invalidatesTags: [
+        API_TAG_TYPES.INVOICE_TEMPLATE,
+        { type: API_TAG_TYPES.INVOICE_RANGE, id: "ACTIVE" },
+        { type: API_TAG_TYPES.INVOICE_RANGE, id: "LIST" },
+      ],
     }),
 
     // Tax Rates

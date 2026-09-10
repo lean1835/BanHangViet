@@ -35,6 +35,9 @@ class InvoiceTemplateServiceImplTest {
     @Mock
     private UserRepository userRepository;
 
+    @Mock
+    private com.sales.repository.InvoiceNumberRangeRepository invoiceNumberRangeRepository;
+
     @InjectMocks
     private InvoiceTemplateServiceImpl invoiceTemplateService;
 
@@ -131,5 +134,40 @@ class InvoiceTemplateServiceImplTest {
         assertThatThrownBy(() -> invoiceTemplateService.updateTemplate("staff", request))
                 .isInstanceOf(AppException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
+    }
+
+    @Test
+    @DisplayName("Khi cấu hình mẫu hóa đơn mới, tự động tạo dải số mới bắt đầu từ 0 và trạng thái ACTIVE")
+    void updateTemplate_AutoCreatesInvoiceRangeStartingFromZero() {
+        when(userRepository.findByUsername("owner")).thenReturn(Optional.of(ownerUser));
+        when(invoiceTemplateRepository.findByHouseholdId("house-001")).thenReturn(Optional.of(existingTemplate));
+        when(invoiceTemplateRepository.save(any(InvoiceTemplate.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(invoiceNumberRangeRepository.findOverlappingRanges("house-001", "1C26TDD", "CHIM06"))
+                .thenReturn(java.util.Collections.emptyList());
+
+        InvoiceTemplateRequest request = InvoiceTemplateRequest.builder()
+                .invoicePattern("1C26TDD")
+                .invoiceSymbol("CHIM06")
+                .title("HÓA ĐƠN KHỞI TẠO TỪ MÁY TÍNH TIỀN")
+                .build();
+
+        InvoiceTemplateResponse response = invoiceTemplateService.updateTemplate("owner", request);
+
+        assertThat(response).isNotNull();
+        assertThat(response.getInvoicePattern()).isEqualTo("1C26TDD");
+        assertThat(response.getInvoiceSymbol()).isEqualTo("CHIM06");
+
+        // Verify that a new InvoiceNumberRange was saved with currentNumber = 0 and status ACTIVE
+        org.mockito.ArgumentCaptor<com.sales.entity.InvoiceNumberRange> rangeCaptor =
+                org.mockito.ArgumentCaptor.forClass(com.sales.entity.InvoiceNumberRange.class);
+        verify(invoiceNumberRangeRepository, times(1)).save(rangeCaptor.capture());
+
+        com.sales.entity.InvoiceNumberRange savedRange = rangeCaptor.getValue();
+        assertThat(savedRange.getInvoicePattern()).isEqualTo("1C26TDD");
+        assertThat(savedRange.getInvoiceSymbol()).isEqualTo("CHIM06");
+        assertThat(savedRange.getStartNumber()).isEqualTo(1);
+        assertThat(savedRange.getEndNumber()).isEqualTo(100000);
+        assertThat(savedRange.getCurrentNumber()).isEqualTo(0);
+        assertThat(savedRange.getStatus()).isEqualTo("ACTIVE");
     }
 }

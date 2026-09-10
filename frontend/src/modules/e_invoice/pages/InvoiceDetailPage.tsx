@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import {
   ArrowLeft,
   Send,
@@ -67,6 +67,18 @@ const formatInvoiceDateTime = (isoString: string | null | undefined): string => 
 export const InvoiceDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  const handleBack = () => {
+    const fromTab = (location.state as { fromTab?: string } | null)?.fromTab;
+    if (fromTab) {
+      navigate(`${APP_ROUTES.E_INVOICES}?tab=${fromTab}`);
+    } else if (window.history.length > 1) {
+      navigate(-1);
+    } else {
+      navigate(APP_ROUTES.E_INVOICES);
+    }
+  };
   const authUser = useAppSelector((state) => state.auth.user);
   const {
     isOnline,
@@ -263,7 +275,7 @@ export const InvoiceDetailPage: React.FC = () => {
         </div>
         <button
           type="button"
-          onClick={() => navigate(APP_ROUTES.E_INVOICES)}
+          onClick={handleBack}
           className="flex items-center gap-1.5 px-4 py-2 bg-kv-blue-primary text-white text-xs font-bold rounded-lg hover:bg-kv-blue-dark transition-all"
         >
           <ArrowLeft size={14} />
@@ -437,7 +449,7 @@ export const InvoiceDetailPage: React.FC = () => {
           <div className="flex items-center gap-3">
             <button
               type="button"
-              onClick={() => navigate(APP_ROUTES.E_INVOICES)}
+              onClick={handleBack}
               className="flex items-center gap-1.5 px-3 py-2 border border-slate-200 hover:bg-slate-50 active:scale-95 rounded-lg text-slate-700 text-xs font-bold transition-all shadow-sm shrink-0"
             >
               <ArrowLeft size={16} />

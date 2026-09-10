@@ -66,6 +66,8 @@ export const API_TAG_TYPES = {
   HELD_ORDER: "HeldOrder",
   CASH_TRANSACTION: "CashTransaction",
   CASH_CATEGORY: "CashCategory",
+  TAX_CONNECTION: "TaxConnection",
+  DAILY_CONTROL: "DailyControl",
 } as const;
 
 export const API_TAG_TYPE_VALUES = Object.values(API_TAG_TYPES);
