@@ -168,8 +168,14 @@ public class InvoiceErrorNoticeServiceImpl implements InvoiceErrorNoticeService 
     @Transactional(readOnly = true)
     public InvoiceErrorNoticeResponse getNotice(String username, String noticeId) {
         User user = getUserByUsername(username);
-        InvoiceErrorNotice notice = noticeRepository.findByIdAndHouseholdId(noticeId, user.getHousehold().getId())
-                .orElseThrow(() -> new AppException(ErrorCode.ERROR_NOTICE_NOT_FOUND));
+        InvoiceErrorNotice notice;
+        if (user.getRole() != null && "VT-05".equals(user.getRole().getCode())) {
+            notice = noticeRepository.findById(noticeId)
+                    .orElseThrow(() -> new AppException(ErrorCode.ERROR_NOTICE_NOT_FOUND));
+        } else {
+            notice = noticeRepository.findByIdAndHouseholdId(noticeId, user.getHousehold().getId())
+                    .orElseThrow(() -> new AppException(ErrorCode.ERROR_NOTICE_NOT_FOUND));
+        }
         return mapToNoticeResponse(notice);
     }
 
@@ -180,10 +186,18 @@ public class InvoiceErrorNoticeServiceImpl implements InvoiceErrorNoticeService 
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
 
         Page<InvoiceErrorNotice> noticePage;
-        if (status != null && !status.trim().isEmpty()) {
-            noticePage = noticeRepository.findByHouseholdIdAndStatus(user.getHousehold().getId(), status.trim(), pageable);
+        if (user.getRole() != null && "VT-05".equals(user.getRole().getCode())) {
+            if (status != null && !status.trim().isEmpty()) {
+                noticePage = noticeRepository.findByStatus(status.trim(), pageable);
+            } else {
+                noticePage = noticeRepository.findAll(pageable);
+            }
         } else {
-            noticePage = noticeRepository.findByHouseholdId(user.getHousehold().getId(), pageable);
+            if (status != null && !status.trim().isEmpty()) {
+                noticePage = noticeRepository.findByHouseholdIdAndStatus(user.getHousehold().getId(), status.trim(), pageable);
+            } else {
+                noticePage = noticeRepository.findByHouseholdId(user.getHousehold().getId(), pageable);
+            }
         }
 
         List<InvoiceErrorNoticeResponse> content = noticePage.getContent().stream()

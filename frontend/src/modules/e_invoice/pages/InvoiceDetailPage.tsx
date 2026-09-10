@@ -44,7 +44,6 @@ import { CancelInvoiceModal } from "../components/CancelInvoiceModal";
 import { SendInvoiceModal } from "../components/SendInvoiceModal";
 import { PrintInvoiceModal } from "../components/PrintInvoiceModal";
 import { InvoiceRepresentationModal } from "../components/InvoiceRepresentationModal";
-import { CreateErrorNoticeModal } from "../components/CreateErrorNoticeModal";
 import {
   getStatusClassName,
   getStatusLabel,
@@ -89,7 +88,6 @@ export const InvoiceDetailPage: React.FC = () => {
   const [showSendModal, setShowSendModal] = useState(false);
   const [showPrintModal, setShowPrintModal] = useState(false);
   const [showRepresentationModal, setShowRepresentationModal] = useState(false);
-  const [showNoticeModal, setShowNoticeModal] = useState(false);
   const [deliveryLogs, setDeliveryLogs] = useState<IDeliveryLog[]>([]);
   const [isActionPending, setIsActionPending] = useState(false);
 
@@ -480,23 +478,6 @@ export const InvoiceDetailPage: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-2 shrink-0 flex-wrap">
-            {/* NCL-05-CN-005: Nút Lập thông báo sai sót nếu HĐ đã hủy hoặc điều chỉnh mà chưa nộp 04/SS */}
-            {(invoice.status === E_INVOICE_STATUS.CANCELED ||
-              invoice.status === E_INVOICE_STATUS.ADJUSTED) &&
-              !invoice.isErrorNotified &&
-              isOwnerOrAccountant && (
-                <button
-                  type="button"
-                  onClick={() => setShowNoticeModal(true)}
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-800 text-xs font-extrabold transition-all shadow-sm active:scale-95"
-                  title="Lập thông báo sai sót gửi Cơ quan Thuế"
-                >
-                  <AlertCircle size={14} className="text-amber-600" />
-                  <span>Lập thông báo sai sót</span>
-                </button>
-              )}
-
-
             {/* NCL-05-CN-007: Nút Xem bản thể hiện */}
             <button
               type="button"
@@ -1129,15 +1110,6 @@ export const InvoiceDetailPage: React.FC = () => {
           invoiceId={invoice.id}
           isOpen={showRepresentationModal}
           onClose={() => setShowRepresentationModal(false)}
-        />
-      )}
-
-      {/* Create Error Notice Modal (NCL-05-CN-005) */}
-      {showNoticeModal && (
-        <CreateErrorNoticeModal
-          isOpen={showNoticeModal}
-          onClose={() => setShowNoticeModal(false)}
-          preSelectedInvoiceId={invoice.id}
         />
       )}
     </div>

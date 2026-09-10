@@ -198,10 +198,6 @@ export const InvoiceManagementPage = () => {
     setRepresentationInvoiceId(invoice.id);
   };
 
-  const handleCreateNoticeForInvoice = (invoiceId: string) => {
-    setPreSelectedInvoiceId(invoiceId);
-    setShowCreateNoticeModal(true);
-  };
 
   // NCL-05-CN-006: Xuất danh sách hóa đơn ra Excel
   const handleExportExcel = async () => {
@@ -305,7 +301,6 @@ export const InvoiceManagementPage = () => {
                 invoices={displayedInvoices}
                 onSelectInvoice={handleSelectInvoice}
                 onViewRepresentation={handleOpenRepresentation}
-                onCreateErrorNoticeForInvoice={handleCreateNoticeForInvoice}
                 onExportExcel={handleExportExcel}
                 isExporting={isExporting}
                 canExport={isOwnerOrAccountant}

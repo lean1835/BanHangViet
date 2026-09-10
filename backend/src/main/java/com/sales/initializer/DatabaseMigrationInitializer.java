@@ -35,5 +35,21 @@ public class DatabaseMigrationInitializer implements CommandLineRunner {
         } catch (Exception e) {
             log.warn("DatabaseMigrationInitializer: Bỏ qua cập nhật cột pos_transfers (H2 in-memory hoặc không hỗ trợ MODIFY COLUMN): {}", e.getMessage());
         }
+
+        try {
+            // Drop check constraint chk_adjustment_ref sai logic (chặn hóa đơn gốc chuyển trạng thái ADJUSTED)
+            jdbcTemplate.execute("ALTER TABLE e_invoices DROP CHECK chk_adjustment_ref;");
+            log.info("DatabaseMigrationInitializer: Đã xóa check constraint sai chk_adjustment_ref trên bảng e_invoices thành công.");
+        } catch (Exception e) {
+            log.warn("DatabaseMigrationInitializer: Bỏ qua drop chk_adjustment_ref (có thể không tồn tại hoặc đã xóa): {}", e.getMessage());
+        }
+
+        try {
+            // Cho phép changed_by_user_id NULL khi hệ thống tự động ghi log trạng thái hóa đơn (scheduler auto retry)
+            jdbcTemplate.execute("ALTER TABLE invoice_status_logs MODIFY COLUMN changed_by_user_id VARCHAR(36) NULL;");
+            log.info("DatabaseMigrationInitializer: Đã đảm bảo invoice_status_logs.changed_by_user_id cho phép NULL.");
+        } catch (Exception e) {
+            log.warn("DatabaseMigrationInitializer: Bỏ qua cập nhật cột invoice_status_logs: {}", e.getMessage());
+        }
     }
 }

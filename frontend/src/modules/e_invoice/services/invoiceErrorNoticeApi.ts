@@ -80,6 +80,23 @@ export const invoiceErrorNoticeApi = baseApi.injectEndpoints({
         { type: API_TAG_TYPES.INVOICE, id: "LIST" },
       ],
     }),
+
+    rejectNoticeByTax: builder.mutation<
+      IApiResponse<IInvoiceErrorNotice>,
+      { id: string; errorMessage?: string }
+    >({
+      query: ({ id, errorMessage }) => ({
+        url: `/invoice-error-notices/${id}/tax-reject`,
+        method: HTTP_METHODS.POST,
+        body: errorMessage ? { errorMessage } : undefined,
+      }),
+      invalidatesTags: (_result, _error, { id }) => [
+        { type: API_TAG_TYPES.INVOICE_ERROR_NOTICE, id },
+        { type: API_TAG_TYPES.INVOICE_ERROR_NOTICE, id: "LIST" },
+        { type: API_TAG_TYPES.INVOICE_ERROR_NOTICE, id: "ELIGIBLE" },
+        { type: API_TAG_TYPES.INVOICE, id: "LIST" },
+      ],
+    }),
   }),
   overrideExisting: false,
 });
@@ -92,4 +109,6 @@ export const {
   useGetErrorNoticeQuery,
   useCreateErrorNoticeMutation,
   useSendErrorNoticeToTaxMutation,
+  useRejectNoticeByTaxMutation,
 } = invoiceErrorNoticeApi;
+

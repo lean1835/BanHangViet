@@ -27,7 +27,7 @@ public class OrderController {
 
     @PostMapping
 
-    @PreAuthorize("hasAnyRole('VT-01', 'VT-02')")
+    @PreAuthorize("hasAnyRole('VT-01', 'VT-02', 'VT-03')")
     public ResponseEntity<ApiResponse<OrderResponse>> createOrder(
             Principal principal,
             @Valid @RequestBody CreateOrderRequest request) {
@@ -41,7 +41,7 @@ public class OrderController {
     }
 
     @PostMapping("/{orderId}/items")
-    @PreAuthorize("hasAnyRole('VT-01', 'VT-02')")
+    @PreAuthorize("hasAnyRole('VT-01', 'VT-02', 'VT-03')")
     public ResponseEntity<ApiResponse<OrderResponse>> addOrderItem(
             Principal principal,
             @PathVariable String orderId,
@@ -56,7 +56,7 @@ public class OrderController {
     }
 
     @PutMapping("/{orderId}/items/{itemId}")
-    @PreAuthorize("hasAnyRole('VT-01', 'VT-02')")
+    @PreAuthorize("hasAnyRole('VT-01', 'VT-02', 'VT-03')")
     public ResponseEntity<ApiResponse<OrderResponse>> updateOrderItem(
             Principal principal,
             @PathVariable String orderId,
@@ -72,7 +72,7 @@ public class OrderController {
     }
 
     @DeleteMapping("/{orderId}/items/{itemId}")
-    @PreAuthorize("hasAnyRole('VT-01', 'VT-02')")
+    @PreAuthorize("hasAnyRole('VT-01', 'VT-02', 'VT-03')")
     public ResponseEntity<ApiResponse<OrderResponse>> deleteOrderItem(
             Principal principal,
             @PathVariable String orderId,
@@ -87,7 +87,7 @@ public class OrderController {
     }
 
     @PostMapping("/{orderId}/discount")
-    @PreAuthorize("hasAnyRole('VT-01', 'VT-02')")
+    @PreAuthorize("hasAnyRole('VT-01', 'VT-02', 'VT-03')")
     public ResponseEntity<ApiResponse<OrderResponse>> applyDiscount(
             Principal principal,
             @PathVariable String orderId,
@@ -102,7 +102,7 @@ public class OrderController {
     }
 
     @PostMapping("/{orderId}/payment")
-    @PreAuthorize("hasAnyRole('VT-01', 'VT-02')")
+    @PreAuthorize("hasAnyRole('VT-01', 'VT-02', 'VT-03')")
     public ResponseEntity<ApiResponse<OrderResponse>> setPaymentMethod(
             Principal principal,
             @PathVariable String orderId,
@@ -117,7 +117,7 @@ public class OrderController {
     }
 
     @PutMapping("/{orderId}/confirm-bank-transfer")
-    @PreAuthorize("hasAnyRole('VT-01', 'VT-02')")
+    @PreAuthorize("hasAnyRole('VT-01', 'VT-02', 'VT-03')")
     @Operation(summary = "Xác nhận đã nhận tiền chuyển khoản ngân hàng trước khi chốt đơn (NCL-03-CN-012)")
     public ResponseEntity<ApiResponse<OrderPaymentResponse>> confirmBankTransfer(
             Principal principal,
@@ -133,7 +133,7 @@ public class OrderController {
     }
 
     @PutMapping("/{orderId}/payment-method")
-    @PreAuthorize("hasAnyRole('VT-01', 'VT-02')")
+    @PreAuthorize("hasAnyRole('VT-01', 'VT-02', 'VT-03')")
     @Operation(summary = "Đổi phương thức thanh toán linh hoạt khi khách hủy chuyển khoản (NCL-03-CN-012)")
     public ResponseEntity<ApiResponse<OrderResponse>> switchPaymentMethod(
             Principal principal,
@@ -150,7 +150,7 @@ public class OrderController {
 
     @PostMapping("/{orderId}/complete")
 
-    @PreAuthorize("hasAnyRole('VT-01', 'VT-02')")
+    @PreAuthorize("hasAnyRole('VT-01', 'VT-02', 'VT-03')")
     public ResponseEntity<ApiResponse<OrderResponse>> completeOrder(
             Principal principal,
             @PathVariable String orderId,
@@ -165,7 +165,7 @@ public class OrderController {
     }
 
     @GetMapping("/{orderId}")
-    @PreAuthorize("hasAnyRole('VT-01', 'VT-02')")
+    @PreAuthorize("hasAnyRole('VT-01', 'VT-02', 'VT-03')")
     public ResponseEntity<ApiResponse<OrderResponse>> getOrder(
             Principal principal,
             @PathVariable String orderId) {
@@ -192,7 +192,7 @@ public class OrderController {
 
     @Operation(summary = "Tính toán trọng lượng từ số tiền mua")
     @PostMapping("/calculate-weight")
-    @PreAuthorize("hasAnyRole('VT-01', 'VT-02')")
+    @PreAuthorize("hasAnyRole('VT-01', 'VT-02', 'VT-03')")
     public ResponseEntity<ApiResponse<CalculateWeightResponse>> calculateWeight(
             Principal principal,
             @Valid @RequestBody CalculateWeightRequest request) {
@@ -207,7 +207,7 @@ public class OrderController {
 
     @Operation(summary = "Hủy đơn hàng chưa thanh toán kèm lý do (NCL-03-CN-009)")
     @PostMapping("/{orderId}/cancel")
-    @PreAuthorize("hasAnyRole('VT-01', 'VT-02')")
+    @PreAuthorize("hasAnyRole('VT-01', 'VT-02', 'VT-03')")
     public ResponseEntity<ApiResponse<OrderResponse>> cancelOrder(
             Principal principal,
             @PathVariable String orderId,
@@ -223,7 +223,7 @@ public class OrderController {
 
     @Operation(summary = "Lấy danh mục lý do hủy đơn hàng chuẩn hóa (NCL-03-CN-009)")
     @GetMapping("/cancel-reasons")
-    @PreAuthorize("hasAnyRole('VT-01', 'VT-02')")
+    @PreAuthorize("hasAnyRole('VT-01', 'VT-02', 'VT-03')")
     public ResponseEntity<ApiResponse<List<OrderCancelReasonDto>>> getCancelReasons() {
         List<OrderCancelReasonDto> result = orderService.getCancelReasons();
         ApiResponse<List<OrderCancelReasonDto>> response = ApiResponse.<List<OrderCancelReasonDto>>builder()
@@ -254,7 +254,7 @@ public class OrderController {
 
     @Operation(summary = "Lấy danh sách các đơn hàng đang treo trong ca (NCL-03-CN-010)")
     @GetMapping("/held")
-    @PreAuthorize("hasAnyRole('VT-01', 'VT-02')")
+    @PreAuthorize("hasAnyRole('VT-01', 'VT-02', 'VT-03')")
     public ResponseEntity<ApiResponse<List<HeldOrderSummaryResponse>>> getHeldOrders(Principal principal) {
         List<HeldOrderSummaryResponse> result = orderService.getHeldOrders(principal.getName());
         return ResponseEntity.ok(ApiResponse.<List<HeldOrderSummaryResponse>>builder()
@@ -266,7 +266,7 @@ public class OrderController {
 
     @Operation(summary = "Đặt tên nhận diện, gắn bàn ăn và treo đơn (NCL-03-CN-010)")
     @PutMapping("/{orderId}/hold")
-    @PreAuthorize("hasAnyRole('VT-01', 'VT-02')")
+    @PreAuthorize("hasAnyRole('VT-01', 'VT-02', 'VT-03')")
     public ResponseEntity<ApiResponse<OrderResponse>> holdOrder(
             Principal principal,
             @PathVariable String orderId,
@@ -281,7 +281,7 @@ public class OrderController {
 
     @Operation(summary = "Cập nhật tên nhận diện đơn hàng (NCL-03-CN-010)")
     @PutMapping("/{orderId}/order-label")
-    @PreAuthorize("hasAnyRole('VT-01', 'VT-02')")
+    @PreAuthorize("hasAnyRole('VT-01', 'VT-02', 'VT-03')")
     public ResponseEntity<ApiResponse<OrderResponse>> updateOrderLabel(
             Principal principal,
             @PathVariable String orderId,
@@ -296,7 +296,7 @@ public class OrderController {
 
     @Operation(summary = "Chuyển đơn hàng sang bàn ăn khác (NCL-03-CN-010)")
     @PutMapping("/{orderId}/switch-table")
-    @PreAuthorize("hasAnyRole('VT-01', 'VT-02')")
+    @PreAuthorize("hasAnyRole('VT-01', 'VT-02', 'VT-03')")
     public ResponseEntity<ApiResponse<OrderResponse>> switchDiningTable(
             Principal principal,
             @PathVariable String orderId,
