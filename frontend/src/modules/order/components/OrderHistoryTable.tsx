@@ -8,6 +8,7 @@ import {
   ORDER_STATUS,
   ORDER_STATUS_LABELS,
   ORDER_UI,
+  ORDER_CANCEL_MESSAGES,
 } from "@/constants/order";
 import { USER_ROLES } from "@/constants/roles";
 import { SHIFT_MESSAGES } from "@/constants/shift";
@@ -47,8 +48,26 @@ import {
   useUpdateCustomerMutation,
 } from "@/modules/customer/services/customerApi";
 import { ImportOrdersModal } from "@/modules/order/components/ImportOrdersModal";
-import { FileSpreadsheet } from "lucide-react";
-import { notifyOrderCompleted } from "@/utils/orderEvents";
+import { CancelOrderModal } from "@/modules/order/components/CancelOrderModal";
+import { CanceledOrderStatisticsModal } from "@/modules/order/components/CanceledOrderStatisticsModal";
+import {
+  FileSpreadsheet,
+  BarChart3,
+  Ban,
+  AlertTriangle,
+  Clock,
+  Receipt,
+  Calendar,
+  User,
+  X,
+  Package,
+  UtensilsCrossed,
+  Tag,
+  CreditCard,
+  ExternalLink,
+  Edit3,
+} from "lucide-react";
+import { notifyOrderCompleted, notifyOrderCanceled } from "@/utils/orderEvents";
 
 interface OrderHistoryTableProps {
   currentRole: string;
@@ -619,6 +638,35 @@ export const OrderHistoryTable: React.FC<OrderHistoryTableProps> = ({
   const [isAbandoningDraft, setIsAbandoningDraft] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<IOrderResponse | null>(null);
   const [isSubmittingOrder, setIsSubmittingOrder] = useState(false);
+
+  // Cancellation States (NCL-03-CN-009)
+  const [orderToCancel, setOrderToCancel] = useState<IOrderResponse | null>(null);
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [showCanceledStatsModal, setShowCanceledStatsModal] = useState(false);
+  const [completedOrderNoticeModal, setCompletedOrderNoticeModal] = useState<string | null>(null);
+
+  const handleOpenCancelOrder = (order: IOrderResponse, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    // TC-03: Chặn hủy đơn đã thanh toán và hướng dẫn luồng đúng
+    if (order.status === ORDER_STATUS.COMPLETED) {
+      showWarning(ORDER_CANCEL_MESSAGES.COMPLETED_ORDER_BLOCK_NOTICE);
+      setCompletedOrderNoticeModal(order.orderNumber);
+      return;
+    }
+    if (order.status === ORDER_STATUS.CREATING) {
+      setOrderToCancel(order);
+      setShowCancelModal(true);
+    }
+  };
+
+  const handleCancelOrderSuccess = (canceledOrder: IOrderResponse) => {
+    showSuccess(`Đơn hàng ${canceledOrder.orderNumber} đã được hủy thành công.`);
+    if (selectedOrder?.id === canceledOrder.id) {
+      setSelectedOrder(canceledOrder);
+    }
+    notifyOrderCanceled(canceledOrder.id, canceledOrder.orderNumber);
+    void refetchOrders();
+  };
 
   const navigate = useNavigate();
   const { isOnline } = useDashboardDemo();
@@ -1912,6 +1960,14 @@ export const OrderHistoryTable: React.FC<OrderHistoryTableProps> = ({
           <span className="text-xs font-bold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-lg">
             {totalElements} đơn hàng
           </span>
+          <button
+            type="button"
+            onClick={() => setShowCanceledStatsModal(true)}
+            className="px-3 h-8 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded-lg font-bold transition-colors flex items-center gap-1.5 text-xs shadow-xs"
+            title="Xem thống kê đơn hủy theo ca và nhân viên"
+          >
+            <BarChart3 className="w-4 h-4 text-rose-600" /> Thống kê đơn hủy
+          </button>
           {canMutateOrders && (
             <button
               type="button"
@@ -2009,31 +2065,21 @@ export const OrderHistoryTable: React.FC<OrderHistoryTableProps> = ({
               <th className="p-3 text-right">{ORDER_UI.HISTORY.COLUMNS.PAID_AMOUNT}</th>
               <th className="p-3">{ORDER_UI.HISTORY.COLUMNS.PAYMENT_METHOD}</th>
               <th className="p-3 text-center">{ORDER_UI.HISTORY.COLUMNS.STATUS}</th>
+              <th className="p-3 text-center">{ORDER_UI.HISTORY.COLUMNS.ACTIONS}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
             {filteredOrders.length === 0 ? (
               <tr>
-                <td colSpan={9} className="p-8 text-center text-slate-400 font-medium">
+                <td colSpan={10} className="p-8 text-center text-slate-400 font-medium">
                   {ORDER_UI.HISTORY.EMPTY_MESSAGE}
                 </td>
               </tr>
             ) : (
               paginatedOrders.map((order) => {
-                const canResumeOrder =
-                  canMutateOrders &&
-                  order.status === ORDER_STATUS.CREATING &&
-                  order.shiftId === activeShift?.id &&
-                  (currentRole === USER_ROLES.OWNER ||
-                    order.createdByUserId === pendingOrderIdentity?.userId);
-
                 const handleRowClick = () => {
-                  if (canResumeOrder) {
-                    handleResumeServerOrder(order);
-                  } else {
-                    setSelectedOrder(order);
-                    setShowDetailModal(true);
-                  }
+                  setSelectedOrder(order);
+                  setShowDetailModal(true);
                 };
 
                 return (
@@ -2048,16 +2094,28 @@ export const OrderHistoryTable: React.FC<OrderHistoryTableProps> = ({
                     }}
                     tabIndex={0}
                     role="button"
-                    aria-label={`${
-                      canResumeOrder ? "Tiếp tục" : "Xem chi tiết"
-                    } đơn hàng ${order.orderNumber}`}
+                    aria-label={`Xem chi tiết đơn hàng ${order.orderNumber}`}
                     className="transition-colors hover:bg-slate-100/80 cursor-pointer focus:outline-none focus:bg-slate-100"
                   >
                     <td className="p-3 font-mono font-bold text-slate-800">{order.orderNumber}</td>
                     <td className="p-3 text-slate-700 font-semibold">{order.createdByUsername}</td>
                     <td className="p-3 text-slate-500">{formatDate(order.createdAt)}</td>
-                    <td className="p-3 font-bold text-slate-700">
-                      {order.customerName || ORDER_UI.HISTORY.WALK_IN_CUSTOMER_LABEL}
+                    <td className="p-3 text-slate-700">
+                      <div className="font-bold">{order.customerName || ORDER_UI.HISTORY.WALK_IN_CUSTOMER_LABEL}</div>
+                      {(order.diningTableName || order.orderLabel) && (
+                        <div className="flex flex-wrap items-center gap-1 mt-0.5">
+                          {order.diningTableName && (
+                            <span className="inline-flex items-center gap-0.5 text-[10px] text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 font-bold">
+                              🍽️ {order.diningTableName}
+                            </span>
+                          )}
+                          {order.orderLabel && (
+                            <span className="inline-flex items-center gap-0.5 text-[10px] text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200 font-semibold">
+                              🏷️ {order.orderLabel}
+                            </span>
+                          )}
+                        </div>
+                      )}
                     </td>
                     <td className="p-3 text-right">{formatCurrency(order.totalAmount)}</td>
                     <td className="p-3 text-right text-rose-500 font-semibold">
@@ -2072,13 +2130,22 @@ export const OrderHistoryTable: React.FC<OrderHistoryTableProps> = ({
                       )}
                     </td>
                     <td className="p-3 text-slate-600 font-bold">
-                      {order.paymentMethod === ORDER_PAYMENT_METHOD.CASH
-                        ? ORDER_PAYMENT_METHOD_LABELS[ORDER_PAYMENT_METHOD.CASH]
-                        : order.paymentMethod === ORDER_PAYMENT_METHOD.BANK_TRANSFER
-                        ? ORDER_PAYMENT_METHOD_LABELS[ORDER_PAYMENT_METHOD.BANK_TRANSFER]
-                        : order.paymentMethod === ORDER_PAYMENT_METHOD.DEBT
-                        ? ORDER_PAYMENT_METHOD_LABELS[ORDER_PAYMENT_METHOD.DEBT]
-                        : DEFAULT_ORDER_PAYMENT_METHOD_LABEL}
+                      {order.paymentMethod === ORDER_PAYMENT_METHOD.COMBINED ? (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-purple-100 text-purple-800 border border-purple-200 shadow-2xs">
+                          <span>Kết hợp</span>
+                          {order.payments && order.payments.length > 0 && (
+                            <span className="text-[10px] opacity-75">({order.payments.length})</span>
+                          )}
+                        </span>
+                      ) : order.paymentMethod === ORDER_PAYMENT_METHOD.CASH ? (
+                        ORDER_PAYMENT_METHOD_LABELS[ORDER_PAYMENT_METHOD.CASH]
+                      ) : order.paymentMethod === ORDER_PAYMENT_METHOD.BANK_TRANSFER ? (
+                        ORDER_PAYMENT_METHOD_LABELS[ORDER_PAYMENT_METHOD.BANK_TRANSFER]
+                      ) : order.paymentMethod === ORDER_PAYMENT_METHOD.DEBT ? (
+                        ORDER_PAYMENT_METHOD_LABELS[ORDER_PAYMENT_METHOD.DEBT]
+                      ) : (
+                        DEFAULT_ORDER_PAYMENT_METHOD_LABEL
+                      )}
                     </td>
                     <td className="p-3 text-center flex flex-col items-center gap-1 justify-center">
                       <span
@@ -2095,6 +2162,27 @@ export const OrderHistoryTable: React.FC<OrderHistoryTableProps> = ({
                           hideSynced
                         />
                       )}
+                    </td>
+                    <td className="p-3 text-center" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex items-center justify-center gap-2">
+                        <button
+                          type="button"
+                          onClick={handleRowClick}
+                          className="text-[11px] text-slate-500 hover:text-blue-600 font-bold"
+                        >
+                          {ORDER_UI.HISTORY.DETAILS_LABEL}
+                        </button>
+                        {order.status === ORDER_STATUS.CREATING && canMutateOrders && (
+                          <button
+                            type="button"
+                            onClick={(e) => handleOpenCancelOrder(order, e)}
+                            className="px-2.5 py-1 text-xs font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg transition-colors inline-flex items-center gap-1 shadow-2xs"
+                            title="Hủy đơn chưa thanh toán kèm lý do (NCL-03-CN-009)"
+                          >
+                            <Ban className="w-3.5 h-3.5" /> Hủy đơn
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 );
@@ -2603,7 +2691,7 @@ export const OrderHistoryTable: React.FC<OrderHistoryTableProps> = ({
       {showDetailModal && selectedOrder && createPortal(
         <div
           onClick={() => setShowDetailModal(false)}
-          className="app-modal-backdrop fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-900/60 p-2 animate-backdrop-fade-in sm:p-4"
+          className="app-modal-backdrop fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-900/60 p-3 sm:p-6 backdrop-blur-xs animate-backdrop-fade-in"
         >
           <div
             ref={detailDialogRef}
@@ -2612,191 +2700,462 @@ export const OrderHistoryTable: React.FC<OrderHistoryTableProps> = ({
             role="dialog"
             aria-modal="true"
             aria-label={`Chi tiết đơn hàng ${selectedOrder.orderNumber}`}
-            className="app-modal-panel flex w-full max-w-xl max-h-[90vh] my-auto flex-col overflow-hidden rounded-xl border border-slate-100 bg-white text-left text-xs font-semibold text-slate-700 shadow-2xl animate-modal-bounce-in"
+            className="app-modal-panel flex w-full max-w-5xl max-h-[92vh] my-auto flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white text-left text-xs text-slate-700 shadow-2xl animate-modal-bounce-in"
           >
             {/* Header */}
-            <div className="app-modal-header shrink-0 flex items-center justify-between bg-slate-800 px-5 py-3 text-white">
-              <h2 className="text-xs font-bold uppercase tracking-wider flex items-center gap-1.5">
-                <span>Chi Tiết Đơn Hàng: {selectedOrder.orderNumber}</span>
-              </h2>
+            <div className="shrink-0 flex items-center justify-between border-b border-slate-200/80 bg-white px-6 py-4">
+              <div className="flex items-center gap-3.5">
+                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 text-kv-blue-primary border border-blue-100 shadow-2xs shrink-0">
+                  <Receipt className="h-5 w-5" />
+                </div>
+                <div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h2 className="text-base sm:text-lg font-bold text-slate-800 tracking-tight">
+                      Chi Tiết Đơn Hàng
+                    </h2>
+                    <span className="font-mono text-xs font-bold text-slate-700 bg-slate-100 px-2.5 py-0.5 rounded-md border border-slate-200">
+                      {selectedOrder.orderNumber}
+                    </span>
+                    <span
+                      className={`px-2.5 py-0.5 rounded-full text-[11px] font-extrabold ${getStatusBadgeClass(
+                        selectedOrder.status
+                      )}`}
+                    >
+                      {translateStatus(selectedOrder.status)}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 mt-1 flex flex-wrap items-center gap-2 font-medium">
+                    <span className="inline-flex items-center gap-1">
+                      <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                      {formatDate(selectedOrder.createdAt)}
+                    </span>
+                    <span>•</span>
+                    <span className="inline-flex items-center gap-1">
+                      <User className="w-3.5 h-3.5 text-slate-400" />
+                      Thu ngân: <strong className="text-slate-700 font-bold">{selectedOrder.createdByUsername}</strong>
+                    </span>
+                  </p>
+                </div>
+              </div>
               <button
                 onClick={() => setShowDetailModal(false)}
                 type="button"
                 aria-label="Đóng chi tiết đơn hàng"
-                className="flex min-h-11 min-w-11 items-center justify-center text-white/80 transition-colors hover:text-white"
+                className="flex h-9 w-9 items-center justify-center rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
               >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <line x1="18" y1="6" x2="6" y2="18" />
-                  <line x1="6" y1="6" x2="18" y2="18" />
-                </svg>
+                <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="app-modal-body flex min-h-0 flex-1 flex-col gap-4 p-4 sm:p-5 overflow-y-auto">
-              {/* Thông tin chung */}
-              <div className="grid grid-cols-1 gap-3 rounded-lg border bg-slate-50 p-3 text-[11px] sm:grid-cols-2 sm:p-4">
-                <div>
-                  <span className="text-slate-400 font-bold block uppercase text-[9px] mb-0.5">Nhân viên chốt:</span>
-                  <span className="font-extrabold text-slate-800">{selectedOrder.createdByUsername}</span>
-                </div>
-                <div>
-                  <span className="text-slate-400 font-bold block uppercase text-[9px] mb-0.5">Thời gian tạo:</span>
-                  <span className="font-extrabold text-slate-800">{formatDate(selectedOrder.createdAt)}</span>
-                </div>
-                <div className="mt-2">
-                  <span className="text-slate-400 font-bold block uppercase text-[9px] mb-0.5">Khách hàng:</span>
-                  <span className="font-extrabold text-slate-800">
-                    {selectedOrder.customerName || "Khách vãng lai"}
-                  </span>
-                </div>
-                <div className="mt-2">
-                  <span className="text-slate-400 font-bold block uppercase text-[9px] mb-0.5">Trạng thái:</span>
-                  <span
-                    className={`px-2 py-0.5 rounded text-[10px] font-bold inline-block mt-0.5 ${getStatusBadgeClass(
-                      selectedOrder.status
-                    )}`}
-                  >
-                    {translateStatus(selectedOrder.status)}
-                  </span>
-                </div>
-              </div>
-
-              {/* Danh sách sản phẩm */}
-              <div>
-                <span className="font-bold text-slate-700 text-[10px] uppercase block mb-1.5">
-                  Sản phẩm đã mua:
-                </span>
-                <div className="overflow-x-auto border rounded-lg bg-white">
-                  <table className="responsive-data-table responsive-data-table--compact w-full text-left border-collapse text-[10px]">
-                    <thead>
-                      <tr className="bg-slate-50 text-slate-500 font-bold border-b text-[9px] uppercase">
-                        <th className="p-2.5">Sản phẩm</th>
-                        <th className="p-2.5 text-center w-10">SL</th>
-                        <th className="p-2.5 text-right">Đơn giá</th>
-                        <th className="p-2.5 text-right font-bold text-slate-700">Thành tiền</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 font-semibold text-slate-600">
-                      {selectedOrder.items && selectedOrder.items.length > 0 ? (
-                        selectedOrder.items.map((item) => {
-                          const rawItemTotal = item.unitPrice * item.quantity;
-                          const itemTaxAmount =
-                            item.taxAmount ??
-                            (item.taxRatePercentage
-                              ? Math.round((rawItemTotal * item.taxRatePercentage) / 100)
-                              : item.subtotal
-                              ? Math.max(0, item.subtotal - rawItemTotal + (item.discountAmount || 0))
-                              : 0);
-                          const finalItemSubtotal =
-                            item.subtotal ?? (rawItemTotal + itemTaxAmount - (item.discountAmount || 0));
-
-                          return (
-                            <tr key={item.id}>
-                              <td className="p-2.5">
-                                <div className="font-bold text-slate-800">{item.productName}</div>
-                              </td>
-                              <td className="p-2.5 text-center font-bold">{item.quantity}</td>
-                              <td className="p-2.5 text-right">{formatCurrency(item.unitPrice)}</td>
-                              <td className="p-2.5 text-right text-slate-800 font-bold">
-                                {formatCurrency(finalItemSubtotal)}
-                              </td>
-                            </tr>
-                          );
-                        })
-                      ) : (
-                        <tr>
-                          <td colSpan={4} className="p-4 text-center text-slate-400 font-medium">
-                            Không có chi tiết sản phẩm cho đơn hàng này.
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              {/* Chi tiết thanh toán */}
-              {(() => {
-                const orderRawTotal =
-                  selectedOrder.items?.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0) ??
-                  selectedOrder.totalAmount;
-
-                const orderTotalTax =
-                  selectedOrder.items?.reduce((sum, item) => {
-                    const rawPriceTotal = item.unitPrice * item.quantity;
-                    const itemTax =
-                      item.taxAmount ??
-                      (item.taxRatePercentage
-                        ? Math.round((rawPriceTotal * item.taxRatePercentage) / 100)
-                        : item.subtotal
-                        ? Math.max(0, item.subtotal - rawPriceTotal + (item.discountAmount || 0))
-                        : 0);
-                    return sum + itemTax;
-                  }, 0) ?? 0;
-
-                return (
-                  <div className="bg-slate-50 p-4 rounded-lg border flex flex-col gap-2 text-xs">
-                    <div className="flex justify-between">
-                      <span className="text-slate-500">Tiền hàng (chưa thuế):</span>
-                      <span className="font-bold text-slate-800">{formatCurrency(orderRawTotal)}</span>
+            {/* Body */}
+            <div className="flex min-h-0 flex-1 flex-col gap-5 p-5 sm:p-6 overflow-y-auto bg-slate-50/60">
+              {/* Thông tin đơn hàng đang dùng / đơn nháp / đơn ở bàn */}
+              {selectedOrder.status === ORDER_STATUS.CREATING && (
+                <div className="bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-white border border-amber-300/80 rounded-xl p-3.5 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-700 border border-amber-200 shadow-2xs">
+                      <Clock className="w-5 h-5 animate-pulse" />
                     </div>
-                    {orderTotalTax > 0 && (
-                      <div className="flex justify-between text-amber-700">
-                        <span className="font-semibold">
-                          Tổng thuế GTGT ({orderRawTotal > 0 ? `${((orderTotalTax / orderRawTotal) * 100) % 1 === 0 ? ((orderTotalTax / orderRawTotal) * 100).toFixed(0) : ((orderTotalTax / orderRawTotal) * 100).toFixed(1)}%` : "0%"}) (+):
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-extrabold text-amber-900 text-sm">
+                          Đơn hàng đang phục vụ (Nháp)
                         </span>
-                        <span className="font-bold">+{formatCurrency(orderTotalTax)}</span>
-                      </div>
-                    )}
-                    <div className="flex justify-between text-rose-500">
-                      <span>Giảm giá (-):</span>
-                      <span className="font-bold">-{formatCurrency(selectedOrder.discountAmount)}</span>
-                    </div>
-                    <div className="flex justify-between border-t pt-2 text-slate-800 font-bold">
-                      <span>Cần thanh toán:</span>
-                      <span className="font-extrabold text-kv-blue-primary">
-                        {formatCurrency(selectedOrder.finalAmount)}
-                      </span>
-                    </div>
-                    <div className="flex justify-between border-t pt-2">
-                      <span className="text-slate-500">Khách đã trả:</span>
-                      <span className="font-bold text-slate-800">
-                        {formatCurrency(
-                          selectedOrder.paidAmount ??
-                            (selectedOrder.paymentMethod === ORDER_PAYMENT_METHOD.DEBT
-                              ? 0
-                              : selectedOrder.finalAmount + (selectedOrder.changeAmount || 0)),
+                        {selectedOrder.diningTableName && (
+                          <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 font-bold text-xs border border-emerald-200 inline-flex items-center gap-1">
+                            🍽️ {selectedOrder.diningTableName}
+                          </span>
                         )}
-                      </span>
-                    </div>
-                    {selectedOrder.debtAmount !== undefined && selectedOrder.debtAmount > 0 && (
-                      <div className="flex justify-between text-amber-700">
-                        <span className="font-semibold">Còn nợ ghi sổ:</span>
-                        <span className="font-bold">{formatCurrency(selectedOrder.debtAmount)}</span>
+                        {selectedOrder.orderLabel && (
+                          <span className="px-2 py-0.5 rounded-md bg-blue-100 text-blue-800 font-bold text-xs border border-blue-200 inline-flex items-center gap-1">
+                            🏷️ {selectedOrder.orderLabel}
+                          </span>
+                        )}
                       </div>
-                    )}
-                    <div className="flex justify-between">
-                      <span className="text-slate-500">Tiền thối lại:</span>
-                      <span className="font-bold text-slate-800">{formatCurrency(selectedOrder.changeAmount || 0)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-500">Phương thức thanh toán:</span>
-                      <span className="font-bold text-slate-800">
-                        {selectedOrder.paymentMethod === ORDER_PAYMENT_METHOD.CASH
-                          ? ORDER_PAYMENT_METHOD_LABELS[ORDER_PAYMENT_METHOD.CASH]
-                          : selectedOrder.paymentMethod === ORDER_PAYMENT_METHOD.BANK_TRANSFER
-                          ? ORDER_PAYMENT_METHOD_LABELS[ORDER_PAYMENT_METHOD.BANK_TRANSFER]
-                          : selectedOrder.paymentMethod === ORDER_PAYMENT_METHOD.DEBT
-                          ? ORDER_PAYMENT_METHOD_LABELS[ORDER_PAYMENT_METHOD.DEBT]
-                          : DEFAULT_ORDER_PAYMENT_METHOD_LABEL}
-                      </span>
+                      <p className="text-amber-800/80 text-xs mt-0.5 font-medium">
+                        Đơn hàng chưa hoàn tất thanh toán. Bạn có thể mở tại màn hình POS để tiếp tục gọi món hoặc chốt hóa đơn.
+                      </p>
                     </div>
                   </div>
-                );
-              })()}
+                  {selectedOrder.holdingDurationMinutes !== undefined && selectedOrder.holdingDurationMinutes !== null && (
+                    <div className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-100 border border-amber-300/80 text-amber-900 font-bold text-xs">
+                      <Clock className="w-3.5 h-3.5 text-amber-700" />
+                      <span>Thời gian: {selectedOrder.holdingDurationMinutes} phút</span>
+                    </div>
+                  )}
+                </div>
+              )}
 
-              {/* Invoice Actions & Close Button */}
-              <div className="flex justify-end mt-2 items-center">
+              {/* Thông tin hủy đơn nếu có (NCL-03-CN-009) */}
+              {selectedOrder.status === ORDER_STATUS.CANCELED && (
+                <div className="bg-rose-50 border border-rose-200 text-rose-900 rounded-xl p-4 flex flex-col gap-2.5 shadow-2xs">
+                  <div className="flex items-center gap-2 font-extrabold text-rose-700 text-sm">
+                    <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                    <span>ĐƠN HÀNG ĐÃ HỦY (CHƯA THANH TOÁN)</span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-rose-200/70 text-xs">
+                    <div>
+                      <span className="text-slate-500 font-medium block text-[11px]">Lý do hủy:</span>
+                      <strong className="text-rose-800 font-bold">
+                        {selectedOrder.cancelReasonDescription || selectedOrder.cancelReason || "Khách đổi ý"}
+                      </strong>
+                    </div>
+                    {selectedOrder.canceledByFullName && (
+                      <div>
+                        <span className="text-slate-500 font-medium block text-[11px]">Người thực hiện hủy:</span>
+                        <strong className="text-slate-800 font-bold">{selectedOrder.canceledByFullName}</strong>
+                      </div>
+                    )}
+                    {selectedOrder.canceledAt && (
+                      <div>
+                        <span className="text-slate-500 font-medium block text-[11px]">Thời gian hủy:</span>
+                        <strong className="text-slate-800 font-bold">{formatDate(selectedOrder.canceledAt)}</strong>
+                      </div>
+                    )}
+                    {selectedOrder.cancelReasonNote && (
+                      <div className="sm:col-span-3 bg-white/70 p-2.5 rounded-lg border border-rose-200/60 text-[11px]">
+                        <span className="text-slate-500 font-medium">Ghi chú chi tiết: </span>
+                        <span className="text-slate-700 italic">"{selectedOrder.cancelReasonNote}"</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="text-[11px] text-slate-500 font-medium">
+                    * {ORDER_CANCEL_MESSAGES.STOCK_NEUTRALITY_NOTICE}
+                  </div>
+                </div>
+              )}
+
+              {/* Bố cục 2 cột chính: Danh sách sản phẩm & Chi tiết thanh toán */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+                {/* Cột trái (7 cols): Danh sách sản phẩm */}
+                <div className="lg:col-span-7 flex flex-col gap-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Package className="w-4 h-4 text-slate-500" />
+                      <h3 className="font-bold text-slate-800 text-xs sm:text-sm uppercase tracking-wide">
+                        Danh sách sản phẩm
+                      </h3>
+                    </div>
+                    <span className="px-2.5 py-0.5 rounded-full bg-slate-200/80 text-slate-700 text-xs font-bold">
+                      {selectedOrder.items?.length || 0} sản phẩm
+                    </span>
+                  </div>
+
+                  <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-2xs">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left border-collapse text-xs">
+                        <thead>
+                          <tr className="bg-slate-50/90 text-slate-500 font-bold border-b border-slate-200 text-[11px] uppercase">
+                            <th className="p-3 pl-4">Sản phẩm</th>
+                            <th className="p-3 text-center w-14">SL</th>
+                            <th className="p-3 text-right w-28">Đơn giá</th>
+                            <th className="p-3 text-right pr-4 w-32 font-bold text-slate-700">Thành tiền</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
+                          {selectedOrder.items && selectedOrder.items.length > 0 ? (
+                            selectedOrder.items.map((item, idx) => {
+                              const rawItemTotal = item.unitPrice * item.quantity;
+                              const itemTaxAmount =
+                                item.taxAmount ??
+                                (item.taxRatePercentage
+                                  ? Math.round((rawItemTotal * item.taxRatePercentage) / 100)
+                                  : item.subtotal
+                                  ? Math.max(0, item.subtotal - rawItemTotal + (item.discountAmount || 0))
+                                  : 0);
+                              const finalItemSubtotal =
+                                item.subtotal ?? (rawItemTotal + itemTaxAmount - (item.discountAmount || 0));
+
+                              return (
+                                <tr key={item.id || idx} className="hover:bg-slate-50/80 transition-colors">
+                                  <td className="p-3 pl-4">
+                                    <div className="font-bold text-slate-800 text-xs">
+                                      {item.productName}
+                                    </div>
+                                    <div className="flex flex-wrap items-center gap-1.5 mt-0.5 text-[10px] text-slate-400">
+                                      {item.unitName && (
+                                        <span className="bg-slate-100 text-slate-600 px-1.5 py-0.2 rounded border border-slate-200/60 font-semibold">
+                                          ĐVT: {item.unitName}
+                                        </span>
+                                      )}
+                                      {item.priceTierName && (
+                                        <span className="bg-amber-50 text-amber-700 px-1.5 py-0.2 rounded border border-amber-200 font-semibold">
+                                          {item.priceTierName}
+                                        </span>
+                                      )}
+                                      {item.discountAmount > 0 && (
+                                        <span className="text-rose-600 font-medium">
+                                          Giảm: -{formatCurrency(item.discountAmount)}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </td>
+                                  <td className="p-3 text-center font-bold text-slate-800">
+                                    <span className="inline-block min-w-6 px-1.5 py-0.5 rounded-md bg-slate-100 border border-slate-200/80">
+                                      {formatNumber(item.quantity)}
+                                    </span>
+                                  </td>
+                                  <td className="p-3 text-right text-slate-600 font-medium">
+                                    {formatCurrency(item.unitPrice)}
+                                  </td>
+                                  <td className="p-3 text-right pr-4 font-bold text-slate-900">
+                                    {formatCurrency(finalItemSubtotal)}
+                                  </td>
+                                </tr>
+                              );
+                            })
+                          ) : (
+                            <tr>
+                              <td colSpan={4} className="p-6 text-center text-slate-400 font-medium">
+                                Không có chi tiết sản phẩm cho đơn hàng này.
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Cột phải (5 cols): Thông tin giao dịch & Chi tiết thanh toán */}
+                <div className="lg:col-span-5 flex flex-col gap-4">
+                  {/* Card 1: Khách hàng & Phòng bàn */}
+                  <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-2xs flex flex-col gap-3">
+                    <h4 className="font-bold text-slate-800 text-xs uppercase tracking-wide flex items-center gap-1.5 pb-2 border-b border-slate-100">
+                      <User className="w-3.5 h-3.5 text-slate-500" />
+                      <span>Thông tin giao dịch</span>
+                    </h4>
+
+                    <div className="flex flex-col gap-2.5 text-xs">
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-500 font-medium">Khách hàng:</span>
+                        <span className="font-bold text-slate-800">
+                          {selectedOrder.customerName || "Khách vãng lai"}
+                        </span>
+                      </div>
+
+                      {selectedOrder.diningTableName && (
+                        <div className="flex items-center justify-between">
+                          <span className="text-slate-500 font-medium flex items-center gap-1">
+                            <UtensilsCrossed className="w-3.5 h-3.5 text-emerald-600" />
+                            <span>Phòng / Bàn:</span>
+                          </span>
+                          <span className="font-bold text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-lg border border-emerald-200 inline-flex items-center gap-1">
+                            🍽️ {selectedOrder.diningTableName}
+                            {selectedOrder.diningTableArea && (
+                              <span className="text-emerald-700/80 font-medium text-[11px]">
+                                ({selectedOrder.diningTableArea})
+                              </span>
+                            )}
+                          </span>
+                        </div>
+                      )}
+
+                      {selectedOrder.orderLabel && (
+                        <div className="flex items-center justify-between">
+                          <span className="text-slate-500 font-medium flex items-center gap-1">
+                            <Tag className="w-3.5 h-3.5 text-blue-600" />
+                            <span>Tên nhận diện:</span>
+                          </span>
+                          <span className="font-bold text-blue-800 bg-blue-50 px-2.5 py-0.5 rounded-lg border border-blue-200">
+                            🏷️ {selectedOrder.orderLabel}
+                          </span>
+                        </div>
+                      )}
+
+                      <div className="flex items-center justify-between pt-1 border-t border-slate-100 text-[11px]">
+                        <span className="text-slate-400 font-medium">Phương thức:</span>
+                        <span className="font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded">
+                          {selectedOrder.paymentMethod === ORDER_PAYMENT_METHOD.COMBINED ? (
+                            <span className="text-purple-700 font-extrabold">Kết hợp</span>
+                          ) : selectedOrder.paymentMethod === ORDER_PAYMENT_METHOD.CASH ? (
+                            ORDER_PAYMENT_METHOD_LABELS[ORDER_PAYMENT_METHOD.CASH]
+                          ) : selectedOrder.paymentMethod === ORDER_PAYMENT_METHOD.BANK_TRANSFER ? (
+                            ORDER_PAYMENT_METHOD_LABELS[ORDER_PAYMENT_METHOD.BANK_TRANSFER]
+                          ) : selectedOrder.paymentMethod === ORDER_PAYMENT_METHOD.DEBT ? (
+                            ORDER_PAYMENT_METHOD_LABELS[ORDER_PAYMENT_METHOD.DEBT]
+                          ) : (
+                            DEFAULT_ORDER_PAYMENT_METHOD_LABEL
+                          )}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Card 2: Chi tiết thanh toán */}
+                  {(() => {
+                    const orderRawTotal =
+                      selectedOrder.items?.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0) ??
+                      selectedOrder.totalAmount;
+
+                    const orderTotalTax =
+                      selectedOrder.items?.reduce((sum, item) => {
+                        const rawPriceTotal = item.unitPrice * item.quantity;
+                        const itemTax =
+                          item.taxAmount ??
+                          (item.taxRatePercentage
+                            ? Math.round((rawPriceTotal * item.taxRatePercentage) / 100)
+                            : item.subtotal
+                            ? Math.max(0, item.subtotal - rawPriceTotal + (item.discountAmount || 0))
+                            : 0);
+                        return sum + itemTax;
+                      }, 0) ?? 0;
+
+                    return (
+                      <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-2xs flex flex-col gap-2.5 text-xs">
+                        <h4 className="font-bold text-slate-800 text-xs uppercase tracking-wide flex items-center gap-1.5 pb-2 border-b border-slate-100">
+                          <CreditCard className="w-3.5 h-3.5 text-slate-500" />
+                          <span>Chi tiết thanh toán</span>
+                        </h4>
+
+                        <div className="flex justify-between text-slate-600">
+                          <span>Tiền hàng (chưa thuế):</span>
+                          <span className="font-semibold text-slate-800">{formatCurrency(orderRawTotal)}</span>
+                        </div>
+
+                        {orderTotalTax > 0 && (
+                          <div className="flex justify-between text-amber-700">
+                            <span>
+                              Thuế GTGT ({orderRawTotal > 0 ? `${((orderTotalTax / orderRawTotal) * 100) % 1 === 0 ? ((orderTotalTax / orderRawTotal) * 100).toFixed(0) : ((orderTotalTax / orderRawTotal) * 100).toFixed(1)}%` : "0%"}) (+):
+                            </span>
+                            <span className="font-bold">+{formatCurrency(orderTotalTax)}</span>
+                          </div>
+                        )}
+
+                        {selectedOrder.discountAmount > 0 && (
+                          <div className="flex justify-between text-rose-500">
+                            <span>Giảm giá (-):</span>
+                            <span className="font-bold">-{formatCurrency(selectedOrder.discountAmount)}</span>
+                          </div>
+                        )}
+
+                        {/* Cần thanh toán nổi bật */}
+                        <div className="my-1 p-3 rounded-xl bg-gradient-to-r from-blue-50 to-indigo-50/60 border border-blue-200/80 flex items-center justify-between">
+                          <div>
+                            <span className="font-bold text-slate-700 block text-[11px] uppercase tracking-wider">
+                              Cần thanh toán:
+                            </span>
+                            <span className="text-[10px] text-slate-400 font-medium">
+                              {selectedOrder.status === ORDER_STATUS.COMPLETED ? "Đã chốt hóa đơn" : "Tạm tính"}
+                            </span>
+                          </div>
+                          <span className="text-xl font-black text-kv-blue-primary">
+                            {formatCurrency(selectedOrder.finalAmount)}
+                          </span>
+                        </div>
+
+                        <div className="flex justify-between text-slate-600 pt-1">
+                          <span>Khách đã trả:</span>
+                          <span className="font-bold text-slate-800">
+                            {formatCurrency(
+                              selectedOrder.paidAmount ??
+                                (selectedOrder.paymentMethod === ORDER_PAYMENT_METHOD.DEBT
+                                  ? 0
+                                  : selectedOrder.finalAmount + (selectedOrder.changeAmount || 0)),
+                            )}
+                          </span>
+                        </div>
+
+                        {selectedOrder.debtAmount !== undefined && selectedOrder.debtAmount > 0 && (
+                          <div className="flex justify-between text-amber-700 font-bold bg-amber-50 px-2 py-1 rounded">
+                            <span>Còn nợ ghi sổ:</span>
+                            <span>{formatCurrency(selectedOrder.debtAmount)}</span>
+                          </div>
+                        )}
+
+                        <div className="flex justify-between text-slate-600">
+                          <span>Tiền thối lại:</span>
+                          <span className="font-bold text-slate-800">
+                            {formatCurrency(selectedOrder.changeAmount || 0)}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* Card 3: Chi tiết các hình thức thanh toán (NCL-03-CN-011) */}
+                  {selectedOrder.payments && selectedOrder.payments.length > 0 && (
+                    <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-2xs flex flex-col gap-2.5 text-xs">
+                      <h4 className="font-bold text-slate-800 text-xs uppercase tracking-wide flex items-center justify-between pb-2 border-b border-slate-100">
+                        <span className="flex items-center gap-1.5">
+                          <CreditCard className="w-3.5 h-3.5 text-blue-600" />
+                          <span>Chi tiết phân bổ thanh toán ({selectedOrder.payments.length})</span>
+                        </span>
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-blue-50 text-blue-700 border border-blue-200">
+                          NCL-03-CN-011
+                        </span>
+                      </h4>
+
+                      <div className="space-y-2">
+                        {selectedOrder.payments.map((p, idx) => {
+                          const isCash = p.paymentMethod === "CASH";
+                          const isBank = p.paymentMethod === "BANK_TRANSFER";
+
+                          return (
+                            <div
+                              key={p.id || idx}
+                              className="p-2.5 rounded-lg border border-slate-100 bg-slate-50/70 space-y-1"
+                            >
+                              <div className="flex items-center justify-between font-bold text-slate-800">
+                                <span className="flex items-center gap-1.5">
+                                  <span>{isCash ? "💵 Tiền mặt" : isBank ? "💳 Chuyển khoản" : "📝 Ghi nợ"}</span>
+                                  {isBank && p.isConfirmed && (
+                                    <span className="px-1.5 py-0.2 rounded text-[10px] bg-emerald-100 text-emerald-800 border border-emerald-300 font-extrabold">
+                                      Đã đối soát
+                                    </span>
+                                  )}
+                                </span>
+                                <span className="font-extrabold text-[#0070f4] text-xs">
+                                  {formatCurrency(p.amount)}
+                                </span>
+                              </div>
+
+                              {isCash && p.amountGiven !== undefined && p.amountGiven !== null && p.amountGiven > p.amount && (
+                                <div className="text-[11px] text-slate-500 flex justify-between pt-0.5">
+                                  <span>Khách đưa: {formatCurrency(p.amountGiven)}</span>
+                                  <span className="font-semibold text-emerald-600">
+                                    Thối: {formatCurrency(p.changeAmount || p.amountGiven - p.amount)}
+                                  </span>
+                                </div>
+                              )}
+
+                              {isBank && p.transactionCode && (
+                                <div className="text-[11px] text-slate-500 pt-0.5 space-y-0.5">
+                                  <div>Mã GD: <strong className="font-mono text-slate-700">{p.transactionCode}</strong></div>
+                                  {p.confirmedByFullName && (
+                                    <div className="text-[10px] text-slate-400">
+                                      Xác nhận: {p.confirmedByFullName} {p.confirmedAt ? `(${formatDate(p.confirmedAt)})` : ""}
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+
+                              {p.notes && (
+                                <div className="text-[11px] text-slate-500 italic pt-0.5">
+                                  Ghi chú: {p.notes}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="shrink-0 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-t border-slate-200 bg-white px-6 py-4">
+              <div className="text-xs text-slate-400 flex items-center gap-2">
+                <span className="inline-block w-2 h-2 rounded-full bg-slate-300" />
+                <span>Mã đơn: <strong className="text-slate-600 font-mono">{selectedOrder.orderNumber}</strong></span>
+                {selectedOrder.syncStatus && (
+                  <SyncStatusBadge status={selectedOrder.syncStatus} isOffline={selectedOrder.isOffline} hideSynced />
+                )}
+              </div>
+
+              <div className="flex flex-wrap items-center justify-end gap-2">
                 {selectedOrder.status === ORDER_STATUS.COMPLETED && (
                   <>
                     {!orderInvoice ? (
@@ -2804,7 +3163,7 @@ export const OrderHistoryTable: React.FC<OrderHistoryTableProps> = ({
                         type="button"
                         disabled={isCreatingInvoice}
                         onClick={() => handleIssueInvoice(selectedOrder)}
-                        className="bg-kv-green hover:bg-emerald-600 text-white font-bold h-9 px-4 rounded-lg transition-colors text-xs flex items-center justify-center gap-1 mr-2 disabled:opacity-60"
+                        className="bg-kv-green hover:bg-emerald-600 text-white font-bold h-9 px-4 rounded-xl transition-colors text-xs flex items-center justify-center gap-1.5 shadow-2xs disabled:opacity-60"
                       >
                         {isCreatingInvoice && (
                           <span className="mr-1 h-3 w-3 animate-spin rounded-full border border-white/40 border-t-white" />
@@ -2818,7 +3177,7 @@ export const OrderHistoryTable: React.FC<OrderHistoryTableProps> = ({
                           setShowDetailModal(false);
                           navigate(`/e-invoices?id=${orderInvoice.id}`);
                         }}
-                        className="bg-kv-blue-primary hover:bg-kv-blue-dark text-white font-bold h-9 px-4 rounded-lg transition-colors text-xs mr-2"
+                        className="bg-kv-blue-primary hover:bg-kv-blue-dark text-white font-bold h-9 px-4 rounded-xl transition-colors text-xs shadow-2xs"
                       >
                         Xem hóa đơn nháp
                       </button>
@@ -2829,17 +3188,62 @@ export const OrderHistoryTable: React.FC<OrderHistoryTableProps> = ({
                           setShowDetailModal(false);
                           navigate(`/e-invoices?id=${orderInvoice.id}`);
                         }}
-                        className="bg-slate-600 hover:bg-slate-700 text-white font-bold h-9 px-4 rounded-lg transition-colors text-xs mr-2"
+                        className="bg-slate-600 hover:bg-slate-700 text-white font-bold h-9 px-4 rounded-xl transition-colors text-xs shadow-2xs"
                       >
                         Xem hóa đơn
                       </button>
                     )}
                   </>
                 )}
+
+                {selectedOrder.status === ORDER_STATUS.CREATING && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowDetailModal(false);
+                        navigate("/pos");
+                      }}
+                      className="bg-kv-blue-primary hover:bg-kv-blue-dark text-white font-bold h-9 px-4 rounded-xl transition-colors text-xs flex items-center gap-1.5 shadow-2xs"
+                      title="Mở màn hình bán hàng POS để xử lý hoặc thanh toán"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                      Mở tại POS
+                    </button>
+                    {canMutateOrders &&
+                      selectedOrder.shiftId === activeShift?.id &&
+                      (currentRole === USER_ROLES.OWNER ||
+                        selectedOrder.createdByUserId === pendingOrderIdentity?.userId) && (
+                        <button
+                          type="button"
+                          onClick={() => handleResumeServerOrder(selectedOrder)}
+                          className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold h-9 px-4 rounded-xl transition-colors text-xs flex items-center gap-1.5 border border-slate-200"
+                          title="Tiếp tục chỉnh sửa đơn nháp này"
+                        >
+                          <Edit3 className="w-3.5 h-3.5 text-slate-500" />
+                          Tiếp tục chỉnh sửa
+                        </button>
+                      )}
+                    {canMutateOrders && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowDetailModal(false);
+                          handleOpenCancelOrder(selectedOrder);
+                        }}
+                        className="bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 font-bold h-9 px-4 rounded-xl transition-colors text-xs flex items-center gap-1.5 shadow-2xs"
+                        title="Hủy đơn chưa thanh toán kèm lý do (NCL-03-CN-009)"
+                      >
+                        <Ban className="w-3.5 h-3.5" /> Hủy đơn hàng
+                      </button>
+                    )}
+                  </>
+                )}
+
                 <button
                   type="button"
                   onClick={() => setShowDetailModal(false)}
-                  className="bg-slate-800 hover:bg-slate-900 text-white font-bold h-9 px-6 rounded-lg transition-colors text-xs"
+                  className="bg-slate-800 hover:bg-slate-900 text-white font-bold h-9 px-6 rounded-xl transition-colors text-xs"
                 >
                   ĐÓNG
                 </button>
@@ -2855,6 +3259,88 @@ export const OrderHistoryTable: React.FC<OrderHistoryTableProps> = ({
         isOpen={showImportModal}
         onClose={() => setShowImportModal(false)}
       />
+
+      {/* Modal Hủy Đơn Hàng Chưa Thanh Toán (NCL-03-CN-009) */}
+      <CancelOrderModal
+        isOpen={showCancelModal}
+        onClose={() => {
+          setShowCancelModal(false);
+          setOrderToCancel(null);
+        }}
+        order={orderToCancel}
+        onSuccess={handleCancelOrderSuccess}
+      />
+
+      {/* Modal Thống Kê Đơn Hủy Theo Ca & Nhân Viên (NCL-03-CN-009) */}
+      <CanceledOrderStatisticsModal
+        isOpen={showCanceledStatsModal}
+        onClose={() => setShowCanceledStatsModal(false)}
+        initialShiftId={activeShift?.id}
+      />
+
+      {/* Modal Hướng Dẫn Nghiệp Vụ Khi Đơn Đã Thanh Toán (TC-03) */}
+      {completedOrderNoticeModal && createPortal(
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 animate-backdrop-fade-in backdrop-blur-xs"
+          onClick={() => setCompletedOrderNoticeModal(null)}
+          role="presentation"
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="completed-order-notice-title"
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-md bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col p-5 gap-4 animate-modal-bounce-in text-slate-800"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center shrink-0">
+                <AlertTriangle className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 id="completed-order-notice-title" className="text-sm font-bold text-slate-800">
+                  Không thể hủy đơn đã thanh toán
+                </h3>
+                <p className="text-xs text-slate-500 font-mono">
+                  Mã đơn: {completedOrderNoticeModal}
+                </p>
+              </div>
+            </div>
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-900 leading-relaxed font-medium">
+              {ORDER_CANCEL_MESSAGES.COMPLETED_ORDER_BLOCK_NOTICE}
+            </div>
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => {
+                  setCompletedOrderNoticeModal(null);
+                  navigate("/e-invoices");
+                }}
+                className="px-3 py-2 bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 rounded-lg text-xs font-bold transition-colors"
+              >
+                Quản lý hóa đơn
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setCompletedOrderNoticeModal(null);
+                  navigate("/return-tickets/create");
+                }}
+                className="px-3 py-2 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 rounded-lg text-xs font-bold transition-colors"
+              >
+                Lập phiếu trả hàng
+              </button>
+              <button
+                type="button"
+                onClick={() => setCompletedOrderNoticeModal(null)}
+                className="px-4 py-2 bg-slate-800 text-white rounded-lg text-xs font-bold hover:bg-slate-900 transition-colors"
+              >
+                Đóng
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
     </div>
   );
 };

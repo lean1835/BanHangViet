@@ -39,6 +39,8 @@ public class InvoiceResponse {
     private BigDecimal taxAmount;
     private BigDecimal discountAmount;
     private BigDecimal finalAmount;
+    private String paymentMethod;
+    private List<OrderPaymentResponse> payments;
     private String status;
     private String customerDeliveryStatus;
     private String taxAuthorityCode;

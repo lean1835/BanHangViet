@@ -59,6 +59,21 @@ export interface IInvoice {
   canceledAt?: string;
   createdAt?: string;
   updatedAt?: string;
+  paymentMethod?: string;
+  payments?: {
+    id?: string;
+    orderId?: string;
+    orderCode?: string;
+    householdId?: string;
+    paymentMethod: string;
+    amount: number;
+    amountGiven?: number;
+    changeAmount?: number;
+    transactionCode?: string;
+    isConfirmed?: boolean;
+    notes?: string;
+    createdAt?: string;
+  }[];
   items?: IInvoiceItem[];
   deliveryLogs?: IDeliveryLog[];
   isErrorNotified?: boolean;

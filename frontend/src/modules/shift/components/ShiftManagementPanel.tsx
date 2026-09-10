@@ -18,6 +18,15 @@ import { formatCurrency, formatNumber } from "@/utils/formatCurrency";
 import { getApiErrorMessage } from "@/utils/getApiErrorMessage";
 import { useNotification } from "@/hooks/useNotification";
 import { useAccessibleDialog } from "@/hooks/useAccessibleDialog";
+import { BankTransferReconciliationSection } from "./BankTransferReconciliationSection";
+import { ShiftHandoverModal } from "./ShiftHandoverModal";
+import { ShiftCashSummaryCard } from "./ShiftCashSummaryCard";
+import { ShiftCashTransactionsTable } from "./ShiftCashTransactionsTable";
+import { CreateCashTransactionModal } from "./CreateCashTransactionModal";
+import { CashCategoryManagementModal } from "./CashCategoryManagementModal";
+import { useGetShiftCashSummaryQuery } from "../services/cashTransactionApi";
+import type { CashTransactionType } from "../types/ICashTransaction";
+import { Settings } from "lucide-react";
 
 interface ShiftManagementPanelProps {
   currentRole: string;
@@ -54,7 +63,17 @@ export const ShiftManagementPanel: React.FC<ShiftManagementPanelProps> = ({
   const [closingReason, setClosingReason] = useState("");
   const [selectedEmployeeForShift, setSelectedEmployeeForShift] = useState("");
   const [showOpenModal, setShowOpenModal] = useState(false);
+  const [showHandoverModal, setShowHandoverModal] = useState(false);
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [showCreateCashModal, setShowCreateCashModal] = useState(false);
+  const [createCashType, setCreateCashType] = useState<CashTransactionType>("EXPENSE");
   const initializedShiftIdRef = useRef<string | null>(null);
+
+  const { data: cashSummaryData } = useGetShiftCashSummaryQuery(currentShift?.id || "", {
+    skip: !currentShift?.id,
+    pollingInterval: 15000,
+  });
+  const cashSummary = cashSummaryData?.result;
 
   useEffect(() => {
     const nextShiftId = currentShift?.id ?? null;
@@ -98,6 +117,15 @@ export const ShiftManagementPanel: React.FC<ShiftManagementPanelProps> = ({
       }
 
       const latestShift = refreshedActiveShift.result;
+
+      // NCL-03-CN-014: Chặn đóng ca nếu còn khoản chi PENDING_APPROVAL
+      if (cashSummary?.pendingExpenseCount && cashSummary.pendingExpenseCount > 0) {
+        showError(
+          `Ca bán hàng còn ${cashSummary.pendingExpenseCount} khoản chi đang chờ duyệt. Vui lòng phê duyệt hoặc từ chối trước khi chốt ca!`
+        );
+        return;
+      }
+
       const expectedVal =
         latestShift.closingCashExpected ?? latestShift.openingCash;
       const diff = closingActualInput - expectedVal;
@@ -164,9 +192,22 @@ export const ShiftManagementPanel: React.FC<ShiftManagementPanelProps> = ({
   return (
     <div className="flex flex-col justify-between h-full min-h-[250px]">
       <div>
-        <h3 className="font-extrabold text-slate-800 text-sm border-b pb-3 mb-4">
-          {SHIFT_UI.MANAGEMENT.TITLE}
-        </h3>
+        <div className="flex items-center justify-between border-b pb-3 mb-4">
+          <h3 className="font-extrabold text-slate-800 text-sm">
+            {SHIFT_UI.MANAGEMENT.TITLE}
+          </h3>
+          {currentRole === USER_ROLES.OWNER && (
+            <button
+              type="button"
+              onClick={() => setShowCategoryModal(true)}
+              className="text-[11px] font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1 bg-blue-50 hover:bg-blue-100 px-2.5 py-1 rounded-lg border border-blue-200 transition-colors"
+              title="Cấu hình hạn mức duyệt chi và danh mục thu chi"
+            >
+              <Settings className="w-3.5 h-3.5" />
+              <span>Hạn mức & Danh mục thu chi</span>
+            </button>
+          )}
+        </div>
 
         {currentShift === null ? (
           /* CASE: Shift CLOSED */
@@ -211,12 +252,38 @@ export const ShiftManagementPanel: React.FC<ShiftManagementPanelProps> = ({
                   {formatCurrency(currentShift.openingCash)}
                 </span>
               </div>
-              <div className="flex justify-between text-xs text-kv-blue-primary">
+              <div className="flex justify-between text-xs text-indigo-700">
+                <span>Tổng doanh thu ca:</span>
+                <span className="text-sm font-extrabold">
+                  {formatCurrency(currentShift.totalRevenue ?? 0)}
+                </span>
+              </div>
+              <div className="flex justify-between text-[10px] text-slate-500 font-semibold bg-white/70 p-1.5 rounded border border-slate-200">
+                <span>TM: <b className="text-slate-700">{formatCurrency(currentShift.cashRevenue ?? 0)}</b></span>
+                <span>CK: <b className="text-slate-700">{formatCurrency(currentShift.bankRevenue ?? 0)}</b></span>
+              </div>
+              <div className="flex justify-between text-xs text-kv-blue-primary border-t pt-1.5">
                 <span>{SHIFT_UI.MANAGEMENT.EXPECTED_CASH_LABEL}</span>
                 <span className="text-lg font-extrabold">
                   {formatCurrency(currentExpectedCash)}
                 </span>
               </div>
+            </div>
+
+            {/* NCL-03-CN-014: Dòng tiền mặt ngoài bán hàng & Danh sách phiếu thu chi */}
+            <div className="flex flex-col gap-3 my-2">
+              <ShiftCashSummaryCard
+                shiftId={currentShift.id}
+                onOpenCreateModal={(t) => {
+                  setCreateCashType(t);
+                  setShowCreateCashModal(true);
+                }}
+                canCreate={true}
+              />
+              <ShiftCashTransactionsTable
+                shiftId={currentShift.id}
+                isOwner={currentRole === USER_ROLES.OWNER}
+              />
             </div>
 
             <div className="flex flex-col gap-1">
@@ -273,25 +340,50 @@ export const ShiftManagementPanel: React.FC<ShiftManagementPanelProps> = ({
               </div>
             )}
 
-            <button
-              onClick={handleCloseShift}
-              disabled={isClosingShift || isActiveFetching}
-              aria-busy={isClosingShift || isActiveFetching}
-              className="mt-2 flex h-11 w-full items-center justify-center gap-1.5 rounded-lg bg-rose-600 text-xs font-bold text-white shadow-sm transition-colors hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-60 lg:h-9"
-            >
-              {isClosingShift ? (
-                <span
-                  aria-hidden="true"
-                  className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/40 border-t-white"
-                />
-              ) : (
+            {/* NCL-03-CN-012 & QTN-16: Đối soát chuyển khoản ngân hàng khi đóng ca */}
+            {currentShift && (
+              <div className="my-2">
+                <BankTransferReconciliationSection shiftId={currentShift.id} isCompact />
+              </div>
+            )}
+
+            <div className="flex gap-2 mt-2">
+              <button
+                type="button"
+                onClick={() => setShowHandoverModal(true)}
+                disabled={isClosingShift || isActiveFetching}
+                className="flex-1 flex h-11 items-center justify-center gap-1.5 rounded-lg bg-indigo-600 text-xs font-bold text-white shadow-sm transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60 lg:h-9"
+              >
                 <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-                  <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                  <circle cx="9" cy="7" r="4" />
+                  <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                  <path d="M16 3.13a4 4 0 0 1 0 7.75" />
                 </svg>
-              )}
-              {SHIFT_UI.MANAGEMENT.CLOSE_SHIFT_BUTTON}
-            </button>
+                <span>Bàn giao ca</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleCloseShift}
+                disabled={isClosingShift || isActiveFetching}
+                aria-busy={isClosingShift || isActiveFetching}
+                className="flex-1 flex h-11 items-center justify-center gap-1.5 rounded-lg bg-rose-600 text-xs font-bold text-white shadow-sm transition-colors hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-60 lg:h-9"
+              >
+                {isClosingShift ? (
+                  <span
+                    aria-hidden="true"
+                    className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/40 border-t-white"
+                  />
+                ) : (
+                  <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                  </svg>
+                )}
+                {SHIFT_UI.MANAGEMENT.CLOSE_SHIFT_BUTTON}
+              </button>
+            </div>
           </div>
         )}
       </div>
@@ -403,6 +495,39 @@ export const ShiftManagementPanel: React.FC<ShiftManagementPanelProps> = ({
           </div>
         </div>,
         document.body
+      )}
+
+      {/* NCL-03-CN-013: Shift Handover Modal */}
+      {showHandoverModal && (
+        <ShiftHandoverModal
+          isOpen={showHandoverModal}
+          onClose={() => setShowHandoverModal(false)}
+          onHandoverSuccess={() => {
+            refetchActiveShift();
+          }}
+        />
+      )}
+
+      {/* NCL-03-CN-014: Create Cash Transaction Modal */}
+      {showCreateCashModal && currentShift && (
+        <CreateCashTransactionModal
+          isOpen={showCreateCashModal}
+          onClose={() => setShowCreateCashModal(false)}
+          shiftId={currentShift.id}
+          defaultType={createCashType}
+          isOwner={currentRole === USER_ROLES.OWNER}
+          onSuccess={() => {
+            refetchActiveShift();
+          }}
+        />
+      )}
+
+      {/* NCL-03-CN-014: Cash Category & Threshold Management Modal (VT-01) */}
+      {showCategoryModal && (
+        <CashCategoryManagementModal
+          isOpen={showCategoryModal}
+          onClose={() => setShowCategoryModal(false)}
+        />
       )}
     </div>
   );

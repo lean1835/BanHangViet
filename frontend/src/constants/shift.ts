@@ -5,6 +5,12 @@ export const SHIFT_API_ENDPOINTS = {
   ACTIVE: "/shifts/active",
   OPEN: "/shifts/open",
   CLOSE: (shiftId: string) => `/shifts/${shiftId}/close`,
+  BANK_TRANSFER_RECONCILIATION: (shiftId: string) =>
+    `/shifts/${shiftId}/bank-transfer-reconciliation`,
+  HANDOVER_SUMMARY: "/shifts/handover/summary",
+  PERFORM_HANDOVER: "/shifts/handover",
+  SHIFT_HANDOVERS: (shiftId: string) => `/shifts/${shiftId}/handovers`,
+  SHIFT_STAGES_SUMMARY: (shiftId: string) => `/shifts/${shiftId}/stages-summary`,
 } as const;
 
 export const SHIFT_API_TAG_IDS = {
@@ -120,8 +126,11 @@ export const SHIFT_UI = {
     CLOSE_SHIFT_BUTTON: "ĐÓNG CA BÁN HÀNG",
     OPENING_FUND_LABEL: "Tiền quỹ đầu ca",
     OPENED_AT_LABEL: "Mở ca lúc:",
-    EXPECTED_CASH_LABEL: "Tiền kì vọng trong két",
-    EXPECTED_CASH_HINT: "Tự động cộng dồn doanh số tiền mặt",
+    TOTAL_REVENUE_LABEL: "Tổng doanh thu ca",
+    CASH_REVENUE_LABEL: "Tiền mặt",
+    BANK_REVENUE_LABEL: "Chuyển khoản",
+    EXPECTED_CASH_LABEL: "Tiền kì vọng",
+    EXPECTED_CASH_HINT: "Quỹ đầu ca + Doanh thu bán hàng",
     NO_ACTIVE_SHIFT_TITLE: "Bạn chưa mở ca làm việc!",
     NO_ACTIVE_SHIFT_DESCRIPTION:
       "Vui lòng khai báo quỹ tiền đầu ca để bắt đầu ghi nhận doanh thu và bán hàng POS.",

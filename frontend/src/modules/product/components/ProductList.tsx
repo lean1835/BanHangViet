@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
-import { Search, Plus, Edit, Trash2, FileSpreadsheet, AlertTriangle, Printer, Barcode, Mic, History, Layers, Scale, TrendingUp, TrendingDown } from "lucide-react";
+import { Search, Plus, Edit, Trash2, FileSpreadsheet, AlertTriangle, Printer, Barcode, Mic, Layers, Scale, TrendingUp } from "lucide-react";
 import { ImportProductsModal } from "@/modules/product/components/ImportProductsModal";
 import { BarcodePrintModal } from "@/modules/barcode/components/BarcodePrintModal";
 import { VoiceSearchModal } from "@/modules/product/components/VoiceSearchModal";
@@ -469,54 +469,30 @@ export const ProductList: React.FC<ProductListProps> = ({
                         <td className="p-3" onClick={(e) => e.stopPropagation()}>
                           <div className="flex items-center justify-center gap-1.5 opacity-100 transition-opacity lg:opacity-0 lg:group-hover:opacity-100 lg:group-focus-within:opacity-100">
                             <button
-                              onClick={() => setUnitConversionProduct(prod)}
-                              title="Quản lý đơn vị quy đổi"
-                              aria-label={`Quản lý đơn vị quy đổi của ${prod.name}`}
-                              className="flex min-h-11 min-w-11 items-center justify-center rounded p-1 text-slate-500 transition-colors hover:bg-slate-100 hover:text-sky-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-sky-500 lg:min-h-0 lg:min-w-0"
+                              onClick={() => setBarcodePrintProduct({ id: prod.id, name: prod.name })}
+                              title="In tem mã vạch"
+                              aria-label="In tem mã vạch"
+                              className="flex min-h-11 min-w-11 items-center justify-center rounded p-1.5 text-slate-500 transition-colors hover:bg-slate-100 hover:text-amber-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500 lg:min-h-0 lg:min-w-0"
                             >
-                              <Layers size={14} />
-                            </button>
-                            <button
-                              onClick={() => setPriceTierProduct(prod)}
-                              title="Quản lý bậc giá sỉ & lẻ"
-                              aria-label={`Quản lý bậc giá sỉ & lẻ của ${prod.name}`}
-                              className="flex min-h-11 min-w-11 items-center justify-center rounded p-1 text-slate-500 transition-colors hover:bg-slate-100 hover:text-emerald-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-500 lg:min-h-0 lg:min-w-0"
-                            >
-                              <TrendingDown size={14} />
-                            </button>
-                            <button
-                              onClick={() => handleOpenDetail(prod, "STOCK_CARD")}
-                              title="Xem thẻ kho"
-                              aria-label={`Xem thẻ kho của ${prod.name}`}
-                              className="flex min-h-11 min-w-11 items-center justify-center rounded p-1 text-slate-500 transition-colors hover:bg-slate-100 hover:text-kv-blue-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-kv-blue-primary lg:min-h-0 lg:min-w-0"
-                            >
-                              <History size={14} />
+                              <Printer size={15} />
                             </button>
                             {isOwner && (
                               <>
                                 <button
-                                  onClick={() => setBarcodePrintProduct({ id: prod.id, name: prod.name })}
-                                  title="In tem mã vạch"
-                                  aria-label="In tem mã vạch"
-                                  className="flex min-h-11 min-w-11 items-center justify-center rounded p-1 text-slate-500 transition-colors hover:bg-slate-100 hover:text-amber-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500 lg:min-h-0 lg:min-w-0"
-                                >
-                                  <Printer size={14} />
-                                </button>
-                                <button
                                   onClick={() => handleEditProduct(prod)}
                                   title={PRODUCT_LIST_COPY.EDIT_TOOLTIP}
                                   aria-label={PRODUCT_LIST_COPY.EDIT_TOOLTIP}
-                                  className="flex min-h-11 min-w-11 items-center justify-center rounded p-1 text-slate-500 transition-colors hover:bg-slate-100 hover:text-kv-blue-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-kv-blue-primary lg:min-h-0 lg:min-w-0"
+                                  className="flex min-h-11 min-w-11 items-center justify-center rounded p-1.5 text-slate-500 transition-colors hover:bg-slate-100 hover:text-kv-blue-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-kv-blue-primary lg:min-h-0 lg:min-w-0"
                                 >
-                                  <Edit size={14} />
+                                  <Edit size={15} />
                                 </button>
                                 <button
                                   onClick={() => handleDeleteProduct(prod.id, prod.name)}
                                   title={PRODUCT_LIST_COPY.DELETE_TOOLTIP}
                                   aria-label={PRODUCT_LIST_COPY.DELETE_TOOLTIP}
-                                  className="flex min-h-11 min-w-11 items-center justify-center rounded p-1 text-slate-500 transition-colors hover:bg-slate-100 hover:text-rose-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-rose-500 lg:min-h-0 lg:min-w-0"
+                                  className="flex min-h-11 min-w-11 items-center justify-center rounded p-1.5 text-slate-500 transition-colors hover:bg-slate-100 hover:text-rose-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-rose-500 lg:min-h-0 lg:min-w-0"
                                 >
-                                  <Trash2 size={14} />
+                                  <Trash2 size={15} />
                                 </button>
                               </>
                             )}
