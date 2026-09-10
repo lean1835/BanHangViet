@@ -210,6 +210,33 @@ public class OrderCollectedAmountIntegrationTest {
         assertEquals(0, new BigDecimal("1000000.00").compareTo(rangeCashSales),
                 "Tiền mặt bán hàng theo khoảng thời gian phải bằng 1.000.000đ");
 
+        // KỲ VỌNG BÁO CÁO DOANH THU THEO HÌNH THỨC (P1-01 Fix):
+        // Tổng doanh thu = 3.100.000đ
+        // cashRevenue: 500k (CASH) + 300k (COMBINED CASH) + 200k (DEBT advance) = 1.000.000đ
+        // bankRevenue: 1000k (BANK) + 700k (COMBINED BANK) = 1.700.000đ
+        // debtRevenue: 400k (DEBT created) = 400.000đ
+        // Tổng 3 hình thức = 1.000.000 + 1.700.000 + 400.000 = 3.100.000đ == netRevenue
+        java.util.List<com.sales.dto.response.DailyRevenueProjection> dailyRevenues = orderRepository.getDailyRevenue(
+                household.getId(), now.minusDays(1), now.plusDays(1));
+        assertEquals(1, dailyRevenues.size());
+        com.sales.dto.response.DailyRevenueProjection daily = dailyRevenues.get(0);
+        assertEquals(0, new BigDecimal("3100000.00").compareTo(daily.getNetRevenue()), "Doanh thu thuần phải là 3.100.000đ");
+        assertEquals(0, new BigDecimal("1000000.00").compareTo(daily.getCashRevenue()), "Doanh thu tiền mặt (bao gồm cả phần COMBINED) phải là 1.000.000đ");
+        assertEquals(0, new BigDecimal("1700000.00").compareTo(daily.getBankRevenue()), "Doanh thu chuyển khoản (bao gồm cả phần COMBINED) phải là 1.700.000đ");
+        assertEquals(0, new BigDecimal("400000.00").compareTo(daily.getDebtRevenue()), "Doanh thu ghi nợ phải là 400.000đ");
+        assertEquals(0, daily.getNetRevenue().compareTo(daily.getCashRevenue().add(daily.getBankRevenue()).add(daily.getDebtRevenue())),
+                "Tổng tiền theo các hình thức phải bằng đúng doanh thu thuần netRevenue");
+
+        java.util.List<com.sales.dto.response.PosRevenueProjection> posSummaries = orderRepository.getPosRevenueSummary(
+                household.getId(), now.minusDays(1), now.plusDays(1), null);
+        assertEquals(1, posSummaries.size());
+        com.sales.dto.response.PosRevenueProjection posSummary = posSummaries.get(0);
+        assertEquals(0, new BigDecimal("3100000.00").compareTo(posSummary.getNetRevenue()));
+        assertEquals(0, new BigDecimal("1000000.00").compareTo(posSummary.getCashRevenue()));
+        assertEquals(0, new BigDecimal("1700000.00").compareTo(posSummary.getBankRevenue()));
+        assertEquals(0, new BigDecimal("400000.00").compareTo(posSummary.getDebtRevenue()));
+        assertEquals(0, posSummary.getNetRevenue().compareTo(posSummary.getCashRevenue().add(posSummary.getBankRevenue()).add(posSummary.getDebtRevenue())));
+
         // Trước khi đóng ca, hủy đơn CREATING để thỏa mãn điều kiện không còn đơn treo chưa xử lý
         creatingOrder.setStatus("CANCELED");
         creatingOrder.setCancelReason(com.sales.entity.OrderCancelReason.CUSTOMER_CHANGED_MIND);

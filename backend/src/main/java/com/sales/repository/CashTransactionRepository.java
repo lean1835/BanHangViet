@@ -23,6 +23,7 @@ public interface CashTransactionRepository extends JpaRepository<CashTransaction
     @EntityGraph(attributePaths = {"createdByUser", "approvedByUser", "category", "shift"})
     List<CashTransaction> findByShiftIdAndHouseholdIdOrderByCreatedAtDesc(String shiftId, String householdId);
 
+    @EntityGraph(attributePaths = {"createdByUser", "approvedByUser", "category", "shift"})
     Optional<CashTransaction> findByIdAndHouseholdId(String id, String householdId);
 
     boolean existsByCategoryId(String categoryId);

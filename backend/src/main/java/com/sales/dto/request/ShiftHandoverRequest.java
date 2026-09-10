@@ -20,6 +20,7 @@ public class ShiftHandoverRequest {
     private String recipientUserId;
 
     @NotBlank(message = "Mật khẩu xác nhận của người nhận không được để trống")
+    @ToString.Exclude
     private String recipientPassword;
 
     @NotNull(message = "Số tiền mặt thực tế bàn giao không được để trống")

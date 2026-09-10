@@ -183,9 +183,22 @@ public interface OrderRepository extends JpaRepository<Order, String> {
             "SUM(o.total_amount) as grossSales, " +
             "SUM(o.discount_amount) as totalDiscounts, " +
             "SUM(o.final_amount) as netRevenue, " +
-            "SUM(CASE WHEN o.payment_method = 'CASH' THEN o.final_amount ELSE 0 END) as cashRevenue, " +
-            "SUM(CASE WHEN o.payment_method = 'BANK_TRANSFER' THEN o.final_amount ELSE 0 END) as bankRevenue, " +
-            "SUM(CASE WHEN o.payment_method = 'DEBT' THEN o.final_amount ELSE 0 END) as debtRevenue " +
+            "SUM(CASE " +
+            "    WHEN o.payment_method = 'CASH' THEN o.final_amount " +
+            "    WHEN o.payment_method = 'COMBINED' THEN COALESCE((SELECT SUM(op.amount) FROM order_payments op WHERE op.order_id = o.id AND op.payment_method = 'CASH'), 0) " +
+            "    WHEN o.payment_method = 'DEBT' THEN (o.final_amount - COALESCE((SELECT cd.amount FROM customer_debts cd WHERE cd.order_id = o.id AND cd.type = 'DEBT_CREATED'), o.final_amount)) " +
+            "    ELSE 0 " +
+            "END) as cashRevenue, " +
+            "SUM(CASE " +
+            "    WHEN o.payment_method = 'BANK_TRANSFER' THEN o.final_amount " +
+            "    WHEN o.payment_method = 'COMBINED' THEN COALESCE((SELECT SUM(op.amount) FROM order_payments op WHERE op.order_id = o.id AND op.payment_method = 'BANK_TRANSFER'), 0) " +
+            "    ELSE 0 " +
+            "END) as bankRevenue, " +
+            "SUM(CASE " +
+            "    WHEN o.payment_method = 'DEBT' THEN COALESCE((SELECT cd.amount FROM customer_debts cd WHERE cd.order_id = o.id AND cd.type = 'DEBT_CREATED'), o.final_amount) " +
+            "    WHEN o.payment_method = 'COMBINED' THEN COALESCE((SELECT SUM(op.amount) FROM order_payments op WHERE op.order_id = o.id AND op.payment_method = 'DEBT'), 0) " +
+            "    ELSE 0 " +
+            "END) as debtRevenue " +
             "FROM orders o " +
             "WHERE o.household_id = :householdId " +
             "AND o.status = 'COMPLETED' " +
@@ -294,9 +307,22 @@ public interface OrderRepository extends JpaRepository<Order, String> {
             "COALESCE(SUM(o.total_amount), 0) AS grossSales, " +
             "COALESCE(SUM(o.discount_amount), 0) AS totalDiscount, " +
             "COALESCE(SUM(o.final_amount), 0) AS netRevenue, " +
-            "COALESCE(SUM(CASE WHEN o.payment_method = 'CASH' THEN o.final_amount ELSE 0 END), 0) AS cashRevenue, " +
-            "COALESCE(SUM(CASE WHEN o.payment_method = 'BANK_TRANSFER' THEN o.final_amount ELSE 0 END), 0) AS bankRevenue, " +
-            "COALESCE(SUM(CASE WHEN o.payment_method = 'DEBT' THEN o.final_amount ELSE 0 END), 0) AS debtRevenue " +
+            "COALESCE(SUM(CASE " +
+            "    WHEN o.payment_method = 'CASH' THEN o.final_amount " +
+            "    WHEN o.payment_method = 'COMBINED' THEN COALESCE((SELECT SUM(op.amount) FROM order_payments op WHERE op.order_id = o.id AND op.payment_method = 'CASH'), 0) " +
+            "    WHEN o.payment_method = 'DEBT' THEN (o.final_amount - COALESCE((SELECT cd.amount FROM customer_debts cd WHERE cd.order_id = o.id AND cd.type = 'DEBT_CREATED'), o.final_amount)) " +
+            "    ELSE 0 " +
+            "END), 0) AS cashRevenue, " +
+            "COALESCE(SUM(CASE " +
+            "    WHEN o.payment_method = 'BANK_TRANSFER' THEN o.final_amount " +
+            "    WHEN o.payment_method = 'COMBINED' THEN COALESCE((SELECT SUM(op.amount) FROM order_payments op WHERE op.order_id = o.id AND op.payment_method = 'BANK_TRANSFER'), 0) " +
+            "    ELSE 0 " +
+            "END), 0) AS bankRevenue, " +
+            "COALESCE(SUM(CASE " +
+            "    WHEN o.payment_method = 'DEBT' THEN COALESCE((SELECT cd.amount FROM customer_debts cd WHERE cd.order_id = o.id AND cd.type = 'DEBT_CREATED'), o.final_amount) " +
+            "    WHEN o.payment_method = 'COMBINED' THEN COALESCE((SELECT SUM(op.amount) FROM order_payments op WHERE op.order_id = o.id AND op.payment_method = 'DEBT'), 0) " +
+            "    ELSE 0 " +
+            "END), 0) AS debtRevenue " +
             "FROM orders o " +
             "WHERE o.household_id = :householdId " +
             "AND o.status = 'COMPLETED' " +
