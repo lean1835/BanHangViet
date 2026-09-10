@@ -303,12 +303,11 @@ export const InvoiceRepresentationModal: React.FC<InvoiceRepresentationModalProp
                       <span className="text-xs font-semibold text-slate-700">
                         Ngày lập: {formatInvoiceFullTime(rep.issuedAt || invoice?.createdAt || invoice?.time)}
                       </span>
-                      {isCanceled && (
+                      {isCanceled ? (
                         <span className="bg-red-50 text-red-600 border border-red-300 rounded px-2 py-0.5 text-[10px] font-extrabold uppercase">
                           ĐÃ HỦY
                         </span>
-                      )}
-                      {rep.taxAuthorityCode ? (
+                      ) : rep.taxAuthorityCode ? (
                         <span className="bg-emerald-50 text-emerald-600 border border-emerald-300 rounded px-2 py-0.5 text-[10px] font-extrabold uppercase">
                           ĐÃ CẤP MÃ THUẾ
                         </span>
@@ -507,20 +506,22 @@ export const InvoiceRepresentationModal: React.FC<InvoiceRepresentationModalProp
                   </div>
                 </div>
 
-                {/* 7. Hộp Mã Cơ Quan Thuế Cấp ở giữa dưới cùng */}
-                <div className="flex justify-center pt-2">
-                  <div className="border-2 border-emerald-500 bg-white rounded-lg px-4 py-2 text-center shadow-xs">
-                    <p className="font-extrabold text-emerald-800 text-[10px] uppercase tracking-wide">
-                      MÃ CƠ QUAN THUẾ CẤP
-                    </p>
-                    <p className="font-mono font-black text-emerald-700 text-xs mt-0.5">
-                      {rep.taxAuthorityCode || "CQT-20260715-171300"}
-                    </p>
-                    <p className="text-[9.5px] text-emerald-600 mt-0.5">
-                      Ngày cấp: {formatInvoiceFullTime(invoice?.taxResponseAt || rep.issuedAt || invoice?.createdAt || invoice?.time)}
-                    </p>
+                {/* 7. Hộp Mã Cơ Quan Thuế Cấp ở giữa dưới cùng (chỉ hiện khi hóa đơn chưa bị hủy) */}
+                {!isCanceled && (
+                  <div className="flex justify-center pt-2">
+                    <div className="border-2 border-emerald-500 bg-white rounded-lg px-4 py-2 text-center shadow-xs">
+                      <p className="font-extrabold text-emerald-800 text-[10px] uppercase tracking-wide">
+                        MÃ CƠ QUAN THUẾ CẤP
+                      </p>
+                      <p className="font-mono font-black text-emerald-700 text-xs mt-0.5">
+                        {rep.taxAuthorityCode || "CQT-20260715-171300"}
+                      </p>
+                      <p className="text-[9.5px] text-emerald-600 mt-0.5">
+                        Ngày cấp: {formatInvoiceFullTime(invoice?.taxResponseAt || rep.issuedAt || invoice?.createdAt || invoice?.time)}
+                      </p>
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
             </div>
           )}
