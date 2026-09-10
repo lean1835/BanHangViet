@@ -1738,7 +1738,7 @@ public class EInvoiceServiceImpl implements EInvoiceService {
                             .pendingDurationDays(durationDays)
                             .build();
                 })
-                .sorted(Comparator.comparing(UninvoicedOrderSummaryResponse::getPendingDurationHours).reversed())
+                .sorted(Comparator.comparing(UninvoicedOrderSummaryResponse::getCreatedAt, Comparator.nullsLast(Comparator.reverseOrder())))
                 .collect(Collectors.toList());
 
         // 2. Pending Invoices (Hóa đơn đang treo chờ duyệt/cấp mã: WAITING_TAX_CODE và DRAFT - F-04)
@@ -1762,7 +1762,7 @@ public class EInvoiceServiceImpl implements EInvoiceService {
                             .pendingDurationDays(durationDays)
                             .build();
                 })
-                .sorted(Comparator.comparing(PendingTaxInvoiceSummaryResponse::getPendingDurationHours).reversed())
+                .sorted(Comparator.comparing(PendingTaxInvoiceSummaryResponse::getCreatedAt, Comparator.nullsLast(Comparator.reverseOrder())))
                 .collect(Collectors.toList());
 
         // 3. Failed Invoices (Hóa đơn gửi lỗi: SEND_ERROR hoặc MANUAL_PROCESSING)
@@ -1789,10 +1789,26 @@ public class EInvoiceServiceImpl implements EInvoiceService {
                             .pendingDurationDays(durationDays)
                             .build();
                 })
-                .sorted(Comparator.comparing(FailedInvoiceSummaryResponse::getPendingDurationHours).reversed())
+                .sorted(Comparator.comparing(FailedInvoiceSummaryResponse::getCreatedAt, Comparator.nullsLast(Comparator.reverseOrder())))
                 .collect(Collectors.toList());
 
         boolean isClean = uninvoicedOrders.isEmpty() && pendingInvoices.isEmpty() && failedInvoices.isEmpty();
+
+        LocalDateTime startOfDay = controlDate.atStartOfDay();
+        List<EInvoice> validInvoices = eInvoiceRepository.findValidInvoicesForTaxPeriod(householdId, startOfDay, endOfDay);
+
+        BigDecimal totalTaxableRev = validInvoices.stream()
+                .map(inv -> inv.getTotalAmountBeforeTax() != null ? inv.getTotalAmountBeforeTax()
+                        : (inv.getFinalAmount() != null ? inv.getFinalAmount() : BigDecimal.ZERO))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        BigDecimal totalTax = validInvoices.stream()
+                .map(inv -> inv.getTaxAmount() != null ? inv.getTaxAmount() : BigDecimal.ZERO)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        if (totalTax.compareTo(BigDecimal.ZERO) == 0 && totalTaxableRev.compareTo(BigDecimal.ZERO) > 0) {
+            totalTax = totalTaxableRev.multiply(BigDecimal.valueOf(0.015));
+        }
 
         return DailyInvoiceControlResponse.builder()
                 .controlDate(controlDate)
@@ -1800,6 +1816,9 @@ public class EInvoiceServiceImpl implements EInvoiceService {
                 .totalUninvoicedOrders(uninvoicedOrders.size())
                 .totalPendingInvoices(pendingInvoices.size())
                 .totalFailedInvoices(failedInvoices.size())
+                .totalTaxableRevenue(totalTaxableRev)
+                .totalTaxAmount(totalTax)
+                .validInvoicesCount(validInvoices.size())
                 .uninvoicedOrders(uninvoicedOrders)
                 .pendingInvoices(pendingInvoices)
                 .failedInvoices(failedInvoices)

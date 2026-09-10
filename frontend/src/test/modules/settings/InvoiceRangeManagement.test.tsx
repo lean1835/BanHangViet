@@ -5,6 +5,8 @@ import { configureStore } from "@reduxjs/toolkit";
 import { baseApi } from "@/stores/baseApi";
 import { InvoiceRangeSection } from "@/modules/settings/components/InvoiceRangeSection";
 import * as invoiceRangeApiModule from "@/modules/settings/services/invoiceRangeApi";
+import * as settingsApiModule from "@/modules/settings/services/settingsApi";
+import type { InvoiceRangeSectionProps } from "@/modules/settings/components/InvoiceRangeSection";
 
 vi.mock("@/hooks/useNotification", () => ({
   useNotification: () => ({
@@ -20,7 +22,7 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-const renderComponent = () => {
+const renderComponent = (props: Partial<InvoiceRangeSectionProps> = {}) => {
   const store = configureStore({
     reducer: {
       auth: (state = {
@@ -39,7 +41,7 @@ const renderComponent = () => {
 
   return render(
     <Provider store={store}>
-      <InvoiceRangeSection currentPattern="1" currentSymbol="1C26TAA" />
+      <InvoiceRangeSection currentPattern="1" currentSymbol="1C26TAA" {...props} />
     </Provider>
   );
 };
@@ -176,5 +178,94 @@ describe("NCL-04-CN-009: Quản lý & Khai báo dải số hóa đơn điện t�
     expect(screen.getByText(/Từ số/i)).toBeInTheDocument();
     expect(screen.getByText(/Đến số/i)).toBeInTheDocument();
     expect(screen.getByText(/Ngưỡng cảnh báo/i)).toBeInTheDocument();
+  });
+
+  it("Chỉ hiển thị trạng thái Đang sử dụng với dải số trùng khớp mẫu cấu hình, các dải khác là Không sử dụng", () => {
+    vi.spyOn(settingsApiModule, "useGetInvoiceTemplateQuery").mockReturnValue({
+      data: {
+        code: 1000,
+        result: {
+          invoicePattern: "1C26TBB",
+          invoiceSymbol: "CHIM03",
+        },
+      },
+      isLoading: false,
+    } as any);
+
+    vi.spyOn(invoiceRangeApiModule, "useGetActiveInvoiceRangeQuery").mockReturnValue({
+      data: {
+        code: 1000,
+        result: {
+          id: "range-configured",
+          householdId: "h-1",
+          invoicePattern: "1C26TBB",
+          invoiceSymbol: "CHIM03",
+          startNumber: 1,
+          endNumber: 100000,
+          currentNumber: 1,
+          remainingCount: 99999,
+          warningThreshold: 50,
+          status: "ACTIVE",
+        },
+      },
+      isLoading: false,
+    } as any);
+
+    vi.spyOn(invoiceRangeApiModule, "useGetAllInvoiceRangesQuery").mockReturnValue({
+      data: {
+        code: 1000,
+        result: {
+          content: [
+            {
+              id: "range-1",
+              invoicePattern: "1C26TBB",
+              invoiceSymbol: "CHIM03",
+              startNumber: 1,
+              endNumber: 100000,
+              currentNumber: 1,
+              remainingCount: 99999,
+              warningThreshold: 50,
+              status: "ACTIVE",
+            },
+            {
+              id: "range-2",
+              invoicePattern: "TEST1",
+              invoiceSymbol: "TEST01",
+              startNumber: 10001,
+              endNumber: 20000,
+              currentNumber: 10000,
+              remainingCount: 10000,
+              warningThreshold: 100,
+              status: "ACTIVE",
+            },
+            {
+              id: "range-3",
+              invoicePattern: "1",
+              invoiceSymbol: "1C26TAA",
+              startNumber: 1,
+              endNumber: 10000,
+              currentNumber: 0,
+              remainingCount: 10000,
+              warningThreshold: 50,
+              status: "ACTIVE",
+            },
+          ],
+        },
+      },
+      isLoading: false,
+    } as any);
+
+    renderComponent({
+      currentPattern: "1C26TBB",
+      currentSymbol: "CHIM03",
+    });
+
+    // Chỉ có 1 dải số hiển thị Đang sử dụng trong bảng và 1 ở thẻ tóm tắt
+    const activeBadges = screen.getAllByText("Đang sử dụng");
+    expect(activeBadges.length).toBe(2); // 1 trong top card, 1 trong bảng
+
+    // Các dải số khác phải hiển thị Không sử dụng
+    const inactiveBadges = screen.getAllByText("Không sử dụng");
+    expect(inactiveBadges.length).toBe(2); // range-2 và range-3
   });
 });

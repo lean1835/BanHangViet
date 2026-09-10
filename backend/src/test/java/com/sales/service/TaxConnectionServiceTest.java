@@ -173,4 +173,29 @@ class TaxConnectionServiceTest {
         assertThat(response).isNotNull();
         assertThat(response.getLastSuccessfulResponseAt()).isNull();
     }
+
+    @Test
+    @DisplayName("NCL-04-CN-010: Mô phỏng trạng thái kết nối (simulateConnection)")
+    void simulateConnection_Success() {
+        when(userRepository.findByUsername("chuho")).thenReturn(Optional.of(ownerUser));
+        when(householdRepository.findById("house-001")).thenReturn(Optional.of(household));
+
+        TaxConnectionLog simulatedLog = TaxConnectionLog.builder()
+                .id("sim-1")
+                .household(household)
+                .status("OFFLINE")
+                .responseTimeMs(0)
+                .errorMessage("Mô phỏng ngắt kết nối")
+                .build();
+
+        when(logRepository.findLatestLogByHousehold(eq("house-001"), any(Pageable.class)))
+                .thenReturn(List.of(simulatedLog));
+
+        TaxConnectionStatusResponse response = taxConnectionService.simulateConnection("chuho", "OFFLINE", null, null);
+
+        assertThat(response).isNotNull();
+        assertThat(response.getStatus()).isEqualTo("OFFLINE");
+        verify(logRepository).save(any(TaxConnectionLog.class));
+    }
 }
+

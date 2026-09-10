@@ -7,6 +7,10 @@ import type {
   IBulkIssueInvoiceResult,
   ICancelInvoiceRequest,
   ICustomerTaxLookupResponse,
+  IDailyInvoiceControlResponse,
+  IInvoiceAutoRetrySummaryResponse,
+  ITaxConnectionStatusResponse,
+  ITaxConnectionHistoryResponse,
   IGetInvoicesParams,
   IInvoice,
   IInvoiceStatusLog,
@@ -120,9 +124,82 @@ export const eInvoiceApi = baseApi.injectEndpoints({
         params: { taxCode },
       }),
     }),
+    getDailyInvoiceControl: builder.query<IApiResponse<IDailyInvoiceControlResponse>, { date?: string } | void>({
+      query: (params) => ({
+        url: "/invoices/daily-control",
+        method: HTTP_METHODS.GET,
+        params: params?.date ? { date: params.date } : undefined,
+      }),
+      providesTags: [{ type: API_TAG_TYPES.DAILY_CONTROL, id: "CURRENT" }],
+    }),
+    triggerAutoRetry: builder.mutation<IApiResponse<IInvoiceAutoRetrySummaryResponse>, void>({
+      query: () => ({
+        url: "/invoices/auto-retry/trigger",
+        method: HTTP_METHODS.POST,
+      }),
+      invalidatesTags: [
+        { type: API_TAG_TYPES.INVOICE, id: "LIST" },
+        { type: API_TAG_TYPES.INVOICE, id: "MANUAL_PROCESSING" },
+        { type: API_TAG_TYPES.DAILY_CONTROL, id: "CURRENT" },
+      ],
+    }),
+    resendAutoRetryInvoice: builder.mutation<IApiResponse<IInvoice>, string>({
+      query: (invoiceId) => ({
+        url: `/invoices/auto-retry/${invoiceId}/resend`,
+        method: HTTP_METHODS.POST,
+      }),
+      invalidatesTags: (_result, _error, id) => [
+        { type: API_TAG_TYPES.INVOICE, id },
+        { type: API_TAG_TYPES.INVOICE, id: "LIST" },
+        { type: API_TAG_TYPES.INVOICE, id: "MANUAL_PROCESSING" },
+        { type: API_TAG_TYPES.DAILY_CONTROL, id: "CURRENT" },
+      ],
+    }),
+    getManualProcessingInvoices: builder.query<
+      IApiResponse<IPageResponse<IInvoice>>,
+      { page?: number; size?: number } | void
+    >({
+      query: (params) => ({
+        url: "/invoices/auto-retry/manual-processing",
+        method: HTTP_METHODS.GET,
+        params: params || { page: 0, size: 10 },
+      }),
+      providesTags: [{ type: API_TAG_TYPES.INVOICE, id: "MANUAL_PROCESSING" }],
+    }),
+    getTaxConnectionStatus: builder.query<IApiResponse<ITaxConnectionStatusResponse>, void>({
+      query: () => ({
+        url: "/tax-authority/invoices/connection-status",
+        method: HTTP_METHODS.GET,
+      }),
+      providesTags: [{ type: API_TAG_TYPES.TAX_CONNECTION, id: "STATUS" }],
+    }),
+    getTaxConnectionHistory: builder.query<IApiResponse<ITaxConnectionHistoryResponse>, { days?: number } | void>({
+      query: (params) => ({
+        url: "/tax-authority/invoices/connection-history",
+        method: HTTP_METHODS.GET,
+        params: params?.days ? { days: params.days } : { days: 7 },
+      }),
+      providesTags: [{ type: API_TAG_TYPES.TAX_CONNECTION, id: "HISTORY" }],
+    }),
+    simulateTaxConnection: builder.mutation<
+      IApiResponse<ITaxConnectionStatusResponse>,
+      { status: "ONLINE" | "SLOW" | "OFFLINE"; responseTimeMs?: number; errorMessage?: string }
+    >({
+      query: (body) => ({
+        url: "/tax-authority/simulate-connection",
+        method: HTTP_METHODS.POST,
+        body,
+      }),
+
+      invalidatesTags: [
+        { type: API_TAG_TYPES.TAX_CONNECTION, id: "STATUS" },
+        { type: API_TAG_TYPES.TAX_CONNECTION, id: "HISTORY" },
+      ],
+    }),
   }),
   overrideExisting: false,
 });
+
 
 export const {
   useBulkIssueInvoicesMutation,
@@ -138,4 +215,15 @@ export const {
   useAdjustInvoiceMutation,
   useLookupBuyerInfoQuery,
   useLazyLookupBuyerInfoQuery,
+  useGetDailyInvoiceControlQuery,
+  useLazyGetDailyInvoiceControlQuery,
+  useTriggerAutoRetryMutation,
+  useResendAutoRetryInvoiceMutation,
+  useGetManualProcessingInvoicesQuery,
+  useLazyGetManualProcessingInvoicesQuery,
+  useGetTaxConnectionStatusQuery,
+  useGetTaxConnectionHistoryQuery,
+  useLazyGetTaxConnectionHistoryQuery,
+  useSimulateTaxConnectionMutation,
 } = eInvoiceApi;
+

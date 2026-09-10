@@ -4,6 +4,7 @@ import com.sales.dto.request.CreateInvoiceNumberRangeRequest;
 import com.sales.dto.response.InvoiceNumberRangeResponse;
 import com.sales.entity.BusinessHousehold;
 import com.sales.entity.InvoiceNumberRange;
+import com.sales.entity.InvoiceTemplate;
 import com.sales.entity.Role;
 import com.sales.entity.User;
 import com.sales.exception.AppException;
@@ -11,6 +12,7 @@ import com.sales.exception.ErrorCode;
 import com.sales.repository.BusinessHouseholdRepository;
 import com.sales.repository.EInvoiceRepository;
 import com.sales.repository.InvoiceNumberRangeRepository;
+import com.sales.repository.InvoiceTemplateRepository;
 import com.sales.repository.UserRepository;
 import com.sales.service.classes.InvoiceNumberRangeServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
@@ -48,6 +50,9 @@ class InvoiceNumberRangeServiceImplTest {
 
     @Mock
     private BusinessHouseholdRepository householdRepository;
+
+    @Mock
+    private InvoiceTemplateRepository invoiceTemplateRepository;
 
     @InjectMocks
     private InvoiceNumberRangeServiceImpl rangeService;
@@ -276,4 +281,55 @@ class InvoiceNumberRangeServiceImplTest {
         // Verify countByHouseholdIdAndCreatedAtAfter is called exactly once (prevent N+1 query)
         verify(eInvoiceRepository, times(1)).countByHouseholdIdAndCreatedAtAfter(eq("house-001"), any(LocalDateTime.class));
     }
+
+    @Test
+    @DisplayName("Chỉ dải số thuộc mẫu hóa đơn cấu hình mới có trạng thái ACTIVE (Đang sử dụng)")
+    void getAllRanges_OnlyConfiguredTemplateIsActive() {
+        when(userRepository.findByUsername("chuho")).thenReturn(Optional.of(ownerUser));
+
+        InvoiceTemplate template = InvoiceTemplate.builder()
+                .household(household)
+                .invoicePattern("1C26TBB")
+                .invoiceSymbol("CHIM03")
+                .build();
+        when(invoiceTemplateRepository.findByHouseholdId("house-001")).thenReturn(Optional.of(template));
+
+        InvoiceNumberRange configuredRange = InvoiceNumberRange.builder()
+                .id("r-configured")
+                .household(household)
+                .invoicePattern("1C26TBB")
+                .invoiceSymbol("CHIM03")
+                .startNumber(1)
+                .endNumber(10000)
+                .currentNumber(10)
+                .warningThreshold(50)
+                .status("ACTIVE")
+                .build();
+
+        InvoiceNumberRange otherRange = InvoiceNumberRange.builder()
+                .id("r-other")
+                .household(household)
+                .invoicePattern("TEST1")
+                .invoiceSymbol("TEST01")
+                .startNumber(1)
+                .endNumber(10000)
+                .currentNumber(5)
+                .warningThreshold(50)
+                .status("ACTIVE")
+                .build();
+
+        Page<InvoiceNumberRange> page = new PageImpl<>(List.of(configuredRange, otherRange));
+        when(rangeRepository.findByHouseholdIdAndDeletedAtIsNull(eq("house-001"), any(Pageable.class)))
+                .thenReturn(page);
+        when(eInvoiceRepository.countByHouseholdIdAndCreatedAtAfter(eq("house-001"), any(LocalDateTime.class)))
+                .thenReturn(0L);
+
+        var response = rangeService.getAllRanges("chuho", 0, 10);
+
+        assertThat(response).isNotNull();
+        assertThat(response.getContent()).hasSize(2);
+        assertThat(response.getContent().get(0).getStatus()).isEqualTo("ACTIVE");
+        assertThat(response.getContent().get(1).getStatus()).isEqualTo("INACTIVE");
+    }
 }
+

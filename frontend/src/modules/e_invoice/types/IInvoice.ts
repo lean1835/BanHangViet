@@ -57,11 +57,20 @@ export interface IInvoice {
   sentToTaxAt?: string;
   taxResponseAt?: string;
   canceledAt?: string;
+  retryCount?: number;
+  maxRetryCount?: number;
+  nextRetryAt?: string;
+  lastRetryAt?: string;
+  errorCategory?: string;
   createdAt?: string;
   updatedAt?: string;
   items?: IInvoiceItem[];
   deliveryLogs?: IDeliveryLog[];
 }
+
+export * from "./IDailyControl";
+export * from "./ITaxConnection";
+export * from "./IAutoRetry";
 
 export interface IGetInvoicesParams {
   status?: string;
