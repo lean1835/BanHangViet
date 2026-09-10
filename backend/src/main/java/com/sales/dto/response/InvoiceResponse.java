@@ -57,5 +57,6 @@ public class InvoiceResponse {
     private String errorCategory;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    private Boolean isErrorNotified;
     private List<InvoiceItemResponse> items;
 }

@@ -76,6 +76,7 @@ export interface IInvoice {
   }[];
   items?: IInvoiceItem[];
   deliveryLogs?: IDeliveryLog[];
+  isErrorNotified?: boolean;
 }
 
 export interface IGetInvoicesParams {
@@ -163,5 +164,46 @@ export interface IBulkIssueInvoiceResult {
   failedCount: number;
   successInvoices: IInvoice[];
   failedItems: IBulkIssueFailedItem[];
+}
+
+export interface IInvoiceRepresentationResponse {
+  invoiceId: string;
+  invoiceNumber: string | null;
+  invoicePattern: string;
+  invoiceSymbol: string;
+  title: string;
+  status: string;
+  watermarkText: string | null;
+  isDraft: boolean;
+  isCanceled: boolean;
+  isAdjusted: boolean;
+  householdName: string;
+  householdTaxCode: string;
+  householdAddress: string;
+  householdPhone: string;
+  buyerName: string;
+  buyerTaxCode: string;
+  buyerAddress: string;
+  buyerPhone: string;
+  buyerEmail: string;
+  totalAmountBeforeTax: number;
+  taxAmount: number;
+  discountAmount: number;
+  finalAmount: number;
+  amountInWords: string;
+  taxAuthorityCode: string | null;
+  lookupCode: string;
+  issuedAt: string;
+  referenceNote: string | null;
+  originalInvoiceId: string | null;
+  footerNote?: string | null;
+  htmlRepresentation: string;
+}
+
+export interface IExportInvoicesParams {
+  status?: string;
+  fromDate?: string;
+  toDate?: string;
+  search?: string;
 }
 
