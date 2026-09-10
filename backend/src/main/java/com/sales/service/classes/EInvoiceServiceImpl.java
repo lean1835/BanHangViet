@@ -1805,4 +1805,273 @@ public class EInvoiceServiceImpl implements EInvoiceService {
                 .failedInvoices(failedInvoices)
                 .build();
     }
+
+    @Override
+    @Transactional(readOnly = true)
+    public byte[] exportInvoicesToExcel(String currentUsername, String status, LocalDate fromDate, LocalDate toDate, String search, String clientIp, String userAgent) {
+        User currentUser = getAuthenticatedUser(currentUsername);
+        String role = currentUser.getRole().getCode();
+        if (!"VT-01".equals(role) && !"VT-03".equals(role)) {
+            throw new AppException(ErrorCode.FORBIDDEN);
+        }
+        BusinessHousehold household = currentUser.getHousehold();
+        if (household == null) {
+            throw new AppException(ErrorCode.FORBIDDEN);
+        }
+
+        Specification<EInvoice> spec = (root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+            predicates.add(cb.equal(root.get("household").get("id"), household.getId()));
+            predicates.add(cb.isNull(root.get("deletedAt")));
+
+            if (status != null && !status.isEmpty() && !"ALL".equalsIgnoreCase(status)) {
+                predicates.add(cb.equal(root.get("status"), status));
+            }
+            if (fromDate != null) {
+                predicates.add(cb.greaterThanOrEqualTo(root.get("createdAt"), fromDate.atStartOfDay()));
+            }
+            if (toDate != null) {
+                predicates.add(cb.lessThanOrEqualTo(root.get("createdAt"), toDate.atTime(LocalTime.MAX)));
+            }
+            if (search != null && !search.isEmpty()) {
+                String searchPattern = "%" + search.trim().toLowerCase() + "%";
+                Predicate numberPredicate = cb.like(cb.lower(root.get("invoiceNumber")), searchPattern);
+                Predicate lookupPredicate = cb.like(cb.lower(root.get("lookupCode")), searchPattern);
+                predicates.add(cb.or(numberPredicate, lookupPredicate));
+            }
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
+
+        List<EInvoice> invoices = eInvoiceRepository.findAll(spec, Sort.by(Sort.Direction.DESC, "createdAt"));
+        if (invoices.isEmpty()) {
+            throw new AppException(ErrorCode.NO_DATA_TO_EXPORT);
+        }
+
+        try (org.apache.poi.ss.usermodel.Workbook workbook = new org.apache.poi.xssf.usermodel.XSSFWorkbook();
+             java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream()) {
+
+            org.apache.poi.ss.usermodel.Sheet sheet = workbook.createSheet("Danh Sách Hóa Đơn");
+
+            org.apache.poi.ss.usermodel.CellStyle headerStyle = workbook.createCellStyle();
+            org.apache.poi.ss.usermodel.Font headerFont = workbook.createFont();
+            headerFont.setBold(true);
+            headerStyle.setFont(headerFont);
+
+            org.apache.poi.ss.usermodel.Row titleRow = sheet.createRow(0);
+            org.apache.poi.ss.usermodel.Cell titleCell = titleRow.createCell(0);
+            titleCell.setCellValue("DANH SÁCH HÓA ĐƠN ĐIỆN TỬ - " + household.getName().toUpperCase());
+            titleCell.setCellStyle(headerStyle);
+
+            String[] columns = {"STT", "Mã Hóa Đơn", "Mẫu Số", "Ký Hiệu", "Số HĐ", "Ngày Tạo", "Ngày Cấp Mã", "Mã CQT", "Người Mua", "MST Người Mua", "Tiền Trước Thuế", "Tiền Thuế", "Giảm Giá", "Tổng Tiền", "Trạng Thái"};
+            org.apache.poi.ss.usermodel.Row headerRow = sheet.createRow(2);
+            for (int i = 0; i < columns.length; i++) {
+                org.apache.poi.ss.usermodel.Cell cell = headerRow.createCell(i);
+                cell.setCellValue(columns[i]);
+                cell.setCellStyle(headerStyle);
+            }
+
+            BigDecimal totalBeforeTax = BigDecimal.ZERO;
+            BigDecimal totalTax = BigDecimal.ZERO;
+            BigDecimal totalDiscount = BigDecimal.ZERO;
+            BigDecimal totalFinal = BigDecimal.ZERO;
+
+            int rowIdx = 3;
+            int stt = 1;
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
+
+            for (EInvoice inv : invoices) {
+                org.apache.poi.ss.usermodel.Row row = sheet.createRow(rowIdx++);
+                row.createCell(0).setCellValue(stt++);
+                row.createCell(1).setCellValue(inv.getId());
+                row.createCell(2).setCellValue(inv.getInvoicePattern() != null ? inv.getInvoicePattern() : "");
+                row.createCell(3).setCellValue(inv.getInvoiceSymbol() != null ? inv.getInvoiceSymbol() : "");
+                row.createCell(4).setCellValue(inv.getInvoiceNumber() != null ? inv.getInvoiceNumber() : "");
+                row.createCell(5).setCellValue(inv.getCreatedAt() != null ? inv.getCreatedAt().format(formatter) : "");
+                row.createCell(6).setCellValue(inv.getTaxResponseAt() != null ? inv.getTaxResponseAt().format(formatter) : "");
+                row.createCell(7).setCellValue(inv.getTaxAuthorityCode() != null ? inv.getTaxAuthorityCode() : "");
+                row.createCell(8).setCellValue(inv.getBuyerName() != null ? inv.getBuyerName() : "");
+                row.createCell(9).setCellValue(inv.getBuyerTaxCode() != null ? inv.getBuyerTaxCode() : "");
+                row.createCell(10).setCellValue(inv.getTotalAmountBeforeTax() != null ? inv.getTotalAmountBeforeTax().doubleValue() : 0.0);
+                row.createCell(11).setCellValue(inv.getTaxAmount() != null ? inv.getTaxAmount().doubleValue() : 0.0);
+                row.createCell(12).setCellValue(inv.getDiscountAmount() != null ? inv.getDiscountAmount().doubleValue() : 0.0);
+                row.createCell(13).setCellValue(inv.getFinalAmount() != null ? inv.getFinalAmount().doubleValue() : 0.0);
+                row.createCell(14).setCellValue(inv.getStatus() != null ? inv.getStatus() : "");
+
+                if (inv.getTotalAmountBeforeTax() != null) totalBeforeTax = totalBeforeTax.add(inv.getTotalAmountBeforeTax());
+                if (inv.getTaxAmount() != null) totalTax = totalTax.add(inv.getTaxAmount());
+                if (inv.getDiscountAmount() != null) totalDiscount = totalDiscount.add(inv.getDiscountAmount());
+                if (inv.getFinalAmount() != null) totalFinal = totalFinal.add(inv.getFinalAmount());
+            }
+
+            // Summary Row (Dòng Tổng Cộng)
+            org.apache.poi.ss.usermodel.Row totalRow = sheet.createRow(rowIdx);
+            org.apache.poi.ss.usermodel.Cell totalLabelCell = totalRow.createCell(0);
+            totalLabelCell.setCellValue("TỔNG CỘNG");
+            totalLabelCell.setCellStyle(headerStyle);
+
+            totalRow.createCell(10).setCellValue(totalBeforeTax.doubleValue());
+            totalRow.createCell(11).setCellValue(totalTax.doubleValue());
+            totalRow.createCell(12).setCellValue(totalDiscount.doubleValue());
+            totalRow.createCell(13).setCellValue(totalFinal.doubleValue());
+
+            for (int i = 10; i <= 13; i++) {
+                totalRow.getCell(i).setCellStyle(headerStyle);
+            }
+
+            workbook.write(out);
+            byte[] excelContent = out.toByteArray();
+
+            // Log activity (QTN-09: ghi nhận đầy đủ phạm vi lọc)
+            Map<String, Object> filterMap = new java.util.HashMap<>();
+            filterMap.put("status", status != null ? status : "ALL");
+            filterMap.put("fromDate", fromDate != null ? fromDate.toString() : "ALL");
+            filterMap.put("toDate", toDate != null ? toDate.toString() : "ALL");
+            filterMap.put("search", search != null ? search : "");
+            filterMap.put("totalExported", invoices.size());
+            logActivity(household, currentUser, "EXPORT_INVOICES", null, null, filterMap);
+
+            log.info("Exported {} invoices to Excel by user [{}]", invoices.size(), currentUsername);
+            return excelContent;
+        } catch (AppException ae) {
+            throw ae;
+        } catch (Exception e) {
+            log.error("Lỗi khi xuất file Excel danh sách hóa đơn", e);
+            throw new AppException(ErrorCode.UNCATEGORIZED_EXCEPTION);
+        }
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public InvoiceRepresentationResponse getInvoiceRepresentation(String currentUsername, String invoiceId) {
+        User currentUser = getAuthenticatedUser(currentUsername);
+        EInvoice invoice = eInvoiceRepository.findById(invoiceId)
+                .orElseThrow(() -> new AppException(ErrorCode.INVOICE_NOT_FOUND));
+
+        checkInvoiceOwnership(invoice, currentUser);
+
+        String watermarkText = null;
+        boolean isDraft = false;
+        boolean isCanceled = false;
+        boolean isAdjusted = "ADJUSTED".equals(invoice.getStatus());
+
+        if ("CANCELED".equals(invoice.getStatus())) {
+            watermarkText = "HÓA ĐƠN ĐÃ HỦY";
+            isCanceled = true;
+        } else if (!"ISSUED".equals(invoice.getStatus()) || invoice.getInvoiceNumber() == null) {
+            watermarkText = "BẢN NHÁP - CHƯA CÓ GIÁ TRỊ PHÁP LÝ";
+            isDraft = true;
+        }
+
+        String referenceNote = null;
+        String origId = null;
+        if (invoice.getOriginalInvoice() != null) {
+            EInvoice orig = invoice.getOriginalInvoice();
+            origId = orig.getId();
+            referenceNote = "Hóa đơn này điều chỉnh cho hóa đơn số " + (orig.getInvoiceNumber() != null ? orig.getInvoiceNumber() : "N/A") + " (Mã tra cứu: " + orig.getLookupCode() + ")";
+        }
+
+        String amountWords = convertAmountToWords(invoice.getFinalAmount());
+        BusinessHousehold hh = invoice.getHousehold();
+
+        StringBuilder html = new StringBuilder();
+        html.append("<div style=\"font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; border: 1px solid #ddd; padding: 20px; position: relative;\">");
+        if (watermarkText != null) {
+            html.append("<div style=\"position: absolute; top: 40%; left: 10%; right: 10%; transform: rotate(-30deg); font-size: 36px; font-weight: bold; color: rgba(220, 53, 69, 0.25); text-align: center; border: 3px dashed rgba(220, 53, 69, 0.3); padding: 15px; text-transform: uppercase;\">")
+                .append(watermarkText)
+                .append("</div>");
+        }
+        html.append("<h2 style=\"text-align: center; margin-bottom: 5px;\">").append(escHtml(invoice.getTitle())).append("</h2>");
+        if (isDraft) {
+            html.append("<p style=\"text-align: center; color: red; font-weight: bold;\">(BẢN NHÁP - CHƯA CÓ GIÁ TRỊ PHÁP LÝ)</p>");
+        } else if (isCanceled) {
+            html.append("<p style=\"text-align: center; color: red; font-weight: bold;\">(ĐÃ HỦY)</p>");
+        }
+        html.append("<p style=\"text-align: center; font-size: 13px;\">Ký hiệu: ").append(escHtml(invoice.getInvoiceSymbol())).append(" | Mẫu số: ").append(escHtml(invoice.getInvoicePattern())).append(" | Số: ").append(invoice.getInvoiceNumber() != null ? invoice.getInvoiceNumber() : "-------").append("</p>");
+        html.append("<hr/>");
+        html.append("<div><strong>Đơn vị bán hàng:</strong> ").append(escHtml(hh.getName())).append("<br/>");
+        html.append("<strong>Mã số thuế:</strong> ").append(escHtml(hh.getTaxCode())).append("<br/>");
+        html.append("<strong>Địa chỉ:</strong> ").append(escHtml(hh.getAddress())).append("</div>");
+        html.append("<hr/>");
+        html.append("<div><strong>Người mua hàng:</strong> ").append(escHtml(invoice.getBuyerName() != null ? invoice.getBuyerName() : "Khách lẻ")).append("<br/>");
+        if (invoice.getBuyerTaxCode() != null) html.append("<strong>Mã số thuế:</strong> ").append(escHtml(invoice.getBuyerTaxCode())).append("<br/>");
+        if (invoice.getBuyerAddress() != null) html.append("<strong>Địa chỉ:</strong> ").append(escHtml(invoice.getBuyerAddress())).append("<br/>");
+        html.append("</div>");
+        if (referenceNote != null) {
+            html.append("<div style=\"margin-top: 10px; font-style: italic; color: #555;\">Ghi chú: ").append(escHtml(referenceNote)).append("</div>");
+        }
+        html.append("<br/><table style=\"width: 100%; border-collapse: collapse; text-align: left;\" border=\"1\">");
+        html.append("<tr style=\"background: #f2f2f2;\"><th>STT</th><th>Tên hàng hóa, dịch vụ</th><th>Đơn vị tính</th><th>Số lượng</th><th>Đơn giá</th><th>Thành tiền</th></tr>");
+        int idx = 1;
+        for (EInvoiceItem item : invoice.getItems()) {
+            html.append("<tr>")
+                .append("<td>").append(idx++).append("</td>")
+                .append("<td>").append(escHtml(item.getProductName())).append("</td>")
+                .append("<td>").append(escHtml(item.getUnit())).append("</td>")
+                .append("<td>").append(item.getQuantity()).append("</td>")
+                .append("<td>").append(item.getUnitPrice()).append("</td>")
+                .append("<td>").append(item.getSubtotal()).append("</td>")
+                .append("</tr>");
+        }
+        html.append("</table><br/>");
+        html.append("<div><strong>Cộng tiền hàng:</strong> ").append(invoice.getTotalAmountBeforeTax()).append(" VNĐ<br/>");
+        html.append("<strong>Tiền thuế GTGT:</strong> ").append(invoice.getTaxAmount()).append(" VNĐ<br/>");
+        html.append("<strong>Tổng cộng tiền thanh toán:</strong> <strong>").append(invoice.getFinalAmount()).append(" VNĐ</strong><br/>");
+        html.append("<strong>Số tiền bằng chữ:</strong> <em>").append(amountWords).append("</em></div>");
+        html.append("<hr/>");
+        if (invoice.getTaxAuthorityCode() != null) {
+            html.append("<div><strong>Mã cơ quan thuế cấp:</strong> ").append(escHtml(invoice.getTaxAuthorityCode())).append("</div>");
+        }
+        html.append("<div><strong>Mã tra cứu:</strong> ").append(escHtml(invoice.getLookupCode())).append("</div>");
+        html.append("</div>");
+
+        return InvoiceRepresentationResponse.builder()
+                .invoiceId(invoice.getId())
+                .invoiceNumber(invoice.getInvoiceNumber())
+                .invoicePattern(invoice.getInvoicePattern())
+                .invoiceSymbol(invoice.getInvoiceSymbol())
+                .title(invoice.getTitle())
+                .status(invoice.getStatus())
+                .watermarkText(watermarkText)
+                .isDraft(isDraft)
+                .isCanceled(isCanceled)
+                .isAdjusted(isAdjusted)
+                .householdName(hh.getName())
+                .householdTaxCode(hh.getTaxCode())
+                .householdAddress(hh.getAddress())
+                .householdPhone(hh.getPhoneNumber())
+                .buyerName(invoice.getBuyerName())
+                .buyerTaxCode(invoice.getBuyerTaxCode())
+                .buyerAddress(invoice.getBuyerAddress())
+                .buyerPhone(invoice.getBuyerPhone())
+                .buyerEmail(invoice.getBuyerEmail())
+                .totalAmountBeforeTax(invoice.getTotalAmountBeforeTax())
+                .taxAmount(invoice.getTaxAmount())
+                .discountAmount(invoice.getDiscountAmount())
+                .finalAmount(invoice.getFinalAmount())
+                .amountInWords(amountWords)
+                .taxAuthorityCode(invoice.getTaxAuthorityCode())
+                .lookupCode(invoice.getLookupCode())
+                .issuedAt(invoice.getCreatedAt())
+                .referenceNote(referenceNote)
+                .originalInvoiceId(origId)
+                .htmlRepresentation(html.toString())
+                .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public byte[] downloadInvoicePdf(String currentUsername, String invoiceId) {
+        InvoiceRepresentationResponse rep = getInvoiceRepresentation(currentUsername, invoiceId);
+        return rep.getHtmlRepresentation().getBytes(java.nio.charset.StandardCharsets.UTF_8);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public byte[] downloadInvoiceRepresentation(String currentUsername, String invoiceId) {
+        return downloadInvoicePdf(currentUsername, invoiceId);
+    }
+
+    private String convertAmountToWords(BigDecimal amount) {
+        return com.sales.utils.VietnameseNumberToWordsUtil.convert(amount);
+    }
 }
