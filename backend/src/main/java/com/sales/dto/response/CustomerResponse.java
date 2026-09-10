@@ -25,6 +25,8 @@ public class CustomerResponse {
     private Boolean isVip;
     private Integer reminderDaysBefore;
     private Integer reminderDaysAfter;
+    private String defaultDeliveryChannel;
+    private String defaultDeliveryAddress;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

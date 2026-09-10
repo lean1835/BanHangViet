@@ -79,6 +79,8 @@ public class CustomerServiceImpl implements CustomerService {
         map.put("isVip", customer.getIsVip());
         map.put("reminderDaysBefore", customer.getReminderDaysBefore());
         map.put("reminderDaysAfter", customer.getReminderDaysAfter());
+        map.put("defaultDeliveryChannel", customer.getDefaultDeliveryChannel());
+        map.put("defaultDeliveryAddress", customer.getDefaultDeliveryAddress());
         return map;
     }
 
@@ -99,6 +101,8 @@ public class CustomerServiceImpl implements CustomerService {
                 .isVip(customer.getIsVip())
                 .reminderDaysBefore(customer.getReminderDaysBefore())
                 .reminderDaysAfter(customer.getReminderDaysAfter())
+                .defaultDeliveryChannel(customer.getDefaultDeliveryChannel())
+                .defaultDeliveryAddress(customer.getDefaultDeliveryAddress())
                 .createdAt(customer.getCreatedAt())
                 .updatedAt(customer.getUpdatedAt())
                 .build();
@@ -152,7 +156,13 @@ public class CustomerServiceImpl implements CustomerService {
                 .isVip(isVip)
                 .reminderDaysBefore(reminderDaysBefore)
                 .reminderDaysAfter(reminderDaysAfter)
+                .defaultDeliveryChannel("QR")
+                .defaultDeliveryAddress(null)
                 .build();
+
+        if (request.getDefaultDeliveryChannel() != null || request.getDefaultDeliveryAddress() != null) {
+            sanitizeAndValidateDeliveryChannel(customer, request.getDefaultDeliveryChannel(), request.getDefaultDeliveryAddress());
+        }
 
         customer = customerRepository.save(customer);
 
@@ -216,6 +226,9 @@ public class CustomerServiceImpl implements CustomerService {
         if (request.getReminderDaysAfter() != null) {
             customer.setReminderDaysAfter(request.getReminderDaysAfter());
         }
+        if (request.getDefaultDeliveryChannel() != null || request.getDefaultDeliveryAddress() != null) {
+            sanitizeAndValidateDeliveryChannel(customer, request.getDefaultDeliveryChannel(), request.getDefaultDeliveryAddress());
+        }
 
         customer = customerRepository.save(customer);
 
@@ -263,6 +276,55 @@ public class CustomerServiceImpl implements CustomerService {
 
         List<Customer> customers = customerRepository.searchCustomers(household.getId(), query);
         return customers.stream().map(this::mapToResponse).collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public CustomerResponse updateDefaultDeliveryChannel(String currentUsername, String customerId, com.sales.dto.request.UpdateCustomerDeliveryChannelRequest request) {
+        User currentUser = getAuthenticatedUser(currentUsername);
+        BusinessHousehold household = currentUser.getHousehold();
+        if (household == null) {
+            throw new AppException(ErrorCode.FORBIDDEN);
+        }
+
+        Customer customer = customerRepository.findByIdAndHouseholdIdAndDeletedAtIsNull(customerId, household.getId())
+                .orElseThrow(() -> new AppException(ErrorCode.CUSTOMER_NOT_FOUND));
+
+        Map<String, Object> oldLogMap = buildCustomerLogMap(customer);
+
+        sanitizeAndValidateDeliveryChannel(customer, request.getDefaultDeliveryChannel(), request.getDefaultDeliveryAddress());
+
+        customer = customerRepository.save(customer);
+
+        logActivity(household, currentUser, "UPDATE_CUSTOMER_DELIVERY_CHANNEL", customer.getId(), oldLogMap, buildCustomerLogMap(customer));
+
+        return mapToResponse(customer);
+    }
+
+    private void sanitizeAndValidateDeliveryChannel(Customer customer, String channel, String address) {
+        if (channel != null && !channel.isBlank()) {
+            customer.setDefaultDeliveryChannel(channel.trim().toUpperCase());
+        } else if (customer.getDefaultDeliveryChannel() == null) {
+            customer.setDefaultDeliveryChannel("QR");
+        }
+        String currentChannel = customer.getDefaultDeliveryChannel();
+        String cleanAddress = (address != null && !address.isBlank()) ? address.trim() : null;
+
+        if ("EMAIL".equalsIgnoreCase(currentChannel)) {
+            if (cleanAddress == null || !cleanAddress.matches("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+$")) {
+                throw new AppException(ErrorCode.INVALID_INPUT);
+            }
+            customer.setDefaultDeliveryAddress(cleanAddress);
+        } else if ("ZALO".equalsIgnoreCase(currentChannel)) {
+            if (cleanAddress == null || !cleanAddress.matches("^[0-9]{9,15}$")) {
+                throw new AppException(ErrorCode.INVALID_INPUT);
+            }
+            customer.setDefaultDeliveryAddress(cleanAddress);
+        } else if ("QR".equalsIgnoreCase(currentChannel) || "PRINT".equalsIgnoreCase(currentChannel)) {
+            customer.setDefaultDeliveryAddress(null);
+        } else {
+            throw new AppException(ErrorCode.INVALID_INPUT);
+        }
     }
 
     @Override

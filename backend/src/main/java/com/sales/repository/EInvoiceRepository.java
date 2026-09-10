@@ -146,4 +146,8 @@ public interface EInvoiceRepository extends JpaRepository<EInvoice, String>, Jpa
             Pageable pageable);
 
     long countByHouseholdIdAndCreatedAtAfter(String householdId, LocalDateTime createdAt);
+
+    @EntityGraph(attributePaths = {"createdByUser", "household", "order"})
+    Page<EInvoice> findByHouseholdIdAndCustomerDeliveryStatusAndDeletedAtIsNull(
+            String householdId, String customerDeliveryStatus, Pageable pageable);
 }

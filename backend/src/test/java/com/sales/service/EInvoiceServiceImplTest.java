@@ -7,6 +7,7 @@ import com.sales.dto.response.InvoiceResponse;
 import com.sales.entity.BusinessHousehold;
 import com.sales.entity.Customer;
 import com.sales.entity.EInvoice;
+import com.sales.entity.InvoiceDeliveryLog;
 import com.sales.entity.Role;
 import com.sales.entity.User;
 import com.sales.exception.AppException;
@@ -33,7 +34,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -124,6 +127,7 @@ class EInvoiceServiceImplTest {
                 .totalAmountBeforeTax(BigDecimal.valueOf(100000))
                 .finalAmount(BigDecimal.valueOf(100000))
                 .lookupCode("LOOKUP001")
+                .createdAt(LocalDateTime.now())
                 .items(new ArrayList<>())
                 .build();
 
@@ -137,6 +141,7 @@ class EInvoiceServiceImplTest {
                 .totalAmountBeforeTax(BigDecimal.valueOf(200000))
                 .finalAmount(BigDecimal.valueOf(200000))
                 .lookupCode("LOOKUP002")
+                .createdAt(LocalDateTime.now())
                 .items(new ArrayList<>())
                 .build();
     }
@@ -536,6 +541,262 @@ class EInvoiceServiceImplTest {
         assertEquals("0933334444", createdCust.getPhoneNumber());
         assertEquals("Quận 1, TP.HCM", createdCust.getAddress());
         assertEquals("fresh@corp.vn", createdCust.getEmail());
+    }
+
+    @Test
+    @DisplayName("NCL-06-CN-005: Gửi lại hóa đơn cho khách qua Email thành công và lưu trạng thái PENDING")
+    void resendCustomerDelivery_Email_Success() {
+        when(userRepository.findByUsername("seller1")).thenReturn(Optional.of(currentUser));
+        when(eInvoiceRepository.findById("inv-issued-1")).thenReturn(Optional.of(issuedInvoice));
+        when(eInvoiceRepository.save(any(EInvoice.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(invoiceDeliveryLogRepository.save(any(com.sales.entity.InvoiceDeliveryLog.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        com.sales.dto.request.ResendCustomerDeliveryRequest request =
+                com.sales.dto.request.ResendCustomerDeliveryRequest.builder()
+                        .channel("EMAIL")
+                        .recipientAddress("test.customer@gmail.com")
+                        .updateCustomerDefaultChannel(false)
+                        .build();
+
+        InvoiceResponse response = eInvoiceService.resendCustomerDelivery("seller1", "inv-issued-1", request);
+
+        assertNotNull(response);
+        assertEquals("PENDING", issuedInvoice.getCustomerDeliveryStatus());
+        verify(emailService, times(1)).sendInvoiceEmailAsync(any(), eq("test.customer@gmail.com"), any(), any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("NCL-06-CN-005 & NCL-06-CN-006: Gửi lại hóa đơn cho khách qua Zalo thành công và cập nhật kênh mặc định cho khách")
+    void resendCustomerDelivery_Zalo_UpdateCustomerDefault_Success() {
+        Customer customer = Customer.builder()
+                .id("cust-100")
+                .household(household)
+                .name("Khách Hàng Thân Thiết")
+                .phoneNumber("0912345678")
+                .build();
+        issuedInvoice.setBuyerPhone("0912345678");
+
+        when(userRepository.findByUsername("seller1")).thenReturn(Optional.of(currentUser));
+        when(eInvoiceRepository.findById("inv-issued-1")).thenReturn(Optional.of(issuedInvoice));
+        when(customerRepository.findByPhoneNumberAndHouseholdIdAndDeletedAtIsNull("0912345678", "hh-100"))
+                .thenReturn(Optional.of(customer));
+        when(eInvoiceRepository.save(any(EInvoice.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(customerRepository.save(any(Customer.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        com.sales.dto.request.ResendCustomerDeliveryRequest request =
+                com.sales.dto.request.ResendCustomerDeliveryRequest.builder()
+                        .channel("ZALO")
+                        .recipientAddress("0912345678")
+                        .updateCustomerDefaultChannel(true)
+                        .build();
+
+        InvoiceResponse response = eInvoiceService.resendCustomerDelivery("seller1", "inv-issued-1", request);
+
+        assertNotNull(response);
+        assertEquals("SUCCESS", issuedInvoice.getCustomerDeliveryStatus());
+        assertEquals("ZALO", customer.getDefaultDeliveryChannel());
+        assertEquals("0912345678", customer.getDefaultDeliveryAddress());
+    }
+
+    @Test
+    @DisplayName("NCL-06-CN-005: Gửi lại hóa đơn khi hóa đơn là DRAFT bị chặn với lỗi INVOICE_DELIVERY_NOT_ALLOWED")
+    void resendCustomerDelivery_DraftInvoice_ThrowsException() {
+        when(userRepository.findByUsername("seller1")).thenReturn(Optional.of(currentUser));
+        when(eInvoiceRepository.findById("inv-draft-1")).thenReturn(Optional.of(draftInvoice));
+
+        com.sales.dto.request.ResendCustomerDeliveryRequest request =
+                com.sales.dto.request.ResendCustomerDeliveryRequest.builder()
+                        .channel("EMAIL")
+                        .recipientAddress("test.customer@gmail.com")
+                        .build();
+
+        AppException ex = assertThrows(AppException.class, () ->
+                eInvoiceService.resendCustomerDelivery("seller1", "inv-draft-1", request));
+
+        assertEquals(ErrorCode.INVOICE_DELIVERY_NOT_ALLOWED, ex.getErrorCode());
+        verify(eInvoiceRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("NCL-06-CN-005: Gửi lại hóa đơn qua kênh QR không cần nhập địa chỉ nhận thành công")
+    void resendCustomerDelivery_QR_EmptyRecipient_Success() {
+        when(userRepository.findByUsername("seller1")).thenReturn(Optional.of(currentUser));
+        when(eInvoiceRepository.findById("inv-issued-1")).thenReturn(Optional.of(issuedInvoice));
+        when(eInvoiceRepository.save(any(EInvoice.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(invoiceDeliveryLogRepository.save(any(com.sales.entity.InvoiceDeliveryLog.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        com.sales.dto.request.ResendCustomerDeliveryRequest request =
+                com.sales.dto.request.ResendCustomerDeliveryRequest.builder()
+                        .channel("QR")
+                        .build();
+
+        InvoiceResponse response = eInvoiceService.resendCustomerDelivery("seller1", "inv-issued-1", request);
+
+        assertNotNull(response);
+        assertEquals("SUCCESS", issuedInvoice.getCustomerDeliveryStatus());
+    }
+
+    @Test
+    @DisplayName("NCL-06-CN-005: In hóa đơn cập nhật trạng thái customerDeliveryStatus sang SUCCESS")
+    void getInvoicePrintLayout_UpdatesCustomerDeliveryStatus() {
+        when(userRepository.findByUsername("seller1")).thenReturn(Optional.of(currentUser));
+        when(eInvoiceRepository.findById("inv-issued-1")).thenReturn(Optional.of(issuedInvoice));
+        when(invoiceTemplateRepository.findByHouseholdId("hh-100")).thenReturn(Optional.empty());
+
+        eInvoiceService.getInvoicePrintLayout("seller1", "inv-issued-1", "K80");
+
+        assertEquals("SUCCESS", issuedInvoice.getCustomerDeliveryStatus());
+        verify(eInvoiceRepository, times(1)).save(issuedInvoice);
+    }
+
+    @Test
+    @DisplayName("P2-01: Gửi lại hóa đơn qua Email sai định dạng -> Ném INVALID_INPUT")
+    void resendCustomerDelivery_Email_InvalidFormat_ThrowsException() {
+        when(userRepository.findByUsername("seller1")).thenReturn(Optional.of(currentUser));
+        when(eInvoiceRepository.findById("inv-issued-1")).thenReturn(Optional.of(issuedInvoice));
+
+        com.sales.dto.request.ResendCustomerDeliveryRequest request =
+                com.sales.dto.request.ResendCustomerDeliveryRequest.builder()
+                        .channel("EMAIL")
+                        .recipientAddress("invalid-email-string")
+                        .build();
+
+        AppException ex = assertThrows(AppException.class, () ->
+                eInvoiceService.resendCustomerDelivery("seller1", "inv-issued-1", request));
+
+        assertEquals(ErrorCode.INVALID_INPUT, ex.getErrorCode());
+        verify(eInvoiceRepository, never()).save(any());
+        verify(emailService, never()).sendInvoiceEmailAsync(any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("P1-02: Gửi lại hóa đơn qua Zalo sai số điện thoại -> Trạng thái FAILED và KHÔNG cập nhật hồ sơ khách quen")
+    void resendCustomerDelivery_Zalo_InvalidPhone_DoesNotUpdateCustomerProfile() {
+        Customer customer = Customer.builder()
+                .id("cust-1")
+                .name("Khách quen")
+                .phoneNumber("0988888888")
+                .defaultDeliveryChannel("QR")
+                .defaultDeliveryAddress(null)
+                .build();
+        issuedInvoice.setBuyerPhone("0988888888");
+
+        when(userRepository.findByUsername("seller1")).thenReturn(Optional.of(currentUser));
+        when(eInvoiceRepository.findById("inv-issued-1")).thenReturn(Optional.of(issuedInvoice));
+        when(eInvoiceRepository.save(any(EInvoice.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(invoiceDeliveryLogRepository.save(any(InvoiceDeliveryLog.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        com.sales.dto.request.ResendCustomerDeliveryRequest request =
+                com.sales.dto.request.ResendCustomerDeliveryRequest.builder()
+                        .channel("ZALO")
+                        .recipientAddress("0912abc")
+                        .updateCustomerDefaultChannel(true)
+                        .build();
+
+        InvoiceResponse response = eInvoiceService.resendCustomerDelivery("seller1", "inv-issued-1", request);
+
+        assertNotNull(response);
+        assertEquals("FAILED", issuedInvoice.getCustomerDeliveryStatus());
+        verify(customerRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("P1-03: Gửi lại hóa đơn qua QR và tick cập nhật mặc định -> Đặt defaultDeliveryAddress là null thay vì lookup URL")
+    void resendCustomerDelivery_QR_DoesNotStoreLookupUrlInCustomerDefaultAddress() {
+        Customer customer = Customer.builder()
+                .id("cust-1")
+                .name("Khách quen")
+                .phoneNumber("0988888888")
+                .defaultDeliveryChannel("EMAIL")
+                .defaultDeliveryAddress("old@gmail.com")
+                .build();
+        issuedInvoice.setBuyerPhone("0988888888");
+
+        when(userRepository.findByUsername("seller1")).thenReturn(Optional.of(currentUser));
+        when(eInvoiceRepository.findById("inv-issued-1")).thenReturn(Optional.of(issuedInvoice));
+        when(customerRepository.findByPhoneNumberAndHouseholdIdAndDeletedAtIsNull("0988888888", "hh-100"))
+                .thenReturn(Optional.of(customer));
+        when(eInvoiceRepository.save(any(EInvoice.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(customerRepository.save(any(Customer.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(invoiceDeliveryLogRepository.save(any(InvoiceDeliveryLog.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        com.sales.dto.request.ResendCustomerDeliveryRequest request =
+                com.sales.dto.request.ResendCustomerDeliveryRequest.builder()
+                        .channel("QR")
+                        .updateCustomerDefaultChannel(true)
+                        .build();
+
+        InvoiceResponse response = eInvoiceService.resendCustomerDelivery("seller1", "inv-issued-1", request);
+
+        assertNotNull(response);
+        assertEquals("SUCCESS", issuedInvoice.getCustomerDeliveryStatus());
+        assertEquals("QR", customer.getDefaultDeliveryChannel());
+        assertNull(customer.getDefaultDeliveryAddress());
+        verify(customerRepository, times(1)).save(customer);
+    }
+
+    @Test
+    @DisplayName("P1-01: Lấy danh sách hóa đơn giao thất bại sử dụng batch query tránh N+1")
+    void getFailedCustomerDeliveries_BatchLoadingLogs_AvoidsNPlusOne() {
+        when(userRepository.findByUsername("seller1")).thenReturn(Optional.of(currentUser));
+
+        EInvoice inv1 = EInvoice.builder().id("inv-1").household(household).customerDeliveryStatus("FAILED").createdAt(LocalDateTime.now()).build();
+        EInvoice inv2 = EInvoice.builder().id("inv-2").household(household).customerDeliveryStatus("FAILED").createdAt(LocalDateTime.now()).build();
+
+        org.springframework.data.domain.Page<EInvoice> page = new org.springframework.data.domain.PageImpl<>(
+                List.of(inv1, inv2), org.springframework.data.domain.PageRequest.of(0, 20), 2);
+
+        when(eInvoiceRepository.findByHouseholdIdAndCustomerDeliveryStatusAndDeletedAtIsNull(eq("hh-100"), eq("FAILED"), any()))
+                .thenReturn(page);
+
+        InvoiceDeliveryLog log1 = InvoiceDeliveryLog.builder().invoice(inv1).channel("EMAIL").status("FAILED").errorMessage("Mail server down").sentAt(LocalDateTime.now()).build();
+        InvoiceDeliveryLog log2 = InvoiceDeliveryLog.builder().invoice(inv2).channel("ZALO").status("FAILED").errorMessage("Invalid phone").sentAt(LocalDateTime.now()).build();
+
+        when(invoiceDeliveryLogRepository.findByInvoiceIdInOrderBySentAtDesc(List.of("inv-1", "inv-2")))
+                .thenReturn(List.of(log1, log2));
+
+        var result = eInvoiceService.getFailedCustomerDeliveries("seller1", 0, 20);
+
+        assertNotNull(result);
+        assertEquals(2, result.getContent().size());
+        assertEquals("EMAIL", result.getContent().get(0).getLastChannel());
+        assertEquals("ZALO", result.getContent().get(1).getLastChannel());
+
+        verify(invoiceDeliveryLogRepository, times(1)).findByInvoiceIdInOrderBySentAtDesc(any());
+        verify(invoiceDeliveryLogRepository, never()).findFirstByInvoiceIdOrderBySentAtDesc(any());
+        verify(invoiceDeliveryLogRepository, never()).countByInvoiceId(any());
+    }
+
+    @Test
+    @DisplayName("P3-01: Gửi lại hóa đơn với kênh không xác định -> Ném AppException INVALID_INPUT")
+    void resendCustomerDelivery_UnknownChannel_ThrowsException() {
+        when(userRepository.findByUsername("seller1")).thenReturn(Optional.of(currentUser));
+        when(eInvoiceRepository.findById("inv-issued-1")).thenReturn(Optional.of(issuedInvoice));
+
+        com.sales.dto.request.ResendCustomerDeliveryRequest request =
+                com.sales.dto.request.ResendCustomerDeliveryRequest.builder()
+                        .channel("UNKNOWN_CHANNEL")
+                        .recipientAddress("some-address")
+                        .build();
+
+        AppException ex = assertThrows(AppException.class, () ->
+                eInvoiceService.resendCustomerDelivery("seller1", "inv-issued-1", request));
+
+        assertEquals(ErrorCode.INVALID_INPUT, ex.getErrorCode());
+    }
+
+    @Test
+    @DisplayName("P1-01 & P2-01: deliverInvoiceViaEmail thành công và cập nhật trạng thái PENDING")
+    void deliverInvoiceViaEmail_Success() {
+        when(userRepository.findByUsername("seller1")).thenReturn(Optional.of(currentUser));
+        when(eInvoiceRepository.findById("inv-issued-1")).thenReturn(Optional.of(issuedInvoice));
+        when(eInvoiceRepository.save(any(EInvoice.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(invoiceDeliveryLogRepository.save(any(InvoiceDeliveryLog.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        eInvoiceService.deliverInvoiceViaEmail("seller1", "inv-issued-1", "buyer@gmail.com");
+
+        assertEquals("PENDING", issuedInvoice.getCustomerDeliveryStatus());
+        verify(emailService, times(1)).sendInvoiceEmailAsync(any(), eq("buyer@gmail.com"), any(), any(), any(), any());
     }
 }
 

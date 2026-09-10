@@ -313,5 +313,54 @@ public class EInvoiceController {
                 .build();
         return ResponseEntity.ok(response);
     }
+
+    @GetMapping("/failed-customer-deliveries")
+    @PreAuthorize("hasAnyRole('VT-01', 'VT-02', 'VT-03')")
+    @Operation(summary = "Lấy danh sách hóa đơn giao cho khách không thành công (NCL-06-CN-005)")
+    public ResponseEntity<ApiResponse<PageResponse<com.sales.dto.response.FailedCustomerDeliveryInvoiceResponse>>> getFailedCustomerDeliveries(
+            Principal principal,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        PageResponse<com.sales.dto.response.FailedCustomerDeliveryInvoiceResponse> result =
+                eInvoiceService.getFailedCustomerDeliveries(principal.getName(), page, size);
+        ApiResponse<PageResponse<com.sales.dto.response.FailedCustomerDeliveryInvoiceResponse>> response =
+                ApiResponse.<PageResponse<com.sales.dto.response.FailedCustomerDeliveryInvoiceResponse>>builder()
+                        .code(1000)
+                        .message("Lấy danh sách hóa đơn giao cho khách không thành công thành công")
+                        .result(result)
+                        .build();
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/{invoiceId}/resend-customer")
+    @PreAuthorize("hasAnyRole('VT-01', 'VT-02', 'VT-03')")
+    @Operation(summary = "Gửi lại hóa đơn cho khách hàng (NCL-06-CN-005 & NCL-06-CN-006)")
+    public ResponseEntity<ApiResponse<InvoiceResponse>> resendCustomerDelivery(
+            Principal principal,
+            @PathVariable String invoiceId,
+            @Valid @RequestBody com.sales.dto.request.ResendCustomerDeliveryRequest request) {
+        InvoiceResponse result = eInvoiceService.resendCustomerDelivery(principal.getName(), invoiceId, request);
+        ApiResponse<InvoiceResponse> response = ApiResponse.<InvoiceResponse>builder()
+                .code(1000)
+                .message("Đã thực hiện gửi lại hóa đơn cho khách hàng")
+                .result(result)
+                .build();
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/{invoiceId}/delivery-history")
+    @PreAuthorize("hasAnyRole('VT-01', 'VT-02', 'VT-03')")
+    @Operation(summary = "Xem lịch sử các lần giao hóa đơn cho khách hàng (NCL-06-CN-005)")
+    public ResponseEntity<ApiResponse<List<com.sales.dto.response.InvoiceDeliveryLogResponse>>> getInvoiceDeliveryHistory(
+            Principal principal,
+            @PathVariable String invoiceId) {
+        List<com.sales.dto.response.InvoiceDeliveryLogResponse> result = eInvoiceService.getInvoiceDeliveryHistory(principal.getName(), invoiceId);
+        ApiResponse<List<com.sales.dto.response.InvoiceDeliveryLogResponse>> response = ApiResponse.<List<com.sales.dto.response.InvoiceDeliveryLogResponse>>builder()
+                .code(1000)
+                .message("Lấy lịch sử giao hóa đơn cho khách hàng thành công")
+                .result(result)
+                .build();
+        return ResponseEntity.ok(response);
+    }
 }
 

@@ -56,6 +56,10 @@ public interface EInvoiceService {
     void deliverInvoiceViaEmail(String currentUsername, String invoiceId, String email);
     InvoicePrintResponse getInvoicePrintLayout(String currentUsername, String invoiceId, String pageSize);
 
+    PageResponse<FailedCustomerDeliveryInvoiceResponse> getFailedCustomerDeliveries(String currentUsername, int page, int size);
+    InvoiceResponse resendCustomerDelivery(String currentUsername, String invoiceId, com.sales.dto.request.ResendCustomerDeliveryRequest request);
+    List<InvoiceDeliveryLogResponse> getInvoiceDeliveryHistory(String currentUsername, String invoiceId);
+
     // Nghiệp vụ tra cứu & tải lại công khai dành cho khách hàng
     PublicInvoiceResponse lookupInvoicePublicly(String lookupCode);
     byte[] downloadInvoiceFilePublicly(String lookupCode, String format);
