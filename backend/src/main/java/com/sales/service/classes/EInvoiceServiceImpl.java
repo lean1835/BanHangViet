@@ -1835,7 +1835,7 @@ public class EInvoiceServiceImpl implements EInvoiceService {
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @Transactional
     public byte[] exportInvoicesToExcel(String currentUsername, String status, LocalDate fromDate, LocalDate toDate, String search, String clientIp, String userAgent) {
         User currentUser = getAuthenticatedUser(currentUsername);
         String role = currentUser.getRole().getCode();
