@@ -24,6 +24,7 @@ public class EmailServiceImpl implements EmailService {
     private final JavaMailSender mailSender;
     private final InvoiceDeliveryLogRepository invoiceDeliveryLogRepository;
     private final com.sales.repository.EInvoiceRepository eInvoiceRepository;
+    private final org.springframework.transaction.support.TransactionTemplate transactionTemplate;
 
     @Override
     @Async("taskExecutor")
@@ -77,20 +78,22 @@ public class EmailServiceImpl implements EmailService {
 
     private void updateDeliveryLog(String logId, String status, String errorMsg) {
         try {
-            invoiceDeliveryLogRepository.findById(logId).ifPresent(logRecord -> {
-                logRecord.setStatus(status);
-                logRecord.setErrorMessage(errorMsg);
-                invoiceDeliveryLogRepository.save(logRecord);
+            transactionTemplate.executeWithoutResult(txStatus -> {
+                invoiceDeliveryLogRepository.findByIdWithInvoice(logId).ifPresent(logRecord -> {
+                    logRecord.setStatus(status);
+                    logRecord.setErrorMessage(errorMsg);
+                    invoiceDeliveryLogRepository.save(logRecord);
 
-                if (logRecord.getInvoice() != null) {
-                    com.sales.entity.EInvoice invoice = logRecord.getInvoice();
-                    if ("SUCCESS".equalsIgnoreCase(status)) {
-                        invoice.setCustomerDeliveryStatus("SUCCESS");
-                    } else if ("FAILED".equalsIgnoreCase(status)) {
-                        invoice.setCustomerDeliveryStatus("FAILED");
+                    if (logRecord.getInvoice() != null) {
+                        com.sales.entity.EInvoice invoice = logRecord.getInvoice();
+                        if ("SUCCESS".equalsIgnoreCase(status)) {
+                            invoice.setCustomerDeliveryStatus("SUCCESS");
+                        } else if ("FAILED".equalsIgnoreCase(status)) {
+                            invoice.setCustomerDeliveryStatus("FAILED");
+                        }
+                        eInvoiceRepository.save(invoice);
                     }
-                    eInvoiceRepository.save(invoice);
-                }
+                });
             });
         } catch (Exception ex) {
             log.error("Lỗi khi cập nhật trạng thái giao nhận hóa đơn ID={}", logId, ex);

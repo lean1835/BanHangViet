@@ -11,4 +11,9 @@ public interface InvoiceDeliveryLogRepository extends JpaRepository<InvoiceDeliv
     List<InvoiceDeliveryLog> findByInvoiceIdOrderBySentAtDesc(String invoiceId);
     long countByInvoiceId(String invoiceId);
     java.util.Optional<InvoiceDeliveryLog> findFirstByInvoiceIdOrderBySentAtDesc(String invoiceId);
+
+    List<InvoiceDeliveryLog> findByInvoiceIdInOrderBySentAtDesc(List<String> invoiceIds);
+
+    @org.springframework.data.jpa.repository.Query("SELECT l FROM InvoiceDeliveryLog l JOIN FETCH l.invoice WHERE l.id = :id")
+    java.util.Optional<InvoiceDeliveryLog> findByIdWithInvoice(@org.springframework.data.repository.query.Param("id") String id);
 }

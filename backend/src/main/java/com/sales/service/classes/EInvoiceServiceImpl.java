@@ -29,6 +29,8 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
@@ -2098,9 +2100,19 @@ public class EInvoiceServiceImpl implements EInvoiceService {
         Page<EInvoice> failedPage = eInvoiceRepository.findByHouseholdIdAndCustomerDeliveryStatusAndDeletedAtIsNull(
                 household.getId(), "FAILED", pageable);
 
-        List<FailedCustomerDeliveryInvoiceResponse> content = failedPage.getContent().stream().map(inv -> {
-            Optional<InvoiceDeliveryLog> lastLogOpt = invoiceDeliveryLogRepository.findFirstByInvoiceIdOrderBySentAtDesc(inv.getId());
-            long attemptCount = invoiceDeliveryLogRepository.countByInvoiceId(inv.getId());
+        List<EInvoice> invoices = failedPage.getContent();
+        List<String> invoiceIds = invoices.stream().map(EInvoice::getId).collect(Collectors.toList());
+
+        Map<String, List<InvoiceDeliveryLog>> logsByInvoice = invoiceIds.isEmpty()
+                ? Collections.emptyMap()
+                : invoiceDeliveryLogRepository.findByInvoiceIdInOrderBySentAtDesc(invoiceIds).stream()
+                        .filter(log -> log.getInvoice() != null && log.getInvoice().getId() != null)
+                        .collect(Collectors.groupingBy(log -> log.getInvoice().getId()));
+
+        List<FailedCustomerDeliveryInvoiceResponse> content = invoices.stream().map(inv -> {
+            List<InvoiceDeliveryLog> logs = logsByInvoice.getOrDefault(inv.getId(), Collections.emptyList());
+            InvoiceDeliveryLog lastLog = logs.isEmpty() ? null : logs.get(0);
+            long attemptCount = logs.size();
 
             return FailedCustomerDeliveryInvoiceResponse.builder()
                     .invoiceId(inv.getId())
@@ -2112,11 +2124,11 @@ public class EInvoiceServiceImpl implements EInvoiceService {
                     .finalAmount(inv.getFinalAmount())
                     .status(inv.getStatus())
                     .customerDeliveryStatus(inv.getCustomerDeliveryStatus())
-                    .lastChannel(lastLogOpt.map(InvoiceDeliveryLog::getChannel).orElse(null))
-                    .lastRecipientAddress(lastLogOpt.map(InvoiceDeliveryLog::getRecipientAddress).orElse(null))
-                    .lastErrorMessage(lastLogOpt.map(InvoiceDeliveryLog::getErrorMessage).orElse(null))
+                    .lastChannel(lastLog != null ? lastLog.getChannel() : null)
+                    .lastRecipientAddress(lastLog != null ? lastLog.getRecipientAddress() : null)
+                    .lastErrorMessage(lastLog != null ? lastLog.getErrorMessage() : null)
                     .deliveryAttemptCount(attemptCount)
-                    .lastSentAt(lastLogOpt.map(InvoiceDeliveryLog::getSentAt).orElse(null))
+                    .lastSentAt(lastLog != null ? lastLog.getSentAt() : null)
                     .createdAt(inv.getCreatedAt())
                     .build();
         }).collect(Collectors.toList());
@@ -2148,7 +2160,7 @@ public class EInvoiceServiceImpl implements EInvoiceService {
         String recipient = request.getRecipientAddress() != null ? request.getRecipientAddress().trim() : "";
 
         if ("EMAIL".equalsIgnoreCase(channel)) {
-            if (recipient.isBlank()) {
+            if (recipient.isBlank() || !recipient.matches("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+$")) {
                 throw new AppException(ErrorCode.INVALID_INPUT);
             }
             if (Boolean.TRUE.equals(request.getUpdateCustomerDefaultChannel())) {
@@ -2167,34 +2179,58 @@ public class EInvoiceServiceImpl implements EInvoiceService {
             InvoiceDeliveryLog savedLog = invoiceDeliveryLogRepository.save(deliveryLog);
 
             String lookupUrl = (frontendUrl != null ? frontendUrl : "http://localhost:3000") + "/lookup-invoice?code=" + invoice.getLookupCode();
-            emailService.sendInvoiceEmailAsync(savedLog.getId(), recipient, lookupUrl, invoice.getHousehold().getName(), invoice.getLookupCode(), invoice.getFinalAmount());
+            String householdName = invoice.getHousehold() != null ? invoice.getHousehold().getName() : "";
+            String lookupCode = invoice.getLookupCode();
+            BigDecimal finalAmount = invoice.getFinalAmount();
+
+            if (TransactionSynchronizationManager.isActualTransactionActive()) {
+                TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                    @Override
+                    public void afterCommit() {
+                        emailService.sendInvoiceEmailAsync(savedLog.getId(), recipient, lookupUrl, householdName, lookupCode, finalAmount);
+                    }
+                });
+            } else {
+                emailService.sendInvoiceEmailAsync(savedLog.getId(), recipient, lookupUrl, householdName, lookupCode, finalAmount);
+            }
         } else if ("ZALO".equalsIgnoreCase(channel)) {
             if (recipient.isBlank()) {
                 throw new AppException(ErrorCode.INVALID_INPUT);
             }
-            if (Boolean.TRUE.equals(request.getUpdateCustomerDefaultChannel())) {
-                updateCustomerDeliveryInfo(invoice, channel, recipient);
-            }
 
             boolean isValidZaloPhone = recipient.matches("^[0-9]{9,15}$");
-            String status = isValidZaloPhone ? "SUCCESS" : "FAILED";
-            String errorMsg = isValidZaloPhone ? null : "Số điện thoại Zalo không hợp lệ";
+            if (!isValidZaloPhone) {
+                invoice.setCustomerDeliveryStatus("FAILED");
+                eInvoiceRepository.save(invoice);
 
-            invoice.setCustomerDeliveryStatus(status);
-            eInvoiceRepository.save(invoice);
+                InvoiceDeliveryLog deliveryLog = InvoiceDeliveryLog.builder()
+                        .invoice(invoice)
+                        .channel("ZALO")
+                        .recipientAddress(recipient)
+                        .status("FAILED")
+                        .errorMessage("Số điện thoại Zalo không hợp lệ")
+                        .build();
+                invoiceDeliveryLogRepository.save(deliveryLog);
+            } else {
+                if (Boolean.TRUE.equals(request.getUpdateCustomerDefaultChannel())) {
+                    updateCustomerDeliveryInfo(invoice, channel, recipient);
+                }
 
-            InvoiceDeliveryLog deliveryLog = InvoiceDeliveryLog.builder()
-                    .invoice(invoice)
-                    .channel("ZALO")
-                    .recipientAddress(recipient)
-                    .status(status)
-                    .errorMessage(errorMsg)
-                    .build();
-            invoiceDeliveryLogRepository.save(deliveryLog);
+                invoice.setCustomerDeliveryStatus("SUCCESS");
+                eInvoiceRepository.save(invoice);
+
+                InvoiceDeliveryLog deliveryLog = InvoiceDeliveryLog.builder()
+                        .invoice(invoice)
+                        .channel("ZALO")
+                        .recipientAddress(recipient)
+                        .status("SUCCESS")
+                        .build();
+                invoiceDeliveryLogRepository.save(deliveryLog);
+            }
         } else if ("QR".equalsIgnoreCase(channel)) {
             String qrRecipient = !recipient.isBlank() ? recipient : ((frontendUrl != null ? frontendUrl : "http://localhost:3000") + "/lookup-invoice?code=" + invoice.getLookupCode());
             if (Boolean.TRUE.equals(request.getUpdateCustomerDefaultChannel())) {
-                updateCustomerDeliveryInfo(invoice, channel, qrRecipient);
+                updateCustomerDeliveryInfo(invoice, channel, null);
             }
 
             invoice.setCustomerDeliveryStatus("SUCCESS");
@@ -2210,7 +2246,7 @@ public class EInvoiceServiceImpl implements EInvoiceService {
         } else if ("PRINT".equalsIgnoreCase(channel)) {
             String printRecipient = !recipient.isBlank() ? recipient : "K80";
             if (Boolean.TRUE.equals(request.getUpdateCustomerDefaultChannel())) {
-                updateCustomerDeliveryInfo(invoice, channel, printRecipient);
+                updateCustomerDeliveryInfo(invoice, channel, null);
             }
 
             invoice.setCustomerDeliveryStatus("SUCCESS");
@@ -2224,6 +2260,12 @@ public class EInvoiceServiceImpl implements EInvoiceService {
                     .build();
             invoiceDeliveryLogRepository.save(deliveryLog);
         }
+
+        Map<String, Object> logPayload = new HashMap<>();
+        logPayload.put("channel", channel);
+        logPayload.put("recipient", recipient);
+        logPayload.put("customerDeliveryStatus", invoice.getCustomerDeliveryStatus());
+        logActivity(invoice.getHousehold(), currentUser, "RESEND_CUSTOMER_DELIVERY", invoice.getId(), null, logPayload);
 
         return mapToInvoiceResponse(invoice);
     }
@@ -2240,6 +2282,8 @@ public class EInvoiceServiceImpl implements EInvoiceService {
             customerToUpdate.setDefaultDeliveryChannel(channel);
             if (recipientAddress != null && !recipientAddress.isBlank()) {
                 customerToUpdate.setDefaultDeliveryAddress(recipientAddress);
+            } else {
+                customerToUpdate.setDefaultDeliveryAddress(null);
             }
             customerRepository.save(customerToUpdate);
         }
