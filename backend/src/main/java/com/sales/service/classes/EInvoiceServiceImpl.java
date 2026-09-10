@@ -249,6 +249,7 @@ public class EInvoiceServiceImpl implements EInvoiceService {
                 .errorCategory(invoice.getErrorCategory())
                 .createdAt(invoice.getCreatedAt())
                 .updatedAt(invoice.getUpdatedAt())
+                .isErrorNotified(invoice.getIsErrorNotified())
                 .items(items)
                 .build();
     }

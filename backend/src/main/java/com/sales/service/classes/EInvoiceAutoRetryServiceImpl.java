@@ -511,6 +511,7 @@ public class EInvoiceAutoRetryServiceImpl implements EInvoiceAutoRetryService {
                 .errorCategory(invoice.getErrorCategory())
                 .createdAt(invoice.getCreatedAt())
                 .updatedAt(invoice.getUpdatedAt())
+                .isErrorNotified(invoice.getIsErrorNotified())
                 .items(items)
                 .build();
     }

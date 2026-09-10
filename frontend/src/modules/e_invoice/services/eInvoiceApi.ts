@@ -1,5 +1,6 @@
 import { baseApi } from "@/stores/baseApi";
 import { HTTP_METHODS, API_TAG_TYPES } from "@/constants/api";
+import { STORAGE_KEYS } from "@/constants/app";
 import type { IApiResponse, IPageResponse } from "@/types/api";
 import type {
   IAdjustInvoiceParams,
@@ -7,8 +8,10 @@ import type {
   IBulkIssueInvoiceResult,
   ICancelInvoiceRequest,
   ICustomerTaxLookupResponse,
+  IExportInvoicesParams,
   IGetInvoicesParams,
   IInvoice,
+  IInvoiceRepresentationResponse,
   IInvoiceStatusLog,
   IUpdateInvoiceRequest,
 } from "../types/IInvoice";
@@ -120,6 +123,13 @@ export const eInvoiceApi = baseApi.injectEndpoints({
         params: { taxCode },
       }),
     }),
+    getInvoiceRepresentation: builder.query<IApiResponse<IInvoiceRepresentationResponse>, string>({
+      query: (invoiceId) => ({
+        url: `/invoices/${invoiceId}/representation`,
+        method: HTTP_METHODS.GET,
+      }),
+      providesTags: (_result, _error, id) => [{ type: API_TAG_TYPES.INVOICE, id }],
+    }),
   }),
   overrideExisting: false,
 });
@@ -138,4 +148,88 @@ export const {
   useAdjustInvoiceMutation,
   useLookupBuyerInfoQuery,
   useLazyLookupBuyerInfoQuery,
+  useGetInvoiceRepresentationQuery,
+  useLazyGetInvoiceRepresentationQuery,
 } = eInvoiceApi;
+
+/**
+ * NCL-05-CN-006: Xuất danh sách hóa đơn tra cứu ra tệp Excel
+ */
+export const exportInvoicesToExcel = async (params?: IExportInvoicesParams): Promise<void> => {
+  const token = localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
+  const baseUrl = import.meta.env.VITE_API_URL || "/api/v1";
+
+  const searchParams = new URLSearchParams();
+  if (params?.status && params.status !== "ALL") searchParams.append("status", params.status);
+  if (params?.fromDate) searchParams.append("fromDate", params.fromDate);
+  if (params?.toDate) searchParams.append("toDate", params.toDate);
+  if (params?.search?.trim()) searchParams.append("search", params.search.trim());
+
+  const queryStr = searchParams.toString();
+  const url = `${baseUrl}/invoices/export${queryStr ? `?${queryStr}` : ""}`;
+
+  const response = await fetch(url, {
+    method: "GET",
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  });
+
+  if (!response.ok) {
+    let errMsg = "Không thể xuất danh sách hóa đơn ra Excel.";
+    try {
+      const errJson = await response.json();
+      if (errJson.code === 1042 || errJson.message?.includes("không có dữ liệu") || errJson.message?.includes("NO_DATA_TO_EXPORT")) {
+        errMsg = "Không có dữ liệu hóa đơn phù hợp với bộ lọc để xuất tệp Excel.";
+      } else if (errJson.message) {
+        errMsg = errJson.message;
+      }
+    } catch {
+      // response might not be JSON
+    }
+    throw new Error(errMsg);
+  }
+
+  const blob = await response.blob();
+  const downloadUrl = window.URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = downloadUrl;
+  link.download = "Danh_sach_hoa_don.xlsx";
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.URL.revokeObjectURL(downloadUrl);
+};
+
+/**
+ * NCL-05-CN-007: Tải bản thể hiện hóa đơn điện tử dạng HTML/PDF
+ */
+export const downloadInvoiceRepresentationPdf = async (invoiceId: string, invoiceNumber?: string): Promise<void> => {
+  const token = localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
+  const baseUrl = import.meta.env.VITE_API_URL || "/api/v1";
+  const url = `${baseUrl}/invoices/${invoiceId}/representation/download`;
+
+  const response = await fetch(url, {
+    method: "GET",
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error("Không thể tải bản thể hiện hóa đơn điện tử.");
+  }
+
+  const blob = await response.blob();
+  const downloadUrl = window.URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = downloadUrl;
+  link.download = `Hoa_don_${invoiceNumber || invoiceId}.html`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.URL.revokeObjectURL(downloadUrl);
+};
+
+export const downloadInvoiceRepresentation = downloadInvoiceRepresentationPdf;
+
