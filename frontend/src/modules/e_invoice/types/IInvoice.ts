@@ -196,6 +196,7 @@ export interface IInvoiceRepresentationResponse {
   issuedAt: string;
   referenceNote: string | null;
   originalInvoiceId: string | null;
+  footerNote?: string | null;
   htmlRepresentation: string;
 }
 

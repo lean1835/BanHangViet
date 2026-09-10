@@ -251,9 +251,9 @@ export const TaxInvoiceApprovalPage: React.FC<TaxInvoiceApprovalPageProps> = ({
                             <div className="flex flex-col gap-1">
                               {notice.items.map((item, idx) => (
                                 <div key={idx} className="flex items-center gap-1.5 font-mono text-[11px] text-slate-800">
-                                  <span className="font-bold">#{item.invoiceNumber || item.invoiceLookupCode || "HĐ"}</span>
-                                  {item.invoiceSeries && (
-                                    <span className="text-slate-400">({item.invoiceSeries})</span>
+                                  <span className="font-bold">#{item.invoiceNumber || "HĐ"}</span>
+                                  {item.invoiceSymbol && (
+                                    <span className="text-slate-400">({item.invoiceSymbol})</span>
                                   )}
                                 </div>
                               ))}
@@ -290,8 +290,8 @@ export const TaxInvoiceApprovalPage: React.FC<TaxInvoiceApprovalPageProps> = ({
                         </td>
                         <td className="p-3 text-xs text-slate-500 font-mono">
                           {notice.sentToTaxAt
-                            ? formatDate(notice.sentToTaxAt, "dd/MM/yyyy HH:mm")
-                            : formatDate(notice.createdAt, "dd/MM/yyyy HH:mm")}
+                            ? formatDate(notice.sentToTaxAt)
+                            : formatDate(notice.createdAt)}
                         </td>
                         <td className="p-3 text-center">
                           <div className="flex items-center justify-center gap-2">

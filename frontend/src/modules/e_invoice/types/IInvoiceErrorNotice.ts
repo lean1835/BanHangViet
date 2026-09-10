@@ -20,6 +20,7 @@ export interface IInvoiceErrorNoticeItem {
 
 export interface IInvoiceErrorNotice {
   id: string;
+  householdId?: string;
   noticeCode: string;
   noticeType: string;
   noticePlace?: string;

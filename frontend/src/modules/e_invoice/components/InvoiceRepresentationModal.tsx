@@ -65,7 +65,6 @@ export const InvoiceRepresentationModal: React.FC<InvoiceRepresentationModalProp
     rep?.isCanceled ||
       rep?.status === "CANCELED" ||
       rep?.status === "CANCELLED" ||
-      invoice?.status === "CANCELLED" ||
       invoice?.status === "CANCELED"
   );
   const isAdjusted = Boolean(
