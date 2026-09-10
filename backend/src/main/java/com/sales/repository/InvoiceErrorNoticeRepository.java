@@ -3,6 +3,7 @@ package com.sales.repository;
 import com.sales.entity.InvoiceErrorNotice;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -17,8 +18,10 @@ public interface InvoiceErrorNoticeRepository extends JpaRepository<InvoiceError
 
     boolean existsByNoticeCode(String noticeCode);
 
+    @EntityGraph(attributePaths = {"createdByUser"})
     Page<InvoiceErrorNotice> findByHouseholdId(String householdId, Pageable pageable);
 
+    @EntityGraph(attributePaths = {"createdByUser"})
     Page<InvoiceErrorNotice> findByHouseholdIdAndStatus(String householdId, String status, Pageable pageable);
 
     @Query("SELECT COUNT(i) > 0 FROM InvoiceErrorNoticeItem item " +

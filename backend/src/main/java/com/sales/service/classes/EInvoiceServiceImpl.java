@@ -1820,10 +1820,6 @@ public class EInvoiceServiceImpl implements EInvoiceService {
         }
 
         Specification<EInvoice> spec = (root, query, cb) -> {
-            if (query != null && !Long.class.equals(query.getResultType()) && !long.class.equals(query.getResultType())) {
-                root.fetch("items", JoinType.LEFT);
-                query.distinct(true);
-            }
             List<Predicate> predicates = new ArrayList<>();
             predicates.add(cb.equal(root.get("household").get("id"), household.getId()));
             predicates.add(cb.isNull(root.get("deletedAt")));
@@ -1866,7 +1862,7 @@ public class EInvoiceServiceImpl implements EInvoiceService {
             titleCell.setCellValue("DANH SÁCH HÓA ĐƠN ĐIỆN TỬ - " + household.getName().toUpperCase());
             titleCell.setCellStyle(headerStyle);
 
-            String[] columns = {"STT", "Mã Hóa Đơn", "Mẫu Số", "Ký Hiệu", "Số HĐ", "Ngày Tạo", "Mã CQT", "Người Mua", "MST Người Mua", "Tiền Trước Thuế", "Tiền Thuế", "Giảm Giá", "Tổng Tiền", "Trạng Thái"};
+            String[] columns = {"STT", "Mã Hóa Đơn", "Mẫu Số", "Ký Hiệu", "Số HĐ", "Ngày Tạo", "Ngày Cấp Mã", "Mã CQT", "Người Mua", "MST Người Mua", "Tiền Trước Thuế", "Tiền Thuế", "Giảm Giá", "Tổng Tiền", "Trạng Thái"};
             org.apache.poi.ss.usermodel.Row headerRow = sheet.createRow(2);
             for (int i = 0; i < columns.length; i++) {
                 org.apache.poi.ss.usermodel.Cell cell = headerRow.createCell(i);
@@ -1891,14 +1887,15 @@ public class EInvoiceServiceImpl implements EInvoiceService {
                 row.createCell(3).setCellValue(inv.getInvoiceSymbol() != null ? inv.getInvoiceSymbol() : "");
                 row.createCell(4).setCellValue(inv.getInvoiceNumber() != null ? inv.getInvoiceNumber() : "");
                 row.createCell(5).setCellValue(inv.getCreatedAt() != null ? inv.getCreatedAt().format(formatter) : "");
-                row.createCell(6).setCellValue(inv.getTaxAuthorityCode() != null ? inv.getTaxAuthorityCode() : "");
-                row.createCell(7).setCellValue(inv.getBuyerName() != null ? inv.getBuyerName() : "");
-                row.createCell(8).setCellValue(inv.getBuyerTaxCode() != null ? inv.getBuyerTaxCode() : "");
-                row.createCell(9).setCellValue(inv.getTotalAmountBeforeTax() != null ? inv.getTotalAmountBeforeTax().doubleValue() : 0.0);
-                row.createCell(10).setCellValue(inv.getTaxAmount() != null ? inv.getTaxAmount().doubleValue() : 0.0);
-                row.createCell(11).setCellValue(inv.getDiscountAmount() != null ? inv.getDiscountAmount().doubleValue() : 0.0);
-                row.createCell(12).setCellValue(inv.getFinalAmount() != null ? inv.getFinalAmount().doubleValue() : 0.0);
-                row.createCell(13).setCellValue(inv.getStatus() != null ? inv.getStatus() : "");
+                row.createCell(6).setCellValue(inv.getTaxResponseAt() != null ? inv.getTaxResponseAt().format(formatter) : "");
+                row.createCell(7).setCellValue(inv.getTaxAuthorityCode() != null ? inv.getTaxAuthorityCode() : "");
+                row.createCell(8).setCellValue(inv.getBuyerName() != null ? inv.getBuyerName() : "");
+                row.createCell(9).setCellValue(inv.getBuyerTaxCode() != null ? inv.getBuyerTaxCode() : "");
+                row.createCell(10).setCellValue(inv.getTotalAmountBeforeTax() != null ? inv.getTotalAmountBeforeTax().doubleValue() : 0.0);
+                row.createCell(11).setCellValue(inv.getTaxAmount() != null ? inv.getTaxAmount().doubleValue() : 0.0);
+                row.createCell(12).setCellValue(inv.getDiscountAmount() != null ? inv.getDiscountAmount().doubleValue() : 0.0);
+                row.createCell(13).setCellValue(inv.getFinalAmount() != null ? inv.getFinalAmount().doubleValue() : 0.0);
+                row.createCell(14).setCellValue(inv.getStatus() != null ? inv.getStatus() : "");
 
                 if (inv.getTotalAmountBeforeTax() != null) totalBeforeTax = totalBeforeTax.add(inv.getTotalAmountBeforeTax());
                 if (inv.getTaxAmount() != null) totalTax = totalTax.add(inv.getTaxAmount());
@@ -1912,23 +1909,25 @@ public class EInvoiceServiceImpl implements EInvoiceService {
             totalLabelCell.setCellValue("TỔNG CỘNG");
             totalLabelCell.setCellStyle(headerStyle);
 
-            totalRow.createCell(9).setCellValue(totalBeforeTax.doubleValue());
-            totalRow.createCell(10).setCellValue(totalTax.doubleValue());
-            totalRow.createCell(11).setCellValue(totalDiscount.doubleValue());
-            totalRow.createCell(12).setCellValue(totalFinal.doubleValue());
+            totalRow.createCell(10).setCellValue(totalBeforeTax.doubleValue());
+            totalRow.createCell(11).setCellValue(totalTax.doubleValue());
+            totalRow.createCell(12).setCellValue(totalDiscount.doubleValue());
+            totalRow.createCell(13).setCellValue(totalFinal.doubleValue());
 
-            for (int i = 9; i <= 12; i++) {
+            for (int i = 10; i <= 13; i++) {
                 totalRow.getCell(i).setCellStyle(headerStyle);
             }
 
             workbook.write(out);
             byte[] excelContent = out.toByteArray();
 
-            // Log activity (QTN-09)
-            Map<String, Object> filterMap = Map.of(
-                "status", status != null ? status : "ALL",
-                "totalExported", invoices.size()
-            );
+            // Log activity (QTN-09: ghi nhận đầy đủ phạm vi lọc)
+            Map<String, Object> filterMap = new java.util.HashMap<>();
+            filterMap.put("status", status != null ? status : "ALL");
+            filterMap.put("fromDate", fromDate != null ? fromDate.toString() : "ALL");
+            filterMap.put("toDate", toDate != null ? toDate.toString() : "ALL");
+            filterMap.put("search", search != null ? search : "");
+            filterMap.put("totalExported", invoices.size());
             logActivity(household, currentUser, "EXPORT_INVOICES", null, null, filterMap);
 
             log.info("Exported {} invoices to Excel by user [{}]", invoices.size(), currentUsername);

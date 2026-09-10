@@ -286,7 +286,7 @@ public class EInvoiceController {
         return ResponseEntity.ok(response);
     }
 
-    @GetMapping(value = {"/{id}/representation/download", "/{id}/representation/html", "/{id}/representation/pdf"})
+    @GetMapping(value = {"/{id}/representation/download", "/{id}/representation/html"})
     @PreAuthorize("hasAnyRole('VT-01', 'VT-02', 'VT-03')")
     @Operation(summary = "Tải bản thể hiện hóa đơn dạng file HTML (NCL-05-CN-007)")
     public ResponseEntity<byte[]> downloadInvoiceRepresentation(

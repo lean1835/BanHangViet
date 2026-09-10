@@ -30,7 +30,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -64,6 +66,13 @@ public class InvoiceErrorNoticeServiceImpl implements InvoiceErrorNoticeService 
 
         if (request.getItems() == null || request.getItems().isEmpty()) {
             throw new AppException(ErrorCode.EMPTY_NOTICE_ITEMS);
+        }
+
+        Set<String> invoiceIdSet = new HashSet<>();
+        for (InvoiceErrorNoticeItemRequest itemReq : request.getItems()) {
+            if (!invoiceIdSet.add(itemReq.getInvoiceId())) {
+                throw new AppException(ErrorCode.DUPLICATE_INVOICE_IN_NOTICE);
+            }
         }
 
         String noticeCode = "04SS-" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss")) + "-" + UUID.randomUUID().toString().substring(0, 4).toUpperCase();
@@ -209,6 +218,11 @@ public class InvoiceErrorNoticeServiceImpl implements InvoiceErrorNoticeService 
                     .orElseThrow(() -> new AppException(ErrorCode.ERROR_NOTICE_NOT_FOUND));
         }
 
+        // Chỉ cho phép từ chối thông báo ở trạng thái chờ phản hồi hoặc bản nháp; không cho phép lùi ngược thông báo đã ACCEPTED (P1-01)
+        if (!"WAITING_TAX_RESPONSE".equals(notice.getStatus()) && !"DRAFT".equals(notice.getStatus())) {
+            throw new AppException(ErrorCode.ERROR_NOTICE_CANNOT_REJECT);
+        }
+
         notice.setStatus("REJECTED");
         notice.setTaxAuthorityCode(null);
         String rejectReason = (reason != null && !reason.trim().isEmpty())
@@ -267,6 +281,14 @@ public class InvoiceErrorNoticeServiceImpl implements InvoiceErrorNoticeService 
             throw new AppException(ErrorCode.EMPTY_NOTICE_ITEMS);
         }
 
+        // Kiểm tra chống trùng lặp hóa đơn trong cùng thông báo (P1-02)
+        Set<String> invoiceIdSet = new HashSet<>();
+        for (InvoiceErrorNoticeItemRequest itemReq : request.getItems()) {
+            if (!invoiceIdSet.add(itemReq.getInvoiceId())) {
+                throw new AppException(ErrorCode.DUPLICATE_INVOICE_IN_NOTICE);
+            }
+        }
+
         if (request.getNoticePlace() != null) {
             notice.setNoticePlace(request.getNoticePlace());
         }
@@ -274,8 +296,9 @@ public class InvoiceErrorNoticeServiceImpl implements InvoiceErrorNoticeService 
             notice.setTaxAuthorityName(request.getTaxAuthorityName());
         }
 
-        // Clear existing items and build new ones
+        // Xóa items cũ và flush ngay để Hibernate DELETE hoàn tất trước khi INSERT items mới (tránh Unique Constraint collision)
         notice.getItems().clear();
+        noticeRepository.flush();
 
         List<InvoiceErrorNoticeItem> newItems = new ArrayList<>();
         for (InvoiceErrorNoticeItemRequest itemReq : request.getItems()) {

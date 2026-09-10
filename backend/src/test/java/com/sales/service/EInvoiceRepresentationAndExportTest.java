@@ -131,6 +131,16 @@ class EInvoiceRepresentationAndExportTest {
 
         assertNotNull(excelBytes);
         assertTrue(excelBytes.length > 0);
+
+        try (org.apache.poi.ss.usermodel.Workbook wb = new org.apache.poi.xssf.usermodel.XSSFWorkbook(new java.io.ByteArrayInputStream(excelBytes))) {
+            org.apache.poi.ss.usermodel.Sheet sheet = wb.getSheetAt(0);
+            org.apache.poi.ss.usermodel.Row headerRow = sheet.getRow(2);
+            assertEquals("Ngày Cấp Mã", headerRow.getCell(6).getStringCellValue());
+            assertEquals("Mã CQT", headerRow.getCell(7).getStringCellValue());
+            assertEquals("TỔNG CỘNG", sheet.getRow(5).getCell(0).getStringCellValue());
+        } catch (Exception e) {
+            fail("Failed to parse generated Excel workbook: " + e.getMessage());
+        }
     }
 
     @Test

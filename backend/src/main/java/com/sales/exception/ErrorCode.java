@@ -86,6 +86,8 @@ public enum ErrorCode {
     EMPTY_NOTICE_ITEMS(4019, "Thông báo sai sót phải chứa ít nhất một hóa đơn", HttpStatus.BAD_REQUEST),
     ERROR_NOTICE_CANNOT_REOPEN(4029, "Chỉ thông báo ở trạng thái bị từ chối mới có thể đưa về bản nháp", HttpStatus.BAD_REQUEST),
     ERROR_NOTICE_CANNOT_UPDATE(4034, "Chỉ thông báo ở trạng thái nháp hoặc bị từ chối mới được phép chỉnh sửa", HttpStatus.BAD_REQUEST),
+    ERROR_NOTICE_CANNOT_REJECT(4035, "Chỉ thông báo ở trạng thái chờ phản hồi hoặc bản nháp mới có thể từ chối, không thể từ chối thông báo đã được tiếp nhận", HttpStatus.BAD_REQUEST),
+    DUPLICATE_INVOICE_IN_NOTICE(4036, "Không được chứa hóa đơn trùng lặp trong cùng một thông báo sai sót", HttpStatus.BAD_REQUEST),
 
     // Quản lý khách hàng thân thiết và công nợ (NCL-10)
     CUSTOMER_PHONE_EXISTS(3026, "Số điện thoại khách hàng đã tồn tại trong hộ kinh doanh", HttpStatus.BAD_REQUEST),

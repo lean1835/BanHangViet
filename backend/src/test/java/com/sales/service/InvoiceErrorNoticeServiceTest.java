@@ -268,4 +268,73 @@ class InvoiceErrorNoticeServiceTest {
         assertEquals("ACCEPTED", resentResponse.getStatus());
         assertTrue(canceledInvoice.getIsErrorNotified());
     }
+
+    @Test
+    @DisplayName("P1-01: CQT từ chối thông báo đã ACCEPTED -> Bị chặn với lỗi ERROR_NOTICE_CANNOT_REJECT")
+    void testTaxAuthorityRejectNotice_AlreadyAccepted_ThrowsException() {
+        InvoiceErrorNotice acceptedNotice = InvoiceErrorNotice.builder()
+                .id("notice-accepted")
+                .household(household)
+                .noticeCode("04SS-20260909")
+                .status("ACCEPTED")
+                .createdByUser(ketoanUser)
+                .build();
+
+        when(userRepository.findByUsername("ketoan01")).thenReturn(Optional.of(ketoanUser));
+        when(noticeRepository.findByIdAndHouseholdId("notice-accepted", "hh-1")).thenReturn(Optional.of(acceptedNotice));
+
+        AppException ex = assertThrows(AppException.class, () ->
+                noticeService.rejectNoticeByTaxAuthority("ketoan01", "notice-accepted", "Lý do sai lệch"));
+
+        assertEquals(ErrorCode.ERROR_NOTICE_CANNOT_REJECT, ex.getErrorCode());
+        verify(noticeRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("P1-02: Tạo thông báo sai sót có invoiceId trùng lặp trong request -> Bị chặn với DUPLICATE_INVOICE_IN_NOTICE")
+    void testCreateErrorNotice_DuplicateInvoices_ThrowsException() {
+        when(userRepository.findByUsername("ketoan01")).thenReturn(Optional.of(ketoanUser));
+
+        CreateInvoiceErrorNoticeRequest request = CreateInvoiceErrorNoticeRequest.builder()
+                .items(List.of(
+                        InvoiceErrorNoticeItemRequest.builder().invoiceId("inv-canceled").handlingType("CANCEL").reason("Lý do 1").build(),
+                        InvoiceErrorNoticeItemRequest.builder().invoiceId("inv-canceled").handlingType("CANCEL").reason("Lý do 2").build()
+                ))
+                .build();
+
+        AppException ex = assertThrows(AppException.class, () ->
+                noticeService.createErrorNotice("ketoan01", request));
+
+        assertEquals(ErrorCode.DUPLICATE_INVOICE_IN_NOTICE, ex.getErrorCode());
+        verify(noticeRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("P1-02: Cập nhật thông báo sai sót có invoiceId trùng lặp -> Bị chặn với DUPLICATE_INVOICE_IN_NOTICE")
+    void testUpdateErrorNotice_DuplicateInvoices_ThrowsException() {
+        InvoiceErrorNotice draftNotice = InvoiceErrorNotice.builder()
+                .id("notice-draft")
+                .household(household)
+                .noticeCode("04SS-20260909")
+                .status("DRAFT")
+                .createdByUser(ketoanUser)
+                .items(new ArrayList<>())
+                .build();
+
+        when(userRepository.findByUsername("ketoan01")).thenReturn(Optional.of(ketoanUser));
+        when(noticeRepository.findByIdAndHouseholdId("notice-draft", "hh-1")).thenReturn(Optional.of(draftNotice));
+
+        CreateInvoiceErrorNoticeRequest request = CreateInvoiceErrorNoticeRequest.builder()
+                .items(List.of(
+                        InvoiceErrorNoticeItemRequest.builder().invoiceId("inv-canceled").handlingType("CANCEL").reason("Lý do 1").build(),
+                        InvoiceErrorNoticeItemRequest.builder().invoiceId("inv-canceled").handlingType("CANCEL").reason("Lý do 2").build()
+                ))
+                .build();
+
+        AppException ex = assertThrows(AppException.class, () ->
+                noticeService.updateErrorNotice("ketoan01", "notice-draft", request));
+
+        assertEquals(ErrorCode.DUPLICATE_INVOICE_IN_NOTICE, ex.getErrorCode());
+        verify(noticeRepository, never()).save(any());
+    }
 }
