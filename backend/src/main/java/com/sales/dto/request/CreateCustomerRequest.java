@@ -50,4 +50,10 @@ public class CreateCustomerRequest {
     @Min(value = 0, message = "Số ngày nhắc nợ sau quá hạn không được nhỏ hơn 0")
     @Max(value = 365, message = "Số ngày nhắc nợ sau quá hạn không được vượt quá 365 ngày")
     private Integer reminderDaysAfter;
+
+    @Pattern(regexp = "^(QR|EMAIL|ZALO|PRINT)$", message = "Kênh nhận mặc định không hợp lệ (QR, EMAIL, ZALO, PRINT)")
+    private String defaultDeliveryChannel;
+
+    @Size(max = 255, message = "Địa chỉ nhận mặc định không vượt quá 255 ký tự")
+    private String defaultDeliveryAddress;
 }

@@ -112,6 +112,10 @@ public class EInvoice {
     @Builder.Default
     private String status = "DRAFT"; // DRAFT, WAITING_TAX_CODE, ISSUED, SEND_ERROR, ADJUSTED, CANCELED
 
+    @Column(name = "customer_delivery_status", nullable = false, length = 20)
+    @Builder.Default
+    private String customerDeliveryStatus = "NOT_SENT"; // NOT_SENT, SUCCESS, FAILED, PENDING
+
     @Column(name = "tax_authority_code", length = 100, unique = true)
     private String taxAuthorityCode;
 

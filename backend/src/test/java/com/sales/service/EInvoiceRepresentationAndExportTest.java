@@ -131,6 +131,16 @@ class EInvoiceRepresentationAndExportTest {
 
         assertNotNull(excelBytes);
         assertTrue(excelBytes.length > 0);
+
+        try (org.apache.poi.ss.usermodel.Workbook wb = new org.apache.poi.xssf.usermodel.XSSFWorkbook(new java.io.ByteArrayInputStream(excelBytes))) {
+            org.apache.poi.ss.usermodel.Sheet sheet = wb.getSheetAt(0);
+            org.apache.poi.ss.usermodel.Row headerRow = sheet.getRow(2);
+            assertEquals("Ngày Cấp Mã", headerRow.getCell(6).getStringCellValue());
+            assertEquals("Mã CQT", headerRow.getCell(7).getStringCellValue());
+            assertEquals("TỔNG CỘNG", sheet.getRow(5).getCell(0).getStringCellValue());
+        } catch (Exception e) {
+            fail("Failed to parse generated Excel workbook: " + e.getMessage());
+        }
     }
 
     @Test
@@ -160,8 +170,10 @@ class EInvoiceRepresentationAndExportTest {
         assertNull(response.getWatermarkText());
         assertFalse(response.isDraft());
         assertFalse(response.isCanceled());
+        assertEquals("Một trăm mười nghìn đồng", response.getAmountInWords());
         assertNotNull(response.getHtmlRepresentation());
         assertTrue(response.getHtmlRepresentation().contains("CQT-123456789"));
+        assertTrue(response.getHtmlRepresentation().contains("Một trăm mười nghìn đồng"));
     }
 
     @Test
@@ -176,5 +188,18 @@ class EInvoiceRepresentationAndExportTest {
         assertEquals("HÓA ĐƠN ĐÃ HỦY", response.getWatermarkText());
         assertTrue(response.isCanceled());
         assertTrue(response.getHtmlRepresentation().contains("HÓA ĐƠN ĐÃ HỦY"));
+    }
+
+    @Test
+    @DisplayName("NCL-05-CN-007: Tải bản thể hiện hóa đơn dạng file")
+    void testDownloadInvoiceRepresentation() {
+        when(userRepository.findByUsername("chuho01")).thenReturn(Optional.of(storeOwner));
+        when(eInvoiceRepository.findById("inv-issued")).thenReturn(Optional.of(issuedInvoice));
+
+        byte[] bytes = eInvoiceService.downloadInvoiceRepresentation("chuho01", "inv-issued");
+        assertNotNull(bytes);
+        assertTrue(bytes.length > 0);
+        String htmlContent = new String(bytes, java.nio.charset.StandardCharsets.UTF_8);
+        assertTrue(htmlContent.contains("Một trăm mười nghìn đồng"));
     }
 }

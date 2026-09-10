@@ -27,7 +27,10 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import com.sales.dto.request.ResendCustomerDeliveryRequest;
+import com.sales.dto.request.UpdateCustomerDeliveryChannelRequest;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -63,6 +66,9 @@ public class EInvoiceDeliveryIntegrationTest {
 
     @Autowired
     private InvoiceDeliveryLogRepository invoiceDeliveryLogRepository;
+
+    @Autowired
+    private CustomerRepository customerRepository;
 
     @Autowired
     private org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
@@ -204,31 +210,25 @@ public class EInvoiceDeliveryIntegrationTest {
                 .email("test_client@gmail.com")
                 .build();
 
-        Mockito.doAnswer(invocation -> {
-            String logId = invocation.getArgument(0);
-            invoiceDeliveryLogRepository.findById(logId).ifPresent(logRecord -> {
-                logRecord.setStatus("SUCCESS");
-                invoiceDeliveryLogRepository.save(logRecord);
-            });
-            return null;
-        }).when(emailService).sendInvoiceEmailAsync(
-                Mockito.anyString(), Mockito.anyString(), Mockito.anyString(), Mockito.anyString(), Mockito.anyString(), Mockito.any());
-
         mockMvc.perform(post("/api/v1/invoices/" + inv.getId() + "/deliver/email")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(1000));
 
+        if (org.springframework.test.context.transaction.TestTransaction.isActive()) {
+            org.springframework.test.context.transaction.TestTransaction.flagForCommit();
+            org.springframework.test.context.transaction.TestTransaction.end();
+        }
+
         Mockito.verify(emailService, Mockito.times(1)).sendInvoiceEmailAsync(
                 Mockito.anyString(), Mockito.eq("test_client@gmail.com"), Mockito.anyString(), Mockito.anyString(), Mockito.anyString(), Mockito.any());
-
 
         List<InvoiceDeliveryLog> logs = invoiceDeliveryLogRepository.findByInvoiceIdOrderBySentAtDesc(inv.getId());
         assertFalse(logs.isEmpty());
         assertEquals("EMAIL", logs.get(0).getChannel());
         assertEquals("test_client@gmail.com", logs.get(0).getRecipientAddress());
-        assertEquals("SUCCESS", logs.get(0).getStatus());
+        assertEquals("PENDING", logs.get(0).getStatus());
     }
 
     @Test
@@ -297,5 +297,157 @@ public class EInvoiceDeliveryIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(header().string("Content-Disposition", org.hamcrest.Matchers.containsString("HoaDon_")))
                 .andExpect(content().contentType(MediaType.APPLICATION_PDF));
+    }
+
+    @Test
+    @WithMockUser(username = "test_employee_inv", roles = {"VT-02"})
+    public void resendCustomerDelivery_Email_Success() throws Exception {
+        EInvoice inv = createTestInvoice("ISSUED", "HD00109");
+        ResendCustomerDeliveryRequest request = ResendCustomerDeliveryRequest.builder()
+                .channel("EMAIL")
+                .recipientAddress("client_resend@gmail.com")
+                .updateCustomerDefaultChannel(false)
+                .build();
+
+        mockMvc.perform(post("/api/v1/invoices/" + inv.getId() + "/resend-customer")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(1000))
+                .andExpect(jsonPath("$.result.customerDeliveryStatus").value("PENDING"));
+
+        if (org.springframework.test.context.transaction.TestTransaction.isActive()) {
+            org.springframework.test.context.transaction.TestTransaction.flagForCommit();
+            org.springframework.test.context.transaction.TestTransaction.end();
+        }
+
+        Mockito.verify(emailService, Mockito.atLeastOnce()).sendInvoiceEmailAsync(
+                Mockito.anyString(), Mockito.eq("client_resend@gmail.com"), Mockito.anyString(), Mockito.anyString(), Mockito.anyString(), Mockito.any());
+    }
+
+    @Test
+    @WithMockUser(username = "test_employee_inv", roles = {"VT-02"})
+    public void resendCustomerDelivery_Zalo_Success() throws Exception {
+        EInvoice inv = createTestInvoice("ISSUED", "HD00110");
+        ResendCustomerDeliveryRequest request = ResendCustomerDeliveryRequest.builder()
+                .channel("ZALO")
+                .recipientAddress("0912345678")
+                .updateCustomerDefaultChannel(false)
+                .build();
+
+        mockMvc.perform(post("/api/v1/invoices/" + inv.getId() + "/resend-customer")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(1000))
+                .andExpect(jsonPath("$.result.customerDeliveryStatus").value("SUCCESS"));
+    }
+
+    @Test
+    @WithMockUser(username = "test_employee_inv", roles = {"VT-02"})
+    public void resendCustomerDelivery_InvalidChannel_ThrowsBadRequest() throws Exception {
+        EInvoice inv = createTestInvoice("ISSUED", "HD00111");
+        ResendCustomerDeliveryRequest request = ResendCustomerDeliveryRequest.builder()
+                .channel("INVALID_CH")
+                .recipientAddress("0912345678")
+                .build();
+
+        mockMvc.perform(post("/api/v1/invoices/" + inv.getId() + "/resend-customer")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @WithMockUser(username = "test_employee_inv", roles = {"VT-02"})
+    public void getFailedCustomerDeliveries_Success() throws Exception {
+        mockMvc.perform(get("/api/v1/invoices/failed-customer-deliveries")
+                        .param("page", "0")
+                        .param("size", "10")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(1000));
+    }
+
+    @Test
+    @WithMockUser(username = "test_employee_inv", roles = {"VT-02"})
+    public void getInvoiceDeliveryHistory_Success() throws Exception {
+        EInvoice inv = createTestInvoice("ISSUED", "HD00112");
+
+        mockMvc.perform(get("/api/v1/invoices/" + inv.getId() + "/delivery-history")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(1000));
+    }
+
+    @Test
+    @WithMockUser(username = "test_employee_inv", roles = {"VT-02"})
+    public void updateCustomerDeliveryChannel_Zalo_Success() throws Exception {
+        Customer customer = Customer.builder()
+                .household(testHousehold)
+                .name("Khách Test Controller")
+                .phoneNumber("0977889900")
+                .build();
+        customer = customerRepository.save(customer);
+
+        UpdateCustomerDeliveryChannelRequest request = UpdateCustomerDeliveryChannelRequest.builder()
+                .defaultDeliveryChannel("ZALO")
+                .defaultDeliveryAddress("0977889900")
+                .build();
+
+        mockMvc.perform(put("/api/v1/customers/" + customer.getId() + "/delivery-channel")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(1000))
+                .andExpect(jsonPath("$.result.defaultDeliveryChannel").value("ZALO"))
+                .andExpect(jsonPath("$.result.defaultDeliveryAddress").value("0977889900"));
+    }
+
+    @Test
+    @WithMockUser(username = "test_employee_inv", roles = {"VT-02"})
+    public void updateCustomerDeliveryChannel_InvalidEmail_ThrowsBadRequest() throws Exception {
+        Customer customer = Customer.builder()
+                .household(testHousehold)
+                .name("Khách Test Email Fail")
+                .phoneNumber("0977889901")
+                .build();
+        customer = customerRepository.save(customer);
+
+        UpdateCustomerDeliveryChannelRequest request = UpdateCustomerDeliveryChannelRequest.builder()
+                .defaultDeliveryChannel("EMAIL")
+                .defaultDeliveryAddress("not-an-email")
+                .build();
+
+        mockMvc.perform(put("/api/v1/customers/" + customer.getId() + "/delivery-channel")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @WithMockUser(username = "test_employee_inv", roles = {"VT-02"})
+    public void updateCustomerDeliveryChannel_QR_NullifiesAddress() throws Exception {
+        Customer customer = Customer.builder()
+                .household(testHousehold)
+                .name("Khách Test QR")
+                .phoneNumber("0977889902")
+                .defaultDeliveryChannel("EMAIL")
+                .defaultDeliveryAddress("old@mail.com")
+                .build();
+        customer = customerRepository.save(customer);
+
+        UpdateCustomerDeliveryChannelRequest request = UpdateCustomerDeliveryChannelRequest.builder()
+                .defaultDeliveryChannel("QR")
+                .defaultDeliveryAddress("http://some-link.com")
+                .build();
+
+        mockMvc.perform(put("/api/v1/customers/" + customer.getId() + "/delivery-channel")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(1000))
+                .andExpect(jsonPath("$.result.defaultDeliveryChannel").value("QR"))
+                .andExpect(jsonPath("$.result.defaultDeliveryAddress").doesNotExist());
     }
 }

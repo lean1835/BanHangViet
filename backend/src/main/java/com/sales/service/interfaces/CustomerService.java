@@ -12,5 +12,6 @@ public interface CustomerService {
     CustomerResponse getCustomer(String currentUsername, String customerId);
     List<CustomerResponse> getCustomers(String currentUsername);
     List<CustomerResponse> searchCustomers(String currentUsername, String query);
+    CustomerResponse updateDefaultDeliveryChannel(String currentUsername, String customerId, com.sales.dto.request.UpdateCustomerDeliveryChannelRequest request);
     void deleteCustomer(String currentUsername, String customerId);
 }

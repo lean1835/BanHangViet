@@ -45,6 +45,18 @@ public class BusinessHouseholdSettings {
     @Builder.Default
     private Integer maxRetryHoursDeadline = 24;
 
+    @Column(name = "max_order_holding_hours", nullable = false)
+    @Builder.Default
+    private Integer maxOrderHoldingHours = 4;
+
+    @Column(name = "bank_transfer_timeout_minutes", nullable = false)
+    @Builder.Default
+    private Integer bankTransferTimeoutMinutes = 15;
+
+    @Column(name = "expense_approval_threshold", nullable = false, precision = 15, scale = 2)
+    @Builder.Default
+    private java.math.BigDecimal expenseApprovalThreshold = new java.math.BigDecimal("500000.00");
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

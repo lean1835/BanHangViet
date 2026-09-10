@@ -157,6 +157,7 @@ public class ShiftControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(1000))
                 .andExpect(jsonPath("$.result.openingCash").value(150000.00))
+                .andExpect(jsonPath("$.result.currentStageNumber").value(1))
                 .andExpect(jsonPath("$.result.status").value("OPEN"));
     }
 

@@ -133,7 +133,7 @@ public class ProductPriceTierControllerTest {
 
         shift = shiftRepository.save(Shift.builder()
                 .household(household)
-                .user(ownerUser)
+                .user(staffUser)
                 .status(com.sales.constant.ShiftStatus.OPEN)
                 .openedAt(java.time.LocalDateTime.now())
                 .openingCash(new BigDecimal("1000000.00"))

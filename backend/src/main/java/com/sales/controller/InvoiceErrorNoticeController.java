@@ -2,6 +2,7 @@ package com.sales.controller;
 
 import com.sales.dto.ApiResponse;
 import com.sales.dto.request.CreateInvoiceErrorNoticeRequest;
+import com.sales.dto.request.TaxAuthorityActionRequest;
 import com.sales.dto.response.InvoiceErrorNoticeResponse;
 import com.sales.dto.response.InvoiceResponse;
 import com.sales.dto.response.PageResponse;
@@ -93,6 +94,54 @@ public class InvoiceErrorNoticeController {
         ApiResponse<PageResponse<InvoiceErrorNoticeResponse>> response = ApiResponse.<PageResponse<InvoiceErrorNoticeResponse>>builder()
                 .code(1000)
                 .message("Lấy danh sách thông báo sai sót thành công")
+                .result(result)
+                .build();
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/{id}/tax-reject")
+    @PreAuthorize("hasAnyRole('VT-01', 'VT-03', 'VT-05')")
+    @Operation(summary = "Mô phỏng Cơ quan thuế từ chối tiếp nhận thông báo sai sót (NCL-05-CN-005-TC-03)")
+    public ResponseEntity<ApiResponse<InvoiceErrorNoticeResponse>> rejectNotice(
+            Principal principal,
+            @PathVariable String id,
+            @RequestBody(required = false) TaxAuthorityActionRequest request) {
+        String reason = (request != null && request.getErrorMessage() != null) ? request.getErrorMessage() : null;
+        InvoiceErrorNoticeResponse result = noticeService.rejectNoticeByTaxAuthority(principal != null ? principal.getName() : null, id, reason);
+        ApiResponse<InvoiceErrorNoticeResponse> response = ApiResponse.<InvoiceErrorNoticeResponse>builder()
+                .code(1000)
+                .message("Cơ quan thuế đã từ chối tiếp nhận thông báo sai sót")
+                .result(result)
+                .build();
+        return ResponseEntity.ok(response);
+    }
+
+    @PutMapping("/{id}/reopen-draft")
+    @PreAuthorize("hasAnyRole('VT-01', 'VT-03')")
+    @Operation(summary = "Đưa thông báo bị từ chối về trạng thái nháp để kế toán sửa và gửi lại (NCL-05-CN-005-TC-03)")
+    public ResponseEntity<ApiResponse<InvoiceErrorNoticeResponse>> reopenDraft(
+            Principal principal,
+            @PathVariable String id) {
+        InvoiceErrorNoticeResponse result = noticeService.reopenNoticeToDraft(principal.getName(), id);
+        ApiResponse<InvoiceErrorNoticeResponse> response = ApiResponse.<InvoiceErrorNoticeResponse>builder()
+                .code(1000)
+                .message("Đã đưa thông báo sai sót về trạng thái nháp thành công")
+                .result(result)
+                .build();
+        return ResponseEntity.ok(response);
+    }
+
+    @PutMapping("/{id}")
+    @PreAuthorize("hasAnyRole('VT-01', 'VT-03')")
+    @Operation(summary = "Chỉnh sửa thông tin và danh sách hóa đơn trong thông báo sai sót nháp (NCL-05-CN-005)")
+    public ResponseEntity<ApiResponse<InvoiceErrorNoticeResponse>> updateNotice(
+            Principal principal,
+            @PathVariable String id,
+            @Valid @RequestBody CreateInvoiceErrorNoticeRequest request) {
+        InvoiceErrorNoticeResponse result = noticeService.updateErrorNotice(principal.getName(), id, request);
+        ApiResponse<InvoiceErrorNoticeResponse> response = ApiResponse.<InvoiceErrorNoticeResponse>builder()
+                .code(1000)
+                .message("Cập nhật thông báo hóa đơn sai sót thành công")
                 .result(result)
                 .build();
         return ResponseEntity.ok(response);

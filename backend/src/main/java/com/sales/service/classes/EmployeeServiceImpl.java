@@ -14,6 +14,11 @@ import com.sales.entity.Order;
 import com.sales.entity.PointOfSale;
 import com.sales.exception.AppException;
 import com.sales.exception.ErrorCode;
+import com.sales.constant.CashTransactionStatus;
+import com.sales.constant.CashTransactionType;
+import com.sales.entity.ShiftHandover;
+import com.sales.repository.CashTransactionRepository;
+import com.sales.repository.ShiftHandoverRepository;
 import com.sales.repository.ActivityLogRepository;
 import com.sales.repository.RoleRepository;
 import com.sales.repository.UserRepository;
@@ -36,6 +41,7 @@ import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -53,6 +59,8 @@ public class EmployeeServiceImpl implements EmployeeService {
     private final ShiftRepository shiftRepository;
     private final OrderRepository orderRepository;
     private final PointOfSaleRepository pointOfSaleRepository;
+    private final CashTransactionRepository cashTransactionRepository;
+    private final ShiftHandoverRepository shiftHandoverRepository;
 
     private void closeActiveShiftOfUser(User employee) {
         Optional<Shift> activeShiftOpt = shiftRepository.findByUserIdAndStatus(employee.getId(), ShiftStatus.OPEN);
@@ -68,10 +76,31 @@ public class EmployeeServiceImpl implements EmployeeService {
                 }
             }
             
-            // 2. Calculate expected cash
-            BigDecimal cashSales = orderRepository.sumFinalAmountByShiftIdAndStatusAndPaymentMethodAndDeletedAtIsNull(
-                    shift.getId(), "COMPLETED", "CASH");
-            BigDecimal expectedCash = shift.getOpeningCash().add(cashSales);
+            // 2. Calculate expected cash (unifying cash sales, combined orders, cash transactions, and handovers)
+            BigDecimal cashSales = orderRepository.sumCashSalesAmountByShiftId(shift.getId());
+            BigDecimal totalIncome = BigDecimal.ZERO;
+            BigDecimal totalExpense = BigDecimal.ZERO;
+            if (cashTransactionRepository != null) {
+                totalIncome = cashTransactionRepository.sumAmountByShiftIdAndTypeAndStatus(
+                        shift.getId(), CashTransactionType.INCOME, CashTransactionStatus.APPROVED);
+                totalExpense = cashTransactionRepository.sumAmountByShiftIdAndTypeAndStatus(
+                        shift.getId(), CashTransactionType.EXPENSE, CashTransactionStatus.APPROVED);
+            }
+            BigDecimal expectedCash = shift.getOpeningCash()
+                    .add(cashSales != null ? cashSales : BigDecimal.ZERO)
+                    .add(totalIncome != null ? totalIncome : BigDecimal.ZERO)
+                    .subtract(totalExpense != null ? totalExpense : BigDecimal.ZERO);
+
+            if (shiftHandoverRepository != null) {
+                List<ShiftHandover> prevHandovers = shiftHandoverRepository.findByShiftIdOrderByStageNumberAsc(shift.getId());
+                if (prevHandovers != null && !prevHandovers.isEmpty()) {
+                    BigDecimal totalHandoverDiff = prevHandovers.stream()
+                            .map(ShiftHandover::getDifferenceAmount)
+                            .filter(Objects::nonNull)
+                            .reduce(BigDecimal.ZERO, BigDecimal::add);
+                    expectedCash = expectedCash.add(totalHandoverDiff);
+                }
+            }
             
             // 3. Close the shift automatically
             shift.setClosedAt(LocalDateTime.now());

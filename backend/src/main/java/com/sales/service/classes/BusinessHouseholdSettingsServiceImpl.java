@@ -42,6 +42,8 @@ public class BusinessHouseholdSettingsServiceImpl implements BusinessHouseholdSe
                         .maxRetryAttempts(3)
                         .retryIntervalMinutes(15)
                         .maxRetryHoursDeadline(24)
+                        .maxOrderHoldingHours(4)
+                        .bankTransferTimeoutMinutes(15)
                         .build()));
     }
 
@@ -53,6 +55,8 @@ public class BusinessHouseholdSettingsServiceImpl implements BusinessHouseholdSe
                 .maxRetryAttempts(settings.getMaxRetryAttempts())
                 .retryIntervalMinutes(settings.getRetryIntervalMinutes())
                 .maxRetryHoursDeadline(settings.getMaxRetryHoursDeadline())
+                .maxOrderHoldingHours(settings.getMaxOrderHoldingHours() != null ? settings.getMaxOrderHoldingHours() : 4)
+                .bankTransferTimeoutMinutes(settings.getBankTransferTimeoutMinutes() != null ? settings.getBankTransferTimeoutMinutes() : 15)
                 .updatedAt(settings.getUpdatedAt())
                 .build();
     }
@@ -75,6 +79,8 @@ public class BusinessHouseholdSettingsServiceImpl implements BusinessHouseholdSe
                     .maxRetryAttempts(3)
                     .retryIntervalMinutes(15)
                     .maxRetryHoursDeadline(24)
+                    .maxOrderHoldingHours(4)
+                    .bankTransferTimeoutMinutes(15)
                     .updatedAt(null)
                     .build();
         }
@@ -102,11 +108,19 @@ public class BusinessHouseholdSettingsServiceImpl implements BusinessHouseholdSe
         oldVal.put("maxRetryAttempts", settings.getMaxRetryAttempts());
         oldVal.put("retryIntervalMinutes", settings.getRetryIntervalMinutes());
         oldVal.put("maxRetryHoursDeadline", settings.getMaxRetryHoursDeadline());
+        oldVal.put("maxOrderHoldingHours", settings.getMaxOrderHoldingHours());
+        oldVal.put("bankTransferTimeoutMinutes", settings.getBankTransferTimeoutMinutes());
 
         settings.setAutoRetryEnabled(request.getAutoRetryEnabled());
         settings.setMaxRetryAttempts(request.getMaxRetryAttempts());
         settings.setRetryIntervalMinutes(request.getRetryIntervalMinutes());
         settings.setMaxRetryHoursDeadline(request.getMaxRetryHoursDeadline());
+        if (request.getMaxOrderHoldingHours() != null) {
+            settings.setMaxOrderHoldingHours(request.getMaxOrderHoldingHours());
+        }
+        if (request.getBankTransferTimeoutMinutes() != null) {
+            settings.setBankTransferTimeoutMinutes(request.getBankTransferTimeoutMinutes());
+        }
 
         BusinessHouseholdSettings saved = settingsRepository.save(settings);
 
@@ -115,6 +129,10 @@ public class BusinessHouseholdSettingsServiceImpl implements BusinessHouseholdSe
         newVal.put("maxRetryAttempts", saved.getMaxRetryAttempts());
         newVal.put("retryIntervalMinutes", saved.getRetryIntervalMinutes());
         newVal.put("maxRetryHoursDeadline", saved.getMaxRetryHoursDeadline());
+        newVal.put("maxOrderHoldingHours", saved.getMaxOrderHoldingHours());
+        newVal.put("bankTransferTimeoutMinutes", saved.getBankTransferTimeoutMinutes());
+
+
 
         try {
             String oldStr = objectMapper.writeValueAsString(oldVal);

@@ -15,4 +15,7 @@ public class CompleteOrderRequest {
     private BigDecimal amountGiven;
 
     private LocalDateTime dueDate;
+
+    @jakarta.validation.Valid
+    private java.util.List<OrderPaymentRequest> payments;
 }
