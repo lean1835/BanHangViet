@@ -33,6 +33,8 @@ public class PublicInvoiceResponse {
     private BigDecimal taxAmount;
     private BigDecimal discountAmount;
     private BigDecimal finalAmount;
+    private String paymentMethod;
+    private List<OrderPaymentResponse> payments;
     private LocalDateTime createdAt;
     private String taxAuthorityCode;
     private List<EInvoiceItemResponse> items;

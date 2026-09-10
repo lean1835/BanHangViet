@@ -15,6 +15,8 @@ public class ShiftCashSummaryResponse {
     private String shiftId;
     private BigDecimal openingCash;
     private BigDecimal cashSales;
+    private BigDecimal bankSales;
+    private BigDecimal totalSales;
     private BigDecimal totalApprovedIncome;
     private BigDecimal totalApprovedExpense;
     private BigDecimal netCashChange; // totalApprovedIncome - totalApprovedExpense

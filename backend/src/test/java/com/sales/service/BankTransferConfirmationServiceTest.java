@@ -356,8 +356,6 @@ class BankTransferConfirmationServiceTest {
         when(userRepository.findByUsername("thungan01")).thenReturn(Optional.of(cashierUser));
         when(orderRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("order-bank-01", "household-01"))
                 .thenReturn(Optional.of(order));
-        when(orderPaymentRepository.findByOrderIdAndHouseholdId("order-bank-01", "household-01"))
-                .thenReturn(List.of(oldBankPayment));
         when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         SwitchPaymentMethodRequest request = SwitchPaymentMethodRequest.builder()
@@ -373,7 +371,7 @@ class BankTransferConfirmationServiceTest {
         assertEquals("CREATING", response.getStatus());
         // Giỏ hàng giữ nguyên 1 sản phẩm
         assertEquals(1, response.getItems().size());
-        verify(orderPaymentRepository, times(1)).deleteAll(anyList());
+        assertTrue(order.getPayments().isEmpty());
         verify(orderRepository, times(1)).save(order);
     }
 
@@ -387,8 +385,6 @@ class BankTransferConfirmationServiceTest {
                 .thenReturn(Optional.of(order));
         when(customerRepository.findByIdAndHouseholdIdAndDeletedAtIsNullForUpdate("cust-01", "household-01"))
                 .thenReturn(Optional.of(testCustomer));
-        when(orderPaymentRepository.findByOrderIdAndHouseholdId("order-bank-01", "household-01"))
-                .thenReturn(Collections.emptyList());
         when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         SwitchPaymentMethodRequest request = SwitchPaymentMethodRequest.builder()

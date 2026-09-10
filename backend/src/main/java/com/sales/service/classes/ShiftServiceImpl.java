@@ -177,7 +177,10 @@ public class ShiftServiceImpl implements ShiftService {
                         shift.getId(), com.sales.constant.CashTransactionStatus.PENDING_APPROVAL);
             }
 
-            BigDecimal collectedSales = orderRepository.sumCashSalesAmountByShiftId(shift.getId());
+            BigDecimal collectedSales = orderRepository.sumCollectedAmountByShiftId(shift.getId());
+            if (collectedSales == null) {
+                collectedSales = BigDecimal.ZERO;
+            }
             expectedCash = shift.getOpeningCash().add(collectedSales).add(totalCashIncome).subtract(totalCashExpense);
         }
 
@@ -195,6 +198,10 @@ public class ShiftServiceImpl implements ShiftService {
                 }
             }
         }
+
+        BigDecimal cashRevenue = orderRepository.sumCashSalesAmountByShiftId(shift.getId());
+        BigDecimal bankRevenue = orderRepository.sumBankSalesAmountByShiftId(shift.getId());
+        BigDecimal totalRevenue = orderRepository.sumCollectedAmountByShiftId(shift.getId());
 
         return ShiftResponse.builder()
                 .id(shift.getId())
@@ -217,6 +224,9 @@ public class ShiftServiceImpl implements ShiftService {
                 .pendingExpenseCount(pendingExpenseCount)
                 .currentStageNumber(currentStageNumber)
                 .status(shift.getStatus().name())
+                .totalRevenue(totalRevenue)
+                .cashRevenue(cashRevenue)
+                .bankRevenue(bankRevenue)
                 .createdAt(shift.getCreatedAt())
                 .updatedAt(shift.getUpdatedAt())
                 .build();
@@ -326,8 +336,11 @@ public class ShiftServiceImpl implements ShiftService {
             }
         }
 
-        // Calculate expected cash (unifying CASH sales, CASH part in COMBINED/DEBT orders, and non-sales CASH transactions)
-        BigDecimal collectedSales = orderRepository.sumCashSalesAmountByShiftId(shiftId);
+        // Calculate expected cash (unifying all sales [CASH, BANK_TRANSFER, COMBINED, DEBT] and non-sales CASH transactions)
+        BigDecimal collectedSales = orderRepository.sumCollectedAmountByShiftId(shiftId);
+        if (collectedSales == null) {
+            collectedSales = BigDecimal.ZERO;
+        }
         BigDecimal totalCashIncome = BigDecimal.ZERO;
         BigDecimal totalCashExpense = BigDecimal.ZERO;
         if (cashTransactionRepository != null) {

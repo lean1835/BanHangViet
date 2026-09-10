@@ -68,6 +68,38 @@ input[type="password"]::-ms-clear {
   scrollbar-width: none;
 }
 
+/* Custom sleek, thin horizontal scrollbar for POS tabs */
+.pos-tabs-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.45) rgba(255, 255, 255, 0.1);
+}
+
+.pos-tabs-scrollbar::-webkit-scrollbar {
+  height: 4px;
+}
+
+.pos-tabs-scrollbar::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 9999px;
+  margin: 0 4px;
+}
+
+.pos-tabs-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.45);
+  border-radius: 9999px;
+  transition: background 0.2s ease;
+}
+
+.pos-tabs-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.75);
+}
+
+.pos-tabs-scrollbar::-webkit-scrollbar-button {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
 @keyframes logoTextGlow {
   0%, 100% {
     background-position: 0% 50%;

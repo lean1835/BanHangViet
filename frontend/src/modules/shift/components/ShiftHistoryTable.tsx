@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { TablePaginationFooter } from "@/components/common/TablePaginationFooter";
+import { Wallet } from "lucide-react";
 import {
   DEFAULT_SHIFT_CASH_AMOUNT,
   SHIFT_DIFFERENCE_REASON_MAX_LENGTH,
@@ -17,6 +18,7 @@ import {
   useOpenShiftMutation,
   useCloseShiftMutation,
 } from "@/modules/shift/services/shiftApi";
+import { useGetShiftCashSummaryQuery } from "@/modules/shift/services/cashTransactionApi";
 import type { IShiftResponse } from "@/modules/shift/types/IShift";
 import { useGetAllEmployeesQuery } from "@/modules/employee/services/employeeApi";
 import { createPortal } from "react-dom";
@@ -26,6 +28,9 @@ import { useDebounce } from "@/hooks/useDebounce";
 import { getApiErrorMessage } from "@/utils/getApiErrorMessage";
 import { useNotification } from "@/hooks/useNotification";
 import { useAccessibleDialog } from "@/hooks/useAccessibleDialog";
+import { BankTransferReconciliationSection } from "./BankTransferReconciliationSection";
+import { ShiftCashSummaryCard } from "./ShiftCashSummaryCard";
+import { ShiftCashTransactionsTable } from "./ShiftCashTransactionsTable";
 
 interface ShiftHistoryTableProps {
   currentRole: string;
@@ -66,10 +71,19 @@ export const ShiftHistoryTable: React.FC<ShiftHistoryTableProps> = ({ currentRol
   const [showCloseModal, setShowCloseModal] = useState(false);
   const [showOpenModal, setShowOpenModal] = useState(false);
   const [shiftToClose, setShiftToClose] = useState<IShiftResponse | null>(null);
+  const [viewingCashShift, setViewingCashShift] = useState<IShiftResponse | null>(null);
   const [openingCashInput, setOpeningCashInput] = useState(DEFAULT_SHIFT_CASH_AMOUNT);
   const [selectedEmployeeForShift, setSelectedEmployeeForShift] = useState("");
   const [closingActualInput, setClosingActualInput] = useState(DEFAULT_SHIFT_CASH_AMOUNT);
   const [closingReason, setClosingReason] = useState("");
+
+  // Cash summary for shift to close
+  const { data: closeShiftCashSummaryData } = useGetShiftCashSummaryQuery(
+    shiftToClose?.id ?? "",
+    { skip: !shiftToClose }
+  );
+  const closeShiftCashSummary = closeShiftCashSummaryData?.result;
+  const hasPendingExpenses = (closeShiftCashSummary?.pendingExpenseCount ?? 0) > 0;
 
   // Search state
   const [searchQuery, setSearchQuery] = useState("");
@@ -152,6 +166,12 @@ export const ShiftHistoryTable: React.FC<ShiftHistoryTableProps> = ({ currentRol
 
   const handleCloseShift = async () => {
     if (!shiftToClose || isClosingShift || isHistoryFetching) return;
+    if (hasPendingExpenses) {
+      showError(
+        `Không thể đóng ca! Ca này đang có ${closeShiftCashSummary?.pendingExpenseCount} khoản chi chờ duyệt. Vui lòng phê duyệt hoặc từ chối trước khi đóng ca.`
+      );
+      return;
+    }
     const targetShiftId = shiftToClose.id;
 
     try {
@@ -207,6 +227,10 @@ export const ShiftHistoryTable: React.FC<ShiftHistoryTableProps> = ({ currentRol
     isOpen: showOpenModal,
     onClose: () => setShowOpenModal(false),
     canClose: !isOpeningShift,
+  });
+  const viewCashDialogRef = useAccessibleDialog({
+    isOpen: Boolean(viewingCashShift),
+    onClose: () => setViewingCashShift(null),
   });
 
   if (isLoading) {
@@ -356,17 +380,15 @@ export const ShiftHistoryTable: React.FC<ShiftHistoryTableProps> = ({ currentRol
               <th className="p-3 text-center">
                 {SHIFT_UI.COMMON.TABLE_COLUMNS.STATUS}
               </th>
-              {currentRole === USER_ROLES.OWNER && (
-                <th className="p-3 text-center">
-                  {SHIFT_UI.COMMON.TABLE_COLUMNS.ACTIONS}
-                </th>
-              )}
+              <th className="p-3 text-center">
+                {SHIFT_UI.COMMON.TABLE_COLUMNS.ACTIONS}
+              </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 font-semibold text-slate-700">
             {filteredShifts.length === 0 ? (
               <tr>
-                <td colSpan={currentRole === USER_ROLES.OWNER ? 11 : 10} className="p-8 text-center text-slate-400 font-medium">
+                <td colSpan={11} className="p-8 text-center text-slate-400 font-medium">
                   {SHIFT_UI.COMMON.EMPTY_HISTORY_MESSAGE}
                 </td>
               </tr>
@@ -415,21 +437,28 @@ export const ShiftHistoryTable: React.FC<ShiftHistoryTableProps> = ({ currentRol
                         : SHIFT_STATUS_LABELS[SHIFT_STATUS.CLOSED]}
                     </span>
                   </td>
-                  {currentRole === USER_ROLES.OWNER && (
-                    <td className="p-3">
-                      <div className="flex items-center justify-center gap-1.5 whitespace-nowrap">
-                        {s.status === SHIFT_STATUS.OPEN && (
-                          <button
-                            onClick={() => void handlePrepareCloseShift(s)}
-                            disabled={isHistoryFetching || isClosingShift}
-                            className="bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold px-2 py-1 rounded text-[10px] transition-colors disabled:cursor-not-allowed disabled:opacity-60"
-                          >
-                            {SHIFT_UI.HISTORY.CLOSE_FOR_EMPLOYEE_BUTTON}
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  )}
+                  <td className="p-3">
+                    <div className="flex items-center justify-center gap-1.5 whitespace-nowrap">
+                      <button
+                        type="button"
+                        onClick={() => setViewingCashShift(s)}
+                        title="Xem sổ quỹ thu chi ngoài bán hàng của ca"
+                        className="flex items-center gap-1 bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold px-2 py-1 rounded text-[10px] transition-colors"
+                      >
+                        <Wallet className="w-3 h-3" />
+                        <span>Thu/Chi</span>
+                      </button>
+                      {currentRole === USER_ROLES.OWNER && s.status === SHIFT_STATUS.OPEN && (
+                        <button
+                          onClick={() => void handlePrepareCloseShift(s)}
+                          disabled={isHistoryFetching || isClosingShift}
+                          className="bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold px-2 py-1 rounded text-[10px] transition-colors disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {SHIFT_UI.HISTORY.CLOSE_FOR_EMPLOYEE_BUTTON}
+                        </button>
+                      )}
+                    </div>
+                  </td>
                 </tr>
               ))
             )}
@@ -559,6 +588,21 @@ export const ShiftHistoryTable: React.FC<ShiftHistoryTableProps> = ({ currentRol
                         ></textarea>
                       </div>
                     )}
+
+                    {/* Cảnh báo nếu có khoản chi chờ duyệt */}
+                    {hasPendingExpenses && (
+                      <div className="bg-rose-50 border border-rose-200 rounded-lg p-3 text-xs text-rose-700 font-bold flex items-center gap-2">
+                        <span className="shrink-0 text-base">⚠️</span>
+                        <span>
+                          Ca này còn <b>{closeShiftCashSummary?.pendingExpenseCount} khoản chi</b> chờ duyệt ({formatCurrency(closeShiftCashSummary?.totalPendingExpense || 0)}). Bạn phải duyệt hoặc từ chối các khoản chi trước khi đóng ca!
+                        </span>
+                      </div>
+                    )}
+
+                    {/* NCL-03-CN-012 & QTN-16: Đối soát chuyển khoản ngân hàng khi đóng ca */}
+                    <div className="mt-1">
+                      <BankTransferReconciliationSection shiftId={shiftToClose.id} isCompact />
+                    </div>
                   </>
                 );
               })()}
@@ -566,7 +610,7 @@ export const ShiftHistoryTable: React.FC<ShiftHistoryTableProps> = ({ currentRol
               <div className="app-modal-footer sticky bottom-0 -mx-5 -mb-5 mt-2 flex gap-3 border-t border-slate-200 bg-white p-5">
                 <button
                   onClick={handleCloseShift}
-                  disabled={isClosingShift || isHistoryFetching}
+                  disabled={isClosingShift || isHistoryFetching || hasPendingExpenses}
                   aria-busy={isClosingShift || isHistoryFetching}
                   className="flex-1 bg-rose-600 hover:bg-rose-700 text-white font-bold h-9 rounded-lg transition-colors text-xs disabled:cursor-not-allowed disabled:opacity-60"
                 >
@@ -705,6 +749,73 @@ export const ShiftHistoryTable: React.FC<ShiftHistoryTableProps> = ({ currentRol
                   {SHIFT_UI.COMMON.CANCEL_BUTTON}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* View Cash Transactions Modal for Shift History */}
+      {viewingCashShift && createPortal(
+        <div
+          onClick={() => setViewingCashShift(null)}
+          className="app-modal-backdrop fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-900/50 p-3 backdrop-blur-xs animate-backdrop-fade-in sm:items-center sm:p-4"
+        >
+          <div
+            ref={viewCashDialogRef}
+            tabIndex={-1}
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="history-cash-detail-title"
+            className="app-modal-panel my-4 flex w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-slate-100 bg-white text-left font-semibold text-slate-700 shadow-2xl animate-modal-bounce-in max-h-[90vh]"
+          >
+            <div className="app-modal-header flex items-center justify-between bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-4 text-white shadow-xs">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-white/15 flex items-center justify-center">
+                  <Wallet className="w-4.5 h-4.5 text-white" />
+                </div>
+                <div>
+                  <h2 id="history-cash-detail-title" className="text-sm font-extrabold uppercase tracking-wide text-white">
+                    Sổ quỹ thu / chi - Ca #{viewingCashShift.id.slice(-SHIFT_CODE_SUFFIX_LENGTH)}
+                  </h2>
+                  <p className="text-[11px] text-blue-100 font-medium">
+                    Nhân viên phụ trách: <span className="font-bold text-white">{viewingCashShift.fullName || viewingCashShift.username}</span>
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setViewingCashShift(null)}
+                type="button"
+                aria-label="Đóng sổ quỹ ca"
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-white/80 transition-colors hover:bg-white/10 hover:text-white"
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="app-modal-body flex flex-col gap-4 p-5 overflow-y-auto max-h-[calc(90vh-120px)] pos-tabs-scrollbar">
+              <ShiftCashSummaryCard shiftId={viewingCashShift.id} canCreate={false} />
+              <ShiftCashTransactionsTable
+                shiftId={viewingCashShift.id}
+                isOwner={currentRole === USER_ROLES.OWNER}
+              />
+            </div>
+
+            <div className="app-modal-footer flex items-center justify-between border-t border-slate-200 bg-slate-50 px-6 py-3">
+              <span className="text-xs text-slate-500 font-medium">
+                Khoản thu chi ngoài ca không tính vào doanh thu bán hàng & không xuất hóa đơn
+              </span>
+              <button
+                type="button"
+                onClick={() => setViewingCashShift(null)}
+                className="bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold px-5 py-2 rounded-xl text-xs transition-colors shadow-2xs"
+              >
+                Đóng
+              </button>
             </div>
           </div>
         </div>,

@@ -459,22 +459,44 @@ export const AdjustInvoicePage: React.FC = () => {
           {/* Pricing Totals Box */}
           <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 flex flex-col gap-2 font-bold text-slate-700 text-xs max-w-md ml-auto w-full mt-2">
             <div className="flex justify-between text-[10px]">
-              <span className="font-semibold text-slate-500">Cộng tiền hàng (Chưa thuế):</span>
+              <span className="font-semibold text-slate-500">
+                {discountAmount > 0 ? "Tổng tiền hàng (Tiền gốc):" : "Cộng tiền hàng (Chưa thuế):"}
+              </span>
               <span>{formatCurrency(totalAmountBeforeTax)}</span>
             </div>
+            {discountAmount > 0 && (
+              <div className="flex justify-between text-[10px] text-rose-600">
+                <span className="font-semibold">Chiết khấu thương mại:</span>
+                <span className="font-bold">-{formatCurrency(discountAmount)}</span>
+              </div>
+            )}
+            {discountAmount > 0 && (
+              <div className="flex justify-between text-[10px]">
+                <span className="font-semibold text-slate-500">Cộng tiền hàng (Đã trừ CK, chưa thuế):</span>
+                <span className="text-slate-700">{formatCurrency(totalAmountBeforeTax - discountAmount)}</span>
+              </div>
+            )}
             <div className="flex justify-between text-[10px]">
               <span className="font-semibold text-slate-500">Tổng tiền thuế GTGT:</span>
               <span>{formatCurrency(taxAmount)}</span>
             </div>
-            {discountAmount > 0 && (
-              <div className="flex justify-between text-[10px] text-rose-500">
-                <span className="font-semibold">Tổng chiết khấu:</span>
-                <span>-{formatCurrency(discountAmount)}</span>
-              </div>
-            )}
             <div className="flex justify-between border-t border-slate-200 pt-2 text-[11px] text-slate-950">
               <span>Tổng tiền thanh toán mới:</span>
               <span className="font-extrabold text-kv-blue-primary">{formatCurrency(finalAmount)}</span>
+            </div>
+            <div className="border-t border-slate-200 pt-2 flex justify-between items-center text-[10px]">
+              <span className="font-semibold text-slate-500">Phương thức thanh toán:</span>
+              <span className="font-bold text-slate-800 bg-slate-200/80 px-2 py-0.5 rounded text-[9.5px]">
+                {invoice?.paymentMethod === "CASH"
+                  ? "Tiền mặt"
+                  : invoice?.paymentMethod === "BANK_TRANSFER"
+                  ? "Chuyển khoản"
+                  : invoice?.paymentMethod === "COMBINED"
+                  ? "Kết hợp"
+                  : invoice?.paymentMethod === "DEBT"
+                  ? "Ghi nợ"
+                  : invoice?.paymentMethod || "Tiền mặt / Chuyển khoản (TM/CK)"}
+              </span>
             </div>
           </div>
         </div>
