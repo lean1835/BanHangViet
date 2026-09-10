@@ -22,7 +22,7 @@ export interface IInvoiceErrorNotice {
   id: string;
   householdId?: string;
   noticeCode: string;
-  noticeType: string;
+  noticeType?: string;
   noticePlace?: string;
   taxAuthorityName?: string;
   status: TNoticeStatus | string;
