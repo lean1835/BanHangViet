@@ -41,4 +41,12 @@ public interface ShiftRepository extends JpaRepository<Shift, String> {
 
     @EntityGraph(attributePaths = {"user", "household"})
     Optional<Shift> findByIdAndHouseholdId(String id, String householdId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @EntityGraph(attributePaths = {"user", "household"})
+    @Query("SELECT s FROM Shift s WHERE s.id = :id")
+    Optional<Shift> findByIdWithLock(@Param("id") String id);
+
+    @Query("SELECT s.user.id FROM Shift s WHERE s.household.id = :householdId AND s.status = 'OPEN'")
+    List<String> findOpenShiftUserIdsByHouseholdId(@Param("householdId") String householdId);
 }

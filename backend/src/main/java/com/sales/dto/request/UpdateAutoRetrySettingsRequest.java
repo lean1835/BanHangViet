@@ -28,4 +28,14 @@ public class UpdateAutoRetrySettingsRequest {
     @Min(value = 1, message = "Hạn tối đa gửi lại tối thiểu là 1 giờ")
     @Max(value = 168, message = "Hạn tối đa gửi lại tối đa là 168 giờ (7 ngày)")
     private Integer maxRetryHoursDeadline;
+
+    @Min(value = 1, message = "Thời gian cảnh báo treo đơn tối thiểu 1 giờ")
+    @Max(value = 72, message = "Thời gian cảnh báo treo đơn tối đa 72 giờ")
+    private Integer maxOrderHoldingHours;
+
+    @Min(value = 1, message = "Thời gian chờ xác nhận chuyển khoản tối thiểu 1 phút")
+    @Max(value = 1440, message = "Thời gian chờ xác nhận chuyển khoản tối đa 1440 phút (24 giờ)")
+    private Integer bankTransferTimeoutMinutes;
 }
+
+

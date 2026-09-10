@@ -16,5 +16,9 @@ public class AutoRetrySettingsResponse {
     private Integer maxRetryAttempts;
     private Integer retryIntervalMinutes;
     private Integer maxRetryHoursDeadline;
+    private Integer maxOrderHoldingHours;
+    private Integer bankTransferTimeoutMinutes;
     private LocalDateTime updatedAt;
 }
+
+
