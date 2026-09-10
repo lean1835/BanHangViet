@@ -126,7 +126,7 @@ public class ShiftHandoverServiceImpl implements ShiftHandoverService {
         }
 
         LocalDateTime now = LocalDateTime.now();
-        BigDecimal cashRevenue = orderRepository.sumCollectedAmountByShiftIdAndTimeRange(shift.getId(), stageStartTime, now);
+        BigDecimal cashRevenue = orderRepository.sumCashSalesAmountByShiftIdAndTimeRange(shift.getId(), stageStartTime, now);
         if (cashRevenue == null) {
             cashRevenue = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
         }
@@ -313,7 +313,7 @@ public class ShiftHandoverServiceImpl implements ShiftHandoverService {
         }
 
         LocalDateTime now = LocalDateTime.now();
-        BigDecimal cashRevenue = orderRepository.sumCollectedAmountByShiftIdAndTimeRange(shift.getId(), stageStartTime, now);
+        BigDecimal cashRevenue = orderRepository.sumCashSalesAmountByShiftIdAndTimeRange(shift.getId(), stageStartTime, now);
         if (cashRevenue == null) {
             cashRevenue = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
         }
@@ -499,13 +499,28 @@ public class ShiftHandoverServiceImpl implements ShiftHandoverService {
             BigDecimal finalOpening = handovers.isEmpty() ? shift.getOpeningCash()
                     : handovers.get(handovers.size() - 1).getActualCash();
 
-            BigDecimal finalRevenue = orderRepository.sumCollectedAmountByShiftIdAndTimeRange(
+            BigDecimal finalRevenue = orderRepository.sumCashSalesAmountByShiftIdAndTimeRange(
                     shift.getId(), prevEndTime, shift.getClosedAt());
             if (finalRevenue == null) {
                 finalRevenue = BigDecimal.ZERO;
             }
 
-            BigDecimal finalExpected = finalOpening.add(finalRevenue);
+            BigDecimal finalIncome = BigDecimal.ZERO;
+            BigDecimal finalExpense = BigDecimal.ZERO;
+            if (cashTransactionRepository != null) {
+                BigDecimal inc = cashTransactionRepository.sumAmountByShiftIdAndTypeAndStatusAndTimeRange(
+                        shift.getId(), com.sales.constant.CashTransactionType.INCOME, com.sales.constant.CashTransactionStatus.APPROVED, prevEndTime, shift.getClosedAt());
+                if (inc != null) {
+                    finalIncome = inc;
+                }
+                BigDecimal exp = cashTransactionRepository.sumAmountByShiftIdAndTypeAndStatusAndTimeRange(
+                        shift.getId(), com.sales.constant.CashTransactionType.EXPENSE, com.sales.constant.CashTransactionStatus.APPROVED, prevEndTime, shift.getClosedAt());
+                if (exp != null) {
+                    finalExpense = exp;
+                }
+            }
+
+            BigDecimal finalExpected = finalOpening.add(finalRevenue).add(finalIncome).subtract(finalExpense);
             BigDecimal finalActual = shift.getClosingCashActual() != null ? shift.getClosingCashActual() : finalExpected;
             BigDecimal finalDiff = finalActual.subtract(finalExpected);
 
@@ -538,13 +553,28 @@ public class ShiftHandoverServiceImpl implements ShiftHandoverService {
                     : handovers.get(handovers.size() - 1).getActualCash();
 
             LocalDateTime now = LocalDateTime.now();
-            BigDecimal currentRevenue = orderRepository.sumCollectedAmountByShiftIdAndTimeRange(
+            BigDecimal currentRevenue = orderRepository.sumCashSalesAmountByShiftIdAndTimeRange(
                     shift.getId(), prevEndTime, now);
             if (currentRevenue == null) {
                 currentRevenue = BigDecimal.ZERO;
             }
 
-            BigDecimal currentExpected = currentOpening.add(currentRevenue);
+            BigDecimal currentIncome = BigDecimal.ZERO;
+            BigDecimal currentExpense = BigDecimal.ZERO;
+            if (cashTransactionRepository != null) {
+                BigDecimal inc = cashTransactionRepository.sumAmountByShiftIdAndTypeAndStatusAndTimeRange(
+                        shift.getId(), com.sales.constant.CashTransactionType.INCOME, com.sales.constant.CashTransactionStatus.APPROVED, prevEndTime, now);
+                if (inc != null) {
+                    currentIncome = inc;
+                }
+                BigDecimal exp = cashTransactionRepository.sumAmountByShiftIdAndTypeAndStatusAndTimeRange(
+                        shift.getId(), com.sales.constant.CashTransactionType.EXPENSE, com.sales.constant.CashTransactionStatus.APPROVED, prevEndTime, now);
+                if (exp != null) {
+                    currentExpense = exp;
+                }
+            }
+
+            BigDecimal currentExpected = currentOpening.add(currentRevenue).add(currentIncome).subtract(currentExpense);
             int currentCompletedOrders = orderRepository.countCompletedOrdersByShiftIdAndTimeRange(
                     shift.getId(), prevEndTime, now);
 

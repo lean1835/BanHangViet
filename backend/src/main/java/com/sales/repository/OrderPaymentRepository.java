@@ -49,7 +49,7 @@ public interface OrderPaymentRepository extends JpaRepository<OrderPayment, Stri
            "JOIN FETCH op.order o " +
            "LEFT JOIN FETCH op.confirmedByUser cu " +
            "WHERE o.shift.id = :shiftId AND op.household.id = :householdId " +
-           "AND op.paymentMethod = 'BANK_TRANSFER' AND o.deletedAt IS NULL " +
+           "AND op.paymentMethod = 'BANK_TRANSFER' AND o.deletedAt IS NULL AND o.status <> 'CANCELED' " +
            "ORDER BY op.createdAt DESC")
     List<OrderPayment> findBankTransfersByShiftIdAndHouseholdId(@Param("shiftId") String shiftId, @Param("householdId") String householdId);
 }

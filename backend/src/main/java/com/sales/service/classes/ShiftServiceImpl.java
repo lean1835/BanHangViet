@@ -177,7 +177,7 @@ public class ShiftServiceImpl implements ShiftService {
                         shift.getId(), com.sales.constant.CashTransactionStatus.PENDING_APPROVAL);
             }
 
-            BigDecimal collectedSales = orderRepository.sumCollectedAmountByShiftId(shift.getId());
+            BigDecimal collectedSales = orderRepository.sumCashSalesAmountByShiftId(shift.getId());
             expectedCash = shift.getOpeningCash().add(collectedSales).add(totalCashIncome).subtract(totalCashExpense);
         }
 
@@ -326,8 +326,8 @@ public class ShiftServiceImpl implements ShiftService {
             }
         }
 
-        // Calculate expected cash (unifying CASH, BANK_TRANSFER, DEBT down payments, and non-sales CASH transactions)
-        BigDecimal collectedSales = orderRepository.sumCollectedAmountByShiftId(shiftId);
+        // Calculate expected cash (unifying CASH sales, CASH part in COMBINED/DEBT orders, and non-sales CASH transactions)
+        BigDecimal collectedSales = orderRepository.sumCashSalesAmountByShiftId(shiftId);
         BigDecimal totalCashIncome = BigDecimal.ZERO;
         BigDecimal totalCashExpense = BigDecimal.ZERO;
         if (cashTransactionRepository != null) {

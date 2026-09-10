@@ -3,6 +3,7 @@ package com.sales.repository;
 import com.sales.constant.CashTransactionStatus;
 import com.sales.constant.CashTransactionType;
 import com.sales.entity.CashTransaction;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -16,8 +17,10 @@ import java.util.Optional;
 @Repository
 public interface CashTransactionRepository extends JpaRepository<CashTransaction, String> {
 
+    @EntityGraph(attributePaths = {"createdByUser", "approvedByUser", "category", "shift"})
     List<CashTransaction> findByShiftIdOrderByCreatedAtDesc(String shiftId);
 
+    @EntityGraph(attributePaths = {"createdByUser", "approvedByUser", "category", "shift"})
     List<CashTransaction> findByShiftIdAndHouseholdIdOrderByCreatedAtDesc(String shiftId, String householdId);
 
     Optional<CashTransaction> findByIdAndHouseholdId(String id, String householdId);

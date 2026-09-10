@@ -248,7 +248,7 @@ public class CashTransactionServiceImpl implements CashTransactionService {
         }
 
         BigDecimal openingCash = shift.getOpeningCash() != null ? shift.getOpeningCash() : BigDecimal.ZERO;
-        BigDecimal cashSales = orderRepository.sumCollectedAmountByShiftId(shiftId);
+        BigDecimal cashSales = orderRepository.sumCashSalesAmountByShiftId(shiftId);
         if (cashSales == null) {
             cashSales = BigDecimal.ZERO;
         }

@@ -127,7 +127,7 @@ public class ShiftHandoverServiceTest {
         when(passwordEncoder.matches("raw_pwd", receiver.getPasswordHash())).thenReturn(true);
         when(shiftHandoverRepository.findTopByShiftIdOrderByStageNumberDesc(activeShift.getId())).thenReturn(Optional.empty());
 
-        when(orderRepository.sumCollectedAmountByShiftIdAndTimeRange(eq(activeShift.getId()), any(), any()))
+        when(orderRepository.sumCashSalesAmountByShiftIdAndTimeRange(eq(activeShift.getId()), any(), any()))
                 .thenReturn(new BigDecimal("500000.00"));
         when(orderRepository.countCompletedOrdersByShiftIdAndTimeRange(eq(activeShift.getId()), any(), any())).thenReturn(10);
         when(orderRepository.countByShiftIdAndStatusAndDeletedAtIsNull(activeShift.getId(), "CREATING")).thenReturn(2);
@@ -191,7 +191,7 @@ public class ShiftHandoverServiceTest {
         when(passwordEncoder.matches("raw_pwd", receiver.getPasswordHash())).thenReturn(true);
         when(shiftHandoverRepository.findTopByShiftIdOrderByStageNumberDesc(activeShift.getId())).thenReturn(Optional.empty());
 
-        when(orderRepository.sumCollectedAmountByShiftIdAndTimeRange(eq(activeShift.getId()), any(), any()))
+        when(orderRepository.sumCashSalesAmountByShiftIdAndTimeRange(eq(activeShift.getId()), any(), any()))
                 .thenReturn(new BigDecimal("500000.00")); // Quỹ dự kiến 1500k
 
         ShiftHandoverRequest request = ShiftHandoverRequest.builder()
@@ -218,7 +218,7 @@ public class ShiftHandoverServiceTest {
         when(passwordEncoder.matches("raw_pwd", receiver.getPasswordHash())).thenReturn(true);
         when(shiftHandoverRepository.findTopByShiftIdOrderByStageNumberDesc(activeShift.getId())).thenReturn(Optional.empty());
 
-        when(orderRepository.sumCollectedAmountByShiftIdAndTimeRange(eq(activeShift.getId()), any(), any()))
+        when(orderRepository.sumCashSalesAmountByShiftIdAndTimeRange(eq(activeShift.getId()), any(), any()))
                 .thenReturn(new BigDecimal("500000.00"));
         when(orderRepository.countCompletedOrdersByShiftIdAndTimeRange(eq(activeShift.getId()), any(), any())).thenReturn(5);
         when(orderRepository.countByShiftIdAndStatusAndDeletedAtIsNull(activeShift.getId(), "CREATING")).thenReturn(1);
@@ -293,7 +293,7 @@ public class ShiftHandoverServiceTest {
         when(shiftRepository.findByUserIdAndStatus(sender.getId(), ShiftStatus.OPEN)).thenReturn(Optional.of(activeShift));
         when(shiftHandoverRepository.findTopByShiftIdOrderByStageNumberDesc(activeShift.getId())).thenReturn(Optional.empty());
 
-        when(orderRepository.sumCollectedAmountByShiftIdAndTimeRange(eq(activeShift.getId()), any(), any()))
+        when(orderRepository.sumCashSalesAmountByShiftIdAndTimeRange(eq(activeShift.getId()), any(), any()))
                 .thenReturn(new BigDecimal("600000.00"));
         when(orderRepository.countCompletedOrdersByShiftIdAndTimeRange(eq(activeShift.getId()), any(), any())).thenReturn(8);
         when(orderRepository.findByHouseholdIdAndShiftIdAndStatusAndDeletedAtIsNullOrderByCreatedAtDesc(eq(household.getId()), eq(activeShift.getId()), eq("CREATING")))
@@ -364,7 +364,7 @@ public class ShiftHandoverServiceTest {
         when(userRepository.findByUsername(sender.getUsername())).thenReturn(Optional.of(sender));
         when(shiftRepository.findById(activeShift.getId())).thenReturn(Optional.of(activeShift));
         when(shiftHandoverRepository.findByShiftIdOrderByStageNumberAsc(activeShift.getId())).thenReturn(Collections.emptyList());
-        when(orderRepository.sumCollectedAmountByShiftIdAndTimeRange(eq(activeShift.getId()), any(), any()))
+        when(orderRepository.sumCashSalesAmountByShiftIdAndTimeRange(eq(activeShift.getId()), any(), any()))
                 .thenReturn(new BigDecimal("250000.00"));
         when(orderRepository.countCompletedOrdersByShiftIdAndTimeRange(eq(activeShift.getId()), any(), any())).thenReturn(3);
 

@@ -368,7 +368,7 @@ class CashTransactionServiceTest {
     void testGetShiftCashSummary() {
         when(userRepository.findByUsername("thungan01")).thenReturn(Optional.of(cashierUser));
         when(shiftRepository.findById("shift-1")).thenReturn(Optional.of(activeShift));
-        when(orderRepository.sumCollectedAmountByShiftId("shift-1")).thenReturn(new BigDecimal("2500000.00"));
+        when(orderRepository.sumCashSalesAmountByShiftId("shift-1")).thenReturn(new BigDecimal("2500000.00"));
         when(transactionRepository.sumAmountByShiftIdAndTypeAndStatus("shift-1", CashTransactionType.INCOME, CashTransactionStatus.APPROVED))
                 .thenReturn(new BigDecimal("500000.00"));
         when(transactionRepository.sumAmountByShiftIdAndTypeAndStatus("shift-1", CashTransactionType.EXPENSE, CashTransactionStatus.APPROVED))

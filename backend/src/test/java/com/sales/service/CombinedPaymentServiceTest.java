@@ -190,6 +190,20 @@ class CombinedPaymentServiceTest {
         when(orderRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("order-101", "household-01")).thenReturn(Optional.of(order));
         when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
+        OrderPayment existingBankPayment = OrderPayment.builder()
+                .id("pay-bank-01")
+                .order(order)
+                .household(household)
+                .paymentMethod(PaymentMethodConstant.BANK_TRANSFER)
+                .amount(new BigDecimal("250000.00"))
+                .transactionCode("VCB.123456")
+                .isConfirmed(true)
+                .confirmedAt(LocalDateTime.now().minusMinutes(5))
+                .confirmedByUser(cashierUser)
+                .build();
+        when(orderPaymentRepository.findFirstByOrderIdAndHouseholdIdAndPaymentMethod("order-101", "household-01", PaymentMethodConstant.BANK_TRANSFER))
+                .thenReturn(Optional.of(existingBankPayment));
+
         CompleteOrderRequest request = CompleteOrderRequest.builder()
                 .payments(Arrays.asList(
                         OrderPaymentRequest.builder()
@@ -235,6 +249,20 @@ class CombinedPaymentServiceTest {
         when(customerRepository.findByIdAndHouseholdIdAndDeletedAtIsNullForUpdate("cust-vip-01", "household-01"))
                 .thenReturn(Optional.of(vipCustomer));
         when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        OrderPayment existingBankPayment = OrderPayment.builder()
+                .id("pay-bank-02")
+                .order(order)
+                .household(household)
+                .paymentMethod(PaymentMethodConstant.BANK_TRANSFER)
+                .amount(new BigDecimal("500000.00"))
+                .transactionCode("MB.778899")
+                .isConfirmed(true)
+                .confirmedAt(LocalDateTime.now().minusMinutes(5))
+                .confirmedByUser(cashierUser)
+                .build();
+        when(orderPaymentRepository.findFirstByOrderIdAndHouseholdIdAndPaymentMethod("order-101", "household-01", PaymentMethodConstant.BANK_TRANSFER))
+                .thenReturn(Optional.of(existingBankPayment));
 
         CompleteOrderRequest request = CompleteOrderRequest.builder()
                 .dueDate(LocalDateTime.now().plusDays(10))
@@ -626,5 +654,82 @@ class CombinedPaymentServiceTest {
 
         verify(orderPaymentRepository).saveAll(anyList());
         verify(orderRepository).save(order);
+    }
+
+    @Test
+    @DisplayName("TC-18: P1-02 Chặn bypass xác nhận chuyển khoản: Client gửi isConfirmed=true nhưng DB chưa có bản ghi xác thực")
+    void testCompleteOrder_BypassBankTransferConfirmation_ThrowsException() {
+        // Arrange
+        BigDecimal finalAmount = new BigDecimal("350000.00");
+        Order order = createMockCreatingOrder(finalAmount, null);
+
+        when(userRepository.findByUsername("thungan01")).thenReturn(Optional.of(cashierUser));
+        when(orderRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("order-101", "household-01")).thenReturn(Optional.of(order));
+        // DB trả về Optional.empty (chưa hề gọi endpoint confirm-bank-transfer)
+        when(orderPaymentRepository.findFirstByOrderIdAndHouseholdIdAndPaymentMethod("order-101", "household-01", PaymentMethodConstant.BANK_TRANSFER))
+                .thenReturn(Optional.empty());
+
+        CompleteOrderRequest request = CompleteOrderRequest.builder()
+                .payments(Arrays.asList(
+                        OrderPaymentRequest.builder()
+                                .paymentMethod(PaymentMethodConstant.CASH)
+                                .amount(new BigDecimal("100000.00"))
+                                .build(),
+                        OrderPaymentRequest.builder()
+                                .paymentMethod(PaymentMethodConstant.BANK_TRANSFER)
+                                .amount(new BigDecimal("250000.00"))
+                                .transactionCode("FAKE_VCB_123")
+                                .isConfirmed(true) // Giả mạo xác nhận từ client
+                                .build()
+                ))
+                .build();
+
+        // Act & Assert
+        AppException ex = assertThrows(AppException.class, () ->
+                orderService.completeOrder("thungan01", "order-101", request));
+        assertEquals(ErrorCode.BANK_TRANSFER_NOT_CONFIRMED, ex.getErrorCode(),
+                "Hệ thống phải chặn đứng việc bypass xác nhận chuyển khoản từ client payload");
+    }
+
+    @Test
+    @DisplayName("TC-19: P1-02 Chặn hoàn tất đơn khi chuyển khoản trong DB có isConfirmed = false")
+    void testCompleteOrder_BankTransferInDbNotConfirmed_ThrowsException() {
+        // Arrange
+        BigDecimal finalAmount = new BigDecimal("350000.00");
+        Order order = createMockCreatingOrder(finalAmount, null);
+
+        when(userRepository.findByUsername("thungan01")).thenReturn(Optional.of(cashierUser));
+        when(orderRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("order-101", "household-01")).thenReturn(Optional.of(order));
+
+        OrderPayment unconfirmedPayment = OrderPayment.builder()
+                .id("pay-unconfirmed")
+                .order(order)
+                .household(household)
+                .paymentMethod(PaymentMethodConstant.BANK_TRANSFER)
+                .amount(new BigDecimal("250000.00"))
+                .isConfirmed(false)
+                .build();
+        when(orderPaymentRepository.findFirstByOrderIdAndHouseholdIdAndPaymentMethod("order-101", "household-01", PaymentMethodConstant.BANK_TRANSFER))
+                .thenReturn(Optional.of(unconfirmedPayment));
+
+        CompleteOrderRequest request = CompleteOrderRequest.builder()
+                .payments(Arrays.asList(
+                        OrderPaymentRequest.builder()
+                                .paymentMethod(PaymentMethodConstant.CASH)
+                                .amount(new BigDecimal("100000.00"))
+                                .build(),
+                        OrderPaymentRequest.builder()
+                                .paymentMethod(PaymentMethodConstant.BANK_TRANSFER)
+                                .amount(new BigDecimal("250000.00"))
+                                .transactionCode("VCB.999")
+                                .isConfirmed(true)
+                                .build()
+                ))
+                .build();
+
+        // Act & Assert
+        AppException ex = assertThrows(AppException.class, () ->
+                orderService.completeOrder("thungan01", "order-101", request));
+        assertEquals(ErrorCode.BANK_TRANSFER_NOT_CONFIRMED, ex.getErrorCode());
     }
 }

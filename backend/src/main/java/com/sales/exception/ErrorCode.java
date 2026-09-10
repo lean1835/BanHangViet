@@ -310,9 +310,9 @@ public enum ErrorCode {
     CASH_CATEGORY_NOT_FOUND(3077, "Loại thu chi không tồn tại trong hệ thống", HttpStatus.NOT_FOUND),
     CASH_CATEGORY_NAME_DUPLICATE(3078, "Tên loại thu chi đã tồn tại trong danh mục của hộ kinh doanh", HttpStatus.BAD_REQUEST),
     CASH_CATEGORY_IN_USE(3079, "Loại thu chi đã phát sinh phiếu giao dịch, không thể xóa", HttpStatus.BAD_REQUEST),
-    CASH_CATEGORY_TYPE_MISMATCH(3080, "Loại danh mục không khớp với phân loại phiếu (Thu hoặc Chi)", HttpStatus.BAD_REQUEST),
-    EXPENSE_THRESHOLD_INVALID(3081, "Hạn mức duyệt chi của hộ kinh doanh phải lớn hơn hoặc bằng 0", HttpStatus.BAD_REQUEST),
-    CASH_TRANSACTION_PERMISSION_DENIED(3082, "Bạn không có quyền thao tác trên phiếu thu chi này", HttpStatus.FORBIDDEN);
+    CASH_CATEGORY_TYPE_MISMATCH(3150, "Loại danh mục không khớp với phân loại phiếu (Thu hoặc Chi)", HttpStatus.BAD_REQUEST),
+    EXPENSE_THRESHOLD_INVALID(3151, "Hạn mức duyệt chi của hộ kinh doanh phải lớn hơn hoặc bằng 0", HttpStatus.BAD_REQUEST),
+    CASH_TRANSACTION_PERMISSION_DENIED(3152, "Bạn không có quyền thao tác trên phiếu thu chi này", HttpStatus.FORBIDDEN);
 
 
 

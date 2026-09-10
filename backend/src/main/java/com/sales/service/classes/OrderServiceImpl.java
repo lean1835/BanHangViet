@@ -82,11 +82,17 @@ public class OrderServiceImpl implements OrderService {
                     && !currentUser.getPointOfSale().getId().equals(order.getPointOfSale().getId())) {
                 throw new AppException(ErrorCode.POS_EMPLOYEE_ACCESS_DENIED);
             }
+            // Nếu đơn hàng gắn với một ca đang mở, CHỈ DUY NHẤT thu ngân hiện tại của ca đó mới được thao tác (NCL-03-CN-013)
+            if (order.getShift() != null && order.getShift().getStatus() == ShiftStatus.OPEN) {
+                boolean isCurrentShiftCashier = order.getShift().getUser().getId().equals(currentUser.getId());
+                if (!isCurrentShiftCashier) {
+                    throw new AppException(ErrorCode.FORBIDDEN);
+                }
+                return;
+            }
+
             boolean isCreator = order.getCreatedByUser().getId().equals(currentUser.getId());
-            boolean isCurrentShiftCashier = order.getShift() != null
-                    && order.getShift().getStatus() == ShiftStatus.OPEN
-                    && order.getShift().getUser().getId().equals(currentUser.getId());
-            if (!isCreator && !isCurrentShiftCashier) {
+            if (!isCreator) {
                 throw new AppException(ErrorCode.FORBIDDEN);
             }
         }
@@ -1129,16 +1135,25 @@ public class OrderServiceImpl implements OrderService {
                     payment.setConfirmedAt(LocalDateTime.now());
                     payment.setConfirmedByUser(currentUser);
                 } else if (PaymentMethodConstant.BANK_TRANSFER.equals(method)) {
-                    if (!Boolean.TRUE.equals(pr.getIsConfirmed())) {
+                    OrderPayment existingBankPayment = orderPaymentRepository
+                            .findFirstByOrderIdAndHouseholdIdAndPaymentMethod(order.getId(), household.getId(), PaymentMethodConstant.BANK_TRANSFER)
+                            .orElse(null);
+
+                    if (existingBankPayment == null || !Boolean.TRUE.equals(existingBankPayment.getIsConfirmed())) {
                         throw new AppException(ErrorCode.BANK_TRANSFER_NOT_CONFIRMED);
                     }
-                    if (pr.getTransactionCode() == null || pr.getTransactionCode().trim().isEmpty()) {
+                    String txCode = pr.getTransactionCode() != null && !pr.getTransactionCode().trim().isEmpty()
+                            ? pr.getTransactionCode().trim()
+                            : existingBankPayment.getTransactionCode();
+                    if (txCode == null || txCode.trim().isEmpty()) {
                         throw new AppException(ErrorCode.PAYMENT_TRANSACTION_CODE_REQUIRED);
                     }
-                    payment.setIsConfirmed(true);
-                    payment.setTransactionCode(pr.getTransactionCode().trim());
-                    payment.setConfirmedAt(LocalDateTime.now());
-                    payment.setConfirmedByUser(currentUser);
+                    existingBankPayment.setTransactionCode(txCode);
+                    existingBankPayment.setAmount(pr.getAmount());
+                    if (pr.getNotes() != null && !pr.getNotes().trim().isEmpty()) {
+                        existingBankPayment.setNotes(pr.getNotes().trim());
+                    }
+                    payment = existingBankPayment;
                 } else if (PaymentMethodConstant.DEBT.equals(method)) {
 
                     hasDebt = true;
@@ -1320,9 +1335,14 @@ public class OrderServiceImpl implements OrderService {
         }
 
         if (!paymentEntities.isEmpty()) {
-            order.getPayments().clear();
-            for (OrderPayment payment : paymentEntities) {
-                order.addPayment(payment);
+            if (order.getPayments() == null) {
+                order.setPayments(new ArrayList<>());
+            }
+            order.getPayments().removeIf(p -> !paymentEntities.contains(p));
+            for (OrderPayment p : paymentEntities) {
+                if (!order.getPayments().contains(p)) {
+                    order.addPayment(p);
+                }
             }
             orderPaymentRepository.saveAll(paymentEntities);
         }
