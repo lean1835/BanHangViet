@@ -22,4 +22,6 @@ public interface ReportService {
     PageResponse<ActivityLogResponse> getActivityLogs(String currentUsername, String targetUsername, LocalDate fromDate, LocalDate toDate, int page, int size);
 
     PosRevenueReportResponse getPosRevenueReport(String currentUsername, LocalDate fromDate, LocalDate toDate, String posId);
+
+    EmployeeShiftReportResponse getEmployeeShiftReport(String currentUsername, LocalDate fromDate, LocalDate toDate, String userId, java.math.BigDecimal customThreshold);
 }

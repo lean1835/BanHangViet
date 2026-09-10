@@ -36,6 +36,12 @@ public class UpdateAutoRetrySettingsRequest {
     @Min(value = 1, message = "Thời gian chờ xác nhận chuyển khoản tối thiểu 1 phút")
     @Max(value = 1440, message = "Thời gian chờ xác nhận chuyển khoản tối đa 1440 phút (24 giờ)")
     private Integer bankTransferTimeoutMinutes;
+
+    @jakarta.validation.constraints.DecimalMin(value = "0.0", message = "Hạn mức duyệt chi tối thiểu là 0")
+    private java.math.BigDecimal expenseApprovalThreshold;
+
+    @jakarta.validation.constraints.DecimalMin(value = "0.0", message = "Ngưỡng chênh lệch ca tối thiểu là 0")
+    private java.math.BigDecimal shiftDifferenceThreshold;
 }
 
 
