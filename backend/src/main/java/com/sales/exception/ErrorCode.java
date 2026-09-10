@@ -79,6 +79,15 @@ public enum ErrorCode {
     INACTIVE_TAX_RATE(2034, "Mức thuế suất đã bị ngừng hiệu lực", HttpStatus.BAD_REQUEST),
     TAX_RATE_IN_USE(2035, "Mức thuế suất đang được sử dụng bởi các sản phẩm trong hệ thống", HttpStatus.BAD_REQUEST),
     CANNOT_OVERWRITE_ISSUED_INVOICE(4014, "Không thể ghi đè hóa đơn đã phát hành hoặc cấp mã", HttpStatus.BAD_REQUEST),
+    INVOICE_ALREADY_NOTICE_ACCEPTED(4015, "Hóa đơn đã thuộc một thông báo sai sót đã được Cơ quan thuế tiếp nhận", HttpStatus.BAD_REQUEST),
+    INVOICE_NOT_ELIGIBLE_FOR_ERROR_NOTICE(4016, "Chỉ được lập thông báo sai sót cho hóa đơn ở trạng thái Hủy hoặc Điều chỉnh", HttpStatus.BAD_REQUEST),
+    ERROR_NOTICE_NOT_FOUND(4017, "Thông báo sai sót không tồn tại trên hệ thống", HttpStatus.NOT_FOUND),
+    ERROR_NOTICE_CANNOT_SEND(4018, "Thông báo sai sót không ở trạng thái nháp hoặc bị từ chối để gửi Cơ quan thuế", HttpStatus.BAD_REQUEST),
+    EMPTY_NOTICE_ITEMS(4019, "Thông báo sai sót phải chứa ít nhất một hóa đơn", HttpStatus.BAD_REQUEST),
+    ERROR_NOTICE_CANNOT_REOPEN(4029, "Chỉ thông báo ở trạng thái bị từ chối mới có thể đưa về bản nháp", HttpStatus.BAD_REQUEST),
+    ERROR_NOTICE_CANNOT_UPDATE(4034, "Chỉ thông báo ở trạng thái nháp hoặc bị từ chối mới được phép chỉnh sửa", HttpStatus.BAD_REQUEST),
+    ERROR_NOTICE_CANNOT_REJECT(4035, "Chỉ thông báo ở trạng thái chờ phản hồi hoặc bản nháp mới có thể từ chối, không thể từ chối thông báo đã được tiếp nhận", HttpStatus.BAD_REQUEST),
+    DUPLICATE_INVOICE_IN_NOTICE(4036, "Không được chứa hóa đơn trùng lặp trong cùng một thông báo sai sót", HttpStatus.BAD_REQUEST),
 
     // Quản lý khách hàng thân thiết và công nợ (NCL-10)
     CUSTOMER_PHONE_EXISTS(3026, "Số điện thoại khách hàng đã tồn tại trong hộ kinh doanh", HttpStatus.BAD_REQUEST),

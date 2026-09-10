@@ -33,6 +33,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Optional;
 
@@ -124,6 +125,7 @@ class EInvoiceServiceImplTest {
                 .totalAmountBeforeTax(BigDecimal.valueOf(100000))
                 .finalAmount(BigDecimal.valueOf(100000))
                 .lookupCode("LOOKUP001")
+                .createdAt(LocalDateTime.now())
                 .items(new ArrayList<>())
                 .build();
 
@@ -137,6 +139,7 @@ class EInvoiceServiceImplTest {
                 .totalAmountBeforeTax(BigDecimal.valueOf(200000))
                 .finalAmount(BigDecimal.valueOf(200000))
                 .lookupCode("LOOKUP002")
+                .createdAt(LocalDateTime.now())
                 .items(new ArrayList<>())
                 .build();
     }
@@ -542,7 +545,7 @@ class EInvoiceServiceImplTest {
     @DisplayName("NCL-06-CN-005: Gửi lại hóa đơn cho khách qua Email thành công và lưu trạng thái PENDING")
     void resendCustomerDelivery_Email_Success() {
         when(userRepository.findByUsername("seller1")).thenReturn(Optional.of(currentUser));
-        when(eInvoiceRepository.findById("inv-draft-1")).thenReturn(Optional.of(draftInvoice));
+        when(eInvoiceRepository.findById("inv-issued-1")).thenReturn(Optional.of(issuedInvoice));
         when(eInvoiceRepository.save(any(EInvoice.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(invoiceDeliveryLogRepository.save(any(com.sales.entity.InvoiceDeliveryLog.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -553,10 +556,10 @@ class EInvoiceServiceImplTest {
                         .updateCustomerDefaultChannel(false)
                         .build();
 
-        InvoiceResponse response = eInvoiceService.resendCustomerDelivery("seller1", "inv-draft-1", request);
+        InvoiceResponse response = eInvoiceService.resendCustomerDelivery("seller1", "inv-issued-1", request);
 
         assertNotNull(response);
-        assertEquals("PENDING", draftInvoice.getCustomerDeliveryStatus());
+        assertEquals("PENDING", issuedInvoice.getCustomerDeliveryStatus());
         verify(emailService, times(1)).sendInvoiceEmailAsync(any(), eq("test.customer@gmail.com"), any(), any(), any(), any());
     }
 
@@ -569,10 +572,10 @@ class EInvoiceServiceImplTest {
                 .name("Khách Hàng Thân Thiết")
                 .phoneNumber("0912345678")
                 .build();
-        draftInvoice.setBuyerPhone("0912345678");
+        issuedInvoice.setBuyerPhone("0912345678");
 
         when(userRepository.findByUsername("seller1")).thenReturn(Optional.of(currentUser));
-        when(eInvoiceRepository.findById("inv-draft-1")).thenReturn(Optional.of(draftInvoice));
+        when(eInvoiceRepository.findById("inv-issued-1")).thenReturn(Optional.of(issuedInvoice));
         when(customerRepository.findByPhoneNumberAndHouseholdIdAndDeletedAtIsNull("0912345678", "hh-100"))
                 .thenReturn(Optional.of(customer));
         when(eInvoiceRepository.save(any(EInvoice.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -585,12 +588,63 @@ class EInvoiceServiceImplTest {
                         .updateCustomerDefaultChannel(true)
                         .build();
 
-        InvoiceResponse response = eInvoiceService.resendCustomerDelivery("seller1", "inv-draft-1", request);
+        InvoiceResponse response = eInvoiceService.resendCustomerDelivery("seller1", "inv-issued-1", request);
 
         assertNotNull(response);
-        assertEquals("SUCCESS", draftInvoice.getCustomerDeliveryStatus());
+        assertEquals("SUCCESS", issuedInvoice.getCustomerDeliveryStatus());
         assertEquals("ZALO", customer.getDefaultDeliveryChannel());
         assertEquals("0912345678", customer.getDefaultDeliveryAddress());
+    }
+
+    @Test
+    @DisplayName("NCL-06-CN-005: Gửi lại hóa đơn khi hóa đơn là DRAFT bị chặn với lỗi INVOICE_DELIVERY_NOT_ALLOWED")
+    void resendCustomerDelivery_DraftInvoice_ThrowsException() {
+        when(userRepository.findByUsername("seller1")).thenReturn(Optional.of(currentUser));
+        when(eInvoiceRepository.findById("inv-draft-1")).thenReturn(Optional.of(draftInvoice));
+
+        com.sales.dto.request.ResendCustomerDeliveryRequest request =
+                com.sales.dto.request.ResendCustomerDeliveryRequest.builder()
+                        .channel("EMAIL")
+                        .recipientAddress("test.customer@gmail.com")
+                        .build();
+
+        AppException ex = assertThrows(AppException.class, () ->
+                eInvoiceService.resendCustomerDelivery("seller1", "inv-draft-1", request));
+
+        assertEquals(ErrorCode.INVOICE_DELIVERY_NOT_ALLOWED, ex.getErrorCode());
+        verify(eInvoiceRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("NCL-06-CN-005: Gửi lại hóa đơn qua kênh QR không cần nhập địa chỉ nhận thành công")
+    void resendCustomerDelivery_QR_EmptyRecipient_Success() {
+        when(userRepository.findByUsername("seller1")).thenReturn(Optional.of(currentUser));
+        when(eInvoiceRepository.findById("inv-issued-1")).thenReturn(Optional.of(issuedInvoice));
+        when(eInvoiceRepository.save(any(EInvoice.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(invoiceDeliveryLogRepository.save(any(com.sales.entity.InvoiceDeliveryLog.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        com.sales.dto.request.ResendCustomerDeliveryRequest request =
+                com.sales.dto.request.ResendCustomerDeliveryRequest.builder()
+                        .channel("QR")
+                        .build();
+
+        InvoiceResponse response = eInvoiceService.resendCustomerDelivery("seller1", "inv-issued-1", request);
+
+        assertNotNull(response);
+        assertEquals("SUCCESS", issuedInvoice.getCustomerDeliveryStatus());
+    }
+
+    @Test
+    @DisplayName("NCL-06-CN-005: In hóa đơn cập nhật trạng thái customerDeliveryStatus sang SUCCESS")
+    void getInvoicePrintLayout_UpdatesCustomerDeliveryStatus() {
+        when(userRepository.findByUsername("seller1")).thenReturn(Optional.of(currentUser));
+        when(eInvoiceRepository.findById("inv-issued-1")).thenReturn(Optional.of(issuedInvoice));
+        when(invoiceTemplateRepository.findByHouseholdId("hh-100")).thenReturn(Optional.empty());
+
+        eInvoiceService.getInvoicePrintLayout("seller1", "inv-issued-1", "K80");
+
+        assertEquals("SUCCESS", issuedInvoice.getCustomerDeliveryStatus());
+        verify(eInvoiceRepository, times(1)).save(issuedInvoice);
     }
 }
 

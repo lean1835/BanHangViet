@@ -249,6 +249,56 @@ public class EInvoiceController {
         return ResponseEntity.ok(response);
     }
 
+    @GetMapping("/export")
+    @PreAuthorize("hasAnyRole('VT-01', 'VT-03')")
+    @Operation(summary = "Xuất danh sách hóa đơn tra cứu ra tệp Excel (NCL-05-CN-006)")
+    public ResponseEntity<byte[]> exportInvoices(
+            Principal principal,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate,
+            @RequestParam(required = false) String search,
+            jakarta.servlet.http.HttpServletRequest httpRequest) {
+        String clientIp = httpRequest != null ? httpRequest.getRemoteAddr() : null;
+        String userAgent = httpRequest != null ? httpRequest.getHeader("User-Agent") : null;
+
+        byte[] excelBytes = eInvoiceService.exportInvoicesToExcel(
+                principal.getName(), status, fromDate, toDate, search, clientIp, userAgent);
+
+        return ResponseEntity.ok()
+                .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"Danh_sach_hoa_don.xlsx\"")
+                .contentType(org.springframework.http.MediaType.APPLICATION_OCTET_STREAM)
+                .body(excelBytes);
+    }
+
+    @GetMapping("/{id}/representation")
+    @PreAuthorize("hasAnyRole('VT-01', 'VT-02', 'VT-03')")
+    @Operation(summary = "Xem bản thể hiện hóa đơn điện tử (NCL-05-CN-007)")
+    public ResponseEntity<ApiResponse<com.sales.dto.response.InvoiceRepresentationResponse>> getInvoiceRepresentation(
+            Principal principal,
+            @PathVariable String id) {
+        com.sales.dto.response.InvoiceRepresentationResponse result = eInvoiceService.getInvoiceRepresentation(principal.getName(), id);
+        ApiResponse<com.sales.dto.response.InvoiceRepresentationResponse> response = ApiResponse.<com.sales.dto.response.InvoiceRepresentationResponse>builder()
+                .code(1000)
+                .message("Lấy bản thể hiện hóa đơn thành công")
+                .result(result)
+                .build();
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping(value = {"/{id}/representation/download", "/{id}/representation/html"})
+    @PreAuthorize("hasAnyRole('VT-01', 'VT-02', 'VT-03')")
+    @Operation(summary = "Tải bản thể hiện hóa đơn dạng file HTML (NCL-05-CN-007)")
+    public ResponseEntity<byte[]> downloadInvoiceRepresentation(
+            Principal principal,
+            @PathVariable String id) {
+        byte[] fileBytes = eInvoiceService.downloadInvoiceRepresentation(principal.getName(), id);
+        return ResponseEntity.ok()
+                .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"Hoa_don_" + id + ".html\"")
+                .contentType(org.springframework.http.MediaType.TEXT_HTML)
+                .body(fileBytes);
+    }
+
     @GetMapping("/daily-control")
     @PreAuthorize("hasAnyRole('VT-01', 'VT-03')")
     @Operation(summary = "Kiểm soát hóa đơn cuối ngày (NCL-04-CN-008)")
