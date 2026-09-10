@@ -180,7 +180,7 @@ describe("NCL-04-CN-010: Theo dõi trạng thái kết nối cơ quan thuế mô
   });
 
   it("NCL-04-CN-010-TC-04: Khi thiết bị mất mạng (DevTools Offline) -> Widget tự động chuyển CQT: Mất kết nối", () => {
-    vi.spyOn(networkHookModule, "useNetworkStatus").mockReturnValue({ isOnline: false });
+    vi.spyOn(networkHookModule, "useNetworkStatus").mockReturnValue({ isOnline: false, isSlow: false, liveLatencyMs: 0 });
     vi.spyOn(eInvoiceApiModule, "useGetTaxConnectionStatusQuery").mockReturnValue({
       data: {
         code: 1000,

@@ -13,6 +13,7 @@ import {
   AlertCircle,
   Loader2,
   Save,
+  FileText,
 } from "lucide-react";
 import { useDashboardDemo } from "@/providers/DashboardDemoProvider";
 import { useNotification } from "@/hooks/useNotification";
@@ -37,10 +38,12 @@ import {
   useUpdateInvoiceMutation,
   useGetInvoiceLogsQuery,
   useLazyLookupBuyerInfoQuery,
+  useGetInvoiceRepresentationQuery,
 } from "../services/eInvoiceApi";
 import { CancelInvoiceModal } from "../components/CancelInvoiceModal";
 import { SendInvoiceModal } from "../components/SendInvoiceModal";
 import { PrintInvoiceModal } from "../components/PrintInvoiceModal";
+import { InvoiceRepresentationModal } from "../components/InvoiceRepresentationModal";
 import {
   getStatusClassName,
   getStatusLabel,
@@ -96,6 +99,7 @@ export const InvoiceDetailPage: React.FC = () => {
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [showSendModal, setShowSendModal] = useState(false);
   const [showPrintModal, setShowPrintModal] = useState(false);
+  const [showRepresentationModal, setShowRepresentationModal] = useState(false);
   const [deliveryLogs, setDeliveryLogs] = useState<IDeliveryLog[]>([]);
   const [isActionPending, setIsActionPending] = useState(false);
 
@@ -108,10 +112,18 @@ export const InvoiceDetailPage: React.FC = () => {
     skip: !id || !isOnline,
   });
 
+  const { data: repResponse } = useGetInvoiceRepresentationQuery(id || "", {
+    skip: !id || !isOnline,
+  });
+  const repData = repResponse?.result;
+
   const [submitToTaxApi] = useSubmitToTaxMutation();
   const [resendInvoiceApi] = useResendInvoiceMutation();
   const [cancelInvoiceApi] = useCancelInvoiceMutation();
   const [updateInvoiceApi] = useUpdateInvoiceMutation();
+
+
+
 
   // Invoice resolution (API response or Local fallback)
   const invoice: IInvoice | null = useMemo(() => {
@@ -477,7 +489,19 @@ export const InvoiceDetailPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-2 shrink-0 flex-wrap">
+            {/* NCL-05-CN-007: Nút Xem bản thể hiện */}
+            <button
+              type="button"
+              onClick={() => setShowRepresentationModal(true)}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 hover:border-kv-blue-primary text-slate-700 text-xs font-bold transition-all shadow-sm active:scale-95"
+              title="Xem bản thể hiện hóa đơn điện tử chuẩn pháp lý"
+            >
+              <FileText size={14} className="text-kv-blue-primary" />
+              <span>Bản thể hiện</span>
+            </button>
+
+
             <button
               type="button"
               onClick={() => setShowPrintModal(true)}
@@ -493,10 +517,18 @@ export const InvoiceDetailPage: React.FC = () => {
         <div className="flex flex-col lg:flex-row items-start gap-6">
           {/* Left Column: Standard Electronic Invoice Document Paper */}
           <div className="flex-1 w-full bg-white border border-slate-200 rounded-xl p-6 sm:p-8 shadow-sm flex flex-col gap-6 text-[10px] text-slate-800 font-medium relative overflow-hidden">
-            {/* Watermark */}
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none opacity-[0.03] text-slate-800 text-[3.5rem] font-extrabold rotate-[30deg] uppercase whitespace-nowrap">
-              Hóa đơn điện tử
-            </div>
+            {/* Watermark (NCL-05-CN-007) */}
+            {repData?.watermarkText ? (
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none z-10">
+                <div className="transform -rotate-[30deg] border-4 border-dashed border-red-500/35 text-red-600/30 font-black text-3xl sm:text-4xl uppercase tracking-widest px-6 py-3 rounded-2xl text-center">
+                  {repData.watermarkText}
+                </div>
+              </div>
+            ) : (
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none opacity-[0.03] text-slate-800 text-[3.5rem] font-extrabold rotate-[30deg] uppercase whitespace-nowrap">
+                Hóa đơn điện tử
+              </div>
+            )}
 
             {/* Invoice Header */}
             <div className="flex justify-between border-b pb-4 flex-wrap gap-4">
@@ -718,6 +750,14 @@ export const InvoiceDetailPage: React.FC = () => {
                 </div>
               )}
             </div>
+
+            {/* Adjustment Reference Note (NCL-05-CN-007) */}
+            {repData?.referenceNote && (
+              <div className="border border-blue-200 bg-blue-50/80 rounded-lg p-2.5 text-[10px] font-semibold text-blue-800 flex items-center gap-2">
+                <CheckCircle2 className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                <span>{repData.referenceNote}</span>
+              </div>
+            )}
 
             {/* Items Table */}
             <div className="flex-1 overflow-x-auto">
@@ -1148,6 +1188,16 @@ export const InvoiceDetailPage: React.FC = () => {
           isOpen={showPrintModal}
           onClose={() => setShowPrintModal(false)}
           invoice={invoice}
+        />
+      )}
+
+
+      {/* Invoice Representation Modal (NCL-05-CN-007) */}
+      {showRepresentationModal && (
+        <InvoiceRepresentationModal
+          invoiceId={invoice.id}
+          isOpen={showRepresentationModal}
+          onClose={() => setShowRepresentationModal(false)}
         />
       )}
     </div>
