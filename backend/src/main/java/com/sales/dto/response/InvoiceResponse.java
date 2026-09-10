@@ -40,6 +40,7 @@ public class InvoiceResponse {
     private BigDecimal discountAmount;
     private BigDecimal finalAmount;
     private String status;
+    private String customerDeliveryStatus;
     private String taxAuthorityCode;
     private String taxAuthorityResponse;
     private String cancelReason;

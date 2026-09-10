@@ -469,4 +469,80 @@ class CustomerServiceImplTest {
         assertEquals("ZALO", response.getDefaultDeliveryChannel());
         assertEquals("0912345678", response.getDefaultDeliveryAddress());
     }
+
+    @Test
+    @DisplayName("NCL-06-CN-006: Cập nhật kênh EMAIL hợp lệ thành công")
+    void updateDefaultDeliveryChannel_Email_Success() {
+        com.sales.dto.request.UpdateCustomerDeliveryChannelRequest request =
+                com.sales.dto.request.UpdateCustomerDeliveryChannelRequest.builder()
+                        .defaultDeliveryChannel("EMAIL")
+                        .defaultDeliveryAddress("customer@gmail.com")
+                        .build();
+
+        when(userRepository.findByUsername("chuho")).thenReturn(Optional.of(currentUser));
+        when(customerRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("cust-001", "house-001"))
+                .thenReturn(Optional.of(customerWithDebt));
+        when(customerRepository.save(any(Customer.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        CustomerResponse response = customerService.updateDefaultDeliveryChannel("chuho", "cust-001", request);
+
+        assertNotNull(response);
+        assertEquals("EMAIL", response.getDefaultDeliveryChannel());
+        assertEquals("customer@gmail.com", response.getDefaultDeliveryAddress());
+    }
+
+    @Test
+    @DisplayName("NCL-06-CN-006: Cập nhật kênh EMAIL không đúng định dạng ném AppException INVALID_INPUT")
+    void updateDefaultDeliveryChannel_Email_Invalid_ThrowsException() {
+        com.sales.dto.request.UpdateCustomerDeliveryChannelRequest request =
+                com.sales.dto.request.UpdateCustomerDeliveryChannelRequest.builder()
+                        .defaultDeliveryChannel("EMAIL")
+                        .defaultDeliveryAddress("invalid-email-address")
+                        .build();
+
+        when(userRepository.findByUsername("chuho")).thenReturn(Optional.of(currentUser));
+        when(customerRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("cust-001", "house-001"))
+                .thenReturn(Optional.of(customerWithDebt));
+
+        assertThrows(AppException.class, () ->
+                customerService.updateDefaultDeliveryChannel("chuho", "cust-001", request));
+    }
+
+    @Test
+    @DisplayName("NCL-06-CN-006: Cập nhật kênh ZALO số điện thoại không hợp lệ ném AppException INVALID_INPUT")
+    void updateDefaultDeliveryChannel_Zalo_Invalid_ThrowsException() {
+        com.sales.dto.request.UpdateCustomerDeliveryChannelRequest request =
+                com.sales.dto.request.UpdateCustomerDeliveryChannelRequest.builder()
+                        .defaultDeliveryChannel("ZALO")
+                        .defaultDeliveryAddress("abc-phone")
+                        .build();
+
+        when(userRepository.findByUsername("chuho")).thenReturn(Optional.of(currentUser));
+        when(customerRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("cust-001", "house-001"))
+                .thenReturn(Optional.of(customerWithDebt));
+
+        assertThrows(AppException.class, () ->
+                customerService.updateDefaultDeliveryChannel("chuho", "cust-001", request));
+    }
+
+    @Test
+    @DisplayName("NCL-06-CN-006: Cập nhật kênh QR tự động gán defaultDeliveryAddress là null")
+    void updateDefaultDeliveryChannel_QR_NullifiesAddress() {
+        com.sales.dto.request.UpdateCustomerDeliveryChannelRequest request =
+                com.sales.dto.request.UpdateCustomerDeliveryChannelRequest.builder()
+                        .defaultDeliveryChannel("QR")
+                        .defaultDeliveryAddress("http://some-url.com")
+                        .build();
+
+        when(userRepository.findByUsername("chuho")).thenReturn(Optional.of(currentUser));
+        when(customerRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("cust-001", "house-001"))
+                .thenReturn(Optional.of(customerWithDebt));
+        when(customerRepository.save(any(Customer.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        CustomerResponse response = customerService.updateDefaultDeliveryChannel("chuho", "cust-001", request);
+
+        assertNotNull(response);
+        assertEquals("QR", response.getDefaultDeliveryChannel());
+        assertNull(response.getDefaultDeliveryAddress());
+    }
 }

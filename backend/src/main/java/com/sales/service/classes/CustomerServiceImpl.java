@@ -156,9 +156,13 @@ public class CustomerServiceImpl implements CustomerService {
                 .isVip(isVip)
                 .reminderDaysBefore(reminderDaysBefore)
                 .reminderDaysAfter(reminderDaysAfter)
-                .defaultDeliveryChannel(request.getDefaultDeliveryChannel() != null ? request.getDefaultDeliveryChannel() : "QR")
-                .defaultDeliveryAddress(request.getDefaultDeliveryAddress())
+                .defaultDeliveryChannel("QR")
+                .defaultDeliveryAddress(null)
                 .build();
+
+        if (request.getDefaultDeliveryChannel() != null || request.getDefaultDeliveryAddress() != null) {
+            sanitizeAndValidateDeliveryChannel(customer, request.getDefaultDeliveryChannel(), request.getDefaultDeliveryAddress());
+        }
 
         customer = customerRepository.save(customer);
 
@@ -222,11 +226,8 @@ public class CustomerServiceImpl implements CustomerService {
         if (request.getReminderDaysAfter() != null) {
             customer.setReminderDaysAfter(request.getReminderDaysAfter());
         }
-        if (request.getDefaultDeliveryChannel() != null) {
-            customer.setDefaultDeliveryChannel(request.getDefaultDeliveryChannel());
-        }
-        if (request.getDefaultDeliveryAddress() != null) {
-            customer.setDefaultDeliveryAddress(request.getDefaultDeliveryAddress());
+        if (request.getDefaultDeliveryChannel() != null || request.getDefaultDeliveryAddress() != null) {
+            sanitizeAndValidateDeliveryChannel(customer, request.getDefaultDeliveryChannel(), request.getDefaultDeliveryAddress());
         }
 
         customer = customerRepository.save(customer);
@@ -291,18 +292,39 @@ public class CustomerServiceImpl implements CustomerService {
 
         Map<String, Object> oldLogMap = buildCustomerLogMap(customer);
 
-        if (request.getDefaultDeliveryChannel() != null) {
-            customer.setDefaultDeliveryChannel(request.getDefaultDeliveryChannel());
-        }
-        if (request.getDefaultDeliveryAddress() != null) {
-            customer.setDefaultDeliveryAddress(request.getDefaultDeliveryAddress());
-        }
+        sanitizeAndValidateDeliveryChannel(customer, request.getDefaultDeliveryChannel(), request.getDefaultDeliveryAddress());
 
         customer = customerRepository.save(customer);
 
         logActivity(household, currentUser, "UPDATE_CUSTOMER_DELIVERY_CHANNEL", customer.getId(), oldLogMap, buildCustomerLogMap(customer));
 
         return mapToResponse(customer);
+    }
+
+    private void sanitizeAndValidateDeliveryChannel(Customer customer, String channel, String address) {
+        if (channel != null && !channel.isBlank()) {
+            customer.setDefaultDeliveryChannel(channel.trim().toUpperCase());
+        } else if (customer.getDefaultDeliveryChannel() == null) {
+            customer.setDefaultDeliveryChannel("QR");
+        }
+        String currentChannel = customer.getDefaultDeliveryChannel();
+        String cleanAddress = (address != null && !address.isBlank()) ? address.trim() : null;
+
+        if ("EMAIL".equalsIgnoreCase(currentChannel)) {
+            if (cleanAddress == null || !cleanAddress.matches("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+$")) {
+                throw new AppException(ErrorCode.INVALID_INPUT);
+            }
+            customer.setDefaultDeliveryAddress(cleanAddress);
+        } else if ("ZALO".equalsIgnoreCase(currentChannel)) {
+            if (cleanAddress == null || !cleanAddress.matches("^[0-9]{9,15}$")) {
+                throw new AppException(ErrorCode.INVALID_INPUT);
+            }
+            customer.setDefaultDeliveryAddress(cleanAddress);
+        } else if ("QR".equalsIgnoreCase(currentChannel) || "PRINT".equalsIgnoreCase(currentChannel)) {
+            customer.setDefaultDeliveryAddress(null);
+        } else {
+            throw new AppException(ErrorCode.INVALID_INPUT);
+        }
     }
 
     @Override

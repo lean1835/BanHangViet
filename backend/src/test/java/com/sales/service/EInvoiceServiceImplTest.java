@@ -766,5 +766,37 @@ class EInvoiceServiceImplTest {
         verify(invoiceDeliveryLogRepository, never()).findFirstByInvoiceIdOrderBySentAtDesc(any());
         verify(invoiceDeliveryLogRepository, never()).countByInvoiceId(any());
     }
+
+    @Test
+    @DisplayName("P3-01: Gửi lại hóa đơn với kênh không xác định -> Ném AppException INVALID_INPUT")
+    void resendCustomerDelivery_UnknownChannel_ThrowsException() {
+        when(userRepository.findByUsername("seller1")).thenReturn(Optional.of(currentUser));
+        when(eInvoiceRepository.findById("inv-issued-1")).thenReturn(Optional.of(issuedInvoice));
+
+        com.sales.dto.request.ResendCustomerDeliveryRequest request =
+                com.sales.dto.request.ResendCustomerDeliveryRequest.builder()
+                        .channel("UNKNOWN_CHANNEL")
+                        .recipientAddress("some-address")
+                        .build();
+
+        AppException ex = assertThrows(AppException.class, () ->
+                eInvoiceService.resendCustomerDelivery("seller1", "inv-issued-1", request));
+
+        assertEquals(ErrorCode.INVALID_INPUT, ex.getErrorCode());
+    }
+
+    @Test
+    @DisplayName("P1-01 & P2-01: deliverInvoiceViaEmail thành công và cập nhật trạng thái PENDING")
+    void deliverInvoiceViaEmail_Success() {
+        when(userRepository.findByUsername("seller1")).thenReturn(Optional.of(currentUser));
+        when(eInvoiceRepository.findById("inv-issued-1")).thenReturn(Optional.of(issuedInvoice));
+        when(eInvoiceRepository.save(any(EInvoice.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(invoiceDeliveryLogRepository.save(any(InvoiceDeliveryLog.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        eInvoiceService.deliverInvoiceViaEmail("seller1", "inv-issued-1", "buyer@gmail.com");
+
+        assertEquals("PENDING", issuedInvoice.getCustomerDeliveryStatus());
+        verify(emailService, times(1)).sendInvoiceEmailAsync(any(), eq("buyer@gmail.com"), any(), any(), any(), any());
+    }
 }
 

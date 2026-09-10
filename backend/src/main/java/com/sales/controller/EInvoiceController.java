@@ -333,7 +333,7 @@ public class EInvoiceController {
     }
 
     @PostMapping("/{invoiceId}/resend-customer")
-    @PreAuthorize("hasAnyRole('VT-01', 'VT-02')")
+    @PreAuthorize("hasAnyRole('VT-01', 'VT-02', 'VT-03')")
     @Operation(summary = "Gửi lại hóa đơn cho khách hàng (NCL-06-CN-005 & NCL-06-CN-006)")
     public ResponseEntity<ApiResponse<InvoiceResponse>> resendCustomerDelivery(
             Principal principal,

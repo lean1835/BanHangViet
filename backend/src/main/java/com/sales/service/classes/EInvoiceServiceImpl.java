@@ -75,6 +75,11 @@ public class EInvoiceServiceImpl implements EInvoiceService {
 
     private void logActivity(BusinessHousehold household, User actor, String action, String targetId, Object oldValue,
             Object newValue) {
+        logActivity(household, actor, action, "e_invoices", targetId, oldValue, newValue);
+    }
+
+    private void logActivity(BusinessHousehold household, User actor, String action, String targetType, String targetId, Object oldValue,
+            Object newValue) {
         try {
             ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder
                     .getRequestAttributes();
@@ -86,9 +91,9 @@ public class EInvoiceServiceImpl implements EInvoiceService {
             String oldStr = oldValue != null ? objectMapper.writeValueAsString(oldValue) : null;
             String newStr = newValue != null ? objectMapper.writeValueAsString(newValue) : null;
 
-            activityLogHelper.logActivityInNewTransaction(household, actor, action, "e_invoices", targetId, oldStr, newStr, clientIp, userAgent);
+            activityLogHelper.logActivityInNewTransaction(household, actor, action, targetType, targetId, oldStr, newStr, clientIp, userAgent);
         } catch (Exception e) {
-            log.error("Failed to write activity log for invoice", e);
+            log.error("Failed to write activity log for " + targetType, e);
         }
     }
 
@@ -229,6 +234,7 @@ public class EInvoiceServiceImpl implements EInvoiceService {
                 .discountAmount(invoice.getDiscountAmount())
                 .finalAmount(invoice.getFinalAmount())
                 .status(invoice.getStatus())
+                .customerDeliveryStatus(invoice.getCustomerDeliveryStatus())
                 .taxAuthorityCode(invoice.getTaxAuthorityCode())
                 .taxAuthorityResponse(invoice.getTaxAuthorityResponse())
                 .cancelReason(invoice.getCancelReason())
@@ -1292,7 +1298,16 @@ public class EInvoiceServiceImpl implements EInvoiceService {
         String lookupCode = invoice.getLookupCode();
         BigDecimal finalAmount = invoice.getFinalAmount();
 
-        emailService.sendInvoiceEmailAsync(savedLog.getId(), email, lookupUrl, householdName, lookupCode, finalAmount);
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    emailService.sendInvoiceEmailAsync(savedLog.getId(), email, lookupUrl, householdName, lookupCode, finalAmount);
+                }
+            });
+        } else {
+            emailService.sendInvoiceEmailAsync(savedLog.getId(), email, lookupUrl, householdName, lookupCode, finalAmount);
+        }
 
         log.info("Đăng ký gửi hóa đơn qua Email thành công đến: {}. Hóa đơn ID={}", email, invoiceId);
     }
@@ -2164,7 +2179,7 @@ public class EInvoiceServiceImpl implements EInvoiceService {
                 throw new AppException(ErrorCode.INVALID_INPUT);
             }
             if (Boolean.TRUE.equals(request.getUpdateCustomerDefaultChannel())) {
-                updateCustomerDeliveryInfo(invoice, channel, recipient);
+                updateCustomerDeliveryInfo(invoice, channel, recipient, currentUser);
             }
 
             invoice.setCustomerDeliveryStatus("PENDING");
@@ -2213,7 +2228,7 @@ public class EInvoiceServiceImpl implements EInvoiceService {
                 invoiceDeliveryLogRepository.save(deliveryLog);
             } else {
                 if (Boolean.TRUE.equals(request.getUpdateCustomerDefaultChannel())) {
-                    updateCustomerDeliveryInfo(invoice, channel, recipient);
+                    updateCustomerDeliveryInfo(invoice, channel, recipient, currentUser);
                 }
 
                 invoice.setCustomerDeliveryStatus("SUCCESS");
@@ -2230,7 +2245,7 @@ public class EInvoiceServiceImpl implements EInvoiceService {
         } else if ("QR".equalsIgnoreCase(channel)) {
             String qrRecipient = !recipient.isBlank() ? recipient : ((frontendUrl != null ? frontendUrl : "http://localhost:3000") + "/lookup-invoice?code=" + invoice.getLookupCode());
             if (Boolean.TRUE.equals(request.getUpdateCustomerDefaultChannel())) {
-                updateCustomerDeliveryInfo(invoice, channel, null);
+                updateCustomerDeliveryInfo(invoice, channel, null, currentUser);
             }
 
             invoice.setCustomerDeliveryStatus("SUCCESS");
@@ -2246,7 +2261,7 @@ public class EInvoiceServiceImpl implements EInvoiceService {
         } else if ("PRINT".equalsIgnoreCase(channel)) {
             String printRecipient = !recipient.isBlank() ? recipient : "K80";
             if (Boolean.TRUE.equals(request.getUpdateCustomerDefaultChannel())) {
-                updateCustomerDeliveryInfo(invoice, channel, null);
+                updateCustomerDeliveryInfo(invoice, channel, null, currentUser);
             }
 
             invoice.setCustomerDeliveryStatus("SUCCESS");
@@ -2259,6 +2274,8 @@ public class EInvoiceServiceImpl implements EInvoiceService {
                     .status("SUCCESS")
                     .build();
             invoiceDeliveryLogRepository.save(deliveryLog);
+        } else {
+            throw new AppException(ErrorCode.INVALID_INPUT);
         }
 
         Map<String, Object> logPayload = new HashMap<>();
@@ -2270,7 +2287,7 @@ public class EInvoiceServiceImpl implements EInvoiceService {
         return mapToInvoiceResponse(invoice);
     }
 
-    private void updateCustomerDeliveryInfo(EInvoice invoice, String channel, String recipientAddress) {
+    private void updateCustomerDeliveryInfo(EInvoice invoice, String channel, String recipientAddress, User currentUser) {
         Customer customerToUpdate = null;
         if (invoice.getOrder() != null && invoice.getOrder().getCustomer() != null) {
             customerToUpdate = invoice.getOrder().getCustomer();
@@ -2279,13 +2296,23 @@ public class EInvoiceServiceImpl implements EInvoiceService {
                     invoice.getBuyerPhone(), invoice.getHousehold().getId()).orElse(null);
         }
         if (customerToUpdate != null) {
+            Map<String, Object> oldLogMap = new HashMap<>();
+            oldLogMap.put("defaultDeliveryChannel", customerToUpdate.getDefaultDeliveryChannel());
+            oldLogMap.put("defaultDeliveryAddress", customerToUpdate.getDefaultDeliveryAddress());
+
             customerToUpdate.setDefaultDeliveryChannel(channel);
             if (recipientAddress != null && !recipientAddress.isBlank()) {
                 customerToUpdate.setDefaultDeliveryAddress(recipientAddress);
             } else {
                 customerToUpdate.setDefaultDeliveryAddress(null);
             }
-            customerRepository.save(customerToUpdate);
+            customerToUpdate = customerRepository.save(customerToUpdate);
+
+            Map<String, Object> newLogMap = new HashMap<>();
+            newLogMap.put("defaultDeliveryChannel", customerToUpdate.getDefaultDeliveryChannel());
+            newLogMap.put("defaultDeliveryAddress", customerToUpdate.getDefaultDeliveryAddress());
+
+            logActivity(invoice.getHousehold(), currentUser, "UPDATE_CUSTOMER_DELIVERY_CHANNEL", "customers", customerToUpdate.getId(), oldLogMap, newLogMap);
         }
     }
 
