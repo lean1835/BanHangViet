@@ -1,6 +1,5 @@
 import React from "react";
 import {
-  Zap,
   Search,
 } from "lucide-react";
 
@@ -26,9 +25,8 @@ export const AutoRetrySidebar: React.FC<AutoRetrySidebarProps> = ({
 }) => {
   return (
     <>
-      <div className="font-extrabold text-sm text-slate-800 border-b pb-2 flex items-center gap-1.5">
-        <Zap className="w-4 h-4 text-amber-500" />
-        <span>Bộ lọc Hàng đợi lỗi</span>
+      <div className="font-extrabold text-sm text-slate-800 border-b pb-2">
+        Bộ lọc Hàng đợi lỗi
       </div>
 
       {/* Tìm kiếm nhanh */}

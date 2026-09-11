@@ -62,7 +62,7 @@ export const TaxConnectionWidget: React.FC<TaxConnectionWidgetProps> = ({ onOpen
     <button
       type="button"
       onClick={onOpenDetails}
-      title="Theo dõi trạng thái kết nối Cơ quan Thuế (NCL-04-CN-010). Bấm để xem chi tiết."
+      title="Theo dõi trạng thái kết nối Cơ quan Thuế. Bấm để xem chi tiết."
       aria-label="Xem trạng thái kết nối cơ quan thuế"
       className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-bold transition-all shadow-sm cursor-pointer ${statusConfig.badgeClass}`}
     >

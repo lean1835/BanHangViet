@@ -68,6 +68,7 @@ public class OrderItem {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "price_tier_id")
+    @org.hibernate.annotations.OnDelete(action = org.hibernate.annotations.OnDeleteAction.SET_NULL)
     private ProductPriceTier priceTier;
 
     @Column(name = "price_tier_name", length = 100)

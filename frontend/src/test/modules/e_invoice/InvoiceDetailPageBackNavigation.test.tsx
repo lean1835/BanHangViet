@@ -212,7 +212,7 @@ describe("Quay lại đúng tab trước đó trong phân mục hóa đơn", () 
     fireEvent.click(backBtn);
 
     // Phải quay lại ngay tab Kiểm soát cuối ngày, hiển thị Bộ lọc Kiểm soát
-    expect(screen.getByText("Kiểm soát hóa đơn cuối ngày (NCL-04-CN-008)")).toBeInTheDocument();
+    expect(screen.getByText("Kiểm soát hóa đơn cuối ngày")).toBeInTheDocument();
     expect(screen.getByText("Bộ lọc Kiểm soát")).toBeInTheDocument();
   });
 
@@ -259,7 +259,55 @@ describe("Quay lại đúng tab trước đó trong phân mục hóa đơn", () 
       </Provider>
     );
 
-    expect(screen.getByText("Kiểm soát hóa đơn cuối ngày (NCL-04-CN-008)")).toBeInTheDocument();
+    expect(screen.getByText("Kiểm soát hóa đơn cuối ngày")).toBeInTheDocument();
     expect(screen.getByText("Bộ lọc Kiểm soát")).toBeInTheDocument();
+  });
+
+  it("NCL-04-CN-007: Khi hóa đơn ở trạng thái MANUAL_PROCESSING, hiển thị Alert Banner và nút 'SỬA LỖI & GỬI LẠI THUẾ'", () => {
+    vi.spyOn(eInvoiceApiModule, "useGetInvoiceQuery").mockReturnValue({
+      data: {
+        code: 1000,
+        message: "Success",
+        result: {
+          ...mockInvoiceData,
+          status: "MANUAL_PROCESSING",
+          taxAuthorityResponse: "Mã số thuế người mua không tồn tại trên hệ thống",
+          errorCategory: "INVALID_TAX_CODE",
+          retryCount: 3,
+          maxRetryCount: 3,
+        },
+      },
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    } as any);
+
+    vi.spyOn(settingsApiModule, "useGetInvoiceTemplateQuery").mockReturnValue({
+      data: { code: 1000, message: "Success", result: { updatedAt: "2026-09-01T00:00:00" } },
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    } as any);
+
+    render(
+      <Provider store={createTestStore("VT-01")}>
+        <MemoryRouter initialEntries={["/e-invoices/inv-test-123"]}>
+          <Routes>
+            <Route path="/e-invoices/:id" element={<InvoiceDetailPage />} />
+          </Routes>
+        </MemoryRouter>
+      </Provider>
+    );
+
+    // 1. Alert Banner hiển thị
+    expect(
+      screen.getByText("Hóa đơn cần xử lý thủ công (MANUAL_PROCESSING)")
+    ).toBeInTheDocument();
+    expect(
+      screen.getAllByText(/Mã số thuế người mua không tồn tại trên hệ thống/i).length
+    ).toBeGreaterThanOrEqual(1);
+
+    // 2. Nút "SỬA LỖI & GỬI LẠI THUẾ" hiển thị và có thể bấm
+    expect(screen.getByText("SỬA LỖI & GỬI LẠI THUẾ")).toBeInTheDocument();
   });
 });

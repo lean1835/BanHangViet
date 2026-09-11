@@ -249,7 +249,7 @@ export const DailyInvoiceControlPanel: React.FC<DailyInvoiceControlPanelProps> =
         <div>
           <h2 className="font-extrabold text-slate-800 text-base flex items-center gap-2">
             <ShieldCheck className="w-5 h-5 text-kv-blue-primary" />
-            Kiểm soát hóa đơn cuối ngày (NCL-04-CN-008)
+            Kiểm soát hóa đơn cuối ngày
           </h2>
           <p className="text-xs text-slate-500 font-medium mt-0.5">
             Đối chiếu toàn bộ đơn đã thu tiền và phát hiện các hóa đơn treo chưa được cấp mã

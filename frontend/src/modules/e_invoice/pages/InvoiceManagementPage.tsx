@@ -1,12 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useSearchParams, useNavigate, useLocation } from "react-router-dom";
-import {
-  FileText,
-  ShieldCheck,
-  Zap,
-  Layers,
-  AlertTriangle,
-} from "lucide-react";
 import { DashboardWorkspaceLayout } from "@/components/layouts/DashboardWorkspaceLayout";
 import { useDashboardDemo } from "@/providers/DashboardDemoProvider";
 import { useAppSelector } from "@/hooks/useRedux";
@@ -15,7 +8,7 @@ import { APP_ROUTES } from "@/constants/routes";
 import { STORAGE_KEYS } from "@/constants/app";
 import { USER_ROLES } from "@/constants/roles";
 import { getApiErrorMessage } from "@/utils/getApiErrorMessage";
-import { normalizeDateToYYYYMMDD, getLocalDateString } from "@/utils/dateFormatter";
+import { normalizeDateToYYYYMMDD } from "@/utils/dateFormatter";
 import type { IInvoice, TInvoiceStatus } from "../types/IInvoice";
 import { useGetInvoicesQuery, exportInvoicesToExcel } from "../services/eInvoiceApi";
 import { useGetInvoiceTemplateQuery } from "@/modules/settings/services/settingsApi";
@@ -157,9 +150,9 @@ export const InvoiceManagementPage = () => {
   const [isExporting, setIsExporting] = useState<boolean>(false);
 
   // Tab 3: Filters State (Kiểm soát cuối ngày NCL-04-CN-008)
-  const todayStr = useMemo(() => getLocalDateString(new Date()), []);
+  const todayStr = useMemo(() => new Date().toISOString().split("T")[0], []);
   const [dailyDate, setDailyDate] = useState<string>(todayStr);
-  const [dailyIssueType, setDailyIssueType] = useState<TDailyIssueType>("ALL");
+  const [dailyIssueType, setDailyIssueType] = useState<TDailyIssueType>("UNINVOICED_ORDERS");
   const [dailyDuration, setDailyDuration] = useState<TDailyDurationFilter>("ALL");
   const [dailySummary, setDailySummary] = useState<{
     isCleanDay: boolean;
@@ -168,17 +161,11 @@ export const InvoiceManagementPage = () => {
     totalFailed: number;
   }>();
 
-  const handleResetDailyFilters = useCallback(() => {
-    const today = getLocalDateString(new Date());
-    setDailyDate(today);
-    setDailyIssueType("ALL");
-    setDailyDuration("ALL");
-  }, []);
-
   // Tab 4: Filters State (Hàng đợi lỗi & Gửi lại NCL-04-CN-007)
   const [retrySearchQuery, setRetrySearchQuery] = useState<string>("");
   const [retryErrorCategory, setRetryErrorCategory] = useState<TRetryErrorCategoryFilter>("ALL");
   const [retryCountFilter, setRetryCountFilter] = useState<TRetryCountFilter>("ALL");
+  const [manualQueueCount, setManualQueueCount] = useState<number>(0);
 
   // Tab 5: Filters State (Dải số hóa đơn NCL-04-CN-009)
   const [rangeStatusFilter, setRangeStatusFilter] = useState<TRangeStatusFilter>("ALL");
@@ -398,7 +385,6 @@ export const InvoiceManagementPage = () => {
             durationFilter={dailyDuration}
             setDurationFilter={setDailyDuration}
             summary={dailySummary}
-            onResetFilters={handleResetDailyFilters}
           />
         );
       case "AUTO_RETRY":
@@ -448,7 +434,6 @@ export const InvoiceManagementPage = () => {
     rangeStatusFilter,
     rangeSearchQuery,
     activeRange,
-    handleResetDailyFilters,
   ]);
 
   return (
@@ -472,19 +457,41 @@ export const InvoiceManagementPage = () => {
         {/* Cảnh báo dải số sắp hết / hết số (NCL-04-CN-009) */}
         <InvoiceRangeAlertBanner onNavigateToRangeTab={() => handleTabChange("INVOICE_RANGE")} />
 
+        {/* Cảnh báo tuân thủ QTN-06: Hóa đơn lỗi cần gửi lại trong hạn (NCL-04-CN-007) */}
+        {manualQueueCount > 0 && activeTab !== "AUTO_RETRY" && (
+          <div className="p-3.5 bg-amber-50/95 border border-amber-300 rounded-xl flex items-center justify-between gap-3 text-xs shadow-xs animate-fade-in">
+            <div className="flex items-center gap-2.5">
+              <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-ping shrink-0" />
+              <span className="font-bold text-amber-900">
+                Cảnh báo tuân thủ (QTN-06): Đang có{" "}
+                <span className="font-extrabold font-mono text-rose-700 bg-rose-50 px-1.5 py-0.5 rounded border border-rose-200">
+                  {manualQueueCount}
+                </span>{" "}
+                hóa đơn chưa được cấp mã thuế cần xử lý thủ công để tránh quá hạn quy định!
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => handleTabChange("AUTO_RETRY")}
+              className="px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-bold text-[11px] shrink-0 transition-colors shadow-2xs cursor-pointer"
+            >
+              Xử lý ngay →
+            </button>
+          </div>
+        )}
+
         {/* Tab Navigation Controls */}
         <div className="flex items-center gap-2 border-b border-slate-200 overflow-x-auto no-scrollbar pb-px">
           {/* Tab 1: Danh sách hóa đơn */}
           <button
             type="button"
             onClick={() => handleTabChange("INVOICE_LIST")}
-            className={`px-4 py-2.5 rounded-t-xl text-xs font-extrabold flex items-center gap-2 transition-all border-b-2 cursor-pointer ${
+            className={`px-4 py-2.5 rounded-t-xl text-xs font-extrabold flex items-center transition-all border-b-2 cursor-pointer ${
               activeTab === "INVOICE_LIST"
                 ? "border-kv-blue-primary text-kv-blue-primary bg-white shadow-2xs"
                 : "border-transparent text-slate-500 hover:text-slate-800"
             }`}
           >
-            <FileText className="w-4 h-4" />
             <span>Danh sách hóa đơn</span>
           </button>
 
@@ -492,58 +499,59 @@ export const InvoiceManagementPage = () => {
           <button
             type="button"
             onClick={() => handleTabChange("ERROR_NOTICES")}
-            className={`px-4 py-2.5 rounded-t-xl text-xs font-extrabold flex items-center gap-2 transition-all border-b-2 cursor-pointer ${
+            className={`px-4 py-2.5 rounded-t-xl text-xs font-extrabold flex items-center transition-all border-b-2 cursor-pointer ${
               activeTab === "ERROR_NOTICES"
                 ? "border-kv-blue-primary text-kv-blue-primary bg-white shadow-2xs"
                 : "border-transparent text-slate-500 hover:text-slate-800"
             }`}
           >
-            <AlertTriangle className="w-4 h-4" />
             <span>Thông báo sai sót</span>
           </button>
 
-          {/* Tab 3: Kiểm soát cuối ngày (NCL-04-CN-008) */}
+          {/* Tab 3: Kiểm soát cuối ngày */}
           {isManagerRole && (
             <button
               type="button"
               onClick={() => handleTabChange("DAILY_CONTROL")}
-              className={`px-4 py-2.5 rounded-t-xl text-xs font-extrabold flex items-center gap-2 transition-all border-b-2 cursor-pointer ${
+              className={`px-4 py-2.5 rounded-t-xl text-xs font-extrabold flex items-center transition-all border-b-2 cursor-pointer ${
                 activeTab === "DAILY_CONTROL"
                   ? "border-kv-blue-primary text-kv-blue-primary bg-white shadow-2xs"
                   : "border-transparent text-slate-500 hover:text-slate-800"
               }`}
             >
-              <ShieldCheck className="w-4 h-4" />
-              <span>Kiểm soát cuối ngày (NCL-04-CN-008)</span>
+              <span>Kiểm soát cuối ngày</span>
             </button>
           )}
 
-          {/* Tab 4: Hàng đợi lỗi & Gửi lại (NCL-04-CN-007) */}
+          {/* Tab 4: Hàng đợi lỗi & Gửi lại */}
           <button
             type="button"
             onClick={() => handleTabChange("AUTO_RETRY")}
-            className={`px-4 py-2.5 rounded-t-xl text-xs font-extrabold flex items-center gap-2 transition-all border-b-2 cursor-pointer ${
+            className={`px-4 py-2.5 rounded-t-xl text-xs font-extrabold flex items-center gap-1.5 transition-all border-b-2 cursor-pointer ${
               activeTab === "AUTO_RETRY"
                 ? "border-kv-blue-primary text-kv-blue-primary bg-white shadow-2xs"
                 : "border-transparent text-slate-500 hover:text-slate-800"
             }`}
           >
-            <Zap className="w-4 h-4" />
-            <span>Hàng đợi lỗi & Gửi lại (NCL-04-CN-007)</span>
+            <span>Hàng đợi lỗi & Gửi lại</span>
+            {manualQueueCount > 0 && (
+              <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold bg-amber-500 text-white animate-pulse">
+                {manualQueueCount}
+              </span>
+            )}
           </button>
 
-          {/* Tab 5: Dải số hóa đơn (NCL-04-CN-009) */}
+          {/* Tab 5: Dải số hóa đơn */}
           <button
             type="button"
             onClick={() => handleTabChange("INVOICE_RANGE")}
-            className={`px-4 py-2.5 rounded-t-xl text-xs font-extrabold flex items-center gap-2 transition-all border-b-2 cursor-pointer ${
+            className={`px-4 py-2.5 rounded-t-xl text-xs font-extrabold flex items-center transition-all border-b-2 cursor-pointer ${
               activeTab === "INVOICE_RANGE"
                 ? "border-kv-blue-primary text-kv-blue-primary bg-white shadow-2xs"
                 : "border-transparent text-slate-500 hover:text-slate-800"
             }`}
           >
-            <Layers className="w-4 h-4" />
-            <span>Dải số hóa đơn (NCL-04-CN-009)</span>
+            <span>Dải số hóa đơn</span>
           </button>
         </div>
 
@@ -611,6 +619,7 @@ export const InvoiceManagementPage = () => {
             searchQuery={retrySearchQuery}
             errorCategoryFilter={retryErrorCategory}
             retryCountFilter={retryCountFilter}
+            onTotalCountChange={setManualQueueCount}
           />
         )}
 

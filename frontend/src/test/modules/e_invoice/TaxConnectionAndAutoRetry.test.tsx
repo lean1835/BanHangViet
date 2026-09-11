@@ -8,6 +8,7 @@ import { TaxConnectionWidget } from "@/modules/e_invoice/components/TaxConnectio
 import { TaxConnectionDrawer } from "@/modules/e_invoice/components/TaxConnectionDrawer";
 import { AutoRetryQueuePanel } from "@/modules/e_invoice/components/AutoRetryQueuePanel";
 import * as eInvoiceApiModule from "@/modules/e_invoice/services/eInvoiceApi";
+import * as settingsApiModule from "@/modules/settings/services/settingsApi";
 import * as networkHookModule from "@/hooks/useNetworkStatus";
 
 vi.mock("@/hooks/useNotification", () => ({
@@ -24,12 +25,12 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-const createTestStore = () =>
+const createTestStore = (roleId = "VT-01") =>
   configureStore({
     reducer: {
       auth: (
         state = {
-          user: { id: "u1", username: "test_owner", roleId: "VT-01" },
+          user: { id: "u1", username: "test_owner", roleId },
           token: "fake-token",
           isAuthenticated: true,
         }
@@ -327,4 +328,166 @@ describe("NCL-04-CN-007: Tự động gửi lại hóa đơn chưa được cấ
     expect(screen.getByText("Gửi lại")).toBeInTheDocument();
     expect(screen.getByText("Sửa")).toBeInTheDocument();
   });
+
+  it("NCL-04-CN-007-TC-03: Kiểm soát phân quyền RBAC - Vô hiệu hóa nút quét tự động đối với vai trò thu ngân (VT-02)", () => {
+    vi.spyOn(eInvoiceApiModule, "useTriggerAutoRetryMutation").mockReturnValue([
+      vi.fn(),
+      { isLoading: false },
+    ] as any);
+
+    vi.spyOn(eInvoiceApiModule, "useGetManualProcessingInvoicesQuery").mockReturnValue({
+      data: {
+        code: 1000,
+        message: "Success",
+        result: {
+          content: [],
+          totalElements: 0,
+          totalPages: 0,
+        },
+      },
+      isLoading: false,
+      isFetching: false,
+      refetch: vi.fn(),
+    } as any);
+
+    render(
+      <Provider store={createTestStore("VT-02")}>
+        <MemoryRouter>
+          <AutoRetryQueuePanel />
+        </MemoryRouter>
+      </Provider>
+    );
+
+    const triggerBtn = screen.getByText("Quét & Gửi lại ngay").closest("button");
+    expect(triggerBtn).toBeDisabled();
+    expect(triggerBtn).toHaveAttribute(
+      "title",
+      "Chỉ Chủ hộ hoặc Kế toán mới có quyền kích hoạt quét toàn bộ hàng đợi"
+    );
+  });
+
+  it("NCL-04-CN-007-TC-04: Hiển thị Hàng đợi tự động gửi lại theo lịch kèm tiến độ và mốc thời gian", async () => {
+    vi.spyOn(eInvoiceApiModule, "useGetManualProcessingInvoicesQuery").mockReturnValue({
+      data: {
+        code: 1000,
+        message: "Success",
+        result: {
+          content: [],
+          totalElements: 0,
+          totalPages: 0,
+        },
+      },
+      isLoading: false,
+      isFetching: false,
+      refetch: vi.fn(),
+    } as any);
+
+    vi.spyOn(eInvoiceApiModule, "useGetInvoicesQuery").mockReturnValue({
+      data: {
+        code: 1000,
+        message: "Success",
+        result: {
+          content: [
+            {
+              id: "inv-sched-1",
+              invoiceNumber: "HD-000888",
+              lookupCode: "LK-888",
+              buyerName: "Công ty Mạng Gián Đoạn",
+              buyerTaxCode: "0101234567-888",
+              finalAmount: 500000,
+              status: "SEND_ERROR",
+              taxAuthorityResponse: "Timeout kết nối cổng Cơ quan Thuế",
+              errorCategory: "NETWORK_TIMEOUT",
+              retryCount: 1,
+              maxRetryCount: 3,
+              nextRetryAt: "2026-09-11T14:30:00",
+              createdAt: "2026-09-11T14:00:00",
+            },
+          ],
+          totalElements: 1,
+          totalPages: 1,
+        },
+      },
+      isLoading: false,
+      isFetching: false,
+      refetch: vi.fn(),
+    } as any);
+
+    vi.spyOn(eInvoiceApiModule, "useResendAutoRetryInvoiceMutation").mockReturnValue([
+      vi.fn(),
+      { isLoading: false },
+    ] as any);
+
+    render(
+      <Provider store={createTestStore("VT-01")}>
+        <MemoryRouter>
+          <AutoRetryQueuePanel />
+        </MemoryRouter>
+      </Provider>
+    );
+
+    // Click chuyển sang sub-tab "Hàng đợi tự động gửi lại theo lịch"
+    const scheduledTabBtn = screen.getByText("Hàng đợi tự động gửi lại theo lịch");
+    fireEvent.click(scheduledTabBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText("HD-000888")).toBeInTheDocument();
+      expect(screen.getByText("Công ty Mạng Gián Đoạn")).toBeInTheDocument();
+      expect(screen.getByText("Timeout kết nối cổng Cơ quan Thuế")).toBeInTheDocument();
+      expect(screen.getByText("1 / 3 lần")).toBeInTheDocument();
+      expect(screen.getByText("Gửi ngay")).toBeInTheDocument();
+    });
+  });
+
+  it("NCL-04-CN-007-TC-05: Mở modal Cấu hình gửi lại và giao diện hiển thị chuyên nghiệp, không chứa mã kỹ thuật NCL-09", async () => {
+    vi.spyOn(eInvoiceApiModule, "useGetManualProcessingInvoicesQuery").mockReturnValue({
+      data: { code: 1000, message: "Success", result: { content: [], totalElements: 0, totalPages: 0 } },
+      isLoading: false,
+      isFetching: false,
+      refetch: vi.fn(),
+    } as any);
+
+    vi.spyOn(eInvoiceApiModule, "useGetInvoicesQuery").mockReturnValue({
+      data: { code: 1000, message: "Success", result: { content: [], totalElements: 0, totalPages: 0 } },
+      isLoading: false,
+      isFetching: false,
+      refetch: vi.fn(),
+    } as any);
+
+    vi.spyOn(settingsApiModule, "useGetHouseholdSettingsQuery").mockReturnValue({
+      data: {
+        code: 1000,
+        message: "Success",
+        result: {
+          autoRetryEnabled: true,
+          maxRetryAttempts: 3,
+          retryIntervalMinutes: 15,
+          maxRetryHoursDeadline: 24,
+        },
+      },
+      isLoading: false,
+      isFetching: false,
+      refetch: vi.fn(),
+    } as any);
+
+    render(
+      <Provider store={createTestStore("VT-01")}>
+        <MemoryRouter>
+          <AutoRetryQueuePanel />
+        </MemoryRouter>
+      </Provider>
+    );
+
+    const configBtn = screen.getByRole("button", { name: /Cấu hình gửi lại/i });
+    fireEvent.click(configBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText("Cấu hình tự động gửi lại hóa đơn")).toBeInTheDocument();
+      expect(screen.getByText("Số lần gửi lại tối đa")).toBeInTheDocument();
+      expect(screen.getByText("Thời hạn tối đa xử lý hóa đơn lỗi")).toBeInTheDocument();
+      expect(screen.queryByText("NCL-09-CN-008")).not.toBeInTheDocument();
+    });
+  });
 });
+
+

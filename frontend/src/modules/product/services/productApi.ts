@@ -504,6 +504,9 @@ export const productApi = baseApi.injectEndpoints({
           status: productData.status || PRODUCT_STATUS.ACTIVE,
           groupId: productData.groupId || undefined,
           taxRateId: productData.taxRateId,
+          isSoldByWeight: Boolean(productData.isSoldByWeight),
+          decimalPlaces: productData.decimalPlaces,
+          minWeightStep: productData.minWeightStep,
         },
       }),
       transformResponse: (response: unknown): IProduct =>
@@ -549,6 +552,9 @@ export const productApi = baseApi.injectEndpoints({
           status: data.status || PRODUCT_STATUS.ACTIVE,
           groupId: data.groupId || undefined,
           taxRateId: data.taxRateId,
+          isSoldByWeight: Boolean(data.isSoldByWeight),
+          decimalPlaces: data.decimalPlaces,
+          minWeightStep: data.minWeightStep,
         },
       }),
       transformResponse: (response: unknown): IProduct =>

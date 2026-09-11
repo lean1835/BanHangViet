@@ -1,6 +1,5 @@
 import React from "react";
 import {
-  Layers,
   Search,
 } from "lucide-react";
 import type { IInvoiceNumberRange } from "@/modules/settings/types/IInvoiceRange";
@@ -24,9 +23,8 @@ export const InvoiceRangeSidebar: React.FC<InvoiceRangeSidebarProps> = ({
 }) => {
   return (
     <>
-      <div className="font-extrabold text-sm text-slate-800 border-b pb-2 flex items-center gap-1.5">
-        <Layers className="w-4 h-4 text-kv-blue-primary" />
-        <span>Bộ lọc Dải số</span>
+      <div className="font-extrabold text-sm text-slate-800 border-b pb-2">
+        Bộ lọc Dải số
       </div>
 
       {/* Tìm kiếm nhanh */}

@@ -249,9 +249,9 @@ public class ProductServiceImpl implements ProductService {
         }
 
         boolean isSoldByWeight = Boolean.TRUE.equals(request.getIsSoldByWeight());
-        int decimalPlaces = isSoldByWeight ? (request.getDecimalPlaces() != null ? request.getDecimalPlaces() : 3) : 0;
+        int decimalPlaces = isSoldByWeight ? (request.getDecimalPlaces() != null && request.getDecimalPlaces() > 0 ? request.getDecimalPlaces() : 3) : 0;
         BigDecimal minWeightStep = isSoldByWeight
-                ? (request.getMinWeightStep() != null ? request.getMinWeightStep() : new BigDecimal("0.001"))
+                ? (request.getMinWeightStep() != null && request.getMinWeightStep().compareTo(BigDecimal.ZERO) > 0 ? request.getMinWeightStep() : new BigDecimal("0.001"))
                 : BigDecimal.ONE;
         validateWeightConfig(isSoldByWeight, decimalPlaces, minWeightStep);
 
@@ -317,9 +317,9 @@ public class ProductServiceImpl implements ProductService {
         }
 
         boolean isSoldByWeight = Boolean.TRUE.equals(request.getIsSoldByWeight());
-        int decimalPlaces = isSoldByWeight ? (request.getDecimalPlaces() != null ? request.getDecimalPlaces() : 3) : 0;
+        int decimalPlaces = isSoldByWeight ? (request.getDecimalPlaces() != null && request.getDecimalPlaces() > 0 ? request.getDecimalPlaces() : 3) : 0;
         BigDecimal minWeightStep = isSoldByWeight
-                ? (request.getMinWeightStep() != null ? request.getMinWeightStep() : new BigDecimal("0.001"))
+                ? (request.getMinWeightStep() != null && request.getMinWeightStep().compareTo(BigDecimal.ZERO) > 0 ? request.getMinWeightStep() : new BigDecimal("0.001"))
                 : BigDecimal.ONE;
         validateWeightConfig(isSoldByWeight, decimalPlaces, minWeightStep);
 
