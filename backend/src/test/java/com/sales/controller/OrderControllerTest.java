@@ -397,7 +397,7 @@ public class OrderControllerTest {
                         .content(objectMapper.writeValueAsString(itemReq)));
 
         // Chọn tiền mặt
-        OrderPaymentRequest payReq = OrderPaymentRequest.builder()
+        SetPaymentMethodRequest payReq = SetPaymentMethodRequest.builder()
                 .paymentMethod("CASH")
                 .build();
         mockMvc.perform(post("/api/v1/orders/" + orderId + "/payment")
@@ -439,7 +439,7 @@ public class OrderControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(itemReq)));
 
-        OrderPaymentRequest payReq = OrderPaymentRequest.builder()
+        SetPaymentMethodRequest payReq = SetPaymentMethodRequest.builder()
                 .paymentMethod("CASH")
                 .build();
         mockMvc.perform(post("/api/v1/orders/" + orderId + "/payment")
@@ -480,7 +480,7 @@ public class OrderControllerTest {
                         .content(objectMapper.writeValueAsString(itemReq)));
 
         // Chọn chuyển khoản, hệ thống trả về qrCodeUrl
-        OrderPaymentRequest payReq = OrderPaymentRequest.builder()
+        SetPaymentMethodRequest payReq = SetPaymentMethodRequest.builder()
                 .paymentMethod("BANK_TRANSFER")
                 .build();
         mockMvc.perform(post("/api/v1/orders/" + orderId + "/payment")
@@ -489,6 +489,15 @@ public class OrderControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.result.qrCodeUrl").exists());
 
+        // Xác nhận chuyển khoản trước khi chốt đơn (NCL-03-CN-012)
+        ConfirmBankTransferRequest confirmReq = ConfirmBankTransferRequest.builder()
+                .transactionCode("FT12345678")
+                .build();
+        mockMvc.perform(put("/api/v1/orders/" + orderId + "/confirm-bank-transfer")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(confirmReq)))
+                .andExpect(status().isOk());
+
         // Chốt đơn
         CompleteOrderRequest completeReq = CompleteOrderRequest.builder().build();
         mockMvc.perform(post("/api/v1/orders/" + orderId + "/complete")
@@ -496,6 +505,61 @@ public class OrderControllerTest {
                         .content(objectMapper.writeValueAsString(completeReq)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.result.status").value("COMPLETED"))
+                .andExpect(jsonPath("$.result.paymentStatus").value("PAID"));
+    }
+
+    @Test
+    @WithMockUser(username = "test_owner_order", roles = {"VT-01"})
+    public void completeOrder_combinedPayment_cashAndBankTransfer_success() throws Exception {
+        openShiftForUser(testOwner);
+
+        CreateOrderRequest orderReq = CreateOrderRequest.builder().build();
+        String responseStr = mockMvc.perform(post("/api/v1/orders")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(orderReq)))
+                .andReturn().getResponse().getContentAsString();
+        String orderId = objectMapper.readTree(responseStr).get("result").get("id").asText();
+
+        // Thêm mặt hàng 110,000 (quantity: 5 => subtotal: 110,000)
+        CreateOrderItemRequest itemReq = CreateOrderItemRequest.builder()
+                .productId(testProduct.getId())
+                .quantity(new BigDecimal("5.000"))
+                .build();
+        mockMvc.perform(post("/api/v1/orders/" + orderId + "/items")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(itemReq)));
+
+        // Xác nhận chuyển khoản trước (ví dụ 60,000)
+        ConfirmBankTransferRequest confirmReq = ConfirmBankTransferRequest.builder()
+                .transactionCode("FT-COMBINED-01")
+                .build();
+        mockMvc.perform(put("/api/v1/orders/" + orderId + "/confirm-bank-transfer")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(confirmReq)))
+                .andExpect(status().isOk());
+
+        // Chốt đơn kết hợp: Tiền mặt 50,000 + Chuyển khoản 60,000 = 110,000
+        CompleteOrderRequest completeReq = CompleteOrderRequest.builder()
+                .payments(java.util.List.of(
+                        OrderPaymentRequest.builder()
+                                .paymentMethod("CASH")
+                                .amount(new BigDecimal("50000.00"))
+                                .amountGiven(new BigDecimal("50000.00"))
+                                .build(),
+                        OrderPaymentRequest.builder()
+                                .paymentMethod("BANK_TRANSFER")
+                                .amount(new BigDecimal("60000.00"))
+                                .transactionCode("FT-COMBINED-01")
+                                .build()
+                ))
+                .build();
+
+        mockMvc.perform(post("/api/v1/orders/" + orderId + "/complete")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(completeReq)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.result.status").value("COMPLETED"))
+                .andExpect(jsonPath("$.result.paymentMethod").value("COMBINED"))
                 .andExpect(jsonPath("$.result.paymentStatus").value("PAID"));
     }
 
@@ -524,7 +588,7 @@ public class OrderControllerTest {
                         .content(objectMapper.writeValueAsString(itemReq)));
 
         // 2. Thử chọn DEBT cho đơn hàng đầu tiên (Thành công vì nợ 110,000 < hạn mức 1,000,000)
-        OrderPaymentRequest payReq = OrderPaymentRequest.builder()
+        SetPaymentMethodRequest payReq = SetPaymentMethodRequest.builder()
                 .paymentMethod("DEBT")
                 .build();
         mockMvc.perform(post("/api/v1/orders/" + orderId + "/payment")
@@ -591,7 +655,7 @@ public class OrderControllerTest {
                         .content(objectMapper.writeValueAsString(itemReq)));
 
         // 3. Chọn CASH payment
-        OrderPaymentRequest payReq = OrderPaymentRequest.builder()
+        SetPaymentMethodRequest payReq = SetPaymentMethodRequest.builder()
                 .paymentMethod("CASH")
                 .build();
         mockMvc.perform(post("/api/v1/orders/" + orderId + "/payment")
@@ -670,7 +734,7 @@ public class OrderControllerTest {
                 .andExpect(status().isOk());
 
         // 3. Chọn CASH payment
-        OrderPaymentRequest payReq = OrderPaymentRequest.builder()
+        SetPaymentMethodRequest payReq = SetPaymentMethodRequest.builder()
                 .paymentMethod("CASH")
                 .build();
         mockMvc.perform(post("/api/v1/orders/" + orderId + "/payment")
@@ -775,7 +839,7 @@ public class OrderControllerTest {
                         .content(objectMapper.writeValueAsString(itemReq)));
 
         // Chọn BANK_TRANSFER và kiểm tra qrCodeUrl chứa thông tin Hộ kinh doanh động
-        OrderPaymentRequest payReq = OrderPaymentRequest.builder()
+        SetPaymentMethodRequest payReq = SetPaymentMethodRequest.builder()
                 .paymentMethod("BANK_TRANSFER")
                 .build();
         
@@ -813,7 +877,7 @@ public class OrderControllerTest {
                         .content(objectMapper.writeValueAsString(itemReq)));
 
         // 3. Chọn CASH payment
-        OrderPaymentRequest payReq = OrderPaymentRequest.builder()
+        SetPaymentMethodRequest payReq = SetPaymentMethodRequest.builder()
                 .paymentMethod("CASH")
                 .build();
         mockMvc.perform(post("/api/v1/orders/" + orderId + "/payment")

@@ -25,7 +25,14 @@ public class ShiftResponse {
     private BigDecimal closingCashActual;
     private BigDecimal differenceAmount;
     private String differenceReason;
+    private BigDecimal totalCashIncome;
+    private BigDecimal totalCashExpense;
+    private Integer pendingExpenseCount;
+    private Integer currentStageNumber;
     private String status;
+    private BigDecimal totalRevenue;
+    private BigDecimal cashRevenue;
+    private BigDecimal bankRevenue;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

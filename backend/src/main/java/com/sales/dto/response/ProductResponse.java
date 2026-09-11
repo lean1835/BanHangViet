@@ -18,6 +18,9 @@ public class ProductResponse {
     private BigDecimal price;
     private BigDecimal stockQuantity;
     private BigDecimal minStockQuantity;
+    private Boolean isSoldByWeight;
+    private Integer decimalPlaces;
+    private BigDecimal minWeightStep;
     private String status;
 
     private String groupId;
@@ -30,6 +33,7 @@ public class ProductResponse {
     private BigDecimal warehouseStock;
     private BigDecimal allocatedStock;
     private java.util.List<PosStockBreakdownResponse> posStocks;
+    private java.util.List<ProductUnitConversionResponse> unitConversions;
 
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

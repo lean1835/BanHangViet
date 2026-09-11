@@ -16,4 +16,9 @@ public class GoodsReceiptDetailResponse {
     private BigDecimal quantity;
     private BigDecimal purchasePrice;
     private BigDecimal subtotal;
+    private String unitConversionId;
+    private String unitName;
+    private BigDecimal conversionFactor;
+    private BigDecimal baseQuantity;
+    private BigDecimal basePurchasePrice;
 }

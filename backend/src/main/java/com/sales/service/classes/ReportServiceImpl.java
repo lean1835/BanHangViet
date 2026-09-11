@@ -42,6 +42,7 @@ public class ReportServiceImpl implements ReportService {
     private final ActivityLogHelper activityLogHelper;
     private final ShiftRepository shiftRepository;
     private final CustomerDebtRepository customerDebtRepository;
+    private final OrderPaymentRepository orderPaymentRepository;
     private final ObjectMapper objectMapper;
 
     private BusinessHousehold getHouseholdAndValidate(String username) {
@@ -114,23 +115,44 @@ public class ReportServiceImpl implements ReportService {
         BigDecimal transfer = BigDecimal.ZERO;
         BigDecimal debt = BigDecimal.ZERO;
 
+        Map<String, List<com.sales.entity.OrderPayment>> paymentsByOrderId = new HashMap<>();
+        if (!orders.isEmpty()) {
+            paymentsByOrderId = orderPaymentRepository
+                    .findByOrderIdIn(orders.stream().map(Order::getId).collect(Collectors.toList()))
+                    .stream()
+                    .collect(Collectors.groupingBy(p -> p.getOrder().getId()));
+        }
+
         for (Order o : orders) {
-            if ("CASH".equals(o.getPaymentMethod())) {
-                cash = cash.add(o.getFinalAmount());
-            } else if ("BANK_TRANSFER".equals(o.getPaymentMethod())) {
-                transfer = transfer.add(o.getFinalAmount());
-            } else if ("DEBT".equals(o.getPaymentMethod())) {
-                Optional<CustomerDebt> debtOpt = customerDebtRepository.findFirstByOrderIdAndType(o.getId(), DebtType.DEBT_CREATED);
-                if (debtOpt.isPresent()) {
-                    BigDecimal debtBalance = debtOpt.get().getAmount() != null ? debtOpt.get().getAmount() : BigDecimal.ZERO;
-                    BigDecimal paidAdvance = o.getFinalAmount().subtract(debtBalance);
-                    if (paidAdvance.compareTo(BigDecimal.ZERO) < 0) {
-                        paidAdvance = BigDecimal.ZERO;
+            List<com.sales.entity.OrderPayment> orderPayments = paymentsByOrderId.get(o.getId());
+            if (orderPayments != null && !orderPayments.isEmpty()) {
+                for (com.sales.entity.OrderPayment op : orderPayments) {
+                    if ("CASH".equals(op.getPaymentMethod())) {
+                        cash = cash.add(op.getAmount());
+                    } else if ("BANK_TRANSFER".equals(op.getPaymentMethod())) {
+                        transfer = transfer.add(op.getAmount());
+                    } else if ("DEBT".equals(op.getPaymentMethod())) {
+                        debt = debt.add(op.getAmount());
                     }
-                    debt = debt.add(debtBalance);
-                    cash = cash.add(paidAdvance);
-                } else {
-                    debt = debt.add(o.getFinalAmount());
+                }
+            } else {
+                if ("CASH".equals(o.getPaymentMethod())) {
+                    cash = cash.add(o.getFinalAmount());
+                } else if ("BANK_TRANSFER".equals(o.getPaymentMethod())) {
+                    transfer = transfer.add(o.getFinalAmount());
+                } else if ("DEBT".equals(o.getPaymentMethod())) {
+                    Optional<CustomerDebt> debtOpt = customerDebtRepository.findFirstByOrderIdAndType(o.getId(), DebtType.DEBT_CREATED);
+                    if (debtOpt.isPresent()) {
+                        BigDecimal debtBalance = debtOpt.get().getAmount() != null ? debtOpt.get().getAmount() : BigDecimal.ZERO;
+                        BigDecimal paidAdvance = o.getFinalAmount().subtract(debtBalance);
+                        if (paidAdvance.compareTo(BigDecimal.ZERO) < 0) {
+                            paidAdvance = BigDecimal.ZERO;
+                        }
+                        debt = debt.add(debtBalance);
+                        cash = cash.add(paidAdvance);
+                    } else {
+                        debt = debt.add(o.getFinalAmount());
+                    }
                 }
             }
         }
@@ -179,12 +201,17 @@ public class ReportServiceImpl implements ReportService {
 
         ReconciliationResponse reconciliation = getReconciliation(currentUsername, date);
 
+        String newValueJson = null;
         try {
             Map<String, Object> logPayload = new HashMap<>();
             logPayload.put("reconciliation", reconciliation);
             logPayload.put("notes", notes != null ? notes : "");
-            String newValueJson = objectMapper.writeValueAsString(logPayload);
+            newValueJson = objectMapper.writeValueAsString(logPayload);
+        } catch (Exception e) {
+            log.error("Lỗi khi serialize kết quả đối chiếu", e);
+        }
 
+        try {
             activityLogHelper.logActivityInNewTransaction(
                     household,
                     currentUser,
@@ -196,11 +223,11 @@ public class ReportServiceImpl implements ReportService {
                     null,
                     null
             );
-            log.info("Chốt đối chiếu ngày thành công. Hộ={}, Ngày={}, Ghi chú={}", household.getId(), date, notes);
         } catch (Exception e) {
-            log.error("Lỗi khi serialize kết quả đối chiếu", e);
-            throw new AppException(ErrorCode.UNCATEGORIZED_EXCEPTION);
+            log.error("Lỗi khi ghi activity log chốt đối chiếu", e);
         }
+
+        log.info("Chốt đối chiếu ngày thành công. Hộ={}, Ngày={}, Ghi chú={}", household.getId(), date, notes);
     }
 
     @Override

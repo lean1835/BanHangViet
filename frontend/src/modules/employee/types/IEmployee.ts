@@ -4,6 +4,7 @@ export interface IEmployee {
   password?: string; // Mật khẩu (để trống khi sửa nếu không đổi)
   fullName: string; // Họ và tên
   phoneNumber?: string; // Số điện thoại
+  email?: string | null; // Địa chỉ Gmail liên kết
   roleCode: string; // Mã vai trò phân quyền của nhân viên
   isActive: boolean; // Trạng thái hoạt động (true: Đang hoạt động, false: Bị khóa)
 }

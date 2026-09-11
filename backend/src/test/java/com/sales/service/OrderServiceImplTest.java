@@ -70,6 +70,12 @@ class OrderServiceImplTest {
     @Mock
     private PosInventoryService posInventoryService;
 
+    @Mock
+    private ProductUnitConversionRepository productUnitConversionRepository;
+
+    @Mock
+    private OrderPaymentRepository orderPaymentRepository;
+
     @InjectMocks
     private OrderServiceImpl orderService;
 
@@ -193,6 +199,7 @@ class OrderServiceImplTest {
                 .shift(activeShift)
                 .createdByUser(currentUser)
                 .customer(vipCustomer)
+                .totalAmount(new BigDecimal("180000.00"))
                 .finalAmount(new BigDecimal("171000.00"))
                 .status("CREATING")
                 .paymentStatus("PENDING")
@@ -291,6 +298,7 @@ class OrderServiceImplTest {
                 .status("CREATING")
                 .paymentStatus("PENDING")
                 .paymentMethod("CASH")
+                .totalAmount(new BigDecimal("50000.00"))
                 .finalAmount(new BigDecimal("50000.00"))
                 .items(new ArrayList<>())
                 .build();
@@ -326,5 +334,59 @@ class OrderServiceImplTest {
         verify(posInventoryService).batchDeductPosStock(eq("house-001"), eq("pos-cs1"), argThat(deductions ->
                 deductions.get("prod-101").compareTo(new BigDecimal("1")) == 0
         ));
+    }
+
+    @Test
+    @DisplayName("NCL-03-CN-013 & P1-03: Nhân viên đã bàn giao ca bị chặn thao tác trên đơn hàng của ca (FORBIDDEN)")
+    void testCheckOrderOwnership_PreviousCashierAfterHandover_ThrowsForbidden() {
+        Role cashierRole = Role.builder().code("VT-02").name("Nhân viên thu ngân").build();
+        User cashierA = User.builder()
+                .id("cashier-A")
+                .username("thunganA")
+                .role(cashierRole)
+                .household(household)
+                .build();
+
+        User cashierB = User.builder()
+                .id("cashier-B")
+                .username("thunganB")
+                .role(cashierRole)
+                .household(household)
+                .build();
+
+        // Ca đang OPEN nhưng thuộc về Nhân viên B (sau khi nhận bàn giao)
+        Shift handedOverShift = Shift.builder()
+                .id("shift-handover")
+                .household(household)
+                .user(cashierB) // B là thu ngân hiện tại của ca
+                .status(ShiftStatus.OPEN)
+                .build();
+
+        // Đơn hàng do Nhân viên A tạo trước khi bàn giao
+        Order order = Order.builder()
+                .id("order-handover-01")
+                .household(household)
+                .shift(handedOverShift)
+                .createdByUser(cashierA) // A là người tạo đơn
+                .status("CREATING")
+                .paymentStatus("PENDING")
+                .paymentMethod("CASH")
+                .finalAmount(new BigDecimal("100000.00"))
+                .items(new ArrayList<>())
+                .build();
+
+        when(userRepository.findByUsername("thunganA")).thenReturn(Optional.of(cashierA));
+        when(orderRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("order-handover-01", "house-001"))
+                .thenReturn(Optional.of(order));
+
+        com.sales.dto.request.CompleteOrderRequest request = com.sales.dto.request.CompleteOrderRequest.builder()
+                .amountGiven(new BigDecimal("100000.00"))
+                .build();
+
+        // Act & Assert: Nhân viên A không còn là thu ngân của ca nữa, cố gắng hoàn tất đơn -> Bị chặn 403 FORBIDDEN
+        com.sales.exception.AppException ex = assertThrows(com.sales.exception.AppException.class, () ->
+                orderService.completeOrder("thunganA", "order-handover-01", request));
+        assertEquals(com.sales.exception.ErrorCode.FORBIDDEN, ex.getErrorCode(),
+                "Nhân viên đã bàn giao ca không được phép thao tác trên đơn của ca người khác quản lý");
     }
 }

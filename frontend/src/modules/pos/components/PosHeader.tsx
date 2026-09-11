@@ -5,7 +5,16 @@ import { APP_FALLBACKS } from "@/constants/app";
 import { useGetProductsQuery } from "@/modules/product/services/productApi";
 import type { IProduct } from "@/modules/product/types/IProduct";
 import type { IPosTab } from "../types/IPos";
-import { Camera, Mic, Search } from "lucide-react";
+import {
+  Search,
+  Camera,
+  Mic,
+  Scale,
+  Clock,
+  UtensilsCrossed,
+  Users,
+  Wallet,
+} from "lucide-react";
 import { formatCurrency } from "@/utils/formatCurrency";
 import { useDebounce } from "@/hooks/useDebounce";
 import { PRODUCT_QUERY_CONFIG } from "@/constants/product";
@@ -25,6 +34,15 @@ interface IPosHeaderProps {
   branchName?: string | null;
   posId?: string | null;
   isOnline?: boolean;
+  onOpenHeldOrdersDrawer?: () => void;
+  onOpenHeldOrders?: () => void;
+  onOpenTableManagement?: () => void;
+  onOpenShiftHandover?: () => void;
+  onOpenCashTransaction?: () => void;
+  pendingExpenseCount?: number;
+  heldOrdersCount?: number;
+  overdueHeldOrdersCount?: number;
+  onReorderTabs?: (fromIndex: number, toIndex: number) => void;
 }
 
 export const PosHeader: React.FC<IPosHeaderProps> = ({
@@ -38,6 +56,15 @@ export const PosHeader: React.FC<IPosHeaderProps> = ({
   onOpenScannerModal,
   onOpenVoiceModal,
   onScanBarcode,
+  onOpenHeldOrdersDrawer,
+  onOpenHeldOrders,
+  onOpenTableManagement,
+  onOpenShiftHandover,
+  onOpenCashTransaction,
+  pendingExpenseCount = 0,
+  onReorderTabs,
+  heldOrdersCount = 0,
+  overdueHeldOrdersCount = 0,
   userName = APP_FALLBACKS.CASHIER_NAME,
   branchName,
   posId,
@@ -49,6 +76,8 @@ export const PosHeader: React.FC<IPosHeaderProps> = ({
     PRODUCT_QUERY_CONFIG.SEARCH_DEBOUNCE_MS
   );
   const [isDropdownOpen, setIsDropdownOpen] = useState<boolean>(false);
+  const [draggedTabIndex, setDraggedTabIndex] = useState<number | null>(null);
+  const [dragOverTabIndex, setDragOverTabIndex] = useState<number | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const searchContainerRef = useRef<HTMLDivElement>(null);
 
@@ -219,8 +248,13 @@ export const PosHeader: React.FC<IPosHeaderProps> = ({
                         >
                           <div className="flex items-center gap-2.5">
                             <div>
-                              <div className="font-bold text-xs text-slate-800">
-                                {product.name}
+                              <div className="font-bold text-xs text-slate-800 flex items-center gap-1.5">
+                                <span>{product.name}</span>
+                                {product.isSoldByWeight && (
+                                  <span className="text-[9px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-1 py-0.2 rounded inline-flex items-center gap-0.5">
+                                    <Scale size={10} /> Cân
+                                  </span>
+                                )}
                               </div>
                               <div className="text-[10px] text-slate-400 font-medium flex items-center gap-2">
                                 <span>Mã: {product.sku || "N/A"}</span>
@@ -257,25 +291,112 @@ export const PosHeader: React.FC<IPosHeaderProps> = ({
         </div>
 
         {/* Multi-Order Tabs Bar - ALIGNED FROM LEFT TO RIGHT */}
-        <div className="flex-1 flex items-center gap-1.5 overflow-x-auto py-0.5 scrollbar-none justify-start">
-          {tabs.map((tab) => {
+        <div
+          onWheel={(e) => {
+            if (e.deltaY !== 0) {
+              e.currentTarget.scrollLeft += e.deltaY;
+            }
+          }}
+          className="flex-1 min-w-0 flex items-center gap-1.5 overflow-x-auto py-0.5 pos-tabs-scrollbar justify-start"
+        >
+          {tabs.map((tab, index) => {
             const isActive = tab.id === activeTabId;
+            const isDragging = draggedTabIndex === index;
+            const isDragOver = dragOverTabIndex === index && draggedTabIndex !== index;
+
             return (
               <div
                 key={tab.id}
+                draggable={Boolean(onReorderTabs && tabs.length > 1)}
+                onDragStart={(e) => {
+                  setDraggedTabIndex(index);
+                  e.dataTransfer.effectAllowed = "move";
+                  e.dataTransfer.setData("text/plain", String(index));
+                }}
+                onDragOver={(e) => {
+                  if (onReorderTabs && draggedTabIndex !== null) {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = "move";
+                    if (dragOverTabIndex !== index) {
+                      setDragOverTabIndex(index);
+                    }
+                  }
+                }}
+                onDragLeave={() => {
+                  if (dragOverTabIndex === index) {
+                    setDragOverTabIndex(null);
+                  }
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  const fromIndex =
+                    draggedTabIndex !== null
+                      ? draggedTabIndex
+                      : Number(e.dataTransfer.getData("text/plain"));
+                  if (
+                    fromIndex !== null &&
+                    !isNaN(fromIndex) &&
+                    fromIndex !== index &&
+                    onReorderTabs
+                  ) {
+                    onReorderTabs(fromIndex, index);
+                  }
+                  setDraggedTabIndex(null);
+                  setDragOverTabIndex(null);
+                }}
+                onDragEnd={() => {
+                  setDraggedTabIndex(null);
+                  setDragOverTabIndex(null);
+                }}
                 onClick={() => onSelectTab(tab.id)}
-                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-t-lg font-bold text-xs cursor-pointer transition-all shrink-0 ${
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-t-lg font-bold text-xs cursor-pointer transition-all shrink-0 select-none ${
+                  tabs.length > 1 ? "cursor-grab active:cursor-grabbing" : ""
+                } ${
+                  isDragging ? "opacity-40 scale-95 border-dashed border-2 border-white" : ""
+                } ${
+                  isDragOver ? "ring-2 ring-amber-300 scale-105 bg-blue-500" : ""
+                } ${
                   isActive
                     ? "bg-white text-[#0070f4] shadow-sm border-t-2 border-[#0070f4]"
                     : "bg-blue-600/80 text-white hover:bg-blue-600"
                 }`}
+                title={tabs.length > 1 ? "Bấm để chọn tab, hoặc kéo thả để đổi thứ tự tab hóa đơn" : undefined}
               >
-                <span>{tab.orderNumber}</span>
-                {tab.status === "DRAFT" && (
+                {/* Table Name Badge if assigned */}
+                {tab.diningTableName && (
+                  <span
+                    className={`px-1.5 py-0.2 rounded text-[10px] font-extrabold flex items-center gap-0.5 shrink-0 ${
+                      isActive
+                        ? "bg-blue-100 text-blue-800"
+                        : "bg-white/20 text-white"
+                    }`}
+                  >
+                    <UtensilsCrossed className="w-2.5 h-2.5" />
+                    {tab.diningTableName}
+                  </span>
+                )}
+
+                {/* Tab Label or Order Number */}
+                <span className="truncate max-w-[130px]" title={tab.orderLabel || tab.orderNumber}>
+                  {tab.orderLabel || tab.orderNumber}
+                </span>
+
+                {/* Overdue Warning Badge */}
+                {tab.isOverdue && (
+                  <span
+                    className="text-[9px] bg-rose-500 text-white px-1.5 py-0.2 rounded font-extrabold flex items-center gap-0.5 animate-pulse shrink-0 shadow-xs"
+                    title="Đơn treo quá hạn (>4h) - Cần xử lý trước khi đóng ca"
+                  >
+                    ! Quá hạn
+                  </span>
+                )}
+
+                {tab.status === "DRAFT" && !tab.orderLabel && !tab.diningTableName && (
                   <span className="text-[9px] bg-amber-100 text-amber-700 px-1 py-0.2 rounded font-semibold">
                     Nháp
                   </span>
                 )}
+
                 {tabs.length > 1 && (
                   <button
                     type="button"
@@ -283,7 +404,7 @@ export const PosHeader: React.FC<IPosHeaderProps> = ({
                       e.stopPropagation();
                       onCloseTab(tab.id);
                     }}
-                    className="hover:bg-red-500/20 hover:text-red-600 rounded-full p-0.5 transition-colors text-slate-400"
+                    className="hover:bg-red-500/20 hover:text-red-600 rounded-full p-0.5 transition-colors text-slate-400 shrink-0 ml-0.5"
                     title="Đóng tab"
                   >
                     <svg
@@ -326,6 +447,86 @@ export const PosHeader: React.FC<IPosHeaderProps> = ({
               />
             </svg>
           </button>
+        </div>
+
+        {/* Pinned Fixed Actions: Đơn treo & Phòng/Bàn (Cố định, không bị cuộn theo danh sách tab) */}
+        <div className="shrink-0 flex items-center gap-1.5 pl-1.5 pr-1 border-l border-blue-500/50">
+          {/* Held Orders Drawer Button (NCL-03-CN-010) */}
+          {(onOpenHeldOrders || onOpenHeldOrdersDrawer) && (
+            <button
+              type="button"
+              onClick={onOpenHeldOrders || onOpenHeldOrdersDrawer}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg font-extrabold text-xs transition-all shrink-0 select-none shadow-xs ${
+                overdueHeldOrdersCount > 0
+                  ? "bg-rose-500 hover:bg-rose-600 text-white animate-pulse ring-2 ring-rose-300"
+                  : heldOrdersCount > 0
+                  ? "bg-amber-400 hover:bg-amber-500 text-amber-950"
+                  : "bg-blue-500/80 hover:bg-blue-500 text-white"
+              }`}
+              title="Xem danh sách các đơn đang treo trong ca (NCL-03-CN-010)"
+            >
+              <Clock className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Đơn treo</span>
+              {heldOrdersCount > 0 && (
+                <span
+                  className={`px-1.5 py-0.2 rounded-full text-[10px] font-black ${
+                    overdueHeldOrdersCount > 0
+                      ? "bg-white text-rose-700"
+                      : "bg-amber-900 text-white"
+                  }`}
+                >
+                  {heldOrdersCount}
+                </span>
+              )}
+            </button>
+          )}
+
+          {/* Table Management Button (NCL-03-CN-010 - VT-01 Owner) */}
+          {onOpenTableManagement && (
+            <button
+              type="button"
+              onClick={onOpenTableManagement}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-indigo-500/80 hover:bg-indigo-500 text-white font-extrabold text-xs transition-all shrink-0 select-none shadow-xs"
+              title="Quản lý bàn ăn và khu vực (Dành cho chủ hộ kinh doanh)"
+            >
+              <UtensilsCrossed className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Phòng/Bàn</span>
+            </button>
+          )}
+
+          {/* Shift Handover Button (NCL-03-CN-013) */}
+          {onOpenShiftHandover && (
+            <button
+              type="button"
+              onClick={onOpenShiftHandover}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-teal-500/80 hover:bg-teal-500 text-white font-extrabold text-xs transition-all shrink-0 select-none shadow-xs"
+              title="Bàn giao ca cho nhân viên tiếp theo (NCL-03-CN-013)"
+            >
+              <Users className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Bàn giao ca</span>
+            </button>
+          )}
+
+          {/* Cash Transaction Button (NCL-03-CN-014: Ghi thu chi tiền mặt) */}
+          {onOpenCashTransaction && (
+            <button
+              type="button"
+              onClick={onOpenCashTransaction}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-600/85 hover:bg-emerald-600 text-white font-extrabold text-xs transition-all shrink-0 select-none shadow-xs"
+              title="Ghi thu chi tiền mặt ngoài bán hàng trong ca (NCL-03-CN-014)"
+            >
+              <Wallet className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Thu/Chi</span>
+              {pendingExpenseCount > 0 && (
+                <span
+                  className="px-1.5 py-0.2 rounded-full text-[10px] font-black bg-amber-400 text-amber-950 animate-pulse"
+                  title={`Có ${pendingExpenseCount} khoản chi đang chờ Chủ hộ duyệt`}
+                >
+                  {pendingExpenseCount}
+                </span>
+              )}
+            </button>
+          )}
         </div>
 
         {/* Right: Actions & User Info */}

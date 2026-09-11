@@ -11,7 +11,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Entity
-@Table(name = "e_invoices")
+@Table(name = "e_invoices", indexes = {
+    @Index(name = "idx_invoices_auto_retry", columnList = "household_id, status, next_retry_at")
+})
 @Getter
 @Setter
 @ToString
@@ -106,9 +108,16 @@ public class EInvoice {
     @Builder.Default
     private BigDecimal finalAmount = BigDecimal.ZERO;
 
+    @Column(name = "payment_method", length = 30)
+    private String paymentMethod;
+
     @Column(nullable = false, length = 30)
     @Builder.Default
     private String status = "DRAFT"; // DRAFT, WAITING_TAX_CODE, ISSUED, SEND_ERROR, ADJUSTED, CANCELED
+
+    @Column(name = "customer_delivery_status", nullable = false, length = 20)
+    @Builder.Default
+    private String customerDeliveryStatus = "NOT_SENT"; // NOT_SENT, SUCCESS, FAILED, PENDING
 
     @Column(name = "tax_authority_code", length = 100, unique = true)
     private String taxAuthorityCode;
@@ -130,6 +139,26 @@ public class EInvoice {
 
     @Column(name = "canceled_at")
     private LocalDateTime canceledAt;
+
+    @Column(name = "retry_count", nullable = false)
+    @Builder.Default
+    private Integer retryCount = 0;
+
+    @Column(name = "max_retry_count")
+    private Integer maxRetryCount;
+
+    @Column(name = "next_retry_at")
+    private LocalDateTime nextRetryAt;
+
+    @Column(name = "last_retry_at")
+    private LocalDateTime lastRetryAt;
+
+    @Column(name = "error_category", length = 30)
+    private String errorCategory;
+
+    @Column(name = "is_error_notified", nullable = false)
+    @Builder.Default
+    private Boolean isErrorNotified = false;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)

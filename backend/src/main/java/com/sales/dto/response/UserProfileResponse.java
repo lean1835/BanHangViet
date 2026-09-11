@@ -1,0 +1,28 @@
+package com.sales.dto.response;
+
+import lombok.*;
+import java.time.LocalDateTime;
+
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class UserProfileResponse {
+    private String id;
+    private String username;
+    private String fullName;
+    private String phoneNumber;
+    private String email;
+    private String roleCode;
+    private String roleName;
+    private String householdId;
+    private String householdName;
+    private String pointOfSaleId;
+    private String pointOfSaleName;
+    private String posCode;
+    private Boolean isActive;
+    private Boolean mustChangePassword;
+    private LocalDateTime passwordChangedAt;
+    private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
+}

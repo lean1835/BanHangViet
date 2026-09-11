@@ -130,7 +130,7 @@ export const OrderSuccessModal: React.FC<IOrderSuccessModalProps> = ({
         buyerName: tab.customer?.name || "Khách mua lẻ",
         buyerPhone: tab.customer?.phone || "",
         buyerAddress: tab.customer?.address || "",
-        buyerTaxCode: (tab.customer as any)?.taxCode || "",
+        buyerTaxCode: tab.customer?.taxCode || "",
         taxAuthorityCode: "",
         symbol: "1M26SOP",
         orderNumber: tab.orderNumber,
@@ -185,7 +185,7 @@ export const OrderSuccessModal: React.FC<IOrderSuccessModalProps> = ({
         buyerName: tab.customer?.name || "Khách mua lẻ",
         buyerPhone: tab.customer?.phone || "",
         buyerAddress: tab.customer?.address || "",
-        buyerTaxCode: (tab.customer as any)?.taxCode || "",
+        buyerTaxCode: tab.customer?.taxCode || "",
         taxAuthorityCode: "",
         symbol: "1M26SOP",
         orderNumber: tab.orderNumber,
@@ -355,8 +355,12 @@ export const OrderSuccessModal: React.FC<IOrderSuccessModalProps> = ({
 
   const getPaymentMethodLabel = (method: string) => {
     switch (method) {
+      case "COMBINED":
+        return "Kết hợp nhiều hình thức";
       case "BANK_TRANSFER":
-        return "Chuyển khoản (CK)";
+        return tab.bankTransferTxCode
+          ? `Chuyển khoản (Mã: ${tab.bankTransferTxCode})`
+          : "Chuyển khoản (CK)";
       case "DEBT":
         return "Ghi nợ";
       case "CASH":
@@ -544,29 +548,69 @@ export const OrderSuccessModal: React.FC<IOrderSuccessModalProps> = ({
                 </span>
               </div>
 
-              <div className="flex justify-between text-slate-600">
-                <span>Tiền khách đưa:</span>
-                <span className="font-bold text-slate-800">
-                  {formatCurrency(typeof tab.amountGiven === "number" ? tab.amountGiven : (tab.paymentMethod === "DEBT" ? 0 : finalTotal))}
-                </span>
-              </div>
-
-              {tab.paymentMethod === "DEBT" && (
-                <div className="flex justify-between text-rose-600 font-extrabold pt-0.5">
-                  <span>Còn nợ lại:</span>
-                  <span className="font-black">
-                    {formatCurrency(Math.max(0, finalTotal - (tab.amountGiven || 0)))}
-                  </span>
+              {tab.paymentMethod === "COMBINED" && tab.combinedPayments && tab.combinedPayments.length > 0 ? (
+                <div className="py-2 border-t border-dashed border-purple-200 space-y-1.5 bg-purple-50/70 p-2.5 rounded-lg my-1 text-left">
+                  <div className="text-[10px] font-bold text-purple-800 uppercase tracking-wide">
+                    Phân bổ thanh toán kết hợp:
+                  </div>
+                  {tab.combinedPayments.map((p, idx) => (
+                    <div key={idx} className="flex justify-between items-center text-slate-700 text-[11px]">
+                      <span>
+                        • {p.paymentMethod === "CASH"
+                            ? "Tiền mặt"
+                            : p.paymentMethod === "BANK_TRANSFER"
+                            ? "Chuyển khoản"
+                            : "Ghi nợ"}
+                        {p.transactionCode && (
+                          <span className="text-[10px] text-slate-500 font-mono ml-1">
+                            ({p.transactionCode})
+                          </span>
+                        )}
+                        {p.dueDate && (
+                          <span className="text-[10px] text-amber-700 ml-1">
+                            (Hạn: {new Date(p.dueDate).toLocaleDateString("vi-VN")})
+                          </span>
+                        )}
+                      </span>
+                      <span className="font-extrabold text-slate-900">
+                        {formatCurrency(p.amount)}
+                      </span>
+                    </div>
+                  ))}
+                  {changeAmount > 0 && (
+                    <div className="flex justify-between text-emerald-700 font-extrabold pt-1 border-t border-purple-200/60">
+                      <span>Tiền thừa trả khách (từ tiền mặt):</span>
+                      <span>{formatCurrency(changeAmount)}</span>
+                    </div>
+                  )}
                 </div>
-              )}
+              ) : (
+                <>
+                  <div className="flex justify-between text-slate-600">
+                    <span>Tiền khách đưa:</span>
+                    <span className="font-bold text-slate-800">
+                      {formatCurrency(typeof tab.amountGiven === "number" ? tab.amountGiven : (tab.paymentMethod === "DEBT" ? 0 : finalTotal))}
+                    </span>
+                  </div>
 
-              {changeAmount > 0 && (
-                <div className="flex justify-between text-emerald-700 font-extrabold pt-0.5">
-                  <span>Tiền thừa trả khách:</span>
-                  <span className="font-black">
-                    {formatCurrency(changeAmount)}
-                  </span>
-                </div>
+                  {tab.paymentMethod === "DEBT" && (
+                    <div className="flex justify-between text-rose-600 font-extrabold pt-0.5">
+                      <span>Còn nợ lại:</span>
+                      <span className="font-black">
+                        {formatCurrency(Math.max(0, finalTotal - (tab.amountGiven || 0)))}
+                      </span>
+                    </div>
+                  )}
+
+                  {changeAmount > 0 && (
+                    <div className="flex justify-between text-emerald-700 font-extrabold pt-0.5">
+                      <span>Tiền thừa trả khách:</span>
+                      <span className="font-black">
+                        {formatCurrency(changeAmount)}
+                      </span>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </div>
@@ -890,27 +934,59 @@ export const OrderSuccessModal: React.FC<IOrderSuccessModalProps> = ({
                   <span className="text-sm sm:text-base text-slate-900">{formatCurrency(finalTotal)}</span>
                 </div>
 
-                <div className="flex justify-between font-semibold text-slate-700 pt-1">
-                  <span>Tiền khách đưa:</span>
-                  <span className="font-bold text-slate-900">
-                    {formatCurrency(typeof tab.amountGiven === "number" ? tab.amountGiven : (tab.paymentMethod === "DEBT" ? 0 : finalTotal))}
-                  </span>
-                </div>
-
-                {tab.paymentMethod === "DEBT" && (
-                  <div className="flex justify-between font-extrabold text-rose-600">
-                    <span>Còn nợ lại:</span>
-                    <span className="font-bold">
-                      {formatCurrency(Math.max(0, finalTotal - (tab.amountGiven || 0)))}
-                    </span>
+                {tab.paymentMethod === "COMBINED" && tab.combinedPayments && tab.combinedPayments.length > 0 ? (
+                  <div className="border-t border-dashed border-slate-300 pt-1.5 space-y-1">
+                    <div className="font-bold text-slate-800 text-[9.5px]">Chi tiết phân bổ kết hợp:</div>
+                    {tab.combinedPayments.map((p, idx) => (
+                      <div key={idx} className="flex justify-between text-[9px] text-slate-700 pl-1.5">
+                        <span>
+                          - {p.paymentMethod === "CASH"
+                              ? "Tiền mặt"
+                              : p.paymentMethod === "BANK_TRANSFER"
+                              ? "Chuyển khoản"
+                              : "Ghi nợ"}
+                          {p.transactionCode && (
+                            <span className="font-mono text-[8.5px]"> ({p.transactionCode})</span>
+                          )}
+                          {p.dueDate && (
+                            <span className="text-[8.5px]"> (Hạn: {new Date(p.dueDate).toLocaleDateString("vi-VN")})</span>
+                          )}
+                        </span>
+                        <span className="font-bold text-slate-900">{formatCurrency(p.amount)}</span>
+                      </div>
+                    ))}
+                    {changeAmount > 0 && (
+                      <div className="flex justify-between font-extrabold text-emerald-700 pt-0.5">
+                        <span>Tiền thừa trả khách:</span>
+                        <span className="font-bold">{formatCurrency(changeAmount)}</span>
+                      </div>
+                    )}
                   </div>
-                )}
+                ) : (
+                  <>
+                    <div className="flex justify-between font-semibold text-slate-700 pt-1">
+                      <span>Tiền khách đưa:</span>
+                      <span className="font-bold text-slate-900">
+                        {formatCurrency(typeof tab.amountGiven === "number" ? tab.amountGiven : (tab.paymentMethod === "DEBT" ? 0 : finalTotal))}
+                      </span>
+                    </div>
 
-                {changeAmount > 0 && (
-                  <div className="flex justify-between font-extrabold text-emerald-700">
-                    <span>Tiền thừa trả khách:</span>
-                    <span className="font-bold">{formatCurrency(changeAmount)}</span>
-                  </div>
+                    {tab.paymentMethod === "DEBT" && (
+                      <div className="flex justify-between font-extrabold text-rose-600">
+                        <span>Còn nợ lại:</span>
+                        <span className="font-bold">
+                          {formatCurrency(Math.max(0, finalTotal - (tab.amountGiven || 0)))}
+                        </span>
+                      </div>
+                    )}
+
+                    {changeAmount > 0 && (
+                      <div className="flex justify-between font-extrabold text-emerald-700">
+                        <span>Tiền thừa trả khách:</span>
+                        <span className="font-bold">{formatCurrency(changeAmount)}</span>
+                      </div>
+                    )}
+                  </>
                 )}
 
                 <div className="text-[9px] sm:text-[9.5px] italic text-slate-700 text-right pt-0.5 break-words">

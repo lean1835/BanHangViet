@@ -85,12 +85,19 @@ public interface ProductRepository extends JpaRepository<Product, String>, JpaSp
     @Query("UPDATE Product p SET p.group = :group, p.updatedAt = :updatedAt WHERE p.id IN :ids AND p.household.id = :householdId AND p.deletedAt IS NULL")
     int updateGroupIdForProducts(@Param("group") ProductGroup group, @Param("ids") Collection<String> ids, @Param("householdId") String householdId, @Param("updatedAt") LocalDateTime updatedAt);
 
-    @Modifying(clearAutomatically = true)
+    @Modifying
     @Query("UPDATE Product p SET p.stockQuantity = p.stockQuantity - :quantity WHERE p.id = :id AND p.household.id = :householdId AND p.deletedAt IS NULL")
     int deductStock(@Param("id") String id, @Param("householdId") String householdId, @Param("quantity") BigDecimal quantity);
 
-    @Modifying(clearAutomatically = true)
+    @Modifying
     @Query("UPDATE Product p SET p.stockQuantity = p.stockQuantity + :quantity WHERE p.id = :id AND p.household.id = :householdId AND p.deletedAt IS NULL")
     int addStock(@Param("id") String id, @Param("householdId") String householdId, @Param("quantity") BigDecimal quantity);
+
+    @EntityGraph(attributePaths = {"group", "taxRate", "household"})
+    List<Product> findByGroupIdAndHouseholdIdAndDeletedAtIsNull(String groupId, String householdId);
+
+    @Modifying
+    @Query("UPDATE Product p SET p.price = :price, p.updatedAt = :updatedAt WHERE p.id = :id AND p.household.id = :householdId AND p.deletedAt IS NULL")
+    int updatePrice(@Param("id") String id, @Param("householdId") String householdId, @Param("price") BigDecimal price, @Param("updatedAt") LocalDateTime updatedAt);
 }
 

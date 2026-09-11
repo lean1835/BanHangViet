@@ -23,6 +23,7 @@ public interface EInvoiceRepository extends JpaRepository<EInvoice, String>, Jpa
     Page<EInvoice> findAll(Specification<EInvoice> spec, Pageable pageable);
 
     @Override
+    @EntityGraph(attributePaths = {"items", "items.product", "createdByUser", "canceledByUser", "household", "order", "originalInvoice"})
     List<EInvoice> findAll(Specification<EInvoice> spec);
 
     @Override
@@ -31,6 +32,9 @@ public interface EInvoiceRepository extends JpaRepository<EInvoice, String>, Jpa
 
     @EntityGraph(attributePaths = {"items", "items.product", "createdByUser", "canceledByUser", "household", "order", "originalInvoice"})
     Optional<EInvoice> findByIdAndHouseholdIdAndDeletedAtIsNull(String id, String householdId);
+
+    @EntityGraph(attributePaths = {"items", "items.product", "createdByUser", "canceledByUser", "household", "order", "originalInvoice"})
+    List<EInvoice> findByHouseholdIdAndStatusAndDeletedAtIsNull(String householdId, String status);
 
     @EntityGraph(attributePaths = {"items", "items.product", "createdByUser", "canceledByUser", "household", "order", "originalInvoice"})
     Optional<EInvoice> findByOrderIdAndDeletedAtIsNull(String orderId);
@@ -47,6 +51,29 @@ public interface EInvoiceRepository extends JpaRepository<EInvoice, String>, Jpa
 
     @EntityGraph(attributePaths = {"originalInvoice", "returnTicket"})
     List<EInvoice> findByHouseholdIdAndDeletedAtIsNullOrderByCreatedAtDesc(String householdId);
+
+    @Query("SELECT e FROM EInvoice e " +
+           "WHERE e.household.id = :householdId " +
+           "  AND e.status IN ('CANCELED', 'ADJUSTED') " +
+           "  AND (e.isErrorNotified IS NULL OR e.isErrorNotified = false) " +
+           "  AND e.deletedAt IS NULL " +
+           "  AND e.id NOT IN (" +
+           "      SELECT item.invoice.id FROM InvoiceErrorNoticeItem item " +
+           "      JOIN item.notice n WHERE n.status = 'ACCEPTED'" +
+           "  ) " +
+           "ORDER BY e.createdAt DESC")
+    List<EInvoice> findEligibleForErrorNotice(@Param("householdId") String householdId);
+
+    @EntityGraph(attributePaths = {"order", "createdByUser"})
+    @Query("SELECT e FROM EInvoice e WHERE e.household.id = :householdId " +
+           "AND e.status IN :statuses " +
+           "AND e.deletedAt IS NULL " +
+           "AND e.createdAt <= :endOfDay " +
+           "ORDER BY e.createdAt DESC")
+    List<EInvoice> findByHouseholdIdAndStatusInAndCreatedAtBefore(
+            @Param("householdId") String householdId,
+            @Param("statuses") List<String> statuses,
+            @Param("endOfDay") LocalDateTime endOfDay);
 
     @EntityGraph(attributePaths = {"originalInvoice", "returnTicket"})
     @Query("SELECT e FROM EInvoice e " +
@@ -93,4 +120,34 @@ public interface EInvoiceRepository extends JpaRepository<EInvoice, String>, Jpa
             @Param("endDateTime") LocalDateTime endDateTime,
             @Param("posId") String posId
     );
+
+    @EntityGraph(attributePaths = {"household", "createdByUser", "order"})
+    @Query("SELECT e FROM EInvoice e " +
+           "LEFT JOIN BusinessHouseholdSettings s ON s.household = e.household " +
+           "WHERE e.deletedAt IS NULL " +
+           "AND e.status IN ('WAITING_TAX_CODE', 'SEND_ERROR') " +
+           "AND (e.nextRetryAt IS NULL OR e.nextRetryAt <= :now) " +
+           "AND (s.autoRetryEnabled IS NULL OR s.autoRetryEnabled = true) " +
+           "ORDER BY e.createdAt ASC")
+    List<EInvoice> findEligibleForAutoRetry(@Param("now") LocalDateTime now, Pageable pageable);
+
+    @EntityGraph(attributePaths = {"household", "createdByUser", "order"})
+    @Query("SELECT e FROM EInvoice e " +
+           "LEFT JOIN BusinessHouseholdSettings s ON s.household = e.household " +
+           "WHERE e.deletedAt IS NULL " +
+           "AND e.household.id = :householdId " +
+           "AND e.status IN ('WAITING_TAX_CODE', 'SEND_ERROR') " +
+           "AND (e.nextRetryAt IS NULL OR e.nextRetryAt <= :now) " +
+           "AND (s.autoRetryEnabled IS NULL OR s.autoRetryEnabled = true) " +
+           "ORDER BY e.createdAt ASC")
+    List<EInvoice> findEligibleForAutoRetryByHousehold(
+            @Param("householdId") String householdId,
+            @Param("now") LocalDateTime now,
+            Pageable pageable);
+
+    long countByHouseholdIdAndCreatedAtAfter(String householdId, LocalDateTime createdAt);
+
+    @EntityGraph(attributePaths = {"createdByUser", "household", "order"})
+    Page<EInvoice> findByHouseholdIdAndCustomerDeliveryStatusAndDeletedAtIsNull(
+            String householdId, String customerDeliveryStatus, Pageable pageable);
 }

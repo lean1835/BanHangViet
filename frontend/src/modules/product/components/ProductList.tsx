@@ -1,10 +1,14 @@
 import React, { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { Search, Plus, Edit, Trash2, FileSpreadsheet, AlertTriangle, Printer, Barcode, Mic } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Search, Plus, Edit, Trash2, FileSpreadsheet, AlertTriangle, Printer, Barcode, Mic, Layers, Scale, TrendingUp } from "lucide-react";
 import { ImportProductsModal } from "@/modules/product/components/ImportProductsModal";
 import { BarcodePrintModal } from "@/modules/barcode/components/BarcodePrintModal";
 import { VoiceSearchModal } from "@/modules/product/components/VoiceSearchModal";
+import { UnitConversionManagerModal } from "@/modules/product/components/UnitConversionManagerModal";
+import { PriceTierManagerModal } from "@/modules/product/components/PriceTierManagerModal";
 import { TablePaginationFooter } from "@/components/common/TablePaginationFooter";
+import { APP_ROUTES } from "@/constants/routes";
 import {
   PRODUCT_FILTER,
   PRODUCT_API_RESPONSE_DEFAULTS,
@@ -20,6 +24,7 @@ import {
 import { USER_ROLES } from "@/constants/roles";
 import { useDebounce } from "@/hooks/useDebounce";
 import { ProductFormModal } from "@/modules/product/components/ProductFormModal";
+import { PriceAdjustmentPage } from "@/modules/product/pages/PriceAdjustmentPage";
 import {
   useGetProductsQuery,
   useCreateProductMutation,
@@ -46,6 +51,8 @@ export const ProductList: React.FC<ProductListProps> = ({
   stockFilter,
 }) => {
   const isOwner = userRole === USER_ROLES.OWNER;
+  const isAccountant = userRole === USER_ROLES.ACCOUNTANT;
+  const canViewStockCard = isOwner || isAccountant;
   const { showSuccess, showError } = useNotification();
 
   // State controls
@@ -70,11 +77,29 @@ export const ProductList: React.FC<ProductListProps> = ({
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [productToDelete, setProductToDelete] = useState<{ id: string; name: string } | null>(null);
 
-  // Barcode print modal controls
+  // Unit conversion modal target product
+  const [unitConversionProduct, setUnitConversionProduct] = useState<IProduct | null>(null);
+
+  // Price tier modal target product (NCL-02-CN-010)
+  const [priceTierProduct, setPriceTierProduct] = useState<IProduct | null>(null);
+
+  // Barcode print modal target product
   const [barcodePrintProduct, setBarcodePrintProduct] = useState<{ id: string; name: string } | null>(null);
 
   // Voice search modal controls
   const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
+
+  // Price adjustment in-tab view control
+  const [isPriceAdjustmentActive, setIsPriceAdjustmentActive] = useState(false);
+
+  const navigate = useNavigate();
+
+  const handleOpenDetail = (
+    product: IProduct,
+    tab: "INFO" | "STOCK_CARD" | "UNIT_CONVERSIONS" | "PRICE_TIERS" = "INFO"
+  ) => {
+    navigate(`${APP_ROUTES.PRODUCT_DETAIL(product.id)}?tab=${tab}`);
+  };
 
   // Reset page to 0 on filter changes
   useEffect(() => {
@@ -173,6 +198,15 @@ export const ProductList: React.FC<ProductListProps> = ({
   };
 
 
+  if (isPriceAdjustmentActive) {
+    return (
+      <PriceAdjustmentPage
+        onBack={() => setIsPriceAdjustmentActive(false)}
+        initialGroupId={selectedGroup === PRODUCT_FILTER.ALL ? undefined : selectedGroup}
+      />
+    );
+  }
+
   return (
     <div className="flex flex-col gap-4 w-full animate-auth-fade-in">
       {/* Top action row */}
@@ -208,6 +242,17 @@ export const ProductList: React.FC<ProductListProps> = ({
             >
               <FileSpreadsheet size={14} className="text-emerald-600" />
               Nhập từ file Excel
+            </button>
+          )}
+
+          {isOwner && (
+            <button
+              onClick={() => setIsPriceAdjustmentActive(true)}
+              className="flex h-11 items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3.5 text-xs font-bold text-slate-700 shadow-sm transition-all hover:bg-slate-50 lg:h-9"
+              title="Cập nhật giá bán hàng loạt theo nhóm hàng"
+            >
+              <TrendingUp size={14} className="text-kv-blue-primary" />
+              Đổi giá hàng loạt
             </button>
           )}
 
@@ -294,8 +339,8 @@ export const ProductList: React.FC<ProductListProps> = ({
                     <th className="p-3">
                       {PRODUCT_LIST_COPY.TABLE_HEADERS.CREATED_AT}
                     </th>
-                    {isOwner && (
-                      <th className="p-3 text-center w-20">
+                    {canViewStockCard && (
+                      <th className="p-3 text-center w-28">
                         {PRODUCT_LIST_COPY.TABLE_HEADERS.ACTION}
                       </th>
                     )}
@@ -306,7 +351,9 @@ export const ProductList: React.FC<ProductListProps> = ({
                   {displayedProducts.map((prod, index) => (
                     <tr
                       key={prod.id}
-                      className="hover:bg-slate-50/50 group transition-all"
+                      onClick={() => handleOpenDetail(prod, "INFO")}
+                      className="hover:bg-sky-50/50 cursor-pointer group transition-all"
+                      title="Click để xem chi tiết hàng hóa"
                     >
                       <td className="p-3 text-slate-400 font-semibold">
                         {currentPage * pageSize +
@@ -325,9 +372,47 @@ export const ProductList: React.FC<ProductListProps> = ({
                       <td className="p-3 font-bold text-slate-800 break-words max-w-[220px]">
                         {prod.name}
                       </td>
-                      <td className="p-3 text-slate-600 font-semibold">{prod.unit}</td>
+                      <td className="p-3 text-slate-600 font-semibold">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span>{prod.unit}</span>
+                          {prod.isSoldByWeight && (
+                            <span
+                              title={`Bán theo cân (Bước nhảy: ${prod.minWeightStep ?? 0.001}, Số lẻ: ${prod.decimalPlaces ?? 3})`}
+                              className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.2 rounded-md inline-flex items-center gap-0.5"
+                            >
+                              <Scale size={10} className="shrink-0" />
+                              Cân
+                            </span>
+                          )}
+                          {prod.unitConversions && prod.unitConversions.length > 0 && (
+                            <span
+                              title={`Đơn vị quy đổi: ${prod.unitConversions.map((c) => `${c.unitName} (x${c.conversionFactor})`).join(", ")}`}
+                              className="text-[10px] font-bold text-sky-700 bg-sky-50 border border-sky-200 px-1.5 py-0.2 rounded-md inline-flex items-center gap-0.5"
+                            >
+                              <Layers size={9} />
+                              +{prod.unitConversions.length}
+                            </span>
+                          )}
+                        </div>
+                      </td>
                       <td className="p-3 text-right font-extrabold text-kv-blue-primary">
-                        {formatCurrency(prod.price)}
+                        <div className="flex items-center justify-end gap-1.5 group/price">
+                          <span>{formatCurrency(prod.price)}</span>
+                          {isOwner && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleEditProduct(prod);
+                              }}
+                              title="Sửa giá bán mặt hàng này"
+                              aria-label={`Sửa giá của ${prod.name}`}
+                              className="opacity-0 group-hover/price:opacity-100 p-1 text-slate-400 hover:text-kv-blue-primary hover:bg-blue-50 rounded transition-all"
+                            >
+                              <Edit size={12} />
+                            </button>
+                          )}
+                        </div>
                       </td>
                       <td className="p-3 text-right font-extrabold">
                         {prod.minStockQuantity &&
@@ -380,33 +465,37 @@ export const ProductList: React.FC<ProductListProps> = ({
                       <td className="p-3 text-slate-500 font-semibold">
                         {formatDate(prod.createdAt)}
                       </td>
-                      {isOwner && (
-                        <td className="p-3">
+                      {canViewStockCard && (
+                        <td className="p-3" onClick={(e) => e.stopPropagation()}>
                           <div className="flex items-center justify-center gap-1.5 opacity-100 transition-opacity lg:opacity-0 lg:group-hover:opacity-100 lg:group-focus-within:opacity-100">
                             <button
                               onClick={() => setBarcodePrintProduct({ id: prod.id, name: prod.name })}
                               title="In tem mã vạch"
                               aria-label="In tem mã vạch"
-                              className="flex min-h-11 min-w-11 items-center justify-center rounded p-1 text-slate-500 transition-colors hover:bg-slate-100 hover:text-amber-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500 lg:min-h-0 lg:min-w-0"
+                              className="flex min-h-11 min-w-11 items-center justify-center rounded p-1.5 text-slate-500 transition-colors hover:bg-slate-100 hover:text-amber-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500 lg:min-h-0 lg:min-w-0"
                             >
-                              <Printer size={14} />
+                              <Printer size={15} />
                             </button>
-                            <button
-                              onClick={() => handleEditProduct(prod)}
-                              title={PRODUCT_LIST_COPY.EDIT_TOOLTIP}
-                              aria-label={PRODUCT_LIST_COPY.EDIT_TOOLTIP}
-                              className="flex min-h-11 min-w-11 items-center justify-center rounded p-1 text-slate-500 transition-colors hover:bg-slate-100 hover:text-kv-blue-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-kv-blue-primary lg:min-h-0 lg:min-w-0"
-                            >
-                              <Edit size={14} />
-                            </button>
-                            <button
-                              onClick={() => handleDeleteProduct(prod.id, prod.name)}
-                              title={PRODUCT_LIST_COPY.DELETE_TOOLTIP}
-                              aria-label={PRODUCT_LIST_COPY.DELETE_TOOLTIP}
-                              className="flex min-h-11 min-w-11 items-center justify-center rounded p-1 text-slate-500 transition-colors hover:bg-slate-100 hover:text-rose-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-rose-500 lg:min-h-0 lg:min-w-0"
-                            >
-                              <Trash2 size={14} />
-                            </button>
+                            {isOwner && (
+                              <>
+                                <button
+                                  onClick={() => handleEditProduct(prod)}
+                                  title={PRODUCT_LIST_COPY.EDIT_TOOLTIP}
+                                  aria-label={PRODUCT_LIST_COPY.EDIT_TOOLTIP}
+                                  className="flex min-h-11 min-w-11 items-center justify-center rounded p-1.5 text-slate-500 transition-colors hover:bg-slate-100 hover:text-kv-blue-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-kv-blue-primary lg:min-h-0 lg:min-w-0"
+                                >
+                                  <Edit size={15} />
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteProduct(prod.id, prod.name)}
+                                  title={PRODUCT_LIST_COPY.DELETE_TOOLTIP}
+                                  aria-label={PRODUCT_LIST_COPY.DELETE_TOOLTIP}
+                                  className="flex min-h-11 min-w-11 items-center justify-center rounded p-1.5 text-slate-500 transition-colors hover:bg-slate-100 hover:text-rose-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-rose-500 lg:min-h-0 lg:min-w-0"
+                                >
+                                  <Trash2 size={15} />
+                                </button>
+                              </>
+                            )}
                           </div>
                         </td>
                       )}
@@ -500,6 +589,39 @@ export const ProductList: React.FC<ProductListProps> = ({
           refetch();
         }}
       />
+
+      {/* Unit Conversion Manager Modal */}
+      {unitConversionProduct && (
+        <UnitConversionManagerModal
+          isOpen={Boolean(unitConversionProduct)}
+          onClose={() => {
+            setUnitConversionProduct(null);
+            refetch();
+          }}
+          productId={unitConversionProduct.id}
+          productName={unitConversionProduct.name}
+          productSku={unitConversionProduct.sku}
+          baseUnit={unitConversionProduct.unit}
+          basePrice={unitConversionProduct.price}
+        />
+      )}
+
+      {/* Price Tier Manager Modal (NCL-02-CN-010) */}
+      {priceTierProduct && (
+        <PriceTierManagerModal
+          isOpen={Boolean(priceTierProduct)}
+          onClose={() => {
+            setPriceTierProduct(null);
+            refetch();
+          }}
+          productId={priceTierProduct.id}
+          productName={priceTierProduct.name}
+          productSku={priceTierProduct.sku}
+          baseUnit={priceTierProduct.unit}
+          basePrice={priceTierProduct.price}
+          costPrice={priceTierProduct.costPrice}
+        />
+      )}
 
       {/* Barcode Print Modal */}
       {barcodePrintProduct && (

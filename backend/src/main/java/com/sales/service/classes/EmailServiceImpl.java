@@ -23,6 +23,8 @@ public class EmailServiceImpl implements EmailService {
 
     private final JavaMailSender mailSender;
     private final InvoiceDeliveryLogRepository invoiceDeliveryLogRepository;
+    private final com.sales.repository.EInvoiceRepository eInvoiceRepository;
+    private final org.springframework.transaction.support.TransactionTemplate transactionTemplate;
 
     @Override
     @Async("taskExecutor")
@@ -76,10 +78,22 @@ public class EmailServiceImpl implements EmailService {
 
     private void updateDeliveryLog(String logId, String status, String errorMsg) {
         try {
-            invoiceDeliveryLogRepository.findById(logId).ifPresent(logRecord -> {
-                logRecord.setStatus(status);
-                logRecord.setErrorMessage(errorMsg);
-                invoiceDeliveryLogRepository.save(logRecord);
+            transactionTemplate.executeWithoutResult(txStatus -> {
+                invoiceDeliveryLogRepository.findByIdWithInvoice(logId).ifPresent(logRecord -> {
+                    logRecord.setStatus(status);
+                    logRecord.setErrorMessage(errorMsg);
+                    invoiceDeliveryLogRepository.save(logRecord);
+
+                    if (logRecord.getInvoice() != null) {
+                        com.sales.entity.EInvoice invoice = logRecord.getInvoice();
+                        if ("SUCCESS".equalsIgnoreCase(status)) {
+                            invoice.setCustomerDeliveryStatus("SUCCESS");
+                        } else if ("FAILED".equalsIgnoreCase(status)) {
+                            invoice.setCustomerDeliveryStatus("FAILED");
+                        }
+                        eInvoiceRepository.save(invoice);
+                    }
+                });
             });
         } catch (Exception ex) {
             log.error("Lỗi khi cập nhật trạng thái giao nhận hóa đơn ID={}", logId, ex);
@@ -234,6 +248,38 @@ public class EmailServiceImpl implements EmailService {
             log.info("Email nhắc nợ tổng hợp gửi thành công cho khách hàng {} ({}) tới {}", customerName, totalDebt, toEmail);
         } catch (Exception e) {
             log.error("Lỗi khi gửi email nhắc nợ tổng hợp tới {}", toEmail, e);
+        }
+    }
+
+    @Override
+    @Async("taskExecutor")
+    public void sendPasswordResetOtpEmail(String toEmail, String otpCode, String recipientName) {
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+
+            helper.setTo(toEmail);
+            helper.setSubject("[Bán Hàng Việt] Mã xác thực đặt lại mật khẩu của bạn");
+
+            String safeName = HtmlUtils.htmlEscape(recipientName != null ? recipientName : "Quý khách");
+
+            String bodyContent = "    <p style=\"margin-top: 0; font-size: 16px;\">Kính gửi <strong>" + safeName + "</strong>,</p>"
+                    + "    <p>Bạn (hoặc ai đó) vừa yêu cầu đặt lại mật khẩu cho tài khoản Bán Hàng Việt gắn với địa chỉ email này.</p>"
+                    + "    <div style=\"background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; margin: 24px 0; text-align: center;\">"
+                    + "      <p style=\"color: #64748b; font-size: 13px; margin: 0 0 10px 0; text-transform: uppercase; letter-spacing: 1px; font-weight: 600;\">Mã xác thực một lần (OTP)</p>"
+                    + "      <span style=\"display: inline-block; font-size: 32px; font-weight: bold; letter-spacing: 8px; color: #0f56e8; background: #ffffff; padding: 12px 24px; border-radius: 8px; border: 2px dashed #93c5fd;\">" + otpCode + "</span>"
+                    + "      <p style=\"color: #64748b; font-size: 13px; margin: 14px 0 0 0;\">Mã có hiệu lực trong <strong>5 phút</strong>. Vui lòng không chia sẻ mã này cho bất kỳ ai.</p>"
+                    + "    </div>"
+                    + "    <p style=\"color: #64748b; font-size: 13px; margin-bottom: 0;\">Nếu bạn không thực hiện yêu cầu này, vui lòng bỏ qua thư này để bảo vệ tài khoản của bạn.</p>";
+
+            String htmlContent = buildHtmlEmail("ĐẶT LẠI MẬT KHẨU", "Bảo mật tài khoản Bán Hàng Việt", "linear-gradient(135deg, #0f56e8 0%, #1e40af 100%)", bodyContent);
+
+            helper.setText(htmlContent, true);
+            mailSender.send(message);
+
+            log.info("Email chứa mã OTP đặt lại mật khẩu đã được gửi thành công tới: {}", toEmail);
+        } catch (Exception e) {
+            log.error("Lỗi khi gửi email OTP đặt lại mật khẩu tới {}: {}", toEmail, e.getMessage());
         }
     }
 

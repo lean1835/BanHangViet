@@ -29,7 +29,7 @@ import java.util.Optional;
 @Repository
 public interface OrderRepository extends JpaRepository<Order, String> {
 
-    @EntityGraph(attributePaths = {"items", "items.product", "customer", "shift", "createdByUser", "household"})
+    @EntityGraph(attributePaths = {"items", "items.product", "items.priceTier", "customer", "shift", "createdByUser", "household", "diningTable"})
     Optional<Order> findByIdAndHouseholdIdAndDeletedAtIsNull(String id, String householdId);
 
     boolean existsByOrderNumber(String orderNumber);
@@ -40,10 +40,35 @@ public interface OrderRepository extends JpaRepository<Order, String> {
 
     Optional<Order> findByOrderNumberAndHouseholdIdAndDeletedAtIsNull(String orderNumber, String householdId);
 
-    @EntityGraph(attributePaths = {"items", "items.product", "customer", "shift", "createdByUser", "household"})
+    @EntityGraph(attributePaths = {"items", "items.product", "items.priceTier", "customer", "shift", "createdByUser", "household", "diningTable"})
     List<Order> findByOrderNumberInAndHouseholdIdAndDeletedAtIsNull(Collection<String> orderNumbers, String householdId);
 
     List<Order> findByShiftIdAndDeletedAtIsNull(String shiftId);
+
+    // NCL-03-CN-010 Đặt tên nhận diện và treo nhiều đơn theo bàn hoặc khách
+    boolean existsByDiningTableIdAndStatusAndDeletedAtIsNull(String diningTableId, String status);
+
+    boolean existsByDiningTableIdAndStatusAndIdNotAndDeletedAtIsNull(String diningTableId, String status, String id);
+
+    Optional<Order> findFirstByDiningTableIdAndStatusAndDeletedAtIsNullOrderByCreatedAtDesc(String diningTableId, String status);
+
+    @EntityGraph(attributePaths = {"items", "items.product", "items.priceTier", "customer", "shift", "createdByUser", "household", "diningTable"})
+    List<Order> findByHouseholdIdAndShiftIdAndStatusAndDeletedAtIsNullOrderByCreatedAtDesc(String householdId, String shiftId, String status);
+
+    @EntityGraph(attributePaths = {"items", "items.product", "items.priceTier", "customer", "shift", "createdByUser", "household", "diningTable"})
+    List<Order> findByHouseholdIdAndStatusAndDeletedAtIsNullOrderByCreatedAtDesc(String householdId, String status);
+
+    @EntityGraph(attributePaths = {"diningTable"})
+    List<Order> findByHouseholdIdAndStatusAndDiningTableIsNotNullAndDeletedAtIsNullOrderByCreatedAtDesc(String householdId, String status);
+
+
+    @Query("SELECT o FROM Order o LEFT JOIN FETCH o.createdByUser " +
+           "WHERE o.household.id = :householdId AND o.status = 'COMPLETED' AND o.paymentStatus = 'PAID' " +
+           "AND o.deletedAt IS NULL AND o.createdAt <= :endOfDay " +
+           "AND NOT EXISTS (SELECT 1 FROM EInvoice i WHERE i.order.id = o.id AND i.deletedAt IS NULL AND i.status <> 'CANCELED') " +
+           "ORDER BY o.createdAt DESC")
+    List<Order> findUninvoicedOrdersUpToDate(@Param("householdId") String householdId,
+                                            @Param("endOfDay") LocalDateTime endOfDay);
 
     boolean existsByShiftIdAndStatusAndDeletedAtIsNull(String shiftId, String status);
 
@@ -56,19 +81,98 @@ public interface OrderRepository extends JpaRepository<Order, String> {
 
     @Query("SELECT COALESCE(SUM(" +
            "  CASE " +
+           "    WHEN o.paymentMethod = 'CASH' THEN o.finalAmount " +
+           "    WHEN o.paymentMethod = 'COMBINED' THEN COALESCE((SELECT SUM(op.amount) FROM OrderPayment op WHERE op.order.id = o.id AND op.paymentMethod = 'CASH'), 0) " +
            "    WHEN o.paymentMethod = 'DEBT' THEN (o.finalAmount - COALESCE((SELECT cd.amount FROM CustomerDebt cd WHERE cd.order.id = o.id AND cd.type = 'DEBT_CREATED'), 0)) " +
+           "    ELSE 0 " +
+           "  END), 0) " +
+           "FROM Order o " +
+           "WHERE o.shift.id = :shiftId AND o.status = 'COMPLETED' AND o.deletedAt IS NULL")
+    BigDecimal sumCashSalesAmountByShiftId(@Param("shiftId") String shiftId);
+
+    @Query("SELECT COALESCE(SUM(" +
+           "  CASE " +
+           "    WHEN o.paymentMethod = 'CASH' THEN o.finalAmount " +
+           "    WHEN o.paymentMethod = 'COMBINED' THEN COALESCE((SELECT SUM(op.amount) FROM OrderPayment op WHERE op.order.id = o.id AND op.paymentMethod = 'CASH'), 0) " +
+           "    WHEN o.paymentMethod = 'DEBT' THEN (o.finalAmount - COALESCE((SELECT cd.amount FROM CustomerDebt cd WHERE cd.order.id = o.id AND cd.type = 'DEBT_CREATED'), 0)) " +
+           "    ELSE 0 " +
+           "  END), 0) " +
+           "FROM Order o " +
+           "WHERE o.shift.id = :shiftId AND o.status = 'COMPLETED' AND o.deletedAt IS NULL " +
+           "AND o.createdAt >= :startTime AND o.createdAt <= :endTime")
+    BigDecimal sumCashSalesAmountByShiftIdAndTimeRange(
+            @Param("shiftId") String shiftId,
+            @Param("startTime") LocalDateTime startTime,
+            @Param("endTime") LocalDateTime endTime
+    );
+
+    @Query("SELECT COALESCE(SUM(" +
+           "  CASE " +
+           "    WHEN o.paymentMethod = 'BANK_TRANSFER' THEN o.finalAmount " +
+           "    WHEN o.paymentMethod = 'COMBINED' THEN COALESCE((SELECT SUM(op.amount) FROM OrderPayment op WHERE op.order.id = o.id AND op.paymentMethod = 'BANK_TRANSFER'), 0) " +
+           "    ELSE 0 " +
+           "  END), 0) " +
+           "FROM Order o " +
+           "WHERE o.shift.id = :shiftId AND o.status = 'COMPLETED' AND o.deletedAt IS NULL")
+    BigDecimal sumBankSalesAmountByShiftId(@Param("shiftId") String shiftId);
+
+    @Query("SELECT COALESCE(SUM(" +
+           "  CASE " +
+           "    WHEN o.paymentMethod = 'BANK_TRANSFER' THEN o.finalAmount " +
+           "    WHEN o.paymentMethod = 'COMBINED' THEN COALESCE((SELECT SUM(op.amount) FROM OrderPayment op WHERE op.order.id = o.id AND op.paymentMethod = 'BANK_TRANSFER'), 0) " +
+           "    ELSE 0 " +
+           "  END), 0) " +
+           "FROM Order o " +
+           "WHERE o.shift.id = :shiftId AND o.status = 'COMPLETED' AND o.deletedAt IS NULL " +
+           "AND o.createdAt >= :startTime AND o.createdAt <= :endTime")
+    BigDecimal sumBankSalesAmountByShiftIdAndTimeRange(
+            @Param("shiftId") String shiftId,
+            @Param("startTime") LocalDateTime startTime,
+            @Param("endTime") LocalDateTime endTime
+    );
+
+    @Query("SELECT COALESCE(SUM(" +
+           "  CASE " +
+           "    WHEN o.paymentMethod = 'DEBT' THEN (o.finalAmount - COALESCE((SELECT cd.amount FROM CustomerDebt cd WHERE cd.order.id = o.id AND cd.type = 'DEBT_CREATED'), 0)) " +
+           "    WHEN o.paymentMethod = 'COMBINED' THEN COALESCE((SELECT SUM(op.amount) FROM OrderPayment op WHERE op.order.id = o.id AND op.paymentMethod IN ('CASH', 'BANK_TRANSFER')), 0) " +
            "    ELSE o.finalAmount " +
            "  END), 0) " +
            "FROM Order o " +
            "WHERE o.shift.id = :shiftId AND o.status = 'COMPLETED' AND o.deletedAt IS NULL")
     BigDecimal sumCollectedAmountByShiftId(@Param("shiftId") String shiftId);
 
+    @Query("SELECT COALESCE(SUM(" +
+           "  CASE " +
+           "    WHEN o.paymentMethod = 'DEBT' THEN (o.finalAmount - COALESCE((SELECT cd.amount FROM CustomerDebt cd WHERE cd.order.id = o.id AND cd.type = 'DEBT_CREATED'), 0)) " +
+           "    WHEN o.paymentMethod = 'COMBINED' THEN COALESCE((SELECT SUM(op.amount) FROM OrderPayment op WHERE op.order.id = o.id AND op.paymentMethod IN ('CASH', 'BANK_TRANSFER')), 0) " +
+           "    ELSE o.finalAmount " +
+           "  END), 0) " +
+           "FROM Order o " +
+           "WHERE o.shift.id = :shiftId AND o.status = 'COMPLETED' AND o.deletedAt IS NULL " +
+           "AND o.createdAt >= :startTime AND o.createdAt <= :endTime")
+    BigDecimal sumCollectedAmountByShiftIdAndTimeRange(
+            @Param("shiftId") String shiftId,
+            @Param("startTime") LocalDateTime startTime,
+            @Param("endTime") LocalDateTime endTime
+    );
+
+    @Query("SELECT COUNT(o) FROM Order o " +
+           "WHERE o.shift.id = :shiftId AND o.status = 'COMPLETED' AND o.deletedAt IS NULL " +
+           "AND o.createdAt >= :startTime AND o.createdAt <= :endTime")
+    int countCompletedOrdersByShiftIdAndTimeRange(
+            @Param("shiftId") String shiftId,
+            @Param("startTime") LocalDateTime startTime,
+            @Param("endTime") LocalDateTime endTime
+    );
+
     int countByShiftIdAndStatusAndDeletedAtIsNull(String shiftId, String status);
 
-    @EntityGraph(attributePaths = {"items", "items.product", "customer", "shift", "createdByUser", "household"})
+    @EntityGraph(attributePaths = {"items", "items.product", "items.priceTier", "customer", "shift", "createdByUser", "household"})
     List<Order> findByHouseholdIdAndDeletedAtIsNullOrderByCreatedAtDesc(String householdId);
 
     List<Order> findByHouseholdIdAndStatusAndDeletedAtIsNull(String householdId, String status);
+
+    List<Order> findByHouseholdIdAndStatusAndPaymentStatusAndDeletedAtIsNull(String householdId, String status, String paymentStatus);
 
     @EntityGraph(attributePaths = {"items", "items.product", "customer", "createdByUser"})
     @Query("SELECT o FROM Order o WHERE o.household.id = :householdId AND o.deletedAt IS NULL AND o.createdAt BETWEEN :start AND :end ORDER BY o.createdAt DESC")
@@ -78,7 +182,7 @@ public interface OrderRepository extends JpaRepository<Order, String> {
             @Param("end") LocalDateTime end
     );
 
-    @EntityGraph(attributePaths = {"items", "items.product", "customer", "shift", "createdByUser", "household"})
+    @EntityGraph(attributePaths = {"items", "items.product", "items.priceTier", "customer", "shift", "createdByUser", "household"})
     List<Order> findByHouseholdIdAndCreatedByUserIdAndDeletedAtIsNullOrderByCreatedAtDesc(String householdId, String userId);
 
     @EntityGraph(attributePaths = {"customer", "household"})
@@ -104,9 +208,22 @@ public interface OrderRepository extends JpaRepository<Order, String> {
             "SUM(o.total_amount) as grossSales, " +
             "SUM(o.discount_amount) as totalDiscounts, " +
             "SUM(o.final_amount) as netRevenue, " +
-            "SUM(CASE WHEN o.payment_method = 'CASH' THEN o.final_amount ELSE 0 END) as cashRevenue, " +
-            "SUM(CASE WHEN o.payment_method = 'BANK_TRANSFER' THEN o.final_amount ELSE 0 END) as bankRevenue, " +
-            "SUM(CASE WHEN o.payment_method = 'DEBT' THEN o.final_amount ELSE 0 END) as debtRevenue " +
+            "SUM(CASE " +
+            "    WHEN o.payment_method = 'CASH' THEN o.final_amount " +
+            "    WHEN o.payment_method = 'COMBINED' THEN COALESCE((SELECT SUM(op.amount) FROM order_payments op WHERE op.order_id = o.id AND op.payment_method = 'CASH'), 0) " +
+            "    WHEN o.payment_method = 'DEBT' THEN (o.final_amount - COALESCE((SELECT cd.amount FROM customer_debts cd WHERE cd.order_id = o.id AND cd.type = 'DEBT_CREATED'), o.final_amount)) " +
+            "    ELSE 0 " +
+            "END) as cashRevenue, " +
+            "SUM(CASE " +
+            "    WHEN o.payment_method = 'BANK_TRANSFER' THEN o.final_amount " +
+            "    WHEN o.payment_method = 'COMBINED' THEN COALESCE((SELECT SUM(op.amount) FROM order_payments op WHERE op.order_id = o.id AND op.payment_method = 'BANK_TRANSFER'), 0) " +
+            "    ELSE 0 " +
+            "END) as bankRevenue, " +
+            "SUM(CASE " +
+            "    WHEN o.payment_method = 'DEBT' THEN COALESCE((SELECT cd.amount FROM customer_debts cd WHERE cd.order_id = o.id AND cd.type = 'DEBT_CREATED'), o.final_amount) " +
+            "    WHEN o.payment_method = 'COMBINED' THEN COALESCE((SELECT SUM(op.amount) FROM order_payments op WHERE op.order_id = o.id AND op.payment_method = 'DEBT'), 0) " +
+            "    ELSE 0 " +
+            "END) as debtRevenue " +
             "FROM orders o " +
             "WHERE o.household_id = :householdId " +
             "AND o.status = 'COMPLETED' " +
@@ -215,9 +332,22 @@ public interface OrderRepository extends JpaRepository<Order, String> {
             "COALESCE(SUM(o.total_amount), 0) AS grossSales, " +
             "COALESCE(SUM(o.discount_amount), 0) AS totalDiscount, " +
             "COALESCE(SUM(o.final_amount), 0) AS netRevenue, " +
-            "COALESCE(SUM(CASE WHEN o.payment_method = 'CASH' THEN o.final_amount ELSE 0 END), 0) AS cashRevenue, " +
-            "COALESCE(SUM(CASE WHEN o.payment_method = 'BANK_TRANSFER' THEN o.final_amount ELSE 0 END), 0) AS bankRevenue, " +
-            "COALESCE(SUM(CASE WHEN o.payment_method = 'DEBT' THEN o.final_amount ELSE 0 END), 0) AS debtRevenue " +
+            "COALESCE(SUM(CASE " +
+            "    WHEN o.payment_method = 'CASH' THEN o.final_amount " +
+            "    WHEN o.payment_method = 'COMBINED' THEN COALESCE((SELECT SUM(op.amount) FROM order_payments op WHERE op.order_id = o.id AND op.payment_method = 'CASH'), 0) " +
+            "    WHEN o.payment_method = 'DEBT' THEN (o.final_amount - COALESCE((SELECT cd.amount FROM customer_debts cd WHERE cd.order_id = o.id AND cd.type = 'DEBT_CREATED'), o.final_amount)) " +
+            "    ELSE 0 " +
+            "END), 0) AS cashRevenue, " +
+            "COALESCE(SUM(CASE " +
+            "    WHEN o.payment_method = 'BANK_TRANSFER' THEN o.final_amount " +
+            "    WHEN o.payment_method = 'COMBINED' THEN COALESCE((SELECT SUM(op.amount) FROM order_payments op WHERE op.order_id = o.id AND op.payment_method = 'BANK_TRANSFER'), 0) " +
+            "    ELSE 0 " +
+            "END), 0) AS bankRevenue, " +
+            "COALESCE(SUM(CASE " +
+            "    WHEN o.payment_method = 'DEBT' THEN COALESCE((SELECT cd.amount FROM customer_debts cd WHERE cd.order_id = o.id AND cd.type = 'DEBT_CREATED'), o.final_amount) " +
+            "    WHEN o.payment_method = 'COMBINED' THEN COALESCE((SELECT SUM(op.amount) FROM order_payments op WHERE op.order_id = o.id AND op.payment_method = 'DEBT'), 0) " +
+            "    ELSE 0 " +
+            "END), 0) AS debtRevenue " +
             "FROM orders o " +
             "WHERE o.household_id = :householdId " +
             "AND o.status = 'COMPLETED' " +
@@ -416,5 +546,24 @@ public interface OrderRepository extends JpaRepository<Order, String> {
             @Param("cutoffDateTime") LocalDateTime cutoffDateTime,
             @Param("groupId") String groupId,
             @Param("search") String search
+    );
+
+    @Query("SELECT o FROM Order o " +
+           "LEFT JOIN FETCH o.canceledByUser " +
+           "LEFT JOIN FETCH o.shift " +
+           "WHERE o.household.id = :householdId " +
+           "AND o.status = 'CANCELED' " +
+           "AND o.deletedAt IS NULL " +
+           "AND (:shiftId IS NULL OR :shiftId = '' OR o.shift.id = :shiftId) " +
+           "AND (:employeeId IS NULL OR :employeeId = '' OR o.canceledByUser.id = :employeeId) " +
+           "AND (:fromDate IS NULL OR o.canceledAt >= :fromDate) " +
+           "AND (:toDate IS NULL OR o.canceledAt <= :toDate) " +
+           "ORDER BY o.canceledAt DESC")
+    List<Order> findCanceledOrders(
+            @Param("householdId") String householdId,
+            @Param("shiftId") String shiftId,
+            @Param("employeeId") String employeeId,
+            @Param("fromDate") LocalDateTime fromDate,
+            @Param("toDate") LocalDateTime toDate
     );
 }

@@ -365,4 +365,184 @@ class CustomerServiceImplTest {
 
         assertEquals(ErrorCode.FORBIDDEN, exception.getErrorCode());
     }
+
+    @Test
+    @DisplayName("NCL-04-CN-006: Cập nhật thông tin khách hàng có Mã số thuế thành công")
+    void updateCustomer_WithTaxCode_Success() {
+        UpdateCustomerRequest request = UpdateCustomerRequest.builder()
+                .name("Công ty TNHH Giải Pháp Alpha")
+                .phoneNumber("0912345678")
+                .taxCode("0101234567")
+                .address("Hà Nội")
+                .build();
+
+        when(userRepository.findByUsername("chuho")).thenReturn(Optional.of(currentUser));
+        when(customerRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("cust-001", "house-001"))
+                .thenReturn(Optional.of(customerWithDebt));
+        when(customerRepository.save(any(Customer.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        CustomerResponse response = customerService.updateCustomer("chuho", "cust-001", request);
+
+        assertNotNull(response);
+        assertEquals("0101234567", response.getTaxCode());
+        assertEquals("Công ty TNHH Giải Pháp Alpha", response.getName());
+    }
+
+    @Test
+    @DisplayName("NCL-04-CN-006: Cập nhật khách hàng xóa Mã số thuế (để trống) sẽ lưu null")
+    void updateCustomer_ClearTaxCode_Success() {
+        customerWithDebt.setTaxCode("0101234567");
+        UpdateCustomerRequest request = UpdateCustomerRequest.builder()
+                .name("Nguyễn Văn A")
+                .phoneNumber("0912345678")
+                .taxCode("")
+                .build();
+
+        when(userRepository.findByUsername("chuho")).thenReturn(Optional.of(currentUser));
+        when(customerRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("cust-001", "house-001"))
+                .thenReturn(Optional.of(customerWithDebt));
+        when(customerRepository.save(any(Customer.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        CustomerResponse response = customerService.updateCustomer("chuho", "cust-001", request);
+
+        assertNotNull(response);
+        assertNull(response.getTaxCode());
+    }
+
+    @Test
+    @DisplayName("NCL-04-CN-006: Tạo khách hàng mới với taxCode rỗng hoặc khoảng trắng sẽ chuẩn hóa lưu null")
+    void createCustomer_EmptyTaxCode_SavesNull() {
+        CreateCustomerRequest request = CreateCustomerRequest.builder()
+                .name("Khách Lẻ Không MST")
+                .phoneNumber("0911223344")
+                .taxCode("   ")
+                .build();
+
+        when(userRepository.findByUsername("chuho")).thenReturn(Optional.of(currentUser));
+        when(customerRepository.findByPhoneNumberAndHouseholdIdAndDeletedAtIsNull("0911223344", "house-001"))
+                .thenReturn(Optional.empty());
+        when(customerRepository.save(any(Customer.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        CustomerResponse response = customerService.createCustomer("chuho", request);
+
+        assertNotNull(response);
+        assertNull(response.getTaxCode());
+    }
+
+    @Test
+    @DisplayName("NCL-04-CN-006: Tạo khách hàng mới với taxCode hợp lệ sẽ trim và lưu thành công")
+    void createCustomer_ValidTaxCode_Success() {
+        CreateCustomerRequest request = CreateCustomerRequest.builder()
+                .name("Công ty Mới")
+                .phoneNumber("0922334455")
+                .taxCode(" 0101234567 ")
+                .build();
+
+        when(userRepository.findByUsername("chuho")).thenReturn(Optional.of(currentUser));
+        when(customerRepository.findByPhoneNumberAndHouseholdIdAndDeletedAtIsNull("0922334455", "house-001"))
+                .thenReturn(Optional.empty());
+        when(customerRepository.save(any(Customer.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        CustomerResponse response = customerService.createCustomer("chuho", request);
+
+        assertNotNull(response);
+        assertEquals("0101234567", response.getTaxCode());
+    }
+
+    @Test
+    @DisplayName("NCL-06-CN-006: Cập nhật kênh nhận hóa đơn mặc định của khách hàng thành công")
+    void updateDefaultDeliveryChannel_Success() {
+        com.sales.dto.request.UpdateCustomerDeliveryChannelRequest request =
+                com.sales.dto.request.UpdateCustomerDeliveryChannelRequest.builder()
+                        .defaultDeliveryChannel("ZALO")
+                        .defaultDeliveryAddress("0912345678")
+                        .build();
+
+        when(userRepository.findByUsername("chuho")).thenReturn(Optional.of(currentUser));
+        when(customerRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("cust-001", "house-001"))
+                .thenReturn(Optional.of(customerWithDebt));
+        when(customerRepository.save(any(Customer.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        CustomerResponse response = customerService.updateDefaultDeliveryChannel("chuho", "cust-001", request);
+
+        assertNotNull(response);
+        assertEquals("ZALO", response.getDefaultDeliveryChannel());
+        assertEquals("0912345678", response.getDefaultDeliveryAddress());
+    }
+
+    @Test
+    @DisplayName("NCL-06-CN-006: Cập nhật kênh EMAIL hợp lệ thành công")
+    void updateDefaultDeliveryChannel_Email_Success() {
+        com.sales.dto.request.UpdateCustomerDeliveryChannelRequest request =
+                com.sales.dto.request.UpdateCustomerDeliveryChannelRequest.builder()
+                        .defaultDeliveryChannel("EMAIL")
+                        .defaultDeliveryAddress("customer@gmail.com")
+                        .build();
+
+        when(userRepository.findByUsername("chuho")).thenReturn(Optional.of(currentUser));
+        when(customerRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("cust-001", "house-001"))
+                .thenReturn(Optional.of(customerWithDebt));
+        when(customerRepository.save(any(Customer.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        CustomerResponse response = customerService.updateDefaultDeliveryChannel("chuho", "cust-001", request);
+
+        assertNotNull(response);
+        assertEquals("EMAIL", response.getDefaultDeliveryChannel());
+        assertEquals("customer@gmail.com", response.getDefaultDeliveryAddress());
+    }
+
+    @Test
+    @DisplayName("NCL-06-CN-006: Cập nhật kênh EMAIL không đúng định dạng ném AppException INVALID_INPUT")
+    void updateDefaultDeliveryChannel_Email_Invalid_ThrowsException() {
+        com.sales.dto.request.UpdateCustomerDeliveryChannelRequest request =
+                com.sales.dto.request.UpdateCustomerDeliveryChannelRequest.builder()
+                        .defaultDeliveryChannel("EMAIL")
+                        .defaultDeliveryAddress("invalid-email-address")
+                        .build();
+
+        when(userRepository.findByUsername("chuho")).thenReturn(Optional.of(currentUser));
+        when(customerRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("cust-001", "house-001"))
+                .thenReturn(Optional.of(customerWithDebt));
+
+        assertThrows(AppException.class, () ->
+                customerService.updateDefaultDeliveryChannel("chuho", "cust-001", request));
+    }
+
+    @Test
+    @DisplayName("NCL-06-CN-006: Cập nhật kênh ZALO số điện thoại không hợp lệ ném AppException INVALID_INPUT")
+    void updateDefaultDeliveryChannel_Zalo_Invalid_ThrowsException() {
+        com.sales.dto.request.UpdateCustomerDeliveryChannelRequest request =
+                com.sales.dto.request.UpdateCustomerDeliveryChannelRequest.builder()
+                        .defaultDeliveryChannel("ZALO")
+                        .defaultDeliveryAddress("abc-phone")
+                        .build();
+
+        when(userRepository.findByUsername("chuho")).thenReturn(Optional.of(currentUser));
+        when(customerRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("cust-001", "house-001"))
+                .thenReturn(Optional.of(customerWithDebt));
+
+        assertThrows(AppException.class, () ->
+                customerService.updateDefaultDeliveryChannel("chuho", "cust-001", request));
+    }
+
+    @Test
+    @DisplayName("NCL-06-CN-006: Cập nhật kênh QR tự động gán defaultDeliveryAddress là null")
+    void updateDefaultDeliveryChannel_QR_NullifiesAddress() {
+        com.sales.dto.request.UpdateCustomerDeliveryChannelRequest request =
+                com.sales.dto.request.UpdateCustomerDeliveryChannelRequest.builder()
+                        .defaultDeliveryChannel("QR")
+                        .defaultDeliveryAddress("http://some-url.com")
+                        .build();
+
+        when(userRepository.findByUsername("chuho")).thenReturn(Optional.of(currentUser));
+        when(customerRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("cust-001", "house-001"))
+                .thenReturn(Optional.of(customerWithDebt));
+        when(customerRepository.save(any(Customer.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        CustomerResponse response = customerService.updateDefaultDeliveryChannel("chuho", "cust-001", request);
+
+        assertNotNull(response);
+        assertEquals("QR", response.getDefaultDeliveryChannel());
+        assertNull(response.getDefaultDeliveryAddress());
+    }
 }

@@ -57,11 +57,36 @@ export interface IInvoice {
   sentToTaxAt?: string;
   taxResponseAt?: string;
   canceledAt?: string;
+  retryCount?: number;
+  maxRetryCount?: number;
+  nextRetryAt?: string;
+  lastRetryAt?: string;
+  errorCategory?: string;
   createdAt?: string;
   updatedAt?: string;
+  paymentMethod?: string;
+  payments?: {
+    id?: string;
+    orderId?: string;
+    orderCode?: string;
+    householdId?: string;
+    paymentMethod: string;
+    amount: number;
+    amountGiven?: number;
+    changeAmount?: number;
+    transactionCode?: string;
+    isConfirmed?: boolean;
+    notes?: string;
+    createdAt?: string;
+  }[];
   items?: IInvoiceItem[];
   deliveryLogs?: IDeliveryLog[];
+  isErrorNotified?: boolean;
 }
+
+export * from "./IDailyControl";
+export * from "./ITaxConnection";
+export * from "./IAutoRetry";
 
 export interface IGetInvoicesParams {
   status?: string;
@@ -81,6 +106,14 @@ export interface IUpdateInvoiceRequest {
   invoiceId: string;
   buyerName?: string;
   buyerTaxCode?: string;
+  buyerAddress?: string;
+  buyerPhone?: string;
+  buyerEmail?: string;
+}
+
+export interface ICustomerTaxLookupResponse {
+  buyerName: string;
+  buyerTaxCode: string;
   buyerAddress?: string;
   buyerPhone?: string;
   buyerEmail?: string;
@@ -140,5 +173,46 @@ export interface IBulkIssueInvoiceResult {
   failedCount: number;
   successInvoices: IInvoice[];
   failedItems: IBulkIssueFailedItem[];
+}
+
+export interface IInvoiceRepresentationResponse {
+  invoiceId: string;
+  invoiceNumber: string | null;
+  invoicePattern: string;
+  invoiceSymbol: string;
+  title: string;
+  status: string;
+  watermarkText: string | null;
+  isDraft: boolean;
+  isCanceled: boolean;
+  isAdjusted: boolean;
+  householdName: string;
+  householdTaxCode: string;
+  householdAddress: string;
+  householdPhone: string;
+  buyerName: string;
+  buyerTaxCode: string;
+  buyerAddress: string;
+  buyerPhone: string;
+  buyerEmail: string;
+  totalAmountBeforeTax: number;
+  taxAmount: number;
+  discountAmount: number;
+  finalAmount: number;
+  amountInWords: string;
+  taxAuthorityCode: string | null;
+  lookupCode: string;
+  issuedAt: string;
+  referenceNote: string | null;
+  originalInvoiceId: string | null;
+  footerNote?: string | null;
+  htmlRepresentation: string;
+}
+
+export interface IExportInvoicesParams {
+  status?: string;
+  fromDate?: string;
+  toDate?: string;
+  search?: string;
 }
 

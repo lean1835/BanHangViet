@@ -16,6 +16,7 @@ import {
 } from "../services/returnTicketApi";
 import { ReturnTicketRejectModal } from "./ReturnTicketRejectModal";
 import { ReturnTicketPrintModal } from "./ReturnTicketPrintModal";
+import { notifyReturnTicketApproved } from "@/utils/returnTicketEvents";
 import type { IReturnTicket } from "../types/IReturnTicket";
 
 interface ReturnTicketDetailModalProps {
@@ -55,7 +56,17 @@ export const ReturnTicketDetailModal: React.FC<ReturnTicketDetailModalProps> = (
 
   const handleApprove = async () => {
     try {
-      await approveTicket(ticket.id).unwrap();
+      const res = await approveTicket(ticket.id).unwrap();
+      const productIds = (res?.result?.items || ticket.items)
+        ?.map((it) => it.productId)
+        .filter(Boolean) as string[];
+
+      notifyReturnTicketApproved({
+        ticketId: ticket.id,
+        ticketNumber: ticket.ticketNumber,
+        productIds,
+      });
+
       showSuccess(`Đã duyệt phiếu trả hàng ${ticket.ticketNumber} thành công! Tồn kho đã được hoàn.`);
       onRefresh?.();
       onClose();

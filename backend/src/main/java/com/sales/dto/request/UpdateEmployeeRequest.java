@@ -18,6 +18,10 @@ public class UpdateEmployeeRequest {
     @Size(max = 20, message = "Số điện thoại không được quá 20 ký tự")
     private String phoneNumber;
 
+    @jakarta.validation.constraints.Email(message = "Địa chỉ email không đúng định dạng")
+    @Size(max = 100, message = "Email không được quá 100 ký tự")
+    private String email;
+
     @NotBlank(message = "Mã vai trò không được để trống")
     private String roleCode;
 

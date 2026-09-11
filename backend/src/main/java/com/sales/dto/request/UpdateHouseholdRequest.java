@@ -42,4 +42,7 @@ public class UpdateHouseholdRequest {
     @Min(value = 0, message = "Số giờ offline tối đa không được nhỏ hơn 0 (0 = Không giới hạn)")
     @Max(value = 168, message = "Số giờ offline tối đa không quá 168 giờ")
     private Integer offlineMaxHours;
+
+    @Pattern(regexp = "^(HALF_UP|UP|DOWN|ROUND_TO_100|ROUND_TO_1000)$", message = "Quy tắc làm tròn không hợp lệ")
+    private String roundingRule;
 }

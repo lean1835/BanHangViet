@@ -8,6 +8,7 @@ import com.sales.entity.User;
 import com.sales.exception.AppException;
 import com.sales.exception.ErrorCode;
 import com.sales.repository.EInvoiceRepository;
+import com.sales.repository.OrderPaymentRepository;
 import com.sales.repository.OrderRepository;
 import com.sales.repository.PointOfSaleRepository;
 import com.sales.repository.UserRepository;
@@ -46,6 +47,9 @@ class PosRevenueReportServiceTest {
 
     @Mock
     private PointOfSaleRepository pointOfSaleRepository;
+
+    @Mock
+    private OrderPaymentRepository orderPaymentRepository;
 
     @InjectMocks
     private ReportServiceImpl reportService;

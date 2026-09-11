@@ -99,6 +99,9 @@ public class HouseholdServiceImpl implements HouseholdService {
         if (request.getOfflineMaxHours() != null) {
             household.setOfflineMaxHours(request.getOfflineMaxHours());
         }
+        if (request.getRoundingRule() != null) {
+            household.setRoundingRule(request.getRoundingRule());
+        }
 
         BusinessHousehold saved = householdRepository.save(household);
 
@@ -139,6 +142,7 @@ public class HouseholdServiceImpl implements HouseholdService {
         map.put("representativeName", household.getRepresentativeName());
         map.put("offlineMaxOrders", household.getOfflineMaxOrders());
         map.put("offlineMaxHours", household.getOfflineMaxHours());
+        map.put("roundingRule", household.getRoundingRule());
         return map;
     }
 
@@ -153,6 +157,7 @@ public class HouseholdServiceImpl implements HouseholdService {
                 .revenueThresholdEnabled(household.getRevenueThresholdEnabled())
                 .offlineMaxOrders(household.getOfflineMaxOrders())
                 .offlineMaxHours(household.getOfflineMaxHours())
+                .roundingRule(household.getRoundingRule())
                 .createdAt(household.getCreatedAt())
                 .updatedAt(household.getUpdatedAt())
                 .build();

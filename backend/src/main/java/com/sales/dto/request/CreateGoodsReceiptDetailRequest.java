@@ -23,4 +23,6 @@ public class CreateGoodsReceiptDetailRequest {
     @NotNull(message = "Đơn giá nhập không được để trống")
     @DecimalMin(value = "0.00", message = "Đơn giá nhập không được âm")
     private BigDecimal purchasePrice;
+
+    private String unitConversionId;
 }

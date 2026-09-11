@@ -5,17 +5,36 @@ const safeCaf = (id?: number) => {
   if (id) clearTimeout(id);
 };
 
+Object.defineProperty(globalThis, "requestAnimationFrame", {
+  writable: true,
+  configurable: true,
+  value: safeRaf,
+});
+
+Object.defineProperty(globalThis, "cancelAnimationFrame", {
+  writable: true,
+  configurable: true,
+  value: safeCaf,
+});
+
 if (typeof window !== "undefined") {
   window.requestAnimationFrame = safeRaf;
   window.cancelAnimationFrame = safeCaf;
 }
 
-if (typeof globalThis !== "undefined") {
-  globalThis.requestAnimationFrame = safeRaf;
-  globalThis.cancelAnimationFrame = safeCaf;
+if (typeof window !== "undefined" && !window.matchMedia) {
+  Object.defineProperty(window, "matchMedia", {
+    writable: true,
+    value: (query: string) => ({
+      matches: false,
+      media: query,
+      onchange: null,
+      addListener: () => {},
+      removeListener: () => {},
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      dispatchEvent: () => false,
+    }),
+  });
 }
 
-if (typeof global !== "undefined") {
-  (global as unknown as Window & typeof globalThis).requestAnimationFrame = safeRaf;
-  (global as unknown as Window & typeof globalThis).cancelAnimationFrame = safeCaf;
-}

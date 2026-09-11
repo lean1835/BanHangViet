@@ -23,7 +23,7 @@ public class ShiftController {
     private final ShiftService shiftService;
 
     @PostMapping("/open")
-    @PreAuthorize("hasAnyRole('VT-01', 'VT-02')")
+    @PreAuthorize("hasAnyRole('VT-01', 'VT-02', 'VT-03')")
     public ResponseEntity<ApiResponse<ShiftResponse>> openShift(
             Principal principal,
             @Valid @RequestBody OpenShiftRequest request) {
@@ -37,7 +37,7 @@ public class ShiftController {
     }
 
     @GetMapping("/active")
-    @PreAuthorize("hasAnyRole('VT-01', 'VT-02')")
+    @PreAuthorize("hasAnyRole('VT-01', 'VT-02', 'VT-03')")
     public ResponseEntity<ApiResponse<ShiftResponse>> getActiveShift(Principal principal) {
         ShiftResponse result = shiftService.getActiveShift(principal.getName());
         ApiResponse<ShiftResponse> response = ApiResponse.<ShiftResponse>builder()
@@ -49,7 +49,7 @@ public class ShiftController {
     }
 
     @PostMapping("/{id}/close")
-    @PreAuthorize("hasAnyRole('VT-01', 'VT-02')")
+    @PreAuthorize("hasAnyRole('VT-01', 'VT-02', 'VT-03')")
     public ResponseEntity<ApiResponse<ShiftResponse>> closeShift(
             Principal principal,
             @PathVariable("id") String id,
@@ -74,4 +74,19 @@ public class ShiftController {
                 .build();
         return ResponseEntity.ok(response);
     }
+
+    @GetMapping("/{id}/bank-transfer-reconciliation")
+    @PreAuthorize("hasAnyRole('VT-01', 'VT-02', 'VT-03')")
+    public ResponseEntity<ApiResponse<com.sales.dto.response.BankTransferReconciliationResponse>> getBankTransferReconciliation(
+            Principal principal,
+            @PathVariable("id") String id) {
+        com.sales.dto.response.BankTransferReconciliationResponse result = shiftService.getBankTransferReconciliation(principal.getName(), id);
+        ApiResponse<com.sales.dto.response.BankTransferReconciliationResponse> response = ApiResponse.<com.sales.dto.response.BankTransferReconciliationResponse>builder()
+                .code(1000)
+                .message("Lấy thông tin đối soát chuyển khoản ngân hàng thành công")
+                .result(result)
+                .build();
+        return ResponseEntity.ok(response);
+    }
 }
+

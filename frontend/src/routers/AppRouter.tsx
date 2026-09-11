@@ -11,6 +11,9 @@ import { RoleRoute } from "./guards/RoleRoute";
 const AuthPage = React.lazy(() => import("@/pages/AuthPage"));
 const LoginPage = React.lazy(() => import("@/modules/auth/pages/LoginPage"));
 const RegisterPage = React.lazy(() => import("@/modules/auth/pages/RegisterPage"));
+const ForgotPasswordPage = React.lazy(
+  () => import("@/modules/auth/pages/ForgotPasswordPage")
+);
 const AuthenticatedAppLayout = React.lazy(
   () => import("@/components/layouts/AuthenticatedAppLayout")
 );
@@ -20,6 +23,13 @@ const DashboardOverviewPage = React.lazy(
 const ProductsLayout = React.lazy(() => import("@/modules/product/pages/ProductsLayout"));
 const ProductListPage = React.lazy(() => import("@/modules/product/pages/ProductListPage"));
 const StockEntryPage = React.lazy(() => import("@/modules/product/pages/StockEntryPage"));
+const StockCardPage = React.lazy(() => import("@/modules/product/pages/StockCardPage"));
+const PriceAdjustmentPage = React.lazy(
+  () => import("@/modules/product/pages/PriceAdjustmentPage")
+);
+const ProductDetailPage = React.lazy(
+  () => import("@/modules/product/pages/ProductDetailPage")
+);
 const InventoryAuditPage = React.lazy(
   () => import("@/modules/inventory_audit/pages/InventoryAuditPage")
 );
@@ -79,6 +89,9 @@ const SalesInvoiceListingPage = React.lazy(
 const SettingsLayout = React.lazy(() => import("@/modules/settings/pages/SettingsLayout"));
 const UserProfilePage = React.lazy(
   () => import("@/modules/settings/pages/UserProfilePage")
+);
+const UserSessionPage = React.lazy(
+  () => import("@/modules/settings/pages/UserSessionPage")
 );
 const BusinessInfoPage = React.lazy(
   () => import("@/modules/settings/pages/BusinessInfoPage")
@@ -148,6 +161,7 @@ export const AppRouter = () => (
           <Route index element={<Navigate to={ROUTE_SEGMENTS.LOGIN} replace />} />
           <Route path={ROUTE_SEGMENTS.LOGIN} element={<LoginPage />} />
           <Route path={ROUTE_SEGMENTS.REGISTER} element={<RegisterPage />} />
+          <Route path={ROUTE_SEGMENTS.FORGOT_PASSWORD} element={<ForgotPasswordPage />} />
         </Route>
 
         <Route path={APP_ROUTES.ROOT} element={<Navigate to={APP_ROUTES.DASHBOARD} replace />} />
@@ -180,12 +194,22 @@ export const AppRouter = () => (
           >
             <Route index element={<ProductListPage />} />
             <Route path={ROUTE_SEGMENTS.STOCK_ENTRY} element={<StockEntryPage />} />
+            <Route path={ROUTE_SEGMENTS.STOCK_CARD} element={<StockCardPage />} />
+            <Route
+              path={ROUTE_SEGMENTS.PRICE_ADJUSTMENTS}
+              element={
+                <RoleRoute allowedRoles={[USER_ROLES.OWNER]}>
+                  <PriceAdjustmentPage />
+                </RoleRoute>
+              }
+            />
             <Route path={ROUTE_SEGMENTS.INVENTORY_AUDITS} element={<InventoryAuditPage />} />
             <Route path={ROUTE_SEGMENTS.INVENTORY_WARNINGS} element={<InventoryWarningPage />} />
             <Route path={ROUTE_SEGMENTS.POS_INVENTORIES} element={<PosInventoryPage />} />
             <Route path={ROUTE_SEGMENTS.POS_TRANSFERS} element={<PosTransferPage />} />
             <Route path={ROUTE_SEGMENTS.SUPPLIERS} element={<SupplierPage />} />
             <Route path={`${ROUTE_SEGMENTS.SUPPLIERS}/:id`} element={<SupplierDetailPage />} />
+            <Route path=":id" element={<ProductDetailPage />} />
           </Route>
 
           <Route
@@ -315,6 +339,14 @@ export const AppRouter = () => (
           >
             <Route index element={<Navigate to={ROUTE_SEGMENTS.USER_PROFILE} replace />} />
             <Route path={ROUTE_SEGMENTS.USER_PROFILE} element={<UserProfilePage />} />
+            <Route
+              path={ROUTE_SEGMENTS.SESSIONS}
+              element={
+                <RoleRoute allowedRoles={[USER_ROLES.OWNER, USER_ROLES.CASHIER, USER_ROLES.ACCOUNTANT]}>
+                  <UserSessionPage />
+                </RoleRoute>
+              }
+            />
             <Route
               path={ROUTE_SEGMENTS.POINTS_OF_SALE}
               element={

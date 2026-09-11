@@ -23,11 +23,13 @@ public interface CustomerRepository extends JpaRepository<Customer, String> {
     Optional<Customer> findByIdAndHouseholdIdAndDeletedAtIsNullForUpdate(@Param("id") String id, @Param("householdId") String householdId);
 
     Optional<Customer> findByPhoneNumberAndHouseholdIdAndDeletedAtIsNull(String phoneNumber, String householdId);
+    Optional<Customer> findFirstByPhoneNumberAndHouseholdIdAndDeletedAtIsNullOrderByCreatedAtDesc(String phoneNumber, String householdId);
+    Optional<Customer> findFirstByHouseholdIdAndTaxCodeAndDeletedAtIsNullOrderByCreatedAtDesc(String householdId, String taxCode);
     List<Customer> findAllByHouseholdIdAndDeletedAtIsNull(String householdId);
     List<Customer> findAllByHouseholdId(String householdId);
     Optional<Customer> findByIdAndHouseholdId(String id, String householdId);
 
     @Query("SELECT c FROM Customer c WHERE c.household.id = :householdId AND c.deletedAt IS NULL " +
-           "AND (LOWER(c.name) LIKE LOWER(CONCAT('%', :query, '%')) OR c.phoneNumber LIKE CONCAT('%', :query, '%'))")
+           "AND (LOWER(c.name) LIKE LOWER(CONCAT('%', :query, '%')) OR c.phoneNumber LIKE CONCAT('%', :query, '%') OR c.taxCode LIKE CONCAT('%', :query, '%'))")
     List<Customer> searchCustomers(@Param("householdId") String householdId, @Param("query") String query);
 }

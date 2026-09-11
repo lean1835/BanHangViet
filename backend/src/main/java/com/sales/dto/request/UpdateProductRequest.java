@@ -46,4 +46,16 @@ public class UpdateProductRequest {
 
     @NotBlank(message = "Thuế suất không được để trống")
     private String taxRateId;
+
+    @Builder.Default
+    private Boolean isSoldByWeight = false;
+
+    @Min(value = 0, message = "Số chữ số thập phân không được nhỏ hơn 0")
+    @Max(value = 3, message = "Số chữ số thập phân tối đa là 3")
+    @Builder.Default
+    private Integer decimalPlaces = 0;
+
+    @DecimalMin(value = "0.001", message = "Bước nhảy tối thiểu phải lớn hơn 0")
+    @Builder.Default
+    private BigDecimal minWeightStep = BigDecimal.ONE;
 }

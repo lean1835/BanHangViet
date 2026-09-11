@@ -41,6 +41,8 @@ public interface EInvoiceService {
 
     InvoiceResponse updateInvoice(String currentUsername, String invoiceId, UpdateInvoiceRequest request);
 
+    CustomerTaxLookupResponse lookupBuyerInfoByTaxCode(String currentUsername, String taxCode);
+
     // Cổng tiếp nhận dành cho Cơ quan Thuế mô phỏng (VT-05)
     PageResponse<InvoiceResponse> getWaitingInvoicesForTax(int page, int size);
     PageResponse<InvoiceResponse> getProcessedInvoicesForTax(int page, int size);
@@ -54,8 +56,23 @@ public interface EInvoiceService {
     void deliverInvoiceViaEmail(String currentUsername, String invoiceId, String email);
     InvoicePrintResponse getInvoicePrintLayout(String currentUsername, String invoiceId, String pageSize);
 
+    PageResponse<FailedCustomerDeliveryInvoiceResponse> getFailedCustomerDeliveries(String currentUsername, int page, int size);
+    InvoiceResponse resendCustomerDelivery(String currentUsername, String invoiceId, com.sales.dto.request.ResendCustomerDeliveryRequest request);
+    List<InvoiceDeliveryLogResponse> getInvoiceDeliveryHistory(String currentUsername, String invoiceId);
+
     // Nghiệp vụ tra cứu & tải lại công khai dành cho khách hàng
     PublicInvoiceResponse lookupInvoicePublicly(String lookupCode);
     byte[] downloadInvoiceFilePublicly(String lookupCode, String format);
+
+    // Nghiệp vụ kiểm soát cuối ngày (NCL-04-CN-008)
+    DailyInvoiceControlResponse getDailyInvoiceControl(String currentUsername, LocalDate date);
+
+    // NCL-05-CN-006: Xuất danh sách hóa đơn tra cứu ra tệp Excel
+    byte[] exportInvoicesToExcel(String currentUsername, String status, LocalDate fromDate, LocalDate toDate, String search, String clientIp, String userAgent);
+
+    // NCL-05-CN-007: Xem và tải bản thể hiện hóa đơn
+    InvoiceRepresentationResponse getInvoiceRepresentation(String currentUsername, String invoiceId);
+    byte[] downloadInvoicePdf(String currentUsername, String invoiceId);
+    byte[] downloadInvoiceRepresentation(String currentUsername, String invoiceId);
 }
 

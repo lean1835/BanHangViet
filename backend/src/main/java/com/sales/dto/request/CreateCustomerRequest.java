@@ -20,6 +20,10 @@ public class CreateCustomerRequest {
     @Pattern(regexp = "^[0-9]{9,15}$", message = "Số điện thoại không hợp lệ")
     private String phoneNumber;
 
+    @Pattern(regexp = "^$|^\\d{10}$|^\\d{13}$|^\\d{10}-\\d{3}$", message = "Mã số thuế không hợp lệ (phải gồm 10 hoặc 13 chữ số)")
+    @Size(max = 20, message = "Mã số thuế không vượt quá 20 ký tự")
+    private String taxCode;
+
     @Size(max = 100, message = "Email không vượt quá 100 ký tự")
     @Email(message = "Email không đúng định dạng")
     private String email;
@@ -46,4 +50,10 @@ public class CreateCustomerRequest {
     @Min(value = 0, message = "Số ngày nhắc nợ sau quá hạn không được nhỏ hơn 0")
     @Max(value = 365, message = "Số ngày nhắc nợ sau quá hạn không được vượt quá 365 ngày")
     private Integer reminderDaysAfter;
+
+    @Pattern(regexp = "^(QR|EMAIL|ZALO|PRINT)$", message = "Kênh nhận mặc định không hợp lệ (QR, EMAIL, ZALO, PRINT)")
+    private String defaultDeliveryChannel;
+
+    @Size(max = 255, message = "Địa chỉ nhận mặc định không vượt quá 255 ký tự")
+    private String defaultDeliveryAddress;
 }

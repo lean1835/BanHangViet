@@ -18,9 +18,22 @@ export const formatCurrency = (val: number | null | undefined): string => {
  * @returns Formatted number string e.g. "1.500".
  */
 export const formatNumber = (value: number | null | undefined): string => {
-  if (value === null || value === undefined) return "0";
-  const rounded = Math.round(value);
-  return new Intl.NumberFormat(APP_LOCALE, { maximumFractionDigits: 0 }).format(rounded);
+  if (value === null || value === undefined || isNaN(value)) return "0";
+  if (Number.isInteger(value)) {
+    return new Intl.NumberFormat(APP_LOCALE, { maximumFractionDigits: 0 }).format(value);
+  }
+  return new Intl.NumberFormat(APP_LOCALE, { maximumFractionDigits: 3 }).format(value);
+};
+
+/**
+ * Formats quantity with specific decimal places for weight-based products.
+ */
+export const formatQuantity = (value: number | null | undefined, decimalPlaces: number = 3): string => {
+  if (value === null || value === undefined || isNaN(value)) return "0";
+  return new Intl.NumberFormat(APP_LOCALE, {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: Math.min(Math.max(decimalPlaces, 0), 3),
+  }).format(value);
 };
 
 /**

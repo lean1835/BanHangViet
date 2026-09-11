@@ -45,7 +45,11 @@ export const settingsApi = baseApi.injectEndpoints({
         method: "PUT",
         body,
       }),
-      invalidatesTags: [API_TAG_TYPES.INVOICE_TEMPLATE],
+      invalidatesTags: [
+        API_TAG_TYPES.INVOICE_TEMPLATE,
+        { type: API_TAG_TYPES.INVOICE_RANGE, id: "ACTIVE" },
+        { type: API_TAG_TYPES.INVOICE_RANGE, id: "LIST" },
+      ],
     }),
 
     // Tax Rates
@@ -92,6 +96,50 @@ export const settingsApi = baseApi.injectEndpoints({
         { type: API_TAG_TYPES.TAX_RATE, id: "LIST" },
       ],
     }),
+
+    // Household Settings & Auto Retry Deadlines (NCL-09-CN-008)
+    getHouseholdSettings: builder.query<ApiResponse<{
+      id?: string;
+      householdId?: string;
+      autoRetryEnabled: boolean;
+      maxRetryAttempts: number;
+      retryIntervalMinutes: number;
+      maxRetryHoursDeadline: number;
+      maxOrderHoldingHours?: number;
+      bankTransferTimeoutMinutes?: number;
+      updatedAt?: string;
+    }>, void>({
+      query: () => ({
+        url: "/household/settings",
+        method: "GET",
+      }),
+      providesTags: [API_TAG_TYPES.HOUSEHOLD],
+    }),
+    updateHouseholdSettings: builder.mutation<ApiResponse<{
+      id?: string;
+      householdId?: string;
+      autoRetryEnabled: boolean;
+      maxRetryAttempts: number;
+      retryIntervalMinutes: number;
+      maxRetryHoursDeadline: number;
+      maxOrderHoldingHours?: number;
+      bankTransferTimeoutMinutes?: number;
+      updatedAt?: string;
+    }>, {
+      autoRetryEnabled: boolean;
+      maxRetryAttempts: number;
+      retryIntervalMinutes: number;
+      maxRetryHoursDeadline: number;
+      maxOrderHoldingHours?: number;
+      bankTransferTimeoutMinutes?: number;
+    }>({
+      query: (body) => ({
+        url: "/household/settings",
+        method: "PUT",
+        body,
+      }),
+      invalidatesTags: [API_TAG_TYPES.HOUSEHOLD],
+    }),
   }),
   overrideExisting: false,
 });
@@ -105,4 +153,7 @@ export const {
   useCreateTaxRateMutation,
   useUpdateTaxRateMutation,
   useUpdateTaxRateStatusMutation,
+  useGetHouseholdSettingsQuery,
+  useUpdateHouseholdSettingsMutation,
 } = settingsApi;
+

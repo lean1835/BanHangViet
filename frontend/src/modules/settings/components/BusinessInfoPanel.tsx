@@ -14,6 +14,7 @@ import { useNotification } from "@/hooks/useNotification";
 import { useDashboardDemo } from "@/providers/DashboardDemoProvider";
 import { getApiErrorMessage } from "@/utils/getApiErrorMessage";
 import { saveOfflineConfig } from "@/modules/sync/utils/offlineSyncStorage";
+import { ROUNDING_RULE_OPTIONS } from "@/constants/product";
 import { Save, Building2, CheckCircle2, AlertCircle, Loader2, WifiOff } from "lucide-react";
 
 export const BusinessInfoPanel: React.FC = () => {
@@ -45,6 +46,7 @@ export const BusinessInfoPanel: React.FC = () => {
       offlineMaxOrders: 50,
       limitHoursEnabled: true,
       offlineMaxHours: 24,
+      roundingRule: "ROUND_TO_1000",
     },
   });
 
@@ -73,6 +75,7 @@ export const BusinessInfoPanel: React.FC = () => {
         offlineMaxOrders: maxOrders,
         limitHoursEnabled: hasHourLimit,
         offlineMaxHours: maxHours,
+        roundingRule: household.roundingRule || "ROUND_TO_1000",
       });
 
       saveOfflineConfig({
@@ -100,6 +103,7 @@ export const BusinessInfoPanel: React.FC = () => {
         representativeName: data.representativeName || undefined,
         offlineMaxOrders: effectiveMaxOrders,
         offlineMaxHours: effectiveMaxHours,
+        roundingRule: data.roundingRule,
       }).unwrap();
 
       saveOfflineConfig({
@@ -255,6 +259,26 @@ export const BusinessInfoPanel: React.FC = () => {
                   <AlertCircle className="w-3 h-3 shrink-0" /> {errors.address.message}
                 </span>
               )}
+            </div>
+
+            {/* Quy tắc làm tròn tiền bán hàng */}
+            <div className="flex flex-col gap-1.5 md:col-span-2 bg-slate-50/70 border border-slate-200 rounded-xl p-4">
+              <label className="text-xs font-bold text-slate-800">
+                Quy tắc làm tròn tiền bán hàng & mặt hàng theo cân:
+              </label>
+              <select
+                {...register("roundingRule")}
+                className="border border-slate-300 h-10 px-3 rounded-lg focus:outline-none focus:border-kv-blue-primary text-xs font-semibold text-slate-800 bg-white"
+              >
+                {ROUNDING_RULE_OPTIONS.map((rule) => (
+                  <option key={rule.value} value={rule.value}>
+                    {rule.label} ({rule.description})
+                  </option>
+                ))}
+              </select>
+              <span className="text-[11px] text-slate-500 mt-0.5">
+                Áp dụng tự động khi khách mua hàng theo số tiền hoặc cân ký lẻ có giá trị thập phân.
+              </span>
             </div>
 
             {/* Cấu hình Giới hạn bán Ngoại tuyến (Offline POS) */}

@@ -98,6 +98,28 @@ public class Order {
     @Column(name = "discount_rate_or_value", precision = 15, scale = 2)
     private BigDecimal discountRateOrValue;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "cancel_reason", length = 50)
+    private OrderCancelReason cancelReason;
+
+    @Column(name = "cancel_reason_note", length = 500)
+    private String cancelReasonNote;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "canceled_by_user_id")
+    private User canceledByUser;
+
+    @Column(name = "canceled_at")
+    private LocalDateTime canceledAt;
+
+    @Column(name = "order_label", length = 100)
+    private String orderLabel;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "dining_table_id")
+    private DiningTable diningTable;
+
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -122,4 +144,17 @@ public class Order {
     @Builder.Default
     @ToString.Exclude
     private List<OrderItem> items = new ArrayList<>();
+
+    @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @Builder.Default
+    @ToString.Exclude
+    private List<OrderPayment> payments = new ArrayList<>();
+
+    public void addPayment(OrderPayment payment) {
+        if (this.payments == null) {
+            this.payments = new ArrayList<>();
+        }
+        this.payments.add(payment);
+        payment.setOrder(this);
+    }
 }

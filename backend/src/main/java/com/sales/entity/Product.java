@@ -55,9 +55,25 @@ public class Product {
     @Column(name = "stock_quantity", nullable = false, precision = 12, scale = 3)
     private BigDecimal stockQuantity;
 
+    @Column(name = "initial_stock_quantity", precision = 12, scale = 3)
+    @Builder.Default
+    private BigDecimal initialStockQuantity = BigDecimal.ZERO;
+
     @Column(name = "min_stock_quantity", nullable = false, precision = 12, scale = 3)
     @Builder.Default
     private BigDecimal minStockQuantity = BigDecimal.ZERO;
+
+    @Column(name = "is_sold_by_weight", nullable = false)
+    @Builder.Default
+    private Boolean isSoldByWeight = false;
+
+    @Column(name = "decimal_places", nullable = false)
+    @Builder.Default
+    private Integer decimalPlaces = 0;
+
+    @Column(name = "min_weight_step", nullable = false, precision = 12, scale = 3)
+    @Builder.Default
+    private BigDecimal minWeightStep = BigDecimal.ONE;
 
     @Column(nullable = false, length = 20)
     @Builder.Default

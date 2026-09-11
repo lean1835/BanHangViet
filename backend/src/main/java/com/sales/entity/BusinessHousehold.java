@@ -47,6 +47,13 @@ public class BusinessHousehold {
     @Builder.Default
     private Integer offlineMaxHours = 24;
 
+    @Column(name = "session_timeout_minutes", nullable = false)
+    @Builder.Default
+    private Integer sessionTimeoutMinutes = 60;
+
+    @Column(name = "rounding_rule", nullable = false, length = 20)
+    @Builder.Default
+    private String roundingRule = "HALF_UP";
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)

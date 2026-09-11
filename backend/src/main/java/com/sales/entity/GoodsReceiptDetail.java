@@ -34,6 +34,21 @@ public class GoodsReceiptDetail {
     @Column(name = "purchase_price", nullable = false, precision = 15, scale = 2)
     private BigDecimal purchasePrice;
 
+    @Column(name = "unit_conversion_id", length = 36)
+    private String unitConversionId;
+
+    @Column(name = "unit_name", length = 50)
+    private String unitName;
+
+    @Column(name = "conversion_factor", precision = 12, scale = 3)
+    private BigDecimal conversionFactor;
+
+    @Column(name = "base_quantity", precision = 12, scale = 3)
+    private BigDecimal baseQuantity;
+
+    @Column(name = "base_purchase_price", precision = 15, scale = 2)
+    private BigDecimal basePurchasePrice;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

@@ -7,6 +7,8 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Repository
@@ -46,5 +48,68 @@ public interface ReturnTicketItemRepository extends JpaRepository<ReturnTicketIt
             @Param("endDateTime") java.time.LocalDateTime endDateTime,
             org.springframework.data.domain.Pageable pageable
     );
+
+    @Query("SELECT rti FROM ReturnTicketItem rti " +
+           "JOIN FETCH rti.returnTicket rt " +
+           "LEFT JOIN FETCH rt.approvedByUser " +
+           "LEFT JOIN FETCH rt.createdByUser " +
+           "WHERE rti.product.id = :productId " +
+           "AND rt.household.id = :householdId " +
+           "AND rt.status = 'APPROVED' " +
+           "ORDER BY COALESCE(rt.approvedAt, rt.createdAt) ASC, rti.createdAt ASC")
+    List<ReturnTicketItem> findStockMovementsByProduct(
+            @Param("productId") String productId,
+            @Param("householdId") String householdId
+    );
+
+    @Query("SELECT rti FROM ReturnTicketItem rti " +
+           "JOIN FETCH rti.returnTicket rt " +
+           "LEFT JOIN FETCH rt.approvedByUser " +
+           "LEFT JOIN FETCH rt.createdByUser " +
+           "WHERE rti.product.id = :productId " +
+           "AND rt.household.id = :householdId " +
+           "AND rt.status = 'APPROVED' " +
+           "AND (COALESCE(rt.approvedAt, rt.createdAt) BETWEEN :startDateTime AND :endDateTime) " +
+           "ORDER BY COALESCE(rt.approvedAt, rt.createdAt) ASC, rti.createdAt ASC")
+    List<ReturnTicketItem> findStockMovementsByProductInPeriod(
+            @Param("productId") String productId,
+            @Param("householdId") String householdId,
+            @Param("startDateTime") LocalDateTime startDateTime,
+            @Param("endDateTime") LocalDateTime endDateTime
+    );
+
+    @Query("SELECT COALESCE(SUM(rti.quantity), 0) " +
+           "FROM ReturnTicketItem rti " +
+           "JOIN rti.returnTicket rt " +
+           "WHERE rti.product.id = :productId " +
+           "AND rt.household.id = :householdId " +
+           "AND rt.status = 'APPROVED' " +
+           "AND COALESCE(rt.approvedAt, rt.createdAt) < :startDateTime")
+    BigDecimal sumQuantityBefore(
+            @Param("productId") String productId,
+            @Param("householdId") String householdId,
+            @Param("startDateTime") LocalDateTime startDateTime
+    );
+
+    @Query("SELECT COALESCE(SUM(rti.quantity), 0) " +
+           "FROM ReturnTicketItem rti " +
+           "JOIN rti.returnTicket rt " +
+           "WHERE rti.product.id = :productId " +
+           "AND rt.household.id = :householdId " +
+           "AND rt.status = 'APPROVED'")
+    BigDecimal sumQuantityAllTime(
+            @Param("productId") String productId,
+            @Param("householdId") String householdId
+    );
+
+    @Query("SELECT COUNT(rti) > 0 FROM ReturnTicketItem rti " +
+           "WHERE rti.product.id = :productId " +
+           "AND rti.returnTicket.household.id = :householdId " +
+           "AND rti.returnTicket.status = 'APPROVED'")
+    boolean hasStockMovementByProduct(
+            @Param("productId") String productId,
+            @Param("householdId") String householdId
+    );
 }
+
 

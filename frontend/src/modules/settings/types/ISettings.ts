@@ -1,3 +1,10 @@
+export type TRoundingRule =
+  | "HALF_UP"
+  | "UP"
+  | "DOWN"
+  | "ROUND_TO_100"
+  | "ROUND_TO_1000";
+
 export interface IHouseholdInfo {
   id?: string;
   name: string;
@@ -8,6 +15,7 @@ export interface IHouseholdInfo {
   revenueThresholdEnabled?: boolean;
   offlineMaxOrders?: number;
   offlineMaxHours?: number;
+  roundingRule?: TRoundingRule;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -20,6 +28,7 @@ export interface IUpdateHouseholdRequest {
   representativeName?: string;
   offlineMaxOrders?: number;
   offlineMaxHours?: number;
+  roundingRule?: TRoundingRule;
 }
 
 export interface IInvoiceTemplate {

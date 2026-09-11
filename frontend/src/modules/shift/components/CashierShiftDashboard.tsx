@@ -21,8 +21,15 @@ import { formatDate } from "@/utils/dateFormatter";
 import { useDebounce } from "@/hooks/useDebounce";
 import { getApiErrorMessage } from "@/utils/getApiErrorMessage";
 import { useNotification } from "@/hooks/useNotification";
-import type { IShiftResponse } from "@/modules/shift/types/IShift";
 import { useAccessibleDialog } from "@/hooks/useAccessibleDialog";
+import type { IShiftResponse } from "@/modules/shift/types/IShift";
+import { BankTransferReconciliationSection } from "./BankTransferReconciliationSection";
+import { ShiftHandoverModal } from "./ShiftHandoverModal";
+import { ShiftCashSummaryCard } from "./ShiftCashSummaryCard";
+import { ShiftCashTransactionsTable } from "./ShiftCashTransactionsTable";
+import { CreateCashTransactionModal } from "./CreateCashTransactionModal";
+import { useGetShiftCashSummaryQuery } from "../services/cashTransactionApi";
+import type { CashTransactionType } from "../types/ICashTransaction";
 
 export const CashierShiftDashboard: React.FC = () => {
   const { showSuccess, showError } = useNotification();
@@ -56,9 +63,18 @@ export const CashierShiftDashboard: React.FC = () => {
   const [closingReason, setClosingReason] = useState("");
   const [showCloseModal, setShowCloseModal] = useState(false);
   const [showOpenModal, setShowOpenModal] = useState(false);
+  const [showHandoverModal, setShowHandoverModal] = useState(false);
+  const [showCreateCashModal, setShowCreateCashModal] = useState(false);
+  const [createCashType, setCreateCashType] = useState<CashTransactionType>("EXPENSE");
   const [shiftToClose, setShiftToClose] = useState<IShiftResponse | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const debouncedSearchQuery = useDebounce(searchQuery, SHIFT_SEARCH_DEBOUNCE_MS);
+
+  const { data: cashSummaryData } = useGetShiftCashSummaryQuery(currentShift?.id || "", {
+    skip: !currentShift?.id,
+    pollingInterval: 15000,
+  });
+  const cashSummary = cashSummaryData?.result;
 
   const handleOpenShift = async () => {
     if (isOpeningShift) return;
@@ -88,6 +104,15 @@ export const CashierShiftDashboard: React.FC = () => {
       }
 
       const latestShift = refreshedActiveShift.result;
+
+      // NCL-03-CN-014: Chặn đóng ca nếu còn khoản chi PENDING_APPROVAL
+      if (cashSummary?.pendingExpenseCount && cashSummary.pendingExpenseCount > 0) {
+        showError(
+          `Ca bán hàng còn ${cashSummary.pendingExpenseCount} khoản chi đang chờ Chủ hộ duyệt. Vui lòng liên hệ Chủ hộ phê duyệt hoặc từ chối trước khi chốt ca!`
+        );
+        return;
+      }
+
       setShiftToClose(latestShift);
       setClosingActualInput(
         latestShift.closingCashExpected ?? latestShift.openingCash,
@@ -190,18 +215,34 @@ export const CashierShiftDashboard: React.FC = () => {
             {SHIFT_UI.CASHIER.CURRENT_SHIFT_TITLE}
           </h3>
           {currentShift && (
-            <button
-              onClick={() => void handlePrepareCloseShift()}
-              disabled={isActiveFetching || isClosingShift}
-              className="bg-rose-600 hover:bg-rose-700 transition-colors text-white px-3 py-1.5 rounded-lg font-bold shadow-sm text-[10px] disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {SHIFT_UI.CASHIER.CLOSE_SHIFT_BUTTON}
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setShowHandoverModal(true)}
+                disabled={isActiveFetching || isClosingShift}
+                className="bg-indigo-600 hover:bg-indigo-700 transition-colors text-white px-3 py-1.5 rounded-lg font-bold shadow-sm text-[10px] disabled:cursor-not-allowed disabled:opacity-60 flex items-center gap-1"
+              >
+                <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                  <circle cx="9" cy="7" r="4" />
+                  <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                  <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                </svg>
+                <span>Bàn giao ca</span>
+              </button>
+              <button
+                onClick={() => void handlePrepareCloseShift()}
+                disabled={isActiveFetching || isClosingShift}
+                className="bg-rose-600 hover:bg-rose-700 transition-colors text-white px-3 py-1.5 rounded-lg font-bold shadow-sm text-[10px] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {SHIFT_UI.CASHIER.CLOSE_SHIFT_BUTTON}
+              </button>
+            </div>
           )}
         </div>
 
         {currentShift ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="bg-slate-50 border border-slate-100 rounded-lg p-4 flex items-center gap-4">
               <div className="w-10 h-10 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center shrink-0">
                 <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
@@ -218,6 +259,26 @@ export const CashierShiftDashboard: React.FC = () => {
                 </div>
                 <div className="text-[10px] text-slate-500 font-semibold mt-0.5">
                   {SHIFT_UI.CASHIER.OPENED_AT_LABEL} {formatDate(currentShift.openedAt)}
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-slate-50 border border-slate-100 rounded-lg p-4 flex items-center gap-4">
+              <div className="w-10 h-10 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center shrink-0">
+                <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                  <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+                </svg>
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+                  {SHIFT_UI.CASHIER.TOTAL_REVENUE_LABEL}
+                </div>
+                <div className="text-xl font-extrabold text-indigo-700">
+                  {formatCurrency(currentShift.totalRevenue ?? 0)}
+                </div>
+                <div className="text-[10px] text-slate-500 font-semibold mt-0.5 flex flex-wrap gap-x-2">
+                  <span>TM: <b className="text-slate-700">{formatCurrency(currentShift.cashRevenue ?? 0)}</b></span>
+                  <span>CK: <b className="text-slate-700">{formatCurrency(currentShift.bankRevenue ?? 0)}</b></span>
                 </div>
               </div>
             </div>
@@ -241,7 +302,23 @@ export const CashierShiftDashboard: React.FC = () => {
                 </div>
               </div>
             </div>
-          </div>
+            </div>
+            <div className="mt-4">
+              <BankTransferReconciliationSection shiftId={currentShift.id} />
+            </div>
+
+            {/* NCL-03-CN-014: Ghi thu chi tiền mặt ngoài bán hàng trong ca */}
+            <div className="mt-4 flex flex-col gap-4">
+              <ShiftCashSummaryCard
+                shiftId={currentShift.id}
+                onOpenCreateModal={(t) => {
+                  setCreateCashType(t);
+                  setShowCreateCashModal(true);
+                }}
+              />
+              <ShiftCashTransactionsTable shiftId={currentShift.id} isOwner={false} />
+            </div>
+          </>
         ) : (
           <div className="bg-amber-50 border border-amber-200 rounded-lg py-6 px-5 flex flex-col sm:flex-row justify-between items-center gap-4 flex-1">
             <div className="text-left">
@@ -516,6 +593,11 @@ export const CashierShiftDashboard: React.FC = () => {
                         ></textarea>
                       </div>
                     )}
+
+                    {/* NCL-03-CN-012 & QTN-16: Đối soát chuyển khoản ngân hàng khi đóng ca */}
+                    <div className="mt-1">
+                      <BankTransferReconciliationSection shiftId={shiftToClose.id} isCompact />
+                    </div>
                   </>
                 );
               })()}
@@ -637,6 +719,31 @@ export const CashierShiftDashboard: React.FC = () => {
           </div>
         </div>,
         document.body
+      )}
+      {/* NCL-03-CN-013: Shift Handover Modal */}
+      {showHandoverModal && (
+        <ShiftHandoverModal
+          isOpen={showHandoverModal}
+          onClose={() => setShowHandoverModal(false)}
+          onHandoverSuccess={() => {
+            refetchActiveShift();
+            refetchShiftsHistory();
+          }}
+        />
+      )}
+
+      {/* NCL-03-CN-014: Create Cash Transaction Modal */}
+      {showCreateCashModal && currentShift && (
+        <CreateCashTransactionModal
+          isOpen={showCreateCashModal}
+          onClose={() => setShowCreateCashModal(false)}
+          shiftId={currentShift.id}
+          defaultType={createCashType}
+          isOwner={false}
+          onSuccess={() => {
+            refetchActiveShift();
+          }}
+        />
       )}
     </div>
   );

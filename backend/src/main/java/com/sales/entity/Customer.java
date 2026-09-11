@@ -31,6 +31,9 @@ public class Customer {
     @Column(name = "phone_number", nullable = false, length = 20)
     private String phoneNumber;
 
+    @Column(name = "tax_code", length = 20)
+    private String taxCode;
+
     @Column(length = 100)
     private String email;
 
@@ -68,6 +71,13 @@ public class Customer {
     @Column(name = "reminder_days_after", nullable = false, columnDefinition = "int default 3")
     @Builder.Default
     private Integer reminderDaysAfter = 3;
+
+    @Column(name = "default_delivery_channel", length = 20)
+    @Builder.Default
+    private String defaultDeliveryChannel = "QR";
+
+    @Column(name = "default_delivery_address", length = 255)
+    private String defaultDeliveryAddress;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)

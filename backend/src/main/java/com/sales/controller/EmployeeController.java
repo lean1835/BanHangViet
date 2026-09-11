@@ -71,4 +71,17 @@ public class EmployeeController {
                 .build();
         return ResponseEntity.ok(response);
     }
+
+    @PostMapping("/{id}/reset-password")
+    public ResponseEntity<ApiResponse<Void>> resetEmployeePassword(
+            Principal principal,
+            @PathVariable String id,
+            @Valid @RequestBody com.sales.dto.request.AdminResetEmployeePasswordRequest request) {
+        employeeService.resetEmployeePassword(principal.getName(), id, request);
+        ApiResponse<Void> response = ApiResponse.<Void>builder()
+                .code(1000)
+                .message("Đặt lại mật khẩu cho nhân viên thành công")
+                .build();
+        return ResponseEntity.ok(response);
+    }
 }

@@ -14,6 +14,11 @@ import com.sales.entity.Order;
 import com.sales.entity.PointOfSale;
 import com.sales.exception.AppException;
 import com.sales.exception.ErrorCode;
+import com.sales.constant.CashTransactionStatus;
+import com.sales.constant.CashTransactionType;
+import com.sales.entity.ShiftHandover;
+import com.sales.repository.CashTransactionRepository;
+import com.sales.repository.ShiftHandoverRepository;
 import com.sales.repository.ActivityLogRepository;
 import com.sales.repository.RoleRepository;
 import com.sales.repository.UserRepository;
@@ -36,6 +41,7 @@ import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -53,6 +59,8 @@ public class EmployeeServiceImpl implements EmployeeService {
     private final ShiftRepository shiftRepository;
     private final OrderRepository orderRepository;
     private final PointOfSaleRepository pointOfSaleRepository;
+    private final CashTransactionRepository cashTransactionRepository;
+    private final ShiftHandoverRepository shiftHandoverRepository;
 
     private void closeActiveShiftOfUser(User employee) {
         Optional<Shift> activeShiftOpt = shiftRepository.findByUserIdAndStatus(employee.getId(), ShiftStatus.OPEN);
@@ -68,10 +76,31 @@ public class EmployeeServiceImpl implements EmployeeService {
                 }
             }
             
-            // 2. Calculate expected cash
-            BigDecimal cashSales = orderRepository.sumFinalAmountByShiftIdAndStatusAndPaymentMethodAndDeletedAtIsNull(
-                    shift.getId(), "COMPLETED", "CASH");
-            BigDecimal expectedCash = shift.getOpeningCash().add(cashSales);
+            // 2. Calculate expected cash (unifying cash sales, combined orders, cash transactions, and handovers)
+            BigDecimal cashSales = orderRepository.sumCashSalesAmountByShiftId(shift.getId());
+            BigDecimal totalIncome = BigDecimal.ZERO;
+            BigDecimal totalExpense = BigDecimal.ZERO;
+            if (cashTransactionRepository != null) {
+                totalIncome = cashTransactionRepository.sumAmountByShiftIdAndTypeAndStatus(
+                        shift.getId(), CashTransactionType.INCOME, CashTransactionStatus.APPROVED);
+                totalExpense = cashTransactionRepository.sumAmountByShiftIdAndTypeAndStatus(
+                        shift.getId(), CashTransactionType.EXPENSE, CashTransactionStatus.APPROVED);
+            }
+            BigDecimal expectedCash = shift.getOpeningCash()
+                    .add(cashSales != null ? cashSales : BigDecimal.ZERO)
+                    .add(totalIncome != null ? totalIncome : BigDecimal.ZERO)
+                    .subtract(totalExpense != null ? totalExpense : BigDecimal.ZERO);
+
+            if (shiftHandoverRepository != null) {
+                List<ShiftHandover> prevHandovers = shiftHandoverRepository.findByShiftIdOrderByStageNumberAsc(shift.getId());
+                if (prevHandovers != null && !prevHandovers.isEmpty()) {
+                    BigDecimal totalHandoverDiff = prevHandovers.stream()
+                            .map(ShiftHandover::getDifferenceAmount)
+                            .filter(Objects::nonNull)
+                            .reduce(BigDecimal.ZERO, BigDecimal::add);
+                    expectedCash = expectedCash.add(totalHandoverDiff);
+                }
+            }
             
             // 3. Close the shift automatically
             shift.setClosedAt(LocalDateTime.now());
@@ -120,6 +149,7 @@ public class EmployeeServiceImpl implements EmployeeService {
         map.put("username", user.getUsername());
         map.put("fullName", user.getFullName());
         map.put("phoneNumber", user.getPhoneNumber());
+        map.put("email", user.getEmail());
         map.put("roleCode", user.getRole() != null ? user.getRole().getCode() : null);
         map.put("pointOfSaleId", user.getPointOfSale() != null ? user.getPointOfSale().getId() : null);
         map.put("isActive", user.getIsActive());
@@ -134,6 +164,7 @@ public class EmployeeServiceImpl implements EmployeeService {
                 .username(user.getUsername())
                 .fullName(user.getFullName())
                 .phoneNumber(user.getPhoneNumber())
+                .email(user.getEmail())
                 .roleCode(user.getRole().getCode())
                 .roleName(user.getRole().getName())
                 .pointOfSaleId(pos != null ? pos.getId() : null)
@@ -194,6 +225,7 @@ public class EmployeeServiceImpl implements EmployeeService {
                 .passwordHash(passwordEncoder.encode(request.getPassword()))
                 .fullName(request.getFullName())
                 .phoneNumber(request.getPhoneNumber())
+                .email(request.getEmail() != null && !request.getEmail().trim().isEmpty() ? request.getEmail().trim() : null)
                 .role(role)
                 .household(household)
                 .pointOfSale(pointOfSale)
@@ -254,6 +286,9 @@ public class EmployeeServiceImpl implements EmployeeService {
 
         employee.setFullName(request.getFullName());
         employee.setPhoneNumber(request.getPhoneNumber());
+        if (request.getEmail() != null) {
+            employee.setEmail(request.getEmail().trim().isEmpty() ? null : request.getEmail().trim());
+        }
         employee.setRole(role);
         employee.setIsActive(request.getIsActive());
 
@@ -318,5 +353,49 @@ public class EmployeeServiceImpl implements EmployeeService {
         }
 
         logActivity(household, currentUser, "DELETE_EMPLOYEE", employee.getId(), oldValueMap, buildUserLogMap(employee));
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void resetEmployeePassword(String currentUsername, String employeeId, com.sales.dto.request.AdminResetEmployeePasswordRequest request) {
+        User currentUser = getAuthenticatedUser(currentUsername);
+        BusinessHousehold household = currentUser.getHousehold();
+        if (household == null) {
+            throw new AppException(ErrorCode.UNAUTHORIZED);
+        }
+
+        // Kiểm tra quyền chủ hộ (VT-01)
+        if (currentUser.getRole() == null || !"VT-01".equals(currentUser.getRole().getCode())) {
+            throw new AppException(ErrorCode.FORBIDDEN);
+        }
+
+        User employee = userRepository.findById(employeeId)
+                .filter(u -> u.getDeletedAt() == null)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+
+        // Kiểm tra bảo mật đa hộ
+        if (employee.getHousehold() == null || !employee.getHousehold().getId().equals(household.getId())) {
+            throw new AppException(ErrorCode.UNAUTHORIZED);
+        }
+
+        // Cập nhật mật khẩu mới cho nhân viên và kích hoạt cờ buộc đổi mật khẩu lần đầu
+        LocalDateTime now = LocalDateTime.now();
+        employee.setPasswordHash(passwordEncoder.encode(request.getNewPassword()));
+        employee.setMustChangePassword(true);
+        employee.setPasswordChangedAt(now);
+        userRepository.save(employee);
+
+        // Xóa cache phiên đăng nhập của nhân viên
+        if (cacheManager.getCache("users") != null) {
+            cacheManager.getCache("users").evict(employee.getUsername());
+        }
+
+        // Ghi nhật ký hoạt động
+        Map<String, Object> logDetail = new HashMap<>();
+        logDetail.put("employeeId", employee.getId());
+        logDetail.put("employeeUsername", employee.getUsername());
+        logDetail.put("resetBy", currentUser.getUsername());
+
+        logActivity(household, currentUser, "RESET_EMPLOYEE_PASSWORD", employee.getId(), null, logDetail);
     }
 }

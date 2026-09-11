@@ -22,6 +22,7 @@ public class HouseholdResponse {
     private Boolean revenueThresholdEnabled;
     private Integer offlineMaxOrders;
     private Integer offlineMaxHours;
+    private String roundingRule;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

@@ -1,47 +1,197 @@
-import { useState, useEffect, useMemo } from "react";
-import { useSearchParams, useNavigate } from "react-router-dom";
+import { useState, useEffect, useMemo, useCallback } from "react";
+import { useSearchParams, useNavigate, useLocation } from "react-router-dom";
 import { DashboardWorkspaceLayout } from "@/components/layouts/DashboardWorkspaceLayout";
 import { useDashboardDemo } from "@/providers/DashboardDemoProvider";
+import { useAppSelector } from "@/hooks/useRedux";
+import { useNotification } from "@/hooks/useNotification";
 import { APP_ROUTES } from "@/constants/routes";
 import { STORAGE_KEYS } from "@/constants/app";
+import { USER_ROLES } from "@/constants/roles";
 import { getApiErrorMessage } from "@/utils/getApiErrorMessage";
 import { normalizeDateToYYYYMMDD } from "@/utils/dateFormatter";
 import type { IInvoice, TInvoiceStatus } from "../types/IInvoice";
-import { useGetInvoicesQuery } from "../services/eInvoiceApi";
+import { useGetInvoicesQuery, exportInvoicesToExcel } from "../services/eInvoiceApi";
 import { useGetInvoiceTemplateQuery } from "@/modules/settings/services/settingsApi";
+import { useGetActiveInvoiceRangeQuery } from "@/modules/settings/services/invoiceRangeApi";
 import { InvoiceSidebar, type TInvoiceVersionFilter } from "../components/InvoiceSidebar";
+import { ErrorNoticeSidebar } from "../components/ErrorNoticeSidebar";
+import {
+  DailyControlSidebar,
+  type TDailyIssueType,
+  type TDailyDurationFilter,
+} from "../components/DailyControlSidebar";
+import {
+  AutoRetrySidebar,
+  type TRetryErrorCategoryFilter,
+  type TRetryCountFilter,
+} from "../components/AutoRetrySidebar";
+import {
+  InvoiceRangeSidebar,
+  type TRangeStatusFilter,
+} from "../components/InvoiceRangeSidebar";
 import { InvoiceList } from "../components/InvoiceList";
+import { ErrorNoticeTable } from "../components/ErrorNoticeTable";
+import { TaxConnectionWidget } from "../components/TaxConnectionWidget";
+import { TaxConnectionDrawer } from "../components/TaxConnectionDrawer";
+import { InvoiceRangeAlertBanner } from "../components/InvoiceRangeAlertBanner";
+import { DailyInvoiceControlPanel } from "../components/DailyInvoiceControlPanel";
+import { AutoRetryQueuePanel } from "../components/AutoRetryQueuePanel";
+import { InvoiceRangeSection } from "@/modules/settings/components/InvoiceRangeSection";
+import { InvoiceRepresentationModal } from "../components/InvoiceRepresentationModal";
+import { CreateErrorNoticeModal } from "../components/CreateErrorNoticeModal";
+import { ErrorNoticeDetailModal } from "../components/ErrorNoticeDetailModal";
+
+export type TEInvoiceTab =
+  | "INVOICE_LIST"
+  | "ERROR_NOTICES"
+  | "DAILY_CONTROL"
+  | "AUTO_RETRY"
+  | "INVOICE_RANGE";
 
 export const InvoiceManagementPage = () => {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const location = useLocation();
   const highlightedId = searchParams.get("id");
+  const { showSuccess, showError, showWarning } = useNotification();
+
+  const authUser = useAppSelector((state) => state.auth?.user);
+  const userRole = authUser?.roleId || USER_ROLES.OWNER;
+  const isManagerRole =
+    userRole === USER_ROLES.OWNER ||
+    userRole === USER_ROLES.ACCOUNTANT ||
+    userRole === "VT-01" ||
+    userRole === "VT-03";
 
   const {
     isOnline,
     invoices: mockInvoices,
     setInvoices: setMockInvoices,
+    currentRole,
   } = useDashboardDemo();
 
-  // Filters State
+  const isOwnerOrAccountant =
+    currentRole === USER_ROLES.OWNER ||
+    currentRole === USER_ROLES.ACCOUNTANT ||
+    isManagerRole;
+
+  // Tab State & Normalization
+  const VALID_TABS = useMemo<TEInvoiceTab[]>(
+    () => ["INVOICE_LIST", "ERROR_NOTICES", "DAILY_CONTROL", "AUTO_RETRY", "INVOICE_RANGE"],
+    []
+  );
+
+  const getResolvedTab = useCallback((): TEInvoiceTab => {
+    const rawTabFromUrl = searchParams.get("tab");
+    const tabFromUrl = (rawTabFromUrl === "INVOICES" ? "INVOICE_LIST" : rawTabFromUrl) as TEInvoiceTab | null;
+    if (tabFromUrl && VALID_TABS.includes(tabFromUrl)) {
+      return tabFromUrl;
+    }
+    const rawTabFromState = (location.state as { fromTab?: string } | null)?.fromTab;
+    const tabFromState = (rawTabFromState === "INVOICES" ? "INVOICE_LIST" : rawTabFromState) as TEInvoiceTab | null;
+    if (tabFromState && VALID_TABS.includes(tabFromState)) {
+      return tabFromState;
+    }
+    return "INVOICE_LIST";
+  }, [searchParams, location.state, VALID_TABS]);
+
+  const [activeTab, setActiveTab] = useState<TEInvoiceTab>(getResolvedTab);
+  const [isTaxDrawerOpen, setIsTaxDrawerOpen] = useState(false);
+
+  const handleTabChange = useCallback((tab: TEInvoiceTab) => {
+    setActiveTab(tab);
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        if (tab === "INVOICE_LIST") {
+          next.delete("tab");
+        } else {
+          next.set("tab", tab);
+        }
+        return next;
+      },
+      { replace: true }
+    );
+  }, [setSearchParams]);
+
+  // Sync activeTab when URL tab parameter or location state changes (e.g. Back button)
+  useEffect(() => {
+    const currentTab = getResolvedTab();
+    setActiveTab(currentTab);
+  }, [getResolvedTab]);
+
+  // Tab 1: Filters State (Danh sách hóa đơn)
   const [statusFilter, setStatusFilter] = useState<TInvoiceStatus[]>([]);
   const [versionFilter, setVersionFilter] = useState<TInvoiceVersionFilter>("ALL");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
 
+  // Tab 2: Filters State (Notice 04/SS)
+  const [noticeStatusFilter, setNoticeStatusFilter] = useState<string>("ALL");
+  const [noticeHandlingTypeFilter, setNoticeHandlingTypeFilter] = useState<string>("ALL");
+  const [noticeFromDate, setNoticeFromDate] = useState("");
+  const [noticeToDate, setNoticeToDate] = useState("");
+  const [noticeSearchQuery, setNoticeSearchQuery] = useState("");
+
+  const handleResetNoticeFilters = () => {
+    setNoticeStatusFilter("ALL");
+    setNoticeHandlingTypeFilter("ALL");
+    setNoticeFromDate("");
+    setNoticeToDate("");
+    setNoticeSearchQuery("");
+  };
+
+  // Modals state for Invoices & Notices
+  const [representationInvoiceId, setRepresentationInvoiceId] = useState<string | null>(null);
+  const [showCreateNoticeModal, setShowCreateNoticeModal] = useState<boolean>(false);
+  const [preSelectedInvoiceId, setPreSelectedInvoiceId] = useState<string | undefined>(undefined);
+  const [selectedNoticeId, setSelectedNoticeId] = useState<string | null>(null);
+  const [isExporting, setIsExporting] = useState<boolean>(false);
+
+  // Tab 3: Filters State (Kiểm soát cuối ngày NCL-04-CN-008)
+  const todayStr = useMemo(() => new Date().toISOString().split("T")[0], []);
+  const [dailyDate, setDailyDate] = useState<string>(todayStr);
+  const [dailyIssueType, setDailyIssueType] = useState<TDailyIssueType>("UNINVOICED_ORDERS");
+  const [dailyDuration, setDailyDuration] = useState<TDailyDurationFilter>("ALL");
+  const [dailySummary, setDailySummary] = useState<{
+    isCleanDay: boolean;
+    totalUninvoiced: number;
+    totalPending: number;
+    totalFailed: number;
+  }>();
+
+  // Tab 4: Filters State (Hàng đợi lỗi & Gửi lại NCL-04-CN-007)
+  const [retrySearchQuery, setRetrySearchQuery] = useState<string>("");
+  const [retryErrorCategory, setRetryErrorCategory] = useState<TRetryErrorCategoryFilter>("ALL");
+  const [retryCountFilter, setRetryCountFilter] = useState<TRetryCountFilter>("ALL");
+  const [manualQueueCount, setManualQueueCount] = useState<number>(0);
+
+  // Tab 5: Filters State (Dải số hóa đơn NCL-04-CN-009)
+  const [rangeStatusFilter, setRangeStatusFilter] = useState<TRangeStatusFilter>("ALL");
+  const [rangeSearchQuery, setRangeSearchQuery] = useState<string>("");
+  const [isRangeModalOpen, setIsRangeModalOpen] = useState<boolean>(false);
+
+  const { data: activeRangeData } = useGetActiveInvoiceRangeQuery();
+  const activeRange = activeRangeData?.result;
+
   // Invoice Template Query to get template updatedAt
   const { data: templateResponse } = useGetInvoiceTemplateQuery(undefined, { skip: !isOnline });
   const templateUpdatedAt = templateResponse?.result?.updatedAt;
 
-  // Online RTK Query
+  // Online RTK Query for Tab 1
   const {
     data: apiInvoicesData,
     isLoading: isApiLoading,
     error: apiError,
   } = useGetInvoicesQuery(
     {
-      status: statusFilter.length === 1 ? statusFilter[0] : (statusFilter.length > 1 ? statusFilter.join(",") : undefined),
+      status:
+        statusFilter.length === 1
+          ? statusFilter[0]
+          : statusFilter.length > 1
+          ? statusFilter.join(",")
+          : undefined,
       fromDate: fromDate || undefined,
       toDate: toDate || undefined,
       search: searchQuery.trim() || undefined,
@@ -74,7 +224,7 @@ export const InvoiceManagementPage = () => {
     }
   }, [isOnline, apiInvoicesData, setMockInvoices]);
 
-  // Combine online/offline data với bộ lọc đa điều kiện chuẩn khớp Backend
+  // Combine online/offline data với bộ lọc đa điều kiện
   const displayedInvoices = useMemo(() => {
     let sourceList: IInvoice[] = [];
     if (isOnline && apiInvoicesData?.result?.content) {
@@ -121,7 +271,7 @@ export const InvoiceManagementPage = () => {
           const matchTaxAuth = (inv.taxAuthorityCode || "").toLowerCase().includes(query);
           if (!matchLookup && !matchCustomer && !matchNumber && !matchTaxAuth) return false;
         }
-        // 5. Lọc theo Phân loại Mẫu Hóa đơn (Cũ < updatedAt mẫu hóa đơn, Hiện tại >= updatedAt mẫu hóa đơn)
+        // 5. Lọc theo Phân loại Mẫu Hóa đơn
         if (versionFilter !== "ALL") {
           const invTime = new Date(inv.createdAt || inv.time || 0).getTime();
           const templateTime = templateUpdatedAt ? new Date(templateUpdatedAt).getTime() : 0;
@@ -139,7 +289,17 @@ export const InvoiceManagementPage = () => {
         const timeB = new Date(b.createdAt || b.time || 0).getTime();
         return timeB - timeA;
       });
-  }, [isOnline, apiInvoicesData, mockInvoices, statusFilter, versionFilter, templateUpdatedAt, fromDate, toDate, searchQuery]);
+  }, [
+    isOnline,
+    apiInvoicesData,
+    mockInvoices,
+    statusFilter,
+    versionFilter,
+    templateUpdatedAt,
+    fromDate,
+    toDate,
+    searchQuery,
+  ]);
 
   // Handle URL ID query param for highlighted invoice
   useEffect(() => {
@@ -149,41 +309,375 @@ export const InvoiceManagementPage = () => {
   }, [highlightedId, navigate]);
 
   const handleSelectInvoice = (invoice: IInvoice) => {
-    navigate(APP_ROUTES.E_INVOICE_DETAIL(invoice.id));
+    navigate(APP_ROUTES.E_INVOICE_DETAIL(invoice.id), {
+      state: { fromTab: activeTab },
+    });
   };
 
+  const handleOpenRepresentation = (invoice: IInvoice) => {
+    setRepresentationInvoiceId(invoice.id);
+  };
+
+  // NCL-05-CN-006: Xuất danh sách hóa đơn ra Excel
+  const handleExportExcel = async () => {
+    if (!isOnline) {
+      showWarning("Chức năng xuất Excel yêu cầu kết nối mạng tới máy chủ.");
+      return;
+    }
+    setIsExporting(true);
+    try {
+      await exportInvoicesToExcel({
+        status: statusFilter.length === 1 ? statusFilter[0] : undefined,
+        fromDate: fromDate || undefined,
+        toDate: toDate || undefined,
+        search: searchQuery.trim() || undefined,
+      });
+      showSuccess("Xuất danh sách hóa đơn ra tệp Excel thành công!");
+    } catch (err: unknown) {
+      showError(err instanceof Error ? err.message : "Không thể xuất danh sách hóa đơn.");
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  // Switch sidebar adaptively based on active tab
+  const sidebarContent = useMemo(() => {
+    switch (activeTab) {
+      case "INVOICE_LIST":
+        return (
+          <InvoiceSidebar
+            statusFilter={statusFilter}
+            setStatusFilter={setStatusFilter}
+            versionFilter={versionFilter}
+            setVersionFilter={setVersionFilter}
+            fromDate={fromDate}
+            setFromDate={setFromDate}
+            toDate={toDate}
+            setToDate={setToDate}
+            searchQuery={searchQuery}
+            setSearchQuery={setSearchQuery}
+          />
+        );
+      case "ERROR_NOTICES":
+        return (
+          <ErrorNoticeSidebar
+            statusFilter={noticeStatusFilter}
+            setStatusFilter={setNoticeStatusFilter}
+            handlingTypeFilter={noticeHandlingTypeFilter}
+            setHandlingTypeFilter={setNoticeHandlingTypeFilter}
+            fromDate={noticeFromDate}
+            setFromDate={setNoticeFromDate}
+            toDate={noticeToDate}
+            setToDate={setNoticeToDate}
+            searchQuery={noticeSearchQuery}
+            setSearchQuery={setNoticeSearchQuery}
+            onResetFilters={handleResetNoticeFilters}
+          />
+        );
+      case "DAILY_CONTROL":
+        if (!isManagerRole) return undefined;
+        return (
+          <DailyControlSidebar
+            selectedDate={dailyDate}
+            setSelectedDate={setDailyDate}
+            issueTypeFilter={dailyIssueType}
+            setIssueTypeFilter={setDailyIssueType}
+            durationFilter={dailyDuration}
+            setDurationFilter={setDailyDuration}
+            summary={dailySummary}
+          />
+        );
+      case "AUTO_RETRY":
+        return (
+          <AutoRetrySidebar
+            searchQuery={retrySearchQuery}
+            setSearchQuery={setRetrySearchQuery}
+            errorCategoryFilter={retryErrorCategory}
+            setErrorCategoryFilter={setRetryErrorCategory}
+            retryCountFilter={retryCountFilter}
+            setRetryCountFilter={setRetryCountFilter}
+          />
+        );
+      case "INVOICE_RANGE":
+        return (
+          <InvoiceRangeSidebar
+            statusFilter={rangeStatusFilter}
+            setStatusFilter={setRangeStatusFilter}
+            searchQuery={rangeSearchQuery}
+            setSearchQuery={setRangeSearchQuery}
+            activeRange={activeRange}
+          />
+        );
+      default:
+        return undefined;
+    }
+  }, [
+    activeTab,
+    statusFilter,
+    versionFilter,
+    fromDate,
+    toDate,
+    searchQuery,
+    noticeStatusFilter,
+    noticeHandlingTypeFilter,
+    noticeFromDate,
+    noticeToDate,
+    noticeSearchQuery,
+    isManagerRole,
+    dailyDate,
+    dailyIssueType,
+    dailyDuration,
+    dailySummary,
+    retrySearchQuery,
+    retryErrorCategory,
+    retryCountFilter,
+    rangeStatusFilter,
+    rangeSearchQuery,
+    activeRange,
+  ]);
+
   return (
-    <DashboardWorkspaceLayout
-      sidebar={
-        <InvoiceSidebar
-          statusFilter={statusFilter}
-          setStatusFilter={setStatusFilter}
-          versionFilter={versionFilter}
-          setVersionFilter={setVersionFilter}
-          fromDate={fromDate}
-          setFromDate={setFromDate}
-          toDate={toDate}
-          setToDate={setToDate}
-          searchQuery={searchQuery}
-          setSearchQuery={setSearchQuery}
-        />
-      }
-    >
-      <div className="grid grid-cols-1 gap-6 animate-page-fade">
-        {isOnline && apiError && (
-          <div className="bg-rose-50 border border-rose-200 text-rose-600 p-3 rounded-lg text-xs font-bold">
-            {getApiErrorMessage(apiError, "Không thể đồng bộ danh sách hóa đơn từ máy chủ.")}
+    <DashboardWorkspaceLayout sidebar={sidebarContent}>
+      <div className="flex flex-col gap-5 animate-page-fade">
+        {/* Header Bar */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-slate-200">
+          <div>
+            <h1 className="text-xl font-extrabold text-slate-800 tracking-tight">
+              Quản lý hóa đơn điện tử
+            </h1>
+            <p className="text-xs text-slate-500 font-medium mt-0.5">
+              Phát hành, theo dõi cấp mã, xử lý sai sót 04/SS, đối soát cuối ngày và quản lý dải số CQT
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            <TaxConnectionWidget onOpenDetails={() => setIsTaxDrawerOpen(true)} />
+          </div>
+        </div>
+
+        {/* Cảnh báo dải số sắp hết / hết số (NCL-04-CN-009) */}
+        <InvoiceRangeAlertBanner onNavigateToRangeTab={() => handleTabChange("INVOICE_RANGE")} />
+
+        {/* Cảnh báo tuân thủ QTN-06: Hóa đơn lỗi cần gửi lại trong hạn (NCL-04-CN-007) */}
+        {manualQueueCount > 0 && activeTab !== "AUTO_RETRY" && (
+          <div className="p-3.5 bg-amber-50/95 border border-amber-300 rounded-xl flex items-center justify-between gap-3 text-xs shadow-xs animate-fade-in">
+            <div className="flex items-center gap-2.5">
+              <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-ping shrink-0" />
+              <span className="font-bold text-amber-900">
+                Cảnh báo tuân thủ (QTN-06): Đang có{" "}
+                <span className="font-extrabold font-mono text-rose-700 bg-rose-50 px-1.5 py-0.5 rounded border border-rose-200">
+                  {manualQueueCount}
+                </span>{" "}
+                hóa đơn chưa được cấp mã thuế cần xử lý thủ công để tránh quá hạn quy định!
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => handleTabChange("AUTO_RETRY")}
+              className="px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-bold text-[11px] shrink-0 transition-colors shadow-2xs cursor-pointer"
+            >
+              Xử lý ngay →
+            </button>
           </div>
         )}
 
-        {isOnline && isApiLoading ? (
-          <div className="bg-blue-50 border border-blue-100 text-blue-700 p-4 rounded-lg text-center font-bold text-xs animate-pulse">
-            Đang tải dữ liệu hóa đơn điện tử từ máy chủ...
+        {/* Tab Navigation Controls */}
+        <div className="flex items-center gap-2 border-b border-slate-200 overflow-x-auto no-scrollbar pb-px">
+          {/* Tab 1: Danh sách hóa đơn */}
+          <button
+            type="button"
+            onClick={() => handleTabChange("INVOICE_LIST")}
+            className={`px-4 py-2.5 rounded-t-xl text-xs font-extrabold flex items-center transition-all border-b-2 cursor-pointer ${
+              activeTab === "INVOICE_LIST"
+                ? "border-kv-blue-primary text-kv-blue-primary bg-white shadow-2xs"
+                : "border-transparent text-slate-500 hover:text-slate-800"
+            }`}
+          >
+            <span>Danh sách hóa đơn</span>
+          </button>
+
+          {/* Tab 2: Thông báo sai sót (Mẫu 04/SS-HĐĐT) */}
+          <button
+            type="button"
+            onClick={() => handleTabChange("ERROR_NOTICES")}
+            className={`px-4 py-2.5 rounded-t-xl text-xs font-extrabold flex items-center transition-all border-b-2 cursor-pointer ${
+              activeTab === "ERROR_NOTICES"
+                ? "border-kv-blue-primary text-kv-blue-primary bg-white shadow-2xs"
+                : "border-transparent text-slate-500 hover:text-slate-800"
+            }`}
+          >
+            <span>Thông báo sai sót</span>
+          </button>
+
+          {/* Tab 3: Kiểm soát cuối ngày */}
+          {isManagerRole && (
+            <button
+              type="button"
+              onClick={() => handleTabChange("DAILY_CONTROL")}
+              className={`px-4 py-2.5 rounded-t-xl text-xs font-extrabold flex items-center transition-all border-b-2 cursor-pointer ${
+                activeTab === "DAILY_CONTROL"
+                  ? "border-kv-blue-primary text-kv-blue-primary bg-white shadow-2xs"
+                  : "border-transparent text-slate-500 hover:text-slate-800"
+              }`}
+            >
+              <span>Kiểm soát cuối ngày</span>
+            </button>
+          )}
+
+          {/* Tab 4: Hàng đợi lỗi & Gửi lại */}
+          <button
+            type="button"
+            onClick={() => handleTabChange("AUTO_RETRY")}
+            className={`px-4 py-2.5 rounded-t-xl text-xs font-extrabold flex items-center gap-1.5 transition-all border-b-2 cursor-pointer ${
+              activeTab === "AUTO_RETRY"
+                ? "border-kv-blue-primary text-kv-blue-primary bg-white shadow-2xs"
+                : "border-transparent text-slate-500 hover:text-slate-800"
+            }`}
+          >
+            <span>Hàng đợi lỗi & Gửi lại</span>
+            {manualQueueCount > 0 && (
+              <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold bg-amber-500 text-white animate-pulse">
+                {manualQueueCount}
+              </span>
+            )}
+          </button>
+
+          {/* Tab 5: Dải số hóa đơn */}
+          <button
+            type="button"
+            onClick={() => handleTabChange("INVOICE_RANGE")}
+            className={`px-4 py-2.5 rounded-t-xl text-xs font-extrabold flex items-center transition-all border-b-2 cursor-pointer ${
+              activeTab === "INVOICE_RANGE"
+                ? "border-kv-blue-primary text-kv-blue-primary bg-white shadow-2xs"
+                : "border-transparent text-slate-500 hover:text-slate-800"
+            }`}
+          >
+            <span>Dải số hóa đơn</span>
+          </button>
+        </div>
+
+        {/* Tab 1 Content: Invoice Management */}
+        {activeTab === "INVOICE_LIST" && (
+          <div className="grid grid-cols-1 gap-6 animate-fade-in">
+            {isOnline && apiError && (
+              <div className="bg-rose-50 border border-rose-200 text-rose-600 p-3 rounded-lg text-xs font-bold">
+                {getApiErrorMessage(apiError, "Không thể đồng bộ danh sách hóa đơn từ máy chủ.")}
+              </div>
+            )}
+
+            {isOnline && isApiLoading ? (
+              <div className="bg-blue-50 border border-blue-100 text-blue-700 p-6 rounded-2xl text-center font-bold text-xs animate-pulse flex flex-col items-center justify-center gap-2">
+                <div className="w-6 h-6 border-2 border-kv-blue-primary border-t-transparent rounded-full animate-spin" />
+                <span>Đang tải dữ liệu hóa đơn điện tử từ máy chủ...</span>
+              </div>
+            ) : (
+              <InvoiceList
+                invoices={displayedInvoices}
+                onSelectInvoice={handleSelectInvoice}
+                onViewRepresentation={handleOpenRepresentation}
+                onExportExcel={handleExportExcel}
+                isExporting={isExporting}
+                canExport={isOwnerOrAccountant}
+              />
+            )}
           </div>
-        ) : (
-          <InvoiceList invoices={displayedInvoices} onSelectInvoice={handleSelectInvoice} />
         )}
+
+        {/* Tab 2 Content: Error Notices (Mẫu 04/SS-HĐĐT) */}
+        {activeTab === "ERROR_NOTICES" && (
+          <div className="grid grid-cols-1 gap-6 animate-fade-in">
+            <ErrorNoticeTable
+              onCreateNew={() => {
+                setPreSelectedInvoiceId(undefined);
+                setShowCreateNoticeModal(true);
+              }}
+              onSelectNotice={(id) => setSelectedNoticeId(id)}
+              statusFilter={noticeStatusFilter}
+              handlingTypeFilter={noticeHandlingTypeFilter}
+              searchQuery={noticeSearchQuery}
+              fromDate={noticeFromDate}
+              toDate={noticeToDate}
+              onResetFilters={handleResetNoticeFilters}
+            />
+          </div>
+        )}
+
+        {/* Tab 3 Content: Daily Invoice Control */}
+        {activeTab === "DAILY_CONTROL" && isManagerRole && (
+          <DailyInvoiceControlPanel
+            userRole={userRole}
+            selectedDate={dailyDate}
+            setSelectedDate={setDailyDate}
+            issueTypeFilter={dailyIssueType}
+            durationFilter={dailyDuration}
+            onSummaryChange={setDailySummary}
+          />
+        )}
+
+        {/* Tab 4 Content: Auto Retry Queue */}
+        {activeTab === "AUTO_RETRY" && (
+          <AutoRetryQueuePanel
+            searchQuery={retrySearchQuery}
+            errorCategoryFilter={retryErrorCategory}
+            retryCountFilter={retryCountFilter}
+            onTotalCountChange={setManualQueueCount}
+          />
+        )}
+
+        {/* Tab 5 Content: Invoice Range Section */}
+        {activeTab === "INVOICE_RANGE" && (
+          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs animate-fade-in">
+            <InvoiceRangeSection
+              currentPattern={templateResponse?.result?.invoicePattern}
+              currentSymbol={templateResponse?.result?.invoiceSymbol}
+              statusFilter={rangeStatusFilter}
+              searchQuery={rangeSearchQuery}
+              showDeclareButton={false}
+              isOpenModalExternal={isRangeModalOpen}
+              setIsOpenModalExternal={setIsRangeModalOpen}
+            />
+          </div>
+        )}
+
+        {/* Drawer xem chi tiết kết nối Cơ quan thuế 7 ngày (NCL-04-CN-010) */}
+        <TaxConnectionDrawer
+          isOpen={isTaxDrawerOpen}
+          onClose={() => setIsTaxDrawerOpen(false)}
+          onNavigateToRetryTab={() => {
+            setIsTaxDrawerOpen(false);
+            handleTabChange("AUTO_RETRY");
+          }}
+        />
       </div>
+
+      {/* Modal Xem Bản Thể Hiện Hóa Đơn Điện Tử (NCL-05-CN-007) */}
+      {representationInvoiceId && (
+        <InvoiceRepresentationModal
+          invoiceId={representationInvoiceId}
+          isOpen={!!representationInvoiceId}
+          onClose={() => setRepresentationInvoiceId(null)}
+        />
+      )}
+
+      {/* Modal Lập Thông Báo Sai Sót Mẫu 04/SS (NCL-05-CN-005) */}
+      {showCreateNoticeModal && (
+        <CreateErrorNoticeModal
+          isOpen={showCreateNoticeModal}
+          onClose={() => {
+            setShowCreateNoticeModal(false);
+            setPreSelectedInvoiceId(undefined);
+          }}
+          preSelectedInvoiceId={preSelectedInvoiceId}
+        />
+      )}
+
+      {/* Modal Xem Chi Tiết Thông Báo Sai Sót Mẫu 04/SS (NCL-05-CN-005) */}
+      {selectedNoticeId && (
+        <ErrorNoticeDetailModal
+          noticeId={selectedNoticeId}
+          isOpen={!!selectedNoticeId}
+          onClose={() => setSelectedNoticeId(null)}
+        />
+      )}
     </DashboardWorkspaceLayout>
   );
 };

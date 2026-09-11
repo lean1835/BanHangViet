@@ -51,6 +51,9 @@ class BarcodeServiceImplTest {
     @Mock
     private OrderService orderService;
 
+    @Mock
+    private com.sales.repository.ProductUnitConversionRepository productUnitConversionRepository;
+
     @InjectMocks
     private BarcodeServiceImpl barcodeService;
 
@@ -300,4 +303,44 @@ class BarcodeServiceImplTest {
         assertEquals(2, response.getQuantity());
         assertNotNull(response.getBarcodeBase64Image());
     }
+
+    @Test
+    @DisplayName("Quét mã vạch khớp với mã vạch của đơn vị quy đổi (Thùng)")
+    void testScanBarcode_WithUnitConversionBarcode() {
+        String cartonBarcode = "8935001122334";
+        com.sales.entity.ProductUnitConversion conversion = com.sales.entity.ProductUnitConversion.builder()
+                .id("conv-carton-1")
+                .product(product)
+                .unitName("Thùng")
+                .conversionFactor(new BigDecimal("24"))
+                .price(new BigDecimal("280000.00"))
+                .barcode(cartonBarcode)
+                .build();
+
+        when(userRepository.findByUsername("owner")).thenReturn(Optional.of(ownerUser));
+        when(productRepository.findByHouseholdIdAndBarcodeOrSku("house-100", cartonBarcode))
+                .thenReturn(java.util.Collections.emptyList());
+        when(productUnitConversionRepository.findByHouseholdIdAndBarcode("house-100", cartonBarcode))
+                .thenReturn(Optional.of(conversion));
+
+        when(promotionService.calculateItemPromotion(any(), eq(product), eq(BigDecimal.ONE), eq(new BigDecimal("280000.00")), eq(false)))
+                .thenReturn(com.sales.dto.response.PromotionItemResultResponse.builder()
+                        .discountAmount(BigDecimal.ZERO)
+                        .finalSubtotal(new BigDecimal("280000.00"))
+                        .build());
+
+        com.sales.dto.request.BarcodeScanRequest request = com.sales.dto.request.BarcodeScanRequest.builder()
+                .barcode(cartonBarcode)
+                .quantity(BigDecimal.ONE)
+                .build();
+
+        com.sales.dto.response.BarcodeScanResponse response = barcodeService.scanBarcode("owner", request);
+
+        assertNotNull(response);
+        assertTrue(response.getFound());
+        assertEquals("prod-001", response.getProductId());
+        assertEquals("Thùng", response.getUnit());
+        assertEquals(new BigDecimal("280000.00"), response.getUnitPrice());
+    }
 }
+

@@ -23,7 +23,7 @@ export const PointOfSalePage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<"ALL" | "ACTIVE" | "INACTIVE">("ALL");
   const [currentPage, setCurrentPage] = useState(0);
-  const pageSize = 10;
+  const pageSize = 8;
 
   // Active modal states
   const [isModalOpen, setIsModalOpen] = useState(false);

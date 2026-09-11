@@ -55,6 +55,20 @@ export const API_TAG_TYPES = {
   POS_TRANSFER: "PosTransfer",
   POS_REVENUE: "PosRevenue",
   SALES_ANALYTICS: "SalesAnalytics",
+  USER_SESSION: "UserSession",
+  SESSION_SETTINGS: "SessionSettings",
+  STOCK_CARD: "StockCard",
+  INVOICE_RANGE: "InvoiceRange",
+  PRODUCT_UNIT_CONVERSION: "ProductUnitConversion",
+  PRICE_ADJUSTMENT: "PriceAdjustment",
+  PRODUCT_PRICE_TIER: "ProductPriceTier",
+  INVOICE_ERROR_NOTICE: "InvoiceErrorNotice",
+  DINING_TABLE: "DiningTable",
+  HELD_ORDER: "HeldOrder",
+  CASH_TRANSACTION: "CashTransaction",
+  CASH_CATEGORY: "CashCategory",
+  TAX_CONNECTION: "TaxConnection",
+  DAILY_CONTROL: "DailyControl",
 } as const;
 
 export const API_TAG_TYPE_VALUES = Object.values(API_TAG_TYPES);
