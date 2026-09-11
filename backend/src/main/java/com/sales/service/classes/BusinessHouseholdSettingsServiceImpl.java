@@ -57,6 +57,8 @@ public class BusinessHouseholdSettingsServiceImpl implements BusinessHouseholdSe
                 .maxRetryHoursDeadline(settings.getMaxRetryHoursDeadline())
                 .maxOrderHoldingHours(settings.getMaxOrderHoldingHours() != null ? settings.getMaxOrderHoldingHours() : 4)
                 .bankTransferTimeoutMinutes(settings.getBankTransferTimeoutMinutes() != null ? settings.getBankTransferTimeoutMinutes() : 15)
+                .expenseApprovalThreshold(settings.getExpenseApprovalThreshold() != null ? settings.getExpenseApprovalThreshold() : new java.math.BigDecimal("500000.00"))
+                .shiftDifferenceThreshold(settings.getShiftDifferenceThreshold() != null ? settings.getShiftDifferenceThreshold() : java.math.BigDecimal.ZERO)
                 .updatedAt(settings.getUpdatedAt())
                 .build();
     }
@@ -81,6 +83,8 @@ public class BusinessHouseholdSettingsServiceImpl implements BusinessHouseholdSe
                     .maxRetryHoursDeadline(24)
                     .maxOrderHoldingHours(4)
                     .bankTransferTimeoutMinutes(15)
+                    .expenseApprovalThreshold(new java.math.BigDecimal("500000.00"))
+                    .shiftDifferenceThreshold(java.math.BigDecimal.ZERO)
                     .updatedAt(null)
                     .build();
         }
@@ -110,6 +114,8 @@ public class BusinessHouseholdSettingsServiceImpl implements BusinessHouseholdSe
         oldVal.put("maxRetryHoursDeadline", settings.getMaxRetryHoursDeadline());
         oldVal.put("maxOrderHoldingHours", settings.getMaxOrderHoldingHours());
         oldVal.put("bankTransferTimeoutMinutes", settings.getBankTransferTimeoutMinutes());
+        oldVal.put("expenseApprovalThreshold", settings.getExpenseApprovalThreshold());
+        oldVal.put("shiftDifferenceThreshold", settings.getShiftDifferenceThreshold());
 
         settings.setAutoRetryEnabled(request.getAutoRetryEnabled());
         settings.setMaxRetryAttempts(request.getMaxRetryAttempts());
@@ -121,6 +127,12 @@ public class BusinessHouseholdSettingsServiceImpl implements BusinessHouseholdSe
         if (request.getBankTransferTimeoutMinutes() != null) {
             settings.setBankTransferTimeoutMinutes(request.getBankTransferTimeoutMinutes());
         }
+        if (request.getExpenseApprovalThreshold() != null) {
+            settings.setExpenseApprovalThreshold(request.getExpenseApprovalThreshold());
+        }
+        if (request.getShiftDifferenceThreshold() != null) {
+            settings.setShiftDifferenceThreshold(request.getShiftDifferenceThreshold());
+        }
 
         BusinessHouseholdSettings saved = settingsRepository.save(settings);
 
@@ -131,6 +143,8 @@ public class BusinessHouseholdSettingsServiceImpl implements BusinessHouseholdSe
         newVal.put("maxRetryHoursDeadline", saved.getMaxRetryHoursDeadline());
         newVal.put("maxOrderHoldingHours", saved.getMaxOrderHoldingHours());
         newVal.put("bankTransferTimeoutMinutes", saved.getBankTransferTimeoutMinutes());
+        newVal.put("expenseApprovalThreshold", saved.getExpenseApprovalThreshold());
+        newVal.put("shiftDifferenceThreshold", saved.getShiftDifferenceThreshold());
 
 
 
