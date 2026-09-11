@@ -66,7 +66,7 @@ public interface OrderRepository extends JpaRepository<Order, String> {
            "WHERE o.household.id = :householdId AND o.status = 'COMPLETED' AND o.paymentStatus = 'PAID' " +
            "AND o.deletedAt IS NULL AND o.createdAt <= :endOfDay " +
            "AND NOT EXISTS (SELECT 1 FROM EInvoice i WHERE i.order.id = o.id AND i.deletedAt IS NULL AND i.status <> 'CANCELED') " +
-           "ORDER BY o.createdAt ASC")
+           "ORDER BY o.createdAt DESC")
     List<Order> findUninvoicedOrdersUpToDate(@Param("householdId") String householdId,
                                             @Param("endOfDay") LocalDateTime endOfDay);
 

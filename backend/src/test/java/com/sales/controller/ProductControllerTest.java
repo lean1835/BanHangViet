@@ -272,6 +272,47 @@ public class ProductControllerTest {
     }
 
     @Test
+    @WithMockUser(username = "test_owner_product", roles = {"VT-01"})
+    public void updateProduct_soldByWeight_success() throws Exception {
+        Product p = Product.builder()
+                .household(testHousehold)
+                .group(testGroup)
+                .taxRate(testTaxRate)
+                .sku("SKU-WEIGHT-TEST")
+                .name("Thịt lợn")
+                .unit("cân")
+                .price(new BigDecimal("30000.00"))
+                .stockQuantity(new BigDecimal("100.000"))
+                .isSoldByWeight(false)
+                .status("ACTIVE")
+                .build();
+        p = productRepository.saveAndFlush(p);
+
+        UpdateProductRequest request = UpdateProductRequest.builder()
+                .sku("SKU-WEIGHT-TEST")
+                .name("Thịt lợn tươi")
+                .unit("cân")
+                .price(new BigDecimal("30000.00"))
+                .stockQuantity(new BigDecimal("100.000"))
+                .status("ACTIVE")
+                .groupId(testGroup.getId())
+                .taxRateId(testTaxRate.getId())
+                .isSoldByWeight(true)
+                .decimalPlaces(3)
+                .minWeightStep(new BigDecimal("0.001"))
+                .build();
+
+        mockMvc.perform(put("/api/v1/products/" + p.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(1000))
+                .andExpect(jsonPath("$.result.isSoldByWeight").value(true))
+                .andExpect(jsonPath("$.result.decimalPlaces").value(3))
+                .andExpect(jsonPath("$.result.minWeightStep").value(0.001));
+    }
+
+    @Test
     @WithMockUser(username = "test_employee_product", roles = {"VT-02"})
     public void getProducts_success() throws Exception {
         // Tạo một số sản phẩm test
