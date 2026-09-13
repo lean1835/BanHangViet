@@ -66,7 +66,7 @@ public interface OrderRepository extends JpaRepository<Order, String> {
            "WHERE o.household.id = :householdId AND o.status = 'COMPLETED' AND o.paymentStatus = 'PAID' " +
            "AND o.deletedAt IS NULL AND o.createdAt <= :endOfDay " +
            "AND NOT EXISTS (SELECT 1 FROM EInvoice i WHERE i.order.id = o.id AND i.deletedAt IS NULL AND i.status <> 'CANCELED') " +
-           "ORDER BY o.createdAt ASC")
+           "ORDER BY o.createdAt DESC")
     List<Order> findUninvoicedOrdersUpToDate(@Param("householdId") String householdId,
                                             @Param("endOfDay") LocalDateTime endOfDay);
 
@@ -101,6 +101,31 @@ public interface OrderRepository extends JpaRepository<Order, String> {
            "WHERE o.shift.id = :shiftId AND o.status = 'COMPLETED' AND o.deletedAt IS NULL " +
            "AND o.createdAt >= :startTime AND o.createdAt <= :endTime")
     BigDecimal sumCashSalesAmountByShiftIdAndTimeRange(
+            @Param("shiftId") String shiftId,
+            @Param("startTime") LocalDateTime startTime,
+            @Param("endTime") LocalDateTime endTime
+    );
+
+    @Query("SELECT COALESCE(SUM(" +
+           "  CASE " +
+           "    WHEN o.paymentMethod = 'BANK_TRANSFER' THEN o.finalAmount " +
+           "    WHEN o.paymentMethod = 'COMBINED' THEN COALESCE((SELECT SUM(op.amount) FROM OrderPayment op WHERE op.order.id = o.id AND op.paymentMethod = 'BANK_TRANSFER'), 0) " +
+           "    ELSE 0 " +
+           "  END), 0) " +
+           "FROM Order o " +
+           "WHERE o.shift.id = :shiftId AND o.status = 'COMPLETED' AND o.deletedAt IS NULL")
+    BigDecimal sumBankSalesAmountByShiftId(@Param("shiftId") String shiftId);
+
+    @Query("SELECT COALESCE(SUM(" +
+           "  CASE " +
+           "    WHEN o.paymentMethod = 'BANK_TRANSFER' THEN o.finalAmount " +
+           "    WHEN o.paymentMethod = 'COMBINED' THEN COALESCE((SELECT SUM(op.amount) FROM OrderPayment op WHERE op.order.id = o.id AND op.paymentMethod = 'BANK_TRANSFER'), 0) " +
+           "    ELSE 0 " +
+           "  END), 0) " +
+           "FROM Order o " +
+           "WHERE o.shift.id = :shiftId AND o.status = 'COMPLETED' AND o.deletedAt IS NULL " +
+           "AND o.createdAt >= :startTime AND o.createdAt <= :endTime")
+    BigDecimal sumBankSalesAmountByShiftIdAndTimeRange(
             @Param("shiftId") String shiftId,
             @Param("startTime") LocalDateTime startTime,
             @Param("endTime") LocalDateTime endTime

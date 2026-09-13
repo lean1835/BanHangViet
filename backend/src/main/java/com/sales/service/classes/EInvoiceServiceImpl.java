@@ -57,6 +57,7 @@ public class EInvoiceServiceImpl implements EInvoiceService {
     private final ProductRepository productRepository;
     private final InvoiceTemplateRepository invoiceTemplateRepository;
     private final OrderRepository orderRepository;
+    private final OrderPaymentRepository orderPaymentRepository;
     private final InvoiceDeliveryLogRepository invoiceDeliveryLogRepository;
     private final CustomerRepository customerRepository;
     private final EmailService emailService;
@@ -186,6 +187,10 @@ public class EInvoiceServiceImpl implements EInvoiceService {
     }
 
     private InvoiceResponse mapToInvoiceResponse(EInvoice invoice) {
+        return mapToInvoiceResponse(invoice, true);
+    }
+
+    private InvoiceResponse mapToInvoiceResponse(EInvoice invoice, boolean includePayments) {
         List<InvoiceItemResponse> items = invoice.getItems().stream()
                 .map(item -> InvoiceItemResponse.builder()
                         .id(item.getId())
@@ -202,6 +207,37 @@ public class EInvoiceServiceImpl implements EInvoiceService {
                         .createdAt(item.getCreatedAt())
                         .build())
                 .collect(Collectors.toList());
+
+        String paymentMethod = invoice.getPaymentMethod();
+        if (paymentMethod == null && invoice.getOrder() != null) {
+            paymentMethod = invoice.getOrder().getPaymentMethod();
+        }
+        if (paymentMethod == null) {
+            paymentMethod = "CASH";
+        }
+
+        List<OrderPaymentResponse> paymentResponses = null;
+        if (includePayments && invoice.getOrder() != null && orderPaymentRepository != null) {
+            List<OrderPayment> orderPayments = orderPaymentRepository.findByOrderId(invoice.getOrder().getId());
+            if (orderPayments != null && !orderPayments.isEmpty()) {
+                paymentResponses = orderPayments.stream()
+                        .map(op -> OrderPaymentResponse.builder()
+                                .id(op.getId())
+                                .orderId(invoice.getOrder().getId())
+                                .orderCode(invoice.getOrder().getOrderNumber())
+                                .householdId(invoice.getHousehold() != null ? invoice.getHousehold().getId() : null)
+                                .paymentMethod(op.getPaymentMethod())
+                                .amount(op.getAmount())
+                                .amountGiven(op.getAmountGiven())
+                                .changeAmount(op.getChangeAmount())
+                                .transactionCode(op.getTransactionCode())
+                                .isConfirmed(op.getIsConfirmed())
+                                .notes(op.getNotes())
+                                .createdAt(op.getCreatedAt())
+                                .build())
+                        .collect(Collectors.toList());
+            }
+        }
 
         return InvoiceResponse.builder()
                 .id(invoice.getId())
@@ -233,6 +269,8 @@ public class EInvoiceServiceImpl implements EInvoiceService {
                 .taxAmount(invoice.getTaxAmount())
                 .discountAmount(invoice.getDiscountAmount())
                 .finalAmount(invoice.getFinalAmount())
+                .paymentMethod(paymentMethod)
+                .payments(paymentResponses)
                 .status(invoice.getStatus())
                 .customerDeliveryStatus(invoice.getCustomerDeliveryStatus())
                 .taxAuthorityCode(invoice.getTaxAuthorityCode())
@@ -249,6 +287,7 @@ public class EInvoiceServiceImpl implements EInvoiceService {
                 .errorCategory(invoice.getErrorCategory())
                 .createdAt(invoice.getCreatedAt())
                 .updatedAt(invoice.getUpdatedAt())
+                .isErrorNotified(invoice.getIsErrorNotified())
                 .items(items)
                 .build();
     }
@@ -386,6 +425,7 @@ public class EInvoiceServiceImpl implements EInvoiceService {
                 .taxAmount(totalTaxAmount)
                 .discountAmount(totalDiscountAmount)
                 .finalAmount(finalAmount)
+                .paymentMethod(original.getPaymentMethod())
                 .status("DRAFT")
                 .lookupCode(lookupCode)
                 .build();
@@ -515,6 +555,7 @@ public class EInvoiceServiceImpl implements EInvoiceService {
                 .buyerAddress(order.getCustomer() != null ? order.getCustomer().getAddress() : null)
                 .discountAmount(order.getDiscountAmount())
                 .finalAmount(order.getFinalAmount())
+                .paymentMethod(order.getPaymentMethod())
                 .status("DRAFT")
                 .lookupCode(lookupCode)
                 .build();
@@ -772,7 +813,7 @@ public class EInvoiceServiceImpl implements EInvoiceService {
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
         Page<EInvoice> pageData = eInvoiceRepository.findAll(spec, pageable);
         List<InvoiceResponse> content = pageData.getContent().stream()
-                .map(this::mapToInvoiceResponse)
+                .map(inv -> mapToInvoiceResponse(inv, false))
                 .collect(Collectors.toList());
 
         return PageResponse.<InvoiceResponse>builder()
@@ -800,7 +841,7 @@ public class EInvoiceServiceImpl implements EInvoiceService {
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
         Page<EInvoice> pageData = eInvoiceRepository.findAll(spec, pageable);
         List<InvoiceResponse> content = pageData.getContent().stream()
-                .map(this::mapToInvoiceResponse)
+                .map(inv -> mapToInvoiceResponse(inv, false))
                 .collect(Collectors.toList());
 
         return PageResponse.<InvoiceResponse>builder()
@@ -828,7 +869,7 @@ public class EInvoiceServiceImpl implements EInvoiceService {
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "updatedAt"));
         Page<EInvoice> pageData = eInvoiceRepository.findAll(spec, pageable);
         List<InvoiceResponse> content = pageData.getContent().stream()
-                .map(this::mapToInvoiceResponse)
+                .map(inv -> mapToInvoiceResponse(inv, false))
                 .collect(Collectors.toList());
 
         return PageResponse.<InvoiceResponse>builder()
@@ -1494,6 +1535,37 @@ public class EInvoiceServiceImpl implements EInvoiceService {
                         .build())
                 .collect(Collectors.toList());
 
+        String paymentMethod = invoice.getPaymentMethod();
+        if (paymentMethod == null && invoice.getOrder() != null) {
+            paymentMethod = invoice.getOrder().getPaymentMethod();
+        }
+        if (paymentMethod == null) {
+            paymentMethod = "CASH";
+        }
+
+        List<OrderPaymentResponse> paymentResponses = null;
+        if (invoice.getOrder() != null && orderPaymentRepository != null) {
+            List<OrderPayment> orderPayments = orderPaymentRepository.findByOrderId(invoice.getOrder().getId());
+            if (orderPayments != null && !orderPayments.isEmpty()) {
+                paymentResponses = orderPayments.stream()
+                        .map(op -> OrderPaymentResponse.builder()
+                                .id(op.getId())
+                                .orderId(invoice.getOrder().getId())
+                                .orderCode(invoice.getOrder().getOrderNumber())
+                                .householdId(invoice.getHousehold() != null ? invoice.getHousehold().getId() : null)
+                                .paymentMethod(op.getPaymentMethod())
+                                .amount(op.getAmount())
+                                .amountGiven(op.getAmountGiven())
+                                .changeAmount(op.getChangeAmount())
+                                .transactionCode(op.getTransactionCode())
+                                .isConfirmed(op.getIsConfirmed())
+                                .notes(op.getNotes())
+                                .createdAt(op.getCreatedAt())
+                                .build())
+                        .collect(Collectors.toList());
+            }
+        }
+
         return PublicInvoiceResponse.builder()
                 .invoiceNumber(invoice.getInvoiceNumber())
                 .invoicePattern(invoice.getInvoicePattern())
@@ -1514,6 +1586,8 @@ public class EInvoiceServiceImpl implements EInvoiceService {
                 .taxAmount(invoice.getTaxAmount())
                 .discountAmount(invoice.getDiscountAmount())
                 .finalAmount(invoice.getFinalAmount())
+                .paymentMethod(paymentMethod)
+                .payments(paymentResponses)
                 .createdAt(invoice.getCreatedAt())
                 .taxAuthorityCode(invoice.getTaxAuthorityCode())
                 .items(items)
@@ -1765,7 +1839,7 @@ public class EInvoiceServiceImpl implements EInvoiceService {
                             .pendingDurationDays(durationDays)
                             .build();
                 })
-                .sorted(Comparator.comparing(UninvoicedOrderSummaryResponse::getPendingDurationHours).reversed())
+                .sorted(Comparator.comparing(UninvoicedOrderSummaryResponse::getCreatedAt, Comparator.nullsLast(Comparator.reverseOrder())))
                 .collect(Collectors.toList());
 
         // 2. Pending Invoices (Hóa đơn đang treo chờ duyệt/cấp mã: WAITING_TAX_CODE và DRAFT - F-04)
@@ -1789,7 +1863,7 @@ public class EInvoiceServiceImpl implements EInvoiceService {
                             .pendingDurationDays(durationDays)
                             .build();
                 })
-                .sorted(Comparator.comparing(PendingTaxInvoiceSummaryResponse::getPendingDurationHours).reversed())
+                .sorted(Comparator.comparing(PendingTaxInvoiceSummaryResponse::getCreatedAt, Comparator.nullsLast(Comparator.reverseOrder())))
                 .collect(Collectors.toList());
 
         // 3. Failed Invoices (Hóa đơn gửi lỗi: SEND_ERROR hoặc MANUAL_PROCESSING)
@@ -1816,10 +1890,26 @@ public class EInvoiceServiceImpl implements EInvoiceService {
                             .pendingDurationDays(durationDays)
                             .build();
                 })
-                .sorted(Comparator.comparing(FailedInvoiceSummaryResponse::getPendingDurationHours).reversed())
+                .sorted(Comparator.comparing(FailedInvoiceSummaryResponse::getCreatedAt, Comparator.nullsLast(Comparator.reverseOrder())))
                 .collect(Collectors.toList());
 
         boolean isClean = uninvoicedOrders.isEmpty() && pendingInvoices.isEmpty() && failedInvoices.isEmpty();
+
+        LocalDateTime startOfDay = controlDate.atStartOfDay();
+        List<EInvoice> validInvoices = eInvoiceRepository.findValidInvoicesForTaxPeriod(householdId, startOfDay, endOfDay);
+
+        BigDecimal totalTaxableRev = validInvoices.stream()
+                .map(inv -> inv.getTotalAmountBeforeTax() != null ? inv.getTotalAmountBeforeTax()
+                        : (inv.getFinalAmount() != null ? inv.getFinalAmount() : BigDecimal.ZERO))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        BigDecimal totalTax = validInvoices.stream()
+                .map(inv -> inv.getTaxAmount() != null ? inv.getTaxAmount() : BigDecimal.ZERO)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        if (totalTax.compareTo(BigDecimal.ZERO) == 0 && totalTaxableRev.compareTo(BigDecimal.ZERO) > 0) {
+            totalTax = totalTaxableRev.multiply(BigDecimal.valueOf(0.015));
+        }
 
         return DailyInvoiceControlResponse.builder()
                 .controlDate(controlDate)
@@ -1827,6 +1917,9 @@ public class EInvoiceServiceImpl implements EInvoiceService {
                 .totalUninvoicedOrders(uninvoicedOrders.size())
                 .totalPendingInvoices(pendingInvoices.size())
                 .totalFailedInvoices(failedInvoices.size())
+                .totalTaxableRevenue(totalTaxableRev)
+                .totalTaxAmount(totalTax)
+                .validInvoicesCount(validInvoices.size())
                 .uninvoicedOrders(uninvoicedOrders)
                 .pendingInvoices(pendingInvoices)
                 .failedInvoices(failedInvoices)
@@ -1834,7 +1927,7 @@ public class EInvoiceServiceImpl implements EInvoiceService {
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @Transactional
     public byte[] exportInvoicesToExcel(String currentUsername, String status, LocalDate fromDate, LocalDate toDate, String search, String clientIp, String userAgent) {
         User currentUser = getAuthenticatedUser(currentUsername);
         String role = currentUser.getRole().getCode();

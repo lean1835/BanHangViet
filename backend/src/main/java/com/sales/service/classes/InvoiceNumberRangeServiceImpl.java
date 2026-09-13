@@ -5,12 +5,14 @@ import com.sales.dto.response.InvoiceNumberRangeResponse;
 import com.sales.dto.response.PageResponse;
 import com.sales.entity.BusinessHousehold;
 import com.sales.entity.InvoiceNumberRange;
+import com.sales.entity.InvoiceTemplate;
 import com.sales.entity.User;
 import com.sales.exception.AppException;
 import com.sales.exception.ErrorCode;
 import com.sales.repository.BusinessHouseholdRepository;
 import com.sales.repository.EInvoiceRepository;
 import com.sales.repository.InvoiceNumberRangeRepository;
+import com.sales.repository.InvoiceTemplateRepository;
 import com.sales.repository.UserRepository;
 import com.sales.service.interfaces.InvoiceNumberRangeService;
 import lombok.RequiredArgsConstructor;
@@ -36,6 +38,8 @@ public class InvoiceNumberRangeServiceImpl implements InvoiceNumberRangeService 
     private final UserRepository userRepository;
     private final EInvoiceRepository eInvoiceRepository;
     private final BusinessHouseholdRepository householdRepository;
+    private final InvoiceTemplateRepository invoiceTemplateRepository;
+
 
     private User getAuthenticatedUser(String username) {
         return userRepository.findByUsername(username)
@@ -96,12 +100,40 @@ public class InvoiceNumberRangeServiceImpl implements InvoiceNumberRangeService 
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @Transactional(rollbackFor = Exception.class)
     public InvoiceNumberRangeResponse getActiveRange(String currentUsername) {
         User currentUser = getAuthenticatedUser(currentUsername);
         BusinessHousehold household = currentUser.getHousehold();
         if (household == null) {
             throw new AppException(ErrorCode.FORBIDDEN);
+        }
+
+        Optional<InvoiceTemplate> templateOpt = invoiceTemplateRepository.findByHouseholdId(household.getId());
+        String configuredPattern = templateOpt.map(InvoiceTemplate::getInvoicePattern).map(String::trim).orElse(null);
+        String configuredSymbol = templateOpt.map(InvoiceTemplate::getInvoiceSymbol).map(String::trim).orElse(null);
+
+        if (configuredPattern != null && configuredSymbol != null) {
+            List<InvoiceNumberRange> configuredRanges = rangeRepository.findActiveRangesForUpdate(
+                    household.getId(), configuredPattern, configuredSymbol);
+            if (!configuredRanges.isEmpty()) {
+                return mapToResponse(configuredRanges.get(0), configuredPattern, configuredSymbol);
+            }
+
+            // Tự động khởi tạo dải số mới cho mẫu hóa đơn cấu hình nếu chưa có
+            InvoiceNumberRange autoRange = InvoiceNumberRange.builder()
+                    .household(household)
+                    .invoicePattern(configuredPattern)
+                    .invoiceSymbol(configuredSymbol)
+                    .startNumber(1)
+                    .endNumber(100000)
+                    .currentNumber(0)
+                    .warningThreshold(50)
+                    .status("ACTIVE")
+                    .build();
+            InvoiceNumberRange saved = rangeRepository.save(autoRange);
+            log.info("Tự động khởi tạo dải số mặc định cho mẫu cấu hình {}: Pattern={}, Symbol={}",
+                    household.getId(), configuredPattern, configuredSymbol);
+            return mapToResponse(saved, configuredPattern, configuredSymbol);
         }
 
         List<InvoiceNumberRange> ranges = rangeRepository.findActiveRangesByHouseholdId(household.getId());
@@ -111,20 +143,46 @@ public class InvoiceNumberRangeServiceImpl implements InvoiceNumberRangeService 
             InvoiceNumberRange range = rangeRepository
                     .findFirstByHouseholdIdAndStatusInAndDeletedAtIsNullOrderByCreatedAtDesc(household.getId(), statuses)
                     .orElseThrow(() -> new AppException(ErrorCode.INVOICE_RANGE_NOT_FOUND));
-            return mapToResponse(range);
+            return mapToResponse(range, configuredPattern, configuredSymbol);
         }
 
-        return mapToResponse(ranges.get(0));
+        return mapToResponse(ranges.get(0), configuredPattern, configuredSymbol);
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @Transactional(rollbackFor = Exception.class)
     public PageResponse<InvoiceNumberRangeResponse> getAllRanges(String currentUsername, int page, int size) {
         User currentUser = getAuthenticatedUser(currentUsername);
         BusinessHousehold household = currentUser.getHousehold();
         if (household == null) {
             throw new AppException(ErrorCode.FORBIDDEN);
         }
+
+        Optional<InvoiceTemplate> templateOpt = invoiceTemplateRepository.findByHouseholdId(household.getId());
+        String configuredPattern = templateOpt.map(InvoiceTemplate::getInvoicePattern).map(String::trim).orElse(null);
+        String configuredSymbol = templateOpt.map(InvoiceTemplate::getInvoiceSymbol).map(String::trim).orElse(null);
+
+        // Đảm bảo mẫu cấu hình luôn có dải số trong lịch sử dải số đã khai báo bắt đầu từ 0 và có trạng thái Đang sử dụng
+        if (configuredPattern != null && configuredSymbol != null && !configuredPattern.isEmpty() && !configuredSymbol.isEmpty()) {
+            List<InvoiceNumberRange> existingConfigured = rangeRepository.findOverlappingRanges(
+                    household.getId(), configuredPattern, configuredSymbol);
+            if (existingConfigured.isEmpty()) {
+                InvoiceNumberRange autoRange = InvoiceNumberRange.builder()
+                        .household(household)
+                        .invoicePattern(configuredPattern)
+                        .invoiceSymbol(configuredSymbol)
+                        .startNumber(1)
+                        .endNumber(100000)
+                        .currentNumber(0)
+                        .warningThreshold(50)
+                        .status("ACTIVE")
+                        .build();
+                rangeRepository.save(autoRange);
+                log.info("Tự động khởi tạo dải số cho mẫu hóa đơn cấu hình {}: Pattern={}, Symbol={}",
+                        household.getId(), configuredPattern, configuredSymbol);
+            }
+        }
+
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
         Page<InvoiceNumberRange> pageData = rangeRepository.findByHouseholdIdAndDeletedAtIsNull(household.getId(), pageable);
 
@@ -133,7 +191,7 @@ public class InvoiceNumberRangeServiceImpl implements InvoiceNumberRangeService 
         double dailyRate = Math.round((countLast7Days / 7.0) * 100.0) / 100.0;
 
         List<InvoiceNumberRangeResponse> content = pageData.getContent().stream()
-                .map(range -> mapToResponse(range, dailyRate))
+                .map(range -> mapToResponse(range, dailyRate, configuredPattern, configuredSymbol))
                 .collect(Collectors.toList());
 
         return PageResponse.<InvoiceNumberRangeResponse>builder()
@@ -145,6 +203,7 @@ public class InvoiceNumberRangeServiceImpl implements InvoiceNumberRangeService 
                 .last(pageData.isLast())
                 .build();
     }
+
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -226,6 +285,8 @@ public class InvoiceNumberRangeServiceImpl implements InvoiceNumberRangeService 
             range.setStatus("EXHAUSTED");
         } else if (remaining <= range.getWarningThreshold()) {
             range.setStatus("WARNING_LOW");
+        } else {
+            range.setStatus("ACTIVE");
         }
 
         rangeRepository.save(range);
@@ -240,20 +301,36 @@ public class InvoiceNumberRangeServiceImpl implements InvoiceNumberRangeService 
     }
 
     private InvoiceNumberRangeResponse mapToResponse(InvoiceNumberRange range) {
+        return mapToResponse(range, null, null);
+    }
+
+    private InvoiceNumberRangeResponse mapToResponse(InvoiceNumberRange range, String configuredPattern, String configuredSymbol) {
         LocalDateTime sevenDaysAgo = LocalDateTime.now().minusDays(7);
         long countLast7Days = eInvoiceRepository.countByHouseholdIdAndCreatedAtAfter(
                 range.getHousehold().getId(), sevenDaysAgo);
         double dailyRate = Math.round((countLast7Days / 7.0) * 100.0) / 100.0;
-        return mapToResponse(range, dailyRate);
+        return mapToResponse(range, dailyRate, configuredPattern, configuredSymbol);
     }
 
-    private InvoiceNumberRangeResponse mapToResponse(InvoiceNumberRange range, double dailyRate) {
+    private InvoiceNumberRangeResponse mapToResponse(InvoiceNumberRange range, double dailyRate, String configuredPattern, String configuredSymbol) {
         int remaining = Math.max(0, range.getEndNumber() - range.getCurrentNumber());
         String status = range.getStatus();
+
+        // Chỉ dải số trùng với mẫu hóa đơn cấu hình đang áp dụng mới có trạng thái Đang sử dụng (ACTIVE) hoặc Sắp hết số (WARNING_LOW)
+        String rangePattern = range.getInvoicePattern() != null ? range.getInvoicePattern().trim() : "";
+        String rangeSymbol = range.getInvoiceSymbol() != null ? range.getInvoiceSymbol().trim() : "";
+        boolean isConfiguredTemplate = configuredPattern == null || configuredSymbol == null ||
+                (configuredPattern.trim().equalsIgnoreCase(rangePattern) &&
+                 configuredSymbol.trim().equalsIgnoreCase(rangeSymbol));
+
         if (remaining == 0) {
             status = "EXHAUSTED";
-        } else if (remaining <= range.getWarningThreshold() && !"EXHAUSTED".equals(status)) {
+        } else if (!isConfiguredTemplate) {
+            status = "INACTIVE"; // Không sử dụng (thuộc mẫu hóa đơn khác với mẫu đang cấu hình)
+        } else if (remaining <= range.getWarningThreshold()) {
             status = "WARNING_LOW";
+        } else {
+            status = "ACTIVE";
         }
 
         String warningMessage = null;
@@ -281,3 +358,4 @@ public class InvoiceNumberRangeServiceImpl implements InvoiceNumberRangeService 
                 .build();
     }
 }
+

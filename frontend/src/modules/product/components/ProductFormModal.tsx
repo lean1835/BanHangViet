@@ -96,8 +96,28 @@ const productSchema = z.object({
     ),
   status: z.enum(PRODUCT_STATUS_VALUES),
   isSoldByWeight: z.boolean().optional(),
-  decimalPlaces: z.number().int().min(1).max(3).optional(),
+  decimalPlaces: z.number().int().min(0).max(3).optional(),
   minWeightStep: z.number().positive("Bước nhảy phải lớn hơn 0").optional(),
+}).refine((data) => {
+  if (data.isSoldByWeight) {
+    if (!data.decimalPlaces || data.decimalPlaces < 1 || data.decimalPlaces > 3) {
+      return false;
+    }
+  }
+  return true;
+}, {
+  message: "Số chữ số thập phân phải từ 1 đến 3",
+  path: ["decimalPlaces"],
+}).refine((data) => {
+  if (data.isSoldByWeight && data.decimalPlaces && data.minWeightStep) {
+    const stepStr = data.minWeightStep.toString();
+    const decimalPart = stepStr.includes(".") ? stepStr.split(".")[1] : "";
+    return decimalPart.length <= data.decimalPlaces;
+  }
+  return true;
+}, {
+  message: "Bước nhảy không được có nhiều chữ số thập phân hơn số chữ số cấu hình",
+  path: ["minWeightStep"],
 });
 
 type ProductFormValues = z.infer<typeof productSchema>;
@@ -181,6 +201,19 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
 
   const watchIsSoldByWeight = watch("isSoldByWeight");
 
+  useEffect(() => {
+    if (watchIsSoldByWeight) {
+      const dec = watch("decimalPlaces");
+      if (!dec || dec < 1) {
+        setValue("decimalPlaces", 3, { shouldValidate: true });
+      }
+      const step = watch("minWeightStep");
+      if (!step || step <= 0 || step >= 1) {
+        setValue("minWeightStep", 0.001, { shouldValidate: true });
+      }
+    }
+  }, [watchIsSoldByWeight, setValue, watch]);
+
   // Explicitly register custom form field (price is updated manually to handle dynamic styling/dots formatting)
   useEffect(() => {
     register(PRODUCT_FORM_FIELD_NAMES.PRICE);
@@ -209,8 +242,14 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         taxRateId: defaultTaxRateId,
         status: product.status || PRODUCT_FORM_DEFAULTS.STATUS,
         isSoldByWeight: Boolean(product.isSoldByWeight),
-        decimalPlaces: product.decimalPlaces ?? 3,
-        minWeightStep: product.minWeightStep ?? 0.001,
+        decimalPlaces:
+          product.isSoldByWeight && product.decimalPlaces && product.decimalPlaces >= 1
+            ? product.decimalPlaces
+            : 3,
+        minWeightStep:
+          product.isSoldByWeight && product.minWeightStep && product.minWeightStep < 1
+            ? product.minWeightStep
+            : 0.001,
       });
       setPriceInput(
         product.price
@@ -289,6 +328,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
   const onSubmit = async (values: ProductFormValues) => {
     const data: Partial<IProduct> & { taxRateId: string } = {
       sku: values.sku.trim(),
+      barcode: values.barcode?.trim() || undefined,
       name: values.name.trim(),
       groupId: values.groupId || null,
       unit: values.unit.trim(),
@@ -298,8 +338,8 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
       taxRateId: values.taxRateId,
       status: values.status,
       isSoldByWeight: Boolean(values.isSoldByWeight),
-      decimalPlaces: values.isSoldByWeight ? Number(values.decimalPlaces) : 3,
-      minWeightStep: values.isSoldByWeight ? Number(values.minWeightStep) : 0.001,
+      decimalPlaces: values.isSoldByWeight ? Number(values.decimalPlaces || 3) : 0,
+      minWeightStep: values.isSoldByWeight ? Number(values.minWeightStep || 0.001) : 1,
     };
 
     try {
@@ -544,6 +584,15 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                     </label>
                     <select
                       {...register("decimalPlaces", { valueAsNumber: true })}
+                      onChange={(e) => {
+                        const newDec = Number(e.target.value);
+                        setValue("decimalPlaces", newDec, { shouldValidate: true });
+                        const currentStep = watch("minWeightStep");
+                        const defaultStepForDec = Math.pow(10, -newDec);
+                        if (!currentStep || currentStep < defaultStepForDec) {
+                          setValue("minWeightStep", defaultStepForDec, { shouldValidate: true });
+                        }
+                      }}
                       className="border border-slate-300 h-8 px-2 rounded-md bg-white text-xs focus:outline-none focus:border-kv-blue-primary"
                     >
                       {WEIGHT_SELLING_CONSTANTS.DECIMAL_PLACES_OPTIONS.map((opt) => (

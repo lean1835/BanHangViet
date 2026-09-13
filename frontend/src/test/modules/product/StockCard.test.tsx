@@ -505,7 +505,7 @@ describe("NCL-02-CN-006: Thẻ kho biến động tồn theo mặt hàng", () =>
       );
 
       expect(screen.getByText("Thao tác")).toBeInTheDocument();
-      expect(screen.getByTitle("Xem thẻ kho")).toBeInTheDocument();
+      expect(screen.getByTitle("In tem mã vạch")).toBeInTheDocument();
     });
   });
 
@@ -589,7 +589,7 @@ describe("NCL-02-CN-006: Thẻ kho biến động tồn theo mặt hàng", () =>
       expect(mockNavigate).toHaveBeenCalledWith("/products/prod-1?tab=INFO");
     });
 
-    it("Click vào icon Xem thẻ kho trong ProductList điều hướng sang trang chi tiết với tab Thẻ kho biến động", () => {
+    it("Click vào nút Sửa trong ProductList mở form sửa hàng hóa", () => {
       renderWithProviders(
         <ProductList
           userRole={USER_ROLES.OWNER}
@@ -599,10 +599,9 @@ describe("NCL-02-CN-006: Thẻ kho biến động tồn theo mặt hàng", () =>
         USER_ROLES.OWNER
       );
 
-      const stockCardBtn = screen.getByTitle("Xem thẻ kho");
-      fireEvent.click(stockCardBtn);
-
-      expect(mockNavigate).toHaveBeenCalledWith("/products/prod-1?tab=STOCK_CARD");
+      const editBtn = screen.getByTitle("Chỉnh sửa sản phẩm");
+      expect(editBtn).toBeInTheDocument();
+      fireEvent.click(editBtn);
     });
   });
 

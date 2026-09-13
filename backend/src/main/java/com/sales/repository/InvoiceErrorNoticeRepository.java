@@ -24,6 +24,13 @@ public interface InvoiceErrorNoticeRepository extends JpaRepository<InvoiceError
     @EntityGraph(attributePaths = {"createdByUser"})
     Page<InvoiceErrorNotice> findByHouseholdIdAndStatus(String householdId, String status, Pageable pageable);
 
+    @EntityGraph(attributePaths = {"createdByUser"})
+    Page<InvoiceErrorNotice> findByStatus(String status, Pageable pageable);
+
+    @Override
+    @EntityGraph(attributePaths = {"createdByUser"})
+    Page<InvoiceErrorNotice> findAll(Pageable pageable);
+
     @Query("SELECT COUNT(i) > 0 FROM InvoiceErrorNoticeItem item " +
            "JOIN item.notice i " +
            "WHERE item.invoice.id = :invoiceId AND i.status = 'ACCEPTED'")

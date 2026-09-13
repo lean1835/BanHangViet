@@ -18,6 +18,8 @@ public interface OrderItemRepository extends JpaRepository<OrderItem, String> {
 
     boolean existsByUnitConversionId(String unitConversionId);
 
+    boolean existsByPriceTierId(String priceTierId);
+
     interface PromotionMetricsProjection {
         Long getTotalOrdersCount();
         BigDecimal getTotalQuantitySold();

@@ -7,16 +7,20 @@ import com.sales.entity.User;
 import com.sales.repository.BusinessHouseholdRepository;
 import com.sales.repository.RoleRepository;
 import com.sales.repository.UserRepository;
+import com.sales.service.classes.ActivityLogHelper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -38,6 +42,9 @@ public class ReportControllerTest {
 
     @Autowired
     private RoleRepository roleRepository;
+
+    @MockBean
+    private ActivityLogHelper activityLogHelper;
 
     private BusinessHousehold testHousehold;
     private Role ownerRole;
@@ -193,6 +200,20 @@ public class ReportControllerTest {
     @Test
     @WithMockUser(username = "test_owner_report", roles = {"VT-01"})
     public void lockReconciliation_success() throws Exception {
+        mockMvc.perform(post("/api/v1/reports/reconciliation/lock")
+                        .param("date", "2026-07-22")
+                        .param("notes", "Chốt ca test")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(1000));
+    }
+
+    @Test
+    @WithMockUser(username = "test_owner_report", roles = {"VT-01"})
+    public void lockReconciliation_activityLogFailure_stillSuccess() throws Exception {
+        doThrow(new RuntimeException("log failure")).when(activityLogHelper)
+                .logActivityInNewTransaction(any(), any(), any(), any(), any(), any(), any(), any(), any());
+
         mockMvc.perform(post("/api/v1/reports/reconciliation/lock")
                         .param("date", "2026-07-22")
                         .param("notes", "Chốt ca test")

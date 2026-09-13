@@ -10,4 +10,7 @@ public interface TaxConnectionService {
     TaxConnectionHistoryResponse getTaxConnectionHistory(String currentUsername, int days);
 
     void recordConnectionEvent(String householdId, String status, Integer responseTimeMs, String errorMessage);
+
+    TaxConnectionStatusResponse simulateConnection(String currentUsername, String status, Integer responseTimeMs, String errorMessage);
 }
+

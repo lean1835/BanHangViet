@@ -68,7 +68,7 @@ public class InvoiceErrorNoticeController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('VT-01', 'VT-03')")
+    @PreAuthorize("hasAnyRole('VT-01', 'VT-03', 'VT-05')")
     @Operation(summary = "Xem chi tiết thông báo hóa đơn sai sót Mẫu 04/SS-HĐĐT (NCL-05-CN-005)")
     public ResponseEntity<ApiResponse<InvoiceErrorNoticeResponse>> getNotice(
             Principal principal,
@@ -83,7 +83,7 @@ public class InvoiceErrorNoticeController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('VT-01', 'VT-03')")
+    @PreAuthorize("hasAnyRole('VT-01', 'VT-03', 'VT-05')")
     @Operation(summary = "Tra cứu danh sách thông báo hóa đơn sai sót (NCL-05-CN-005)")
     public ResponseEntity<ApiResponse<PageResponse<InvoiceErrorNoticeResponse>>> getNotices(
             Principal principal,

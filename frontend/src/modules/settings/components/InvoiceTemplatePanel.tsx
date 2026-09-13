@@ -14,7 +14,6 @@ import { useDashboardDemo } from "@/providers/DashboardDemoProvider";
 import { useAppSelector } from "@/hooks/useRedux";
 import { getApiErrorMessage } from "@/utils/getApiErrorMessage";
 import { Save, FileText, Eye, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
-import { InvoiceRangeSection } from "./InvoiceRangeSection";
 
 export const InvoiceTemplatePanel: React.FC = () => {
   const { showSuccess, showError } = useNotification();
@@ -385,12 +384,6 @@ export const InvoiceTemplatePanel: React.FC = () => {
         </div>
       </div>
     </div>
-
-      {/* Invoice Number Range Management Section (NCL-04-CN-009) */}
-      <InvoiceRangeSection
-        currentPattern={watchedValues.invoicePattern}
-        currentSymbol={watchedValues.invoiceSymbol}
-      />
-    </div>
-  );
+  </div>
+);
 };

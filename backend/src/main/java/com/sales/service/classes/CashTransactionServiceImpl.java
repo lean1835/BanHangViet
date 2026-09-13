@@ -252,6 +252,14 @@ public class CashTransactionServiceImpl implements CashTransactionService {
         if (cashSales == null) {
             cashSales = BigDecimal.ZERO;
         }
+        BigDecimal bankSales = orderRepository.sumBankSalesAmountByShiftId(shiftId);
+        if (bankSales == null) {
+            bankSales = BigDecimal.ZERO;
+        }
+        BigDecimal totalSales = orderRepository.sumCollectedAmountByShiftId(shiftId);
+        if (totalSales == null) {
+            totalSales = cashSales.add(bankSales);
+        }
 
         BigDecimal totalApprovedIncome = transactionRepository.sumAmountByShiftIdAndTypeAndStatus(
                 shiftId, CashTransactionType.INCOME, CashTransactionStatus.APPROVED);
@@ -296,6 +304,8 @@ public class CashTransactionServiceImpl implements CashTransactionService {
                 .shiftId(shiftId)
                 .openingCash(openingCash.setScale(2, RoundingMode.HALF_UP))
                 .cashSales(cashSales.setScale(2, RoundingMode.HALF_UP))
+                .bankSales(bankSales.setScale(2, RoundingMode.HALF_UP))
+                .totalSales(totalSales.setScale(2, RoundingMode.HALF_UP))
                 .totalApprovedIncome(totalApprovedIncome.setScale(2, RoundingMode.HALF_UP))
                 .totalApprovedExpense(totalApprovedExpense.setScale(2, RoundingMode.HALF_UP))
                 .netCashChange(netCashChange)

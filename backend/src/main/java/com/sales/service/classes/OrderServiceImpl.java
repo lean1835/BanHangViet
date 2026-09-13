@@ -1006,11 +1006,7 @@ public class OrderServiceImpl implements OrderService {
         String method = request.getPaymentMethod();
         String qrCodeUrl = null;
 
-        // Xóa các khoản thanh toán cũ chưa hoàn tất của đơn hàng này
-        List<OrderPayment> oldPayments = orderPaymentRepository.findByOrderIdAndHouseholdId(orderId, household.getId());
-        if (!oldPayments.isEmpty()) {
-            orderPaymentRepository.deleteAll(oldPayments);
-        }
+        // Xóa các khoản thanh toán cũ chưa hoàn tất của đơn hàng này qua orphanRemoval
         if (order.getPayments() != null) {
             order.getPayments().clear();
         }
@@ -1045,6 +1041,9 @@ public class OrderServiceImpl implements OrderService {
             order.setCustomer(customer);
             order.setPaymentMethod("DEBT");
             order.setPaymentStatus("DEBT");
+        } else if (PaymentMethodConstant.COMBINED.equals(method)) {
+            order.setPaymentMethod(PaymentMethodConstant.COMBINED);
+            order.setPaymentStatus("PENDING");
         } else {
             order.setPaymentMethod("CASH");
             order.setPaymentStatus("PENDING");
@@ -1903,11 +1902,7 @@ public class OrderServiceImpl implements OrderService {
             throw new AppException(ErrorCode.INVALID_PAYMENT_SWITCH_METHOD);
         }
 
-        // Xóa các khoản thanh toán cũ của đơn hàng
-        List<OrderPayment> oldPayments = orderPaymentRepository.findByOrderIdAndHouseholdId(orderId, household.getId());
-        if (!oldPayments.isEmpty()) {
-            orderPaymentRepository.deleteAll(oldPayments);
-        }
+        // Xóa các khoản thanh toán cũ của đơn hàng qua orphanRemoval
         if (order.getPayments() != null) {
             order.getPayments().clear();
         }

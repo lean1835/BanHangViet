@@ -48,6 +48,10 @@ export const PrintInvoiceModal: React.FC<PrintInvoiceModalProps> = ({
   const preTaxAmount = itemsSum > 0 ? itemsSum : (invoice.finalAmount - (invoice.taxAmount || 0));
   const taxAmount = invoice.taxAmount ?? Math.round(preTaxAmount * 0.08);
   const finalTotal = invoice.finalAmount || (preTaxAmount + taxAmount);
+  const rawOriginalTotal = itemsList
+    ? itemsList.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0)
+    : (itemsSum + (invoice.discountAmount || 0));
+  const hasDiscount = Boolean(invoice.discountAmount && invoice.discountAmount > 0);
   
   const createdDateStr = invoice.time || new Date().toLocaleString("vi-VN", {
     day: "2-digit",
@@ -286,32 +290,77 @@ export const PrintInvoiceModal: React.FC<PrintInvoiceModalProps> = ({
 
             {/* ─── SUMMARY BLOCK ─── */}
             <div className="border-t-2 border-slate-900 pt-2 space-y-1.5 text-[10px]">
+              {/* 1. Tiền gốc trước */}
               <div className="flex justify-between font-semibold text-slate-700">
-                <span>Cộng tiền hàng:</span>
-                <span className="font-bold text-slate-900">{formatCurrency(preTaxAmount)}</span>
+                <span>{hasDiscount ? "Tổng tiền hàng (Tiền gốc):" : "Cộng tiền hàng (Chưa thuế):"}</span>
+                <span className="font-bold text-slate-900">{formatCurrency(rawOriginalTotal)}</span>
               </div>
 
+              {/* 2. Tiền giảm giá / Chiết khấu */}
+              {hasDiscount && (
+                <div className="flex justify-between font-semibold text-rose-600">
+                  <span>Chiết khấu thương mại:</span>
+                  <span className="font-bold">-{formatCurrency(invoice.discountAmount || 0)}</span>
+                </div>
+              )}
+
+              {/* 3. Tiền hàng sau chiết khấu (chưa thuế) */}
+              {hasDiscount && (
+                <div className="flex justify-between font-semibold text-slate-700">
+                  <span>Cộng tiền hàng (chưa thuế):</span>
+                  <span className="font-bold text-slate-900">{formatCurrency(preTaxAmount)}</span>
+                </div>
+              )}
+
+              {/* 4. Tiền thuế GTGT */}
               {taxAmount > 0 && (
                 <div className="flex justify-between font-semibold text-slate-700">
-                  <span>Thuế suất GTGT (8%):</span>
+                  <span>Tổng tiền thuế GTGT:</span>
                   <span className="font-bold text-slate-900">{formatCurrency(taxAmount)}</span>
                 </div>
               )}
 
-              {invoice.discountAmount && invoice.discountAmount > 0 ? (
-                <div className="flex justify-between font-semibold text-emerald-700">
-                  <span>Chiết khấu / Giảm giá:</span>
-                  <span className="font-bold">-{formatCurrency(invoice.discountAmount)}</span>
-                </div>
-              ) : null}
-
+              {/* 5. Tổng thanh toán */}
               <div className="flex justify-between items-center font-black text-xs sm:text-sm pt-1.5 border-t border-slate-900 text-slate-900 bg-slate-50 px-2 py-1 rounded">
                 <span>TỔNG THANH TOÁN:</span>
                 <span className="text-sm sm:text-base text-slate-900">{formatCurrency(finalTotal)}</span>
               </div>
 
+              {/* 6. Bằng chữ */}
               <div className="text-[9px] sm:text-[9.5px] italic text-slate-700 text-right pt-0.5 break-words">
                 Bằng chữ: <strong>{convertNumberToWords(finalTotal)}</strong>
+              </div>
+
+              {/* 7. Phân mục Phương thức thanh toán */}
+              <div className="border-t border-dashed border-slate-300 pt-1.5 mt-1 flex flex-col gap-1 text-[9.5px]">
+                <div className="flex justify-between items-center">
+                  <span className="font-semibold text-slate-600">Phương thức thanh toán:</span>
+                  <span className="font-bold text-slate-900">
+                    {invoice.paymentMethod === "CASH"
+                      ? "Tiền mặt"
+                      : invoice.paymentMethod === "BANK_TRANSFER"
+                      ? "Chuyển khoản"
+                      : invoice.paymentMethod === "COMBINED"
+                      ? "Kết hợp"
+                      : invoice.paymentMethod === "DEBT"
+                      ? "Ghi nợ"
+                      : invoice.paymentMethod || "Tiền mặt / Chuyển khoản (TM/CK)"}
+                  </span>
+                </div>
+
+                {invoice.payments && invoice.payments.length > 0 && (
+                  <div className="bg-slate-100/70 rounded p-1.5 flex flex-col gap-0.5 text-[8.5px]">
+                    {invoice.payments.map((pm, pIdx) => (
+                      <div key={pm.id || pIdx} className="flex justify-between text-slate-700">
+                        <span>
+                          • {pm.paymentMethod === "CASH" ? "Tiền mặt" : pm.paymentMethod === "BANK_TRANSFER" ? "Chuyển khoản" : pm.paymentMethod}
+                          {pm.transactionCode ? ` (${pm.transactionCode})` : ""}
+                        </span>
+                        <span className="font-bold">{formatCurrency(pm.amount)}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
 

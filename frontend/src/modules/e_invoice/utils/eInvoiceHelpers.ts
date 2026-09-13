@@ -11,6 +11,8 @@ export const getStatusClassName = (status: TInvoiceStatus): string => {
       return "bg-amber-100 text-amber-700 border-amber-200 animate-pulse";
     case E_INVOICE_STATUS.SEND_ERROR:
       return "bg-red-100 text-red-700 border-red-200";
+    case E_INVOICE_STATUS.MANUAL_PROCESSING:
+      return "bg-amber-100 text-amber-800 border-amber-300";
     case E_INVOICE_STATUS.ADJUSTED:
       return "bg-orange-100 text-orange-700 border-orange-200";
     default:
@@ -28,6 +30,8 @@ export const getStatusLabel = (status: TInvoiceStatus): string => {
       return "CHỜ CẤP MÃ";
     case E_INVOICE_STATUS.SEND_ERROR:
       return "LỖI GỬI THUẾ";
+    case E_INVOICE_STATUS.MANUAL_PROCESSING:
+      return "CẦN XỬ LÝ THỦ CÔNG";
     case E_INVOICE_STATUS.ADJUSTED:
       return "ĐÃ ĐIỀU CHỈNH";
     case E_INVOICE_STATUS.DRAFT:

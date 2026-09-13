@@ -229,20 +229,18 @@ public class OrderPaymentServiceImpl implements OrderPaymentService {
                 .orElse(null);
 
         if (payment == null) {
-            if (PaymentMethodConstant.BANK_TRANSFER.equalsIgnoreCase(order.getPaymentMethod())) {
-                // Tạo mới khoản thanh toán chuyển khoản nếu đơn đã chọn BANK_TRANSFER nhưng chưa có bản ghi payment
-                BigDecimal paymentAmount = order.getFinalAmount() != null ? order.getFinalAmount() : BigDecimal.ZERO;
-                payment = OrderPayment.builder()
-                        .order(order)
-                        .household(currentUser.getHousehold())
-                        .paymentMethod(PaymentMethodConstant.BANK_TRANSFER)
-                        .amount(paymentAmount)
-                        .isConfirmed(false)
-                        .build();
-                payment = orderPaymentRepository.save(payment);
-            } else {
-                throw new AppException(ErrorCode.NO_BANK_TRANSFER_PAYMENT_FOUND);
-            }
+            // Tự động tạo mới khoản thanh toán chuyển khoản nếu đơn đang ở trạng thái CREATING
+            // (Hỗ trợ cả đơn thanh toán trực tiếp qua BANK_TRANSFER lẫn đơn thanh toán kết hợp COMBINED hoặc khởi tạo từ CASH)
+            BigDecimal paymentAmount = order.getFinalAmount() != null ? order.getFinalAmount() : BigDecimal.ZERO;
+            payment = OrderPayment.builder()
+                    .order(order)
+                    .household(currentUser.getHousehold())
+                    .paymentMethod(PaymentMethodConstant.BANK_TRANSFER)
+                    .amount(paymentAmount)
+                    .isConfirmed(false)
+                    .build();
+            order.addPayment(payment);
+            payment = orderPaymentRepository.save(payment);
         }
 
         if (Boolean.TRUE.equals(payment.getIsConfirmed())) {

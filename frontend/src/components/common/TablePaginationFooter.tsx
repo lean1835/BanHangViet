@@ -40,7 +40,7 @@ export const TablePaginationFooter: React.FC<TablePaginationFooterProps> = ({
           type="button"
           onClick={() => onPageChange(Math.max(0, currentPage - 1))}
           disabled={currentPage <= 0}
-          className="px-3 h-8 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center font-bold text-slate-700"
+          className="px-3 h-8 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center font-bold text-slate-700 cursor-pointer"
         >
           Trang trước
         </button>
@@ -53,7 +53,7 @@ export const TablePaginationFooter: React.FC<TablePaginationFooterProps> = ({
           type="button"
           onClick={() => onPageChange(Math.min(totalPages - 1, currentPage + 1))}
           disabled={currentPage >= totalPages - 1}
-          className="px-3 h-8 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center font-bold text-slate-700"
+          className="px-3 h-8 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center font-bold text-slate-700 cursor-pointer"
         >
           Trang sau
         </button>

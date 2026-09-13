@@ -30,6 +30,9 @@ public class ShiftResponse {
     private Integer pendingExpenseCount;
     private Integer currentStageNumber;
     private String status;
+    private BigDecimal totalRevenue;
+    private BigDecimal cashRevenue;
+    private BigDecimal bankRevenue;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

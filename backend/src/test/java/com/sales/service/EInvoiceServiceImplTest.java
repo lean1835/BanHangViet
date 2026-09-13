@@ -18,6 +18,7 @@ import com.sales.repository.EInvoiceRepository;
 import com.sales.repository.InvoiceDeliveryLogRepository;
 import com.sales.repository.InvoiceStatusLogRepository;
 import com.sales.repository.InvoiceTemplateRepository;
+import com.sales.repository.OrderPaymentRepository;
 import com.sales.repository.OrderRepository;
 import com.sales.repository.ProductRepository;
 import com.sales.repository.UserRepository;
@@ -69,6 +70,9 @@ class EInvoiceServiceImplTest {
 
     @Mock
     private OrderRepository orderRepository;
+
+    @Mock
+    private OrderPaymentRepository orderPaymentRepository;
 
     @Mock
     private InvoiceDeliveryLogRepository invoiceDeliveryLogRepository;

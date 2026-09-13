@@ -80,7 +80,11 @@ public class GoodsReceiptServiceImpl implements GoodsReceiptService {
             log.error("Failed to serialize log values for goods receipt", e);
         }
 
-        activityLogHelper.logActivityInNewTransaction(household, actor, action, LOG_TARGET_TABLE, targetId, oldStr, newStr, clientIp, userAgent);
+        try {
+            activityLogHelper.logActivityInNewTransaction(household, actor, action, LOG_TARGET_TABLE, targetId, oldStr, newStr, clientIp, userAgent);
+        } catch (Exception e) {
+            log.error("Failed to write activity log for goods receipt", e);
+        }
     }
 
     private Map<String, Object> buildReceiptLogMap(GoodsReceipt receipt, List<GoodsReceiptDetail> details) {
@@ -385,4 +389,3 @@ public class GoodsReceiptServiceImpl implements GoodsReceiptService {
                 .build();
     }
 }
-

@@ -243,10 +243,10 @@ public class OrderCollectedAmountIntegrationTest {
         orderRepository.save(creatingOrder);
 
         // KỲ VỌNG ĐỐI SOÁT ĐÓNG CA (Close Shift):
-        // Tiền đầu ca (1.000.000đ) + Tiền mặt bán hàng (1.000.000đ) = 2.000.000đ
-        // Thu ngân đếm đúng 2.000.000đ tiền mặt trong két -> Chênh lệch = 0.00, không bị lệch âm 1.7tr tiền chuyển khoản!
+        // Tiền đầu ca (1.000.000đ) + Tiền bán hàng thu được (1tr tiền mặt + 1.7tr CK) = 3.700.000đ
+        // Thu ngân chốt ca với đủ 3.700.000đ -> Chênh lệch = 0.00
         com.sales.dto.request.CloseShiftRequest closeRequest = com.sales.dto.request.CloseShiftRequest.builder()
-                .closingCashActual(new BigDecimal("2000000.00"))
+                .closingCashActual(new BigDecimal("3700000.00"))
                 .differenceReason(null)
                 .build();
 

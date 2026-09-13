@@ -16,6 +16,7 @@ import com.sales.repository.ProductPriceTierRepository;
 import com.sales.repository.ProductRepository;
 import com.sales.repository.ProductUnitConversionRepository;
 import com.sales.repository.UserRepository;
+import com.sales.repository.OrderItemRepository;
 import com.sales.service.interfaces.ProductPriceTierService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -38,6 +39,7 @@ public class ProductPriceTierServiceImpl implements ProductPriceTierService {
     private final ProductUnitConversionRepository productUnitConversionRepository;
     private final GoodsReceiptDetailRepository goodsReceiptDetailRepository;
     private final UserRepository userRepository;
+    private final OrderItemRepository orderItemRepository;
     private final ActivityLogHelper activityLogHelper;
     private final ObjectMapper objectMapper;
 
@@ -170,7 +172,14 @@ public class ProductPriceTierServiceImpl implements ProductPriceTierService {
         }
 
         Map<String, Object> oldLogMap = buildTierLogMap(tier, BigDecimal.ZERO, false);
-        productPriceTierRepository.delete(tier);
+
+        boolean isReferencedByOrders = orderItemRepository != null && orderItemRepository.existsByPriceTierId(tierId);
+        if (isReferencedByOrders) {
+            tier.setIsActive(false);
+            productPriceTierRepository.save(tier);
+        } else {
+            productPriceTierRepository.delete(tier);
+        }
 
         logActivity(household, currentUser, "DELETE_PRICE_TIER", tierId, oldLogMap, null);
     }

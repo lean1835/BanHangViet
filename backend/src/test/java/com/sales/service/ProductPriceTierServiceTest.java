@@ -19,6 +19,7 @@ import com.sales.repository.ProductPriceTierRepository;
 import com.sales.repository.ProductRepository;
 import com.sales.repository.ProductUnitConversionRepository;
 import com.sales.repository.UserRepository;
+import com.sales.repository.OrderItemRepository;
 import com.sales.service.classes.ActivityLogHelper;
 import com.sales.service.classes.ProductPriceTierServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
@@ -54,6 +55,9 @@ public class ProductPriceTierServiceTest {
 
     @Mock
     private UserRepository userRepository;
+
+    @Mock
+    private OrderItemRepository orderItemRepository;
 
     @Mock
     private ActivityLogHelper activityLogHelper;
@@ -462,6 +466,31 @@ public class ProductPriceTierServiceTest {
         productPriceTierService.deletePriceTier("owner", "prod-1", "tier-to-delete");
 
         verify(productPriceTierRepository, times(1)).delete(tier);
+    }
+
+    @Test
+    @DisplayName("P2 - Medium: Xóa bậc giá đã áp dụng trong đơn hàng lịch sử -> chuyển sang không hoạt động (isActive = false)")
+    void testDeletePriceTier_ReferencedByOrders_SoftDeactivates() {
+        when(userRepository.findByUsername("owner")).thenReturn(Optional.of(ownerUser));
+        when(productRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("prod-1", "household-1")).thenReturn(Optional.of(product));
+
+        ProductPriceTier tier = ProductPriceTier.builder()
+                .id("tier-in-use")
+                .product(product)
+                .household(household)
+                .tierName("Giá sỉ đã dùng trong đơn")
+                .minQuantity(new BigDecimal("10.000"))
+                .price(new BigDecimal("11000.00"))
+                .isActive(true)
+                .build();
+
+        when(productPriceTierRepository.findByIdAndHouseholdId("tier-in-use", "household-1")).thenReturn(Optional.of(tier));
+        when(orderItemRepository.existsByPriceTierId("tier-in-use")).thenReturn(true);
+
+        productPriceTierService.deletePriceTier("owner", "prod-1", "tier-in-use");
+
+        verify(productPriceTierRepository, never()).delete(any());
+        verify(productPriceTierRepository, times(1)).save(argThat(t -> Boolean.FALSE.equals(t.getIsActive())));
     }
 
     @Test

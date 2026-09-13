@@ -1,8 +1,8 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Tag, Crown } from "lucide-react";
+import { Tag, Crown, Ban, UtensilsCrossed, SlidersHorizontal } from "lucide-react";
 import type { ICustomer } from "@/modules/customer/types/ICustomer";
 import type { IPosTab } from "../types/IPos";
-import { formatCurrency } from "@/utils/formatCurrency";
+import { formatCurrency, formatNumber } from "@/utils/formatCurrency";
 import { calculatePosTotals } from "../utils/posCalculations";
 
 interface IPosPaymentSidebarProps {
@@ -12,6 +12,9 @@ interface IPosPaymentSidebarProps {
   onOpenAddCustomerModal: () => void;
   onSaveDraft: () => void;
   onCompleteOrder: () => void;
+  onCancelOrder?: () => void;
+  onOpenHoldOrderModal?: () => void;
+  onOpenCombinedPaymentModal?: () => void;
   isSavingDraft: boolean;
   isCompletingOrder: boolean;
 }
@@ -23,6 +26,9 @@ export const PosPaymentSidebar: React.FC<IPosPaymentSidebarProps> = ({
   onOpenAddCustomerModal,
   onSaveDraft,
   onCompleteOrder,
+  onCancelOrder,
+  onOpenHoldOrderModal,
+  onOpenCombinedPaymentModal,
   isSavingDraft,
   isCompletingOrder,
 }) => {
@@ -310,6 +316,46 @@ export const PosPaymentSidebar: React.FC<IPosPaymentSidebarProps> = ({
           </div>
         )}
 
+        {/* Dining Table & Order Label (NCL-03-CN-010) */}
+        <div className="bg-slate-50/80 p-2.5 rounded-xl border border-slate-200">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5 text-xs min-w-0 flex-1 mr-2">
+              <UtensilsCrossed className="w-4 h-4 text-indigo-600 shrink-0" />
+              <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+                {tab.diningTableName ? (
+                  <span className="font-bold text-indigo-800 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-md text-[11px]">
+                    {tab.diningTableName} {tab.diningTableArea ? `(${tab.diningTableArea})` : ""}
+                  </span>
+                ) : (
+                  <span className="text-slate-500 font-medium text-[11px]">Chưa gán bàn</span>
+                )}
+
+                {tab.orderLabel && (
+                  <span className="font-semibold text-slate-700 bg-white border border-slate-200 px-2 py-0.5 rounded-md text-[11px] truncate max-w-[130px]" title={tab.orderLabel}>
+                    🏷️ {tab.orderLabel}
+                  </span>
+                )}
+
+                {tab.isOverdue && (
+                  <span className="text-[10px] font-bold text-red-600 bg-red-100 border border-red-300 px-1.5 py-0.2 rounded-full animate-pulse">
+                    Quá hạn
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {onOpenHoldOrderModal && (
+              <button
+                type="button"
+                onClick={onOpenHoldOrderModal}
+                className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 hover:underline shrink-0"
+              >
+                {tab.diningTableId || tab.orderLabel ? "Đổi bàn/tên" : "+ Đặt bàn/tên"}
+              </button>
+            )}
+          </div>
+        </div>
+
         {/* 3. Financial Summary Card */}
         <div className="bg-slate-50/50 p-3 rounded-xl border border-slate-200 space-y-3">
           {/* Item count & Subtotal */}
@@ -459,12 +505,16 @@ export const PosPaymentSidebar: React.FC<IPosPaymentSidebarProps> = ({
             <div className="flex items-center justify-between text-slate-700 font-bold">
               <span className="text-xs">Khách thanh toán:</span>
               <input
-                type="number"
-                min={0}
-                value={tab.amountGiven || 0}
-                onChange={(e) =>
-                  onUpdateTab({ amountGiven: Math.max(0, Number(e.target.value)) })
-                }
+                type="text"
+                inputMode="numeric"
+                role="spinbutton"
+                aria-valuenow={tab.amountGiven || 0}
+                value={tab.amountGiven ? formatNumber(tab.amountGiven) : "0"}
+                onFocus={(e) => e.target.select()}
+                onChange={(e) => {
+                  const rawVal = e.target.value.replace(/\D/g, "");
+                  onUpdateTab({ amountGiven: rawVal ? Number(rawVal) : 0 });
+                }}
                 className="w-36 text-right bg-white border border-emerald-400 rounded-lg px-2.5 py-1.5 font-extrabold text-emerald-700 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 shadow-xs"
               />
             </div>
@@ -513,15 +563,28 @@ export const PosPaymentSidebar: React.FC<IPosPaymentSidebarProps> = ({
 
         {/* 6. Payment Method Segmented Buttons */}
         <div>
-          <label className="block font-bold text-slate-700 mb-1.5 text-xs">
-            Hình thức thanh toán
-          </label>
-          <div className="grid grid-cols-3 gap-1 bg-slate-100 p-1 rounded-xl font-bold text-xs">
+          <div className="flex items-center justify-between mb-1.5">
+            <label className="font-bold text-slate-700 text-xs">
+              Hình thức thanh toán
+            </label>
+            {tab.paymentMethod === "COMBINED" && (
+              <button
+                type="button"
+                onClick={onOpenCombinedPaymentModal}
+                className="text-[11px] font-bold text-[#0070f4] hover:underline inline-flex items-center gap-1"
+              >
+                <SlidersHorizontal className="w-3 h-3" />
+                <span>Cấu hình</span>
+              </button>
+            )}
+          </div>
+          <div className="grid grid-cols-4 gap-1 bg-slate-100 p-1 rounded-xl font-bold text-xs">
             {(
               [
                 { id: "CASH", label: "Tiền mặt" },
-                { id: "BANK_TRANSFER", label: "Chuyển khoản" },
+                { id: "BANK_TRANSFER", label: "CK" },
                 { id: "DEBT", label: "Ghi nợ" },
+                { id: "COMBINED", label: "Kết hợp" },
               ] as const
             ).map((pm) => (
               <button
@@ -530,11 +593,14 @@ export const PosPaymentSidebar: React.FC<IPosPaymentSidebarProps> = ({
                 onClick={() => {
                   if (pm.id === "DEBT") {
                     onUpdateTab({ paymentMethod: pm.id, amountGiven: 0 });
+                  } else if (pm.id === "COMBINED") {
+                    onUpdateTab({ paymentMethod: pm.id });
+                    onOpenCombinedPaymentModal?.();
                   } else {
                     onUpdateTab({ paymentMethod: pm.id, amountGiven: finalTotal });
                   }
                 }}
-                className={`py-2 rounded-lg transition-all text-center ${
+                className={`py-2 rounded-lg transition-all text-center text-xs ${
                   tab.paymentMethod === pm.id
                     ? "bg-white text-[#0070f4] shadow-sm font-extrabold"
                     : "text-slate-600 hover:text-slate-900"
@@ -544,11 +610,73 @@ export const PosPaymentSidebar: React.FC<IPosPaymentSidebarProps> = ({
               </button>
             ))}
           </div>
+
+          {/* Combined Payment Details Card (NCL-03-CN-011) */}
+          {tab.paymentMethod === "COMBINED" && (
+            <div className="mt-2 p-2.5 rounded-xl bg-blue-50/90 border border-blue-200 text-xs space-y-2 shadow-2xs">
+              <div className="flex items-center justify-between">
+                <span className="font-extrabold text-blue-900 text-xs flex items-center gap-1">
+                  <SlidersHorizontal className="w-3.5 h-3.5 text-blue-600" />
+                  <span>Thanh toán kết hợp (NCL-03-CN-011)</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={onOpenCombinedPaymentModal}
+                  className="text-[11px] font-bold text-[#0070f4] hover:underline"
+                >
+                  {tab.combinedPayments && tab.combinedPayments.length > 0 ? "Chỉnh sửa" : "Thiết lập"}
+                </button>
+              </div>
+
+              {tab.combinedPayments && tab.combinedPayments.length > 0 ? (
+                <div className="space-y-1.5 pt-1.5 border-t border-blue-200/80">
+                  {tab.combinedPayments.map((p, idx) => (
+                    <div key={idx} className="flex justify-between items-center text-[11px] bg-white/70 px-2 py-1 rounded-md border border-blue-100">
+                      <span className="font-semibold text-slate-700">
+                        {p.paymentMethod === "CASH"
+                          ? "💵 Tiền mặt"
+                          : p.paymentMethod === "BANK_TRANSFER"
+                          ? "💳 Chuyển khoản"
+                          : "📝 Ghi nợ"}
+                        :
+                      </span>
+                      <span className="font-extrabold text-slate-800">
+                        {formatCurrency(p.amount)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={onOpenCombinedPaymentModal}
+                  className="w-full py-1.5 rounded-lg bg-[#0070f4] hover:bg-blue-600 text-white font-bold text-xs transition-colors text-center shadow-xs"
+                >
+                  + Thiết lập phân bổ thanh toán
+                </button>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
       {/* 7. Main Action Buttons Sticky at Bottom */}
-      <div className="pt-3 mt-2 border-t border-slate-200 flex items-center gap-2.5 shrink-0 bg-white">
+      <div className="pt-3 mt-2 border-t border-slate-200 flex items-center gap-2 shrink-0 bg-white">
+        {/* Cancel Order Button (NCL-03-CN-009) */}
+        {onCancelOrder && (
+          <button
+            type="button"
+            disabled={tab.items.length === 0 && !tab.backendOrderId}
+            onClick={onCancelOrder}
+            className="px-3 py-3 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold text-xs transition-all disabled:opacity-40 disabled:cursor-not-allowed text-center shadow-xs flex items-center justify-center gap-1 shrink-0"
+            title="Hủy đơn chưa thanh toán kèm lý do (NCL-03-CN-009)"
+          >
+            <Ban className="w-4 h-4 text-rose-600" />
+            <span className="hidden sm:inline">Hủy đơn</span>
+          </button>
+        )}
+
+
         {/* Save Draft Button */}
         <button
           type="button"
@@ -564,7 +692,7 @@ export const PosPaymentSidebar: React.FC<IPosPaymentSidebarProps> = ({
           type="button"
           disabled={tab.items.length === 0 || isCompletingOrder}
           onClick={onCompleteOrder}
-          className="flex-1 py-3 rounded-xl bg-[#0070f4] hover:bg-blue-600 text-white font-extrabold text-xs transition-all shadow-md hover:shadow-lg disabled:opacity-40 disabled:cursor-not-allowed text-center uppercase tracking-wide"
+          className="flex-1 py-3 rounded-xl bg-[#0070f4] hover:bg-blue-600 text-white font-bold text-xs transition-all shadow-md hover:shadow-lg disabled:opacity-40 disabled:cursor-not-allowed text-center"
         >
           {isCompletingOrder ? "Đang xử lý..." : "Thanh toán (F9)"}
         </button>

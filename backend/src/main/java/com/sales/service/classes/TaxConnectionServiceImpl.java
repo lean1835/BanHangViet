@@ -166,4 +166,36 @@ public class TaxConnectionServiceImpl implements TaxConnectionService {
         log.info("Đã ghi nhận nhật ký kết nối cơ quan thuế: status={}, resolvedStatus={}, householdId={}",
                 status, resolvedStatus, householdId);
     }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public TaxConnectionStatusResponse simulateConnection(String currentUsername, String status, Integer responseTimeMs, String errorMessage) {
+        User currentUser = getAuthenticatedUser(currentUsername);
+        String householdId = currentUser.getHousehold() != null ? currentUser.getHousehold().getId() : null;
+
+        String resolvedStatus = (status != null && !status.isBlank()) ? status.toUpperCase() : "ONLINE";
+        Integer latency = responseTimeMs;
+        if (latency == null) {
+            if ("ONLINE".equals(resolvedStatus)) {
+                latency = 85;
+            } else if ("SLOW".equals(resolvedStatus)) {
+                latency = 1200;
+            } else {
+                latency = 0;
+            }
+        }
+
+        String msg = errorMessage;
+        if (msg == null || msg.isBlank()) {
+            if ("OFFLINE".equals(resolvedStatus)) {
+                msg = "Mô phỏng ngắt kết nối với cổng Tổng cục Thuế (NCL-04-CN-010)";
+            } else if ("SLOW".equals(resolvedStatus)) {
+                msg = "Mô phỏng đường truyền phản hồi chậm (> 1000ms)";
+            }
+        }
+
+        recordConnectionEvent(householdId, resolvedStatus, latency, msg);
+        return getTaxConnectionStatus(currentUsername);
+    }
 }
+

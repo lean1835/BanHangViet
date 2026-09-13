@@ -496,6 +496,7 @@ public class EInvoiceAutoRetryServiceImpl implements EInvoiceAutoRetryService {
                 .taxAmount(invoice.getTaxAmount())
                 .discountAmount(invoice.getDiscountAmount())
                 .finalAmount(invoice.getFinalAmount())
+                .paymentMethod(invoice.getPaymentMethod() != null ? invoice.getPaymentMethod() : (invoice.getOrder() != null ? invoice.getOrder().getPaymentMethod() : "CASH"))
                 .status(invoice.getStatus())
                 .taxAuthorityCode(invoice.getTaxAuthorityCode())
                 .taxAuthorityResponse(invoice.getTaxAuthorityResponse())
@@ -511,6 +512,7 @@ public class EInvoiceAutoRetryServiceImpl implements EInvoiceAutoRetryService {
                 .errorCategory(invoice.getErrorCategory())
                 .createdAt(invoice.getCreatedAt())
                 .updatedAt(invoice.getUpdatedAt())
+                .isErrorNotified(invoice.getIsErrorNotified())
                 .items(items)
                 .build();
     }

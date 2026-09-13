@@ -5,11 +5,13 @@ import com.sales.dto.request.CreateGoodsReceiptDetailRequest;
 import com.sales.dto.request.CreateGoodsReceiptRequest;
 import com.sales.entity.*;
 import com.sales.repository.*;
+import com.sales.service.classes.ActivityLogHelper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
@@ -20,6 +22,8 @@ import java.util.Arrays;
 import java.util.Collections;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -56,6 +60,9 @@ public class GoodsReceiptControllerTest {
 
     @Autowired
     private SupplierRepository supplierRepository;
+
+    @MockBean
+    private ActivityLogHelper activityLogHelper;
 
     private User ownerUser;
     private User employeeUser;
@@ -178,6 +185,31 @@ public class GoodsReceiptControllerTest {
         Product updatedProduct = productRepository.findById(product1.getId()).orElseThrow();
         assertEquals(new BigDecimal("30.000"), updatedProduct.getStockQuantity());
         assertEquals(new BigDecimal("8000.00"), updatedProduct.getCostPrice());
+    }
+
+    @Test
+    @WithMockUser(username = "owner_test_inv", roles = "VT-01")
+    public void createGoodsReceipt_activityLogFailure_stillSuccess() throws Exception {
+        doThrow(new RuntimeException("log failure")).when(activityLogHelper)
+                .logActivityInNewTransaction(any(), any(), any(), any(), any(), any(), any(), any(), any());
+
+        CreateGoodsReceiptDetailRequest detail = CreateGoodsReceiptDetailRequest.builder()
+                .productId(product1.getId())
+                .quantity(new BigDecimal("2.000"))
+                .purchasePrice(new BigDecimal("9000.00"))
+                .build();
+
+        CreateGoodsReceiptRequest request = CreateGoodsReceiptRequest.builder()
+                .supplierId(supplier.getId())
+                .receiptNumber("GR-LOG-FAIL")
+                .details(Collections.singletonList(detail))
+                .build();
+
+        mockMvc.perform(post("/api/v1/goods-receipts")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(1000));
     }
 
     @Test

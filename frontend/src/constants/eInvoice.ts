@@ -3,6 +3,7 @@ export const E_INVOICE_STATUS = {
   WAITING_TAX_CODE: "WAITING_TAX_CODE",
   ISSUED: "ISSUED",
   SEND_ERROR: "SEND_ERROR",
+  MANUAL_PROCESSING: "MANUAL_PROCESSING",
   ADJUSTED: "ADJUSTED",
   CANCELED: "CANCELED",
 } as const;
@@ -20,6 +21,7 @@ export const INVOICE_STATUS_OPTIONS: Array<{ value: string; label: string }> = [
   { value: E_INVOICE_STATUS.WAITING_TAX_CODE, label: "Chờ cấp mã (WAITING)" },
   { value: E_INVOICE_STATUS.ISSUED, label: "Đã cấp mã (ISSUED)" },
   { value: E_INVOICE_STATUS.SEND_ERROR, label: "Lỗi gửi thuế (SEND_ERROR)" },
+  { value: E_INVOICE_STATUS.MANUAL_PROCESSING, label: "Cần xử lý thủ công (MANUAL)" },
   { value: E_INVOICE_STATUS.ADJUSTED, label: "Điều chỉnh (ADJUSTED)" },
   { value: E_INVOICE_STATUS.CANCELED, label: "Đã hủy (CANCELED)" },
 ];

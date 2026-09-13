@@ -12,8 +12,12 @@ import com.sales.repository.UserRepository;
 import com.sales.service.interfaces.InvoiceTemplateService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import com.sales.entity.InvoiceNumberRange;
+import com.sales.repository.InvoiceNumberRangeRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -22,6 +26,7 @@ public class InvoiceTemplateServiceImpl implements InvoiceTemplateService {
 
     private final InvoiceTemplateRepository invoiceTemplateRepository;
     private final UserRepository userRepository;
+    private final InvoiceNumberRangeRepository invoiceNumberRangeRepository;
 
     private User getAuthenticatedUser(String username) {
         return userRepository.findByUsername(username)
@@ -46,6 +51,8 @@ public class InvoiceTemplateServiceImpl implements InvoiceTemplateService {
                         .footerNote(
                                 "Cảm ơn quý khách đã mua hàng! Hóa đơn điện tử khởi tạo từ máy tính tiền có mã của CQT.")
                         .build()));
+
+        ensureRangeExistsForConfiguredTemplate(household, template.getInvoicePattern(), template.getInvoiceSymbol());
 
         return mapToResponse(template);
     }
@@ -81,7 +88,46 @@ public class InvoiceTemplateServiceImpl implements InvoiceTemplateService {
         log.info("Cấu hình mẫu hóa đơn được cập nhật bởi user {}: Pattern={}, Symbol={}",
                 currentUsername, saved.getInvoicePattern(), saved.getInvoiceSymbol());
 
+        // Tự động đảm bảo có dải số trong lịch sử dải số đã khai báo với số hiện tại bắt đầu từ 0 và trạng thái Đang sử dụng (ACTIVE)
+        ensureRangeExistsForConfiguredTemplate(household, saved.getInvoicePattern(), saved.getInvoiceSymbol());
+
         return mapToResponse(saved);
+    }
+
+    private void ensureRangeExistsForConfiguredTemplate(BusinessHousehold household, String pattern, String symbol) {
+        if (pattern == null || symbol == null || pattern.trim().isEmpty() || symbol.trim().isEmpty()) {
+            return;
+        }
+        String cleanPattern = pattern.trim();
+        String cleanSymbol = symbol.trim().toUpperCase();
+
+        List<InvoiceNumberRange> existingRanges = invoiceNumberRangeRepository.findOverlappingRanges(
+                household.getId(), cleanPattern, cleanSymbol);
+
+        if (existingRanges.isEmpty()) {
+            InvoiceNumberRange newRange = InvoiceNumberRange.builder()
+                    .household(household)
+                    .invoicePattern(cleanPattern)
+                    .invoiceSymbol(cleanSymbol)
+                    .startNumber(1)
+                    .endNumber(100000)
+                    .currentNumber(0)
+                    .warningThreshold(50)
+                    .status("ACTIVE")
+                    .build();
+            invoiceNumberRangeRepository.save(newRange);
+            log.info("Tự động khởi tạo dải số mới khi cấu hình mẫu hóa đơn {}: Pattern={}, Symbol={}, Start=1, End=100000, Current=0",
+                    household.getId(), cleanPattern, cleanSymbol);
+        } else {
+            // Nếu đã có dải số cho mẫu này, kích hoạt lại nếu chưa hết số
+            for (InvoiceNumberRange r : existingRanges) {
+                if (!"EXHAUSTED".equals(r.getStatus()) && r.getCurrentNumber() < r.getEndNumber()) {
+                    r.setStatus("ACTIVE");
+                    invoiceNumberRangeRepository.save(r);
+                    break;
+                }
+            }
+        }
     }
 
     private InvoiceTemplateResponse mapToResponse(InvoiceTemplate template) {
