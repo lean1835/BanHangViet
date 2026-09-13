@@ -47,6 +47,8 @@ public class ReturnTicketServiceImpl implements ReturnTicketService {
     private final CustomerDebtRepository customerDebtRepository;
     private final InvoiceStatusLogRepository invoiceStatusLogRepository;
     private final ActivityLogHelper activityLogHelper;
+    @org.springframework.context.annotation.Lazy
+    private final com.sales.service.interfaces.LoyaltyService loyaltyService;
 
 
     @Override
@@ -346,6 +348,11 @@ public class ReturnTicketServiceImpl implements ReturnTicketService {
             } catch (Exception e) {
                 log.error("Lỗi khi ghi activity log cho approveReturnTicket", e);
             }
+        }
+
+        // 5. Thu hồi điểm thưởng tương ứng nếu đơn gốc đã tích điểm (NCL-10-CN-008 / AC-02)
+        if (loyaltyService != null) {
+            loyaltyService.deductPointsForReturnTicket(savedTicket, user);
         }
 
         return mapToResponse(savedTicket);
@@ -948,6 +955,7 @@ public class ReturnTicketServiceImpl implements ReturnTicketService {
                 .approvedByUserId(ticket.getApprovedByUser() != null ? ticket.getApprovedByUser().getId() : null)
                 .approvedByUserName(ticket.getApprovedByUser() != null ? ticket.getApprovedByUser().getFullName() : null)
                 .totalReturnAmount(ticket.getTotalReturnAmount())
+                .pointsDeducted(ticket.getPointsDeducted() != null ? ticket.getPointsDeducted() : 0)
                 .refundPaymentMethod(ticket.getRefundPaymentMethod())
                 .status(ticket.getStatus())
                 .reason(ticket.getReason())

@@ -59,6 +59,14 @@ public class CustomerDebt {
     @Builder.Default
     private boolean overdueReminderSent = false;
 
+    @Column(name = "is_locked", nullable = false, columnDefinition = "boolean default false")
+    @Builder.Default
+    private boolean isLocked = false;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "reconciliation_id")
+    private CustomerDebtReconciliation reconciliation;
+
     @Column(columnDefinition = "TEXT")
     private String notes;
 

@@ -88,4 +88,31 @@ public interface CustomerDebtRepository extends JpaRepository<CustomerDebt, Stri
     @Query("SELECT COUNT(DISTINCT d.customer.id) FROM CustomerDebt d " +
            "WHERE d.household.id = :householdId AND d.type = 'DEBT_CREATED' AND d.status IN ('PENDING', 'OVERDUE')")
     long countCustomersWithActiveDebt(@Param("householdId") String householdId);
+
+    @Query("SELECT COALESCE(SUM(d.amount), 0) FROM CustomerDebt d " +
+           "WHERE d.customer.id = :customerId AND d.household.id = :householdId " +
+           "AND d.type = :type AND d.createdAt < :beforeDate")
+    BigDecimal sumAmountByCustomerAndTypeBefore(
+            @Param("customerId") String customerId,
+            @Param("householdId") String householdId,
+            @Param("type") String type,
+            @Param("beforeDate") LocalDateTime beforeDate);
+
+    @Query("SELECT d FROM CustomerDebt d LEFT JOIN FETCH d.order o " +
+           "WHERE d.customer.id = :customerId AND d.household.id = :householdId " +
+           "AND d.createdAt >= :startDate AND d.createdAt < :endDateExclusive " +
+           "ORDER BY d.createdAt ASC")
+    List<CustomerDebt> findPeriodDebts(
+            @Param("customerId") String customerId,
+            @Param("householdId") String householdId,
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDateExclusive") LocalDateTime endDateExclusive);
+
+    @Query("SELECT d FROM CustomerDebt d WHERE d.customer.id = :customerId " +
+           "AND d.household.id = :householdId AND d.createdAt < :maxDateExclusive " +
+           "AND (d.isLocked = false OR d.reconciliation IS NULL)")
+    List<CustomerDebt> findDebtsToLock(
+            @Param("customerId") String customerId,
+            @Param("householdId") String householdId,
+            @Param("maxDateExclusive") LocalDateTime maxDateExclusive);
 }
