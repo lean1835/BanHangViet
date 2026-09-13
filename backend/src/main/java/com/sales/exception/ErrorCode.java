@@ -341,7 +341,6 @@ public enum ErrorCode {
     CASH_CATEGORY_TYPE_MISMATCH(3150, "Loại danh mục không khớp với phân loại phiếu (Thu hoặc Chi)", HttpStatus.BAD_REQUEST),
     EXPENSE_THRESHOLD_INVALID(3151, "Hạn mức duyệt chi của hộ kinh doanh phải lớn hơn hoặc bằng 0", HttpStatus.BAD_REQUEST),
     CASH_TRANSACTION_PERMISSION_DENIED(3152, "Bạn không có quyền thao tác trên phiếu thu chi này", HttpStatus.FORBIDDEN),
-    
     // NCL-10-CN-007 Đối chiếu công nợ và in giấy xác nhận nợ
     DEBT_RECONCILIATION_NOT_FOUND(3160, "Biên bản đối chiếu công nợ không tồn tại trong hệ thống", HttpStatus.NOT_FOUND),
     DEBT_RECONCILIATION_ALREADY_CONFIRMED(3161, "Biên bản đối chiếu công nợ này đã được xác nhận chốt sổ trước đó", HttpStatus.BAD_REQUEST),
@@ -352,11 +351,28 @@ public enum ErrorCode {
     DEBT_RECONCILIATION_OVERLAPPING_CONFIRMED(3166, "Khoảng thời gian này đã có biên bản đối chiếu công nợ được xác nhận chốt sổ trước đó", HttpStatus.BAD_REQUEST),
     ONLY_STORE_OWNER_CAN_RECONCILE(3167, "Chỉ chủ hộ kinh doanh mới có quyền thực hiện và chốt đối chiếu công nợ", HttpStatus.FORBIDDEN),
     DEBT_RECONCILIATION_PERIOD_BEFORE_LAST_LOCK(3168, "Ngày bắt đầu đối chiếu không được nằm trước mốc đã khóa sổ đối chiếu gần nhất của khách hàng", HttpStatus.BAD_REQUEST),
-    DEBT_ADJUSTMENT_REASON_REQUIRED(3169, "Bắt buộc phải nhập lý do khi lập bút toán điều chỉnh công nợ sau mốc đối chiếu", HttpStatus.BAD_REQUEST);
+    DEBT_ADJUSTMENT_REASON_REQUIRED(3169, "Bắt buộc phải nhập lý do khi lập bút toán điều chỉnh công nợ sau mốc đối chiếu", HttpStatus.BAD_REQUEST),
 
+    // NCL-01-CN-008 Mời và thu hồi quyền truy cập của kế toán thuê ngoài
+    ACCOUNTANT_INVITATION_NOT_FOUND(2051, "Không tìm thấy lời mời kế toán", HttpStatus.NOT_FOUND),
+    INVITATION_EXPIRED(2052, "Lời mời kế toán đã hết hạn hoặc không còn hiệu lực", HttpStatus.BAD_REQUEST),
+    INVITATION_ALREADY_PROCESSED(2053, "Lời mời kế toán đã được xử lý trước đó", HttpStatus.BAD_REQUEST),
+    ASSIGNMENT_NOT_FOUND(2057, "Không tìm thấy phân công kế toán", HttpStatus.NOT_FOUND),
+    ACCOUNTANT_NOT_ASSIGNED_TO_HOUSEHOLD(2060, "Kế toán không được phân công cho hộ kinh doanh này hoặc quyền truy cập đã hết hạn", HttpStatus.FORBIDDEN),
 
+    // NCL-01-CN-009 Quản trị nền tảng khóa và mở khóa tài khoản hộ kinh doanh
+    HOUSEHOLD_LOCKED(2050, "Tài khoản hộ kinh doanh đang bị khóa. Vui lòng liên hệ Quản trị nền tảng", HttpStatus.FORBIDDEN),
+    LOCK_REASON_REQUIRED(2061, "Vui lòng nhập lý do khi khóa tài khoản hộ kinh doanh", HttpStatus.BAD_REQUEST),
 
+    // NCL-01-CN-010 Quản trị nền tảng quản lý gói dịch vụ của hộ
+    PACKAGE_USER_LIMIT_EXCEEDED(2054, "Hộ kinh doanh đã đạt giới hạn tối đa người dùng của gói dịch vụ. Vui lòng nâng cấp gói để tiếp tục thêm nhân viên", HttpStatus.BAD_REQUEST),
+    PACKAGE_POS_LIMIT_EXCEEDED(2062, "Hộ kinh doanh đã đạt giới hạn tối đa điểm bán của gói dịch vụ. Vui lòng nâng cấp gói để tiếp tục thêm điểm bán", HttpStatus.BAD_REQUEST),
+    SERVICE_PACKAGE_NOT_FOUND(2055, "Không tìm thấy gói dịch vụ", HttpStatus.NOT_FOUND),
+    SERVICE_PACKAGE_CODE_EXISTS(2056, "Mã gói dịch vụ đã tồn tại trên hệ thống", HttpStatus.BAD_REQUEST),
 
+    // NCL-01-CN-011 Quản trị nền tảng xem nhật ký hệ thống toàn nền tảng
+    PLATFORM_LOG_NOT_FOUND(2058, "Không tìm thấy bản ghi nhật ký hệ thống", HttpStatus.NOT_FOUND),
+    PLATFORM_INCIDENT_NOT_FOUND(2059, "Không tìm thấy sự cố hệ thống", HttpStatus.NOT_FOUND);
 
     private final int code;
     private final String message;

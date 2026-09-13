@@ -35,6 +35,20 @@ public class BusinessHousehold {
     @Column(name = "representative_name", length = 100)
     private String representativeName;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    @Builder.Default
+    private com.sales.constant.HouseholdStatus status = com.sales.constant.HouseholdStatus.ACTIVE;
+
+    @Column(name = "lock_reason", columnDefinition = "TEXT")
+    private String lockReason;
+
+    @Column(name = "locked_at")
+    private LocalDateTime lockedAt;
+
+    @Column(name = "locked_by_user_id", length = 36)
+    private String lockedByUserId;
+
     @Column(name = "revenue_threshold_enabled", nullable = false)
     @Builder.Default
     private Boolean revenueThresholdEnabled = false;

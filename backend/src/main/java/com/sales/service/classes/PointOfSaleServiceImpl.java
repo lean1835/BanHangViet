@@ -39,6 +39,7 @@ public class PointOfSaleServiceImpl implements PointOfSaleService {
     private final UserRepository userRepository;
     private final ActivityLogHelper activityLogHelper;
     private final ObjectMapper objectMapper;
+    private final com.sales.service.interfaces.ServicePackageService servicePackageService;
 
     private User getAuthenticatedUser(String username) {
         return userRepository.findByUsername(username)
@@ -75,6 +76,11 @@ public class PointOfSaleServiceImpl implements PointOfSaleService {
         User currentUser = getAuthenticatedUser(currentUsername);
         checkOwnerRole(currentUser);
         BusinessHousehold household = getValidHousehold(currentUser);
+
+        // NCL-01-CN-010: Kiểm tra hạn mức điểm bán của gói dịch vụ
+        if (servicePackageService != null) {
+            servicePackageService.validatePosQuota(household.getId());
+        }
 
         String trimmedName = request.getName() != null ? request.getName().trim() : "";
         if (!StringUtils.hasText(trimmedName)) {

@@ -26,6 +26,8 @@ public interface UserRepository extends JpaRepository<User, String> {
     @EntityGraph(attributePaths = {"role"})
     List<User> findByHouseholdIdAndDeletedAtIsNull(String householdId);
 
+    long countByHouseholdIdAndDeletedAtIsNull(String householdId);
+
     @EntityGraph(attributePaths = {"role"})
     List<User> findByHouseholdId(String householdId);
 

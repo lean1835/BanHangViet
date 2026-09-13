@@ -33,6 +33,7 @@ public class TaxConnectionServiceImpl implements TaxConnectionService {
     private final UserRepository userRepository;
     private final EInvoiceRepository eInvoiceRepository;
     private final BusinessHouseholdRepository householdRepository;
+    private final com.sales.service.interfaces.PlatformSystemLogService platformSystemLogService;
 
     private User getAuthenticatedUser(String username) {
         return userRepository.findByUsername(username)
@@ -165,6 +166,22 @@ public class TaxConnectionServiceImpl implements TaxConnectionService {
         logRepository.save(logItem);
         log.info("Đã ghi nhận nhật ký kết nối cơ quan thuế: status={}, resolvedStatus={}, householdId={}",
                 status, resolvedStatus, householdId);
+
+        // NCL-01-CN-011: Tự động ghi nhật ký hệ thống toàn nền tảng và nhận diện sự cố diện rộng khi CQT mất kết nối
+        if ("OFFLINE".equalsIgnoreCase(resolvedStatus) && platformSystemLogService != null) {
+            try {
+                platformSystemLogService.logSystemEvent(
+                        "TAX_SERVICE_OFFLINE",
+                        com.sales.constant.PlatformLogSeverity.CRITICAL,
+                        householdId,
+                        "TAX_OFFLINE",
+                        "Kết nối Cơ quan Thuế không phản hồi hoặc chuyển sang OFFLINE",
+                        "{\"errorMessage\":\"" + (errorMessage != null ? errorMessage.replace("\"", "\\\"") : "Mất kết nối CQT") + "\",\"responseTimeMs\":" + responseTimeMs + "}"
+                );
+            } catch (Exception e) {
+                log.warn("Không thể ghi nhận nhật ký sự cố nền tảng: {}", e.getMessage());
+            }
+        }
     }
 
     @Override
