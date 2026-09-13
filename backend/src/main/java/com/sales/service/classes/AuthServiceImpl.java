@@ -104,6 +104,11 @@ public class AuthServiceImpl implements AuthService {
             throw new AppException(ErrorCode.USER_BLOCKED);
         }
 
+        // NCL-01-CN-009 TC-01: Chặn đăng nhập nếu hộ kinh doanh đang bị khóa bởi Quản trị nền tảng
+        if (user.getHousehold() != null && user.getHousehold().getStatus() == com.sales.constant.HouseholdStatus.LOCKED) {
+            throw new AppException(ErrorCode.HOUSEHOLD_LOCKED);
+        }
+
         // 3. Kiểm tra mật khẩu (NCL-01-CN-002-TC-02)
         if (!passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
             throw new AppException(ErrorCode.WRONG_PASSWORD);

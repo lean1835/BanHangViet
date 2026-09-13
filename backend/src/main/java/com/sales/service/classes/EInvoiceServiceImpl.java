@@ -65,6 +65,7 @@ public class EInvoiceServiceImpl implements EInvoiceService {
     private final TransactionTemplate transactionTemplate;
     private final InvoiceNumberRangeService invoiceNumberRangeService;
     private final TaxConnectionService taxConnectionService;
+    private final com.sales.service.interfaces.ServicePackageService servicePackageService;
 
     @Value("${app.frontend-url:http://localhost:3000}")
     private String frontendUrl;
@@ -948,6 +949,11 @@ public class EInvoiceServiceImpl implements EInvoiceService {
         invoice.setTaxResponseAt(LocalDateTime.now());
 
         EInvoice saved = eInvoiceRepository.save(invoice);
+
+        // NCL-01-CN-010 & GAP 48 (TC-03): Ghi nhận hóa đơn phát hành theo tháng vào hạn mức gói
+        if (servicePackageService != null && householdId != null) {
+            servicePackageService.recordInvoiceIssued(householdId);
+        }
 
         if (taxConnectionService != null) {
             try {
