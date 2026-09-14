@@ -71,7 +71,15 @@ public class AccountantSecurityService {
                         AccountantAssignmentStatus.ACTIVE);
 
         if (assignmentOpt.isEmpty()) {
-            log.warn("Accountant {} is not assigned to household {}", username, currentHousehold.getId());
+            // Trường hợp kế toán viên nội bộ trực tiếp thuộc hộ (không qua cơ chế phân quyền kế toán dịch vụ thuê ngoài)
+            boolean hasAssignmentForThisHousehold = assignmentRepository
+                    .findByHouseholdIdAndAccountantUserId(currentHousehold.getId(), user.getId())
+                    .isPresent();
+            if (!hasAssignmentForThisHousehold && user.getHousehold() != null && user.getHousehold().getId().equals(currentHousehold.getId())) {
+                return true;
+            }
+
+            log.warn("Accountant {} is not actively assigned to household {}", username, currentHousehold.getId());
             return false;
         }
 
