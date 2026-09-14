@@ -44,6 +44,63 @@ public class TaxPeriodControllerTest {
     @MockBean
     private TaxPeriodService taxPeriodService;
 
+    @Autowired
+    private com.sales.repository.UserRepository userRepository;
+
+    @Autowired
+    private com.sales.repository.BusinessHouseholdRepository businessHouseholdRepository;
+
+    @Autowired
+    private com.sales.repository.RoleRepository roleRepository;
+
+    @org.junit.jupiter.api.BeforeEach
+    public void setUp() {
+        com.sales.entity.Role ownerRole = roleRepository.findByCode("VT-01").orElseGet(() ->
+                roleRepository.save(com.sales.entity.Role.builder().code("VT-01").name("Chủ hộ kinh doanh").build()));
+        com.sales.entity.Role empRole = roleRepository.findByCode("VT-02").orElseGet(() ->
+                roleRepository.save(com.sales.entity.Role.builder().code("VT-02").name("Nhân viên bán hàng").build()));
+        com.sales.entity.Role accountantRole = roleRepository.findByCode("VT-03").orElseGet(() ->
+                roleRepository.save(com.sales.entity.Role.builder().code("VT-03").name("Kế toán").build()));
+
+        com.sales.entity.BusinessHousehold household = businessHouseholdRepository.findByTaxCode("9999999999").orElseGet(() ->
+                businessHouseholdRepository.save(com.sales.entity.BusinessHousehold.builder()
+                        .taxCode("9999999999")
+                        .name("Hộ kinh doanh Test Tax")
+                        .address("Địa chỉ Test Tax")
+                        .phoneNumber("0999999999")
+                        .build()));
+
+        userRepository.findByUsername("owner_test").orElseGet(() ->
+                userRepository.save(com.sales.entity.User.builder()
+                        .username("owner_test")
+                        .passwordHash("hashed")
+                        .fullName("Chủ Hộ Test")
+                        .role(ownerRole)
+                        .household(household)
+                        .isActive(true)
+                        .build()));
+
+        userRepository.findByUsername("sales_test").orElseGet(() ->
+                userRepository.save(com.sales.entity.User.builder()
+                        .username("sales_test")
+                        .passwordHash("hashed")
+                        .fullName("Nhân Viên Test")
+                        .role(empRole)
+                        .household(household)
+                        .isActive(true)
+                        .build()));
+
+        userRepository.findByUsername("accountant_test").orElseGet(() ->
+                userRepository.save(com.sales.entity.User.builder()
+                        .username("accountant_test")
+                        .passwordHash("hashed")
+                        .fullName("Kế Toán Test")
+                        .role(accountantRole)
+                        .household(household)
+                        .isActive(true)
+                        .build()));
+    }
+
     @Test
     @DisplayName("Lập bảng kê hóa đơn bán ra thành công với vai trò VT-01 (Chủ hộ)")
     @WithMockUser(username = "owner_test", roles = {"VT-01"})
@@ -101,6 +158,22 @@ public class TaxPeriodControllerTest {
     @DisplayName("Lập bảng kê hóa đơn bán ra thất bại (403) với vai trò VT-02 (Nhân viên bán hàng)")
     @WithMockUser(username = "sales_test", roles = {"VT-02"})
     public void generateSalesRegister_forbidden_salesStaff() throws Exception {
+        GenerateTaxRegisterRequest request = GenerateTaxRegisterRequest.builder()
+                .periodType("MONTHLY")
+                .year(2026)
+                .periodNumber(9)
+                .build();
+
+        mockMvc.perform(post("/api/v1/tax-periods/generate-sales-register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @DisplayName("Lập bảng kê hóa đơn bán ra thất bại (403) với vai trò VT-04 (Quản trị nền tảng)")
+    @WithMockUser(username = "platform_admin", roles = {"VT-04"})
+    public void generateSalesRegister_forbidden_platformAdmin() throws Exception {
         GenerateTaxRegisterRequest request = GenerateTaxRegisterRequest.builder()
                 .periodType("MONTHLY")
                 .year(2026)
@@ -195,6 +268,14 @@ public class TaxPeriodControllerTest {
     @DisplayName("Lấy tổng hợp doanh thu chịu thuế thất bại (403) với vai trò VT-02 (Nhân viên bán hàng)")
     @WithMockUser(username = "sales_test", roles = {"VT-02"})
     public void getTaxRevenueSummary_forbidden_salesStaff() throws Exception {
+        mockMvc.perform(get("/api/v1/tax-periods/period-123/tax-summary"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @DisplayName("Lấy tổng hợp doanh thu chịu thuế thất bại (403) với vai trò VT-04 (Quản trị nền tảng)")
+    @WithMockUser(username = "platform_admin", roles = {"VT-04"})
+    public void getTaxRevenueSummary_forbidden_platformAdmin() throws Exception {
         mockMvc.perform(get("/api/v1/tax-periods/period-123/tax-summary"))
                 .andExpect(status().isForbidden());
     }

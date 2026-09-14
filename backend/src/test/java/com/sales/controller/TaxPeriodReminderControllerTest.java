@@ -40,6 +40,9 @@ public class TaxPeriodReminderControllerTest {
     @MockBean
     private TaxReminderService taxReminderService;
 
+    @MockBean
+    private com.sales.security.AccountantSecurityService accountantSecurityService;
+
     @Test
     @DisplayName("GET /reminder-settings: Chủ hộ (VT-01) xem cấu hình thành công")
     @WithMockUser(username = "owner_test", roles = {"VT-01"})
@@ -67,6 +70,8 @@ public class TaxPeriodReminderControllerTest {
     @DisplayName("GET /reminder-settings: Kế toán (VT-03) xem cấu hình thành công")
     @WithMockUser(username = "acc_test", roles = {"VT-03"})
     void getReminderSettings_Accountant_Success() throws Exception {
+        when(accountantSecurityService.hasScope(any(), eq("TAX_DECLARATION"))).thenReturn(true);
+
         TaxReminderSettingsResponse mockResp = TaxReminderSettingsResponse.builder()
                 .householdId("hh-1")
                 .taxPeriodType("QUARTERLY")

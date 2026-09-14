@@ -40,7 +40,7 @@ public class EInvoiceController {
     // ==========================================
 
     @PostMapping("/{id}/adjust")
-    @PreAuthorize("hasAnyRole('VT-01', 'VT-03')")
+    @PreAuthorize("hasRole('VT-01') or (hasRole('VT-03') and @accountantSecurityService.hasScope(authentication, 'INVOICE'))")
     public ResponseEntity<ApiResponse<InvoiceResponse>> adjustInvoice(
             Principal principal,
             @PathVariable String id,
@@ -55,7 +55,7 @@ public class EInvoiceController {
     }
 
     @GetMapping("/{id}/logs")
-    @PreAuthorize("hasAnyRole('VT-01', 'VT-02', 'VT-03')")
+    @PreAuthorize("hasAnyRole('VT-01', 'VT-02') or (hasRole('VT-03') and @accountantSecurityService.hasScope(authentication, 'INVOICE'))")
     public ResponseEntity<ApiResponse<List<InvoiceStatusLogResponse>>> getInvoiceLogs(
             Principal principal,
             @PathVariable String id) {
@@ -144,7 +144,7 @@ public class EInvoiceController {
     }
 
     @GetMapping("/buyer-info/lookup")
-    @PreAuthorize("hasAnyRole('VT-01', 'VT-02', 'VT-03')")
+    @PreAuthorize("hasAnyRole('VT-01', 'VT-02') or (hasRole('VT-03') and @accountantSecurityService.hasScope(authentication, 'INVOICE'))")
     public ResponseEntity<ApiResponse<CustomerTaxLookupResponse>> lookupBuyerInfo(
             Principal principal,
             @RequestParam String taxCode) {
@@ -158,7 +158,7 @@ public class EInvoiceController {
     }
 
     @PostMapping("/{invoiceId}/cancel")
-    @PreAuthorize("hasAnyRole('VT-01', 'VT-03')")
+    @PreAuthorize("hasRole('VT-01') or (hasRole('VT-03') and @accountantSecurityService.hasScope(authentication, 'INVOICE'))")
     public ResponseEntity<ApiResponse<InvoiceResponse>> cancelInvoice(
             Principal principal,
             @PathVariable String invoiceId,
@@ -173,7 +173,7 @@ public class EInvoiceController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('VT-01', 'VT-02', 'VT-03')")
+    @PreAuthorize("hasAnyRole('VT-01', 'VT-02') or (hasRole('VT-03') and @accountantSecurityService.hasScope(authentication, 'INVOICE'))")
     public ResponseEntity<ApiResponse<InvoiceResponse>> getInvoice(
             Principal principal,
             @PathVariable String id) {
@@ -187,7 +187,7 @@ public class EInvoiceController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('VT-01', 'VT-02', 'VT-03')")
+    @PreAuthorize("hasAnyRole('VT-01', 'VT-02') or (hasRole('VT-03') and @accountantSecurityService.hasScope(authentication, 'INVOICE'))")
     public ResponseEntity<ApiResponse<PageResponse<InvoiceResponse>>> getInvoices(
             Principal principal,
             @RequestParam(required = false) String status,
@@ -250,7 +250,7 @@ public class EInvoiceController {
     }
 
     @GetMapping("/export")
-    @PreAuthorize("hasAnyRole('VT-01', 'VT-03')")
+    @PreAuthorize("hasRole('VT-01') or (hasRole('VT-03') and @accountantSecurityService.hasScope(authentication, 'INVOICE'))")
     @Operation(summary = "Xuất danh sách hóa đơn tra cứu ra tệp Excel (NCL-05-CN-006)")
     public ResponseEntity<byte[]> exportInvoices(
             Principal principal,
@@ -272,7 +272,7 @@ public class EInvoiceController {
     }
 
     @GetMapping("/{id}/representation")
-    @PreAuthorize("hasAnyRole('VT-01', 'VT-02', 'VT-03')")
+    @PreAuthorize("hasAnyRole('VT-01', 'VT-02') or (hasRole('VT-03') and @accountantSecurityService.hasScope(authentication, 'INVOICE'))")
     @Operation(summary = "Xem bản thể hiện hóa đơn điện tử (NCL-05-CN-007)")
     public ResponseEntity<ApiResponse<com.sales.dto.response.InvoiceRepresentationResponse>> getInvoiceRepresentation(
             Principal principal,
@@ -287,7 +287,7 @@ public class EInvoiceController {
     }
 
     @GetMapping(value = {"/{id}/representation/download", "/{id}/representation/html", "/{id}/representation/pdf"})
-    @PreAuthorize("hasAnyRole('VT-01', 'VT-02', 'VT-03')")
+    @PreAuthorize("hasAnyRole('VT-01', 'VT-02') or (hasRole('VT-03') and @accountantSecurityService.hasScope(authentication, 'INVOICE'))")
     @Operation(summary = "Tải bản thể hiện hóa đơn dạng file HTML (NCL-05-CN-007)")
     public ResponseEntity<byte[]> downloadInvoiceRepresentation(
             Principal principal,
@@ -300,7 +300,7 @@ public class EInvoiceController {
     }
 
     @GetMapping("/daily-control")
-    @PreAuthorize("hasAnyRole('VT-01', 'VT-03')")
+    @PreAuthorize("hasRole('VT-01') or (hasRole('VT-03') and @accountantSecurityService.hasScope(authentication, 'INVOICE'))")
     @Operation(summary = "Kiểm soát hóa đơn cuối ngày (NCL-04-CN-008)")
     public ResponseEntity<ApiResponse<DailyInvoiceControlResponse>> getDailyControl(
             Principal principal,
@@ -315,7 +315,7 @@ public class EInvoiceController {
     }
 
     @GetMapping("/failed-customer-deliveries")
-    @PreAuthorize("hasAnyRole('VT-01', 'VT-02', 'VT-03')")
+    @PreAuthorize("hasAnyRole('VT-01', 'VT-02') or (hasRole('VT-03') and @accountantSecurityService.hasScope(authentication, 'INVOICE'))")
     @Operation(summary = "Lấy danh sách hóa đơn giao cho khách không thành công (NCL-06-CN-005)")
     public ResponseEntity<ApiResponse<PageResponse<com.sales.dto.response.FailedCustomerDeliveryInvoiceResponse>>> getFailedCustomerDeliveries(
             Principal principal,
@@ -333,7 +333,7 @@ public class EInvoiceController {
     }
 
     @PostMapping("/{invoiceId}/resend-customer")
-    @PreAuthorize("hasAnyRole('VT-01', 'VT-02', 'VT-03')")
+    @PreAuthorize("hasAnyRole('VT-01', 'VT-02') or (hasRole('VT-03') and @accountantSecurityService.hasScope(authentication, 'INVOICE'))")
     @Operation(summary = "Gửi lại hóa đơn cho khách hàng (NCL-06-CN-005 & NCL-06-CN-006)")
     public ResponseEntity<ApiResponse<InvoiceResponse>> resendCustomerDelivery(
             Principal principal,
@@ -349,7 +349,7 @@ public class EInvoiceController {
     }
 
     @GetMapping("/{invoiceId}/delivery-history")
-    @PreAuthorize("hasAnyRole('VT-01', 'VT-02', 'VT-03')")
+    @PreAuthorize("hasAnyRole('VT-01', 'VT-02') or (hasRole('VT-03') and @accountantSecurityService.hasScope(authentication, 'INVOICE'))")
     @Operation(summary = "Xem lịch sử các lần giao hóa đơn cho khách hàng (NCL-06-CN-005)")
     public ResponseEntity<ApiResponse<List<com.sales.dto.response.InvoiceDeliveryLogResponse>>> getInvoiceDeliveryHistory(
             Principal principal,

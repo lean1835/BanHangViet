@@ -61,6 +61,7 @@ public class EmployeeServiceImpl implements EmployeeService {
     private final PointOfSaleRepository pointOfSaleRepository;
     private final CashTransactionRepository cashTransactionRepository;
     private final ShiftHandoverRepository shiftHandoverRepository;
+    private final com.sales.service.interfaces.ServicePackageService servicePackageService;
 
     private void closeActiveShiftOfUser(User employee) {
         Optional<Shift> activeShiftOpt = shiftRepository.findByUserIdAndStatus(employee.getId(), ShiftStatus.OPEN);
@@ -201,6 +202,9 @@ public class EmployeeServiceImpl implements EmployeeService {
         if (household == null) {
             throw new AppException(ErrorCode.UNAUTHORIZED);
         }
+
+        // NCL-01-CN-010 TC-02: Kiểm tra hạn mức người dùng của gói dịch vụ
+        servicePackageService.validateUserQuota(household.getId());
 
         if (userRepository.existsByUsername(request.getUsername())) {
             throw new AppException(ErrorCode.USERNAME_ALREADY_EXISTS);

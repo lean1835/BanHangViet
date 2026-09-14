@@ -26,6 +26,8 @@ public interface UserRepository extends JpaRepository<User, String> {
     @EntityGraph(attributePaths = {"role"})
     List<User> findByHouseholdIdAndDeletedAtIsNull(String householdId);
 
+    long countByHouseholdIdAndDeletedAtIsNull(String householdId);
+
     @EntityGraph(attributePaths = {"role"})
     List<User> findByHouseholdId(String householdId);
 
@@ -49,4 +51,7 @@ public interface UserRepository extends JpaRepository<User, String> {
 
     @EntityGraph(attributePaths = {"role", "household", "pointOfSale"})
     Optional<User> findByEmailAndDeletedAtIsNull(String email);
+
+    @Query("SELECT u.household.id, COUNT(u.id) FROM User u WHERE u.household.id IN :householdIds AND u.deletedAt IS NULL GROUP BY u.household.id")
+    List<Object[]> countUsersByHouseholdIds(@Param("householdIds") java.util.Collection<String> householdIds);
 }
