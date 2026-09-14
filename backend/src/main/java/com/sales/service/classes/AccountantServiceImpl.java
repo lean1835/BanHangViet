@@ -44,6 +44,7 @@ public class AccountantServiceImpl implements AccountantService {
     private final UserSessionRepository userSessionRepository;
     private final ActivityLogHelper activityLogHelper;
     private final ObjectMapper objectMapper;
+    private final com.sales.service.interfaces.JwtService jwtService;
 
     private User getAuthenticatedUser(String username) {
         return userRepository.findByUsername(username)
@@ -124,7 +125,7 @@ public class AccountantServiceImpl implements AccountantService {
     }
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public AccountantInvitationResponse inviteAccountant(String currentUsername, InviteAccountantRequest request) {
         User currentUser = getAuthenticatedUser(currentUsername);
         BusinessHousehold household = currentUser.getHousehold();
@@ -170,7 +171,7 @@ public class AccountantServiceImpl implements AccountantService {
     }
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public AccountantAssignmentResponse acceptInvitation(String currentUsername, String token, AcceptInvitationRequest request) {
         User accountant = getAuthenticatedUser(currentUsername);
         AccountantInvitation invitation = invitationRepository.findByInvitationToken(token)
@@ -244,7 +245,7 @@ public class AccountantServiceImpl implements AccountantService {
     }
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void revokeAssignment(String currentUsername, String assignmentId, RevokeAccountantAssignmentRequest request) {
         User currentUser = getAuthenticatedUser(currentUsername);
         BusinessHousehold household = currentUser.getHousehold();
@@ -319,7 +320,7 @@ public class AccountantServiceImpl implements AccountantService {
     }
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public AssignedHouseholdResponse switchActiveHousehold(String currentUsername, String householdId) {
         User accountant = getAuthenticatedUser(currentUsername);
 
@@ -339,6 +340,27 @@ public class AccountantServiceImpl implements AccountantService {
         }
         accountant.setHousehold(targetHousehold);
         userRepository.save(accountant);
+
+        // Quản lý active context theo UserSession hiện tại để cách ly nhiều phiên/tab
+        try {
+            ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+            if (attributes != null && jwtService != null) {
+                HttpServletRequest req = attributes.getRequest();
+                String authHeader = req.getHeader("Authorization");
+                if (authHeader != null && authHeader.startsWith("Bearer ")) {
+                    String token = authHeader.substring(7);
+                    String sessionId = jwtService.extractSessionId(token);
+                    if (sessionId != null) {
+                        userSessionRepository.findById(sessionId).ifPresent(session -> {
+                            session.setHousehold(targetHousehold);
+                            userSessionRepository.save(session);
+                        });
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Không thể cập nhật active context vào UserSession: {}", e.getMessage());
+        }
 
         return AssignedHouseholdResponse.builder()
                 .assignmentId(assignment.getId())

@@ -20,7 +20,11 @@ public interface BusinessHouseholdRepository extends JpaRepository<BusinessHouse
             String name, String taxCode,
             org.springframework.data.domain.Pageable pageable);
 
-    org.springframework.data.domain.Page<BusinessHousehold> findByNameContainingIgnoreCaseOrTaxCodeContainingIgnoreCaseAndStatus(
-            String name, String taxCode, com.sales.constant.HouseholdStatus status,
+    @org.springframework.data.jpa.repository.Query("SELECT h FROM BusinessHousehold h WHERE " +
+            "(LOWER(h.name) LIKE LOWER(CONCAT('%', :keyword, '%')) OR LOWER(h.taxCode) LIKE LOWER(CONCAT('%', :keyword, '%'))) " +
+            "AND h.status = :status")
+    org.springframework.data.domain.Page<BusinessHousehold> searchByNameOrTaxCodeAndStatus(
+            @org.springframework.data.repository.query.Param("keyword") String keyword,
+            @org.springframework.data.repository.query.Param("status") com.sales.constant.HouseholdStatus status,
             org.springframework.data.domain.Pageable pageable);
 }

@@ -278,4 +278,67 @@ public class AccountantAccessIntegrationTest {
                 accountantService.acceptInvitation("accountant_test", "token-locked-test", null));
         assertEquals(ErrorCode.HOUSEHOLD_LOCKED, exception.getErrorCode());
     }
+
+    @Test
+    @WithMockUser(username = "accountant_test", roles = {"VT-03"})
+    @DisplayName("ISSUE-03 (P1): Kế toán chỉ có scope INVOICE bị chặn 403 khi truy cập báo cáo doanh thu")
+    public void accountant_ScopeEnforcement_ForbiddenWhenLacksScope() throws Exception {
+        assignmentRepository.save(HouseholdAccountantAssignment.builder()
+                .household(householdA)
+                .accountantUser(accountant)
+                .scopePermissions("[\"INVOICE\"]")
+                .accessExpiresAt(LocalDateTime.now().plusDays(30))
+                .status(AccountantAssignmentStatus.ACTIVE)
+                .build());
+
+        mockMvc.perform(get("/api/v1/reports/daily"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(username = "accountant_test", roles = {"VT-03"})
+    @DisplayName("ISSUE-03 (P1): Kế toán có scope REPORT được phép truy cập báo cáo doanh thu")
+    public void accountant_ScopeEnforcement_AllowedWhenHasScope() throws Exception {
+        assignmentRepository.save(HouseholdAccountantAssignment.builder()
+                .household(householdA)
+                .accountantUser(accountant)
+                .scopePermissions("[\"REPORT\"]")
+                .accessExpiresAt(LocalDateTime.now().plusDays(30))
+                .status(AccountantAssignmentStatus.ACTIVE)
+                .build());
+
+        mockMvc.perform(get("/api/v1/reports/daily"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @WithMockUser(username = "accountant_test", roles = {"VT-03"})
+    @DisplayName("ISSUE-04 (P1): Kế toán đổi context hộ độc lập qua header X-Household-Context")
+    public void accountant_MultiTenancyContext_HeaderSupport() throws Exception {
+        assignmentRepository.save(HouseholdAccountantAssignment.builder()
+                .household(householdA)
+                .accountantUser(accountant)
+                .scopePermissions("[\"INVOICE\"]")
+                .accessExpiresAt(LocalDateTime.now().plusDays(30))
+                .status(AccountantAssignmentStatus.ACTIVE)
+                .build());
+
+        assignmentRepository.save(HouseholdAccountantAssignment.builder()
+                .household(householdB)
+                .accountantUser(accountant)
+                .scopePermissions("[\"REPORT\"]")
+                .accessExpiresAt(LocalDateTime.now().plusDays(30))
+                .status(AccountantAssignmentStatus.ACTIVE)
+                .build());
+
+        // Gọi với context hộ B (có quyền REPORT) -> 200 OK
+        mockMvc.perform(get("/api/v1/reports/daily")
+                        .header("X-Household-Context", householdB.getId()))
+                .andExpect(status().isOk());
+
+        // Gọi với context hộ A (chỉ có quyền INVOICE) -> 403 Forbidden
+        mockMvc.perform(get("/api/v1/reports/daily")
+                        .header("X-Household-Context", householdA.getId()))
+                .andExpect(status().isForbidden());
+    }
 }

@@ -25,6 +25,8 @@ public interface ServicePackageService {
 
     HouseholdUsageStatsResponse getUsageStats(String householdId);
 
+    HouseholdUsageStatsResponse getMySubscriptionUsage(String currentUsername);
+
     void validateUserQuota(String householdId);
 
     void validatePosQuota(String householdId);

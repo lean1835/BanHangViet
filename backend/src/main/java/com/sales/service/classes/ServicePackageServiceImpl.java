@@ -110,7 +110,7 @@ public class ServicePackageServiceImpl implements ServicePackageService {
     }
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public ServicePackageResponse createPackage(String currentUsername, CreateServicePackageRequest request) {
         if (packageRepository.existsByCode(request.getCode().trim().toUpperCase())) {
             throw new AppException(ErrorCode.SERVICE_PACKAGE_CODE_EXISTS);
@@ -133,7 +133,7 @@ public class ServicePackageServiceImpl implements ServicePackageService {
     }
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public ServicePackageResponse updatePackage(String currentUsername, String id, UpdateServicePackageRequest request) {
         ServicePackage pkg = packageRepository.findById(id)
                 .orElseThrow(() -> new AppException(ErrorCode.SERVICE_PACKAGE_NOT_FOUND));
@@ -154,9 +154,13 @@ public class ServicePackageServiceImpl implements ServicePackageService {
     }
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public HouseholdSubscriptionResponse assignSubscription(
             String currentUsername, String householdId, AssignSubscriptionRequest request) {
+
+        if (request.getEndDate().isBefore(request.getStartDate())) {
+            throw new AppException(ErrorCode.INVALID_DATE_RANGE);
+        }
 
         User adminUser = getAuthenticatedUser(currentUsername);
         BusinessHousehold household = householdRepository.findById(householdId)
@@ -258,6 +262,17 @@ public class ServicePackageServiceImpl implements ServicePackageService {
 
     @Override
     @Transactional(readOnly = true)
+    public HouseholdUsageStatsResponse getMySubscriptionUsage(String currentUsername) {
+        User currentUser = getAuthenticatedUser(currentUsername);
+        BusinessHousehold household = currentUser.getHousehold();
+        if (household == null) {
+            throw new AppException(ErrorCode.UNAUTHORIZED);
+        }
+        return getUsageStats(household.getId());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public void validateUserQuota(String householdId) {
         Optional<HouseholdSubscription> subOpt = subscriptionRepository
                 .findFirstByHouseholdIdAndStatusOrderByCreatedAtDesc(householdId, SubscriptionStatus.ACTIVE);
@@ -288,7 +303,7 @@ public class ServicePackageServiceImpl implements ServicePackageService {
     }
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void recordInvoiceIssued(String householdId) {
         // RÀNG BUỘC PHÁP LÝ GAP 48 & QTN-01 (TC-03): TUYỆT ĐỐI KHÔNG CHẶN PHÁT HÀNH HÓA ĐƠN!
         try {

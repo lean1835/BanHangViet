@@ -1,43 +1,103 @@
 package com.sales.security;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.sales.constant.AccountantAssignmentStatus;
+import com.sales.entity.BusinessHousehold;
+import com.sales.entity.HouseholdAccountantAssignment;
+import com.sales.entity.User;
+import com.sales.repository.HouseholdAccountantAssignmentRepository;
+import com.sales.repository.UserRepository;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.GrantedAuthority;
 import org.springframework.stereotype.Service;
 
-/**
- * Service kiểm tra quyền và scope ủy quyền cho Kế toán (VT-03).
- * Đáp ứng yêu cầu chuẩn bảo mật RBAC & Scope Isolation theo PTYC và kiến trúc hệ thống.
- */
+import java.time.LocalDateTime;
+import java.util.Collections;
+import java.util.List;
+import java.util.Optional;
+
 @Service("accountantSecurityService")
+@RequiredArgsConstructor
+@Slf4j
 public class AccountantSecurityService {
 
+    private final UserRepository userRepository;
+    private final HouseholdAccountantAssignmentRepository assignmentRepository;
+    private final ObjectMapper objectMapper;
+
     /**
-     * Kiểm tra người dùng có vai trò Kế toán (VT-03) và có phạm vi ủy quyền tương ứng hay không.
-     *
-     * @param authentication thông tin xác thực của Spring Security
-     * @param scope          phạm vi nghiệp vụ yêu cầu (ví dụ: "TAX_DECLARATION")
-     * @return true nếu thỏa mãn điều kiện phân quyền
+     * Kiểm tra xem kế toán viên (VT-03) hiện tại có scope quyền (INVOICE, REPORT, TAX_DECLARATION)
+     * đối với hộ kinh doanh đang thao tác hay không.
+     * Đối với các vai trò khác (như Chủ hộ VT-01), phương thức trả về true.
      */
-    public boolean hasScope(Authentication authentication, String scope) {
+    public boolean hasScope(Authentication authentication, String requiredScope) {
         if (authentication == null || !authentication.isAuthenticated()) {
             return false;
         }
 
-        boolean isAccountant = authentication.getAuthorities().stream()
-                .map(GrantedAuthority::getAuthority)
-                .anyMatch(auth -> auth.equals("ROLE_VT-03") || auth.equals("VT-03"));
-
-        if (!isAccountant) {
+        String username = authentication.getName();
+        Optional<User> userOpt = userRepository.findByUsername(username);
+        if (userOpt.isEmpty()) {
             return false;
         }
 
-        // Mặc định đối với vai trò Kế toán trong hệ thống hiện tại, cho phép các scope nghiệp vụ hợp lệ
-        if (scope == null || scope.isBlank()) {
+        User user = userOpt.get();
+        if (user.getRole() == null) {
+            return false;
+        }
+
+        // Nếu không phải là vai trò kế toán (VT-03), không chặn scope của kế toán
+        if (!"VT-03".equals(user.getRole().getCode())) {
             return true;
         }
 
-        return "TAX_DECLARATION".equalsIgnoreCase(scope)
-                || "INVOICE".equalsIgnoreCase(scope)
-                || "REPORT".equalsIgnoreCase(scope);
+        // Xác định hộ kinh doanh active context (ưu tiên ThreadLocal header context, fallback về user.household)
+        BusinessHousehold currentHousehold = HouseholdContextHolder.getHousehold();
+        if (currentHousehold == null) {
+            currentHousehold = user.getHousehold();
+        }
+
+        if (currentHousehold == null) {
+            log.warn("Accountant {} has no active household context", username);
+            return false;
+        }
+
+        Optional<HouseholdAccountantAssignment> assignmentOpt = assignmentRepository
+                .findByHouseholdIdAndAccountantUserIdAndStatus(
+                        currentHousehold.getId(),
+                        user.getId(),
+                        AccountantAssignmentStatus.ACTIVE);
+
+        if (assignmentOpt.isEmpty()) {
+            log.warn("Accountant {} is not assigned to household {}", username, currentHousehold.getId());
+            return false;
+        }
+
+        HouseholdAccountantAssignment assignment = assignmentOpt.get();
+        if (assignment.getAccessExpiresAt() != null && assignment.getAccessExpiresAt().isBefore(LocalDateTime.now())) {
+            log.warn("Accountant assignment {} for household {} has expired", assignment.getId(), currentHousehold.getId());
+            return false;
+        }
+
+        List<String> scopes = parsePermissions(assignment.getScopePermissions());
+        boolean allowed = scopes.contains(requiredScope);
+        if (!allowed) {
+            log.warn("Accountant {} lacks required scope {} for household {} (current scopes: {})",
+                    username, requiredScope, currentHousehold.getId(), scopes);
+        }
+        return allowed;
+    }
+
+    private List<String> parsePermissions(String json) {
+        if (json == null || json.trim().isEmpty()) {
+            return Collections.emptyList();
+        }
+        try {
+            return objectMapper.readValue(json, new TypeReference<List<String>>() {});
+        } catch (Exception e) {
+            return Collections.emptyList();
+        }
     }
 }

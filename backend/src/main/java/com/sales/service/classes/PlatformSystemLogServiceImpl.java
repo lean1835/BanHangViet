@@ -75,7 +75,7 @@ public class PlatformSystemLogServiceImpl implements PlatformSystemLogService {
     }
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public PlatformSystemLog logSystemEvent(
             String eventType,
             PlatformLogSeverity severity,
@@ -89,12 +89,16 @@ public class PlatformSystemLogServiceImpl implements PlatformSystemLogService {
             household = householdRepository.findById(householdId).orElse(null);
         }
 
+        String safeMessage = technicalMessage != null
+                ? (technicalMessage.length() > 500 ? technicalMessage.substring(0, 500) : technicalMessage)
+                : "";
+
         PlatformSystemLog sysLog = PlatformSystemLog.builder()
                 .eventType(eventType)
                 .severity(severity)
                 .household(household)
                 .errorCode(errorCode)
-                .message(technicalMessage)
+                .message(safeMessage)
                 .metadata(metadataJson)
                 .isWidespreadIncident(false)
                 .build();
@@ -138,6 +142,19 @@ public class PlatformSystemLogServiceImpl implements PlatformSystemLogService {
         }
 
         return sysLog;
+    }
+
+    @Override
+    @org.springframework.scheduling.annotation.Async("taskExecutor")
+    @Transactional(rollbackFor = Exception.class)
+    public void logSystemEventAsync(
+            String eventType,
+            PlatformLogSeverity severity,
+            String householdId,
+            String errorCode,
+            String technicalMessage,
+            String metadataJson) {
+        logSystemEvent(eventType, severity, householdId, errorCode, technicalMessage, metadataJson);
     }
 
     @Override
@@ -217,7 +234,7 @@ public class PlatformSystemLogServiceImpl implements PlatformSystemLogService {
     }
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public PlatformIncidentResponse resolveIncident(String currentUsername, String incidentId) {
         PlatformIncident inc = incidentRepository.findById(incidentId)
                 .orElseThrow(() -> new AppException(ErrorCode.PLATFORM_INCIDENT_NOT_FOUND));

@@ -106,7 +106,7 @@ public class PlatformHouseholdServiceImpl implements PlatformHouseholdService {
         // Custom specification or simple query
         Page<BusinessHousehold> householdPage;
         if (keyword != null && statusFilter != null) {
-            householdPage = householdRepository.findByNameContainingIgnoreCaseOrTaxCodeContainingIgnoreCaseAndStatus(keyword, keyword, statusFilter, pageable);
+            householdPage = householdRepository.searchByNameOrTaxCodeAndStatus(keyword, statusFilter, pageable);
         } else if (keyword != null) {
             householdPage = householdRepository.findByNameContainingIgnoreCaseOrTaxCodeContainingIgnoreCase(keyword, keyword, pageable);
         } else if (statusFilter != null) {
@@ -115,9 +115,56 @@ public class PlatformHouseholdServiceImpl implements PlatformHouseholdService {
             householdPage = householdRepository.findAll(pageable);
         }
 
-        List<PlatformHouseholdSummaryResponse> items = householdPage.getContent().stream()
-                .map(this::mapToSummary)
-                .collect(Collectors.toList());
+        List<BusinessHousehold> households = householdPage.getContent();
+        List<PlatformHouseholdSummaryResponse> items;
+
+        if (households.isEmpty()) {
+            items = java.util.Collections.emptyList();
+        } else {
+            List<String> householdIds = households.stream().map(BusinessHousehold::getId).collect(Collectors.toList());
+
+            // 1. Batch count users
+            java.util.Map<String, Long> userCountMap = new java.util.HashMap<>();
+            List<Object[]> userCounts = userRepository.countUsersByHouseholdIds(householdIds);
+            for (Object[] row : userCounts) {
+                userCountMap.put((String) row[0], ((Number) row[1]).longValue());
+            }
+
+            // 2. Batch fetch last active
+            java.util.Map<String, LocalDateTime> lastActiveMap = new java.util.HashMap<>();
+            List<Object[]> lastActives = userSessionRepository.findLatestActiveAtByHouseholdIds(householdIds);
+            for (Object[] row : lastActives) {
+                lastActiveMap.put((String) row[0], (LocalDateTime) row[1]);
+            }
+
+            // 3. Batch fetch active subscriptions
+            java.util.Map<String, String> packageMap = new java.util.HashMap<>();
+            List<HouseholdSubscription> subscriptions = subscriptionRepository
+                    .findByHouseholdIdInAndStatusOrderByCreatedAtDesc(householdIds, SubscriptionStatus.ACTIVE);
+            for (HouseholdSubscription sub : subscriptions) {
+                if (sub.getHousehold() != null && sub.getServicePackage() != null) {
+                    packageMap.putIfAbsent(sub.getHousehold().getId(), sub.getServicePackage().getName());
+                }
+            }
+
+            items = households.stream()
+                    .map(h -> PlatformHouseholdSummaryResponse.builder()
+                            .id(h.getId())
+                            .taxCode(h.getTaxCode())
+                            .name(h.getName())
+                            .address(h.getAddress())
+                            .phoneNumber(h.getPhoneNumber())
+                            .representativeName(h.getRepresentativeName())
+                            .status(h.getStatus())
+                            .lockReason(h.getLockReason())
+                            .lockedAt(h.getLockedAt())
+                            .userCount(userCountMap.getOrDefault(h.getId(), 0L))
+                            .lastActiveAt(lastActiveMap.get(h.getId()))
+                            .currentPackageName(packageMap.getOrDefault(h.getId(), "Chưa gán gói"))
+                            .createdAt(h.getCreatedAt())
+                            .build())
+                    .collect(Collectors.toList());
+        }
 
         return PageResponse.<PlatformHouseholdSummaryResponse>builder()
                 .content(items)
@@ -139,7 +186,7 @@ public class PlatformHouseholdServiceImpl implements PlatformHouseholdService {
     }
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public PlatformHouseholdSummaryResponse lockHousehold(String currentUsername, String householdId, LockHouseholdRequest request) {
         User adminUser = getAuthenticatedUser(currentUsername);
         BusinessHousehold household = householdRepository.findById(householdId)
@@ -170,7 +217,7 @@ public class PlatformHouseholdServiceImpl implements PlatformHouseholdService {
     }
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public PlatformHouseholdSummaryResponse unlockHousehold(String currentUsername, String householdId) {
         User adminUser = getAuthenticatedUser(currentUsername);
         BusinessHousehold household = householdRepository.findById(householdId)

@@ -16,4 +16,7 @@ public interface HouseholdSubscriptionRepository extends JpaRepository<Household
 
     @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"servicePackage", "household"})
     List<HouseholdSubscription> findByHouseholdIdOrderByCreatedAtDesc(String householdId);
+
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"servicePackage", "household"})
+    List<HouseholdSubscription> findByHouseholdIdInAndStatusOrderByCreatedAtDesc(java.util.Collection<String> householdIds, SubscriptionStatus status);
 }
