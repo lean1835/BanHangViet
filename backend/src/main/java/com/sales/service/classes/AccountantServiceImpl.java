@@ -85,6 +85,11 @@ public class AccountantServiceImpl implements AccountantService {
     }
 
     private AccountantInvitationResponse mapInvitationToResponse(AccountantInvitation inv) {
+        AccountantInvitationStatus status = inv.getStatus();
+        if (status == AccountantInvitationStatus.PENDING && inv.getInvitationExpiresAt() != null && inv.getInvitationExpiresAt().isBefore(LocalDateTime.now())) {
+            status = AccountantInvitationStatus.EXPIRED;
+        }
+
         return AccountantInvitationResponse.builder()
                 .id(inv.getId())
                 .householdId(inv.getHousehold().getId())
@@ -96,7 +101,7 @@ public class AccountantServiceImpl implements AccountantService {
                 .invitedByUsername(inv.getInvitedByUser().getUsername())
                 .accessDurationDays(inv.getAccessDurationDays())
                 .scopePermissions(parsePermissions(inv.getScopePermissions()))
-                .status(inv.getStatus())
+                .status(status)
                 .invitationExpiresAt(inv.getInvitationExpiresAt())
                 .acceptedAt(inv.getAcceptedAt())
                 .rejectedAt(inv.getRejectedAt())
@@ -105,6 +110,11 @@ public class AccountantServiceImpl implements AccountantService {
     }
 
     private AccountantAssignmentResponse mapAssignmentToResponse(HouseholdAccountantAssignment assign) {
+        AccountantAssignmentStatus status = assign.getStatus();
+        if (status == AccountantAssignmentStatus.ACTIVE && assign.getAccessExpiresAt() != null && assign.getAccessExpiresAt().isBefore(LocalDateTime.now())) {
+            status = AccountantAssignmentStatus.EXPIRED;
+        }
+
         return AccountantAssignmentResponse.builder()
                 .id(assign.getId())
                 .householdId(assign.getHousehold().getId())
@@ -116,7 +126,7 @@ public class AccountantServiceImpl implements AccountantService {
                 .accountantPhone(assign.getAccountantUser().getPhoneNumber())
                 .accountantEmail(assign.getAccountantUser().getEmail())
                 .scopePermissions(parsePermissions(assign.getScopePermissions()))
-                .status(assign.getStatus())
+                .status(status)
                 .accessExpiresAt(assign.getAccessExpiresAt())
                 .revokedAt(assign.getRevokedAt())
                 .revokeReason(assign.getRevokeReason())

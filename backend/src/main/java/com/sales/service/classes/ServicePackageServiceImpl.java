@@ -1,5 +1,6 @@
 package com.sales.service.classes;
 
+import com.sales.constant.DatePatternConstant;
 import com.sales.constant.SubscriptionStatus;
 import com.sales.dto.request.AssignSubscriptionRequest;
 import com.sales.dto.request.CreateServicePackageRequest;
@@ -224,7 +225,7 @@ public class ServicePackageServiceImpl implements ServicePackageService {
         long currentUsers = userRepository.countByHouseholdIdAndDeletedAtIsNull(householdId);
         long currentPos = pointOfSaleRepository.countByHouseholdIdAndDeletedAtIsNull(householdId);
 
-        String currentMonth = YearMonth.now().format(DateTimeFormatter.ofPattern("yyyy-MM"));
+        String currentMonth = YearMonth.now().format(DateTimeFormatter.ofPattern(DatePatternConstant.YEAR_MONTH));
         Optional<HouseholdUsageStats> statsOpt = usageStatsRepository.findByHouseholdIdAndMonthYear(householdId, currentMonth);
 
         int invoicesIssued = statsOpt.map(HouseholdUsageStats::getInvoicesIssuedCount).orElse(0);
@@ -310,7 +311,7 @@ public class ServicePackageServiceImpl implements ServicePackageService {
             BusinessHousehold household = householdRepository.findById(householdId).orElse(null);
             if (household == null) return;
 
-            String currentMonth = YearMonth.now().format(DateTimeFormatter.ofPattern("yyyy-MM"));
+            String currentMonth = YearMonth.now().format(DateTimeFormatter.ofPattern(DatePatternConstant.YEAR_MONTH));
             HouseholdUsageStats stats = usageStatsRepository.findByHouseholdIdAndMonthYear(householdId, currentMonth)
                     .orElse(HouseholdUsageStats.builder()
                             .household(household)
