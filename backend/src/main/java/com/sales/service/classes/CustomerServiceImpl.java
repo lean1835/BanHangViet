@@ -99,6 +99,7 @@ public class CustomerServiceImpl implements CustomerService {
                 .discountType(customer.getDiscountType())
                 .totalSpent(customer.getTotalSpent())
                 .isVip(customer.getIsVip())
+                .loyaltyPoints(customer.getLoyaltyPoints() != null ? customer.getLoyaltyPoints() : 0)
                 .reminderDaysBefore(customer.getReminderDaysBefore())
                 .reminderDaysAfter(customer.getReminderDaysAfter())
                 .defaultDeliveryChannel(customer.getDefaultDeliveryChannel())

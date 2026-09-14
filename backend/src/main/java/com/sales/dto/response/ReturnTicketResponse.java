@@ -28,6 +28,7 @@ public class ReturnTicketResponse {
     private String approvedByUserId;
     private String approvedByUserName;
     private BigDecimal totalReturnAmount;
+    private Integer pointsDeducted;
     private String refundPaymentMethod;
     private String status;
     private String reason;

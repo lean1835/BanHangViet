@@ -23,6 +23,7 @@ public class CustomerResponse {
     private String discountType;
     private BigDecimal totalSpent;
     private Boolean isVip;
+    private Integer loyaltyPoints;
     private Integer reminderDaysBefore;
     private Integer reminderDaysAfter;
     private String defaultDeliveryChannel;
