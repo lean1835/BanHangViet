@@ -1,9 +1,13 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Tag, Crown, Ban, UtensilsCrossed, SlidersHorizontal } from "lucide-react";
+import { Tag, Crown, Ban, UtensilsCrossed, SlidersHorizontal, Award, Coins } from "lucide-react";
 import type { ICustomer } from "@/modules/customer/types/ICustomer";
 import type { IPosTab } from "../types/IPos";
 import { formatCurrency, formatNumber } from "@/utils/formatCurrency";
 import { calculatePosTotals } from "../utils/posCalculations";
+import {
+  useGetCustomerLoyaltySummaryQuery,
+  useGetLoyaltyConfigQuery,
+} from "@/modules/customer/services/loyaltyApi";
 
 interface IPosPaymentSidebarProps {
   tab: IPosTab;
@@ -92,19 +96,67 @@ export const PosPaymentSidebar: React.FC<IPosPaymentSidebarProps> = ({
     customerDiscountCash,
     manualDiscountCash,
     totalTaxAmount,
+    payableBeforePoints,
+    pointDiscountAmount,
     finalTotal,
     changeAmount,
   } = calculatePosTotals(tab);
 
+  // Loyalty Program Config & Customer Loyalty Summary (NCL-10-CN-008)
+  const { data: loyaltyConfig } = useGetLoyaltyConfigQuery();
+  const { data: customerLoyalty } = useGetCustomerLoyaltySummaryQuery(
+    tab.customer?.id || "",
+    { skip: !tab.customer?.id, refetchOnMountOrArgChange: true }
+  );
+
+  const [inputPointsToRedeem, setInputPointsToRedeem] = useState<number | "">("");
+
+  const isLoyaltyEnabled = Boolean(loyaltyConfig?.isEnabled);
+  const pointValue = loyaltyConfig?.pointValue ? Number(loyaltyConfig.pointValue) : 1000;
+  const minPointsToRedeem = loyaltyConfig?.minPointsToRedeem ? Number(loyaltyConfig.minPointsToRedeem) : 50;
+  const maxRedeemRate = loyaltyConfig?.maxRedeemRatePerOrder ? Number(loyaltyConfig.maxRedeemRatePerOrder) : 100;
+  const customerAvailablePoints = customerLoyalty?.availablePoints || 0;
+
+  const maxAllowedDiscount = (payableBeforePoints * maxRedeemRate) / 100;
+  const maxPointsByBill = pointValue > 0 ? Math.floor(maxAllowedDiscount / pointValue) : 0;
+  const maxRedeemablePoints = Math.max(0, Math.min(customerAvailablePoints, maxPointsByBill));
+  const isEligibleToRedeem =
+    isLoyaltyEnabled &&
+    customerAvailablePoints >= minPointsToRedeem &&
+    maxRedeemablePoints >= minPointsToRedeem;
+
+  const handleApplyPoints = (pointsToApply: number) => {
+    if (pointsToApply <= 0) return;
+    if (pointsToApply < minPointsToRedeem) return;
+    const actualPoints = Math.min(pointsToApply, maxRedeemablePoints);
+    const discount = actualPoints * pointValue;
+    onUpdateTab({
+      pointsRedeemed: actualPoints,
+      pointDiscountAmount: discount,
+      isSaved: false,
+      backendOrderId: undefined,
+    });
+  };
+
+  const handleRemovePoints = () => {
+    onUpdateTab({
+      pointsRedeemed: 0,
+      pointDiscountAmount: 0,
+      isSaved: false,
+      backendOrderId: undefined,
+    });
+    setInputPointsToRedeem("");
+  };
+
   // Track previous final total & discount configuration to detect discount changes
   const prevFinalTotalRef = useRef<number>(finalTotal);
   const prevDiscountSignatureRef = useRef<string>(
-    `${tab.customer?.id || ""}_${tab.discountType}_${tab.discountValue}_${tab.vatRate}_${totalPromotionDiscount}`
+    `${tab.customer?.id || ""}_${tab.discountType}_${tab.discountValue}_${tab.vatRate}_${totalPromotionDiscount}_${tab.pointsRedeemed || 0}`
   );
 
   // Auto-sync amountGiven when applying discounts, in FAST mode, or when paying in full
   useEffect(() => {
-    const currentDiscountSignature = `${tab.customer?.id || ""}_${tab.discountType}_${tab.discountValue}_${tab.vatRate}_${totalPromotionDiscount}`;
+    const currentDiscountSignature = `${tab.customer?.id || ""}_${tab.discountType}_${tab.discountValue}_${tab.vatRate}_${totalPromotionDiscount}_${tab.pointsRedeemed || 0}`;
     const discountChanged = prevDiscountSignatureRef.current !== currentDiscountSignature;
     const wasPayingInFull = tab.amountGiven === prevFinalTotalRef.current || !tab.amountGiven;
 
@@ -124,6 +176,7 @@ export const PosPaymentSidebar: React.FC<IPosPaymentSidebarProps> = ({
     tab.discountValue,
     tab.vatRate,
     totalPromotionDiscount,
+    tab.pointsRedeemed,
     tab.amountGiven,
     onUpdateTab,
   ]);
@@ -316,6 +369,96 @@ export const PosPaymentSidebar: React.FC<IPosPaymentSidebarProps> = ({
           </div>
         )}
 
+        {/* Loyalty Points Badge & Redeem Controls (NCL-10-CN-008) */}
+        {tab.customer && isLoyaltyEnabled && (
+          <div className="bg-blue-50/40 p-3 rounded-xl border border-blue-100 space-y-2">
+            <div className="flex items-center justify-between text-xs">
+              <span className="flex items-center gap-1 font-bold text-slate-700">
+                <Award size={14} className="text-blue-600" />
+                <span>Điểm thưởng:</span>
+              </span>
+              <span className="font-extrabold text-blue-600">
+                {customerAvailablePoints.toLocaleString("vi-VN")} điểm
+                {customerLoyalty?.monetaryEquivalent ? (
+                  <span className="text-slate-400 font-medium ml-1">
+                    (~{formatCurrency(customerLoyalty.monetaryEquivalent)})
+                  </span>
+                ) : null}
+              </span>
+            </div>
+
+            {/* If points are currently applied */}
+            {(tab.pointsRedeemed || 0) > 0 ? (
+              <div className="bg-blue-100/70 border border-blue-200 rounded-lg p-2 flex items-center justify-between text-xs">
+                <div className="flex items-center gap-1.5 text-blue-900 font-medium">
+                  <Coins size={14} className="text-blue-600 shrink-0" />
+                  <span>
+                    Đã áp dụng: <strong>{tab.pointsRedeemed} điểm</strong> (-{formatCurrency(pointDiscountAmount || 0)})
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleRemovePoints}
+                  className="text-[11px] font-bold text-rose-600 hover:text-rose-800 hover:underline cursor-pointer ml-2 shrink-0"
+                >
+                  Hủy đổi
+                </button>
+              </div>
+            ) : isEligibleToRedeem ? (
+              /* If eligible to redeem */
+              <div className="bg-white border border-blue-200 rounded-lg p-2 space-y-1.5">
+                <div className="flex items-center gap-1.5">
+                  <input
+                    type="number"
+                    min={minPointsToRedeem}
+                    max={maxRedeemablePoints}
+                    value={inputPointsToRedeem}
+                    onChange={(e) =>
+                      setInputPointsToRedeem(e.target.value === "" ? "" : Number(e.target.value))
+                    }
+                    placeholder={`Đổi (tối thiểu ${minPointsToRedeem})`}
+                    className="flex-1 min-w-0 bg-slate-50 border border-slate-300 rounded px-2 py-1 text-xs font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-400"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setInputPointsToRedeem(maxRedeemablePoints);
+                      handleApplyPoints(maxRedeemablePoints);
+                    }}
+                    className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[11px] rounded transition-all whitespace-nowrap"
+                    title={`Đổi tối đa ${maxRedeemablePoints} điểm`}
+                  >
+                    Dùng hết ({maxRedeemablePoints})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleApplyPoints(Number(inputPointsToRedeem))}
+                    disabled={
+                      !inputPointsToRedeem ||
+                      Number(inputPointsToRedeem) < minPointsToRedeem ||
+                      Number(inputPointsToRedeem) > maxRedeemablePoints
+                    }
+                    className="px-2.5 py-1 bg-blue-600 hover:bg-blue-700 text-white font-bold text-[11px] rounded transition-all disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
+                  >
+                    Áp dụng
+                  </button>
+                </div>
+                {typeof inputPointsToRedeem === "number" && inputPointsToRedeem >= minPointsToRedeem && (
+                  <div className="text-[10px] text-emerald-600 font-semibold text-right">
+                    Giảm trừ: -{formatCurrency(inputPointsToRedeem * pointValue)}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="text-[10px] text-slate-400 font-medium">
+                {customerAvailablePoints < minPointsToRedeem
+                  ? `Cần tích lũy tối thiểu ${minPointsToRedeem} điểm để bắt đầu đổi quà`
+                  : `Đơn hàng chưa đạt ngưỡng đổi điểm tối thiểu`}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Dining Table & Order Label (NCL-03-CN-010) */}
         <div className="bg-slate-50/80 p-2.5 rounded-xl border border-slate-200">
           <div className="flex items-center justify-between">
@@ -475,6 +618,19 @@ export const PosPaymentSidebar: React.FC<IPosPaymentSidebarProps> = ({
               {formatCurrency(totalTaxAmount)}
             </span>
           </div>
+
+          {/* Loyalty Point Redemption Discount (QTN-26 & QTN-07) */}
+          {pointDiscountAmount > 0 && (
+            <div className="flex items-center justify-between text-blue-700 font-bold text-xs bg-blue-50/90 px-2 py-1.5 rounded-lg border border-blue-200">
+              <span className="flex items-center gap-1">
+                <Award size={13} className="text-blue-600" />
+                <span>Đổi điểm thưởng ({tab.pointsRedeemed || 0} điểm):</span>
+              </span>
+              <span className="font-black text-blue-800">
+                -{formatCurrency(pointDiscountAmount)}
+              </span>
+            </div>
+          )}
         </div>
 
         {/* 4. KHÁCH CẦN TRẢ Highlight Box */}
@@ -617,7 +773,7 @@ export const PosPaymentSidebar: React.FC<IPosPaymentSidebarProps> = ({
               <div className="flex items-center justify-between">
                 <span className="font-extrabold text-blue-900 text-xs flex items-center gap-1">
                   <SlidersHorizontal className="w-3.5 h-3.5 text-blue-600" />
-                  <span>Thanh toán kết hợp (NCL-03-CN-011)</span>
+                  <span>Thanh toán kết hợp</span>
                 </span>
                 <button
                   type="button"
@@ -669,7 +825,7 @@ export const PosPaymentSidebar: React.FC<IPosPaymentSidebarProps> = ({
             disabled={tab.items.length === 0 && !tab.backendOrderId}
             onClick={onCancelOrder}
             className="px-3 py-3 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold text-xs transition-all disabled:opacity-40 disabled:cursor-not-allowed text-center shadow-xs flex items-center justify-center gap-1 shrink-0"
-            title="Hủy đơn chưa thanh toán kèm lý do (NCL-03-CN-009)"
+            title="Hủy đơn chưa thanh toán kèm lý do"
           >
             <Ban className="w-4 h-4 text-rose-600" />
             <span className="hidden sm:inline">Hủy đơn</span>

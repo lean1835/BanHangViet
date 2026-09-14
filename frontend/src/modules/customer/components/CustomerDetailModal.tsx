@@ -16,11 +16,13 @@ import {
   Clock,
   ArrowLeft,
   Crown,
+  FileCheck,
 } from "lucide-react";
 import { formatCurrency } from "@/utils/formatCurrency";
 import { formatDateOnly } from "@/utils/dateFormatter";
 import { useAccessibleDialog } from "@/hooks/useAccessibleDialog";
 import { useGetDebtHistoryQuery } from "../services/customerApi";
+import { CustomerReconciliationHistoryTab } from "./CustomerReconciliationHistoryTab";
 import type { ICustomer } from "../types/ICustomer";
 
 interface CustomerDetailModalProps {
@@ -30,6 +32,9 @@ interface CustomerDetailModalProps {
   onOpenEditModal: (customer: ICustomer) => void;
   onOpenPayDebtModal: (customer: ICustomer) => void;
   onOpenRemindModal: (customer: ICustomer) => void;
+  onOpenReconcileModal?: (customer: ICustomer) => void;
+  onOpenAdjustmentModal?: (customer: ICustomer) => void;
+  onOpenPrintModal?: (reconciliationId: string) => void;
 }
 
 export const CustomerDetailModal: React.FC<CustomerDetailModalProps> = ({
@@ -39,8 +44,11 @@ export const CustomerDetailModal: React.FC<CustomerDetailModalProps> = ({
   onOpenEditModal,
   onOpenPayDebtModal,
   onOpenRemindModal,
+  onOpenReconcileModal,
+  onOpenAdjustmentModal,
+  onOpenPrintModal,
 }) => {
-  const [activeTab, setActiveTab] = useState<"DEBT_ORDERS" | "HISTORY">("DEBT_ORDERS");
+  const [activeTab, setActiveTab] = useState<"DEBT_ORDERS" | "HISTORY" | "RECONCILIATION">("DEBT_ORDERS");
 
   const dialogRef = useAccessibleDialog({
     isOpen: isOpen && Boolean(customer),
@@ -316,6 +324,21 @@ export const CustomerDetailModal: React.FC<CustomerDetailModalProps> = ({
                   <Bell size={13} />
                   Nhắc nợ
                 </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (onOpenReconcileModal) {
+                      onOpenReconcileModal(customer);
+                    } else {
+                      setActiveTab("RECONCILIATION");
+                    }
+                  }}
+                  className="flex-1 sm:flex-initial flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg bg-kv-blue-primary hover:bg-kv-blue-dark text-white font-bold text-xs shadow-sm transition-all"
+                  title="Lập bảng đối chiếu công nợ"
+                >
+                  <FileCheck size={13} />
+                  Đối chiếu nợ
+                </button>
               </div>
             </div>
           )}
@@ -362,6 +385,18 @@ export const CustomerDetailModal: React.FC<CustomerDetailModalProps> = ({
                 >
                   {debtHistory.length}
                 </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveTab("RECONCILIATION")}
+                className={`pb-3 text-xs sm:text-sm font-bold transition-all inline-flex items-center gap-2 relative shrink-0 border-b-2 -mb-[1px] ${
+                  activeTab === "RECONCILIATION"
+                    ? "text-kv-blue-primary border-kv-blue-primary font-extrabold"
+                    : "text-slate-500 hover:text-slate-800 border-transparent hover:border-slate-300"
+                }`}
+              >
+                <span>Đối chiếu công nợ</span>
               </button>
             </div>
           </div>
@@ -537,6 +572,22 @@ export const CustomerDetailModal: React.FC<CustomerDetailModalProps> = ({
                 </div>
               )}
             </div>
+          )}
+
+          {/* Tab 3: Debt Reconciliation Management & History (NCL-10-CN-007) */}
+          {activeTab === "RECONCILIATION" && (
+            <CustomerReconciliationHistoryTab
+              customer={customer}
+              onOpenCreateReconciliation={() => {
+                if (onOpenReconcileModal) onOpenReconcileModal(customer);
+              }}
+              onOpenAdjustment={() => {
+                if (onOpenAdjustmentModal) onOpenAdjustmentModal(customer);
+              }}
+              onOpenPrint={(recId) => {
+                if (onOpenPrintModal) onOpenPrintModal(recId);
+              }}
+            />
           )}
         </div>
       </div>

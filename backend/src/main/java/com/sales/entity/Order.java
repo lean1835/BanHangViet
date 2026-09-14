@@ -53,6 +53,10 @@ public class Order {
     @Builder.Default
     private BigDecimal totalAmount = BigDecimal.ZERO;
 
+    @Column(name = "tax_amount", nullable = false, precision = 15, scale = 2)
+    @Builder.Default
+    private BigDecimal taxAmount = BigDecimal.ZERO;
+
     @Column(name = "discount_amount", nullable = false, precision = 15, scale = 2)
     @Builder.Default
     private BigDecimal discountAmount = BigDecimal.ZERO;

@@ -100,6 +100,7 @@ export const OrderSuccessModal: React.FC<IOrderSuccessModalProps> = ({
     manualDiscountCash,
     totalOrderLevelDiscounts: discountCash,
     totalTaxAmount: taxAmount,
+    pointDiscountAmount,
   } = calculatePosTotals(tab);
 
   // Handle Real Invoice Issuance (POST /invoices/draft)
@@ -141,6 +142,8 @@ export const OrderSuccessModal: React.FC<IOrderSuccessModalProps> = ({
         totalAmountBeforeTax: itemsSum,
         taxAmount: taxAmount,
         discountAmount: discountCash,
+        pointDiscountAmount: pointDiscountAmount,
+        pointsRedeemed: tab.pointsRedeemed,
         finalAmount: finalTotal,
         items: tab.items.map((item, idx) => ({
           id: item.id || `item_${idx}`,
@@ -541,6 +544,13 @@ export const OrderSuccessModal: React.FC<IOrderSuccessModalProps> = ({
                 </div>
               )}
 
+              {pointDiscountAmount > 0 && (
+                <div className="flex justify-between text-purple-700 font-semibold">
+                  <span>Trừ điểm thưởng{tab.pointsRedeemed ? ` (${tab.pointsRedeemed} điểm)` : ""}:</span>
+                  <span className="font-bold">-{formatCurrency(pointDiscountAmount)}</span>
+                </div>
+              )}
+
               <div className="flex justify-between items-center pt-1.5 border-t border-slate-200">
                 <span className="text-slate-800 font-black">Tổng thanh toán:</span>
                 <span className="text-[#0070f4] font-black text-sm">
@@ -926,6 +936,13 @@ export const OrderSuccessModal: React.FC<IOrderSuccessModalProps> = ({
                   <div className="flex justify-between text-emerald-700">
                     <span>Chiết khấu thêm:</span>
                     <span className="font-bold">-{formatCurrency(manualDiscountCash)}</span>
+                  </div>
+                )}
+
+                {pointDiscountAmount > 0 && (
+                  <div className="flex justify-between text-purple-700 font-semibold">
+                    <span>Trừ điểm thưởng{tab.pointsRedeemed ? ` (${tab.pointsRedeemed} điểm)` : ""}:</span>
+                    <span className="font-bold">-{formatCurrency(pointDiscountAmount)}</span>
                   </div>
                 )}
 

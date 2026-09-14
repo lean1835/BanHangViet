@@ -41,17 +41,28 @@ export const PrintInvoiceModal: React.FC<PrintInvoiceModalProps> = ({
 
   // Robust calculations
   const itemsList = invoice.items && invoice.items.length > 0 ? invoice.items : null;
-  const itemsSum = itemsList
-    ? itemsList.reduce((sum, item) => sum + (item.subtotal || item.unitPrice * item.quantity), 0)
-    : (invoice.totalAmountBeforeTax || invoice.amount || (invoice.finalAmount ? invoice.finalAmount - (invoice.taxAmount || 0) : 0));
-
-  const preTaxAmount = itemsSum > 0 ? itemsSum : (invoice.finalAmount - (invoice.taxAmount || 0));
-  const taxAmount = invoice.taxAmount ?? Math.round(preTaxAmount * 0.08);
-  const finalTotal = invoice.finalAmount || (preTaxAmount + taxAmount);
+  const hasDiscount = Boolean(invoice.discountAmount && invoice.discountAmount > 0);
   const rawOriginalTotal = itemsList
     ? itemsList.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0)
-    : (itemsSum + (invoice.discountAmount || 0));
-  const hasDiscount = Boolean(invoice.discountAmount && invoice.discountAmount > 0);
+    : ((invoice.totalAmountBeforeTax || invoice.amount || 0) + (invoice.discountAmount || 0));
+
+  const preTaxAmount = hasDiscount
+    ? Math.max(0, rawOriginalTotal - (invoice.discountAmount || 0))
+    : (invoice.totalAmountBeforeTax || rawOriginalTotal);
+
+  const effectiveTaxAmount = hasDiscount && invoice.taxAmount && rawOriginalTotal > 0
+    ? Math.round(invoice.taxAmount * (preTaxAmount / rawOriginalTotal))
+    : (invoice.taxAmount ?? Math.round(preTaxAmount * 0.1));
+
+  const payableBeforePoints = preTaxAmount + effectiveTaxAmount;
+  const pointDiscount = (invoice.pointDiscountAmount && invoice.pointDiscountAmount > 0)
+    ? invoice.pointDiscountAmount
+    : (invoice.finalAmount !== undefined && invoice.finalAmount < payableBeforePoints)
+    ? Math.max(0, payableBeforePoints - invoice.finalAmount)
+    : 0;
+  const pointsRedeemed = invoice.pointsRedeemed || (pointDiscount > 0 ? Math.round(pointDiscount / 1000) : 0);
+
+  const finalTotal = invoice.finalAmount || Math.max(0, payableBeforePoints - pointDiscount);
   
   const createdDateStr = invoice.time || new Date().toLocaleString("vi-VN", {
     day: "2-digit",
@@ -313,10 +324,18 @@ export const PrintInvoiceModal: React.FC<PrintInvoiceModalProps> = ({
               )}
 
               {/* 4. Tiền thuế GTGT */}
-              {taxAmount > 0 && (
+              {effectiveTaxAmount > 0 && (
                 <div className="flex justify-between font-semibold text-slate-700">
                   <span>Tổng tiền thuế GTGT:</span>
-                  <span className="font-bold text-slate-900">{formatCurrency(taxAmount)}</span>
+                  <span className="font-bold text-slate-900">{formatCurrency(effectiveTaxAmount)}</span>
+                </div>
+              )}
+
+              {/* 4.1 Trừ điểm thưởng / điểm tích lũy */}
+              {pointDiscount > 0 && (
+                <div className="flex justify-between font-semibold text-purple-700">
+                  <span>Trừ điểm thưởng{pointsRedeemed ? ` (${pointsRedeemed} điểm)` : ""}:</span>
+                  <span className="font-bold">-{formatCurrency(pointDiscount)}</span>
                 </div>
               )}
 

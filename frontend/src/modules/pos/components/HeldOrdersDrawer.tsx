@@ -97,7 +97,7 @@ export const HeldOrdersDrawer: React.FC<IHeldOrdersDrawerProps> = ({
                 )}
               </div>
               <p className="text-xs text-blue-100 font-medium">
-                NCL-03-CN-010: Quản lý và khôi phục đơn treo theo bàn / khách
+                Quản lý và khôi phục đơn treo theo bàn / khách
               </p>
             </div>
           </div>
@@ -262,7 +262,7 @@ export const HeldOrdersDrawer: React.FC<IHeldOrdersDrawerProps> = ({
                         type="button"
                         onClick={() => onCancelOrder(order)}
                         className="px-2.5 py-1.5 rounded-lg border border-rose-200 hover:bg-rose-50 text-rose-700 text-xs font-bold transition-all flex items-center gap-1"
-                        title="Hủy đơn chưa thanh toán kèm lý do (NCL-03-CN-009)"
+                        title="Hủy đơn chưa thanh toán kèm lý do"
                       >
                         <Trash2 className="w-3.5 h-3.5 text-rose-600" />
                         <span>Hủy</span>
