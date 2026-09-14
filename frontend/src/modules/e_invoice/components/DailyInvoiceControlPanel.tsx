@@ -210,7 +210,7 @@ export const DailyInvoiceControlPanel: React.FC<DailyInvoiceControlPanelProps> =
         <AlertOctagon className="w-10 h-10 text-rose-500 mx-auto" />
         <h3 className="font-extrabold text-slate-800 text-base">Truy cập bị từ chối</h3>
         <p className="text-xs text-slate-500 max-w-md mx-auto leading-relaxed">
-          Chức năng Kiểm soát cuối ngày (NCL-04-CN-008) chỉ dành cho <strong>Chủ hộ kinh doanh (VT-01)</strong> và{" "}
+          Chức năng Kiểm soát cuối ngày chỉ dành cho <strong>Chủ hộ kinh doanh (VT-01)</strong> và{" "}
           <strong>Kế toán (VT-03)</strong>. Nhân viên bán hàng không được phép truy cập theo quy định QTN-10.
         </p>
       </div>

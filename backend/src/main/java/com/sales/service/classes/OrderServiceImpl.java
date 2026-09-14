@@ -391,6 +391,7 @@ public class OrderServiceImpl implements OrderService {
                 .customerId(order.getCustomer() != null ? order.getCustomer().getId() : null)
                 .customerName(order.getCustomer() != null ? order.getCustomer().getName() : null)
                 .totalAmount(order.getTotalAmount())
+                .taxAmount(order.getTaxAmount())
                 .discountAmount(order.getDiscountAmount())
                 .customerDiscountAmount(order.getCustomerDiscountAmount())
                 .promotionDiscountAmount(order.getPromotionDiscountAmount())
@@ -566,6 +567,7 @@ public class OrderServiceImpl implements OrderService {
         order.setPromotionDiscountAmount(promotionDiscountAmount);
         order.setCustomerDiscountAmount(customerDiscountAmount);
         order.setDiscountAmount(totalDiscount);
+        order.setTaxAmount(finalTaxAmount);
         order.setFinalAmount(finalAmount);
     }
 

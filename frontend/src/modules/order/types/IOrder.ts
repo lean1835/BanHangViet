@@ -59,7 +59,11 @@ export interface IOrderResponse {
   customerId: string | null;
   customerName: string | null;
   totalAmount: number;
+  taxAmount?: number;
   discountAmount: number;
+  pointDiscountAmount?: number;
+  pointsRedeemed?: number;
+  pointsEarned?: number;
   finalAmount: number;
   paymentMethod: TOrderPaymentMethod | null;
   paymentStatus: string;

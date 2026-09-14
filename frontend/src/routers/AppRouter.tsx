@@ -54,6 +54,9 @@ const CreateReturnTicketPage = React.lazy(
   () => import("@/modules/return_ticket/pages/CreateReturnTicketPage")
 );
 const CustomerPage = React.lazy(() => import("@/modules/customer/pages/CustomerPage"));
+const CustomerDetailPage = React.lazy(
+  () => import("@/modules/customer/pages/CustomerDetailPage")
+);
 const PromotionListPage = React.lazy(
   () => import("@/modules/promotion/pages/PromotionListPage")
 );
@@ -116,6 +119,9 @@ const InvoiceTemplatePage = React.lazy(
 );
 const BackupExportPage = React.lazy(
   () => import("@/modules/settings/pages/BackupExportPage")
+);
+const LoyaltyProgramSettingsPage = React.lazy(
+  () => import("@/modules/settings/pages/LoyaltyProgramSettingsPage")
 );
 const PlatformAdminWorkspaceLayout = React.lazy(
   () => import("@/modules/platform_admin/pages/PlatformAdminWorkspaceLayout")
@@ -280,7 +286,7 @@ export const AppRouter = () => (
             path={`${ROUTE_SEGMENTS.CUSTOMERS}/:id`}
             element={
               <RoleRoute allowedRoles={ROLE_GROUPS.NORMAL_MANAGEMENT}>
-                <CustomerPage />
+                <CustomerDetailPage />
               </RoleRoute>
             }
           />
@@ -384,6 +390,14 @@ export const AppRouter = () => (
               element={
                 <RoleRoute allowedRoles={[USER_ROLES.OWNER]}>
                   <BackupExportPage />
+                </RoleRoute>
+              }
+            />
+            <Route
+              path={ROUTE_SEGMENTS.LOYALTY}
+              element={
+                <RoleRoute allowedRoles={[USER_ROLES.OWNER]}>
+                  <LoyaltyProgramSettingsPage />
                 </RoleRoute>
               }
             />

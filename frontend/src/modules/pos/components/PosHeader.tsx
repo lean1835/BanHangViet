@@ -463,7 +463,7 @@ export const PosHeader: React.FC<IPosHeaderProps> = ({
                   ? "bg-amber-400 hover:bg-amber-500 text-amber-950"
                   : "bg-blue-500/80 hover:bg-blue-500 text-white"
               }`}
-              title="Xem danh sách các đơn đang treo trong ca (NCL-03-CN-010)"
+              title="Xem danh sách các đơn đang treo trong ca"
             >
               <Clock className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Đơn treo</span>
@@ -500,7 +500,7 @@ export const PosHeader: React.FC<IPosHeaderProps> = ({
               type="button"
               onClick={onOpenShiftHandover}
               className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-teal-500/80 hover:bg-teal-500 text-white font-extrabold text-xs transition-all shrink-0 select-none shadow-xs"
-              title="Bàn giao ca cho nhân viên tiếp theo (NCL-03-CN-013)"
+              title="Bàn giao ca cho nhân viên tiếp theo"
             >
               <Users className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Bàn giao ca</span>
@@ -513,7 +513,7 @@ export const PosHeader: React.FC<IPosHeaderProps> = ({
               type="button"
               onClick={onOpenCashTransaction}
               className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-600/85 hover:bg-emerald-600 text-white font-extrabold text-xs transition-all shrink-0 select-none shadow-xs"
-              title="Ghi thu chi tiền mặt ngoài bán hàng trong ca (NCL-03-CN-014)"
+              title="Ghi thu chi tiền mặt ngoài bán hàng trong ca"
             >
               <Wallet className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Thu/Chi</span>

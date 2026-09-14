@@ -37,6 +37,8 @@ interface ILookupDisplayInvoice {
   amount: number;
   taxAmount: number;
   discountAmount: number;
+  pointDiscountAmount?: number;
+  pointsRedeemed?: number;
   finalAmount: number;
   status: string;
   taxAuthorityCode: string;
@@ -125,6 +127,8 @@ export const LookupInvoicePage: React.FC = () => {
             amount: preTaxAmount,
             taxAmount: data.taxAmount ?? Math.round(preTaxAmount * 0.08),
             discountAmount: data.discountAmount || 0,
+            pointDiscountAmount: (data as any).pointDiscountAmount || 0,
+            pointsRedeemed: (data as any).pointsRedeemed || 0,
             finalAmount: data.finalAmount || preTaxAmount + (data.taxAmount || 0),
             status: data.status || "ISSUED",
             taxAuthorityCode: data.taxAuthorityCode || "-",
@@ -547,6 +551,21 @@ export const LookupInvoicePage: React.FC = () => {
                   ? searchedInvoice.items.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0)
                   : ((searchedInvoice.amount || 0) + (searchedInvoice.discountAmount || 0));
                 const hasDiscount = Boolean(searchedInvoice.discountAmount && searchedInvoice.discountAmount > 0);
+                const preTaxAmount = Math.max(0, originalItemsTotal - (searchedInvoice.discountAmount || 0));
+
+                // Thuế GTGT tính trên giá sau chiết khấu thương mại theo chuẩn Nghị định 123
+                const effectiveTaxAmount = hasDiscount && searchedInvoice.taxAmount && originalItemsTotal > 0
+                  ? Math.round(searchedInvoice.taxAmount * (preTaxAmount / originalItemsTotal))
+                  : (searchedInvoice.taxAmount || 0);
+
+                // Số tiền trừ điểm thưởng / điểm tích lũy
+                const payableBeforePoints = preTaxAmount + effectiveTaxAmount;
+                const pointDiscount = (searchedInvoice.pointDiscountAmount && searchedInvoice.pointDiscountAmount > 0)
+                  ? searchedInvoice.pointDiscountAmount
+                  : (searchedInvoice.finalAmount !== undefined && searchedInvoice.finalAmount < payableBeforePoints)
+                  ? Math.max(0, payableBeforePoints - searchedInvoice.finalAmount)
+                  : 0;
+                const pointsRedeemed = searchedInvoice.pointsRedeemed || (pointDiscount > 0 ? Math.round(pointDiscount / 1000) : 0);
 
                 return (
                   <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 flex flex-col gap-2 font-bold text-slate-700 text-xs">
@@ -570,15 +589,25 @@ export const LookupInvoicePage: React.FC = () => {
                     {hasDiscount && (
                       <div className="flex justify-between text-[10px]">
                         <span className="font-semibold text-slate-500">Cộng tiền hàng (Đã trừ CK, chưa thuế):</span>
-                        <span className="text-slate-700">{formatCurrency(searchedInvoice.amount)}</span>
+                        <span className="text-slate-700">{formatCurrency(preTaxAmount)}</span>
                       </div>
                     )}
 
                     {/* 4. Tiền thuế GTGT */}
                     <div className="flex justify-between text-[10px]">
                       <span className="font-semibold text-slate-500">Tổng tiền thuế GTGT:</span>
-                      <span className="text-slate-800">{formatCurrency(searchedInvoice.taxAmount)}</span>
+                      <span className="text-slate-800">{formatCurrency(effectiveTaxAmount)}</span>
                     </div>
+
+                    {/* 4.1 Trừ điểm thưởng / tích lũy */}
+                    {pointDiscount > 0 && (
+                      <div className="flex justify-between text-[10px] text-purple-700">
+                        <span className="font-semibold">
+                          Trừ điểm tích lũy{pointsRedeemed ? ` (${pointsRedeemed} điểm)` : ""}:
+                        </span>
+                        <span className="font-bold">-{formatCurrency(pointDiscount)}</span>
+                      </div>
+                    )}
 
                     {/* 5. Tổng tiền thanh toán */}
                     <div className="flex justify-between border-t border-slate-200 pt-2 text-[11px] text-slate-950">

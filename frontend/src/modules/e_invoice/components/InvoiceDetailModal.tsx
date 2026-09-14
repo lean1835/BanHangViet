@@ -671,6 +671,21 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
                 ? invoice.items.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0)
                 : ((invoice.totalAmountBeforeTax || invoice.amount || 0) + (invoice.discountAmount || 0));
               const hasDiscount = Boolean(invoice.discountAmount && invoice.discountAmount > 0);
+              const preTaxAmount = Math.max(0, originalItemsTotal - (invoice.discountAmount || 0));
+
+              // Thuế GTGT tính trên giá sau chiết khấu thương mại theo chuẩn Nghị định 123
+              const effectiveTaxAmount = hasDiscount && invoice.taxAmount && originalItemsTotal > 0
+                ? Math.round(invoice.taxAmount * (preTaxAmount / originalItemsTotal))
+                : (invoice.taxAmount || 0);
+
+              // Số tiền trừ điểm thưởng / điểm tích lũy
+              const payableBeforePoints = preTaxAmount + effectiveTaxAmount;
+              const pointDiscount = (invoice.pointDiscountAmount && invoice.pointDiscountAmount > 0)
+                ? invoice.pointDiscountAmount
+                : (invoice.finalAmount !== undefined && invoice.finalAmount < payableBeforePoints)
+                ? Math.max(0, payableBeforePoints - invoice.finalAmount)
+                : 0;
+              const pointsRedeemed = invoice.pointsRedeemed || (pointDiscount > 0 ? Math.round(pointDiscount / 1000) : 0);
 
               return (
                 <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 flex flex-col gap-2 font-bold text-slate-700 text-xs">
@@ -694,19 +709,27 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
                   {hasDiscount && (
                     <div className="flex justify-between text-[10px]">
                       <span className="font-semibold text-slate-500">Cộng tiền hàng (Đã trừ CK, chưa thuế):</span>
-                      <span className="text-slate-700">
-                        {formatCurrency(invoice.totalAmountBeforeTax || (originalItemsTotal - (invoice.discountAmount || 0)))}
-                      </span>
+                      <span className="text-slate-700">{formatCurrency(preTaxAmount)}</span>
                     </div>
                   )}
 
                   {/* 4. Tiền thuế GTGT */}
                   <div className="flex justify-between text-[10px]">
                     <span className="font-semibold text-slate-500">Tổng tiền thuế GTGT:</span>
-                    <span className="text-slate-800">{formatCurrency(invoice.taxAmount)}</span>
+                    <span className="text-slate-800">{formatCurrency(effectiveTaxAmount)}</span>
                   </div>
 
-                  {/* 5. Tổng tiền thanh toán */}
+                  {/* 5. Trừ điểm thưởng / tích lũy */}
+                  {pointDiscount > 0 && (
+                    <div className="flex justify-between text-[10px] text-purple-700">
+                      <span className="font-semibold">
+                        Trừ điểm tích lũy{pointsRedeemed ? ` (${pointsRedeemed} điểm)` : ""}:
+                      </span>
+                      <span className="font-bold">-{formatCurrency(pointDiscount)}</span>
+                    </div>
+                  )}
+
+                  {/* 6. Tổng tiền thanh toán */}
                   <div className="flex justify-between border-t border-slate-200 pt-2 text-[11px] text-slate-950">
                     <span>Tổng tiền thanh toán:</span>
                     <span className="font-extrabold text-kv-blue-primary">

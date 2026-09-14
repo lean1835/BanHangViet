@@ -20,6 +20,7 @@ public class OrderResponse {
     private String customerId;
     private String customerName;
     private BigDecimal totalAmount;
+    private BigDecimal taxAmount;
     private BigDecimal discountAmount;
     private BigDecimal customerDiscountAmount;
     private BigDecimal promotionDiscountAmount;
