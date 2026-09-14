@@ -194,4 +194,38 @@ public class PlatformHouseholdLockIntegrationTest {
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value(2050));
     }
+
+    @Test
+    @WithMockUser(username = "admin_sys", roles = {"VT-04"})
+    @DisplayName("ISSUE-01 (P1): Tìm kiếm theo từ khóa và trạng thái LOCKED không bị trả về hộ ACTIVE")
+    public void searchHouseholds_FilterByStatusAndKeyword_CorrectPrecedence() throws Exception {
+        // Tạo hộ ACTIVE có tên chứa "Tạp hóa"
+        businessHouseholdRepository.save(BusinessHousehold.builder()
+                .taxCode("9999999991")
+                .name("Tạp hóa Miền Nam")
+                .address("TP.HCM")
+                .phoneNumber("0919999991")
+                .status(HouseholdStatus.ACTIVE)
+                .build());
+
+        // Tạo hộ LOCKED có tên chứa "Tạp hóa"
+        businessHouseholdRepository.save(BusinessHousehold.builder()
+                .taxCode("9999999992")
+                .name("Tạp hóa Miền Bắc")
+                .address("Hà Nội")
+                .phoneNumber("0919999992")
+                .status(HouseholdStatus.LOCKED)
+                .lockReason("Vi phạm")
+                .build());
+
+        // Lọc keyword="Tạp hóa" và status=LOCKED
+        mockMvc.perform(get("/api/v1/platform/households")
+                        .param("search", "Tạp hóa")
+                        .param("status", "LOCKED"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(1000))
+                .andExpect(jsonPath("$.result.content").isArray())
+                // Tất cả kết quả trả về bắt buộc phải có status = LOCKED
+                .andExpect(jsonPath("$.result.content[*].status").value(org.hamcrest.Matchers.everyItem(org.hamcrest.Matchers.is("LOCKED"))));
+    }
 }

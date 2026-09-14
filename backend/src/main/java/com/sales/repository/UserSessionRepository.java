@@ -64,4 +64,7 @@ public interface UserSessionRepository extends JpaRepository<UserSession, String
     @Modifying(flushAutomatically = true)
     @Query("UPDATE UserSession s SET s.lastActiveAt = :lastActiveAt WHERE s.id = :sessionId")
     void updateLastActiveAt(@Param("sessionId") String sessionId, @Param("lastActiveAt") LocalDateTime lastActiveAt);
+
+    @Query("SELECT s.household.id, MAX(s.lastActiveAt) FROM UserSession s WHERE s.household.id IN :householdIds AND s.isRevoked = false GROUP BY s.household.id")
+    List<Object[]> findLatestActiveAtByHouseholdIds(@Param("householdIds") java.util.Collection<String> householdIds);
 }

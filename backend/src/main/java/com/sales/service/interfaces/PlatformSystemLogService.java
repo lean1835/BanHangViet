@@ -19,6 +19,14 @@ public interface PlatformSystemLogService {
             String technicalMessage,
             String metadataJson);
 
+    void logSystemEventAsync(
+            String eventType,
+            PlatformLogSeverity severity,
+            String householdId,
+            String errorCode,
+            String technicalMessage,
+            String metadataJson);
+
     PageResponse<PlatformSystemLogResponse> getPlatformLogs(
             String currentUsername,
             String severity,

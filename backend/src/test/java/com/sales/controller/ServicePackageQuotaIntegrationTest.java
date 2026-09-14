@@ -273,4 +273,19 @@ public class ServicePackageQuotaIntegrationTest {
 
         assertEquals(ErrorCode.PACKAGE_POS_LIMIT_EXCEEDED, exception.getErrorCode());
     }
+
+    @Test
+    @DisplayName("ISSUE-06 (P2): Gán gói dịch vụ với ngày kết thúc trước ngày bắt đầu bị chặn mã INVALID_DATE_RANGE")
+    public void assignSubscription_InvalidDateRange_ThrowsException() {
+        AssignSubscriptionRequest invalidRequest = AssignSubscriptionRequest.builder()
+                .packageId(starterPackage.getId())
+                .startDate(LocalDate.now().plusDays(10))
+                .endDate(LocalDate.now().plusDays(2)) // endDate < startDate
+                .build();
+
+        AppException exception = assertThrows(AppException.class, () ->
+                servicePackageService.assignSubscription("admin_pkg", testHousehold.getId(), invalidRequest));
+
+        assertEquals(ErrorCode.INVALID_DATE_RANGE, exception.getErrorCode());
+    }
 }

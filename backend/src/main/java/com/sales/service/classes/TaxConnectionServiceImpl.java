@@ -170,7 +170,7 @@ public class TaxConnectionServiceImpl implements TaxConnectionService {
         // NCL-01-CN-011: Tự động ghi nhật ký hệ thống toàn nền tảng và nhận diện sự cố diện rộng khi CQT mất kết nối
         if ("OFFLINE".equalsIgnoreCase(resolvedStatus) && platformSystemLogService != null) {
             try {
-                platformSystemLogService.logSystemEvent(
+                platformSystemLogService.logSystemEventAsync(
                         "TAX_SERVICE_OFFLINE",
                         com.sales.constant.PlatformLogSeverity.CRITICAL,
                         householdId,

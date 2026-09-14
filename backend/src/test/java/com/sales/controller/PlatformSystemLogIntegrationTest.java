@@ -144,4 +144,22 @@ public class PlatformSystemLogIntegrationTest {
         mockMvc.perform(get("/api/v1/platform/system-logs"))
                 .andExpect(status().isForbidden());
     }
+
+    @Test
+    @DisplayName("ISSUE-09 (P3): Cắt chuỗi an toàn không lỗi DataTruncation khi technicalMessage dài hơn 500 ký tự")
+    public void logSystemEvent_SafeTruncate_Success() {
+        String longMessage = "A".repeat(1200); // 1200 characters > 500
+        PlatformSystemLog log = logService.logSystemEvent(
+                "TEST_OVERLENGTH",
+                PlatformLogSeverity.INFO,
+                null,
+                "ERR_LEN",
+                longMessage,
+                "{}"
+        );
+
+        assertNotNull(log);
+        assertNotNull(log.getId());
+        assertEquals(500, log.getMessage().length(), "Tin nhắn phải được cắt ngắn về tối đa 500 ký tự");
+    }
 }

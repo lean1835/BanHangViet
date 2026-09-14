@@ -25,7 +25,7 @@ public class TaxPeriodController {
     private final TaxPeriodService taxPeriodService;
 
     @PostMapping("/generate-sales-register")
-    @PreAuthorize("hasAnyRole('VT-01', 'VT-03', 'VT-04')")
+    @PreAuthorize("hasAnyRole('VT-01', 'VT-04') or (hasRole('VT-03') and @accountantSecurityService.hasScope(authentication, 'TAX_DECLARATION'))")
     public ResponseEntity<ApiResponse<TaxPeriodResponse>> generateSalesRegister(
             Principal principal,
             @Valid @RequestBody GenerateTaxRegisterRequest request) {
@@ -39,7 +39,7 @@ public class TaxPeriodController {
     }
 
     @GetMapping("/{periodId}/sales-register")
-    @PreAuthorize("hasAnyRole('VT-01', 'VT-03', 'VT-04')")
+    @PreAuthorize("hasAnyRole('VT-01', 'VT-04') or (hasRole('VT-03') and @accountantSecurityService.hasScope(authentication, 'TAX_DECLARATION'))")
     public ResponseEntity<ApiResponse<PageResponse<TaxSalesRegisterResponse>>> getSalesRegisterItems(
             Principal principal,
             @PathVariable String periodId,
@@ -55,7 +55,7 @@ public class TaxPeriodController {
     }
 
     @GetMapping("/{periodId}")
-    @PreAuthorize("hasAnyRole('VT-01', 'VT-03', 'VT-04')")
+    @PreAuthorize("hasAnyRole('VT-01', 'VT-04') or (hasRole('VT-03') and @accountantSecurityService.hasScope(authentication, 'TAX_DECLARATION'))")
     public ResponseEntity<ApiResponse<TaxPeriodResponse>> getTaxPeriodDetail(
             Principal principal,
             @PathVariable String periodId) {
@@ -69,7 +69,7 @@ public class TaxPeriodController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('VT-01', 'VT-03', 'VT-04')")
+    @PreAuthorize("hasAnyRole('VT-01', 'VT-04') or (hasRole('VT-03') and @accountantSecurityService.hasScope(authentication, 'TAX_DECLARATION'))")
     public ResponseEntity<ApiResponse<List<TaxPeriodResponse>>> getAllTaxPeriods(Principal principal) {
         List<TaxPeriodResponse> result = taxPeriodService.getAllTaxPeriods(principal.getName());
         ApiResponse<List<TaxPeriodResponse>> response = ApiResponse.<List<TaxPeriodResponse>>builder()
@@ -81,7 +81,7 @@ public class TaxPeriodController {
     }
 
     @GetMapping("/{periodId}/tax-summary")
-    @PreAuthorize("hasAnyRole('VT-01', 'VT-03', 'VT-04')")
+    @PreAuthorize("hasAnyRole('VT-01', 'VT-04') or (hasRole('VT-03') and @accountantSecurityService.hasScope(authentication, 'TAX_DECLARATION'))")
     public ResponseEntity<ApiResponse<TaxRevenueSummaryResponse>> getTaxRevenueSummary(
             Principal principal,
             @PathVariable String periodId) {
@@ -95,7 +95,7 @@ public class TaxPeriodController {
     }
 
     @GetMapping("/{periodId}/export-declaration")
-    @PreAuthorize("hasAnyRole('VT-01', 'VT-03', 'VT-04')")
+    @PreAuthorize("hasAnyRole('VT-01', 'VT-04') or (hasRole('VT-03') and @accountantSecurityService.hasScope(authentication, 'TAX_DECLARATION'))")
     public ResponseEntity<org.springframework.core.io.Resource> exportTaxDeclaration(
             Principal principal,
             @PathVariable String periodId) {
