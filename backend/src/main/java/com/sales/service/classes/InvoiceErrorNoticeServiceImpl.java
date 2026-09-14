@@ -397,6 +397,8 @@ public class InvoiceErrorNoticeServiceImpl implements InvoiceErrorNoticeService 
                 .totalAmountBeforeTax(invoice.getTotalAmountBeforeTax())
                 .taxAmount(invoice.getTaxAmount())
                 .discountAmount(invoice.getDiscountAmount())
+                .pointDiscountAmount(invoice.getPointDiscountAmount())
+                .pointsRedeemed(invoice.getPointsRedeemed())
                 .finalAmount(invoice.getFinalAmount())
                 .status(invoice.getStatus())
                 .taxAuthorityCode(invoice.getTaxAuthorityCode())

@@ -495,6 +495,8 @@ public class EInvoiceAutoRetryServiceImpl implements EInvoiceAutoRetryService {
                 .totalAmountBeforeTax(invoice.getTotalAmountBeforeTax())
                 .taxAmount(invoice.getTaxAmount())
                 .discountAmount(invoice.getDiscountAmount())
+                .pointDiscountAmount(invoice.getPointDiscountAmount())
+                .pointsRedeemed(invoice.getPointsRedeemed())
                 .finalAmount(invoice.getFinalAmount())
                 .paymentMethod(invoice.getPaymentMethod() != null ? invoice.getPaymentMethod() : (invoice.getOrder() != null ? invoice.getOrder().getPaymentMethod() : "CASH"))
                 .status(invoice.getStatus())

@@ -123,7 +123,7 @@ export const ShiftHandoverModal: React.FC<IShiftHandoverModalProps> = ({
 
     if (isRecipientBusy) {
       setErrorMessage(
-        "Nhân viên được chọn hiện đang có một ca bán hàng mở khác. Vui lòng chọn nhân viên khác hoặc đóng ca cũ trước (NCL-03-CN-013-TC-02)!"
+        "Nhân viên được chọn hiện đang có một ca bán hàng mở khác. Vui lòng chọn nhân viên khác hoặc đóng ca cũ trước!"
       );
       return;
     }
@@ -144,7 +144,7 @@ export const ShiftHandoverModal: React.FC<IShiftHandoverModalProps> = ({
 
     if (!isMatched && (!differenceReason || !differenceReason.trim())) {
       setErrorMessage(
-        "Có chênh lệch tiền bàn giao. Bắt buộc phải nhập lý do chênh lệch (NCL-03-CN-013-TC-03)!"
+        "Có chênh lệch tiền bàn giao. Bắt buộc phải nhập lý do chênh lệch!"
       );
       return;
     }

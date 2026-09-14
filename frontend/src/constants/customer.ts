@@ -6,6 +6,23 @@ export const CUSTOMER_DEBT_STATUS_FILTER = {
   OVERDUE: "Quá hạn nợ",
 } as const;
 
+export const CUSTOMER_DETAIL_TABS = {
+  INFO: "INFO",
+  DEBT_ORDERS: "DEBT_ORDERS",
+  RECONCILIATION: "RECONCILIATION",
+  LOYALTY: "LOYALTY",
+} as const;
+
+export type TCustomerDetailTab =
+  (typeof CUSTOMER_DETAIL_TABS)[keyof typeof CUSTOMER_DETAIL_TABS];
+
+export const CUSTOMER_TAB_QUERY_PARAMS = {
+  INFO: "",
+  DEBT: "debt",
+  RECONCILIATION: "reconciliation",
+  LOYALTY: "loyalty",
+} as const;
+
 export const CUSTOMER_FILTER_OPTIONS = {
   DEBT_STATUSES: Object.values(CUSTOMER_DEBT_STATUS_FILTER),
   DEFAULT_DEBT_STATUS: CUSTOMER_DEBT_STATUS_FILTER.ALL,
@@ -48,15 +65,29 @@ export const CUSTOMER_LOG = {
   UPDATE_ACTION: "SỬA_KHÁCH_HÀNG",
   DELETE_ACTION: "XÓA_KHÁCH_HÀNG",
   REMINDER_ACTION: "NHẮC_CÔNG_NỢ",
+  REMIND_ACTION: "NHẮC_CÔNG_NỢ",
   PAY_DEBT_ACTION: "THU_CÔNG_NỢ",
+  PAY_ACTION: "THU_CÔNG_NỢ",
+  RECONCILE_CREATE_ACTION: "TẠO_ĐỐI_CHIẾU_CÔNG_NỢ",
+  RECONCILE_CONFIRM_ACTION: "CHỐT_ĐỐI_CHIẾU_CÔNG_NỢ",
+  RECONCILE_CANCEL_ACTION: "HỦY_ĐỐI_CHIẾU_CÔNG_NỢ",
+  DEBT_ADJUSTMENT_ACTION: "ĐIỀU_CHỈNH_CÔNG_NỢ",
   added: (name: string, phone: string) =>
     `Khách hàng mới: ${name} (SĐT: ${phone})`,
   updated: (name: string) => `Cập nhật thông tin khách hàng: ${name}`,
   deleted: (name: string) => `Đã xóa khách hàng: ${name}`,
   reminded: (name: string, debtAmount: string) =>
     `Đã nhắc nợ khách hàng: ${name} (Số tiền: ${debtAmount} đ)`,
+  paid: (name: string, paidAmount: string) =>
+    `Ghi nhận thu nợ: ${name} (Số tiền: ${paidAmount} đ)`,
   debtPaid: (name: string, paidAmount: string, remainingDebt: string) =>
     `Ghi nhận thu nợ: ${name} (Thu: ${paidAmount} đ - Dư nợ còn lại: ${remainingDebt} đ)`,
+  reconcileCreated: (code: string, customerName: string) =>
+    `Lập biên bản đối chiếu ${code} cho khách hàng ${customerName}`,
+  reconcileConfirmed: (code: string, toDate: string) =>
+    `Chốt khóa sổ biên bản đối chiếu ${code} đến ngày ${toDate}`,
+  debtAdjusted: (customerName: string, type: string, amount: string) =>
+    `Lập bút toán ${type} cho ${customerName}: ${amount} đ`,
 } as const;
 
 export const CUSTOMER_UI = {
@@ -75,6 +106,7 @@ export const CUSTOMER_UI = {
     CREATE_BUTTON: "Thêm khách hàng",
     REMIND_BUTTON: "Nhắc nợ",
     PAY_DEBT_BUTTON: "Thu nợ",
+    RECONCILE_BUTTON: "Đối chiếu",
     EMPTY_MESSAGE: "Không tìm thấy khách hàng nào phù hợp với bộ lọc.",
     COLUMNS: {
       NAME: "Họ và tên",
@@ -101,6 +133,7 @@ export const CUSTOMER_UI = {
     LABELS: {
       NAME: "Họ và tên *",
       PHONE: "Số điện thoại *",
+      TAX_CODE: "Mã số thuế",
       EMAIL: "Địa chỉ Email",
       ADDRESS: "Địa chỉ",
       CREDIT_LIMIT: "Hạn mức nợ tối đa (đ) *",
@@ -109,6 +142,7 @@ export const CUSTOMER_UI = {
     PLACEHOLDERS: {
       NAME: "Nhập họ và tên khách hàng",
       PHONE: "Ví dụ: 0988888888",
+      TAX_CODE: "Ví dụ: 0101234567",
       EMAIL: "example@gmail.com",
       ADDRESS: "Địa chỉ khách hàng",
       CREDIT_LIMIT: "5,000,000",
@@ -143,6 +177,41 @@ export const CUSTOMER_UI = {
       CASH: "Tiền mặt",
       BANK_TRANSFER: "Chuyển khoản",
     },
+  },
+  RECONCILIATION_MODAL: {
+    TITLE: "Biên bản Đối chiếu Công nợ Khách hàng",
+    PREVIEW_TITLE: "Bảng Đối Chiếu Công Nợ Phát Sinh Trong Kỳ",
+    START_DATE_LABEL: "Từ ngày *",
+    END_DATE_LABEL: "Đến ngày *",
+    NOTES_LABEL: "Ghi chú / Thỏa thuận đối chiếu",
+    NOTES_PLACEHOLDER: "Nhập ghi chú đối chiếu nếu có...",
+    PREVIEW_BUTTON: "Xem trước số liệu",
+    CONFIRM_NOW_LABEL: "Chốt khóa sổ ngay (khách đã ký trực tiếp)",
+    CONFIRM_NOW_HELP: "Hệ thống sẽ khóa tất cả giao dịch nợ trước ngày kết thúc, chống sửa lùi",
+    SAVE_DRAFT_BUTTON: "Lưu bản nháp (DRAFT)",
+    DRAFT_SUBMIT_BUTTON: "Lưu bản nháp (DRAFT)",
+    CONFIRM_LOCK_BUTTON: "Chốt & Khóa sổ nợ",
+    CONFIRM_SUBMIT_BUTTON: "Chốt & Khóa sổ nợ",
+    PRINT_STATEMENT_BUTTON: "In giấy xác nhận nợ",
+    CANCEL_BUTTON: "Đóng",
+    NO_TRANSACTIONS_BANNER: "Khách hàng không phát sinh giao dịch nợ trong kỳ đối chiếu này. Số dư đầu kỳ bằng số dư cuối kỳ.",
+  },
+  STATEMENT_PRINT_MODAL: {
+    TITLE: "Giấy Đối Chiếu và Xác Nhận Công Nợ",
+    SUBTITLE: "Mẫu chứng từ chuẩn quy định thương mại & kế toán",
+    PRINT_BUTTON: "In biên bản (Print)",
+    CLOSE_BUTTON: "Đóng",
+  },
+  ADJUSTMENT_MODAL: {
+    TITLE: "Lập Bút toán Điều chỉnh Công nợ",
+    SUBTITLE: "Điều chỉnh nợ cho khách hàng sau mốc khóa sổ (yêu cầu lý do kiểm toán)",
+    LABEL_TYPE: "Loại điều chỉnh *",
+    LABEL_AMOUNT: "Số tiền điều chỉnh (đ) *",
+    LABEL_REASON: "Lý do điều chỉnh (bắt buộc theo kiểm toán) *",
+    PLACEHOLDER_AMOUNT: "Nhập số tiền điều chỉnh...",
+    PLACEHOLDER_REASON: "Ví dụ: Sai lệch số liệu đơn cũ đã khóa sổ...",
+    SUBMIT_BUTTON: "Lập bút toán",
+    CANCEL_BUTTON: "Hủy",
   },
   DELETE_MODAL: {
     TITLE: "Xóa khách hàng",

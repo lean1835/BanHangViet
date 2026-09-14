@@ -84,4 +84,8 @@ export interface IPosTab {
   bankTransferConfirmed?: boolean;
   bankTransferTxCode?: string;
   qrCodeUrl?: string | null;
+  // NCL-10-CN-008: Tích điểm & Đổi điểm khách thân thiết
+  pointsRedeemed?: number;
+  pointDiscountAmount?: number;
+  pointsEarned?: number;
 }

@@ -44,6 +44,11 @@ export const SETTINGS_NAVIGATION_ITEMS: readonly ISettingsNavigationItem[] = [
     label: "Sao lưu & Phục hồi dữ liệu",
     allowedRoles: [USER_ROLES.OWNER],
   },
+  {
+    path: APP_ROUTES.SETTINGS_LOYALTY,
+    label: "Tích điểm khách thân thiết",
+    allowedRoles: [USER_ROLES.OWNER],
+  },
 ] as const;
 
 export const SETTINGS_UI = {

@@ -689,9 +689,9 @@ public class CustomerDebtReconciliationServiceImpl implements CustomerDebtReconc
         CustomerDebtReconciliation reconciliation = reconciliationRepository
                 .findFirstByHouseholdIdAndCustomerIdAndStatusOrderByConfirmedAtDesc(
                         household.getId(), customerId, ReconciliationStatus.CONFIRMED)
-                .orElseThrow(() -> new AppException(ErrorCode.DEBT_RECONCILIATION_NOT_FOUND));
+                .orElse(null);
 
-        return mapToResponse(reconciliation);
+        return reconciliation != null ? mapToResponse(reconciliation) : null;
     }
 
     @lombok.Data
