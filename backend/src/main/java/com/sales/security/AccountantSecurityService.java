@@ -48,9 +48,9 @@ public class AccountantSecurityService {
             return false;
         }
 
-        // Nếu không phải là vai trò kế toán (VT-03), không chặn scope của kế toán
+        // Nếu không phải là vai trò kế toán (VT-03), không có scope của kế toán
         if (!"VT-03".equals(user.getRole().getCode())) {
-            return true;
+            return false;
         }
 
         // Xác định hộ kinh doanh active context (ưu tiên ThreadLocal header context, fallback về user.household)
