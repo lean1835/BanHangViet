@@ -90,6 +90,14 @@ public class TaxPeriodReminderControllerTest {
     }
 
     @Test
+    @DisplayName("GET /reminder-settings: Quản trị nền tảng (VT-04) bị chặn 403 Forbidden theo HIGH-01")
+    @WithMockUser(username = "admin_test", roles = {"VT-04"})
+    void getReminderSettings_PlatformAdmin_Forbidden() throws Exception {
+        mockMvc.perform(get("/api/v1/tax-periods/reminder-settings"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
     @DisplayName("PUT /reminder-settings: Chủ hộ (VT-01) cập nhật thành công")
     @WithMockUser(username = "owner_test", roles = {"VT-01"})
     void updateReminderSettings_Owner_Success() throws Exception {

@@ -23,7 +23,7 @@ public class TaxPeriodReminderController {
     private final TaxReminderService taxReminderService;
 
     @GetMapping("/reminder-settings")
-    @PreAuthorize("hasAnyRole('VT-01', 'VT-03', 'VT-04')")
+    @PreAuthorize("hasRole('VT-01') or (hasRole('VT-03') and @accountantSecurityService.hasScope(authentication, 'TAX_DECLARATION'))")
     public ResponseEntity<ApiResponse<TaxReminderSettingsResponse>> getReminderSettings(Principal principal) {
         TaxReminderSettingsResponse result = taxReminderService.getReminderSettings(principal.getName());
         ApiResponse<TaxReminderSettingsResponse> response = ApiResponse.<TaxReminderSettingsResponse>builder()
@@ -49,7 +49,7 @@ public class TaxPeriodReminderController {
     }
 
     @GetMapping("/reminders")
-    @PreAuthorize("hasAnyRole('VT-01', 'VT-03', 'VT-04')")
+    @PreAuthorize("hasRole('VT-01') or (hasRole('VT-03') and @accountantSecurityService.hasScope(authentication, 'TAX_DECLARATION'))")
     public ResponseEntity<ApiResponse<List<TaxPeriodReminderResponse>>> getActiveReminders(Principal principal) {
         List<TaxPeriodReminderResponse> result = taxReminderService.getActiveReminders(principal.getName());
         ApiResponse<List<TaxPeriodReminderResponse>> response = ApiResponse.<List<TaxPeriodReminderResponse>>builder()
@@ -61,7 +61,7 @@ public class TaxPeriodReminderController {
     }
 
     @PostMapping("/reminders/trigger-scan")
-    @PreAuthorize("hasAnyRole('VT-01', 'VT-03', 'VT-04')")
+    @PreAuthorize("hasRole('VT-01') or (hasRole('VT-03') and @accountantSecurityService.hasScope(authentication, 'TAX_DECLARATION'))")
     public ResponseEntity<ApiResponse<TaxReminderScanResultResponse>> triggerScanReminders(Principal principal) {
         TaxReminderScanResultResponse result = taxReminderService.triggerScanReminders(principal.getName());
         ApiResponse<TaxReminderScanResultResponse> response = ApiResponse.<TaxReminderScanResultResponse>builder()

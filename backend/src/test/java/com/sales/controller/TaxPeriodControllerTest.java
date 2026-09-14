@@ -412,6 +412,22 @@ public class TaxPeriodControllerTest {
     }
 
     @Test
+    @DisplayName("Lập bảng kê hàng hóa mua vào thất bại (403) với vai trò VT-04 (Quản trị nền tảng) theo HIGH-01")
+    @WithMockUser(username = "admin_test", roles = {"VT-04"})
+    public void generatePurchaseRegister_forbidden_platformAdmin() throws Exception {
+        GenerateTaxPurchaseRegisterRequest request = GenerateTaxPurchaseRegisterRequest.builder()
+                .periodType("QUARTERLY")
+                .year(2026)
+                .periodNumber(3)
+                .build();
+
+        mockMvc.perform(post("/api/v1/tax-periods/generate-purchase-register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
     @DisplayName("Lấy tổng hợp bảng kê mua vào thành công (200) với vai trò VT-01 (Chủ hộ)")
     @WithMockUser(username = "owner_test", roles = {"VT-01"})
     public void getPurchaseRegisterSummary_success_owner() throws Exception {

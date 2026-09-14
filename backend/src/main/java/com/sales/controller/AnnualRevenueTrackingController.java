@@ -21,7 +21,7 @@ public class AnnualRevenueTrackingController {
     private final AnnualRevenueTrackingService annualRevenueTrackingService;
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('VT-01', 'VT-03')")
+    @PreAuthorize("hasRole('VT-01') or (hasRole('VT-03') and @accountantSecurityService.hasScope(authentication, 'TAX_DECLARATION'))")
     public ResponseEntity<ApiResponse<AnnualRevenueTrackingResponse>> getAnnualRevenueTracking(
             Principal principal,
             @RequestParam(required = false) Integer year) {
