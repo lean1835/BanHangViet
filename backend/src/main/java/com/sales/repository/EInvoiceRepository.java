@@ -150,4 +150,6 @@ public interface EInvoiceRepository extends JpaRepository<EInvoice, String>, Jpa
     @EntityGraph(attributePaths = {"createdByUser", "household", "order"})
     Page<EInvoice> findByHouseholdIdAndCustomerDeliveryStatusAndDeletedAtIsNull(
             String householdId, String customerDeliveryStatus, Pageable pageable);
+
+    boolean existsByHouseholdIdAndDeletedAtIsNull(String householdId);
 }

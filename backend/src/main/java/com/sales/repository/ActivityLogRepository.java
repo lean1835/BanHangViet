@@ -66,4 +66,8 @@ public interface ActivityLogRepository extends JpaRepository<ActivityLog, String
             @Param("end") LocalDateTime end,
             Pageable pageable
     );
+
+    boolean existsByHouseholdIdAndActionAndCreatedAtBetween(
+            String householdId, String action, LocalDateTime start, LocalDateTime end
+    );
 }

@@ -1,9 +1,12 @@
 package com.sales.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.sales.dto.request.GenerateTaxPurchaseRegisterRequest;
 import com.sales.dto.request.GenerateTaxRegisterRequest;
 import com.sales.dto.response.PageResponse;
 import com.sales.dto.response.TaxPeriodResponse;
+import com.sales.dto.response.TaxPurchaseRegisterItemResponse;
+import com.sales.dto.response.TaxPurchaseRegisterSummaryResponse;
 import com.sales.dto.response.TaxRevenueSummaryResponse;
 import com.sales.dto.response.TaxSalesRegisterResponse;
 import com.sales.service.interfaces.TaxPeriodService;
@@ -326,5 +329,209 @@ public class TaxPeriodControllerTest {
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isForbidden());
     }
+
+    // =========================================================================
+    // TESTS FOR NCL-12-CN-006: Bảng kê hàng hóa mua vào theo kỳ
+    // =========================================================================
+
+    @Test
+    @DisplayName("Lập bảng kê hàng hóa mua vào thành công (200) với vai trò VT-01 (Chủ hộ)")
+    @WithMockUser(username = "owner_test", roles = {"VT-01"})
+    public void generatePurchaseRegister_success_owner() throws Exception {
+        GenerateTaxPurchaseRegisterRequest request = GenerateTaxPurchaseRegisterRequest.builder()
+                .periodType("QUARTERLY")
+                .year(2026)
+                .periodNumber(3)
+                .build();
+
+        TaxPurchaseRegisterSummaryResponse response = TaxPurchaseRegisterSummaryResponse.builder()
+                .periodId("period-p123")
+                .periodName("Quý 3/2026")
+                .periodType("QUARTERLY")
+                .year(2026)
+                .periodNumber(3)
+                .status("GENERATED")
+                .grandTotalAmount(new java.math.BigDecimal("150000000.00"))
+                .totalReceiptCount(5)
+                .build();
+
+        when(taxPeriodService.generatePurchaseRegister(eq("owner_test"), any(GenerateTaxPurchaseRegisterRequest.class)))
+                .thenReturn(response);
+
+        mockMvc.perform(post("/api/v1/tax-periods/generate-purchase-register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(1000))
+                .andExpect(jsonPath("$.result.periodId").value("period-p123"))
+                .andExpect(jsonPath("$.result.grandTotalAmount").value(150000000.00))
+                .andExpect(jsonPath("$.result.totalReceiptCount").value(5));
+    }
+
+    @Test
+    @DisplayName("Lập bảng kê hàng hóa mua vào thành công (200) với vai trò VT-03 (Kế toán)")
+    @WithMockUser(username = "accountant_test", roles = {"VT-03"})
+    public void generatePurchaseRegister_success_accountant() throws Exception {
+        GenerateTaxPurchaseRegisterRequest request = GenerateTaxPurchaseRegisterRequest.builder()
+                .periodType("MONTHLY")
+                .year(2026)
+                .periodNumber(9)
+                .build();
+
+        TaxPurchaseRegisterSummaryResponse response = TaxPurchaseRegisterSummaryResponse.builder()
+                .periodId("period-m123")
+                .periodName("Tháng 09/2026")
+                .status("GENERATED")
+                .build();
+
+        when(taxPeriodService.generatePurchaseRegister(eq("accountant_test"), any(GenerateTaxPurchaseRegisterRequest.class)))
+                .thenReturn(response);
+
+        mockMvc.perform(post("/api/v1/tax-periods/generate-purchase-register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(1000))
+                .andExpect(jsonPath("$.result.periodId").value("period-m123"));
+    }
+
+    @Test
+    @DisplayName("Lập bảng kê hàng hóa mua vào thất bại (403) với vai trò VT-02 (Nhân viên bán hàng)")
+    @WithMockUser(username = "sales_test", roles = {"VT-02"})
+    public void generatePurchaseRegister_forbidden_salesStaff() throws Exception {
+        GenerateTaxPurchaseRegisterRequest request = GenerateTaxPurchaseRegisterRequest.builder()
+                .periodType("QUARTERLY")
+                .year(2026)
+                .periodNumber(3)
+                .build();
+
+        mockMvc.perform(post("/api/v1/tax-periods/generate-purchase-register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @DisplayName("Lấy tổng hợp bảng kê mua vào thành công (200) với vai trò VT-01 (Chủ hộ)")
+    @WithMockUser(username = "owner_test", roles = {"VT-01"})
+    public void getPurchaseRegisterSummary_success_owner() throws Exception {
+        TaxPurchaseRegisterSummaryResponse summary = TaxPurchaseRegisterSummaryResponse.builder()
+                .periodId("period-p123")
+                .periodName("Quý 3/2026")
+                .grandTotalAmount(new java.math.BigDecimal("150000000.00"))
+                .totalReceiptCount(5)
+                .hasMissingSupplierReceipts(false)
+                .validSuppliers(Collections.emptyList())
+                .build();
+
+        when(taxPeriodService.getPurchaseRegisterSummary(eq("owner_test"), eq("period-p123")))
+                .thenReturn(summary);
+
+        mockMvc.perform(get("/api/v1/tax-periods/period-p123/purchase-register"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(1000))
+                .andExpect(jsonPath("$.result.periodId").value("period-p123"))
+                .andExpect(jsonPath("$.result.grandTotalAmount").value(150000000.00))
+                .andExpect(jsonPath("$.result.totalReceiptCount").value(5))
+                .andExpect(jsonPath("$.result.hasMissingSupplierReceipts").value(false));
+    }
+
+    @Test
+    @DisplayName("Lấy tổng hợp bảng kê mua vào thất bại (403) với vai trò VT-02 (Nhân viên bán hàng)")
+    @WithMockUser(username = "sales_test", roles = {"VT-02"})
+    public void getPurchaseRegisterSummary_forbidden_salesStaff() throws Exception {
+        mockMvc.perform(get("/api/v1/tax-periods/period-p123/purchase-register"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @DisplayName("Lấy danh sách dòng chi tiết bảng kê mua vào thành công (200) với phân trang")
+    @WithMockUser(username = "owner_test", roles = {"VT-01"})
+    public void getPurchaseRegisterItems_success() throws Exception {
+        TaxPurchaseRegisterItemResponse item = TaxPurchaseRegisterItemResponse.builder()
+                .id("reg-item-1")
+                .receiptNumber("PNK-202609-001")
+                .productName("Xi măng Holcim PCB40")
+                .baseQuantity(new java.math.BigDecimal("50.00"))
+                .basePurchasePrice(new java.math.BigDecimal("85000.00"))
+                .totalAmount(new java.math.BigDecimal("4250000.00"))
+                .build();
+
+        PageResponse<TaxPurchaseRegisterItemResponse> pageResponse = PageResponse.<TaxPurchaseRegisterItemResponse>builder()
+                .pageNumber(0)
+                .pageSize(10)
+                .totalElements(1)
+                .totalPages(1)
+                .content(List.of(item))
+                .build();
+
+        when(taxPeriodService.getPurchaseRegisterItems(eq("owner_test"), eq("period-p123"), eq(0), eq(10), any()))
+                .thenReturn(pageResponse);
+
+        mockMvc.perform(get("/api/v1/tax-periods/period-p123/purchase-register/items?page=0&size=10"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(1000))
+                .andExpect(jsonPath("$.result.content[0].id").value("reg-item-1"))
+                .andExpect(jsonPath("$.result.content[0].productName").value("Xi măng Holcim PCB40"))
+                .andExpect(jsonPath("$.result.content[0].totalAmount").value(4250000.00));
+    }
+
+    @Test
+    @DisplayName("Lấy danh sách dòng chi tiết bảng kê mua vào thất bại (403) với vai trò VT-02")
+    @WithMockUser(username = "sales_test", roles = {"VT-02"})
+    public void getPurchaseRegisterItems_forbidden_salesStaff() throws Exception {
+        mockMvc.perform(get("/api/v1/tax-periods/period-p123/purchase-register/items?page=0&size=10"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @DisplayName("Xuất Excel bảng kê hàng hóa mua vào thành công (200) với vai trò VT-01 (Chủ hộ)")
+    @WithMockUser(username = "owner_test", roles = {"VT-01"})
+    public void exportPurchaseRegister_success_owner() throws Exception {
+        byte[] sampleExcel = new byte[]{1, 2, 3, 4, 5, 6, 7};
+        org.springframework.core.io.ByteArrayResource resource = new org.springframework.core.io.ByteArrayResource(sampleExcel);
+
+        when(taxPeriodService.exportPurchaseRegister(eq("owner_test"), eq("period-p123")))
+                .thenReturn(ResponseEntity.ok()
+                        .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"Bang_ke_mua_vao_QUARTERLY_2026_3.xlsx\"")
+                        .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                        .contentLength(sampleExcel.length)
+                        .body(resource));
+
+        mockMvc.perform(get("/api/v1/tax-periods/period-p123/export-purchase-register"))
+                .andExpect(status().isOk())
+                .andExpect(header().string(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"Bang_ke_mua_vao_QUARTERLY_2026_3.xlsx\""))
+                .andExpect(content().contentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                .andExpect(content().bytes(sampleExcel));
+    }
+
+    @Test
+    @DisplayName("Xuất Excel bảng kê hàng hóa mua vào thành công (200) với vai trò VT-03 (Kế toán)")
+    @WithMockUser(username = "accountant_test", roles = {"VT-03"})
+    public void exportPurchaseRegister_success_accountant() throws Exception {
+        byte[] sampleExcel = new byte[]{9, 8, 7};
+        org.springframework.core.io.ByteArrayResource resource = new org.springframework.core.io.ByteArrayResource(sampleExcel);
+
+        when(taxPeriodService.exportPurchaseRegister(eq("accountant_test"), eq("period-p123")))
+                .thenReturn(ResponseEntity.ok()
+                        .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"Bang_ke_mua_vao_QUARTERLY_2026_3.xlsx\"")
+                        .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                        .contentLength(sampleExcel.length)
+                        .body(resource));
+
+        mockMvc.perform(get("/api/v1/tax-periods/period-p123/export-purchase-register"))
+                .andExpect(status().isOk())
+                .andExpect(content().contentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                .andExpect(content().bytes(sampleExcel));
+    }
+
+    @Test
+    @DisplayName("Xuất Excel bảng kê hàng hóa mua vào thất bại (403) với vai trò VT-02 (Nhân viên bán hàng)")
+    @WithMockUser(username = "sales_test", roles = {"VT-02"})
+    public void exportPurchaseRegister_forbidden_salesStaff() throws Exception {
+        mockMvc.perform(get("/api/v1/tax-periods/period-p123/export-purchase-register"))
+                .andExpect(status().isForbidden());
+    }
 }
+
 

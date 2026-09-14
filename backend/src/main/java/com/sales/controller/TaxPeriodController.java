@@ -5,6 +5,7 @@ import com.sales.dto.request.GenerateTaxRegisterRequest;
 import com.sales.dto.request.UnlockTaxPeriodRequest;
 import com.sales.dto.response.PageResponse;
 import com.sales.dto.response.TaxPeriodResponse;
+import com.sales.dto.response.TaxPurchaseRegisterSummaryResponse;
 import com.sales.dto.response.TaxRevenueSummaryResponse;
 import com.sales.dto.response.TaxSalesRegisterResponse;
 import com.sales.service.interfaces.TaxPeriodService;
@@ -129,6 +130,65 @@ public class TaxPeriodController {
                 .result(result)
                 .build();
         return ResponseEntity.ok(response);
+    }
+
+    // =========================================================================
+    // NCL-12-CN-006: Bảng kê hàng hóa mua vào theo kỳ
+    // =========================================================================
+
+    @PostMapping("/generate-purchase-register")
+    @PreAuthorize("hasAnyRole('VT-01', 'VT-03', 'VT-04')")
+    public ResponseEntity<ApiResponse<TaxPurchaseRegisterSummaryResponse>> generatePurchaseRegister(
+            Principal principal,
+            @Valid @RequestBody com.sales.dto.request.GenerateTaxPurchaseRegisterRequest request) {
+        TaxPurchaseRegisterSummaryResponse result = taxPeriodService.generatePurchaseRegister(principal.getName(), request);
+        ApiResponse<TaxPurchaseRegisterSummaryResponse> response = ApiResponse.<TaxPurchaseRegisterSummaryResponse>builder()
+                .code(1000)
+                .message("Lập bảng kê hàng hóa mua vào theo kỳ thành công")
+                .result(result)
+                .build();
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/{periodId}/purchase-register")
+    @PreAuthorize("hasAnyRole('VT-01', 'VT-03', 'VT-04')")
+    public ResponseEntity<ApiResponse<TaxPurchaseRegisterSummaryResponse>> getPurchaseRegisterSummary(
+            Principal principal,
+            @PathVariable String periodId) {
+        TaxPurchaseRegisterSummaryResponse result = taxPeriodService.getPurchaseRegisterSummary(principal.getName(), periodId);
+        ApiResponse<TaxPurchaseRegisterSummaryResponse> response = ApiResponse.<TaxPurchaseRegisterSummaryResponse>builder()
+                .code(1000)
+                .message("Lấy dữ liệu bảng kê hàng hóa mua vào thành công")
+                .result(result)
+                .build();
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/{periodId}/purchase-register/items")
+    @PreAuthorize("hasAnyRole('VT-01', 'VT-03', 'VT-04')")
+    public ResponseEntity<ApiResponse<PageResponse<com.sales.dto.response.TaxPurchaseRegisterItemResponse>>> getPurchaseRegisterItems(
+            Principal principal,
+            @PathVariable String periodId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) Boolean missingSupplierOnly) {
+        PageResponse<com.sales.dto.response.TaxPurchaseRegisterItemResponse> result =
+                taxPeriodService.getPurchaseRegisterItems(principal.getName(), periodId, page, size, missingSupplierOnly);
+        ApiResponse<PageResponse<com.sales.dto.response.TaxPurchaseRegisterItemResponse>> response =
+                ApiResponse.<PageResponse<com.sales.dto.response.TaxPurchaseRegisterItemResponse>>builder()
+                        .code(1000)
+                        .message("Lấy danh sách dòng chi tiết bảng kê mua vào thành công")
+                        .result(result)
+                        .build();
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/{periodId}/export-purchase-register")
+    @PreAuthorize("hasAnyRole('VT-01', 'VT-03', 'VT-04')")
+    public ResponseEntity<org.springframework.core.io.Resource> exportPurchaseRegister(
+            Principal principal,
+            @PathVariable String periodId) {
+        return taxPeriodService.exportPurchaseRegister(principal.getName(), periodId);
     }
 }
 

@@ -21,4 +21,7 @@ public interface TaxDeclarationPeriodRepository extends JpaRepository<TaxDeclara
 
     @EntityGraph(attributePaths = {"household", "createdByUser", "lockedByUser"})
     List<TaxDeclarationPeriod> findByHouseholdIdOrderByYearDescPeriodNumberDesc(String householdId);
+
+    @EntityGraph(attributePaths = {"household", "createdByUser", "lockedByUser"})
+    List<TaxDeclarationPeriod> findByHouseholdIdAndStatusNot(String householdId, String status);
 }

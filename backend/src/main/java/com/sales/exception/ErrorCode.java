@@ -168,6 +168,15 @@ public enum ErrorCode {
     HOUSEHOLD_REPRESENTATIVE_MISSING(5008, "Thông tin hộ kinh doanh chưa đầy đủ: Thiếu người đại diện hợp pháp", HttpStatus.BAD_REQUEST),
     TAX_PERIOD_NOT_LOCKED(5009, "Kỳ kê khai thuế chưa bị khóa", HttpStatus.BAD_REQUEST),
     TAX_PERIOD_UNLOCK_REASON_REQUIRED(5010, "Lý do mở lại kỳ kê khai không được để trống", HttpStatus.BAD_REQUEST),
+    INVALID_WARNING_THRESHOLD_PERCENTAGE(5011, "Tỷ lệ cảnh báo ngưỡng doanh thu không hợp lệ (phải từ 50.0% đến 99.0%)", HttpStatus.BAD_REQUEST),
+    YEAR_INVALID(5012, "Năm tài chính khảo sát không hợp lệ", HttpStatus.BAD_REQUEST),
+    NOTIFICATION_NOT_FOUND(5013, "Không tìm thấy thông báo trong hệ thống", HttpStatus.NOT_FOUND),
+    NO_GOODS_RECEIPTS_IN_PERIOD(5014, "Kỳ kê khai chưa có phiếu nhập hàng nào được lưu", HttpStatus.BAD_REQUEST),
+    PURCHASE_REGISTER_NOT_FOUND(5015, "Bảng kê hàng hóa mua vào của kỳ kê khai chưa được lập", HttpStatus.NOT_FOUND),
+    PURCHASE_REGISTER_ALREADY_LOCKED(5016, "Bảng kê hàng hóa mua vào thuộc kỳ đã bị khóa, không thể thay đổi số liệu (QTN-21)", HttpStatus.BAD_REQUEST),
+    INVALID_REMINDER_DAYS(5017, "Số ngày nhắc trước hạn nộp tờ khai phải từ 1 đến 30 ngày", HttpStatus.BAD_REQUEST),
+    INVALID_TAX_PERIOD_TYPE(5018, "Kỳ kê khai thuế áp dụng phải là MONTHLY hoặc QUARTERLY", HttpStatus.BAD_REQUEST),
+    TAX_REMINDER_DISABLED(5019, "Tính năng nhắc lịch nộp tờ khai của hộ kinh doanh hiện đang bị tắt", HttpStatus.BAD_REQUEST),
 
     // NCL-14-CN-002 Sao lưu dữ liệu tự động theo ngày
     BACKUP_CONFIG_NOT_FOUND(5020, "Cấu hình sao lưu dữ liệu tự động không tồn tại", HttpStatus.NOT_FOUND),

@@ -57,6 +57,9 @@ app:
   default-household-name: ${DEFAULT_HOUSEHOLD_NAME:BanHangViet}
   return-ticket:
     max-days: ${MAX_RETURN_DAYS:7}
+  scheduler:
+    tax-reminder:
+      cron: ${TAX_REMINDER_CRON:0 0 7 * * *} # Tự động quét và nhắc nộp tờ khai vào 07:00 sáng hàng ngày
 
 management:
   endpoints:

@@ -115,5 +115,18 @@ public interface GoodsReceiptDetailRepository extends JpaRepository<GoodsReceipt
             @Param("productIds") Collection<String> productIds,
             @Param("householdId") String householdId
     );
+
+    @Query("SELECT grd FROM GoodsReceiptDetail grd " +
+           "JOIN FETCH grd.receipt gr " +
+           "LEFT JOIN FETCH gr.supplier s " +
+           "JOIN FETCH grd.product p " +
+           "WHERE gr.household.id = :householdId " +
+           "AND (COALESCE(gr.receivedAt, grd.createdAt) BETWEEN :startDateTime AND :endDateTime) " +
+           "ORDER BY COALESCE(gr.receivedAt, grd.createdAt) ASC, gr.receiptNumber ASC")
+    List<GoodsReceiptDetail> findReceiptDetailsForTaxPeriod(
+            @Param("householdId") String householdId,
+            @Param("startDateTime") LocalDateTime startDateTime,
+            @Param("endDateTime") LocalDateTime endDateTime
+    );
 }
 
