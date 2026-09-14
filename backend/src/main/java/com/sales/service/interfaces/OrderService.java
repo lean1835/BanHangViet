@@ -33,6 +33,9 @@ public interface OrderService {
 
     // NCL-03-CN-012 Đổi phương thức thanh toán linh hoạt
     OrderResponse switchPaymentMethod(String currentUsername, String orderId, SwitchPaymentMethodRequest request);
+
+    // QTN-07 Tính toán lại tổng tiền, giảm giá, thuế và tiền thanh toán cuối cùng
+    void recalculateOrderTotals(com.sales.entity.Order order);
 }
 
 

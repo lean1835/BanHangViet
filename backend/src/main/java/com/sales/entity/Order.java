@@ -65,6 +65,18 @@ public class Order {
     @Builder.Default
     private BigDecimal promotionDiscountAmount = BigDecimal.ZERO;
 
+    @Column(name = "point_discount_amount", nullable = false, precision = 15, scale = 2)
+    @Builder.Default
+    private BigDecimal pointDiscountAmount = BigDecimal.ZERO;
+
+    @Column(name = "points_redeemed", nullable = false)
+    @Builder.Default
+    private Integer pointsRedeemed = 0;
+
+    @Column(name = "points_earned", nullable = false)
+    @Builder.Default
+    private Integer pointsEarned = 0;
+
     @Column(name = "final_amount", nullable = false, precision = 15, scale = 2)
     @Builder.Default
     private BigDecimal finalAmount = BigDecimal.ZERO;

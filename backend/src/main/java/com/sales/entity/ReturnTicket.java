@@ -65,6 +65,10 @@ public class ReturnTicket {
     @Builder.Default
     private BigDecimal totalReturnAmount = BigDecimal.ZERO;
 
+    @Column(name = "points_deducted", nullable = false)
+    @Builder.Default
+    private Integer pointsDeducted = 0;
+
     @Column(name = "refund_payment_method", nullable = false, length = 20)
     @Builder.Default
     private String refundPaymentMethod = "CASH"; // CASH, BANK_TRANSFER, DEBT_REDUCTION

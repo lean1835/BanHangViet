@@ -6,6 +6,7 @@ import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
@@ -64,6 +65,10 @@ public class Customer {
     @Builder.Default
     private Boolean isVip = false;
 
+    @Column(name = "loyalty_points", nullable = false)
+    @Builder.Default
+    private Integer loyaltyPoints = 0;
+
     @Column(name = "reminder_days_before", nullable = false, columnDefinition = "int default 3")
     @Builder.Default
     private Integer reminderDaysBefore = 3;
@@ -78,6 +83,13 @@ public class Customer {
 
     @Column(name = "default_delivery_address", length = 255)
     private String defaultDeliveryAddress;
+
+    @Column(name = "last_reconciled_date")
+    private LocalDate lastReconciledDate;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "last_reconciliation_id")
+    private CustomerDebtReconciliation lastReconciliation;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
