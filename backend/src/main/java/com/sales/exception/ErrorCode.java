@@ -96,6 +96,16 @@ public enum ErrorCode {
     CUSTOMER_HAS_OUTSTANDING_DEBT(3029, "Không thể xóa khách hàng đang còn dư nợ công nợ", HttpStatus.BAD_REQUEST),
     EMAIL_SEND_FAILED(3030, "Gửi thư điện tử thất bại", HttpStatus.INTERNAL_SERVER_ERROR),
 
+    // Quản lý tích điểm và đổi điểm cho khách thân thiết (NCL-10-CN-008)
+    LOYALTY_PROGRAM_NOT_ENABLED(3080, "Chương trình tích điểm chưa được kích hoạt cho hộ kinh doanh", HttpStatus.BAD_REQUEST),
+    INSUFFICIENT_LOYALTY_POINTS(3081, "Số điểm tích lũy của khách hàng không đủ để thực hiện quy đổi", HttpStatus.BAD_REQUEST),
+    MIN_POINTS_TO_REDEEM_NOT_REACHED(3082, "Khách hàng chưa đạt số điểm tối thiểu để quy đổi ưu đãi", HttpStatus.BAD_REQUEST),
+    POINTS_TO_REDEEM_EXCEEDS_ORDER_TOTAL(3083, "Số tiền quy đổi từ điểm vượt quá số tiền thanh toán cho phép của đơn hàng", HttpStatus.BAD_REQUEST),
+    CUSTOMER_REQUIRED_FOR_LOYALTY(3084, "Đơn hàng phải gắn với khách hàng có hồ sơ để áp dụng tích/đổi điểm", HttpStatus.BAD_REQUEST),
+    INVALID_LOYALTY_CONFIG(3085, "Thông số cấu hình chương trình tích điểm không hợp lệ", HttpStatus.BAD_REQUEST),
+    POINTS_MUST_BE_POSITIVE(3086, "Số điểm yêu cầu quy đổi phải là số nguyên dương lớn hơn 0", HttpStatus.BAD_REQUEST),
+    ORDER_NOT_IN_CREATING_STATUS(3087, "Chỉ có thể đổi điểm trên đơn hàng đang ở trạng thái tạo đơn", HttpStatus.BAD_REQUEST),
+
     // Quản lý Trả hàng, hoàn tiền và điều chỉnh giảm (NCL-11)
     RETURN_TICKET_NOT_FOUND(4020, "Không tìm thấy phiếu trả hàng", HttpStatus.NOT_FOUND),
     INVOICE_NOT_ELIGIBLE_FOR_RETURN(4021, "Hóa đơn gốc không ở trạng thái được phép trả hàng (phải là ISSUED và chưa bị hủy)", HttpStatus.BAD_REQUEST),
@@ -321,7 +331,19 @@ public enum ErrorCode {
     CASH_CATEGORY_IN_USE(3079, "Loại thu chi đã phát sinh phiếu giao dịch, không thể xóa", HttpStatus.BAD_REQUEST),
     CASH_CATEGORY_TYPE_MISMATCH(3150, "Loại danh mục không khớp với phân loại phiếu (Thu hoặc Chi)", HttpStatus.BAD_REQUEST),
     EXPENSE_THRESHOLD_INVALID(3151, "Hạn mức duyệt chi của hộ kinh doanh phải lớn hơn hoặc bằng 0", HttpStatus.BAD_REQUEST),
-    CASH_TRANSACTION_PERMISSION_DENIED(3152, "Bạn không có quyền thao tác trên phiếu thu chi này", HttpStatus.FORBIDDEN);
+    CASH_TRANSACTION_PERMISSION_DENIED(3152, "Bạn không có quyền thao tác trên phiếu thu chi này", HttpStatus.FORBIDDEN),
+    
+    // NCL-10-CN-007 Đối chiếu công nợ và in giấy xác nhận nợ
+    DEBT_RECONCILIATION_NOT_FOUND(3160, "Biên bản đối chiếu công nợ không tồn tại trong hệ thống", HttpStatus.NOT_FOUND),
+    DEBT_RECONCILIATION_ALREADY_CONFIRMED(3161, "Biên bản đối chiếu công nợ này đã được xác nhận chốt sổ trước đó", HttpStatus.BAD_REQUEST),
+    DEBT_RECONCILIATION_ALREADY_CANCELLED(3162, "Biên bản đối chiếu công nợ này đã bị hủy bỏ", HttpStatus.BAD_REQUEST),
+    DEBT_RECONCILIATION_INVALID_DATE_RANGE(3163, "Khoảng thời gian đối chiếu không hợp lệ (Ngày bắt đầu phải trước hoặc bằng Ngày kết thúc)", HttpStatus.BAD_REQUEST),
+    DEBT_RECORD_LOCKED_CANNOT_MODIFY(3164, "Khoản công nợ này đã được chốt đối chiếu và khóa sổ, không được phép chỉnh sửa hoặc xóa lùi", HttpStatus.BAD_REQUEST),
+    DEBT_RECONCILIATION_FUTURE_DATE(3165, "Ngày kết thúc đối chiếu không được vượt quá ngày hiện tại", HttpStatus.BAD_REQUEST),
+    DEBT_RECONCILIATION_OVERLAPPING_CONFIRMED(3166, "Khoảng thời gian này đã có biên bản đối chiếu công nợ được xác nhận chốt sổ trước đó", HttpStatus.BAD_REQUEST),
+    ONLY_STORE_OWNER_CAN_RECONCILE(3167, "Chỉ chủ hộ kinh doanh mới có quyền thực hiện và chốt đối chiếu công nợ", HttpStatus.FORBIDDEN),
+    DEBT_RECONCILIATION_PERIOD_BEFORE_LAST_LOCK(3168, "Ngày bắt đầu đối chiếu không được nằm trước mốc đã khóa sổ đối chiếu gần nhất của khách hàng", HttpStatus.BAD_REQUEST),
+    DEBT_ADJUSTMENT_REASON_REQUIRED(3169, "Bắt buộc phải nhập lý do khi lập bút toán điều chỉnh công nợ sau mốc đối chiếu", HttpStatus.BAD_REQUEST);
 
 
 

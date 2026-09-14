@@ -61,6 +61,7 @@ public class OrderServiceImpl implements OrderService {
     private final DiningTableRepository diningTableRepository;
     private final BusinessHouseholdSettingsRepository settingsRepository;
     private final OrderPaymentRepository orderPaymentRepository;
+    private final org.springframework.beans.factory.ObjectProvider<com.sales.service.interfaces.LoyaltyService> loyaltyServiceProvider;
 
     private Integer getHouseholdMaxHoldingHours(String householdId) {
         if (settingsRepository == null) return 4;
@@ -155,6 +156,9 @@ public class OrderServiceImpl implements OrderService {
         map.put("discountAmount", order.getDiscountAmount());
         map.put("customerDiscountAmount", order.getCustomerDiscountAmount());
         map.put("promotionDiscountAmount", order.getPromotionDiscountAmount());
+        map.put("pointDiscountAmount", order.getPointDiscountAmount());
+        map.put("pointsRedeemed", order.getPointsRedeemed());
+        map.put("pointsEarned", order.getPointsEarned());
         map.put("finalAmount", order.getFinalAmount());
         map.put("paymentMethod", order.getPaymentMethod());
         map.put("paymentStatus", order.getPaymentStatus());
@@ -390,6 +394,9 @@ public class OrderServiceImpl implements OrderService {
                 .discountAmount(order.getDiscountAmount())
                 .customerDiscountAmount(order.getCustomerDiscountAmount())
                 .promotionDiscountAmount(order.getPromotionDiscountAmount())
+                .pointDiscountAmount(order.getPointDiscountAmount() != null ? order.getPointDiscountAmount() : BigDecimal.ZERO)
+                .pointsRedeemed(order.getPointsRedeemed() != null ? order.getPointsRedeemed() : 0)
+                .pointsEarned(order.getPointsEarned() != null ? order.getPointsEarned() : 0)
                 .finalAmount(order.getFinalAmount())
                 .paymentMethod(order.getPaymentMethod())
                 .paymentStatus(order.getPaymentStatus())
@@ -460,7 +467,8 @@ public class OrderServiceImpl implements OrderService {
         return warnings;
     }
 
-    private void recalculateOrderTotals(Order order) {
+    @Override
+    public void recalculateOrderTotals(Order order) {
         BigDecimal totalSubtotal = BigDecimal.ZERO;
         BigDecimal totalCartAmount = BigDecimal.ZERO;
         BigDecimal itemPromoDiscountSum = BigDecimal.ZERO;
@@ -543,8 +551,14 @@ public class OrderServiceImpl implements OrderService {
         // Làm tròn tiền thuế và tiền thanh toán cuối cùng về số nguyên đồng (VND không có số lẻ thập phân)
         finalTaxAmount = finalTaxAmount.setScale(0, RoundingMode.HALF_UP).setScale(2);
 
-        // Bước 5: Khách cần trả (finalAmount = afterDiscountAmount + finalTaxAmount)
-        BigDecimal finalAmount = afterDiscountAmount.add(finalTaxAmount).max(BigDecimal.ZERO).setScale(0, RoundingMode.HALF_UP).setScale(2);
+        // Bước 5: Khách cần trả (finalAmount = afterDiscountAmount + finalTaxAmount - pointDiscountAmount)
+        BigDecimal beforePointAmount = afterDiscountAmount.add(finalTaxAmount);
+        BigDecimal pointDiscount = order.getPointDiscountAmount() != null ? order.getPointDiscountAmount() : BigDecimal.ZERO;
+        if (pointDiscount.compareTo(beforePointAmount) > 0) {
+            pointDiscount = beforePointAmount;
+            order.setPointDiscountAmount(pointDiscount);
+        }
+        BigDecimal finalAmount = beforePointAmount.subtract(pointDiscount).max(BigDecimal.ZERO).setScale(0, RoundingMode.HALF_UP).setScale(2);
 
         BigDecimal promotionDiscountAmount = itemPromoDiscountSum.add(manualDiscount).setScale(0, RoundingMode.HALF_UP).setScale(2);
         BigDecimal totalDiscount = itemPromoDiscountSum.add(customerDiscountAmount).add(manualDiscount).setScale(0, RoundingMode.HALF_UP).setScale(2);
@@ -1394,6 +1408,15 @@ public class OrderServiceImpl implements OrderService {
             BigDecimal currentTotalSpent = customer.getTotalSpent() != null ? customer.getTotalSpent() : BigDecimal.ZERO;
             customer.setTotalSpent(currentTotalSpent.add(order.getFinalAmount()));
             customerRepository.save(customer);
+        }
+
+        // Loyalty points processing (NCL-10-CN-008)
+        com.sales.service.interfaces.LoyaltyService loyaltyService = loyaltyServiceProvider != null ? loyaltyServiceProvider.getIfAvailable() : null;
+        if (loyaltyService != null) {
+            if (order.getPointsRedeemed() != null && order.getPointsRedeemed() > 0) {
+                loyaltyService.processPointsRedeemed(order, currentUser);
+            }
+            loyaltyService.earnPointsForCompletedOrder(order, currentUser);
         }
 
         order = orderRepository.save(order);
