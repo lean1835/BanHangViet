@@ -19,6 +19,7 @@ import {
   useGetHeldOrdersQuery,
   useLazyGetOrderQuery,
 } from "@/modules/order/services/orderApi";
+import { useApplyPointsToOrderMutation } from "@/modules/customer/services/loyaltyApi";
 import { useGetActiveShiftQuery } from "@/modules/shift/services/shiftApi";
 import { useGetMyHouseholdQuery } from "@/modules/settings/services/settingsApi";
 import { useAutoApplyPromotionsMutation } from "@/modules/promotion/services/promotionApi";
@@ -154,6 +155,7 @@ export const PosPage = () => {
   const [autoApplyPromotions] = useAutoApplyPromotionsMutation();
   const [scanBarcode] = useScanBarcodeMutation();
   const [resolveTierPrice] = useResolveTierPriceMutation();
+  const [applyPointsToOrder] = useApplyPointsToOrderMutation();
 
   // Helper: Đồng bộ bậc giá sỉ & lẻ tự động từ server (NCL-02-CN-010, TC-01, TC-02)
   const resolveTiersForItems = async (
@@ -1104,6 +1106,14 @@ export const PosPage = () => {
             discountValue: activeTab.discountValue,
           }).unwrap();
         }
+
+        // 4. Apply Loyalty Points Redemption (NCL-10-CN-008)
+        if (activeTab.pointsRedeemed && activeTab.pointsRedeemed > 0) {
+          await applyPointsToOrder({
+            orderId,
+            body: { pointsToRedeem: activeTab.pointsRedeemed },
+          }).unwrap();
+        }
       }
 
       updateActiveTab({
@@ -1614,6 +1624,14 @@ export const PosPage = () => {
           discountValue: activeTab.discountValue,
         }).unwrap();
       }
+
+      // Apply Loyalty Points Redemption (NCL-10-CN-008)
+      if (activeTab.pointsRedeemed && activeTab.pointsRedeemed > 0) {
+        await applyPointsToOrder({
+          orderId,
+          body: { pointsToRedeem: activeTab.pointsRedeemed },
+        }).unwrap();
+      }
     }
     return orderId;
   };
@@ -1760,7 +1778,7 @@ export const PosPage = () => {
       bankTransferConfirmed: false,
       bankTransferTxCode: undefined,
     });
-    showToast("Đã đổi sang hình thức Tiền mặt theo yêu cầu của khách hàng (NCL-03-CN-012)");
+    showToast("Đã đổi sang hình thức Tiền mặt theo yêu cầu của khách hàng");
   };
 
   // Complete Order (Thanh toán hoàn tất)

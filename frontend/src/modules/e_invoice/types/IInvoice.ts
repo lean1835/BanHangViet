@@ -44,6 +44,8 @@ export interface IInvoice {
   totalAmountBeforeTax?: number;
   taxAmount: number;
   discountAmount?: number;
+  pointDiscountAmount?: number;
+  pointsRedeemed?: number;
   finalAmount: number;
   status: TInvoiceStatus;
   taxAuthorityCode: string;

@@ -57,6 +57,22 @@ public class BusinessHouseholdSettings {
     @Builder.Default
     private java.math.BigDecimal expenseApprovalThreshold = new java.math.BigDecimal("500000.00");
 
+    @Column(name = "revenue_warning_threshold_percentage", nullable = false, precision = 5, scale = 2)
+    @Builder.Default
+    private java.math.BigDecimal revenueWarningThresholdPercentage = new java.math.BigDecimal("80.00");
+
+    @Column(name = "tax_period_type", nullable = false, length = 20)
+    @Builder.Default
+    private String taxPeriodType = "QUARTERLY"; // MONTHLY, QUARTERLY
+
+    @Column(name = "tax_reminder_days_before", nullable = false)
+    @Builder.Default
+    private Integer taxReminderDaysBefore = 5;
+
+    @Column(name = "tax_reminder_enabled", nullable = false)
+    @Builder.Default
+    private Boolean taxReminderEnabled = true;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

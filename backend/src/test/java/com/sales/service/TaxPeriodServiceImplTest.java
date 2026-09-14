@@ -6,11 +6,14 @@ import com.sales.entity.*;
 import com.sales.exception.AppException;
 import com.sales.exception.ErrorCode;
 import com.sales.repository.EInvoiceRepository;
+import com.sales.repository.GoodsReceiptDetailRepository;
 import com.sales.repository.TaxDeclarationPeriodRepository;
+import com.sales.repository.TaxPurchaseRegisterRepository;
 import com.sales.repository.TaxSalesRegisterRepository;
 import com.sales.repository.UserRepository;
 import com.sales.service.classes.ActivityLogHelper;
 import com.sales.service.classes.TaxPeriodServiceImpl;
+import java.time.LocalDate;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -40,6 +43,12 @@ class TaxPeriodServiceImplTest {
     private TaxSalesRegisterRepository salesRegisterRepository;
 
     @Mock
+    private TaxPurchaseRegisterRepository purchaseRegisterRepository;
+
+    @Mock
+    private GoodsReceiptDetailRepository goodsReceiptDetailRepository;
+
+    @Mock
     private EInvoiceRepository invoiceRepository;
 
     @Mock
@@ -50,6 +59,9 @@ class TaxPeriodServiceImplTest {
 
     @Mock
     private ActivityLogHelper activityLogHelper;
+
+    @Mock
+    private com.sales.service.interfaces.TaxReminderService taxReminderService;
 
     @InjectMocks
     private TaxPeriodServiceImpl taxPeriodService;
@@ -789,6 +801,486 @@ class TaxPeriodServiceImplTest {
 
         assertEquals(ErrorCode.FORBIDDEN, ex.getErrorCode());
         verify(taxPeriodRepository, never()).findByIdAndHouseholdId(anyString(), anyString());
+    }
+
+    // =========================================================================
+    // TESTS FOR NCL-12-CN-006: Bảng kê hàng hóa mua vào theo kỳ
+    // =========================================================================
+
+    @Test
+    @DisplayName("NCL-12-CN-006-TC-01: Lập bảng kê mua vào thành công từ các phiếu nhập đã lưu trong kỳ")
+    void generatePurchaseRegister_success_withSuppliersAndTotals() {
+        when(userRepository.findByUsername("ketoan01")).thenReturn(Optional.of(accountantUser));
+
+        Supplier suppA = Supplier.builder().id("supp-a").name("Công ty TNHH Rau Sạch").taxCode("010111222").build();
+        Supplier suppB = Supplier.builder().id("supp-b").name("Công ty Cổ Phần Thực Phẩm").taxCode("010333444").build();
+
+        GoodsReceipt gr1 = GoodsReceipt.builder().id("gr-01").household(household).supplier(suppA).receiptNumber("PNK-001").receivedAt(LocalDateTime.of(2026, 7, 10, 8, 0)).build();
+        GoodsReceipt gr2 = GoodsReceipt.builder().id("gr-02").household(household).supplier(suppB).receiptNumber("PNK-002").receivedAt(LocalDateTime.of(2026, 8, 15, 9, 0)).build();
+
+        Product prodA = Product.builder().id("p-01").sku("SP-001").name("Cải thảo tươi").unit("Kg").build();
+        Product prodB = Product.builder().id("p-02").sku("SP-002").name("Thịt heo tươi").unit("Kg").build();
+
+        GoodsReceiptDetail grd1 = GoodsReceiptDetail.builder()
+                .id("grd-01").receipt(gr1).product(prodA)
+                .quantity(new BigDecimal("10.000")).purchasePrice(new BigDecimal("20000.00"))
+                .baseQuantity(new BigDecimal("10.000")).basePurchasePrice(new BigDecimal("20000.00"))
+                .unitName("Kg").build();
+
+        GoodsReceiptDetail grd2 = GoodsReceiptDetail.builder()
+                .id("grd-02").receipt(gr2).product(prodB)
+                .quantity(new BigDecimal("5.000")).purchasePrice(new BigDecimal("100000.00"))
+                .baseQuantity(new BigDecimal("5.000")).basePurchasePrice(new BigDecimal("100000.00"))
+                .unitName("Kg").build();
+
+        when(goodsReceiptDetailRepository.findReceiptDetailsForTaxPeriod(eq("hh-001"), any(), any()))
+                .thenReturn(List.of(grd1, grd2));
+
+        when(taxPeriodRepository.findByHouseholdIdAndPeriodTypeAndYearAndPeriodNumber(eq("hh-001"), eq("QUARTERLY"), eq(2026), eq(3)))
+                .thenReturn(Optional.empty());
+
+        TaxDeclarationPeriod createdPeriod = TaxDeclarationPeriod.builder()
+                .id("period-q3-2026")
+                .household(household)
+                .periodName("Bảng kê thuế Quý 3 năm 2026")
+                .periodType("QUARTERLY")
+                .year(2026)
+                .periodNumber(3)
+                .status("GENERATED")
+                .build();
+        when(taxPeriodRepository.save(any(TaxDeclarationPeriod.class))).thenReturn(createdPeriod);
+
+        when(purchaseRegisterRepository.saveAll(anyList())).thenAnswer(invocation -> {
+            List<TaxPurchaseRegister> list = invocation.getArgument(0);
+            for (int i = 0; i < list.size(); i++) {
+                list.get(i).setId("tpr-id-" + (i + 1));
+            }
+            return list;
+        });
+
+        com.sales.dto.request.GenerateTaxPurchaseRegisterRequest request =
+                com.sales.dto.request.GenerateTaxPurchaseRegisterRequest.builder()
+                        .periodType("QUARTERLY")
+                        .year(2026)
+                        .periodNumber(3)
+                        .build();
+
+        com.sales.dto.response.TaxPurchaseRegisterSummaryResponse response =
+                taxPeriodService.generatePurchaseRegister("ketoan01", request);
+
+        assertNotNull(response);
+        assertEquals("period-q3-2026", response.getPeriodId());
+        assertFalse(response.getHasMissingSupplierReceipts());
+        assertEquals(2, response.getValidSuppliers().size());
+        assertEquals(new BigDecimal("15.000"), response.getGrandTotalQuantity());
+        assertEquals(new BigDecimal("700000.00"), response.getGrandTotalAmount());
+        assertEquals(new BigDecimal("700000.00"), response.getEligibleForTaxDeductionAmount());
+
+        verify(purchaseRegisterRepository).saveAll(anyList());
+        verify(activityLogHelper).logActivityInNewTransaction(eq(household), eq(accountantUser), eq("GENERATE_TAX_PURCHASE_REGISTER"), anyString(), anyString(), any(), anyString(), any(), any());
+    }
+
+    @Test
+    @DisplayName("NCL-12-CN-006-TC-02: Phiếu nhập thiếu NCC -> Gom riêng vào unidentifiedSuppliers kèm cảnh báo")
+    void generatePurchaseRegister_missingSupplier_groupedSeparatelyWithWarning() {
+        when(userRepository.findByUsername("ketoan01")).thenReturn(Optional.of(accountantUser));
+
+        Supplier suppA = Supplier.builder().id("supp-a").name("Công ty TNHH Rau Sạch").taxCode("010111222").build();
+
+        GoodsReceipt grValid = GoodsReceipt.builder().id("gr-01").household(household).supplier(suppA).receiptNumber("PNK-001").receivedAt(LocalDateTime.of(2026, 7, 10, 8, 0)).build();
+        GoodsReceipt grMissing = GoodsReceipt.builder().id("gr-02").household(household).supplier(null).receiptNumber("PNK-002").receivedAt(LocalDateTime.of(2026, 8, 15, 9, 0)).notes("Mua lẻ chợ").build();
+
+        Product prodA = Product.builder().id("p-01").sku("SP-001").name("Cải thảo").unit("Kg").build();
+        Product prodB = Product.builder().id("p-02").sku("SP-002").name("Bao bì xốp").unit("Cái").build();
+
+        GoodsReceiptDetail grd1 = GoodsReceiptDetail.builder()
+                .id("grd-01").receipt(grValid).product(prodA)
+                .quantity(new BigDecimal("10.000")).purchasePrice(new BigDecimal("20000.00"))
+                .baseQuantity(new BigDecimal("10.000")).basePurchasePrice(new BigDecimal("20000.00"))
+                .unitName("Kg").build();
+
+        GoodsReceiptDetail grd2 = GoodsReceiptDetail.builder()
+                .id("grd-02").receipt(grMissing).product(prodB)
+                .quantity(new BigDecimal("50.000")).purchasePrice(new BigDecimal("1000.00"))
+                .baseQuantity(new BigDecimal("50.000")).basePurchasePrice(new BigDecimal("1000.00"))
+                .unitName("Cái").build();
+
+        when(goodsReceiptDetailRepository.findReceiptDetailsForTaxPeriod(eq("hh-001"), any(), any()))
+                .thenReturn(List.of(grd1, grd2));
+
+        TaxDeclarationPeriod createdPeriod = TaxDeclarationPeriod.builder()
+                .id("period-q3-2026")
+                .household(household)
+                .periodName("Bảng kê thuế Quý 3 năm 2026")
+                .periodType("QUARTERLY")
+                .year(2026)
+                .periodNumber(3)
+                .status("GENERATED")
+                .build();
+        when(taxPeriodRepository.findByHouseholdIdAndPeriodTypeAndYearAndPeriodNumber(any(), any(), any(), any()))
+                .thenReturn(Optional.of(createdPeriod));
+        when(taxPeriodRepository.save(any(TaxDeclarationPeriod.class))).thenReturn(createdPeriod);
+
+        when(purchaseRegisterRepository.saveAll(anyList())).thenAnswer(inv -> inv.getArgument(0));
+
+        com.sales.dto.request.GenerateTaxPurchaseRegisterRequest request =
+                com.sales.dto.request.GenerateTaxPurchaseRegisterRequest.builder()
+                        .periodType("QUARTERLY")
+                        .year(2026)
+                        .periodNumber(3)
+                        .build();
+
+        com.sales.dto.response.TaxPurchaseRegisterSummaryResponse response =
+                taxPeriodService.generatePurchaseRegister("ketoan01", request);
+
+        assertNotNull(response);
+        assertTrue(response.getHasMissingSupplierReceipts());
+        assertEquals(1, response.getMissingSupplierReceiptCount());
+        assertNotNull(response.getWarningMessage());
+        assertTrue(response.getWarningMessage().contains("không có thông tin Nhà cung cấp"));
+
+        assertEquals(1, response.getValidSuppliers().size());
+        assertNotNull(response.getUnidentifiedSuppliers());
+        assertEquals(1, response.getUnidentifiedSuppliers().getItems().size());
+        assertEquals(new BigDecimal("200000.00"), response.getEligibleForTaxDeductionAmount());
+        assertEquals(new BigDecimal("250000.00"), response.getGrandTotalAmount());
+    }
+
+    @Test
+    @DisplayName("NCL-12-CN-006-TC-03: Kỳ kê khai đã chốt (LOCKED) -> Gọi lập lại bảng kê bị chặn TAX_PERIOD_ALREADY_LOCKED (QTN-21)")
+    void generatePurchaseRegister_periodAlreadyLocked_throwsException() {
+        when(userRepository.findByUsername("ketoan01")).thenReturn(Optional.of(accountantUser));
+
+        GoodsReceiptDetail grd = GoodsReceiptDetail.builder().id("grd-01").build();
+        when(goodsReceiptDetailRepository.findReceiptDetailsForTaxPeriod(any(), any(), any()))
+                .thenReturn(List.of(grd));
+
+        TaxDeclarationPeriod lockedPeriod = TaxDeclarationPeriod.builder()
+                .id("period-q3-2026")
+                .household(household)
+                .status("LOCKED")
+                .build();
+
+        when(taxPeriodRepository.findByHouseholdIdAndPeriodTypeAndYearAndPeriodNumber(any(), any(), any(), any()))
+                .thenReturn(Optional.of(lockedPeriod));
+
+        com.sales.dto.request.GenerateTaxPurchaseRegisterRequest request =
+                com.sales.dto.request.GenerateTaxPurchaseRegisterRequest.builder()
+                        .periodType("QUARTERLY")
+                        .year(2026)
+                        .periodNumber(3)
+                        .build();
+
+        AppException ex = assertThrows(AppException.class, () ->
+                taxPeriodService.generatePurchaseRegister("ketoan01", request));
+
+        assertEquals(ErrorCode.TAX_PERIOD_ALREADY_LOCKED, ex.getErrorCode());
+        verify(purchaseRegisterRepository, never()).saveAll(anyList());
+    }
+
+    @Test
+    @DisplayName("NCL-12-CN-006: Kỳ không có phiếu nhập nào -> Báo lỗi NO_GOODS_RECEIPTS_IN_PERIOD (400)")
+    void generatePurchaseRegister_emptyReceipts_throwsException() {
+        when(userRepository.findByUsername("ketoan01")).thenReturn(Optional.of(accountantUser));
+
+        when(goodsReceiptDetailRepository.findReceiptDetailsForTaxPeriod(any(), any(), any()))
+                .thenReturn(Collections.emptyList());
+
+        com.sales.dto.request.GenerateTaxPurchaseRegisterRequest request =
+                com.sales.dto.request.GenerateTaxPurchaseRegisterRequest.builder()
+                        .periodType("QUARTERLY")
+                        .year(2026)
+                        .periodNumber(3)
+                        .build();
+
+        AppException ex = assertThrows(AppException.class, () ->
+                taxPeriodService.generatePurchaseRegister("ketoan01", request));
+
+        assertEquals(ErrorCode.NO_GOODS_RECEIPTS_IN_PERIOD, ex.getErrorCode());
+        verify(purchaseRegisterRepository, never()).saveAll(anyList());
+    }
+
+    @Test
+    @DisplayName("NCL-12-CN-006: Nhân viên bán hàng (VT-02) bị chặn FORBIDDEN (403)")
+    void generatePurchaseRegister_salesStaff_forbidden() {
+        when(userRepository.findByUsername("banhang01")).thenReturn(Optional.of(salesStaffUser));
+
+        com.sales.dto.request.GenerateTaxPurchaseRegisterRequest request =
+                com.sales.dto.request.GenerateTaxPurchaseRegisterRequest.builder()
+                        .periodType("QUARTERLY")
+                        .year(2026)
+                        .periodNumber(3)
+                        .build();
+
+        AppException ex = assertThrows(AppException.class, () ->
+                taxPeriodService.generatePurchaseRegister("banhang01", request));
+
+        assertEquals(ErrorCode.FORBIDDEN, ex.getErrorCode());
+        verify(goodsReceiptDetailRepository, never()).findReceiptDetailsForTaxPeriod(any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("NCL-12-CN-006: Người dùng có vai trò không hợp lệ (VT-06 hoặc null) bị chặn FORBIDDEN theo Whitelist")
+    void generatePurchaseRegister_unauthorizedRole_forbidden() {
+        User unauthorizedUser = User.builder()
+                .id("user-unauth")
+                .username("unauth")
+                .household(household)
+                .role(com.sales.entity.Role.builder().code("VT-06").name("Khách hàng").build())
+                .build();
+        when(userRepository.findByUsername("unauth")).thenReturn(Optional.of(unauthorizedUser));
+
+        com.sales.dto.request.GenerateTaxPurchaseRegisterRequest request =
+                com.sales.dto.request.GenerateTaxPurchaseRegisterRequest.builder()
+                        .periodType("QUARTERLY")
+                        .year(2026)
+                        .periodNumber(3)
+                        .build();
+
+        AppException ex = assertThrows(AppException.class, () ->
+                taxPeriodService.generatePurchaseRegister("unauth", request));
+
+        assertEquals(ErrorCode.FORBIDDEN, ex.getErrorCode());
+    }
+
+    @Test
+    @DisplayName("NCL-12-CN-006: Phiếu nhập có nhiều dòng cùng một mặt hàng -> Ánh xạ ID chuẩn xác O(N)")
+    void generatePurchaseRegister_duplicateProductLines_mappedCorrectly() {
+        when(userRepository.findByUsername("ketoan01")).thenReturn(Optional.of(accountantUser));
+
+        Supplier suppA = Supplier.builder().id("supp-a").name("Công ty Nước Giải Khát").taxCode("0102030405").build();
+        GoodsReceipt gr = GoodsReceipt.builder()
+                .id("gr-1")
+                .household(household)
+                .supplier(suppA)
+                .receiptNumber("PNK-001")
+                .receivedAt(LocalDateTime.of(2026, 7, 15, 9, 30))
+                .notes("HĐ: HD-2026-99")
+                .build();
+
+        Product prod = Product.builder().id("prod-1").sku("COCA-330").name("Coca lon 330ml").unit("Lon").build();
+
+        GoodsReceiptDetail grd1 = GoodsReceiptDetail.builder()
+                .id("grd-1")
+                .receipt(gr)
+                .product(prod)
+                .quantity(new BigDecimal("24.000"))
+                .baseQuantity(new BigDecimal("24.000"))
+                .purchasePrice(new BigDecimal("8000.00"))
+                .basePurchasePrice(new BigDecimal("8000.00"))
+                .unitName("Thùng")
+                .build();
+
+        GoodsReceiptDetail grd2 = GoodsReceiptDetail.builder()
+                .id("grd-2")
+                .receipt(gr)
+                .product(prod)
+                .quantity(new BigDecimal("12.000"))
+                .baseQuantity(new BigDecimal("12.000"))
+                .purchasePrice(new BigDecimal("8500.00"))
+                .basePurchasePrice(new BigDecimal("8500.00"))
+                .unitName("Lon lẻ")
+                .build();
+
+        when(goodsReceiptDetailRepository.findReceiptDetailsForTaxPeriod(any(), any(), any()))
+                .thenReturn(List.of(grd1, grd2));
+
+        when(taxPeriodRepository.findByHouseholdIdAndPeriodTypeAndYearAndPeriodNumber(any(), any(), any(), any()))
+                .thenReturn(Optional.empty());
+
+        TaxDeclarationPeriod createdPeriod = TaxDeclarationPeriod.builder()
+                .id("period-q3-2026")
+                .household(household)
+                .periodName("Bảng kê thuế Quý 3 năm 2026")
+                .periodType("QUARTERLY")
+                .year(2026)
+                .periodNumber(3)
+                .startDate(LocalDate.of(2026, 7, 1))
+                .endDate(LocalDate.of(2026, 9, 30))
+                .status("GENERATED")
+                .build();
+        when(taxPeriodRepository.save(any(TaxDeclarationPeriod.class))).thenReturn(createdPeriod);
+
+        TaxPurchaseRegister saved1 = TaxPurchaseRegister.builder().id("tpr-id-001").build();
+        TaxPurchaseRegister saved2 = TaxPurchaseRegister.builder().id("tpr-id-002").build();
+        when(purchaseRegisterRepository.saveAll(anyList())).thenReturn(List.of(saved1, saved2));
+
+        com.sales.dto.request.GenerateTaxPurchaseRegisterRequest request =
+                com.sales.dto.request.GenerateTaxPurchaseRegisterRequest.builder()
+                        .periodType("QUARTERLY")
+                        .year(2026)
+                        .periodNumber(3)
+                        .build();
+
+        com.sales.dto.response.TaxPurchaseRegisterSummaryResponse response =
+                taxPeriodService.generatePurchaseRegister("ketoan01", request);
+
+        assertNotNull(response);
+        assertEquals(1, response.getValidSuppliers().size());
+        List<com.sales.dto.response.TaxPurchaseRegisterItemResponse> items = response.getValidSuppliers().get(0).getItems();
+        assertEquals(2, items.size());
+        assertEquals("tpr-id-001", items.get(0).getId());
+        assertEquals("tpr-id-002", items.get(1).getId());
+        assertEquals(new BigDecimal("36.000"), response.getGrandTotalQuantity());
+        assertEquals(new BigDecimal("294000.00"), response.getGrandTotalAmount());
+    }
+
+    @Test
+    @DisplayName("NCL-12-CN-006: Xem chi tiết bảng kê mua vào (getPurchaseRegisterSummary) thành công")
+    void getPurchaseRegisterSummary_success() {
+        when(userRepository.findByUsername("ketoan01")).thenReturn(Optional.of(accountantUser));
+
+        TaxDeclarationPeriod period = TaxDeclarationPeriod.builder()
+                .id("period-q3-2026")
+                .household(household)
+                .periodName("Bảng kê thuế Quý 3 năm 2026")
+                .periodType("QUARTERLY")
+                .year(2026)
+                .periodNumber(3)
+                .status("GENERATED")
+                .build();
+        when(taxPeriodRepository.findByIdAndHouseholdId("period-q3-2026", "hh-001"))
+                .thenReturn(Optional.of(period));
+
+        Supplier suppA = Supplier.builder().id("supp-a").name("Công ty Rau").build();
+        TaxPurchaseRegister item = TaxPurchaseRegister.builder()
+                .id("tpr-1")
+                .period(period)
+                .receiptNumber("PNK-001")
+                .receiptDate(LocalDateTime.of(2026, 7, 10, 8, 0))
+                .supplier(suppA)
+                .supplierName("Công ty Rau")
+                .productCode("SP-01")
+                .productName("Rau xanh")
+                .unitName("Kg")
+                .baseQuantity(new BigDecimal("10.000"))
+                .basePurchasePrice(new BigDecimal("15000.00"))
+                .totalAmount(new BigDecimal("150000.00"))
+                .isSupplierMissing(false)
+                .build();
+
+        when(purchaseRegisterRepository.findByPeriodIdOrderByReceiptDateAsc("period-q3-2026"))
+                .thenReturn(List.of(item));
+
+        com.sales.dto.response.TaxPurchaseRegisterSummaryResponse response =
+                taxPeriodService.getPurchaseRegisterSummary("ketoan01", "period-q3-2026");
+
+        assertNotNull(response);
+        assertEquals("period-q3-2026", response.getPeriodId());
+        assertEquals(1, response.getValidSuppliers().size());
+        assertEquals(new BigDecimal("150000.00"), response.getGrandTotalAmount());
+    }
+
+    @Test
+    @DisplayName("NCL-12-CN-006: Xem chi tiết bảng kê mua vào khi chưa lập -> Ném PURCHASE_REGISTER_NOT_FOUND (404)")
+    void getPurchaseRegisterSummary_notFound_throwsException() {
+        when(userRepository.findByUsername("ketoan01")).thenReturn(Optional.of(accountantUser));
+
+        TaxDeclarationPeriod period = TaxDeclarationPeriod.builder()
+                .id("period-q3-2026")
+                .household(household)
+                .build();
+        when(taxPeriodRepository.findByIdAndHouseholdId("period-q3-2026", "hh-001"))
+                .thenReturn(Optional.of(period));
+
+        when(purchaseRegisterRepository.findByPeriodIdOrderByReceiptDateAsc("period-q3-2026"))
+                .thenReturn(Collections.emptyList());
+
+        AppException ex = assertThrows(AppException.class, () ->
+                taxPeriodService.getPurchaseRegisterSummary("ketoan01", "period-q3-2026"));
+
+        assertEquals(ErrorCode.PURCHASE_REGISTER_NOT_FOUND, ex.getErrorCode());
+    }
+
+    @Test
+    @DisplayName("NCL-12-CN-006: Phân trang danh sách dòng bảng kê mua vào (getPurchaseRegisterItems)")
+    void getPurchaseRegisterItems_success() {
+        when(userRepository.findByUsername("ketoan01")).thenReturn(Optional.of(accountantUser));
+
+        TaxDeclarationPeriod period = TaxDeclarationPeriod.builder()
+                .id("period-q3-2026")
+                .household(household)
+                .build();
+        when(taxPeriodRepository.findByIdAndHouseholdId("period-q3-2026", "hh-001"))
+                .thenReturn(Optional.of(period));
+
+        TaxPurchaseRegister item = TaxPurchaseRegister.builder()
+                .id("tpr-1")
+                .period(period)
+                .receiptNumber("PNK-001")
+                .receiptDate(LocalDateTime.of(2026, 7, 10, 8, 0))
+                .productCode("SP-01")
+                .productName("Rau xanh")
+                .unitName("Kg")
+                .baseQuantity(new BigDecimal("10.000"))
+                .basePurchasePrice(new BigDecimal("15000.00"))
+                .totalAmount(new BigDecimal("150000.00"))
+                .isSupplierMissing(false)
+                .build();
+
+        org.springframework.data.domain.Page<TaxPurchaseRegister> pageResult =
+                new org.springframework.data.domain.PageImpl<>(List.of(item));
+
+        when(purchaseRegisterRepository.findByPeriodId(eq("period-q3-2026"), any(org.springframework.data.domain.Pageable.class)))
+                .thenReturn(pageResult);
+
+        com.sales.dto.response.PageResponse<com.sales.dto.response.TaxPurchaseRegisterItemResponse> response =
+                taxPeriodService.getPurchaseRegisterItems("ketoan01", "period-q3-2026", 0, 20, false);
+
+        assertNotNull(response);
+        assertEquals(1, response.getContent().size());
+        assertEquals("PNK-001", response.getContent().get(0).getReceiptNumber());
+    }
+
+    @Test
+    @DisplayName("NCL-12-CN-006: Xuất file Excel bảng kê mua vào thành công (exportPurchaseRegister)")
+    void exportPurchaseRegister_success() {
+        when(userRepository.findByUsername("ketoan01")).thenReturn(Optional.of(accountantUser));
+
+        TaxDeclarationPeriod period = TaxDeclarationPeriod.builder()
+                .id("period-q3-2026")
+                .household(household)
+                .periodName("Bảng kê thuế Quý 3 năm 2026")
+                .periodType("QUARTERLY")
+                .year(2026)
+                .periodNumber(3)
+                .startDate(LocalDate.of(2026, 7, 1))
+                .endDate(LocalDate.of(2026, 9, 30))
+                .status("GENERATED")
+                .build();
+        when(taxPeriodRepository.findByIdAndHouseholdId("period-q3-2026", "hh-001"))
+                .thenReturn(Optional.of(period));
+
+        Supplier suppA = Supplier.builder().id("supp-a").name("Công ty Rau").taxCode("010123456").build();
+        TaxPurchaseRegister item = TaxPurchaseRegister.builder()
+                .id("tpr-1")
+                .period(period)
+                .receiptNumber("PNK-001")
+                .receiptDate(LocalDateTime.of(2026, 7, 10, 8, 0))
+                .supplier(suppA)
+                .supplierName("Công ty Rau")
+                .supplierTaxCode("010123456")
+                .productCode("SP-01")
+                .productName("Rau xanh")
+                .unitName("Kg")
+                .baseQuantity(new BigDecimal("10.000"))
+                .basePurchasePrice(new BigDecimal("15000.00"))
+                .totalAmount(new BigDecimal("150000.00"))
+                .isSupplierMissing(false)
+                .build();
+
+        when(purchaseRegisterRepository.findByPeriodIdOrderByReceiptDateAsc("period-q3-2026"))
+                .thenReturn(List.of(item));
+
+        org.springframework.http.ResponseEntity<org.springframework.core.io.Resource> response =
+                taxPeriodService.exportPurchaseRegister("ketoan01", "period-q3-2026");
+
+        assertNotNull(response);
+        assertEquals(200, response.getStatusCode().value());
+        assertTrue(response.getHeaders().getContentDisposition().toString().contains("Bang_ke_hang_hoa_mua_vao_Q3_2026.xlsx"));
+        assertNotNull(response.getBody());
+
+        verify(activityLogHelper).logActivityInNewTransaction(eq(household), eq(accountantUser), eq("EXPORT_TAX_PURCHASE_REGISTER"), anyString(), anyString(), any(), anyString(), any(), any());
     }
 }
 

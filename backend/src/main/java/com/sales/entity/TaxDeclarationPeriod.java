@@ -67,6 +67,14 @@ public class TaxDeclarationPeriod {
     @Builder.Default
     private BigDecimal totalTaxAmount = BigDecimal.ZERO;
 
+    @Column(name = "total_purchase_amount", nullable = false, precision = 15, scale = 2)
+    @Builder.Default
+    private BigDecimal totalPurchaseAmount = BigDecimal.ZERO;
+
+    @Column(name = "total_purchase_receipts", nullable = false)
+    @Builder.Default
+    private Integer totalPurchaseReceipts = 0;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "created_by_user_id", nullable = false)
     @ToString.Exclude
@@ -79,6 +87,13 @@ public class TaxDeclarationPeriod {
     @JoinColumn(name = "locked_by_user_id")
     @ToString.Exclude
     private User lockedByUser;
+
+    @Column(name = "declaration_exported", nullable = false)
+    @Builder.Default
+    private Boolean declarationExported = false;
+
+    @Column(name = "declaration_exported_at")
+    private LocalDateTime declarationExportedAt;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)

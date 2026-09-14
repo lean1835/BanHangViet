@@ -213,7 +213,7 @@ describe("NCL-03-CN-011: Thanh toán kết hợp nhiều hình thức trên mộ
           orderId: "order-123",
           data: {
             transactionCode: "FT26099988",
-            notes: "Xác nhận chuyển khoản tại POS (NCL-03-CN-012)",
+            notes: "Xác nhận chuyển khoản tại POS",
           },
         });
       });

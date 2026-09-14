@@ -39,6 +39,7 @@ export const API_TAG_TYPES = {
   TAX_RATE: "TaxRate",
   SETTINGS: "Settings",
   DEBT: "Debt",
+  DEBT_RECONCILIATION: "DebtReconciliation",
   SUPPLIER: "Supplier",
   INVENTORY_AUDIT: "InventoryAudit",
   INVENTORY_WARNING: "InventoryWarning",
@@ -69,6 +70,9 @@ export const API_TAG_TYPES = {
   CASH_CATEGORY: "CashCategory",
   TAX_CONNECTION: "TaxConnection",
   DAILY_CONTROL: "DailyControl",
+  LOYALTY_CONFIG: "LoyaltyConfig",
+  LOYALTY_SUMMARY: "LoyaltySummary",
+  LOYALTY_TRANSACTIONS: "LoyaltyTransactions",
 } as const;
 
 export const API_TAG_TYPE_VALUES = Object.values(API_TAG_TYPES);

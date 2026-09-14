@@ -44,6 +44,7 @@ public class BusinessHouseholdSettingsServiceImpl implements BusinessHouseholdSe
                         .maxRetryHoursDeadline(24)
                         .maxOrderHoldingHours(4)
                         .bankTransferTimeoutMinutes(15)
+                        .revenueWarningThresholdPercentage(new java.math.BigDecimal("80.00"))
                         .build()));
     }
 

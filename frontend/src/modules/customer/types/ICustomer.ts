@@ -14,8 +14,10 @@ export interface ICustomer {
   discountType?: "PERCENTAGE" | "CASH";
   totalSpent?: number;
   isVip?: boolean;
+  loyaltyPoints?: number;
   reminderDaysBefore?: number;
   reminderDaysAfter?: number;
+  defaultDeliveryChannel?: string;
   dueDate?: string;
   debtCreatedAt?: string;
   createdAt?: string;

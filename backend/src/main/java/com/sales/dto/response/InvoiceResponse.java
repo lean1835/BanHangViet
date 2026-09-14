@@ -38,6 +38,8 @@ public class InvoiceResponse {
     private BigDecimal totalAmountBeforeTax;
     private BigDecimal taxAmount;
     private BigDecimal discountAmount;
+    private BigDecimal pointDiscountAmount;
+    private Integer pointsRedeemed;
     private BigDecimal finalAmount;
     private String paymentMethod;
     private List<OrderPaymentResponse> payments;

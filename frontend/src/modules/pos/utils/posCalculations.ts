@@ -13,6 +13,8 @@ export interface IPosCalculatedTotals {
   afterDiscountAmount: number;
   itemTaxTotal: number;
   totalTaxAmount: number;
+  payableBeforePoints: number;
+  pointDiscountAmount: number;
   finalTotal: number;
   effectiveAmountGiven: number;
   changeAmount: number;
@@ -73,8 +75,13 @@ export function calculatePosTotals(tab: IPosTab): IPosCalculatedTotals {
       : itemTaxTotal
   );
 
-  // 5. Bước 5: Khách cần trả (finalTotal = Giá sau chiết khấu + Thuế VAT)
-  const finalTotal = Math.round(Math.max(0, afterDiscountAmount + totalTaxAmount));
+  // 5. Bước 5: Tiền trước khi đổi điểm và Khách cần trả (QTN-07)
+  const payableBeforePoints = Math.round(Math.max(0, afterDiscountAmount + totalTaxAmount));
+  const rawPointDiscount = Math.round(tab.pointDiscountAmount || 0);
+  const pointDiscountAmount = Math.min(payableBeforePoints, rawPointDiscount);
+
+  // Khách cần trả (finalTotal = Tiền trước trừ điểm - Tiền đổi điểm)
+  const finalTotal = Math.round(Math.max(0, payableBeforePoints - pointDiscountAmount));
 
   // 6. Calculate effective amount given & change
   const effectiveAmountGiven =
@@ -101,6 +108,8 @@ export function calculatePosTotals(tab: IPosTab): IPosCalculatedTotals {
     afterDiscountAmount,
     itemTaxTotal,
     totalTaxAmount,
+    payableBeforePoints,
+    pointDiscountAmount,
     finalTotal,
     effectiveAmountGiven,
     changeAmount,

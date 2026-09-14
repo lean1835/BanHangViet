@@ -47,6 +47,24 @@ public interface UserSessionRepository extends JpaRepository<UserSession, String
                                         @Param("reason") String reason);
 
     @Modifying(flushAutomatically = true)
+    @Query("UPDATE UserSession s SET s.isRevoked = true, s.revokedAt = :revokedAt, s.revokedByUser = :revokedBy, s.revokeReason = :reason WHERE s.household.id = :householdId AND s.isRevoked = false")
+    int revokeAllActiveSessionsForHousehold(@Param("householdId") String householdId,
+                                           @Param("revokedAt") LocalDateTime revokedAt,
+                                           @Param("revokedBy") User revokedBy,
+                                           @Param("reason") String reason);
+
+    @Modifying(flushAutomatically = true)
+    @Query("UPDATE UserSession s SET s.isRevoked = true, s.revokedAt = :revokedAt, s.revokedByUser = :revokedBy, s.revokeReason = :reason WHERE s.user.id = :userId AND s.household.id = :householdId AND s.isRevoked = false")
+    int revokeAllActiveSessionsForUserAndHousehold(@Param("userId") String userId,
+                                                   @Param("householdId") String householdId,
+                                                   @Param("revokedAt") LocalDateTime revokedAt,
+                                                   @Param("revokedBy") User revokedBy,
+                                                   @Param("reason") String reason);
+
+    @Modifying(flushAutomatically = true)
     @Query("UPDATE UserSession s SET s.lastActiveAt = :lastActiveAt WHERE s.id = :sessionId")
     void updateLastActiveAt(@Param("sessionId") String sessionId, @Param("lastActiveAt") LocalDateTime lastActiveAt);
+
+    @Query("SELECT s.household.id, MAX(s.lastActiveAt) FROM UserSession s WHERE s.household.id IN :householdIds AND s.isRevoked = false GROUP BY s.household.id")
+    List<Object[]> findLatestActiveAtByHouseholdIds(@Param("householdIds") java.util.Collection<String> householdIds);
 }

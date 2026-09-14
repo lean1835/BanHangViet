@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
-import { Search, Plus, Edit, Trash2, AlertTriangle, Bell, Wallet, Calendar, Eye } from "lucide-react";
+import { Search, Plus, Edit, Trash2, AlertTriangle, Bell, Wallet, Calendar, Eye, FileCheck } from "lucide-react";
 import { TablePaginationFooter } from "@/components/common/TablePaginationFooter";
 import { CUSTOMER_UI } from "@/constants/customer";
 import { APP_ROUTES } from "@/constants/routes";
@@ -21,6 +21,7 @@ interface CustomerListProps {
   onDeleteCustomer: (id: string) => void;
   onConfirmReminder: (customer: ICustomer, message?: string) => void;
   onConfirmPayDebt: (data: DebtPaymentData) => void | Promise<void>;
+  onOpenReconcileModal?: (customer: ICustomer) => void;
 }
 
 export const CustomerList: React.FC<CustomerListProps> = ({
@@ -32,6 +33,7 @@ export const CustomerList: React.FC<CustomerListProps> = ({
   onDeleteCustomer,
   onConfirmReminder,
   onConfirmPayDebt,
+  onOpenReconcileModal,
 }) => {
   const navigate = useNavigate();
   const [customerToDelete, setCustomerToDelete] = useState<ICustomer | null>(null);
@@ -256,9 +258,36 @@ export const CustomerList: React.FC<CustomerListProps> = ({
                               <Bell size={12} />
                               {CUSTOMER_UI.LIST.REMIND_BUTTON}
                             </button>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onOpenReconcileModal?.(customer);
+                                navigate(`${APP_ROUTES.CUSTOMER_DETAIL(customer.id)}?tab=reconciliation`);
+                              }}
+                              title="Đối chiếu công nợ và in giấy xác nhận"
+                              className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-blue-50 text-kv-blue-primary hover:bg-blue-100 font-bold text-xs transition-all border border-blue-200/80 shadow-sm cursor-pointer"
+                            >
+                              <FileCheck size={12} />
+                              {CUSTOMER_UI.LIST.RECONCILE_BUTTON}
+                            </button>
                           </div>
                         ) : (
-                          <span className="text-slate-300 font-medium">--</span>
+                          <div className="flex items-center justify-center">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onOpenReconcileModal?.(customer);
+                                navigate(`${APP_ROUTES.CUSTOMER_DETAIL(customer.id)}?tab=reconciliation`);
+                              }}
+                              title="Đối chiếu công nợ định kỳ"
+                              className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-slate-500 hover:text-kv-blue-primary hover:bg-slate-100 font-semibold text-[11px] transition-all cursor-pointer"
+                            >
+                              <FileCheck size={12} />
+                              Đối chiếu
+                            </button>
+                          </div>
                         )}
                       </td>
                       <td className="p-3 text-center" onClick={(e) => e.stopPropagation()}>

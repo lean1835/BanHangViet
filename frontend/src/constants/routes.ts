@@ -48,6 +48,7 @@ export const ROUTE_SEGMENTS = {
   SESSIONS: "sessions",
   STOCK_CARD: "stock-card",
   PRICE_ADJUSTMENTS: "price-adjustments",
+  LOYALTY: "loyalty",
   WILDCARD: "*",
 } as const;
 
@@ -180,8 +181,12 @@ export const APP_ROUTES = {
     ROUTE_SEGMENTS.BACKUP_EXPORT,
   ),
   SETTINGS_PRINTER: createRoute(
+  ROUTE_SEGMENTS.SETTINGS,
+  ROUTE_SEGMENTS.PRINTER,
+),
+  SETTINGS_LOYALTY: createRoute(
     ROUTE_SEGMENTS.SETTINGS,
-    ROUTE_SEGMENTS.PRINTER,
+    ROUTE_SEGMENTS.LOYALTY,
   ),
   ADMIN: createRoute(ROUTE_SEGMENTS.ADMIN),
   ADMIN_OVERVIEW: createRoute(

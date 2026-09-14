@@ -156,7 +156,7 @@ export const DiningTableManagementModal: React.FC<IDiningTableManagementModalPro
                 Quản Lý Danh Mục Bàn Ăn / Khu Vực
               </h3>
               <p className="text-xs text-blue-100 font-medium">
-                Cấu hình sơ đồ bàn phục vụ tại chỗ cho điểm bán POS (NCL-03-CN-010)
+                Cấu hình sơ đồ bàn phục vụ tại chỗ cho điểm bán POS
               </p>
             </div>
           </div>

@@ -181,7 +181,7 @@ export const CombinedPaymentModal: React.FC<ICombinedPaymentModalProps> = ({
 
       if (row.paymentMethod === "BANK_TRANSFER") {
         if (!row.isConfirmed) {
-          issues.push("Phần chuyển khoản ngân hàng chưa được xác nhận đã nhận tiền (NCL-03-CN-012).");
+          issues.push("Phần chuyển khoản ngân hàng chưa được xác nhận đã nhận tiền.");
         }
       }
 
@@ -276,7 +276,7 @@ export const CombinedPaymentModal: React.FC<ICombinedPaymentModalProps> = ({
         orderId,
         data: {
           transactionCode: row.transactionCode.trim(),
-          notes: row.notes?.trim() || "Xác nhận chuyển khoản tại POS (NCL-03-CN-012)",
+          notes: row.notes?.trim() || "Xác nhận chuyển khoản tại POS",
         },
       }).unwrap();
 

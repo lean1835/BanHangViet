@@ -65,6 +65,7 @@ public class EInvoiceServiceImpl implements EInvoiceService {
     private final TransactionTemplate transactionTemplate;
     private final InvoiceNumberRangeService invoiceNumberRangeService;
     private final TaxConnectionService taxConnectionService;
+    private final com.sales.service.interfaces.ServicePackageService servicePackageService;
 
     @Value("${app.frontend-url:http://localhost:3000}")
     private String frontendUrl;
@@ -239,6 +240,52 @@ public class EInvoiceServiceImpl implements EInvoiceService {
             }
         }
 
+        BigDecimal pointDiscount = invoice.getPointDiscountAmount();
+        Integer pointsRedeemed = invoice.getPointsRedeemed();
+        BigDecimal taxAmount = invoice.getTaxAmount();
+        BigDecimal totalBeforeTax = invoice.getTotalAmountBeforeTax();
+
+        if (invoice.getOrder() != null) {
+            Order ord = invoice.getOrder();
+            if ((pointDiscount == null || pointDiscount.compareTo(BigDecimal.ZERO) == 0)
+                    && ord.getPointDiscountAmount() != null && ord.getPointDiscountAmount().compareTo(BigDecimal.ZERO) > 0) {
+                pointDiscount = ord.getPointDiscountAmount();
+                pointsRedeemed = ord.getPointsRedeemed();
+            }
+            if (ord.getTaxAmount() != null && ord.getTaxAmount().compareTo(BigDecimal.ZERO) > 0) {
+                taxAmount = ord.getTaxAmount();
+            }
+            if (ord.getDiscountAmount() != null && ord.getDiscountAmount().compareTo(BigDecimal.ZERO) > 0) {
+                BigDecimal cartBeforeTax = ord.getTotalAmount() != null ? ord.getTotalAmount() : totalBeforeTax;
+                totalBeforeTax = cartBeforeTax.subtract(ord.getDiscountAmount()).max(BigDecimal.ZERO);
+            }
+        }
+
+        // Chuẩn hóa thuế sau chiết khấu nếu hóa đơn cũ đang lưu thuế giá gốc
+        BigDecimal discAmount = invoice.getDiscountAmount() != null ? invoice.getDiscountAmount() : BigDecimal.ZERO;
+        if (discAmount.compareTo(BigDecimal.ZERO) > 0 && totalBeforeTax != null && totalBeforeTax.compareTo(BigDecimal.ZERO) > 0) {
+            BigDecimal rawBase = totalBeforeTax.add(discAmount);
+            if (rawBase.compareTo(BigDecimal.ZERO) > 0 && taxAmount != null) {
+                BigDecimal discountRatio = totalBeforeTax.divide(rawBase, 6, RoundingMode.HALF_UP);
+                BigDecimal adjustedTax = taxAmount.multiply(discountRatio).setScale(0, RoundingMode.HALF_UP).setScale(2);
+                if (taxAmount.compareTo(adjustedTax) > 0) {
+                    taxAmount = adjustedTax;
+                }
+            }
+        }
+
+        // Tự động suy luận số tiền trừ điểm nếu hóa đơn cũ chưa lưu trường điểm thưởng
+        if ((pointDiscount == null || pointDiscount.compareTo(BigDecimal.ZERO) == 0)
+                && invoice.getFinalAmount() != null && totalBeforeTax != null && taxAmount != null) {
+            BigDecimal expectedTotal = totalBeforeTax.add(taxAmount);
+            if (expectedTotal.compareTo(invoice.getFinalAmount()) > 0) {
+                pointDiscount = expectedTotal.subtract(invoice.getFinalAmount());
+                if (pointsRedeemed == null || pointsRedeemed == 0) {
+                    pointsRedeemed = pointDiscount.divide(BigDecimal.valueOf(1000), 0, RoundingMode.HALF_UP).intValue();
+                }
+            }
+        }
+
         return InvoiceResponse.builder()
                 .id(invoice.getId())
                 .householdId(invoice.getHousehold() != null ? invoice.getHousehold().getId() : null)
@@ -265,9 +312,11 @@ public class EInvoiceServiceImpl implements EInvoiceService {
                 .buyerPhone(invoice.getBuyerPhone())
                 .buyerEmail(invoice.getBuyerEmail())
                 .buyerAddress(invoice.getBuyerAddress())
-                .totalAmountBeforeTax(invoice.getTotalAmountBeforeTax())
-                .taxAmount(invoice.getTaxAmount())
+                .totalAmountBeforeTax(totalBeforeTax)
+                .taxAmount(taxAmount)
                 .discountAmount(invoice.getDiscountAmount())
+                .pointDiscountAmount(pointDiscount != null ? pointDiscount : BigDecimal.ZERO)
+                .pointsRedeemed(pointsRedeemed != null ? pointsRedeemed : 0)
                 .finalAmount(invoice.getFinalAmount())
                 .paymentMethod(paymentMethod)
                 .payments(paymentResponses)
@@ -535,7 +584,6 @@ public class EInvoiceServiceImpl implements EInvoiceService {
             lookupCode = UUID.randomUUID().toString().replaceAll("-", "").substring(0, 10).toUpperCase();
         } while (eInvoiceRepository.existsByLookupCodeAndDeletedAtIsNull(lookupCode));
 
-        BigDecimal totalBeforeTax = BigDecimal.ZERO;
         BigDecimal totalTaxAmount = BigDecimal.ZERO;
 
         List<EInvoiceItem> invoiceItems = new ArrayList<>();
@@ -554,22 +602,38 @@ public class EInvoiceServiceImpl implements EInvoiceService {
                 .buyerEmail(order.getCustomer() != null ? order.getCustomer().getEmail() : null)
                 .buyerAddress(order.getCustomer() != null ? order.getCustomer().getAddress() : null)
                 .discountAmount(order.getDiscountAmount())
+                .pointDiscountAmount(order.getPointDiscountAmount() != null ? order.getPointDiscountAmount() : BigDecimal.ZERO)
+                .pointsRedeemed(order.getPointsRedeemed() != null ? order.getPointsRedeemed() : 0)
                 .finalAmount(order.getFinalAmount())
                 .paymentMethod(order.getPaymentMethod())
                 .status("DRAFT")
                 .lookupCode(lookupCode)
                 .build();
 
+        BigDecimal totalCartAmount = BigDecimal.ZERO;
         for (OrderItem orderItem : order.getItems()) {
-            BigDecimal qty = orderItem.getQuantity();
-            BigDecimal price = orderItem.getUnitPrice();
-            BigDecimal disc = orderItem.getDiscountAmount();
-            BigDecimal taxRate = orderItem.getTaxRatePercentage();
-            BigDecimal taxAmt = orderItem.getTaxAmount();
+            BigDecimal qty = orderItem.getQuantity() != null ? orderItem.getQuantity() : BigDecimal.ZERO;
+            BigDecimal price = orderItem.getUnitPrice() != null ? orderItem.getUnitPrice() : BigDecimal.ZERO;
+            BigDecimal disc = orderItem.getDiscountAmount() != null ? orderItem.getDiscountAmount() : BigDecimal.ZERO;
+            totalCartAmount = totalCartAmount.add(qty.multiply(price).subtract(disc));
+        }
+
+        BigDecimal orderDiscount = order.getDiscountAmount() != null ? order.getDiscountAmount() : BigDecimal.ZERO;
+        BigDecimal afterDiscountAmount = totalCartAmount.subtract(orderDiscount).max(BigDecimal.ZERO);
+        BigDecimal discountRatio = totalCartAmount.compareTo(BigDecimal.ZERO) > 0
+                ? afterDiscountAmount.divide(totalCartAmount, 6, RoundingMode.HALF_UP)
+                : BigDecimal.ONE;
+
+        for (OrderItem orderItem : order.getItems()) {
+            BigDecimal qty = orderItem.getQuantity() != null ? orderItem.getQuantity() : BigDecimal.ZERO;
+            BigDecimal price = orderItem.getUnitPrice() != null ? orderItem.getUnitPrice() : BigDecimal.ZERO;
+            BigDecimal disc = orderItem.getDiscountAmount() != null ? orderItem.getDiscountAmount() : BigDecimal.ZERO;
+            BigDecimal taxRate = orderItem.getTaxRatePercentage() != null ? orderItem.getTaxRatePercentage() : BigDecimal.ZERO;
 
             BigDecimal lineBeforeTax = qty.multiply(price).subtract(disc);
-            totalBeforeTax = totalBeforeTax.add(lineBeforeTax);
-            totalTaxAmount = totalTaxAmount.add(taxAmt);
+            BigDecimal discountedLineBase = lineBeforeTax.multiply(discountRatio);
+            BigDecimal lineTax = discountedLineBase.multiply(taxRate).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+            totalTaxAmount = totalTaxAmount.add(lineTax);
 
             EInvoiceItem invItem = EInvoiceItem.builder()
                     .invoice(invoice)
@@ -581,7 +645,7 @@ public class EInvoiceServiceImpl implements EInvoiceService {
                     .quantity(qty)
                     .unitPrice(price)
                     .taxRatePercentage(taxRate)
-                    .taxAmount(taxAmt)
+                    .taxAmount(lineTax)
                     .discountAmount(disc)
                     .promotion(orderItem.getPromotion())
                     .promotionName(orderItem.getPromotionName())
@@ -591,8 +655,10 @@ public class EInvoiceServiceImpl implements EInvoiceService {
             invoiceItems.add(invItem);
         }
 
-        invoice.setTotalAmountBeforeTax(totalBeforeTax);
-        invoice.setTaxAmount(totalTaxAmount);
+        // Tiền hàng chưa thuế (sau khi đã trừ chiết khấu thương mại theo quy chuẩn HĐĐT)
+        invoice.setTotalAmountBeforeTax(afterDiscountAmount);
+        // Thuế GTGT đồng nhất tuyệt đối với thuế đã tính trên đơn hàng
+        invoice.setTaxAmount(order.getTaxAmount() != null ? order.getTaxAmount() : totalTaxAmount.setScale(0, RoundingMode.HALF_UP).setScale(2));
         invoice.setItems(invoiceItems);
 
         EInvoice savedInvoice = eInvoiceRepository.save(invoice);
@@ -948,6 +1014,11 @@ public class EInvoiceServiceImpl implements EInvoiceService {
         invoice.setTaxResponseAt(LocalDateTime.now());
 
         EInvoice saved = eInvoiceRepository.save(invoice);
+
+        // NCL-01-CN-010 & GAP 48 (TC-03): Ghi nhận hóa đơn phát hành theo tháng vào hạn mức gói
+        if (servicePackageService != null && householdId != null) {
+            servicePackageService.recordInvoiceIssued(householdId);
+        }
 
         if (taxConnectionService != null) {
             try {

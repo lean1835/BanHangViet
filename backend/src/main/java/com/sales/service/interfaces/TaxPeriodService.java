@@ -1,11 +1,14 @@
 package com.sales.service.interfaces;
 
+import com.sales.dto.request.GenerateTaxPurchaseRegisterRequest;
 import com.sales.dto.request.GenerateTaxRegisterRequest;
+import com.sales.dto.request.UnlockTaxPeriodRequest;
 import com.sales.dto.response.PageResponse;
 import com.sales.dto.response.TaxPeriodResponse;
-import com.sales.dto.response.TaxSalesRegisterResponse;
-
+import com.sales.dto.response.TaxPurchaseRegisterItemResponse;
+import com.sales.dto.response.TaxPurchaseRegisterSummaryResponse;
 import com.sales.dto.response.TaxRevenueSummaryResponse;
+import com.sales.dto.response.TaxSalesRegisterResponse;
 import org.springframework.core.io.Resource;
 import org.springframework.http.ResponseEntity;
 
@@ -27,6 +30,14 @@ public interface TaxPeriodService {
 
     TaxPeriodResponse lockTaxPeriod(String currentUsername, String periodId);
 
-    TaxPeriodResponse unlockTaxPeriod(String currentUsername, String periodId, com.sales.dto.request.UnlockTaxPeriodRequest request);
+    TaxPeriodResponse unlockTaxPeriod(String currentUsername, String periodId, UnlockTaxPeriodRequest request);
+
+    TaxPurchaseRegisterSummaryResponse generatePurchaseRegister(String currentUsername, GenerateTaxPurchaseRegisterRequest request);
+
+    TaxPurchaseRegisterSummaryResponse getPurchaseRegisterSummary(String currentUsername, String periodId);
+
+    PageResponse<TaxPurchaseRegisterItemResponse> getPurchaseRegisterItems(String currentUsername, String periodId, int page, int size, Boolean missingSupplierOnly);
+
+    ResponseEntity<Resource> exportPurchaseRegister(String currentUsername, String periodId);
 }
 
