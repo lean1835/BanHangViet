@@ -71,4 +71,17 @@ public class TaxPeriodReminderController {
                 .build();
         return ResponseEntity.ok(response);
     }
+
+    @PostMapping("/{periodId}/mark-exported")
+    @PreAuthorize("hasRole('VT-01') or (hasRole('VT-03') and @accountantSecurityService.hasScope(authentication, 'TAX_DECLARATION'))")
+    public ResponseEntity<ApiResponse<Void>> markDeclarationAsExported(
+            Principal principal,
+            @PathVariable String periodId) {
+        taxReminderService.markDeclarationAsExported(principal.getName(), periodId);
+        ApiResponse<Void> response = ApiResponse.<Void>builder()
+                .code(1000)
+                .message("Đánh dấu đã xuất tờ khai thuế thành công")
+                .build();
+        return ResponseEntity.ok(response);
+    }
 }

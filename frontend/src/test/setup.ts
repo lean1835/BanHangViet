@@ -5,17 +5,13 @@ const safeCaf = (id?: number) => {
   if (id) clearTimeout(id);
 };
 
-Object.defineProperty(globalThis, "requestAnimationFrame", {
-  writable: true,
-  configurable: true,
-  value: safeRaf,
-});
+(globalThis as any).requestAnimationFrame = safeRaf;
+(globalThis as any).cancelAnimationFrame = safeCaf;
 
-Object.defineProperty(globalThis, "cancelAnimationFrame", {
-  writable: true,
-  configurable: true,
-  value: safeCaf,
-});
+if (typeof global !== "undefined") {
+  (global as any).requestAnimationFrame = safeRaf;
+  (global as any).cancelAnimationFrame = safeCaf;
+}
 
 if (typeof window !== "undefined") {
   window.requestAnimationFrame = safeRaf;

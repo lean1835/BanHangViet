@@ -82,6 +82,9 @@ const ActivityLogPage = React.lazy(() => import("@/modules/report/pages/Activity
 const TaxDeclarationPage = React.lazy(
   () => import("@/modules/tax_declaration/pages/TaxDeclarationPage")
 );
+const AnnualRevenueTrackingPage = React.lazy(
+  () => import("@/modules/tax_declaration/pages/AnnualRevenueTrackingPage")
+);
 const AuditLogPage = React.lazy(() => import("@/modules/audit_log/pages/AuditLogPage"));
 const AnomalyAlertPage = React.lazy(
   () => import("@/modules/anomaly_alert/pages/AnomalyAlertPage")
@@ -329,11 +332,18 @@ export const AppRouter = () => (
             <Route path={ROUTE_SEGMENTS.PEAK_HOURS} element={<PeakHoursAnalyticsPage />} />
             <Route path={ROUTE_SEGMENTS.COMPARISON} element={<RevenueComparisonPage />} />
             <Route path={ROUTE_SEGMENTS.TAX_DECLARATION} element={<TaxDeclarationPage />} />
+            <Route path={ROUTE_SEGMENTS.ANNUAL_REVENUE} element={<AnnualRevenueTrackingPage />} />
             <Route path={ROUTE_SEGMENTS.TAX_SALES_INVOICE} element={<SalesInvoiceListingPage />} />
             <Route path={ROUTE_SEGMENTS.ACTIVITY_LOGS} element={<ActivityLogPage />} />
             <Route path={ROUTE_SEGMENTS.AUDIT_LOGS} element={<AuditLogPage />} />
             <Route path={ROUTE_SEGMENTS.ANOMALY_ALERTS} element={<AnomalyAlertPage />} />
           </Route>
+
+          {/* Redirect từ URL thông báo của Backend /tax/annual-revenue */}
+          <Route
+            path="tax/annual-revenue"
+            element={<Navigate to={APP_ROUTES.REPORT_ANNUAL_REVENUE} replace />}
+          />
 
           <Route
             path={ROUTE_SEGMENTS.SETTINGS}

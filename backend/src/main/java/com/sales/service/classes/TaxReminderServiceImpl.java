@@ -573,38 +573,60 @@ public class TaxReminderServiceImpl implements TaxReminderService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public void markDeclarationAsExported(String periodId) {
-        taxPeriodRepository.findById(periodId).ifPresent(period -> {
-            period.setDeclarationExported(true);
-            period.setDeclarationExportedAt(LocalDateTime.now());
-            taxPeriodRepository.save(period);
-            log.info("Đã đánh dấu xuất tờ khai cho kỳ ID={}", periodId);
+    public void markDeclarationAsExported(String currentUsername, String periodId) {
+        User user = getAuthenticatedUser(currentUsername);
+        checkManagementRole(user);
 
-            // Cập nhật ngay metadata của thông báo nhắc nhở đang mở (nếu có)
-            if (period.getHousehold() != null) {
-                List<AppNotification> notifs = notificationRepository
-                        .findByHouseholdIdAndTargetTypeAndTargetIdAndIsClosedFalse(
-                                period.getHousehold().getId(), "TAX_PERIOD", periodId);
-                if (!notifs.isEmpty()) {
-                    TaxPeriodChecklistResponse checklist = buildChecklist(period);
-                    for (AppNotification notif : notifs) {
-                        try {
-                            Map<String, Object> metaMap;
-                            if (notif.getMetadata() != null && !notif.getMetadata().isEmpty()) {
-                                metaMap = objectMapper.readValue(notif.getMetadata(), Map.class);
-                            } else {
-                                metaMap = new HashMap<>();
-                            }
-                            metaMap.put("checklist", checklist);
-                            notif.setMetadata(objectMapper.writeValueAsString(metaMap));
-                        } catch (Exception e) {
-                            log.warn("Không thể cập nhật metadata thông báo sau khi xuất tờ khai: {}", e.getMessage());
+        BusinessHousehold household = user.getHousehold();
+        if (household == null) {
+            throw new AppException(ErrorCode.HOUSEHOLD_NOT_FOUND);
+        }
+
+        TaxDeclarationPeriod period = taxPeriodRepository.findById(periodId)
+                .orElseThrow(() -> new AppException(ErrorCode.TAX_PERIOD_NOT_FOUND));
+
+        if (period.getHousehold() == null || !period.getHousehold().getId().equals(household.getId())) {
+            throw new AppException(ErrorCode.FORBIDDEN);
+        }
+
+        markDeclarationAsExported(periodId);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void markDeclarationAsExported(String periodId) {
+        TaxDeclarationPeriod period = taxPeriodRepository.findById(periodId)
+                .orElseThrow(() -> new AppException(ErrorCode.TAX_PERIOD_NOT_FOUND));
+
+        period.setDeclarationExported(true);
+        period.setDeclarationExportedAt(LocalDateTime.now());
+        taxPeriodRepository.save(period);
+        log.info("Đã đánh dấu xuất tờ khai cho kỳ ID={}", periodId);
+
+        // Cập nhật ngay metadata của thông báo nhắc nhở đang mở (nếu có)
+        if (period.getHousehold() != null) {
+            List<AppNotification> notifs = notificationRepository
+                    .findByHouseholdIdAndTargetTypeAndTargetIdAndIsClosedFalse(
+                            period.getHousehold().getId(), "TAX_PERIOD", periodId);
+            if (!notifs.isEmpty()) {
+                TaxPeriodChecklistResponse checklist = buildChecklist(period);
+                for (AppNotification notif : notifs) {
+                    try {
+                        Map<String, Object> metaMap;
+                        if (notif.getMetadata() != null && !notif.getMetadata().isEmpty()) {
+                            metaMap = objectMapper.readValue(notif.getMetadata(), Map.class);
+                        } else {
+                            metaMap = new HashMap<>();
                         }
+                        metaMap.put("checklist", checklist);
+                        notif.setMetadata(objectMapper.writeValueAsString(metaMap));
+                    } catch (Exception e) {
+                        log.warn("Không thể cập nhật metadata thông báo sau khi xuất tờ khai: {}", e.getMessage());
                     }
-                    notificationRepository.saveAll(notifs);
                 }
+                notificationRepository.saveAll(notifs);
             }
-        });
+        }
     }
 
     @Override
