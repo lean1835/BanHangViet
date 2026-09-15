@@ -372,7 +372,13 @@ public enum ErrorCode {
 
     // NCL-01-CN-011 Quản trị nền tảng xem nhật ký hệ thống toàn nền tảng
     PLATFORM_LOG_NOT_FOUND(2058, "Không tìm thấy bản ghi nhật ký hệ thống", HttpStatus.NOT_FOUND),
-    PLATFORM_INCIDENT_NOT_FOUND(2059, "Không tìm thấy sự cố hệ thống", HttpStatus.NOT_FOUND);
+    PLATFORM_INCIDENT_NOT_FOUND(2059, "Không tìm thấy sự cố hệ thống", HttpStatus.NOT_FOUND),
+
+    // NCL-14-CN-005 Thử phục hồi định kỳ và báo cáo tình trạng bản sao lưu
+    NO_BACKUP_AVAILABLE_FOR_VERIFICATION(5035, "Không tìm thấy bản sao lưu hợp lệ nào để thực hiện thử phục hồi", HttpStatus.BAD_REQUEST),
+    VERIFICATION_EXECUTION_FAILED(5036, "Quá trình chạy thử phục hồi bản sao lưu gặp sự cố kỹ thuật", HttpStatus.INTERNAL_SERVER_ERROR),
+    BACKUP_VERIFICATION_NOT_FOUND(5037, "Không tìm thấy bản ghi lịch sử kiểm chứng sao lưu", HttpStatus.NOT_FOUND),
+    ONLY_STORE_OWNER_CAN_VERIFY_BACKUP(5038, "Chỉ chủ hộ kinh doanh mới có quyền thực hiện thử phục hồi và xem tình trạng sao lưu", HttpStatus.FORBIDDEN);
 
     private final int code;
     private final String message;
