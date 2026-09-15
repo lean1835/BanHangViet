@@ -217,10 +217,13 @@ public class EmployeeShiftReportIntegrationTest {
         Shift normalShift = createClosedShift(employeeUser2, now.minusHours(8), now.minusHours(1),
                 new BigDecimal("1000000.00"), new BigDecimal("1010000.00"), new BigDecimal("10000.00"), "Khách không lấy tiền lẻ");
 
+        LocalDate fromDate = shiftWithDiff.getClosedAt().toLocalDate();
+        LocalDate toDate = normalShift.getClosedAt().toLocalDate();
+
         // Query with default configured threshold (50k)
         mockMvc.perform(get("/api/v1/reports/employee-shifts")
-                        .param("fromDate", now.toLocalDate().toString())
-                        .param("toDate", now.toLocalDate().toString())
+                        .param("fromDate", fromDate.toString())
+                        .param("toDate", toDate.toString())
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(1000))
@@ -231,8 +234,8 @@ public class EmployeeShiftReportIntegrationTest {
 
         // Query with custom parameter threshold = 5,000đ -> both shifts exceed threshold
         mockMvc.perform(get("/api/v1/reports/employee-shifts")
-                        .param("fromDate", now.toLocalDate().toString())
-                        .param("toDate", now.toLocalDate().toString())
+                        .param("fromDate", fromDate.toString())
+                        .param("toDate", toDate.toString())
                         .param("threshold", "5000.00")
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())

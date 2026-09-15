@@ -6,7 +6,6 @@ import com.sales.entity.User;
 import com.sales.exception.AppException;
 import com.sales.exception.ErrorCode;
 import com.sales.repository.UserRepository;
-import com.sales.service.interfaces.AuditLogService;
 import com.sales.service.interfaces.ReportExportService;
 import com.sales.service.interfaces.ReportService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -38,7 +37,6 @@ public class ReportExportServiceImpl implements ReportExportService {
 
     private final ReportService reportService;
     private final UserRepository userRepository;
-    private final AuditLogService auditLogService;
     private final ActivityLogHelper activityLogHelper;
 
     @Override

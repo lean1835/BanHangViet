@@ -72,6 +72,15 @@ public class ReportEpicNcl07ServiceTest {
     @Autowired
     private CustomerRepository customerRepository;
 
+    @Autowired
+    private ReturnTicketRepository returnTicketRepository;
+
+    @Autowired
+    private ReturnTicketItemRepository returnTicketItemRepository;
+
+    @Autowired
+    private EInvoiceRepository eInvoiceRepository;
+
     @MockBean
     private ActivityLogHelper activityLogHelper;
 
@@ -444,5 +453,118 @@ public class ReportEpicNcl07ServiceTest {
         assertEquals(0, new BigDecimal("192000").compareTo(report.getSummary().getTotalCogs()));
         // Lãi gộp = 240,000 - 192,000 = 48,000
         assertEquals(0, new BigDecimal("48000").compareTo(report.getSummary().getTotalGrossProfit()));
+    }
+
+    @Test
+    public void testNCL07_CN008_GrossProfitReport_WithReturnTicket_Deduction() {
+        LocalDate today = LocalDate.now();
+
+        // 1. Tạo đơn hàng 2 hộp SP A, giá bán 100k, giá vốn 60k -> Subtotal = 200k, COGS = 120k, Lãi = 80k
+        Order order = orderRepository.save(Order.builder()
+                .orderNumber("ORD-NCL07-RET-01")
+                .household(household)
+                .createdByUser(owner)
+                .totalAmount(new BigDecimal("200000"))
+                .finalAmount(new BigDecimal("200000"))
+                .status("COMPLETED")
+                .paymentMethod("CASH")
+                .createdAt(LocalDateTime.now())
+                .build());
+
+        orderItemRepository.save(OrderItem.builder()
+                .order(order)
+                .product(productA)
+                .productName(productA.getName())
+                .quantity(new BigDecimal("2"))
+                .unitPrice(new BigDecimal("100000"))
+                .costPrice(new BigDecimal("60000"))
+                .subtotal(new BigDecimal("200000"))
+                .build());
+
+        // 2. Tạo hóa đơn gốc để liên kết với phiếu trả hàng
+        EInvoice invoice = eInvoiceRepository.save(EInvoice.builder()
+                .household(household)
+                .order(order)
+                .createdByUser(owner)
+                .invoiceSymbol("1C26TAA")
+                .invoiceNumber("0999901")
+                .lookupCode("TEST-" + java.util.UUID.randomUUID().toString().substring(0, 8))
+                .status("ISSUED")
+                .totalAmountBeforeTax(new BigDecimal("200000"))
+                .finalAmount(new BigDecimal("200000"))
+                .build());
+
+        // 3. Tạo phiếu trả hàng 1 hộp SP A (hoàn tiền 100k, đã duyệt APPROVED)
+        ReturnTicket ticket = ReturnTicket.builder()
+                .household(household)
+                .originalInvoice(invoice)
+                .originalOrder(order)
+                .ticketNumber("PTH-TEST-01")
+                .createdByUser(owner)
+                .approvedByUser(owner)
+                .totalReturnAmount(new BigDecimal("100000"))
+                .refundPaymentMethod("CASH")
+                .status("APPROVED")
+                .reason("Khách trả 1 hộp do mua thừa")
+                .approvedAt(LocalDateTime.now())
+                .build();
+
+        ReturnTicketItem item = ReturnTicketItem.builder()
+                .returnTicket(ticket)
+                .product(productA)
+                .productName(productA.getName())
+                .unit(productA.getUnit())
+                .quantity(new BigDecimal("1"))
+                .unitPrice(new BigDecimal("100000"))
+                .taxRatePercentage(BigDecimal.ZERO)
+                .taxAmount(BigDecimal.ZERO)
+                .subtotal(new BigDecimal("100000"))
+                .build();
+
+        ticket.getItems().add(item);
+        returnTicketRepository.save(ticket);
+
+        // 4. Lấy báo cáo lãi gộp và kiểm tra đã trừ hàng trả lại
+        GrossProfitReportResponse report = reportService.getGrossProfitReport(owner.getUsername(), today, today, null);
+
+        assertNotNull(report);
+        assertNotNull(report.getSummary());
+
+        // Sau khi trừ hàng trả lại:
+        // Doanh thu thuần = 200,000 - 100,000 = 100,000
+        // COGS = 120,000 - 60,000 = 60,000
+        // Lãi gộp = 100,000 - 60,000 = 40,000
+        assertEquals(0, new BigDecimal("100000").compareTo(report.getSummary().getTotalNetRevenue()));
+        assertEquals(0, new BigDecimal("60000").compareTo(report.getSummary().getTotalCogs()));
+        assertEquals(0, new BigDecimal("40000").compareTo(report.getSummary().getTotalGrossProfit()));
+
+        // Tỷ suất lãi gộp = 40,000 / 100,000 * 100 = 40.00%
+        assertEquals(0, new BigDecimal("40.00").compareTo(report.getSummary().getGrossProfitMarginPercentage()));
+
+        // Mặt hàng A: Số lượng bán thuần = 2 - 1 = 1
+        assertFalse(report.getItemReports().isEmpty());
+        GrossProfitReportResponse.ProductGrossProfitDto pDto = report.getItemReports().get(0);
+        assertEquals(0, new BigDecimal("1").compareTo(pDto.getQuantitySold()));
+        assertEquals(0, new BigDecimal("100000").compareTo(pDto.getNetRevenue()));
+        assertEquals(0, new BigDecimal("60000").compareTo(pDto.getCogs()));
+        assertEquals(0, new BigDecimal("40000").compareTo(pDto.getGrossProfit()));
+    }
+
+    @Test
+    public void testNCL07_DateValidation_ThrowsInvalidInput() {
+        LocalDate today = LocalDate.now();
+        LocalDate yesterday = today.minusDays(1);
+
+        assertThrows(AppException.class, () ->
+                reportService.getGrossProfitReport(owner.getUsername(), today, yesterday, null));
+
+        assertThrows(AppException.class, () ->
+                reportService.getPaymentMethodReport(owner.getUsername(), today, yesterday, null, null));
+
+        assertThrows(AppException.class, () ->
+                reportService.getProductGroupReport(owner.getUsername(), today, yesterday));
+
+        assertThrows(AppException.class, () ->
+                reportService.getProductGroupDetail(owner.getUsername(), "G1", today, yesterday));
     }
 }

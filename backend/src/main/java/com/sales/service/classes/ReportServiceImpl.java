@@ -54,6 +54,7 @@ public class ReportServiceImpl implements ReportService {
     private final OrderItemRepository orderItemRepository;
     private final ProductGroupRepository productGroupRepository;
     private final ObjectMapper objectMapper;
+    private final ReturnTicketItemRepository returnTicketItemRepository;
 
     private BusinessHousehold getHouseholdAndValidate(String username) {
         User user = userRepository.findByUsername(username)
@@ -752,9 +753,7 @@ public class ReportServiceImpl implements ReportService {
         LocalDate start = fromDate != null ? fromDate : LocalDate.now().minusDays(30);
         LocalDate end = toDate != null ? toDate : LocalDate.now();
         if (start.isAfter(end)) {
-            LocalDate tmp = start;
-            start = end;
-            end = tmp;
+            throw new AppException(ErrorCode.INVALID_INPUT);
         }
 
         LocalDateTime startDateTime = start.atStartOfDay();
@@ -765,6 +764,13 @@ public class ReportServiceImpl implements ReportService {
         if (productId != null && !productId.trim().isEmpty()) {
             items = items.stream()
                     .filter(oi -> oi.getProduct() != null && productId.equals(oi.getProduct().getId()))
+                    .collect(Collectors.toList());
+        }
+
+        List<ReturnTicketItem> returnedItems = returnTicketItemRepository.findApprovedReturnedItemsInPeriod(household.getId(), startDateTime, endDateTime);
+        if (productId != null && !productId.trim().isEmpty()) {
+            returnedItems = returnedItems.stream()
+                    .filter(rti -> rti.getProduct() != null && productId.equals(rti.getProduct().getId()))
                     .collect(Collectors.toList());
         }
 
@@ -851,6 +857,86 @@ public class ReportServiceImpl implements ReportService {
             dDto.setGrossProfit(dDto.getGrossProfit().add(grossProfit));
         }
 
+        // Khấu trừ hàng trả lại từ các phiếu trả hàng đã duyệt (NCL-07-CN-008-TC-03)
+        for (ReturnTicketItem rti : returnedItems) {
+            Product p = rti.getProduct();
+            String pId = p != null ? p.getId() : (rti.getInvoiceItemId() != null ? rti.getInvoiceItemId() : rti.getId());
+            String pSku = p != null ? p.getSku() : "N/A";
+            String pName = rti.getProductName() != null ? rti.getProductName() : (p != null ? p.getName() : "Sản phẩm");
+            String pUnit = rti.getUnit() != null ? rti.getUnit() : (p != null ? p.getUnit() : "Món");
+
+            BigDecimal returnQty = rti.getQuantity() != null ? rti.getQuantity() : BigDecimal.ZERO;
+            BigDecimal returnAmount = rti.getSubtotal() != null ? rti.getSubtotal() : BigDecimal.ZERO;
+
+            LocalDate returnDate = rti.getReturnTicket().getApprovedAt() != null
+                    ? rti.getReturnTicket().getApprovedAt().toLocalDate()
+                    : (rti.getReturnTicket().getCreatedAt() != null ? rti.getReturnTicket().getCreatedAt().toLocalDate() : LocalDate.now());
+
+            BigDecimal effectiveCost = null;
+            GrossProfitReportResponse.ProductGrossProfitDto pDto = productStatsMap.get(pId);
+            if (pDto != null && pDto.getQuantitySold().compareTo(BigDecimal.ZERO) > 0) {
+                effectiveCost = pDto.getCogs().divide(pDto.getQuantitySold(), 4, RoundingMode.HALF_UP);
+            } else if (p != null && p.getCostPrice() != null && p.getCostPrice().compareTo(BigDecimal.ZERO) > 0) {
+                effectiveCost = p.getCostPrice();
+            }
+
+            if (effectiveCost == null || effectiveCost.compareTo(BigDecimal.ZERO) <= 0) {
+                GrossProfitReportResponse.MissingCostProductDto missing = missingCostMap.computeIfAbsent(pId, k ->
+                        GrossProfitReportResponse.MissingCostProductDto.builder()
+                                .productId(pId)
+                                .productSku(pSku)
+                                .productName(pName)
+                                .unit(pUnit)
+                                .quantitySold(BigDecimal.ZERO)
+                                .netRevenue(BigDecimal.ZERO)
+                                .warningMessage("Mặt hàng chưa có giá vốn bình quân theo QTN-23, không tính vào lãi gộp.")
+                                .build());
+                missing.setQuantitySold(missing.getQuantitySold().subtract(returnQty));
+                missing.setNetRevenue(missing.getNetRevenue().subtract(returnAmount));
+                continue;
+            }
+
+            BigDecimal returnCogs = returnQty.multiply(effectiveCost);
+            BigDecimal returnGrossProfit = returnAmount.subtract(returnCogs);
+
+            totalNetRevenue = totalNetRevenue.subtract(returnAmount);
+            totalCogs = totalCogs.subtract(returnCogs);
+            totalGrossProfit = totalGrossProfit.subtract(returnGrossProfit);
+
+            if (pDto != null) {
+                pDto.setQuantitySold(pDto.getQuantitySold().subtract(returnQty));
+                pDto.setNetRevenue(pDto.getNetRevenue().subtract(returnAmount));
+                pDto.setCogs(pDto.getCogs().subtract(returnCogs));
+                pDto.setGrossProfit(pDto.getGrossProfit().subtract(returnGrossProfit));
+            } else {
+                pDto = GrossProfitReportResponse.ProductGrossProfitDto.builder()
+                        .productId(pId)
+                        .productSku(pSku)
+                        .productName(pName)
+                        .unit(pUnit)
+                        .quantitySold(returnQty.negate())
+                        .netRevenue(returnAmount.negate())
+                        .cogs(returnCogs.negate())
+                        .grossProfit(returnGrossProfit.negate())
+                        .grossProfitMarginPercentage(BigDecimal.ZERO)
+                        .isNegativeMargin(false)
+                        .build();
+                productStatsMap.put(pId, pDto);
+            }
+
+            GrossProfitReportResponse.DailyGrossProfitDto dDto = dailyStatsMap.computeIfAbsent(returnDate, k ->
+                    GrossProfitReportResponse.DailyGrossProfitDto.builder()
+                            .date(returnDate)
+                            .netRevenue(BigDecimal.ZERO)
+                            .cogs(BigDecimal.ZERO)
+                            .grossProfit(BigDecimal.ZERO)
+                            .grossProfitMarginPercentage(BigDecimal.ZERO)
+                            .build());
+            dDto.setNetRevenue(dDto.getNetRevenue().subtract(returnAmount));
+            dDto.setCogs(dDto.getCogs().subtract(returnCogs));
+            dDto.setGrossProfit(dDto.getGrossProfit().subtract(returnGrossProfit));
+        }
+
         for (GrossProfitReportResponse.ProductGrossProfitDto pDto : productStatsMap.values()) {
             if (pDto.getNetRevenue().compareTo(BigDecimal.ZERO) > 0) {
                 BigDecimal margin = pDto.getGrossProfit()
@@ -908,9 +994,7 @@ public class ReportServiceImpl implements ReportService {
         LocalDate start = fromDate != null ? fromDate : LocalDate.now().minusDays(30);
         LocalDate end = toDate != null ? toDate : LocalDate.now();
         if (start.isAfter(end)) {
-            LocalDate tmp = start;
-            start = end;
-            end = tmp;
+            throw new AppException(ErrorCode.INVALID_INPUT);
         }
 
         LocalDateTime startDateTime = start.atStartOfDay();
@@ -1055,9 +1139,7 @@ public class ReportServiceImpl implements ReportService {
         LocalDate start = fromDate != null ? fromDate : LocalDate.now().minusDays(30);
         LocalDate end = toDate != null ? toDate : LocalDate.now();
         if (start.isAfter(end)) {
-            LocalDate tmp = start;
-            start = end;
-            end = tmp;
+            throw new AppException(ErrorCode.INVALID_INPUT);
         }
 
         LocalDateTime startDateTime = start.atStartOfDay();
@@ -1146,9 +1228,7 @@ public class ReportServiceImpl implements ReportService {
         LocalDate start = fromDate != null ? fromDate : LocalDate.now().minusDays(30);
         LocalDate end = toDate != null ? toDate : LocalDate.now();
         if (start.isAfter(end)) {
-            LocalDate tmp = start;
-            start = end;
-            end = tmp;
+            throw new AppException(ErrorCode.INVALID_INPUT);
         }
 
         LocalDateTime startDateTime = start.atStartOfDay();

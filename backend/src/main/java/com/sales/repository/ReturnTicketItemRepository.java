@@ -124,6 +124,18 @@ public interface ReturnTicketItemRepository extends JpaRepository<ReturnTicketIt
             @Param("householdId") String householdId,
             @Param("endDateTime") LocalDateTime endDateTime
     );
+
+    @Query("SELECT rti FROM ReturnTicketItem rti " +
+           "JOIN FETCH rti.returnTicket rt " +
+           "LEFT JOIN FETCH rti.product p " +
+           "WHERE rt.household.id = :householdId " +
+           "AND rt.status = 'APPROVED' " +
+           "AND (COALESCE(rt.approvedAt, rt.createdAt) BETWEEN :startDateTime AND :endDateTime)")
+    List<ReturnTicketItem> findApprovedReturnedItemsInPeriod(
+            @Param("householdId") String householdId,
+            @Param("startDateTime") LocalDateTime startDateTime,
+            @Param("endDateTime") LocalDateTime endDateTime
+    );
 }
 
 
