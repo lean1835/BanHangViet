@@ -28,6 +28,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import java.util.Optional;
@@ -50,6 +52,7 @@ public class ReportServiceImpl implements ReportService {
     private final BusinessHouseholdSettingsRepository settingsRepository;
     private final ShiftHandoverRepository shiftHandoverRepository;
     private final OrderItemRepository orderItemRepository;
+    private final ProductGroupRepository productGroupRepository;
     private final ObjectMapper objectMapper;
 
     private BusinessHousehold getHouseholdAndValidate(String username) {
@@ -584,26 +587,46 @@ public class ReportServiceImpl implements ReportService {
         BigDecimal totalDiffAmountAll = BigDecimal.ZERO;
         int totalExceededShiftsAll = 0;
 
-        for (Shift s : closedShifts) {
-            BigDecimal cashRev = orderRepository.sumCashSalesAmountByShiftId(s.getId());
-            if (cashRev == null) cashRev = BigDecimal.ZERO;
+        List<String> shiftIds = closedShifts.stream().map(Shift::getId).toList();
+        Map<String, ShiftSalesMetricsProjection> salesByShift = new HashMap<>();
+        Map<String, ShiftCashSummaryProjection> cashByShift = new HashMap<>();
+        Map<String, Long> handoversByShift = new HashMap<>();
 
-            BigDecimal bankRev = orderRepository.sumBankTransferSalesAmountByShiftId(s.getId());
-            if (bankRev == null) bankRev = BigDecimal.ZERO;
+        if (!shiftIds.isEmpty()) {
+            List<ShiftSalesMetricsProjection> salesMetrics = orderRepository.aggregateSalesMetricsByShiftIds(shiftIds);
+            for (ShiftSalesMetricsProjection sm : salesMetrics) {
+                salesByShift.put(sm.getShiftId(), sm);
+            }
+
+            if (cashTransactionRepository != null) {
+                List<ShiftCashSummaryProjection> cashSummaries = cashTransactionRepository.aggregateCashByShiftIdsAndStatus(
+                        shiftIds, CashTransactionStatus.APPROVED);
+                for (ShiftCashSummaryProjection cs : cashSummaries) {
+                    cashByShift.put(cs.getShiftId(), cs);
+                }
+            }
+
+            if (shiftHandoverRepository != null) {
+                List<ShiftHandoverCountProjection> handoverCounts = shiftHandoverRepository.countHandoversByShiftIds(shiftIds);
+                for (ShiftHandoverCountProjection hc : handoverCounts) {
+                    handoversByShift.put(hc.getShiftId(), hc.getHandoverCount());
+                }
+            }
+        }
+
+        for (Shift s : closedShifts) {
+            ShiftSalesMetricsProjection sales = salesByShift.get(s.getId());
+            BigDecimal cashRev = (sales != null && sales.getCashRevenue() != null) ? sales.getCashRevenue() : BigDecimal.ZERO;
+            BigDecimal bankRev = (sales != null && sales.getBankTransferRevenue() != null) ? sales.getBankTransferRevenue() : BigDecimal.ZERO;
 
             BigDecimal totalRev = cashRev.add(bankRev);
 
-            int completedOrders = (int) orderRepository.countByShiftIdAndStatusAndDeletedAtIsNull(s.getId(), "COMPLETED");
-            int canceledOrders = (int) orderRepository.countByShiftIdAndStatusAndDeletedAtIsNull(s.getId(), "CANCELED");
+            int completedOrders = (sales != null && sales.getCompletedOrders() != null) ? sales.getCompletedOrders().intValue() : 0;
+            int canceledOrders = (sales != null && sales.getCanceledOrders() != null) ? sales.getCanceledOrders().intValue() : 0;
 
-            BigDecimal cashIncome = BigDecimal.ZERO;
-            BigDecimal cashExpense = BigDecimal.ZERO;
-            if (cashTransactionRepository != null) {
-                cashIncome = cashTransactionRepository.sumAmountByShiftIdAndTypeAndStatus(
-                        s.getId(), CashTransactionType.INCOME, CashTransactionStatus.APPROVED);
-                cashExpense = cashTransactionRepository.sumAmountByShiftIdAndTypeAndStatus(
-                        s.getId(), CashTransactionType.EXPENSE, CashTransactionStatus.APPROVED);
-            }
+            ShiftCashSummaryProjection cash = cashByShift.get(s.getId());
+            BigDecimal cashIncome = (cash != null && cash.getIncomeAmount() != null) ? cash.getIncomeAmount() : BigDecimal.ZERO;
+            BigDecimal cashExpense = (cash != null && cash.getExpenseAmount() != null) ? cash.getExpenseAmount() : BigDecimal.ZERO;
 
             BigDecimal diffAmount = s.getDifferenceAmount() != null ? s.getDifferenceAmount() : BigDecimal.ZERO;
             boolean isExceeded = diffAmount.abs().compareTo(appliedThreshold) > 0;
@@ -611,7 +634,7 @@ public class ReportServiceImpl implements ReportService {
                 totalExceededShiftsAll++;
             }
 
-            int handoversCount = shiftHandoverRepository != null ? shiftHandoverRepository.countByShiftId(s.getId()) : 0;
+            int handoversCount = handoversByShift.getOrDefault(s.getId(), 0L).intValue();
 
             ShiftRevenueReportItemResponse item = ShiftRevenueReportItemResponse.builder()
                     .shiftId(s.getId())
@@ -768,6 +791,9 @@ public class ReportServiceImpl implements ReportService {
             }
 
             BigDecimal qty = oi.getQuantity() != null ? oi.getQuantity() : BigDecimal.ZERO;
+            BigDecimal effectiveQty = oi.getBaseQuantity() != null && oi.getBaseQuantity().compareTo(BigDecimal.ZERO) > 0
+                    ? oi.getBaseQuantity()
+                    : qty;
             BigDecimal netRev = oi.getSubtotal() != null ? oi.getSubtotal() : BigDecimal.ZERO;
 
             if (effectiveCost == null || effectiveCost.compareTo(BigDecimal.ZERO) <= 0) {
@@ -781,12 +807,12 @@ public class ReportServiceImpl implements ReportService {
                                 .netRevenue(BigDecimal.ZERO)
                                 .warningMessage("Mặt hàng chưa có giá vốn bình quân theo QTN-23, không tính vào lãi gộp.")
                                 .build());
-                missing.setQuantitySold(missing.getQuantitySold().add(qty));
+                missing.setQuantitySold(missing.getQuantitySold().add(effectiveQty));
                 missing.setNetRevenue(missing.getNetRevenue().add(netRev));
                 continue;
             }
 
-            BigDecimal cogs = qty.multiply(effectiveCost);
+            BigDecimal cogs = effectiveQty.multiply(effectiveCost);
             BigDecimal grossProfit = netRev.subtract(cogs);
 
             totalNetRevenue = totalNetRevenue.add(netRev);
@@ -806,7 +832,7 @@ public class ReportServiceImpl implements ReportService {
                             .grossProfitMarginPercentage(BigDecimal.ZERO)
                             .isNegativeMargin(false)
                             .build());
-            pDto.setQuantitySold(pDto.getQuantitySold().add(qty));
+            pDto.setQuantitySold(pDto.getQuantitySold().add(effectiveQty));
             pDto.setNetRevenue(pDto.getNetRevenue().add(netRev));
             pDto.setCogs(pDto.getCogs().add(cogs));
             pDto.setGrossProfit(pDto.getGrossProfit().add(grossProfit));
@@ -926,16 +952,16 @@ public class ReportServiceImpl implements ReportService {
             daily.setTotalAmount(daily.getTotalAmount().add(amt));
         }
 
-        List<Order> completedOrders = orderRepository.findByHouseholdIdAndCreatedAtBetween(household.getId(), startDateTime, endDateTime)
-                .stream()
-                .filter(o -> "COMPLETED".equals(o.getStatus()) && o.getDeletedAt() == null)
-                .filter(o -> userId == null || (o.getCreatedByUser() != null && userId.equals(o.getCreatedByUser().getId())))
-                .filter(o -> shiftId == null || (o.getShift() != null && shiftId.equals(o.getShift().getId())))
-                .collect(Collectors.toList());
+        Set<String> orderIdsWithPayments = payments.stream()
+                .map(op -> op.getOrder() != null ? op.getOrder().getId() : null)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+
+        List<Order> completedOrders = orderRepository.findCompletedOrdersForPaymentReport(
+                household.getId(), startDateTime, endDateTime, userId, shiftId);
 
         for (Order o : completedOrders) {
-            boolean hasPayment = payments.stream().anyMatch(p -> p.getOrder() != null && p.getOrder().getId().equals(o.getId()));
-            if (!hasPayment && o.getFinalAmount() != null && o.getFinalAmount().compareTo(BigDecimal.ZERO) > 0) {
+            if (!orderIdsWithPayments.contains(o.getId()) && o.getFinalAmount() != null && o.getFinalAmount().compareTo(BigDecimal.ZERO) > 0) {
                 String m = o.getPaymentMethod() != null ? o.getPaymentMethod() : "CASH";
                 BigDecimal amt = o.getFinalAmount();
                 methodAmounts.put(m, methodAmounts.getOrDefault(m, BigDecimal.ZERO).add(amt));
@@ -986,14 +1012,22 @@ public class ReportServiceImpl implements ReportService {
                     .build());
         }
 
-        BigDecimal debtCreated = customerDebtRepository.sumDebtCreatedInPeriod(household.getId(), startDateTime, endDateTime);
-        BigDecimal debtPaid = customerDebtRepository.sumDebtPaidInPeriod(household.getId(), startDateTime, endDateTime);
+        PeriodDebtSummaryProjection debtSummary = customerDebtRepository.getDebtSummaryInPeriod(
+                household.getId(), startDateTime, endDateTime);
+
+        BigDecimal debtCreated = (debtSummary != null && debtSummary.getTotalCreated() != null)
+                ? debtSummary.getTotalCreated()
+                : BigDecimal.ZERO;
+        BigDecimal debtPaid = (debtSummary != null && debtSummary.getTotalPaid() != null)
+                ? debtSummary.getTotalPaid()
+                : BigDecimal.ZERO;
+        BigDecimal debtRemaining = (debtSummary != null && debtSummary.getTotalRemaining() != null)
+                ? debtSummary.getTotalRemaining()
+                : BigDecimal.ZERO;
+
         if (debtCreated.compareTo(BigDecimal.ZERO) == 0 && methodAmounts.containsKey("DEBT")) {
             debtCreated = methodAmounts.get("DEBT");
-        }
-        BigDecimal debtRemaining = debtCreated.subtract(debtPaid);
-        if (debtRemaining.compareTo(BigDecimal.ZERO) < 0) {
-            debtRemaining = BigDecimal.ZERO;
+            debtRemaining = debtCreated;
         }
 
         PaymentMethodReportResponse.DebtCollectionSummaryDto debtDetails = PaymentMethodReportResponse.DebtCollectionSummaryDto.builder()
@@ -1146,7 +1180,14 @@ public class ReportServiceImpl implements ReportService {
                     .build());
         }
 
-        String groupName = "UNASSIGNED".equals(groupId) ? "Chưa phân nhóm" : groupId;
+        String groupName;
+        if ("UNASSIGNED".equalsIgnoreCase(groupId)) {
+            groupName = "Chưa phân nhóm";
+        } else {
+            groupName = productGroupRepository.findByIdAndHouseholdIdAndDeletedAtIsNull(groupId, household.getId())
+                    .map(ProductGroup::getName)
+                    .orElse(groupId);
+        }
 
         return ProductGroupRevenueDetailResponse.builder()
                 .groupId(groupId)

@@ -9,6 +9,7 @@ import com.sales.dto.response.PosRevenueProjection;
 import com.sales.dto.response.ProductRevenueProjection;
 import com.sales.dto.response.ProductSalesSummaryProjection;
 import com.sales.dto.response.PurchaseSuggestionProjection;
+import com.sales.dto.response.ShiftSalesMetricsProjection;
 import com.sales.dto.response.SlowMovingProductProjection;
 import com.sales.dto.response.SlowMovingSummaryProjection;
 import com.sales.entity.Order;
@@ -580,5 +581,44 @@ public interface OrderRepository extends JpaRepository<Order, String> {
             @Param("employeeId") String employeeId,
             @Param("fromDate") LocalDateTime fromDate,
             @Param("toDate") LocalDateTime toDate
+    );
+
+    @Query("SELECT " +
+           "  o.shift.id AS shiftId, " +
+           "  COALESCE(SUM(" +
+           "    CASE " +
+           "      WHEN o.status = 'COMPLETED' AND o.paymentMethod = 'CASH' THEN o.finalAmount " +
+           "      WHEN o.status = 'COMPLETED' AND o.paymentMethod = 'COMBINED' THEN COALESCE((SELECT SUM(op.amount) FROM OrderPayment op WHERE op.order.id = o.id AND op.paymentMethod = 'CASH'), 0) " +
+           "      WHEN o.status = 'COMPLETED' AND o.paymentMethod = 'DEBT' THEN (o.finalAmount - COALESCE((SELECT cd.amount FROM CustomerDebt cd WHERE cd.order.id = o.id AND cd.type = 'DEBT_CREATED'), 0)) " +
+           "      ELSE 0 " +
+           "    END), 0) AS cashRevenue, " +
+           "  COALESCE(SUM(" +
+           "    CASE " +
+           "      WHEN o.status = 'COMPLETED' AND o.paymentMethod = 'BANK_TRANSFER' THEN o.finalAmount " +
+           "      WHEN o.status = 'COMPLETED' AND o.paymentMethod = 'COMBINED' THEN COALESCE((SELECT SUM(op.amount) FROM OrderPayment op WHERE op.order.id = o.id AND op.paymentMethod = 'BANK_TRANSFER'), 0) " +
+           "      ELSE 0 " +
+           "    END), 0) AS bankTransferRevenue, " +
+           "  COALESCE(SUM(CASE WHEN o.status = 'COMPLETED' THEN 1L ELSE 0L END), 0L) AS completedOrders, " +
+           "  COALESCE(SUM(CASE WHEN o.status = 'CANCELED' THEN 1L ELSE 0L END), 0L) AS canceledOrders " +
+           "FROM Order o " +
+           "WHERE o.shift.id IN :shiftIds AND o.deletedAt IS NULL " +
+           "GROUP BY o.shift.id")
+    List<ShiftSalesMetricsProjection> aggregateSalesMetricsByShiftIds(@Param("shiftIds") Collection<String> shiftIds);
+
+    @Query("SELECT o FROM Order o " +
+           "LEFT JOIN FETCH o.createdByUser " +
+           "LEFT JOIN FETCH o.shift " +
+           "WHERE o.household.id = :householdId " +
+           "AND o.status = 'COMPLETED' " +
+           "AND o.deletedAt IS NULL " +
+           "AND o.createdAt >= :startDate AND o.createdAt <= :endDate " +
+           "AND (:userId IS NULL OR :userId = '' OR o.createdByUser.id = :userId) " +
+           "AND (:shiftId IS NULL OR :shiftId = '' OR o.shift.id = :shiftId)")
+    List<Order> findCompletedOrdersForPaymentReport(
+            @Param("householdId") String householdId,
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate,
+            @Param("userId") String userId,
+            @Param("shiftId") String shiftId
     );
 }

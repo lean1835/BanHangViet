@@ -268,6 +268,7 @@ public class ReportEpicNcl07ServiceTest {
                 .order(order2)
                 .type("DEBT_CREATED")
                 .amount(new BigDecimal("50000"))
+                .remainingAmount(new BigDecimal("50000"))
                 .dueDate(LocalDateTime.now().plusDays(30))
                 .createdAt(LocalDateTime.now())
                 .build());
@@ -282,6 +283,7 @@ public class ReportEpicNcl07ServiceTest {
         // Kiểm tra chi tiết công nợ phát sinh mới
         assertNotNull(report.getDebtDetails());
         assertEquals(0, new BigDecimal("50000").compareTo(report.getDebtDetails().getTotalDebtCreated()));
+        assertEquals(0, new BigDecimal("50000").compareTo(report.getDebtDetails().getTotalDebtRemaining()));
     }
 
     @Test
@@ -336,6 +338,7 @@ public class ReportEpicNcl07ServiceTest {
         ProductGroupRevenueDetailResponse drillDown = reportService.getProductGroupDetail(
                 owner.getUsername(), groupG1.getId(), today, today);
         assertNotNull(drillDown);
+        assertEquals("Bánh kẹo", drillDown.getGroupName());
         assertEquals(0, new BigDecimal("300000").compareTo(drillDown.getTotalRevenue()));
         assertEquals(1, drillDown.getItems().size());
         assertEquals("SKU-A", drillDown.getItems().get(0).getProductSku());
@@ -353,6 +356,12 @@ public class ReportEpicNcl07ServiceTest {
             reportExportService.exportReportToExcel(owner.getUsername(), "GROSS_PROFIT", past1, past2, null, null);
         });
         assertEquals(ErrorCode.NO_DATA_TO_EXPORT, ex.getErrorCode());
+
+        // Kiểm tra xuất báo cáo PAYMENT_METHOD khi không có dữ liệu cũng phải ném NO_DATA_TO_EXPORT (P1-02)
+        AppException exPay = assertThrows(AppException.class, () -> {
+            reportExportService.exportReportToExcel(owner.getUsername(), "PAYMENT_METHOD", past1, past2, null, null);
+        });
+        assertEquals(ErrorCode.NO_DATA_TO_EXPORT, exPay.getErrorCode());
 
         // 2. Tạo dữ liệu cho ngày hôm nay và xuất Excel
         Order order = orderRepository.save(Order.builder()
@@ -390,5 +399,50 @@ public class ReportEpicNcl07ServiceTest {
             assertNotNull(metaSheet);
             assertNotNull(dataSheet);
         }
+
+        // 3. Xuất báo cáo PRODUCT_GROUP kiểm tra sheet Du_Lieu_Nhom_Hang (P1-03)
+        byte[] pgExcelBytes = reportExportService.exportReportToExcel(
+                owner.getUsername(), "PRODUCT_GROUP", today, today, null, null);
+        assertNotNull(pgExcelBytes);
+        try (Workbook wb = new XSSFWorkbook(new ByteArrayInputStream(pgExcelBytes))) {
+            Sheet dataSheet = wb.getSheet("Du_Lieu_Nhom_Hang");
+            assertNotNull(dataSheet);
+            assertTrue(dataSheet.getPhysicalNumberOfRows() >= 4);
+        }
+    }
+
+    @Test
+    public void testNCL07_GrossProfit_WithConversionFactor() {
+        LocalDate today = LocalDate.now();
+        Order order = orderRepository.save(Order.builder()
+                .orderNumber("ORD-NCL07-CONV-01")
+                .household(household)
+                .createdByUser(owner)
+                .totalAmount(new BigDecimal("240000"))
+                .finalAmount(new BigDecimal("240000"))
+                .status("COMPLETED")
+                .paymentMethod("CASH")
+                .createdAt(LocalDateTime.now())
+                .build());
+
+        // 1 thùng (quantity = 1, baseQuantity = 24), giá vốn 8k/lon cơ bản, bán 240k/thùng
+        orderItemRepository.save(OrderItem.builder()
+                .order(order)
+                .product(productA)
+                .productName(productA.getName())
+                .quantity(new BigDecimal("1"))
+                .conversionFactor(new BigDecimal("24"))
+                .baseQuantity(new BigDecimal("24"))
+                .unitPrice(new BigDecimal("240000"))
+                .costPrice(new BigDecimal("8000"))
+                .subtotal(new BigDecimal("240000"))
+                .build());
+
+        GrossProfitReportResponse report = reportService.getGrossProfitReport(owner.getUsername(), today, today, null);
+        assertNotNull(report);
+        // COGS phải là 24 * 8000 = 192,000 (không phải 1 * 8000 = 8,000)
+        assertEquals(0, new BigDecimal("192000").compareTo(report.getSummary().getTotalCogs()));
+        // Lãi gộp = 240,000 - 192,000 = 48,000
+        assertEquals(0, new BigDecimal("48000").compareTo(report.getSummary().getTotalGrossProfit()));
     }
 }

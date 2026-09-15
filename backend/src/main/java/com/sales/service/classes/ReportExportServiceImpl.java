@@ -39,9 +39,9 @@ public class ReportExportServiceImpl implements ReportExportService {
     private final ReportService reportService;
     private final UserRepository userRepository;
     private final AuditLogService auditLogService;
+    private final ActivityLogHelper activityLogHelper;
 
     @Override
-    @Transactional(readOnly = true)
     public byte[] exportReportToExcel(String currentUsername, String reportType, LocalDate fromDate, LocalDate toDate, String filter1, String filter2) {
         User currentUser = userRepository.findByUsername(currentUsername)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
@@ -375,7 +375,18 @@ public class ReportExportServiceImpl implements ReportExportService {
                                         CellStyle currStyle, CellStyle pctStyle, CellStyle totalStyle,
                                         CellStyle totalCurrStyle) {
         PaymentMethodReportResponse report = reportService.getPaymentMethodReport(username, fromDate, toDate, userId, shiftId);
-        if (report == null || report.getMethods().isEmpty()) {
+        boolean hasSalesData = report != null
+                && report.getTotalRevenue() != null
+                && report.getTotalRevenue().compareTo(BigDecimal.ZERO) > 0;
+        boolean hasDebtData = report != null
+                && report.getDebtDetails() != null
+                && report.getDebtDetails().getTotalDebtCreated() != null
+                && report.getDebtDetails().getTotalDebtCreated().compareTo(BigDecimal.ZERO) > 0;
+        boolean hasTransactions = report != null
+                && report.getMethods() != null
+                && report.getMethods().stream().anyMatch(m -> m.getTransactionCount() != null && m.getTransactionCount() > 0);
+
+        if (!hasSalesData && !hasDebtData && !hasTransactions) {
             return false;
         }
 
@@ -490,7 +501,12 @@ public class ReportExportServiceImpl implements ReportExportService {
                                        CellStyle currStyle, CellStyle pctStyle, CellStyle totalStyle,
                                        CellStyle totalCurrStyle) {
         ProductGroupReportResponse report = reportService.getProductGroupReport(username, fromDate, toDate);
-        if (report == null || report.getGroups().isEmpty()) {
+        boolean hasGroups = report != null && report.getGroups() != null && !report.getGroups().isEmpty();
+        boolean hasUnassigned = report != null && report.getUnassignedSummary() != null
+                && ((report.getUnassignedSummary().getRevenue() != null && report.getUnassignedSummary().getRevenue().compareTo(BigDecimal.ZERO) > 0)
+                    || (report.getUnassignedSummary().getTotalQuantitySold() != null && report.getUnassignedSummary().getTotalQuantitySold().compareTo(BigDecimal.ZERO) > 0));
+
+        if (!hasGroups && !hasUnassigned) {
             return false;
         }
 
@@ -516,35 +532,71 @@ public class ReportExportServiceImpl implements ReportExportService {
         BigDecimal totalRev = BigDecimal.ZERO;
         BigDecimal totalPrevRev = BigDecimal.ZERO;
 
-        for (ProductGroupReportResponse.ProductGroupRevenueDto item : report.getGroups()) {
+        if (hasGroups) {
+            for (ProductGroupReportResponse.ProductGroupRevenueDto item : report.getGroups()) {
+                Row r = sheet.createRow(rIdx++);
+                r.createCell(0).setCellValue(stt++);
+                r.getCell(0).setCellStyle(centerStyle);
+
+                r.createCell(1).setCellValue(item.getGroupId() != null ? item.getGroupId() : "N/A");
+                r.getCell(1).setCellStyle(centerStyle);
+
+                r.createCell(2).setCellValue(item.getGroupName() != null ? item.getGroupName() : "");
+                r.getCell(2).setCellStyle(textStyle);
+
+                r.createCell(3).setCellValue(item.getTotalQuantitySold() != null ? item.getTotalQuantitySold().doubleValue() : 0.0);
+                r.getCell(3).setCellStyle(centerStyle);
+
+                r.createCell(4).setCellValue(item.getRevenue() != null ? item.getRevenue().doubleValue() : 0.0);
+                r.getCell(4).setCellStyle(currStyle);
+
+                r.createCell(5).setCellValue(item.getPercentage() != null ? item.getPercentage().doubleValue() / 100.0 : 0.0);
+                r.getCell(5).setCellStyle(pctStyle);
+
+                r.createCell(6).setCellValue(item.getPreviousPeriodRevenue() != null ? item.getPreviousPeriodRevenue().doubleValue() : 0.0);
+                r.getCell(6).setCellStyle(currStyle);
+
+                r.createCell(7).setCellValue(item.getGrowthRatePercentage() != null ? item.getGrowthRatePercentage().doubleValue() / 100.0 : 0.0);
+                r.getCell(7).setCellStyle(pctStyle);
+
+                if (item.getTotalQuantitySold() != null) totalQty = totalQty.add(item.getTotalQuantitySold());
+                if (item.getRevenue() != null) totalRev = totalRev.add(item.getRevenue());
+                if (item.getPreviousPeriodRevenue() != null) totalPrevRev = totalPrevRev.add(item.getPreviousPeriodRevenue());
+            }
+        }
+
+        if (hasUnassigned) {
+            ProductGroupReportResponse.ProductGroupRevenueDto unassigned = report.getUnassignedSummary();
             Row r = sheet.createRow(rIdx++);
             r.createCell(0).setCellValue(stt++);
             r.getCell(0).setCellStyle(centerStyle);
 
-            r.createCell(1).setCellValue(item.getGroupId() != null ? item.getGroupId() : "N/A");
+            r.createCell(1).setCellValue("UNASSIGNED");
             r.getCell(1).setCellStyle(centerStyle);
 
-            r.createCell(2).setCellValue(item.getGroupName() != null ? item.getGroupName() : "");
+            String name = unassigned.getGroupName() != null && !unassigned.getGroupName().isEmpty()
+                    ? unassigned.getGroupName() : "Chưa phân nhóm";
+            r.createCell(2).setCellValue(name);
             r.getCell(2).setCellStyle(textStyle);
 
-            r.createCell(3).setCellValue(item.getTotalQuantitySold() != null ? item.getTotalQuantitySold().doubleValue() : 0.0);
+            r.createCell(3).setCellValue(unassigned.getTotalQuantitySold() != null ? unassigned.getTotalQuantitySold().doubleValue() : 0.0);
             r.getCell(3).setCellStyle(centerStyle);
 
-            r.createCell(4).setCellValue(item.getRevenue() != null ? item.getRevenue().doubleValue() : 0.0);
+            r.createCell(4).setCellValue(unassigned.getRevenue() != null ? unassigned.getRevenue().doubleValue() : 0.0);
             r.getCell(4).setCellStyle(currStyle);
 
-            r.createCell(5).setCellValue(item.getPercentage() != null ? item.getPercentage().doubleValue() / 100.0 : 0.0);
+            r.createCell(5).setCellValue(unassigned.getPercentage() != null ? unassigned.getPercentage().doubleValue() / 100.0 : 0.0);
             r.getCell(5).setCellStyle(pctStyle);
 
-            r.createCell(6).setCellValue(item.getPreviousPeriodRevenue() != null ? item.getPreviousPeriodRevenue().doubleValue() : 0.0);
+            r.createCell(6).setCellValue(unassigned.getPreviousPeriodRevenue() != null ? unassigned.getPreviousPeriodRevenue().doubleValue() : 0.0);
             r.getCell(6).setCellStyle(currStyle);
 
-            r.createCell(7).setCellValue(item.getGrowthRatePercentage() != null ? item.getGrowthRatePercentage().doubleValue() / 100.0 : 0.0);
+            r.createCell(7).setCellValue(unassigned.getGrowthRatePercentage() != null ? unassigned.getGrowthRatePercentage().doubleValue() / 100.0 : 0.0);
             r.getCell(7).setCellStyle(pctStyle);
 
-            if (item.getTotalQuantitySold() != null) totalQty = totalQty.add(item.getTotalQuantitySold());
-            if (item.getRevenue() != null) totalRev = totalRev.add(item.getRevenue());
-            if (item.getPreviousPeriodRevenue() != null) totalPrevRev = totalPrevRev.add(item.getPreviousPeriodRevenue());
+            if (unassigned.getTotalQuantitySold() != null) totalQty = totalQty.add(unassigned.getTotalQuantitySold());
+            if (unassigned.getRevenue() != null) totalRev = totalRev.add(unassigned.getRevenue());
+            if (unassigned.getPreviousPeriodRevenue() != null) totalPrevRev = totalPrevRev.add(unassigned.getPreviousPeriodRevenue());
         }
 
         // Tổng cộng
@@ -824,7 +876,7 @@ public class ReportExportServiceImpl implements ReportExportService {
                     " (Từ: " + (fromDate != null ? fromDate : "Toàn bộ") +
                     " - Đến: " + (toDate != null ? toDate : "Hiện tại") + ")";
 
-            auditLogService.recordLog(
+            activityLogHelper.logActivityInNewTransaction(
                     household,
                     currentUser,
                     "EXPORT_REPORT",
