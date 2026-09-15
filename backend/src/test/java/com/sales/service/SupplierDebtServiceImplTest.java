@@ -25,6 +25,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -187,4 +188,45 @@ class SupplierDebtServiceImplTest {
         assertEquals(3L, summary.getTotalSuppliersWithDebt());
         assertEquals(new BigDecimal("500000.00"), summary.getTotalOverdueDebt());
     }
+
+    @Test
+    @DisplayName("P1-01: Ghi nhận giảm trừ công nợ khi trả hàng trên phiếu nhập đã thanh toán (currentDebt âm và lưu remainingAmount)")
+    void recordSupplierReturnDebtReduction_FullyPaidReceipt_AllowsNegativeDebtAndTracksRefund() {
+        supplier.setCurrentDebt(BigDecimal.ZERO);
+        GoodsReceipt receipt = GoodsReceipt.builder()
+                .id("rec-paid")
+                .receiptNumber("NK-PAID-01")
+                .totalAmount(new BigDecimal("1000000.00"))
+                .household(household)
+                .supplier(supplier)
+                .build();
+
+        BigDecimal returnAmount = new BigDecimal("200000.00");
+        String returnNumber = "TH-001";
+
+        when(supplierDebtRepository.findByGoodsReceiptIdAndHouseholdIdAndType(
+                eq("rec-paid"), eq("hh-1"), eq(DebtType.DEBT_CREATED)))
+                .thenReturn(Collections.emptyList());
+        when(supplierDebtRepository.findBySupplierIdAndHouseholdIdAndStatusInAndTypeOrderByCreatedAtAsc(
+                eq("sup-1"), eq("hh-1"), anyList(), eq(DebtType.DEBT_CREATED)))
+                .thenReturn(Collections.emptyList());
+
+        org.mockito.ArgumentCaptor<SupplierDebt> captor = org.mockito.ArgumentCaptor.forClass(SupplierDebt.class);
+
+        supplierDebtService.recordSupplierReturnDebtReduction(
+                household, supplier, receipt, returnAmount, returnNumber, currentUser
+        );
+
+        verify(supplierRepository, times(1)).save(supplier);
+        assertEquals(new BigDecimal("-200000.00"), supplier.getCurrentDebt());
+
+        verify(supplierDebtRepository, times(1)).save(captor.capture());
+        SupplierDebt savedDebt = captor.getValue();
+        assertNotNull(savedDebt);
+        assertEquals(returnAmount, savedDebt.getAmount());
+        assertEquals(returnAmount, savedDebt.getRemainingAmount());
+        assertEquals(DebtType.DEBT_PAID, savedDebt.getType());
+        assertTrue(savedDebt.getNotes().contains("Khoản tiền NCC cần hoàn lại / dư có"));
+    }
 }
+

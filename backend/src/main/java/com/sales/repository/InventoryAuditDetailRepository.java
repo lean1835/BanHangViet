@@ -87,5 +87,19 @@ public interface InventoryAuditDetailRepository extends JpaRepository<InventoryA
             @Param("productId") String productId,
             @Param("householdId") String householdId
     );
+
+    @Query("""
+        SELECT d.product.id, COALESCE(SUM(d.differenceQuantity), 0)
+        FROM InventoryAuditDetail d
+        JOIN d.audit a
+        WHERE a.household.id = :householdId
+          AND a.status = 'COMPLETED'
+          AND COALESCE(a.auditDate, d.createdAt) <= :endDateTime
+        GROUP BY d.product.id
+    """)
+    List<Object[]> sumDifferenceBeforeGroupedByProduct(
+            @Param("householdId") String householdId,
+            @Param("endDateTime") LocalDateTime endDateTime
+    );
 }
 
