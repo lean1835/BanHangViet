@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { X, Sliders, ShieldAlert, Check, Loader2 } from "lucide-react";
 import { useUpdateWarningThresholdMutation } from "../services/annualRevenueApi";
 import { useNotification } from "@/hooks/useNotification";
@@ -10,6 +11,7 @@ interface WarningThresholdConfigModalProps {
   onClose: () => void;
   currentPercentage: number;
   isOwner: boolean;
+  onSuccess?: () => void;
 }
 
 const formatCurrency = (val: number): string =>
@@ -23,7 +25,7 @@ const QUICK_OPTIONS = [60, 70, 75, 80, 85, 90];
 
 export const WarningThresholdConfigModal: React.FC<
   WarningThresholdConfigModalProps
-> = ({ isOpen, onClose, currentPercentage, isOwner }) => {
+> = ({ isOpen, onClose, currentPercentage, isOwner, onSuccess }) => {
   const [percentageInput, setPercentageInput] = useState<string>(
     currentPercentage ? currentPercentage.toString() : "80"
   );
@@ -38,6 +40,19 @@ export const WarningThresholdConfigModal: React.FC<
       setErrorMsg(null);
     }
   }, [isOpen, currentPercentage]);
+
+  // Hỗ trợ đóng modal bằng phím ESC
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isOpen && !isLoading) {
+        onClose();
+      }
+    };
+    if (isOpen) {
+      window.addEventListener("keydown", handleKeyDown);
+    }
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, isLoading, onClose]);
 
   if (!isOpen) return null;
 
@@ -78,6 +93,9 @@ export const WarningThresholdConfigModal: React.FC<
           (val / 100) * 1_000_000_000
         )}).`
       );
+      if (onSuccess) {
+        onSuccess();
+      }
       onClose();
     } catch (err) {
       const msg = getApiErrorMessage(err, "Không thể cập nhật mức cảnh báo.");
@@ -86,17 +104,30 @@ export const WarningThresholdConfigModal: React.FC<
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-in fade-in duration-200">
-      <div className="w-full max-w-md bg-white rounded-3xl border border-slate-200 shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs animate-modal-backdrop"
+      onClick={(e) => {
+        if (e.target === e.currentTarget && !isLoading) {
+          onClose();
+        }
+      }}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="warning-threshold-modal-title"
+    >
+      <div className="w-full max-w-md bg-white rounded-2xl border border-slate-100 shadow-2xl overflow-hidden transition-all animate-modal-scale">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50">
           <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-xl bg-purple-100 text-purple-700">
+            <div className="p-2 rounded-xl bg-blue-50 text-blue-600 shadow-2xs border border-blue-100/60">
               <Sliders className="w-5 h-5 stroke-[2.2]" />
             </div>
             <div>
-              <h3 className="text-sm font-extrabold text-slate-800">
+              <h3
+                id="warning-threshold-modal-title"
+                className="text-sm font-extrabold text-slate-800"
+              >
                 Cấu hình mức cảnh báo ngưỡng
               </h3>
               <p className="text-[11px] text-slate-500 font-medium">
@@ -108,6 +139,7 @@ export const WarningThresholdConfigModal: React.FC<
             type="button"
             onClick={onClose}
             className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+            title="Đóng modal"
           >
             <X className="w-5 h-5" />
           </button>
@@ -144,8 +176,10 @@ export const WarningThresholdConfigModal: React.FC<
                   setPercentageInput(e.target.value);
                   setErrorMsg(null);
                 }}
-                className={`w-full h-11 px-4 pr-12 rounded-xl border text-base font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-purple-500/30 focus:border-purple-600 disabled:bg-slate-100 disabled:text-slate-400 ${
-                  errorMsg ? "border-rose-400 focus:border-rose-500" : "border-slate-300"
+                className={`w-full h-11 px-4 pr-12 rounded-xl border text-base font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 disabled:bg-slate-100 disabled:text-slate-400 transition-all ${
+                  errorMsg
+                    ? "border-rose-400 focus:border-rose-500 focus:ring-rose-500/20"
+                    : "border-slate-300"
                 }`}
                 placeholder="Nhập từ 50 đến 99"
               />
@@ -154,7 +188,9 @@ export const WarningThresholdConfigModal: React.FC<
               </span>
             </div>
             {errorMsg && (
-              <p className="text-xs font-semibold text-rose-600">{errorMsg}</p>
+              <p className="text-xs font-semibold text-rose-600">
+                {errorMsg}
+              </p>
             )}
           </div>
 
@@ -170,10 +206,10 @@ export const WarningThresholdConfigModal: React.FC<
                   type="button"
                   disabled={!isOwner || isLoading}
                   onClick={() => handleQuickSelect(val)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer ${
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                     numericValue === val
-                      ? "bg-purple-600 text-white shadow-xs"
-                      : "bg-slate-100 text-slate-700 hover:bg-slate-200 disabled:opacity-50"
+                      ? "bg-blue-600 text-white shadow-xs shadow-blue-600/20"
+                      : "bg-slate-100 text-slate-700 hover:bg-slate-200 active:bg-slate-300 disabled:opacity-50"
                   }`}
                 >
                   {val}%
@@ -183,14 +219,14 @@ export const WarningThresholdConfigModal: React.FC<
           </div>
 
           {/* Preview Giá trị tiền kích hoạt cảnh báo */}
-          <div className="p-4 rounded-2xl bg-purple-50/60 border border-purple-100 space-y-1">
-            <span className="text-[11px] font-medium text-purple-700 block">
+          <div className="p-4 rounded-2xl bg-blue-50/70 border border-blue-100/80 space-y-1">
+            <span className="text-[11px] font-medium text-blue-700 block">
               Mức doanh thu lũy kế sẽ kích hoạt cảnh báo:
             </span>
-            <div className="text-lg font-black text-purple-900">
+            <div className="text-lg font-black text-blue-950">
               {formatCurrency(calculatedAmount)}
             </div>
-            <p className="text-[10px] text-purple-600/90 leading-tight">
+            <p className="text-[10px] text-blue-600/90 leading-tight">
               Khi tổng doanh thu trước thuế của các hóa đơn đã cấp mã từ 01/01 chạm mức này, hệ thống sẽ đẩy thông báo cảnh báo và hướng dẫn vào Trung tâm thông báo.
             </p>
           </div>
@@ -201,7 +237,7 @@ export const WarningThresholdConfigModal: React.FC<
               type="button"
               onClick={onClose}
               disabled={isLoading}
-              className="px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+              className="px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer disabled:opacity-50"
             >
               Đóng
             </button>
@@ -209,7 +245,7 @@ export const WarningThresholdConfigModal: React.FC<
               <button
                 type="submit"
                 disabled={isLoading}
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-purple-600 text-white text-xs font-bold hover:bg-purple-700 active:scale-95 transition-all shadow-sm shadow-purple-600/20 cursor-pointer disabled:opacity-60"
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 active:bg-blue-800 transition-all shadow-xs shadow-blue-600/20 cursor-pointer disabled:opacity-60"
               >
                 {isLoading ? (
                   <>
@@ -227,6 +263,7 @@ export const WarningThresholdConfigModal: React.FC<
           </div>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
