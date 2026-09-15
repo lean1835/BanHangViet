@@ -40,6 +40,7 @@ public class StockCardServiceImpl implements StockCardService {
     private final OrderItemRepository orderItemRepository;
     private final ReturnTicketItemRepository returnTicketItemRepository;
     private final InventoryAuditDetailRepository inventoryAuditDetailRepository;
+    private final SupplierReturnItemRepository supplierReturnItemRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -104,9 +105,17 @@ public class StockCardServiceImpl implements StockCardService {
             openingAudit = BigDecimal.ZERO;
         }
 
+        BigDecimal openingSupplierReturn = supplierReturnItemRepository != null
+                ? supplierReturnItemRepository.sumQuantityBefore(product.getId(), household.getId(), startDateTime)
+                : BigDecimal.ZERO;
+        if (openingSupplierReturn == null) {
+            openingSupplierReturn = BigDecimal.ZERO;
+        }
+
         BigDecimal openingMovements = openingIn
                 .subtract(openingOut)
                 .add(openingReturn)
+                .subtract(openingSupplierReturn)
                 .add(openingAudit);
 
         LocalDateTime productCreatedAt = product.getCreatedAt();
@@ -292,6 +301,43 @@ public class StockCardServiceImpl implements StockCardService {
                         .notes(note)
                         .build());
             }
+        }
+
+        // 5.5 Supplier returns in period (OUT)
+        List<SupplierReturnItem> supplierReturnItems = supplierReturnItemRepository != null
+                ? supplierReturnItemRepository.findStockMovementsByProductInPeriod(product.getId(), household.getId(), startDateTime, endDateTime)
+                : Collections.emptyList();
+        if (supplierReturnItems == null) {
+            supplierReturnItems = Collections.emptyList();
+        }
+        for (SupplierReturnItem sri : supplierReturnItems) {
+            SupplierReturn sr = sri.getSupplierReturn();
+            LocalDateTime ts = sr.getReturnDate() != null ? sr.getReturnDate() : sr.getCreatedAt();
+            BigDecimal qty = sri.getBaseQuantity() != null ? sri.getBaseQuantity() : (sri.getQuantity() != null ? sri.getQuantity() : BigDecimal.ZERO);
+            String performer = resolvePerformer(sr.getCreatedByUser());
+
+            String returnNotes = "Trả hàng NCC theo phiếu " + sr.getReturnNumber();
+            if (sri.getItemReason() != null && !sri.getItemReason().isBlank()) {
+                returnNotes += " - " + sri.getItemReason();
+            } else if (sr.getReason() != null && !sr.getReason().isBlank()) {
+                returnNotes += " - " + sr.getReason();
+            }
+
+            periodMovements.add(StockMovementInternal.builder()
+                    .id(sri.getId())
+                    .documentId(sr.getId())
+                    .documentType(StockMovementType.SUPPLIER_RETURN)
+                    .documentTypeName("Phiếu trả hàng NCC")
+                    .documentNumber(sr.getReturnNumber())
+                    .documentUrl("/products/supplier-returns?id=" + sr.getId())
+                    .timestamp(ts)
+                    .changeType(StockChangeType.OUT)
+                    .quantityIn(BigDecimal.ZERO)
+                    .quantityOut(qty)
+                    .quantityChange(qty.negate())
+                    .performedBy(performer)
+                    .notes(returnNotes)
+                    .build());
         }
 
         // 6. Sort chronologically: timestamp ASC -> IN before OUT when same timestamp -> id ASC

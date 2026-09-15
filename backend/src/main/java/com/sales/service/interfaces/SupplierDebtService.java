@@ -21,4 +21,6 @@ public interface SupplierDebtService {
     SupplierDebtSummaryResponse getSupplierDebtSummary(String currentUsername);
 
     void recordGoodsReceiptDebt(BusinessHousehold household, Supplier supplier, GoodsReceipt receipt, User actor);
+
+    void recordSupplierReturnDebtReduction(BusinessHousehold household, Supplier supplier, GoodsReceipt receipt, java.math.BigDecimal totalReturnAmount, String returnNumber, User actor);
 }

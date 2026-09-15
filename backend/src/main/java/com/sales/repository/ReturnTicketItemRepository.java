@@ -110,6 +110,20 @@ public interface ReturnTicketItemRepository extends JpaRepository<ReturnTicketIt
             @Param("productId") String productId,
             @Param("householdId") String householdId
     );
+
+    @Query("""
+        SELECT rti.product.id, COALESCE(SUM(rti.quantity), 0)
+        FROM ReturnTicketItem rti
+        JOIN rti.returnTicket rt
+        WHERE rt.household.id = :householdId
+          AND rt.status = 'APPROVED'
+          AND COALESCE(rt.approvedAt, rt.createdAt) <= :endDateTime
+        GROUP BY rti.product.id
+    """)
+    List<Object[]> sumQuantityBeforeGroupedByProduct(
+            @Param("householdId") String householdId,
+            @Param("endDateTime") LocalDateTime endDateTime
+    );
 }
 
 

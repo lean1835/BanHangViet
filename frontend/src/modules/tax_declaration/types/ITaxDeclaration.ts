@@ -15,6 +15,8 @@ export interface ITaxDeclarationPeriodResponse {
   totalValidInvoices: number;
   totalRevenue: number;
   totalTaxAmount: number;
+  totalPurchaseAmount?: number;
+  totalPurchaseReceipts?: number;
   createdByName?: string;
   lockedAt?: string;
   lockedByName?: string;

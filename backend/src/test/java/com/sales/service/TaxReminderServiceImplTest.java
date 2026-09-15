@@ -521,4 +521,55 @@ class TaxReminderServiceImplTest {
             return n.getMetadata().contains("\"declarationExported\":true");
         }));
     }
+
+    @Test
+    @DisplayName("NCL-12-CN-007: Đánh dấu xuất tờ khai kèm username thành công (hộ hợp lệ)")
+    void markDeclarationAsExported_WithUsername_Success() {
+        when(userRepository.findByUsername("owner_user")).thenReturn(Optional.of(ownerUser));
+        when(taxPeriodRepository.findById("period-q1-2026")).thenReturn(Optional.of(quarterlyPeriod));
+
+        taxReminderService.markDeclarationAsExported("owner_user", "period-q1-2026");
+
+        assertTrue(quarterlyPeriod.getDeclarationExported());
+        assertNotNull(quarterlyPeriod.getDeclarationExportedAt());
+        verify(taxPeriodRepository, times(1)).save(quarterlyPeriod);
+    }
+
+    @Test
+    @DisplayName("NCL-12-CN-007: Chặn IDOR khi người dùng cố tình đánh dấu xuất tờ khai của hộ kinh doanh khác -> Báo lỗi FORBIDDEN (403)")
+    void markDeclarationAsExported_OtherHousehold_ThrowsForbidden() {
+        BusinessHousehold otherHousehold = BusinessHousehold.builder()
+                .id("house-other-999")
+                .name("Hộ Khác")
+                .build();
+        TaxDeclarationPeriod otherPeriod = TaxDeclarationPeriod.builder()
+                .id("period-other-1")
+                .household(otherHousehold)
+                .periodName("Kỳ Hộ Khác")
+                .build();
+
+        when(userRepository.findByUsername("owner_user")).thenReturn(Optional.of(ownerUser));
+        when(taxPeriodRepository.findById("period-other-1")).thenReturn(Optional.of(otherPeriod));
+
+        AppException ex = assertThrows(AppException.class, () ->
+                taxReminderService.markDeclarationAsExported("owner_user", "period-other-1")
+        );
+
+        assertEquals(ErrorCode.FORBIDDEN, ex.getErrorCode());
+        assertFalse(Boolean.TRUE.equals(otherPeriod.getDeclarationExported()));
+        verify(taxPeriodRepository, never()).save(otherPeriod);
+    }
+
+    @Test
+    @DisplayName("NCL-12-CN-007: Kỳ kê khai không tồn tại -> Ném TAX_PERIOD_NOT_FOUND (404)")
+    void markDeclarationAsExported_NotFound_ThrowsException() {
+        when(userRepository.findByUsername("owner_user")).thenReturn(Optional.of(ownerUser));
+        when(taxPeriodRepository.findById("period-non-existent")).thenReturn(Optional.empty());
+
+        AppException ex = assertThrows(AppException.class, () ->
+                taxReminderService.markDeclarationAsExported("owner_user", "period-non-existent")
+        );
+
+        assertEquals(ErrorCode.TAX_PERIOD_NOT_FOUND, ex.getErrorCode());
+    }
 }
