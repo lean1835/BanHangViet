@@ -202,17 +202,11 @@ public class AnnualRevenueTrackingServiceImpl implements AnnualRevenueTrackingSe
         // Determine if household was mandatory from beginning (TC-03)
         boolean isMandatoryFromBeginning = false;
         if (Boolean.TRUE.equals(household.getRevenueThresholdEnabled())) {
-            if (cumulativeRevenue.compareTo(mandatoryThreshold) < 0) {
-                // If revenue is below 1B but threshold is enabled, it was enabled from beginning/registration
-                isMandatoryFromBeginning = true;
-            } else {
-                // If revenue reached/exceeded 1B, check if it was already mandatory before this target year
-                boolean exceededThisYear = activityLogRepository.existsByHouseholdIdAndActionAndCreatedAtBetween(
-                        household.getId(), RevenueThresholdConstants.ACTION_REVENUE_THRESHOLD_EXCEEDED,
-                        startOfYear, endOfYear
-                );
-                isMandatoryFromBeginning = !exceededThisYear && (household.getCreatedAt() != null && household.getCreatedAt().isBefore(startOfYear));
-            }
+            boolean exceededThisYear = activityLogRepository.existsByHouseholdIdAndActionAndCreatedAtBetween(
+                    household.getId(), RevenueThresholdConstants.ACTION_REVENUE_THRESHOLD_EXCEEDED,
+                    startOfYear, endOfYear
+            );
+            isMandatoryFromBeginning = !exceededThisYear;
         }
 
         boolean isCurrentYear = (targetYear == currentDate.getYear());
@@ -296,7 +290,7 @@ public class AnnualRevenueTrackingServiceImpl implements AnnualRevenueTrackingSe
                 .projectedInCurrentYear(projectedInCurrentYear)
                 .remainingRevenueToThreshold(remainingRevenueToThreshold.setScale(2, RoundingMode.HALF_UP))
                 .warningStatus(warningStatus)
-                .isMandatory(Boolean.TRUE.equals(household.getRevenueThresholdEnabled()))
+                .isMandatory(cumulativeRevenue.compareTo(mandatoryThreshold) >= 0 || isMandatoryFromBeginning)
                 .isMandatoryFromBeginning(isMandatoryFromBeginning)
                 .shouldShowWarning(shouldShowWarning)
                 .warningMessage(warningMessage)

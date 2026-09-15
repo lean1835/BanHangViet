@@ -122,6 +122,7 @@ export const TaxPeriodFilterBar: React.FC<ITaxPeriodFilterBarProps> = ({
           </div>
         )}
 
+
         {/* Nút Chốt kỳ / Mở lại kỳ (NCL-12-CN-004) */}
         {selectedPeriod && (
           <>
