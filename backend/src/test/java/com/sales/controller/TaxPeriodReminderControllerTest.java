@@ -23,7 +23,7 @@ import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -243,6 +243,29 @@ public class TaxPeriodReminderControllerTest {
                 .andExpect(jsonExpect(1000, "Quét và cập nhật nhắc lịch nộp tờ khai thành công"))
                 .andExpect(jsonPath("$.result.householdsScanned").value(1))
                 .andExpect(jsonPath("$.result.notificationsCreated").value(1));
+    }
+
+    @Test
+    @DisplayName("POST /{periodId}/mark-exported: Đánh dấu đã xuất tờ khai thành công và truyền đúng principal")
+    @WithMockUser(username = "owner_test", roles = {"VT-01"})
+    void markDeclarationAsExported_Success() throws Exception {
+        doNothing().when(taxReminderService).markDeclarationAsExported("owner_test", "period-q1");
+
+        mockMvc.perform(post("/api/v1/tax-periods/period-q1/mark-exported"))
+                .andExpect(status().isOk())
+                .andExpect(jsonExpect(1000, "Đánh dấu đã xuất tờ khai thuế thành công"));
+
+        verify(taxReminderService, times(1)).markDeclarationAsExported("owner_test", "period-q1");
+    }
+
+    @Test
+    @DisplayName("POST /{periodId}/mark-exported: Bị chặn FORBIDDEN khi nhân viên bán hàng (VT-02) gọi")
+    @WithMockUser(username = "staff_test", roles = {"VT-02"})
+    void markDeclarationAsExported_Forbidden_SalesStaff() throws Exception {
+        mockMvc.perform(post("/api/v1/tax-periods/period-q1/mark-exported"))
+                .andExpect(status().isForbidden());
+
+        verify(taxReminderService, never()).markDeclarationAsExported(any(), any());
     }
 
     private org.springframework.test.web.servlet.ResultMatcher jsonExpect(int code, String message) {

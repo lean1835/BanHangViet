@@ -248,5 +248,20 @@ public interface OrderItemRepository extends JpaRepository<OrderItem, String> {
             @Param("startDate") LocalDateTime startDate,
             @Param("endDate") LocalDateTime endDate
     );
+
+    @Query("""
+        SELECT oi.product.id, COALESCE(SUM(COALESCE(oi.baseQuantity, oi.quantity)), 0)
+        FROM OrderItem oi
+        JOIN oi.order o
+        WHERE o.household.id = :householdId
+          AND o.status = 'COMPLETED'
+          AND o.deletedAt IS NULL
+          AND COALESCE(o.createdAt, oi.createdAt) <= :endDateTime
+        GROUP BY oi.product.id
+    """)
+    List<Object[]> sumQuantityBeforeGroupedByProduct(
+            @Param("householdId") String householdId,
+            @Param("endDateTime") LocalDateTime endDateTime
+    );
 }
 

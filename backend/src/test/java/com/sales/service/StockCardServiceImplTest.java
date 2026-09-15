@@ -48,6 +48,9 @@ class StockCardServiceImplTest {
     @Mock
     private InventoryAuditDetailRepository inventoryAuditDetailRepository;
 
+    @Mock
+    private com.sales.repository.SupplierReturnItemRepository supplierReturnItemRepository;
+
     @InjectMocks
     private StockCardServiceImpl stockCardService;
 

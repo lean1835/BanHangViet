@@ -23,6 +23,10 @@ export const REPORT_NAVIGATION_ITEMS = [
     label: "Tờ khai thuế & Bảng kê",
   },
   {
+    path: APP_ROUTES.REPORT_ANNUAL_REVENUE,
+    label: "Doanh thu lũy kế năm",
+  },
+  {
     path: APP_ROUTES.REPORT_ACTIVITY_LOGS,
     label: "Nhật ký hoạt động",
   },
@@ -69,6 +73,23 @@ export const REPORT_UI = {
     BTN_UPDATE_SETTINGS: "Cập nhật thông tin hộ ngay",
     ROLE_RESTRICTION_TOOLTIP:
       "Chỉ Kế toán (VT-03) và Chủ hộ (VT-01) mới có quyền xuất tờ khai thuế.",
+  },
+  ANNUAL_REVENUE: {
+    TITLE: "Theo dõi doanh thu lũy kế năm & Cảnh báo ngưỡng 1 tỷ",
+    DESCRIPTION:
+      "Theo dõi doanh thu thực tế từ hóa đơn hợp lệ và cảnh báo ngưỡng 1 tỷ đồng.",
+    MANDATORY_THRESHOLD_LABEL: "Ngưỡng bắt buộc pháp lý:",
+    MANDATORY_THRESHOLD_VALUE: "1.000.000.000 đ",
+    WARNING_THRESHOLD_LABEL: "Mức cảnh báo đã đặt:",
+    PROJECTED_DATE_LABEL: "Dự kiến chạm mốc 1 tỷ:",
+    AVERAGE_MONTHLY_LABEL: "Tốc độ trung bình / tháng:",
+    REMAINING_AMOUNT_LABEL: "Doanh thu còn lại:",
+    VALID_INVOICE_COUNT_LABEL: "Số HĐ hợp lệ:",
+    TAX_AMOUNT_LABEL: "Tổng tiền thuế tương ứng:",
+    BTN_CONFIG_THRESHOLD: "Cấu hình mức cảnh báo",
+    CONFIG_MODAL_TITLE: "Thiết lập mức cảnh báo ngưỡng doanh thu năm",
+    CONFIG_MODAL_DESC:
+      "Hệ thống sẽ tự động gửi thông báo đến Trung tâm thông báo khi doanh thu lũy kế trong năm chạm hoặc vượt tỷ lệ này (cho phép từ 50% đến 99%).",
   },
   COMPARISON: {
     TITLE: "Đối chiếu & So sánh doanh thu hai kỳ liên tiếp",

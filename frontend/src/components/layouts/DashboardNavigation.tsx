@@ -11,6 +11,7 @@ import {
 import { APP_ROUTES } from "@/constants/routes";
 import { USER_ROLES } from "@/constants/roles";
 import type { TDemoRole } from "@/constants/roles";
+import { NotificationCenterDropdown } from "@/modules/notification/components/NotificationCenterDropdown";
 
 interface DashboardNavigationProps {
   currentRole: TDemoRole;
@@ -153,6 +154,11 @@ export const DashboardNavigation = ({
             <span className="flex h-2 w-2 rounded-full bg-amber-400 animate-ping" />
             <span>{pendingCount} đơn chờ đồng bộ</span>
           </button>
+        )}
+
+        {(currentRole === USER_ROLES.OWNER ||
+          currentRole === USER_ROLES.ACCOUNTANT) && (
+          <NotificationCenterDropdown />
         )}
 
         {!isPosScreen && (

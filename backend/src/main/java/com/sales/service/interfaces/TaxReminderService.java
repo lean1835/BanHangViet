@@ -30,5 +30,7 @@ public interface TaxReminderService {
 
     void markDeclarationAsExported(String periodId);
 
+    void markDeclarationAsExported(String currentUsername, String periodId);
+
     LocalDate calculateTaxFilingDeadline(String periodType, int year, int periodNumber);
 }

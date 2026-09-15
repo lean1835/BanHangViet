@@ -250,4 +250,98 @@ public class SupplierDebtServiceImpl implements SupplierDebtService {
                 .totalOverdueDebt(totalOverdue != null ? totalOverdue : BigDecimal.ZERO)
                 .build();
     }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void recordSupplierReturnDebtReduction(
+            BusinessHousehold household,
+            Supplier supplier,
+            GoodsReceipt receipt,
+            BigDecimal totalReturnAmount,
+            String returnNumber,
+            User actor
+    ) {
+        if (supplier == null || totalReturnAmount == null || totalReturnAmount.compareTo(BigDecimal.ZERO) <= 0) {
+            return;
+        }
+
+        // 1. Giảm nợ lũy kế của nhà cung cấp (cho phép âm thể hiện dư có / NCC nợ hộ kinh doanh)
+        BigDecimal currentDebt = supplier.getCurrentDebt() != null ? supplier.getCurrentDebt() : BigDecimal.ZERO;
+        BigDecimal newDebt = currentDebt.subtract(totalReturnAmount);
+        supplier.setCurrentDebt(newDebt);
+        supplierRepository.save(supplier);
+
+        // 2. Tìm khoản nợ gốc DEBT_CREATED liên kết với phiếu nhập này
+        List<SupplierDebt> receiptDebts = receipt != null
+                ? supplierDebtRepository.findByGoodsReceiptIdAndHouseholdIdAndType(receipt.getId(), household.getId(), DebtType.DEBT_CREATED)
+                : Collections.emptyList();
+
+        BigDecimal remainingToDeduct = totalReturnAmount;
+
+        for (SupplierDebt debt : receiptDebts) {
+            if (remainingToDeduct.compareTo(BigDecimal.ZERO) <= 0) break;
+
+            BigDecimal debtRemaining = debt.getRemainingAmount() != null ? debt.getRemainingAmount() : BigDecimal.ZERO;
+            if (debtRemaining.compareTo(BigDecimal.ZERO) > 0) {
+                if (remainingToDeduct.compareTo(debtRemaining) >= 0) {
+                    remainingToDeduct = remainingToDeduct.subtract(debtRemaining);
+                    debt.setRemainingAmount(BigDecimal.ZERO);
+                    debt.setStatus(DebtStatus.PAID);
+                } else {
+                    debt.setRemainingAmount(debtRemaining.subtract(remainingToDeduct));
+                    remainingToDeduct = BigDecimal.ZERO;
+                }
+                supplierDebtRepository.save(debt);
+            }
+        }
+
+        // Nếu số tiền trả lớn hơn nợ còn lại của phiếu gốc, cấn trừ tiếp vào các khoản nợ PENDING/OVERDUE khác của cùng NCC
+        if (remainingToDeduct.compareTo(BigDecimal.ZERO) > 0) {
+            List<SupplierDebt> otherDebts = supplierDebtRepository
+                    .findBySupplierIdAndHouseholdIdAndStatusInAndTypeOrderByCreatedAtAsc(
+                            supplier.getId(), household.getId(),
+                            List.of(DebtStatus.PENDING, DebtStatus.OVERDUE), DebtType.DEBT_CREATED
+                    );
+            for (SupplierDebt debt : otherDebts) {
+                if (remainingToDeduct.compareTo(BigDecimal.ZERO) <= 0) break;
+                if (receipt != null && debt.getGoodsReceipt() != null && debt.getGoodsReceipt().getId().equals(receipt.getId())) {
+                    continue; // Đã xử lý ở trên
+                }
+                BigDecimal debtRemaining = debt.getRemainingAmount() != null ? debt.getRemainingAmount() : BigDecimal.ZERO;
+                if (debtRemaining.compareTo(BigDecimal.ZERO) > 0) {
+                    if (remainingToDeduct.compareTo(debtRemaining) >= 0) {
+                        remainingToDeduct = remainingToDeduct.subtract(debtRemaining);
+                        debt.setRemainingAmount(BigDecimal.ZERO);
+                        debt.setStatus(DebtStatus.PAID);
+                    } else {
+                        debt.setRemainingAmount(debtRemaining.subtract(remainingToDeduct));
+                        remainingToDeduct = BigDecimal.ZERO;
+                    }
+                    supplierDebtRepository.save(debt);
+                }
+            }
+        }
+
+        // 3. Ghi nhận bản ghi SupplierDebt loại DEBT_PAID đối ứng
+        String notes = "Giảm trừ công nợ do trả hàng lại nhà cung cấp theo phiếu: " + returnNumber;
+        if (remainingToDeduct.compareTo(BigDecimal.ZERO) > 0) {
+            notes += String.format(" (Khoản tiền NCC cần hoàn lại / dư có: %s đ)", remainingToDeduct.stripTrailingZeros().toPlainString());
+        }
+
+        SupplierDebt returnDebtRecord = SupplierDebt.builder()
+                .household(household)
+                .supplier(supplier)
+                .goodsReceipt(receipt)
+                .amount(totalReturnAmount)
+                .remainingAmount(remainingToDeduct)
+                .type(DebtType.DEBT_PAID)
+                .status(DebtStatus.PAID)
+                .paymentMethod("RETURN_DEDUCTION")
+                .notes(notes)
+                .createdByUser(actor)
+                .build();
+
+        supplierDebtRepository.save(returnDebtRecord);
+        logActivity(household, actor, "SUPPLIER_RETURN_DEBT_REDUCTION", returnDebtRecord.getId(), null, buildDebtLogMap(returnDebtRecord));
+    }
 }

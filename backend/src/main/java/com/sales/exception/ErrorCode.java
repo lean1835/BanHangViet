@@ -133,6 +133,15 @@ public enum ErrorCode {
     DUPLICATE_PRODUCT_IN_AUDIT(3043, "Không được chứa sản phẩm trùng lặp trong cùng một phiếu kiểm kê", HttpStatus.BAD_REQUEST),
     ONLY_STORE_OWNER_CAN_AUDIT(3044, "Chỉ chủ hộ kinh doanh mới có quyền thực hiện kiểm kê và điều chỉnh tồn kho", HttpStatus.FORBIDDEN),
 
+    // NCL-13 Trả hàng lại nhà cung cấp (NCL-13-CN-006)
+    SUPPLIER_RETURN_NOT_FOUND(3038, "Phiếu trả hàng cho nhà cung cấp không tồn tại", HttpStatus.NOT_FOUND),
+    EXCEEDED_SUPPLIER_RETURNABLE_QUANTITY(3039, "Số lượng trả vượt quá số lượng đã nhập trừ số lượng đã trả trước đó", HttpStatus.BAD_REQUEST),
+    INSUFFICIENT_STOCK_FOR_RETURN(3045, "Số lượng trả vượt quá số lượng tồn kho hiện tại của mặt hàng", HttpStatus.BAD_REQUEST),
+    EMPTY_SUPPLIER_RETURN_ITEMS(3046, "Phiếu trả hàng nhà cung cấp phải chứa ít nhất một mặt hàng", HttpStatus.BAD_REQUEST),
+    RECEIPT_DETAIL_NOT_FOUND_IN_RECEIPT(3047, "Mặt hàng yêu cầu trả không thuộc phiếu nhập kho gốc đã chọn", HttpStatus.BAD_REQUEST),
+    SUPPLIER_RETURN_NUMBER_EXISTS(3048, "Số hiệu phiếu trả hàng nhà cung cấp đã tồn tại trên hệ thống", HttpStatus.BAD_REQUEST),
+    ONLY_STORE_OWNER_CAN_RETURN_SUPPLIER(3049, "Chỉ chủ hộ kinh doanh mới có quyền lập phiếu trả hàng cho nhà cung cấp", HttpStatus.FORBIDDEN),
+
     // NCL-15 Chiết khấu & Chương trình khuyến mại (NCL-15-CN-001 & NCL-15-CN-002)
     PROMOTION_NOT_FOUND(3050, "Chương trình khuyến mại không tồn tại", HttpStatus.NOT_FOUND),
     INVALID_PROMOTION_DATE(3051, "Thời gian kết thúc phải lớn hơn thời gian bắt đầu", HttpStatus.BAD_REQUEST),
@@ -372,7 +381,10 @@ public enum ErrorCode {
 
     // NCL-01-CN-011 Quản trị nền tảng xem nhật ký hệ thống toàn nền tảng
     PLATFORM_LOG_NOT_FOUND(2058, "Không tìm thấy bản ghi nhật ký hệ thống", HttpStatus.NOT_FOUND),
-    PLATFORM_INCIDENT_NOT_FOUND(2059, "Không tìm thấy sự cố hệ thống", HttpStatus.NOT_FOUND);
+    PLATFORM_INCIDENT_NOT_FOUND(2059, "Không tìm thấy sự cố hệ thống", HttpStatus.NOT_FOUND),
+
+    // NCL-13-CN-007 Báo cáo giá trị tồn kho theo giá vốn
+    FUTURE_DATE_NOT_ALLOWED(3170, "Không thể tra cứu giá trị tồn kho tại thời điểm trong tương lai", HttpStatus.BAD_REQUEST);
 
     private final int code;
     private final String message;
