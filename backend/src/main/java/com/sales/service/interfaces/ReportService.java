@@ -24,4 +24,12 @@ public interface ReportService {
     PosRevenueReportResponse getPosRevenueReport(String currentUsername, LocalDate fromDate, LocalDate toDate, String posId);
 
     EmployeeShiftReportResponse getEmployeeShiftReport(String currentUsername, LocalDate fromDate, LocalDate toDate, String userId, java.math.BigDecimal customThreshold);
+
+    GrossProfitReportResponse getGrossProfitReport(String currentUsername, LocalDate fromDate, LocalDate toDate, String productId);
+
+    PaymentMethodReportResponse getPaymentMethodReport(String currentUsername, LocalDate fromDate, LocalDate toDate, String userId, String shiftId);
+
+    ProductGroupReportResponse getProductGroupReport(String currentUsername, LocalDate fromDate, LocalDate toDate);
+
+    ProductGroupRevenueDetailResponse getProductGroupDetail(String currentUsername, String groupId, LocalDate fromDate, LocalDate toDate);
 }

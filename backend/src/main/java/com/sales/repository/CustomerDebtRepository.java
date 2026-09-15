@@ -115,4 +115,32 @@ public interface CustomerDebtRepository extends JpaRepository<CustomerDebt, Stri
             @Param("customerId") String customerId,
             @Param("householdId") String householdId,
             @Param("maxDateExclusive") LocalDateTime maxDateExclusive);
+
+    @Query("""
+        SELECT COALESCE(SUM(d.amount), 0)
+        FROM CustomerDebt d
+        WHERE d.household.id = :householdId
+          AND d.type = 'DEBT_CREATED'
+          AND d.createdAt >= :startDate
+          AND d.createdAt <= :endDate
+    """)
+    BigDecimal sumDebtCreatedInPeriod(
+            @Param("householdId") String householdId,
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate
+    );
+
+    @Query("""
+        SELECT COALESCE(SUM(d.amount), 0)
+        FROM CustomerDebt d
+        WHERE d.household.id = :householdId
+          AND d.type = 'DEBT_PAID'
+          AND d.createdAt >= :startDate
+          AND d.createdAt <= :endDate
+    """)
+    BigDecimal sumDebtPaidInPeriod(
+            @Param("householdId") String householdId,
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate
+    );
 }

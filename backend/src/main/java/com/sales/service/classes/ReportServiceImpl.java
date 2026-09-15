@@ -49,6 +49,7 @@ public class ReportServiceImpl implements ReportService {
     private final CashTransactionRepository cashTransactionRepository;
     private final BusinessHouseholdSettingsRepository settingsRepository;
     private final ShiftHandoverRepository shiftHandoverRepository;
+    private final OrderItemRepository orderItemRepository;
     private final ObjectMapper objectMapper;
 
     private BusinessHousehold getHouseholdAndValidate(String username) {
@@ -717,6 +718,441 @@ public class ReportServiceImpl implements ReportService {
                 .totalDifferenceAmount(totalDiffAmountAll)
                 .shifts(shiftItems)
                 .employeeSummaries(employeeSummaries)
+                .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public GrossProfitReportResponse getGrossProfitReport(String currentUsername, LocalDate fromDate, LocalDate toDate, String productId) {
+        BusinessHousehold household = getHouseholdAndValidate(currentUsername);
+
+        LocalDate start = fromDate != null ? fromDate : LocalDate.now().minusDays(30);
+        LocalDate end = toDate != null ? toDate : LocalDate.now();
+        if (start.isAfter(end)) {
+            LocalDate tmp = start;
+            start = end;
+            end = tmp;
+        }
+
+        LocalDateTime startDateTime = start.atStartOfDay();
+        LocalDateTime endDateTime = end.atTime(LocalTime.MAX);
+
+        List<OrderItem> items = orderItemRepository.findItemsForGrossProfitReport(household.getId(), startDateTime, endDateTime);
+
+        if (productId != null && !productId.trim().isEmpty()) {
+            items = items.stream()
+                    .filter(oi -> oi.getProduct() != null && productId.equals(oi.getProduct().getId()))
+                    .collect(Collectors.toList());
+        }
+
+        Map<String, GrossProfitReportResponse.ProductGrossProfitDto> productStatsMap = new HashMap<>();
+        Map<LocalDate, GrossProfitReportResponse.DailyGrossProfitDto> dailyStatsMap = new HashMap<>();
+        Map<String, GrossProfitReportResponse.MissingCostProductDto> missingCostMap = new HashMap<>();
+
+        BigDecimal totalNetRevenue = BigDecimal.ZERO;
+        BigDecimal totalCogs = BigDecimal.ZERO;
+        BigDecimal totalGrossProfit = BigDecimal.ZERO;
+
+        for (OrderItem oi : items) {
+            Product p = oi.getProduct();
+            String pId = p != null ? p.getId() : (oi.getProduct() != null ? oi.getProduct().getId() : oi.getId());
+            String pSku = p != null ? p.getSku() : "N/A";
+            String pName = oi.getProductName() != null ? oi.getProductName() : (p != null ? p.getName() : "Sản phẩm");
+            String pUnit = p != null ? p.getUnit() : "Món";
+
+            BigDecimal effectiveCost = oi.getCostPrice();
+            if (effectiveCost == null || effectiveCost.compareTo(BigDecimal.ZERO) <= 0) {
+                if (p != null && p.getCostPrice() != null && p.getCostPrice().compareTo(BigDecimal.ZERO) > 0) {
+                    effectiveCost = p.getCostPrice();
+                }
+            }
+
+            BigDecimal qty = oi.getQuantity() != null ? oi.getQuantity() : BigDecimal.ZERO;
+            BigDecimal netRev = oi.getSubtotal() != null ? oi.getSubtotal() : BigDecimal.ZERO;
+
+            if (effectiveCost == null || effectiveCost.compareTo(BigDecimal.ZERO) <= 0) {
+                GrossProfitReportResponse.MissingCostProductDto missing = missingCostMap.computeIfAbsent(pId, k ->
+                        GrossProfitReportResponse.MissingCostProductDto.builder()
+                                .productId(pId)
+                                .productSku(pSku)
+                                .productName(pName)
+                                .unit(pUnit)
+                                .quantitySold(BigDecimal.ZERO)
+                                .netRevenue(BigDecimal.ZERO)
+                                .warningMessage("Mặt hàng chưa có giá vốn bình quân theo QTN-23, không tính vào lãi gộp.")
+                                .build());
+                missing.setQuantitySold(missing.getQuantitySold().add(qty));
+                missing.setNetRevenue(missing.getNetRevenue().add(netRev));
+                continue;
+            }
+
+            BigDecimal cogs = qty.multiply(effectiveCost);
+            BigDecimal grossProfit = netRev.subtract(cogs);
+
+            totalNetRevenue = totalNetRevenue.add(netRev);
+            totalCogs = totalCogs.add(cogs);
+            totalGrossProfit = totalGrossProfit.add(grossProfit);
+
+            GrossProfitReportResponse.ProductGrossProfitDto pDto = productStatsMap.computeIfAbsent(pId, k ->
+                    GrossProfitReportResponse.ProductGrossProfitDto.builder()
+                            .productId(pId)
+                            .productSku(pSku)
+                            .productName(pName)
+                            .unit(pUnit)
+                            .quantitySold(BigDecimal.ZERO)
+                            .netRevenue(BigDecimal.ZERO)
+                            .cogs(BigDecimal.ZERO)
+                            .grossProfit(BigDecimal.ZERO)
+                            .grossProfitMarginPercentage(BigDecimal.ZERO)
+                            .isNegativeMargin(false)
+                            .build());
+            pDto.setQuantitySold(pDto.getQuantitySold().add(qty));
+            pDto.setNetRevenue(pDto.getNetRevenue().add(netRev));
+            pDto.setCogs(pDto.getCogs().add(cogs));
+            pDto.setGrossProfit(pDto.getGrossProfit().add(grossProfit));
+
+            LocalDate orderDate = oi.getOrder().getCreatedAt().toLocalDate();
+            GrossProfitReportResponse.DailyGrossProfitDto dDto = dailyStatsMap.computeIfAbsent(orderDate, k ->
+                    GrossProfitReportResponse.DailyGrossProfitDto.builder()
+                            .date(orderDate)
+                            .netRevenue(BigDecimal.ZERO)
+                            .cogs(BigDecimal.ZERO)
+                            .grossProfit(BigDecimal.ZERO)
+                            .grossProfitMarginPercentage(BigDecimal.ZERO)
+                            .build());
+            dDto.setNetRevenue(dDto.getNetRevenue().add(netRev));
+            dDto.setCogs(dDto.getCogs().add(cogs));
+            dDto.setGrossProfit(dDto.getGrossProfit().add(grossProfit));
+        }
+
+        for (GrossProfitReportResponse.ProductGrossProfitDto pDto : productStatsMap.values()) {
+            if (pDto.getNetRevenue().compareTo(BigDecimal.ZERO) > 0) {
+                BigDecimal margin = pDto.getGrossProfit()
+                        .multiply(BigDecimal.valueOf(100))
+                        .divide(pDto.getNetRevenue(), 2, RoundingMode.HALF_UP);
+                pDto.setGrossProfitMarginPercentage(margin);
+            }
+            pDto.setIsNegativeMargin(pDto.getGrossProfit().compareTo(BigDecimal.ZERO) < 0);
+        }
+
+        for (GrossProfitReportResponse.DailyGrossProfitDto dDto : dailyStatsMap.values()) {
+            if (dDto.getNetRevenue().compareTo(BigDecimal.ZERO) > 0) {
+                BigDecimal margin = dDto.getGrossProfit()
+                        .multiply(BigDecimal.valueOf(100))
+                        .divide(dDto.getNetRevenue(), 2, RoundingMode.HALF_UP);
+                dDto.setGrossProfitMarginPercentage(margin);
+            }
+        }
+
+        BigDecimal totalMargin = BigDecimal.ZERO;
+        if (totalNetRevenue.compareTo(BigDecimal.ZERO) > 0) {
+            totalMargin = totalGrossProfit
+                    .multiply(BigDecimal.valueOf(100))
+                    .divide(totalNetRevenue, 2, RoundingMode.HALF_UP);
+        }
+
+        GrossProfitReportResponse.GrossProfitSummaryDto summary = GrossProfitReportResponse.GrossProfitSummaryDto.builder()
+                .totalNetRevenue(totalNetRevenue)
+                .totalCogs(totalCogs)
+                .totalGrossProfit(totalGrossProfit)
+                .grossProfitMarginPercentage(totalMargin)
+                .build();
+
+        List<GrossProfitReportResponse.ProductGrossProfitDto> itemReports = new ArrayList<>(productStatsMap.values());
+        itemReports.sort((a, b) -> b.getGrossProfit().compareTo(a.getGrossProfit()));
+
+        List<GrossProfitReportResponse.DailyGrossProfitDto> dailyReports = new ArrayList<>(dailyStatsMap.values());
+        dailyReports.sort((a, b) -> a.getDate().compareTo(b.getDate()));
+
+        List<GrossProfitReportResponse.MissingCostProductDto> missingItems = new ArrayList<>(missingCostMap.values());
+
+        return GrossProfitReportResponse.builder()
+                .summary(summary)
+                .dailyReports(dailyReports)
+                .itemReports(itemReports)
+                .missingCostPriceItems(missingItems)
+                .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PaymentMethodReportResponse getPaymentMethodReport(String currentUsername, LocalDate fromDate, LocalDate toDate, String userId, String shiftId) {
+        BusinessHousehold household = getHouseholdAndValidate(currentUsername);
+
+        LocalDate start = fromDate != null ? fromDate : LocalDate.now().minusDays(30);
+        LocalDate end = toDate != null ? toDate : LocalDate.now();
+        if (start.isAfter(end)) {
+            LocalDate tmp = start;
+            start = end;
+            end = tmp;
+        }
+
+        LocalDateTime startDateTime = start.atStartOfDay();
+        LocalDateTime endDateTime = end.atTime(LocalTime.MAX);
+
+        List<OrderPayment> payments = orderPaymentRepository.findPaymentsInPeriod(household.getId(), startDateTime, endDateTime, userId, shiftId);
+
+        Map<String, BigDecimal> methodAmounts = new HashMap<>();
+        Map<String, Long> methodCounts = new HashMap<>();
+        Map<LocalDate, PaymentMethodReportResponse.DailyPaymentTrendDto> dailyMap = new HashMap<>();
+
+        BigDecimal totalRevenue = BigDecimal.ZERO;
+
+        for (OrderPayment op : payments) {
+            String method = op.getPaymentMethod();
+            BigDecimal amt = op.getAmount() != null ? op.getAmount() : BigDecimal.ZERO;
+
+            methodAmounts.put(method, methodAmounts.getOrDefault(method, BigDecimal.ZERO).add(amt));
+            methodCounts.put(method, methodCounts.getOrDefault(method, 0L) + 1);
+            totalRevenue = totalRevenue.add(amt);
+
+            LocalDate date = op.getOrder().getCreatedAt().toLocalDate();
+            PaymentMethodReportResponse.DailyPaymentTrendDto daily = dailyMap.computeIfAbsent(date, d ->
+                    PaymentMethodReportResponse.DailyPaymentTrendDto.builder()
+                            .date(d)
+                            .cashAmount(BigDecimal.ZERO)
+                            .bankTransferAmount(BigDecimal.ZERO)
+                            .debtAmount(BigDecimal.ZERO)
+                            .totalAmount(BigDecimal.ZERO)
+                            .build());
+
+            if ("CASH".equals(method)) {
+                daily.setCashAmount(daily.getCashAmount().add(amt));
+            } else if ("BANK_TRANSFER".equals(method)) {
+                daily.setBankTransferAmount(daily.getBankTransferAmount().add(amt));
+            } else if ("DEBT".equals(method)) {
+                daily.setDebtAmount(daily.getDebtAmount().add(amt));
+            }
+            daily.setTotalAmount(daily.getTotalAmount().add(amt));
+        }
+
+        List<Order> completedOrders = orderRepository.findByHouseholdIdAndCreatedAtBetween(household.getId(), startDateTime, endDateTime)
+                .stream()
+                .filter(o -> "COMPLETED".equals(o.getStatus()) && o.getDeletedAt() == null)
+                .filter(o -> userId == null || (o.getCreatedByUser() != null && userId.equals(o.getCreatedByUser().getId())))
+                .filter(o -> shiftId == null || (o.getShift() != null && shiftId.equals(o.getShift().getId())))
+                .collect(Collectors.toList());
+
+        for (Order o : completedOrders) {
+            boolean hasPayment = payments.stream().anyMatch(p -> p.getOrder() != null && p.getOrder().getId().equals(o.getId()));
+            if (!hasPayment && o.getFinalAmount() != null && o.getFinalAmount().compareTo(BigDecimal.ZERO) > 0) {
+                String m = o.getPaymentMethod() != null ? o.getPaymentMethod() : "CASH";
+                BigDecimal amt = o.getFinalAmount();
+                methodAmounts.put(m, methodAmounts.getOrDefault(m, BigDecimal.ZERO).add(amt));
+                methodCounts.put(m, methodCounts.getOrDefault(m, 0L) + 1);
+                totalRevenue = totalRevenue.add(amt);
+
+                LocalDate date = o.getCreatedAt().toLocalDate();
+                PaymentMethodReportResponse.DailyPaymentTrendDto daily = dailyMap.computeIfAbsent(date, d ->
+                        PaymentMethodReportResponse.DailyPaymentTrendDto.builder()
+                                .date(d)
+                                .cashAmount(BigDecimal.ZERO)
+                                .bankTransferAmount(BigDecimal.ZERO)
+                                .debtAmount(BigDecimal.ZERO)
+                                .totalAmount(BigDecimal.ZERO)
+                                .build());
+                if ("CASH".equals(m)) {
+                    daily.setCashAmount(daily.getCashAmount().add(amt));
+                } else if ("BANK_TRANSFER".equals(m)) {
+                    daily.setBankTransferAmount(daily.getBankTransferAmount().add(amt));
+                } else if ("DEBT".equals(m)) {
+                    daily.setDebtAmount(daily.getDebtAmount().add(amt));
+                }
+                daily.setTotalAmount(daily.getTotalAmount().add(amt));
+            }
+        }
+
+        List<PaymentMethodReportResponse.PaymentMethodStatDto> methods = new ArrayList<>();
+        String[] supportedMethods = {"CASH", "BANK_TRANSFER", "DEBT"};
+        Map<String, String> methodNames = Map.of(
+                "CASH", "Tiền mặt",
+                "BANK_TRANSFER", "Chuyển khoản",
+                "DEBT", "Ghi nợ"
+        );
+
+        for (String m : supportedMethods) {
+            BigDecimal amt = methodAmounts.getOrDefault(m, BigDecimal.ZERO);
+            Long cnt = methodCounts.getOrDefault(m, 0L);
+            BigDecimal pct = BigDecimal.ZERO;
+            if (totalRevenue.compareTo(BigDecimal.ZERO) > 0) {
+                pct = amt.multiply(BigDecimal.valueOf(100)).divide(totalRevenue, 2, RoundingMode.HALF_UP);
+            }
+            methods.add(PaymentMethodReportResponse.PaymentMethodStatDto.builder()
+                    .method(m)
+                    .methodName(methodNames.getOrDefault(m, m))
+                    .totalAmount(amt)
+                    .percentage(pct)
+                    .transactionCount(cnt)
+                    .build());
+        }
+
+        BigDecimal debtCreated = customerDebtRepository.sumDebtCreatedInPeriod(household.getId(), startDateTime, endDateTime);
+        BigDecimal debtPaid = customerDebtRepository.sumDebtPaidInPeriod(household.getId(), startDateTime, endDateTime);
+        if (debtCreated.compareTo(BigDecimal.ZERO) == 0 && methodAmounts.containsKey("DEBT")) {
+            debtCreated = methodAmounts.get("DEBT");
+        }
+        BigDecimal debtRemaining = debtCreated.subtract(debtPaid);
+        if (debtRemaining.compareTo(BigDecimal.ZERO) < 0) {
+            debtRemaining = BigDecimal.ZERO;
+        }
+
+        PaymentMethodReportResponse.DebtCollectionSummaryDto debtDetails = PaymentMethodReportResponse.DebtCollectionSummaryDto.builder()
+                .totalDebtCreated(debtCreated)
+                .totalDebtPaid(debtPaid)
+                .totalDebtRemaining(debtRemaining)
+                .build();
+
+        List<PaymentMethodReportResponse.DailyPaymentTrendDto> dailyTrends = new ArrayList<>(dailyMap.values());
+        dailyTrends.sort((a, b) -> a.getDate().compareTo(b.getDate()));
+
+        return PaymentMethodReportResponse.builder()
+                .totalRevenue(totalRevenue)
+                .methods(methods)
+                .debtDetails(debtDetails)
+                .dailyTrends(dailyTrends)
+                .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public ProductGroupReportResponse getProductGroupReport(String currentUsername, LocalDate fromDate, LocalDate toDate) {
+        BusinessHousehold household = getHouseholdAndValidate(currentUsername);
+
+        LocalDate start = fromDate != null ? fromDate : LocalDate.now().minusDays(30);
+        LocalDate end = toDate != null ? toDate : LocalDate.now();
+        if (start.isAfter(end)) {
+            LocalDate tmp = start;
+            start = end;
+            end = tmp;
+        }
+
+        LocalDateTime startDateTime = start.atStartOfDay();
+        LocalDateTime endDateTime = end.atTime(LocalTime.MAX);
+
+        long days = java.time.temporal.ChronoUnit.DAYS.between(start, end) + 1;
+        LocalDate prevEnd = start.minusDays(1);
+        LocalDate prevStart = prevEnd.minusDays(days - 1);
+        LocalDateTime prevStartDateTime = prevStart.atStartOfDay();
+        LocalDateTime prevEndDateTime = prevEnd.atTime(LocalTime.MAX);
+
+        List<OrderItemRepository.ProductGroupRevenueProjection> currentGroups =
+                orderItemRepository.getRevenueByProductGroup(household.getId(), startDateTime, endDateTime);
+
+        List<OrderItemRepository.ProductGroupRevenueProjection> prevGroups =
+                orderItemRepository.getRevenueByProductGroup(household.getId(), prevStartDateTime, prevEndDateTime);
+
+        Map<String, BigDecimal> prevRevMap = new HashMap<>();
+        for (OrderItemRepository.ProductGroupRevenueProjection p : prevGroups) {
+            String gId = p.getGroupId() != null ? p.getGroupId() : "UNASSIGNED";
+            prevRevMap.put(gId, p.getTotalRevenue());
+        }
+
+        BigDecimal totalRevenue = BigDecimal.ZERO;
+        for (OrderItemRepository.ProductGroupRevenueProjection p : currentGroups) {
+            totalRevenue = totalRevenue.add(p.getTotalRevenue() != null ? p.getTotalRevenue() : BigDecimal.ZERO);
+        }
+
+        List<ProductGroupReportResponse.ProductGroupRevenueDto> groups = new ArrayList<>();
+        ProductGroupReportResponse.ProductGroupRevenueDto unassignedSummary = null;
+        boolean hasUnassigned = false;
+
+        for (OrderItemRepository.ProductGroupRevenueProjection p : currentGroups) {
+            String gId = p.getGroupId();
+            String gName = p.getGroupName();
+            BigDecimal rev = p.getTotalRevenue() != null ? p.getTotalRevenue() : BigDecimal.ZERO;
+            BigDecimal qty = p.getTotalQuantity() != null ? p.getTotalQuantity() : BigDecimal.ZERO;
+
+            BigDecimal pct = BigDecimal.ZERO;
+            if (totalRevenue.compareTo(BigDecimal.ZERO) > 0) {
+                pct = rev.multiply(BigDecimal.valueOf(100)).divide(totalRevenue, 2, RoundingMode.HALF_UP);
+            }
+
+            String mapKey = gId != null ? gId : "UNASSIGNED";
+            BigDecimal prevRev = prevRevMap.getOrDefault(mapKey, BigDecimal.ZERO);
+            BigDecimal growthRate = BigDecimal.ZERO;
+            if (prevRev.compareTo(BigDecimal.ZERO) > 0) {
+                growthRate = rev.subtract(prevRev)
+                        .multiply(BigDecimal.valueOf(100))
+                        .divide(prevRev, 2, RoundingMode.HALF_UP);
+            } else if (rev.compareTo(BigDecimal.ZERO) > 0) {
+                growthRate = BigDecimal.valueOf(100.00);
+            }
+
+            ProductGroupReportResponse.ProductGroupRevenueDto dto = ProductGroupReportResponse.ProductGroupRevenueDto.builder()
+                    .groupId(gId != null ? gId : "UNASSIGNED")
+                    .groupName(gName != null ? gName : "Chưa phân nhóm")
+                    .totalQuantitySold(qty)
+                    .revenue(rev)
+                    .percentage(pct)
+                    .previousPeriodRevenue(prevRev)
+                    .growthRatePercentage(growthRate)
+                    .build();
+
+            if (gId == null || "Chưa phân nhóm".equals(gName)) {
+                unassignedSummary = dto;
+                hasUnassigned = true;
+            } else {
+                groups.add(dto);
+            }
+        }
+
+        return ProductGroupReportResponse.builder()
+                .totalRevenue(totalRevenue)
+                .groups(groups)
+                .unassignedSummary(unassignedSummary)
+                .hasUnassignedProducts(hasUnassigned)
+                .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public ProductGroupRevenueDetailResponse getProductGroupDetail(String currentUsername, String groupId, LocalDate fromDate, LocalDate toDate) {
+        BusinessHousehold household = getHouseholdAndValidate(currentUsername);
+
+        LocalDate start = fromDate != null ? fromDate : LocalDate.now().minusDays(30);
+        LocalDate end = toDate != null ? toDate : LocalDate.now();
+        if (start.isAfter(end)) {
+            LocalDate tmp = start;
+            start = end;
+            end = tmp;
+        }
+
+        LocalDateTime startDateTime = start.atStartOfDay();
+        LocalDateTime endDateTime = end.atTime(LocalTime.MAX);
+
+        List<OrderItemRepository.ProductRevenueInGroupProjection> rawItems =
+                orderItemRepository.getRevenueByProductsInGroup(household.getId(), groupId, startDateTime, endDateTime);
+
+        BigDecimal groupTotal = BigDecimal.ZERO;
+        for (OrderItemRepository.ProductRevenueInGroupProjection r : rawItems) {
+            groupTotal = groupTotal.add(r.getTotalRevenue() != null ? r.getTotalRevenue() : BigDecimal.ZERO);
+        }
+
+        List<ProductGroupRevenueDetailResponse.ProductRevenueInGroupDto> items = new ArrayList<>();
+        for (OrderItemRepository.ProductRevenueInGroupProjection r : rawItems) {
+            BigDecimal rev = r.getTotalRevenue() != null ? r.getTotalRevenue() : BigDecimal.ZERO;
+            BigDecimal pct = BigDecimal.ZERO;
+            if (groupTotal.compareTo(BigDecimal.ZERO) > 0) {
+                pct = rev.multiply(BigDecimal.valueOf(100)).divide(groupTotal, 2, RoundingMode.HALF_UP);
+            }
+            items.add(ProductGroupRevenueDetailResponse.ProductRevenueInGroupDto.builder()
+                    .productId(r.getProductId())
+                    .productSku(r.getProductSku())
+                    .productName(r.getProductName())
+                    .unit(r.getUnit())
+                    .quantitySold(r.getTotalQuantity())
+                    .revenue(rev)
+                    .percentageInGroup(pct)
+                    .build());
+        }
+
+        String groupName = "UNASSIGNED".equals(groupId) ? "Chưa phân nhóm" : groupId;
+
+        return ProductGroupRevenueDetailResponse.builder()
+                .groupId(groupId)
+                .groupName(groupName)
+                .totalRevenue(groupTotal)
+                .items(items)
                 .build();
     }
 }
