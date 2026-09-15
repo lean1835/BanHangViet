@@ -49,4 +49,17 @@ public interface ShiftRepository extends JpaRepository<Shift, String> {
 
     @Query("SELECT s.user.id FROM Shift s WHERE s.household.id = :householdId AND s.status = 'OPEN'")
     List<String> findOpenShiftUserIdsByHouseholdId(@Param("householdId") String householdId);
+
+    @EntityGraph(attributePaths = {"user", "household", "pointOfSale"})
+    @Query("SELECT s FROM Shift s WHERE s.household.id = :householdId AND s.status = :status " +
+           "AND ((s.closedAt IS NOT NULL AND s.closedAt >= :start AND s.closedAt <= :end) " +
+           "     OR (s.closedAt IS NULL AND s.openedAt >= :start AND s.openedAt <= :end)) " +
+           "AND (:userId IS NULL OR s.user.id = :userId) " +
+           "ORDER BY s.openedAt DESC")
+    List<Shift> findClosedShiftsForReport(
+            @Param("householdId") String householdId,
+            @Param("status") ShiftStatus status,
+            @Param("start") LocalDateTime start,
+            @Param("end") LocalDateTime end,
+            @Param("userId") String userId);
 }

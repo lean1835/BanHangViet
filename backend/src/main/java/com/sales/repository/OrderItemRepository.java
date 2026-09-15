@@ -166,6 +166,90 @@ public interface OrderItemRepository extends JpaRepository<OrderItem, String> {
     );
 
     @Query("""
+        SELECT oi FROM OrderItem oi
+        JOIN FETCH oi.order o
+        LEFT JOIN FETCH oi.product p
+        WHERE o.household.id = :householdId
+          AND o.status = 'COMPLETED'
+          AND o.deletedAt IS NULL
+          AND o.createdAt >= :startDate
+          AND o.createdAt <= :endDate
+        ORDER BY o.createdAt ASC
+    """)
+    List<OrderItem> findItemsForGrossProfitReport(
+            @Param("householdId") String householdId,
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate
+    );
+
+    interface ProductGroupRevenueProjection {
+        String getGroupId();
+        String getGroupName();
+        BigDecimal getTotalQuantity();
+        BigDecimal getTotalRevenue();
+    }
+
+    @Query("""
+        SELECT 
+            pg.id as groupId,
+            COALESCE(pg.name, 'Chưa phân nhóm') as groupName,
+            COALESCE(SUM(oi.quantity), 0) as totalQuantity,
+            COALESCE(SUM(oi.subtotal), 0) as totalRevenue
+        FROM OrderItem oi
+        JOIN oi.order o
+        LEFT JOIN oi.product p
+        LEFT JOIN p.group pg
+        WHERE o.household.id = :householdId
+          AND o.status = 'COMPLETED'
+          AND o.deletedAt IS NULL
+          AND o.createdAt >= :startDate
+          AND o.createdAt <= :endDate
+        GROUP BY pg.id, pg.name
+        ORDER BY SUM(oi.subtotal) DESC
+    """)
+    List<ProductGroupRevenueProjection> getRevenueByProductGroup(
+            @Param("householdId") String householdId,
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate
+    );
+
+    interface ProductRevenueInGroupProjection {
+        String getProductId();
+        String getProductSku();
+        String getProductName();
+        String getUnit();
+        BigDecimal getTotalQuantity();
+        BigDecimal getTotalRevenue();
+    }
+
+    @Query("""
+        SELECT 
+            p.id as productId,
+            p.sku as productSku,
+            oi.productName as productName,
+            p.unit as unit,
+            COALESCE(SUM(oi.quantity), 0) as totalQuantity,
+            COALESCE(SUM(oi.subtotal), 0) as totalRevenue
+        FROM OrderItem oi
+        JOIN oi.order o
+        JOIN oi.product p
+        WHERE o.household.id = :householdId
+          AND o.status = 'COMPLETED'
+          AND o.deletedAt IS NULL
+          AND o.createdAt >= :startDate
+          AND o.createdAt <= :endDate
+          AND ((:groupId = 'UNASSIGNED' AND p.group IS NULL) OR (:groupId <> 'UNASSIGNED' AND p.group.id = :groupId))
+        GROUP BY p.id, p.sku, oi.productName, p.unit
+        ORDER BY SUM(oi.subtotal) DESC
+    """)
+    List<ProductRevenueInGroupProjection> getRevenueByProductsInGroup(
+            @Param("householdId") String householdId,
+            @Param("groupId") String groupId,
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate
+    );
+
+    @Query("""
         SELECT oi.product.id, COALESCE(SUM(COALESCE(oi.baseQuantity, oi.quantity)), 0)
         FROM OrderItem oi
         JOIN oi.order o
