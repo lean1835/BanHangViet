@@ -57,9 +57,13 @@ app:
   default-household-name: ${DEFAULT_HOUSEHOLD_NAME:BanHangViet}
   return-ticket:
     max-days: ${MAX_RETURN_DAYS:7}
+  backup-verification:
+    max-unverified-days: ${BACKUP_VERIFICATION_MAX_UNVERIFIED_DAYS:7}
   scheduler:
     tax-reminder:
       cron: ${TAX_REMINDER_CRON:0 0 7 * * *} # Tự động quét và nhắc nộp tờ khai vào 07:00 sáng hàng ngày
+    backup-verification:
+      cron: ${BACKUP_VERIFICATION_CRON:0 30 2 * * *} # Tự động quét và chạy thử phục hồi vào 02:30 sáng hàng ngày
 
 management:
   endpoints:

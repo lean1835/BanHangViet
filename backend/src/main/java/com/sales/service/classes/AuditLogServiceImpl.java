@@ -215,7 +215,12 @@ public class AuditLogServiceImpl implements AuditLogService {
         validateAccessRole(currentUser);
 
         String householdId = getHouseholdIdForUser(currentUser);
+        return verifyIntegrityForHousehold(householdId);
+    }
 
+    @Override
+    @Transactional
+    public AuditIntegrityResponse verifyIntegrityForHousehold(String householdId) {
         if (householdId != null) {
             List<ActivityLog> logs = activityLogRepository.findAllByHouseholdIdOrderBySequenceNumberAsc(householdId);
             boolean hasUnindexed = logs.stream().anyMatch(l -> l.getSequenceNumber() == null || l.getHash() == null || l.getPreviousHash() == null);
