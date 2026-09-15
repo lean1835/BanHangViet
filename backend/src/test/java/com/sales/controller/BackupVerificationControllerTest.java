@@ -9,6 +9,7 @@ import com.sales.entity.BackupVerificationHistory;
 import com.sales.entity.BusinessHousehold;
 import com.sales.entity.Role;
 import com.sales.entity.User;
+import com.sales.repository.AppNotificationRepository;
 import com.sales.repository.BackupHistoryRepository;
 import com.sales.repository.BackupVerificationHistoryRepository;
 import com.sales.repository.BusinessHouseholdRepository;
@@ -41,7 +42,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest
 @AutoConfigureMockMvc
-@Transactional
 public class BackupVerificationControllerTest {
 
     @Autowired
@@ -64,6 +64,9 @@ public class BackupVerificationControllerTest {
 
     @Autowired
     private BackupVerificationHistoryRepository verificationHistoryRepository;
+
+    @Autowired
+    private AppNotificationRepository appNotificationRepository;
 
     @MockBean
     private ActivityLogHelper activityLogHelper;
@@ -166,11 +169,37 @@ public class BackupVerificationControllerTest {
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(1000))
+                .andExpect(jsonPath("$.message").value("Chạy thử phục hồi bản sao lưu vào môi trường tạm thành công. Dữ liệu toàn vẹn."))
                 .andExpect(jsonPath("$.result.status").value("PASSED"))
                 .andExpect(jsonPath("$.result.checkedFileReadable").value(true))
                 .andExpect(jsonPath("$.result.checkedRecordCountsMatched").value(true))
                 .andExpect(jsonPath("$.result.checkedAuditChainIntact").value(true))
                 .andExpect(jsonPath("$.result.triggerType").value("MANUAL"));
+    }
+
+    @Test
+    @WithMockUser(username = "owner_bvh_user", roles = "VT-01")
+    @DisplayName("POST /trigger: Thử phục hồi thất bại trả về message thông báo lỗi tương ứng")
+    void testTriggerVerification_Owner_Failed_ReturnsErrorMessage() throws Exception {
+        BackupHistory brokenBackup = backupHistoryRepository.save(BackupHistory.builder()
+                .household(household)
+                .createdByUser(ownerUser)
+                .fileName("backup_broken")
+                .filePath("backups/" + household.getId() + "/nonexistent.json")
+                .fileSize(100L)
+                .backupType(BackupType.FULL)
+                .triggerType(BackupTriggerType.MANUAL)
+                .status("SUCCESS")
+                .backupTime(LocalDateTime.now().plusMinutes(5))
+                .build());
+
+        mockMvc.perform(post("/api/v1/backup-verification/trigger")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(1000))
+                .andExpect(jsonPath("$.result.status").value("FAILED"))
+                .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.startsWith("Thử phục hồi bản sao lưu thất bại:")));
     }
 
     @Test
@@ -232,5 +261,19 @@ public class BackupVerificationControllerTest {
     void testGetVerificationHistories_Staff_Forbidden() throws Exception {
         mockMvc.perform(get("/api/v1/backup-verification/histories?page=0&size=10"))
                 .andExpect(status().isForbidden());
+    }
+
+    @org.junit.jupiter.api.AfterEach
+    void tearDown() {
+        try {
+            verificationHistoryRepository.deleteAll();
+            backupHistoryRepository.deleteAll();
+            appNotificationRepository.deleteAll();
+            userRepository.deleteAll();
+            if (household != null && household.getId() != null) {
+                householdRepository.deleteById(household.getId());
+            }
+        } catch (Exception ignored) {
+        }
     }
 }

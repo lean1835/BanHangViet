@@ -310,6 +310,52 @@ public class BackupVerificationServiceImplTest {
     }
 
     @Test
+    @DisplayName("TC-05b: Thử phục hồi thất bại do tệp sao lưu thiếu toàn bộ các bảng thực thể chính (Pillar 2)")
+    void testVerification_MissingMainEntities_Failed_TC05b() throws Exception {
+        Map<String, Object> emptyStructureData = new HashMap<>();
+        emptyStructureData.put("householdId", household.getId());
+        emptyStructureData.put("backupTime", LocalDateTime.now().toString());
+
+        Path emptyStructureFile = tempDir.resolve("backup_empty_structure.json");
+        Files.writeString(emptyStructureFile, objectMapper.writeValueAsString(emptyStructureData), StandardCharsets.UTF_8);
+
+        BackupHistory emptyBackup = BackupHistory.builder()
+                .id("b-empty-structure")
+                .household(household)
+                .fileName("backup_empty_structure.json")
+                .filePath(emptyStructureFile.toString())
+                .status("SUCCESS")
+                .fileSize(Files.size(emptyStructureFile))
+                .backupTime(LocalDateTime.now())
+                .build();
+
+        when(userRepository.findByUsername("chuho_test")).thenReturn(Optional.of(ownerUser));
+        when(backupHistoryRepository.findFirstByHouseholdIdAndStatusOrderByBackupTimeDesc(household.getId(), "SUCCESS"))
+                .thenReturn(Optional.of(emptyBackup));
+
+        when(auditLogService.verifyIntegrityForHousehold(household.getId()))
+                .thenReturn(AuditIntegrityResponse.builder().isValid(true).totalRecordsChecked(10L).build());
+
+        when(verificationHistoryRepository.save(any(BackupVerificationHistory.class)))
+                .thenAnswer(invocation -> {
+                    BackupVerificationHistory saved = invocation.getArgument(0);
+                    saved.setId(UUID.randomUUID().toString());
+                    return saved;
+                });
+
+        BackupVerificationHistoryResponse response = verificationService.triggerVerification("chuho_test", null);
+
+        assertNotNull(response);
+        assertEquals("FAILED", response.getStatus());
+        assertTrue(response.getCheckedFileReadable());
+        assertFalse(response.getCheckedRecordCountsMatched());
+        assertNotNull(response.getFailureReason());
+        assertTrue(response.getFailureReason().contains("thiếu cấu trúc dữ liệu của các bảng thực thể chính"));
+
+        verify(appNotificationRepository, times(1)).save(any(AppNotification.class));
+    }
+
+    @Test
     @DisplayName("TC-06: Thử phục hồi thất bại do chuỗi nhật ký kiểm toán bị đứt gãy (QTN-25)")
     void testVerification_AuditChainBroken_TC06() {
         when(userRepository.findByUsername("chuho_test")).thenReturn(Optional.of(ownerUser));

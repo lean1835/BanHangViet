@@ -50,9 +50,13 @@ public class BackupVerificationController {
             Principal principal,
             @jakarta.validation.Valid @RequestBody(required = false) TriggerVerificationRequest request) {
         BackupVerificationHistoryResponse response = backupVerificationService.triggerVerification(principal.getName(), request);
+        boolean passed = "PASSED".equalsIgnoreCase(response.getStatus());
+        String responseMessage = passed
+                ? "Chạy thử phục hồi bản sao lưu vào môi trường tạm thành công. Dữ liệu toàn vẹn."
+                : "Thử phục hồi bản sao lưu thất bại: " + (response.getFailureReason() != null ? response.getFailureReason() : "Dữ liệu không toàn vẹn.");
         return ApiResponse.<BackupVerificationHistoryResponse>builder()
                 .code(1000)
-                .message("Chạy thử phục hồi bản sao lưu vào môi trường tạm thành công. Dữ liệu toàn vẹn.")
+                .message(responseMessage)
                 .result(response)
                 .build();
     }

@@ -31,24 +31,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.time.LocalDateTime;
-import java.time.temporal.ChronoUnit;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Propagation;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.context.annotation.Lazy;
 
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -65,6 +52,14 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Slf4j
 public class BackupVerificationServiceImpl implements BackupVerificationService {
+
+    @Autowired
+    @Lazy
+    private BackupVerificationService self;
+
+    private BackupVerificationService getSelf() {
+        return self != null ? self : this;
+    }
 
     @Value("${app.backup-verification.max-unverified-days:7}")
     private int maxAllowedDaysWithoutVerification = 7;
@@ -190,7 +185,7 @@ public class BackupVerificationServiceImpl implements BackupVerificationService 
         }
 
         String notes = request != null ? request.getNotes() : null;
-        BackupVerificationHistory verification = executeSandboxVerification(household, targetBackup, "MANUAL", notes, user);
+        BackupVerificationHistory verification = getSelf().executeSandboxVerification(household, targetBackup, "MANUAL", notes, user);
 
         return mapToResponse(verification);
     }
@@ -232,7 +227,7 @@ public class BackupVerificationServiceImpl implements BackupVerificationService 
                     }
                 }
 
-                executeSandboxVerification(household, latestBackup, "AUTOMATIC", "Tự động kiểm thử phục hồi theo lịch hệ thống", null);
+                getSelf().executeSandboxVerification(household, latestBackup, "AUTOMATIC", "Tự động kiểm thử phục hồi theo lịch hệ thống", null);
 
             } catch (Exception e) {
                 log.error("Lỗi khi chạy thử phục hồi định kỳ cho hộ id={}", household.getId(), e);
@@ -240,6 +235,7 @@ public class BackupVerificationServiceImpl implements BackupVerificationService 
         }
     }
 
+    @Override
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public BackupVerificationHistory executeSandboxVerification(
             BusinessHousehold household,
@@ -274,10 +270,9 @@ public class BackupVerificationServiceImpl implements BackupVerificationService 
                     status = "FAILED";
                     failureReason = "Tệp sao lưu rỗng (0 bytes)";
                 } else {
-                    String jsonContent = Files.readString(targetDiskPath, StandardCharsets.UTF_8);
                     Map<String, Object> snapshotData = null;
-                    try {
-                        snapshotData = objectMapper.readValue(jsonContent, new TypeReference<Map<String, Object>>() {});
+                    try (InputStream is = Files.newInputStream(targetDiskPath)) {
+                        snapshotData = objectMapper.readValue(is, new TypeReference<Map<String, Object>>() {});
                     } catch (Exception parseEx) {
                         status = "FAILED";
                         failureReason = "Tệp sao lưu bị lỗi cấu trúc hoặc định dạng dữ liệu hỏng: " + parseEx.getMessage();
@@ -317,6 +312,11 @@ public class BackupVerificationServiceImpl implements BackupVerificationService 
                                     || snapshotData.containsKey("suppliers")
                                     || snapshotData.containsKey("users");
 
+                            if (!recordCountsMatched) {
+                                status = "FAILED";
+                                failureReason = "Tệp sao lưu thiếu cấu trúc dữ liệu của các bảng thực thể chính";
+                            }
+
                             // ==========================================
                             // PILLAR 3: Thẩm định chuỗi kiểm toán SHA-256 (QTN-25)
                             // ==========================================
@@ -326,8 +326,9 @@ public class BackupVerificationServiceImpl implements BackupVerificationService 
 
                             if (!auditChainIntact) {
                                 status = "FAILED";
-                                failureReason = "Phát hiện chuỗi kiểm tra nhật ký kiểm toán bị đứt gãy tại sequence #"
+                                String auditFailReason = "Phát hiện chuỗi kiểm tra nhật ký kiểm toán bị đứt gãy tại sequence #"
                                         + integrityRes.getCorruptedSequenceNumber() + ": " + integrityRes.getFailureReason();
+                                failureReason = (failureReason == null) ? auditFailReason : failureReason + "; " + auditFailReason;
                             }
                         }
                     }
