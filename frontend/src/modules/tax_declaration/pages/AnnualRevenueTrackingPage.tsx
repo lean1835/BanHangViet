@@ -2,7 +2,6 @@ import React, { useState } from "react";
 import {
   Calendar,
   Sliders,
-  RotateCw,
   AlertCircle,
   FileSpreadsheet,
 } from "lucide-react";
@@ -39,7 +38,6 @@ export const AnnualRevenueTrackingPage: React.FC = () => {
   const {
     data: trackingRes,
     isLoading,
-    isFetching,
     isError,
     error,
     refetch,
@@ -86,26 +84,13 @@ export const AnnualRevenueTrackingPage: React.FC = () => {
             </select>
           </div>
 
-          {/* Nút làm mới */}
-          <button
-            type="button"
-            onClick={() => refetch()}
-            disabled={isFetching}
-            title="Tải lại số liệu mới nhất"
-            className="p-2.5 rounded-xl bg-white border border-slate-300 text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-colors cursor-pointer disabled:opacity-50"
-          >
-            <RotateCw
-              className={`w-4 h-4 ${isFetching ? "animate-spin text-blue-600" : ""}`}
-            />
-          </button>
-
           {/* Nút Cấu hình mức cảnh báo (Chỉ Chủ hộ hoặc Xem với Kế toán) */}
           <button
             type="button"
             onClick={() => setIsConfigModalOpen(true)}
             className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer ${
               isOwner
-                ? "bg-purple-600 hover:bg-purple-700 text-white shadow-purple-600/20 active:scale-95"
+                ? "bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white shadow-blue-600/20 active:scale-95"
                 : "bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200"
             }`}
             title={
@@ -173,6 +158,7 @@ export const AnnualRevenueTrackingPage: React.FC = () => {
         onClose={() => setIsConfigModalOpen(false)}
         currentPercentage={trackingData?.warningThresholdPercentage ?? 80}
         isOwner={isOwner}
+        onSuccess={() => refetch()}
       />
     </div>
   );
