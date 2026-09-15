@@ -6,6 +6,7 @@ import com.sales.dto.request.CreateSupplierReturnRequest;
 import com.sales.dto.response.*;
 import com.sales.exception.AppException;
 import com.sales.exception.ErrorCode;
+import com.sales.security.AccountantSecurityService;
 import com.sales.service.interfaces.SupplierReturnService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -43,6 +44,9 @@ class SupplierReturnControllerTest {
 
     @MockBean
     private SupplierReturnService supplierReturnService;
+
+    @MockBean
+    private AccountantSecurityService accountantSecurityService;
 
     @Test
     @DisplayName("GET /api/v1/supplier-returns/check-receipt/{receiptId} - Thành công")
@@ -209,4 +213,29 @@ class SupplierReturnControllerTest {
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isForbidden());
     }
+
+    @Test
+    @DisplayName("GET /api/v1/supplier-returns - Kế toán (VT-03) có scope REPORT được phép truy cập 200 OK")
+    @WithMockUser(username = "accountant_ok", roles = {"VT-03"})
+    void getSupplierReturns_accountantWithReportScope_allowed() throws Exception {
+        when(accountantSecurityService.hasScope(any(), eq("REPORT"))).thenReturn(true);
+        when(supplierReturnService.getSupplierReturns(any(), any(), any(), any(), any(), anyInt(), anyInt()))
+                .thenReturn(new PageResponse<>(Collections.emptyList(), 0, 10, 0, 0, true));
+
+        mockMvc.perform(get("/api/v1/supplier-returns")
+                        .principal(() -> "accountant_ok"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/supplier-returns - Kế toán (VT-03) không có scope REPORT bị chặn 403 Forbidden")
+    @WithMockUser(username = "accountant_no_scope", roles = {"VT-03"})
+    void getSupplierReturns_accountantWithoutReportScope_forbidden() throws Exception {
+        when(accountantSecurityService.hasScope(any(), eq("REPORT"))).thenReturn(false);
+
+        mockMvc.perform(get("/api/v1/supplier-returns")
+                        .principal(() -> "accountant_no_scope"))
+                .andExpect(status().isForbidden());
+    }
 }
+

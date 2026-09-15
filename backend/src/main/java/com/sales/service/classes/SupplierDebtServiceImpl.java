@@ -265,10 +265,10 @@ public class SupplierDebtServiceImpl implements SupplierDebtService {
             return;
         }
 
-        // 1. Giảm nợ lũy kế của nhà cung cấp
+        // 1. Giảm nợ lũy kế của nhà cung cấp (cho phép âm thể hiện dư có / NCC nợ hộ kinh doanh)
         BigDecimal currentDebt = supplier.getCurrentDebt() != null ? supplier.getCurrentDebt() : BigDecimal.ZERO;
         BigDecimal newDebt = currentDebt.subtract(totalReturnAmount);
-        supplier.setCurrentDebt(newDebt.compareTo(BigDecimal.ZERO) >= 0 ? newDebt : BigDecimal.ZERO);
+        supplier.setCurrentDebt(newDebt);
         supplierRepository.save(supplier);
 
         // 2. Tìm khoản nợ gốc DEBT_CREATED liên kết với phiếu nhập này
@@ -323,16 +323,21 @@ public class SupplierDebtServiceImpl implements SupplierDebtService {
         }
 
         // 3. Ghi nhận bản ghi SupplierDebt loại DEBT_PAID đối ứng
+        String notes = "Giảm trừ công nợ do trả hàng lại nhà cung cấp theo phiếu: " + returnNumber;
+        if (remainingToDeduct.compareTo(BigDecimal.ZERO) > 0) {
+            notes += String.format(" (Khoản tiền NCC cần hoàn lại / dư có: %s đ)", remainingToDeduct.stripTrailingZeros().toPlainString());
+        }
+
         SupplierDebt returnDebtRecord = SupplierDebt.builder()
                 .household(household)
                 .supplier(supplier)
                 .goodsReceipt(receipt)
                 .amount(totalReturnAmount)
-                .remainingAmount(BigDecimal.ZERO)
+                .remainingAmount(remainingToDeduct)
                 .type(DebtType.DEBT_PAID)
                 .status(DebtStatus.PAID)
                 .paymentMethod("RETURN_DEDUCTION")
-                .notes("Giảm trừ công nợ do trả hàng lại nhà cung cấp theo phiếu: " + returnNumber)
+                .notes(notes)
                 .createdByUser(actor)
                 .build();
 

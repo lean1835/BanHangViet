@@ -60,6 +60,21 @@ public interface ProductRepository extends JpaRepository<Product, String>, JpaSp
     @EntityGraph(attributePaths = {"group"})
     List<Product> findAllByHouseholdIdAndDeletedAtIsNull(String householdId);
 
+    @EntityGraph(attributePaths = {"group"})
+    @Query("""
+        SELECT p FROM Product p
+        LEFT JOIN p.group g
+        WHERE p.household.id = :householdId
+          AND p.deletedAt IS NULL
+          AND (:groupId IS NULL OR g.id = :groupId)
+          AND (:search IS NULL OR LOWER(p.name) LIKE LOWER(CONCAT('%', :search, '%')) 
+               OR LOWER(p.sku) LIKE LOWER(CONCAT('%', :search, '%')))
+    """)
+    List<Product> findProductsForValuationReport(
+            @Param("householdId") String householdId,
+            @Param("groupId") String groupId,
+            @Param("search") String search);
+
     @Override
     @EntityGraph(attributePaths = {"group", "taxRate", "household"})
     List<Product> findAll(Specification<Product> spec);

@@ -25,7 +25,7 @@ public class SupplierReturnController {
     private final SupplierReturnService supplierReturnService;
 
     @GetMapping("/check-receipt/{receiptId}")
-    @PreAuthorize("hasAnyRole('VT-01', 'VT-03')")
+    @PreAuthorize("hasRole('VT-01') or (hasRole('VT-03') and @accountantSecurityService.hasScope(authentication, 'REPORT'))")
     public ResponseEntity<ApiResponse<ReceiptReturnableCheckResponse>> checkReceiptReturnable(
             Principal principal,
             @PathVariable String receiptId) {
@@ -53,7 +53,7 @@ public class SupplierReturnController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('VT-01', 'VT-03')")
+    @PreAuthorize("hasRole('VT-01') or (hasRole('VT-03') and @accountantSecurityService.hasScope(authentication, 'REPORT'))")
     public ResponseEntity<ApiResponse<PageResponse<SupplierReturnResponse>>> getSupplierReturns(
             Principal principal,
             @RequestParam(required = false) String supplierId,
@@ -74,7 +74,7 @@ public class SupplierReturnController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('VT-01', 'VT-03')")
+    @PreAuthorize("hasRole('VT-01') or (hasRole('VT-03') and @accountantSecurityService.hasScope(authentication, 'REPORT'))")
     public ResponseEntity<ApiResponse<SupplierReturnDetailResponse>> getSupplierReturnById(
             Principal principal,
             @PathVariable String id) {

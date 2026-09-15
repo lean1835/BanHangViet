@@ -160,7 +160,7 @@ public class InventoryValuationExcelBuilder {
             Row asOfRow = sheet1.createRow(rowIdx++);
             Cell asOfCell = asOfRow.createCell(0);
             String asOfText = (summary != null && summary.getAsOfDate() != null)
-                    ? "Thời điểm chốt số liệu: " + summary.getAsOfDate().format(DATE_FORMATTER) + (Boolean.TRUE.equals(summary.getIsHistorical()) ? " (Kỳ kiểm kê quá khứ)" : " (Thời gian thực)")
+                    ? "Thời điểm chốt số liệu: " + summary.getAsOfDate().format(DATE_FORMATTER) + (Boolean.TRUE.equals(summary.getIsHistorical()) ? " (Kỳ kiểm kê quá khứ - Định giá theo giá vốn bình quân hiện hành)" : " (Thời gian thực)")
                     : "Thời điểm chốt: Ngày hiện tại";
             asOfCell.setCellValue(asOfText);
             CellStyle centerMeta = workbook.createCellStyle();
@@ -279,6 +279,10 @@ public class InventoryValuationExcelBuilder {
             Row grpTotalRow = sheet1.createRow(rowIdx++);
             grpTotalRow.createCell(0).setCellValue("TỔNG");
             grpTotalRow.getCell(0).setCellStyle(totalText);
+            for (int c = 1; c <= 2; c++) {
+                Cell emptyCell = grpTotalRow.createCell(c);
+                emptyCell.setCellStyle(totalText);
+            }
             sheet1.addMergedRegion(new CellRangeAddress(rowIdx - 1, rowIdx - 1, 0, 2));
 
             Cell grpTotQty = grpTotalRow.createCell(3);
@@ -375,6 +379,10 @@ public class InventoryValuationExcelBuilder {
             Row itemTotalRow = sheet1.createRow(rowIdx++);
             itemTotalRow.createCell(0).setCellValue("TỔNG CỘNG TOÀN KHO");
             itemTotalRow.getCell(0).setCellStyle(totalText);
+            for (int c = 1; c <= 4; c++) {
+                Cell emptyCell = itemTotalRow.createCell(c);
+                emptyCell.setCellStyle(totalText);
+            }
             sheet1.addMergedRegion(new CellRangeAddress(rowIdx - 1, rowIdx - 1, 0, 4));
 
             Cell totQty = itemTotalRow.createCell(5);

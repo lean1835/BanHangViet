@@ -88,25 +88,10 @@ public class InventoryValuationReportServiceImpl implements InventoryValuationRe
         log.info("Lập báo cáo giá trị tồn kho theo giá vốn cho hộ {}, asOfDate={}, isHistorical={}",
                 household.getName(), targetDate, isHistorical);
 
-        // 1. Lấy danh sách sản phẩm còn hoạt động của hộ kinh doanh
-        List<Product> products = productRepository.findAllByHouseholdIdAndDeletedAtIsNull(household.getId());
-
-        // Lọc theo groupId nếu có
-        if (StringUtils.hasText(groupId)) {
-            String trimmedGroupId = groupId.trim();
-            products = products.stream()
-                    .filter(p -> p.getGroup() != null && trimmedGroupId.equals(p.getGroup().getId()))
-                    .collect(Collectors.toList());
-        }
-
-        // Lọc theo search (tên hoặc SKU) nếu có
-        if (StringUtils.hasText(search)) {
-            String keyword = search.trim().toLowerCase();
-            products = products.stream()
-                    .filter(p -> (p.getName() != null && p.getName().toLowerCase().contains(keyword))
-                            || (p.getSku() != null && p.getSku().toLowerCase().contains(keyword)))
-                    .collect(Collectors.toList());
-        }
+        // 1. Lấy danh sách sản phẩm còn hoạt động của hộ kinh doanh (lọc trực tiếp dưới Database theo groupId và search)
+        String cleanGroupId = StringUtils.hasText(groupId) ? groupId.trim() : null;
+        String cleanSearch = StringUtils.hasText(search) ? search.trim() : null;
+        List<Product> products = productRepository.findProductsForValuationReport(household.getId(), cleanGroupId, cleanSearch);
 
         // 2. Tính số lượng tồn kho cho từng sản phẩm (thời gian thực hoặc tái dựng lịch sử)
         Map<String, BigDecimal> stockMap = calculateStockQuantities(household, products, targetDate, isHistorical);
@@ -479,7 +464,9 @@ public class InventoryValuationReportServiceImpl implements InventoryValuationRe
             for (Object[] row : rawList) {
                 if (row != null && row.length >= 2 && row[0] != null && row[1] != null) {
                     String pId = row[0].toString();
-                    BigDecimal qty = (BigDecimal) row[1];
+                    BigDecimal qty = (row[1] instanceof BigDecimal bd)
+                            ? bd
+                            : new BigDecimal(row[1].toString());
                     map.put(pId, qty);
                 }
             }

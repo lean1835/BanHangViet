@@ -24,8 +24,7 @@ import java.time.LocalDateTime;
 import java.util.*;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -166,7 +165,7 @@ class InventoryValuationReportServiceImplTest {
     @DisplayName("TC-01: Lập báo cáo giá trị tồn kho luồng thành công - tính đúng giá trị, nhóm, toàn kho, sắp xếp giảm dần")
     void testInventoryValuation_SuccessFlow_TC01() {
         when(userRepository.findByUsername("chu_ho")).thenReturn(Optional.of(ownerUser));
-        when(productRepository.findAllByHouseholdIdAndDeletedAtIsNull("hh-100"))
+        when(productRepository.findProductsForValuationReport(eq("hh-100"), any(), any()))
                 .thenReturn(List.of(prodBeer, prodWater, prodSnack));
 
         // Mock ngày nhập gần nhất
@@ -218,7 +217,7 @@ class InventoryValuationReportServiceImplTest {
     @DisplayName("TC-02: Mặt hàng chưa có giá vốn được tách riêng và không tính vào tổng giá trị tồn kho")
     void testInventoryValuation_MissingCostPriceException_TC02() {
         when(userRepository.findByUsername("chu_ho")).thenReturn(Optional.of(ownerUser));
-        when(productRepository.findAllByHouseholdIdAndDeletedAtIsNull("hh-100"))
+        when(productRepository.findProductsForValuationReport(eq("hh-100"), any(), any()))
                 .thenReturn(List.of(prodBeer, prodMissingCost));
 
         List<Object[]> receiptDates = new ArrayList<>();
@@ -273,7 +272,7 @@ class InventoryValuationReportServiceImplTest {
         LocalDate pastDate = LocalDate.now().minusDays(10);
         LocalDateTime endDateTime = pastDate.atTime(java.time.LocalTime.MAX);
 
-        when(productRepository.findAllByHouseholdIdAndDeletedAtIsNull("hh-100"))
+        when(productRepository.findProductsForValuationReport(eq("hh-100"), any(), any()))
                 .thenReturn(List.of(prodBeer));
 
         // Mock tồn quá khứ: Nhập 100, xuất 30 -> Tồn 70
@@ -305,7 +304,7 @@ class InventoryValuationReportServiceImplTest {
     @DisplayName("TC-10: Xuất tệp bảng tính Excel thành công")
     void testExportInventoryValuationExcel_Success() {
         when(userRepository.findByUsername("chu_ho")).thenReturn(Optional.of(ownerUser));
-        when(productRepository.findAllByHouseholdIdAndDeletedAtIsNull("hh-100"))
+        when(productRepository.findProductsForValuationReport(eq("hh-100"), any(), any()))
                 .thenReturn(List.of(prodBeer, prodMissingCost));
 
         byte[] excelBytes = service.exportInventoryValuationExcel("chu_ho", null, null, null);
@@ -318,7 +317,7 @@ class InventoryValuationReportServiceImplTest {
     @DisplayName("TC-11: Xuất Excel khi không có dữ liệu thì ném lỗi NO_DATA_TO_EXPORT")
     void testExportInventoryValuationExcel_NoData() {
         when(userRepository.findByUsername("chu_ho")).thenReturn(Optional.of(ownerUser));
-        when(productRepository.findAllByHouseholdIdAndDeletedAtIsNull("hh-100"))
+        when(productRepository.findProductsForValuationReport(eq("hh-100"), any(), any()))
                 .thenReturn(Collections.emptyList());
 
         AppException ex = assertThrows(AppException.class, () ->
@@ -344,7 +343,7 @@ class InventoryValuationReportServiceImplTest {
                 .build();
 
         when(userRepository.findByUsername("chu_ho")).thenReturn(Optional.of(ownerUser));
-        when(productRepository.findAllByHouseholdIdAndDeletedAtIsNull("hh-100"))
+        when(productRepository.findProductsForValuationReport(eq("hh-100"), any(), any()))
                 .thenReturn(List.of(prodBeer, prodNullName));
 
         List<Object[]> receiptDates = new ArrayList<>();
@@ -378,5 +377,56 @@ class InventoryValuationReportServiceImplTest {
                 service.getInventoryValuationReport("kiem_kho", null, null, null, "inventoryValue", "desc"));
 
         assertEquals(ErrorCode.FORBIDDEN, ex.getErrorCode());
+    }
+
+    @Test
+    @DisplayName("P2-01: An toàn kiểu dữ liệu khi kết quả aggregate JPQL trả về Long hoặc Double thay vì BigDecimal")
+    void testInventoryValuation_SafeTypeCast_P2_01() {
+        when(userRepository.findByUsername("chu_ho")).thenReturn(Optional.of(ownerUser));
+        LocalDate pastDate = LocalDate.now().minusDays(5);
+        LocalDateTime endDateTime = pastDate.atTime(java.time.LocalTime.MAX);
+
+        when(productRepository.findProductsForValuationReport(eq("hh-100"), any(), any()))
+                .thenReturn(List.of(prodBeer));
+
+        // Mock kết quả query trả về Long hoặc Double thay vì BigDecimal
+        List<Object[]> inListWithLong = Collections.singletonList(new Object[]{"p-beer", 50L});
+        List<Object[]> outListWithDouble = Collections.singletonList(new Object[]{"p-beer", 20.5});
+
+        when(goodsReceiptDetailRepository.sumQuantityBeforeGroupedByProduct("hh-100", endDateTime)).thenReturn(inListWithLong);
+        when(orderItemRepository.sumQuantityBeforeGroupedByProduct("hh-100", endDateTime)).thenReturn(outListWithDouble);
+        when(returnTicketItemRepository.sumQuantityBeforeGroupedByProduct("hh-100", endDateTime)).thenReturn(Collections.emptyList());
+        when(supplierReturnItemRepository.sumQuantityBeforeGroupedByProduct("hh-100", endDateTime)).thenReturn(Collections.emptyList());
+        when(inventoryAuditDetailRepository.sumDifferenceBeforeGroupedByProduct("hh-100", endDateTime)).thenReturn(Collections.emptyList());
+
+        when(goodsReceiptDetailRepository.findLatestReceiptDatesBefore("hh-100", endDateTime))
+                .thenReturn(Collections.emptyList());
+
+        assertDoesNotThrow(() -> {
+            InventoryValuationReportResponse report = service.getInventoryValuationReport(
+                    "chu_ho", pastDate, null, null, "inventoryValue", "desc");
+            assertNotNull(report);
+            assertEquals(1, report.getItems().size());
+            // 50 - 20.5 = 29.500 (scale 3 cho stock)
+            assertEquals(new BigDecimal("29.500"), report.getItems().get(0).getStockQuantity());
+        });
+    }
+
+    @Test
+    @DisplayName("P2-02: Lọc sản phẩm truyền đúng tham số groupId và search xuống Repository")
+    void testInventoryValuation_DbFiltering_P2_02() {
+        when(userRepository.findByUsername("chu_ho")).thenReturn(Optional.of(ownerUser));
+        when(productRepository.findProductsForValuationReport(eq("hh-100"), eq("grp-drinks"), eq("TIGER")))
+                .thenReturn(List.of(prodBeer));
+
+        when(goodsReceiptDetailRepository.findLatestReceiptDatesByHousehold("hh-100"))
+                .thenReturn(Collections.emptyList());
+
+        InventoryValuationReportResponse report = service.getInventoryValuationReport(
+                "chu_ho", null, "  grp-drinks  ", "  TIGER  ", "inventoryValue", "desc");
+
+        assertNotNull(report);
+        assertEquals(1, report.getItems().size());
+        assertEquals("BIA-01", report.getItems().get(0).getSku());
     }
 }
