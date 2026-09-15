@@ -30,6 +30,8 @@ public interface SupplierDebtRepository extends JpaRepository<SupplierDebt, Stri
 
     Optional<SupplierDebt> findFirstByGoodsReceiptIdAndType(String goodsReceiptId, String type);
 
+    List<SupplierDebt> findByGoodsReceiptIdAndHouseholdIdAndType(String goodsReceiptId, String householdId, String type);
+
     @Query("SELECT COALESCE(SUM(sd.remainingAmount), 0) FROM SupplierDebt sd " +
            "WHERE sd.household.id = :householdId AND sd.type = 'DEBT_CREATED' AND sd.status IN ('PENDING', 'OVERDUE')")
     BigDecimal sumTotalOutstandingDebtByHouseholdId(@Param("householdId") String householdId);

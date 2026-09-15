@@ -57,6 +57,7 @@ public interface ProductRepository extends JpaRepository<Product, String>, JpaSp
     List<String> findSkusByHouseholdId(@Param("householdId") String householdId);
 
     List<Product> findAllByHouseholdId(String householdId);
+    @EntityGraph(attributePaths = {"group"})
     List<Product> findAllByHouseholdIdAndDeletedAtIsNull(String householdId);
 
     @Override

@@ -128,5 +128,34 @@ public interface GoodsReceiptDetailRepository extends JpaRepository<GoodsReceipt
             @Param("startDateTime") LocalDateTime startDateTime,
             @Param("endDateTime") LocalDateTime endDateTime
     );
+
+    @Query("SELECT grd.product.id, MAX(COALESCE(gr.receivedAt, grd.createdAt)) " +
+           "FROM GoodsReceiptDetail grd " +
+           "JOIN grd.receipt gr " +
+           "WHERE gr.household.id = :householdId " +
+           "GROUP BY grd.product.id")
+    List<Object[]> findLatestReceiptDatesByHousehold(@Param("householdId") String householdId);
+
+    @Query("SELECT grd.product.id, MAX(COALESCE(gr.receivedAt, grd.createdAt)) " +
+           "FROM GoodsReceiptDetail grd " +
+           "JOIN grd.receipt gr " +
+           "WHERE gr.household.id = :householdId " +
+           "AND COALESCE(gr.receivedAt, grd.createdAt) <= :endDateTime " +
+           "GROUP BY grd.product.id")
+    List<Object[]> findLatestReceiptDatesBefore(
+            @Param("householdId") String householdId,
+            @Param("endDateTime") LocalDateTime endDateTime
+    );
+
+    @Query("SELECT grd.product.id, COALESCE(SUM(COALESCE(grd.baseQuantity, grd.quantity)), 0) " +
+           "FROM GoodsReceiptDetail grd " +
+           "JOIN grd.receipt gr " +
+           "WHERE gr.household.id = :householdId " +
+           "AND COALESCE(gr.receivedAt, grd.createdAt) <= :endDateTime " +
+           "GROUP BY grd.product.id")
+    List<Object[]> sumQuantityBeforeGroupedByProduct(
+            @Param("householdId") String householdId,
+            @Param("endDateTime") LocalDateTime endDateTime
+    );
 }
 
