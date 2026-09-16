@@ -67,6 +67,27 @@ class ExcelParserUtilsTest {
     }
 
     @Test
+    @DisplayName("Đọc số dạng chuỗi có 1 dấu chấm phân cách hàng nghìn '50.000' -> Chuyển thành BigDecimal 50000")
+    void getCellValueAsBigDecimal_SingleDotThousandsSeparator_Success() throws Exception {
+        try (Workbook workbook = new XSSFWorkbook()) {
+            Sheet sheet = workbook.createSheet();
+            Row row = sheet.createRow(0);
+            Cell cell50k = row.createCell(0);
+            cell50k.setCellValue("50.000");
+
+            Cell cell100k = row.createCell(1);
+            cell100k.setCellValue("100.000");
+
+            Cell cellMillion = row.createCell(2);
+            cellMillion.setCellValue("1.500.000");
+
+            assertEquals(new BigDecimal("50000"), ExcelParserUtils.getCellValueAsBigDecimal(cell50k));
+            assertEquals(new BigDecimal("100000"), ExcelParserUtils.getCellValueAsBigDecimal(cell100k));
+            assertEquals(new BigDecimal("1500000"), ExcelParserUtils.getCellValueAsBigDecimal(cellMillion));
+        }
+    }
+
+    @Test
     @DisplayName("Chuỗi rác không đúng định dạng số -> Ném NumberFormatException")
     void getCellValueAsBigDecimal_GarbageString_ThrowsNumberFormatException() throws Exception {
         try (Workbook workbook = new XSSFWorkbook()) {

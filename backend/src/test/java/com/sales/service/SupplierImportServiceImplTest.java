@@ -161,4 +161,24 @@ class SupplierImportServiceImplTest {
         assertEquals(1, preview.getDuplicateCount());
         assertEquals(0, preview.getValidCount());
     }
+
+    @Test
+    @DisplayName("NCL-09-CN-009 (Supplier): SĐT cố định (02x) hợp lệ -> Tạo NCC thành công")
+    void testImportSuppliers_LandlinePhoneSuccess() throws Exception {
+        when(userRepository.findByUsername("owner1")).thenReturn(Optional.of(ownerUser));
+        when(supplierRepository.findAllByHouseholdIdAndDeletedAtIsNull("hh-1")).thenReturn(Collections.emptyList());
+        when(supplierRepository.saveAll(anyList())).thenAnswer(inv -> inv.getArgument(0));
+
+        List<String[]> rows = Collections.singletonList(
+                new String[]{"Công ty Cổ phần Bao Bì Hà Nội", "02431234567", "0109998888", "info@baobi.vn", "Hà Nội", "0", "NCC vật tư"}
+        );
+        MockMultipartFile file = createSupplierExcelFile(rows);
+
+        ImportSupplierResultResponse response = supplierImportService.importSuppliers("owner1", file, "SKIP");
+
+        assertNotNull(response);
+        assertEquals(1, response.getTotalRows());
+        assertEquals(1, response.getSuccessCount());
+        assertEquals(0, response.getErrorCount());
+    }
 }

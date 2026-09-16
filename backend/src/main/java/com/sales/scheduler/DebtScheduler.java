@@ -64,8 +64,14 @@ public class DebtScheduler {
     }
 
     private void processPreDueReminders(LocalDate today) {
-        Integer maxDays = customerDebtRepository.findMaxPendingReminderDaysBefore();
-        int maxDaysBefore = (maxDays != null && maxDays > 0) ? maxDays : DEFAULT_REMINDER_DAYS;
+        Integer maxCustomerDays = customerDebtRepository.findMaxPendingReminderDaysBefore();
+        int maxDaysBefore = (maxCustomerDays != null && maxCustomerDays > 0) ? maxCustomerDays : DEFAULT_REMINDER_DAYS;
+        if (settingsRepository != null) {
+            Integer maxHouseholdDays = settingsRepository.findMaxDebtReminderDaysBefore();
+            if (maxHouseholdDays != null && maxHouseholdDays > 0) {
+                maxDaysBefore = Math.max(maxDaysBefore, maxHouseholdDays);
+            }
+        }
         LocalDateTime maxDueDate = today.plusDays(maxDaysBefore + 1).atStartOfDay();
 
         int processedCount = processDebtRemindersBatch(

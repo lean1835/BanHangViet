@@ -120,8 +120,9 @@ public class ExcelParserUtils {
                 }
             } else if (val.contains(".")) {
                 long dotCount = val.chars().filter(ch -> ch == '.').count();
-                if (dotCount > 1) {
-                    // 100.000.000
+                int lastDot = val.lastIndexOf('.');
+                if (dotCount > 1 || (dotCount == 1 && val.substring(lastDot + 1).length() == 3)) {
+                    // 100.000 hoặc 100.000.000 (dấu chấm phân cách hàng nghìn)
                     val = val.replace(".", "");
                 }
             } else if (val.contains(",")) {

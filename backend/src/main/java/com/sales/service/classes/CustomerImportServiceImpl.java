@@ -37,7 +37,7 @@ import java.util.stream.Collectors;
 public class CustomerImportServiceImpl implements CustomerImportService {
 
     private static final long MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
-    private static final Pattern PHONE_PATTERN = Pattern.compile("^(0|\\+84)[3|5|7|8|9][0-9]{8}$");
+    private static final Pattern PHONE_PATTERN = Pattern.compile("^(0|\\+84)[35789][0-9]{8}$");
     private static final Pattern TAX_CODE_PATTERN = Pattern.compile("^[0-9]{10}(-[0-9]{3})?$");
 
     private final CustomerRepository customerRepository;
