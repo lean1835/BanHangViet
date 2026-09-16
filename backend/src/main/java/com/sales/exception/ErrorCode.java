@@ -117,6 +117,17 @@ public enum ErrorCode {
     EMPTY_RETURN_TICKET_ITEMS(4027, "Phiếu trả hàng phải chọn ít nhất một mặt hàng để trả", HttpStatus.BAD_REQUEST),
     UNAUTHORIZED_RETURN_ACTION(4028, "Chỉ có chủ hộ mới có quyền duyệt hoặc từ chối phiếu trả hàng", HttpStatus.FORBIDDEN),
 
+    // NCL-11-CN-005 Đổi hàng ngang giá không hoàn tiền & đổi món khác giá
+    EXCHANGE_TICKET_NOT_FOUND(4030, "Không tìm thấy thông tin phiếu đổi hàng", HttpStatus.NOT_FOUND),
+    EXCHANGE_PERIOD_EXPIRED(4031, "Hóa đơn gốc đã quá thời hạn đổi trả theo quy định của cửa hàng", HttpStatus.BAD_REQUEST),
+    INVOICE_NOT_ELIGIBLE_FOR_EXCHANGE(4032, "Hóa đơn gốc không ở trạng thái hợp lệ để đổi hàng (phải là ISSUED và chưa bị hủy)", HttpStatus.BAD_REQUEST),
+    EXCEEDED_EXCHANGE_RETURNABLE_QUANTITY(4033, "Số lượng mặt hàng trả vượt quá số lượng còn lại có thể trả của hóa đơn gốc", HttpStatus.BAD_REQUEST),
+    INSUFFICIENT_STOCK_FOR_EXCHANGE(4034, "Sản phẩm khách chọn đổi sang không còn đủ số lượng tồn kho", HttpStatus.BAD_REQUEST),
+    EMPTY_EXCHANGE_RETURN_ITEMS(4035, "Phiếu đổi hàng phải chọn ít nhất một mặt hàng cần trả lại", HttpStatus.BAD_REQUEST),
+    EMPTY_EXCHANGE_NEW_ITEMS(4036, "Phiếu đổi hàng phải chọn ít nhất một mặt hàng muốn đổi sang", HttpStatus.BAD_REQUEST),
+    EXCHANGE_LOWER_VALUE_REDIRECT(4037, "Món đổi sang có giá thấp hơn. Vui lòng chuyển sang luồng Trả hàng để được hoàn tiền", HttpStatus.BAD_REQUEST),
+    EXTRA_PAYMENT_REQUIRED(4038, "Khách đổi sang món có giá trị cao hơn nhưng chưa chọn phương thức thanh toán phần chênh lệch", HttpStatus.BAD_REQUEST),
+
     // NCL-13 Quản lý nhà cung cấp & Công nợ phải trả (NCL-13-CN-003)
     SUPPLIER_NOT_FOUND(3031, "Nhà cung cấp không tồn tại", HttpStatus.NOT_FOUND),
     SUPPLIER_PHONE_EXISTS(3032, "Số điện thoại nhà cung cấp đã tồn tại trong hộ kinh doanh", HttpStatus.BAD_REQUEST),
