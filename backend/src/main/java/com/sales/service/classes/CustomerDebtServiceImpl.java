@@ -19,11 +19,13 @@ import com.sales.repository.ActivityLogRepository;
 import com.sales.repository.CustomerDebtRepository;
 import com.sales.repository.CustomerRepository;
 import com.sales.repository.UserRepository;
+import com.sales.service.interfaces.AppNotificationService;
 import com.sales.service.interfaces.CustomerDebtService;
 import com.sales.service.interfaces.EmailService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -50,6 +52,7 @@ public class CustomerDebtServiceImpl implements CustomerDebtService {
     private final ActivityLogHelper activityLogHelper;
     private final EmailService emailService;
     private final ObjectMapper objectMapper;
+    private final AppNotificationService appNotificationService;
 
     private User getAuthenticatedUser(String username) {
         return userRepository.findByUsername(username)
@@ -180,6 +183,19 @@ public class CustomerDebtServiceImpl implements CustomerDebtService {
 
         if (!updatedDebts.isEmpty()) {
             customerDebtRepository.saveAll(updatedDebts);
+
+            // NCL-19-CN-002 & QTN-14: Tự động đóng thông báo nhắc nợ khi khoản nợ đã thanh toán đủ
+            if (appNotificationService != null) {
+                for (CustomerDebt debt : updatedDebts) {
+                    if (DebtStatus.PAID.equals(debt.getStatus())) {
+                        try {
+                            appNotificationService.closeNotificationsByTarget("CUSTOMER_DEBT", debt.getId());
+                        } catch (Exception e) {
+                            log.warn("Lỗi khi tự động đóng thông báo công nợ {}: {}", debt.getId(), e.getMessage());
+                        }
+                    }
+                }
+            }
         }
 
         // Trừ dư nợ hiện tại của khách hàng
