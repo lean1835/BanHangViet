@@ -15,6 +15,7 @@ interface SupplierDebtHistoryTabProps {
   currentDebt: number;
   canPay: boolean;
   onOpenPayModal: () => void;
+  onOpenRefundModal?: () => void;
 }
 
 export const SupplierDebtHistoryTab: React.FC<SupplierDebtHistoryTabProps> = ({
@@ -22,6 +23,7 @@ export const SupplierDebtHistoryTab: React.FC<SupplierDebtHistoryTabProps> = ({
   currentDebt,
   canPay,
   onOpenPayModal,
+  onOpenRefundModal,
 }) => {
   const { data: history = [], isLoading, isFetching } =
     useGetSupplierDebtHistoryQuery(supplierId, {
@@ -137,6 +139,17 @@ export const SupplierDebtHistoryTab: React.FC<SupplierDebtHistoryTabProps> = ({
             Thanh toán nợ
           </button>
         )}
+
+        {canPay && currentDebt < 0 && onOpenRefundModal && (
+          <button
+            type="button"
+            onClick={onOpenRefundModal}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-xs font-bold text-white shadow-sm transition-all cursor-pointer"
+          >
+            <ArrowDownLeft className="w-3.5 h-3.5" />
+            <span>Thu tiền hoàn ({formatCurrency(Math.abs(currentDebt))})</span>
+          </button>
+        )}
       </div>
 
       {history.length === 0 ? (
@@ -189,7 +202,18 @@ export const SupplierDebtHistoryTab: React.FC<SupplierDebtHistoryTabProps> = ({
               {history.map((record) => {
                 const isDebtCreated = record.type === "DEBT_CREATED";
                 const isPaid = record.status === "PAID";
-                const typeConfig = isDebtCreated
+                const isRefundReceived =
+                  isDebtCreated &&
+                  isPaid &&
+                  (record.notes?.includes("Thu tiền hoàn") || record.notes?.includes("hoàn trả"));
+                const typeConfig = isRefundReceived
+                  ? {
+                      label: "Thu tiền hoàn",
+                      badgeClass: "bg-teal-50 text-teal-700 border-teal-200",
+                      sign: "+",
+                      amountClass: "text-teal-700 font-bold",
+                    }
+                  : isDebtCreated
                   ? SUPPLIER_DEBT_TYPE_MAP.DEBT_CREATED
                   : SUPPLIER_DEBT_TYPE_MAP.DEBT_PAID;
                 const statusConfig =
@@ -220,7 +244,9 @@ export const SupplierDebtHistoryTab: React.FC<SupplierDebtHistoryTabProps> = ({
                       <span
                         className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold border ${typeConfig.badgeClass}`}
                       >
-                        {isDebtCreated ? (
+                        {isRefundReceived ? (
+                          <ArrowDownLeft className="w-3 h-3 text-teal-600" />
+                        ) : isDebtCreated ? (
                           <ArrowUpRight className="w-3 h-3 text-orange-600" />
                         ) : (
                           <ArrowDownLeft className="w-3 h-3 text-emerald-600" />

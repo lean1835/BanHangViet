@@ -34,4 +34,10 @@ public interface SupplierReturnRepository extends JpaRepository<SupplierReturn, 
 
     @Query("SELECT r FROM SupplierReturn r WHERE r.receipt.id = :receiptId AND r.household.id = :householdId AND r.deletedAt IS NULL")
     List<SupplierReturn> findByReceiptIdAndHouseholdId(@Param("receiptId") String receiptId, @Param("householdId") String householdId);
+
+    @Query("SELECT sr.receipt.id, COALESCE(SUM(sr.totalReturnAmount), 0) " +
+           "FROM SupplierReturn sr " +
+           "WHERE sr.receipt.id IN :receiptIds AND sr.household.id = :householdId AND sr.deletedAt IS NULL " +
+           "GROUP BY sr.receipt.id")
+    List<Object[]> sumTotalReturnAmountByReceiptIds(@Param("receiptIds") List<String> receiptIds, @Param("householdId") String householdId);
 }

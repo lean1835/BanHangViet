@@ -19,6 +19,10 @@ export const REPORT_NAVIGATION_ITEMS = [
     label: "So sánh doanh thu kỳ",
   },
   {
+    path: APP_ROUTES.REPORT_INVENTORY_VALUATION,
+    label: "Giá trị tồn kho theo giá vốn",
+  },
+  {
     path: APP_ROUTES.REPORT_TAX_DECLARATION,
     label: "Tờ khai thuế & Bảng kê",
   },

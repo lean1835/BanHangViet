@@ -124,12 +124,22 @@ public class InventoryValuationReportServiceImpl implements InventoryValuationRe
                         .warningMessage("Chưa có giá vốn từ phiếu nhập (loại trừ khỏi tổng giá trị tồn kho)")
                         .build());
             } else {
-                BigDecimal inventoryValue = stock.multiply(costPrice).setScale(2, RoundingMode.HALF_UP);
+                boolean isNegative = stock.compareTo(BigDecimal.ZERO) < 0;
                 BigDecimal retailPrice = p.getPrice() != null ? p.getPrice() : BigDecimal.ZERO;
-                BigDecimal retailValue = stock.multiply(retailPrice).setScale(2, RoundingMode.HALF_UP);
 
+                // Quy tắc nghiệp vụ kho: Hàng bị bán âm kho (stock < 0) thực tế trên kệ không còn hàng (tồn thực = 0).
+                // Không thể có "vốn đọng âm" làm méo mó tổng vốn toàn kho.
+                // Do đó: Khi stock < 0 -> inventoryValue = 0, retailValue = 0, daysInStock = 0.
+                BigDecimal inventoryValue = BigDecimal.ZERO;
+                BigDecimal retailValue = BigDecimal.ZERO;
+                Long daysInStock = 0L;
                 LocalDate lastReceipt = lastReceiptDateMap.get(p.getId());
-                Long daysInStock = calculateProductDaysInStock(p, targetDate, lastReceipt);
+
+                if (!isNegative) {
+                    inventoryValue = stock.multiply(costPrice).setScale(2, RoundingMode.HALF_UP);
+                    retailValue = stock.multiply(retailPrice).setScale(2, RoundingMode.HALF_UP);
+                    daysInStock = calculateProductDaysInStock(p, targetDate, lastReceipt);
+                }
 
                 valuedItems.add(InventoryValuationItemResponse.builder()
                         .productId(p.getId())
@@ -145,6 +155,7 @@ public class InventoryValuationReportServiceImpl implements InventoryValuationRe
                         .retailValue(retailValue)
                         .lastImportDate(lastReceipt)
                         .daysInStock(daysInStock)
+                        .isNegativeStock(isNegative)
                         .build());
             }
         }
@@ -381,6 +392,18 @@ public class InventoryValuationReportServiceImpl implements InventoryValuationRe
         Map<String, List<InventoryValuationItemResponse>> groupMap = items.stream()
                 .collect(Collectors.groupingBy(item -> item.getGroupId() != null ? item.getGroupId() : "UNGROUPED"));
 
+        // Tính tổng vốn các nhóm dương để tính tỷ trọng vốn chính xác kể cả khi có nhóm bị âm kho
+        BigDecimal totalPositiveValuation = groupMap.values().stream()
+                .map(grpItems -> grpItems.stream()
+                        .map(InventoryValuationItemResponse::getInventoryValue)
+                        .reduce(BigDecimal.ZERO, BigDecimal::add))
+                .filter(val -> val.compareTo(BigDecimal.ZERO) > 0)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        BigDecimal divisor = (totalPositiveValuation.compareTo(BigDecimal.ZERO) > 0)
+                ? totalPositiveValuation
+                : (totalWarehouseValuation != null && totalWarehouseValuation.compareTo(BigDecimal.ZERO) > 0 ? totalWarehouseValuation : null);
+
         List<ProductGroupValuationResponse> result = new ArrayList<>();
 
         for (Map.Entry<String, List<InventoryValuationItemResponse>> entry : groupMap.entrySet()) {
@@ -401,9 +424,9 @@ public class InventoryValuationReportServiceImpl implements InventoryValuationRe
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
 
             BigDecimal percentage = BigDecimal.ZERO;
-            if (totalWarehouseValuation != null && totalWarehouseValuation.compareTo(BigDecimal.ZERO) > 0) {
+            if (grpValuation.compareTo(BigDecimal.ZERO) > 0 && divisor != null) {
                 percentage = grpValuation.multiply(BigDecimal.valueOf(100))
-                        .divide(totalWarehouseValuation, 2, RoundingMode.HALF_UP);
+                        .divide(divisor, 2, RoundingMode.HALF_UP);
             }
 
             Long avgDays = calculateWeightedAverageDays(grpItems, grpValuation);

@@ -67,6 +67,9 @@ const SupplierPage = React.lazy(() => import("@/modules/supplier/pages/SupplierP
 const SupplierDetailPage = React.lazy(
   () => import("@/modules/supplier/pages/SupplierDetailPage")
 );
+const SupplierReturnListPage = React.lazy(
+  () => import("@/modules/supplier_return/pages/SupplierReturnListPage")
+);
 const EmployeePage = React.lazy(() => import("@/modules/employee/pages/EmployeePage"));
 const ReportsLayout = React.lazy(() => import("@/modules/report/pages/ReportsLayout"));
 const RevenueReportPage = React.lazy(
@@ -91,6 +94,9 @@ const AnomalyAlertPage = React.lazy(
 );
 const SalesInvoiceListingPage = React.lazy(
   () => import("@/modules/tax_report/pages/SalesInvoiceListingPage")
+);
+const InventoryValuationPage = React.lazy(
+  () => import("@/modules/inventory_valuation/pages/InventoryValuationPage")
 );
 const SettingsLayout = React.lazy(() => import("@/modules/settings/pages/SettingsLayout"));
 const UserProfilePage = React.lazy(
@@ -218,6 +224,10 @@ export const AppRouter = () => (
             <Route path={ROUTE_SEGMENTS.POS_TRANSFERS} element={<PosTransferPage />} />
             <Route path={ROUTE_SEGMENTS.SUPPLIERS} element={<SupplierPage />} />
             <Route path={`${ROUTE_SEGMENTS.SUPPLIERS}/:id`} element={<SupplierDetailPage />} />
+            <Route
+              path={ROUTE_SEGMENTS.SUPPLIER_RETURNS}
+              element={<SupplierReturnListPage />}
+            />
             <Route path=":id" element={<ProductDetailPage />} />
           </Route>
 
@@ -337,6 +347,14 @@ export const AppRouter = () => (
             <Route path={ROUTE_SEGMENTS.ACTIVITY_LOGS} element={<ActivityLogPage />} />
             <Route path={ROUTE_SEGMENTS.AUDIT_LOGS} element={<AuditLogPage />} />
             <Route path={ROUTE_SEGMENTS.ANOMALY_ALERTS} element={<AnomalyAlertPage />} />
+            <Route
+              path={ROUTE_SEGMENTS.INVENTORY_VALUATION}
+              element={
+                <RoleRoute allowedRoles={[USER_ROLES.OWNER, USER_ROLES.ACCOUNTANT]}>
+                  <InventoryValuationPage />
+                </RoleRoute>
+              }
+            />
           </Route>
 
           {/* Redirect từ URL thông báo của Backend /tax/annual-revenue */}

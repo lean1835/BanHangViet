@@ -17,6 +17,11 @@ import {
 } from "@/modules/product/components/InventoryWarningSidebar";
 import type { IInventoryWarningFilterState } from "@/modules/product/types/IInventoryWarning";
 
+import {
+  SupplierReturnSidebar,
+  type SupplierReturnFilterState,
+} from "@/modules/supplier_return/components/SupplierReturnSidebar";
+
 interface ProductSectionSidebarProps {
   currentRole: TDemoRole;
   selectedGroup: string;
@@ -25,6 +30,8 @@ interface ProductSectionSidebarProps {
   onStockFilterChange: (filter: TStockFilter) => void;
   supplierFilter?: SupplierFilterState;
   onSupplierFilterChange?: (filter: SupplierFilterState) => void;
+  supplierReturnFilter?: SupplierReturnFilterState;
+  onSupplierReturnFilterChange?: (filter: SupplierReturnFilterState) => void;
   inventoryAuditFilter?: IInventoryAuditFilterState;
   onInventoryAuditFilterChange?: (filter: IInventoryAuditFilterState) => void;
   inventoryWarningFilter?: IInventoryWarningFilterState;
@@ -46,6 +53,8 @@ export const ProductSectionSidebar = ({
   onStockFilterChange,
   supplierFilter,
   onSupplierFilterChange,
+  supplierReturnFilter,
+  onSupplierReturnFilterChange,
   inventoryAuditFilter,
   onInventoryAuditFilterChange,
   inventoryWarningFilter,
@@ -63,6 +72,9 @@ export const ProductSectionSidebar = ({
     location.pathname === APP_ROUTES.PRODUCT_SUPPLIERS ||
     location.pathname === APP_ROUTES.SUPPLIERS ||
     location.pathname.startsWith("/products/suppliers");
+  const isSupplierReturnRoute =
+    location.pathname === APP_ROUTES.PRODUCT_SUPPLIER_RETURNS ||
+    location.pathname.startsWith("/products/supplier-returns");
 
   return (
     <div className="flex flex-col gap-4">
@@ -127,6 +139,14 @@ export const ProductSectionSidebar = ({
           >
             <span>{PRODUCT_SECTION_COPY.SUPPLIER_ROUTE}</span>
           </NavLink>
+          <NavLink
+            to={APP_ROUTES.PRODUCT_SUPPLIER_RETURNS}
+            className={({ isActive }) =>
+              getNavLinkClass(isActive || isSupplierReturnRoute)
+            }
+          >
+            <span>Trả hàng NCC</span>
+          </NavLink>
         </div>
       </div>
 
@@ -172,6 +192,17 @@ export const ProductSectionSidebar = ({
           />
         </div>
       )}
+
+      {isSupplierReturnRoute &&
+        supplierReturnFilter &&
+        onSupplierReturnFilterChange && (
+          <div className="border-t pt-4">
+            <SupplierReturnSidebar
+              filter={supplierReturnFilter}
+              onFilterChange={onSupplierReturnFilterChange}
+            />
+          </div>
+        )}
     </div>
   );
 };

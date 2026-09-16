@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { formatCurrency } from "@/utils/formatCurrency";
 import type { ISupplier } from "../types/ISupplier";
 import { SupplierDebtHistoryTab } from "./SupplierDebtHistoryTab";
-import { CreditCard, Info, Wallet } from "lucide-react";
+import { CreditCard, Info, Wallet, ArrowDownLeft } from "lucide-react";
 
 interface SupplierDetailModalProps {
   isOpen: boolean;
@@ -12,6 +12,7 @@ interface SupplierDetailModalProps {
   onEdit: (supplier: ISupplier) => void;
   onToggleStatus: (supplier: ISupplier) => void;
   onOpenPayModal?: (supplier: ISupplier) => void;
+  onOpenRefundModal?: (supplier: ISupplier) => void;
   canManage: boolean;
 }
 
@@ -22,6 +23,7 @@ export const SupplierDetailModal: React.FC<SupplierDetailModalProps> = ({
   onEdit,
   onToggleStatus,
   onOpenPayModal,
+  onOpenRefundModal,
   canManage,
 }) => {
   const [activeTab, setActiveTab] = useState<"INFO" | "DEBT_HISTORY">("INFO");
@@ -206,34 +208,61 @@ export const SupplierDetailModal: React.FC<SupplierDetailModalProps> = ({
               {/* Current Debt Highlight Card */}
               <div
                 className={`p-4 rounded-xl border flex items-center justify-between ${
-                  hasDebt
+                  (supplier.currentDebt || 0) < 0
+                    ? "bg-emerald-50/80 border-emerald-300 shadow-2xs"
+                    : hasDebt
                     ? "bg-rose-50/70 border-rose-200"
-                    : "bg-emerald-50/60 border-emerald-200"
+                    : "bg-slate-50 border-slate-200"
                 }`}
               >
                 <div className="flex items-center gap-3">
                   <div
                     className={`p-2.5 rounded-xl ${
-                      hasDebt
+                      (supplier.currentDebt || 0) < 0
+                        ? "bg-emerald-600 text-white shadow-2xs"
+                        : hasDebt
                         ? "bg-rose-500/10 text-rose-600"
-                        : "bg-emerald-500/10 text-emerald-600"
+                        : "bg-slate-200/80 text-slate-500"
                     }`}
                   >
-                    <Wallet className="w-6 h-6" />
+                    {(supplier.currentDebt || 0) < 0 ? (
+                      <ArrowDownLeft className="w-6 h-6 stroke-[2.5]" />
+                    ) : (
+                      <Wallet className="w-6 h-6" />
+                    )}
                   </div>
                   <div>
                     <span className="text-xs text-slate-600 font-semibold block">
-                      Dư nợ phải trả hiện tại
+                      {(supplier.currentDebt || 0) < 0
+                        ? "Nhà cung cấp đang nợ lại cửa hàng (Dư có)"
+                        : "Dư nợ phải trả hiện tại"}
                     </span>
                     <span
                       className={`text-lg font-extrabold ${
-                        hasDebt ? "text-rose-600" : "text-emerald-700"
+                        (supplier.currentDebt || 0) < 0
+                          ? "text-emerald-700 font-black"
+                          : hasDebt
+                          ? "text-rose-600"
+                          : "text-slate-600"
                       }`}
                     >
-                      {formatCurrency(supplier.currentDebt || 0)}
+                      {(supplier.currentDebt || 0) < 0
+                        ? `+${formatCurrency(Math.abs(supplier.currentDebt || 0))}`
+                        : formatCurrency(supplier.currentDebt || 0)}
                     </span>
                   </div>
                 </div>
+
+                {canManage && (supplier.currentDebt || 0) < 0 && onOpenRefundModal && (
+                  <button
+                    type="button"
+                    onClick={() => onOpenRefundModal(supplier)}
+                    className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs font-bold shadow-sm transition-all cursor-pointer"
+                  >
+                    <ArrowDownLeft className="w-4 h-4" />
+                    <span>Thu tiền hoàn ngay</span>
+                  </button>
+                )}
 
                 {canManage && hasDebt && (
                   <button
@@ -333,6 +362,7 @@ export const SupplierDetailModal: React.FC<SupplierDetailModalProps> = ({
               currentDebt={supplier.currentDebt || 0}
               canPay={canManage}
               onOpenPayModal={handleTriggerPay}
+              onOpenRefundModal={() => onOpenRefundModal && onOpenRefundModal(supplier)}
             />
           )}
         </div>
