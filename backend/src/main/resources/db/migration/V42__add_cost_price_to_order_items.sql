@@ -1,4 +1,4 @@
--- V43: Thêm cột cost_price vào bảng order_items để lưu snapshot giá vốn tại thời điểm bán (NCL-07-CN-008)
+-- V42: Thêm cột cost_price vào bảng order_items để lưu snapshot giá vốn tại thời điểm bán (NCL-07-CN-008)
 ALTER TABLE order_items
 ADD COLUMN cost_price DECIMAL(15,2) NOT NULL DEFAULT 0.00;
 
