@@ -35,6 +35,20 @@ public class SupplierDebtController {
         return ResponseEntity.ok(response);
     }
 
+    @PostMapping("/receive-refund")
+    @PreAuthorize("hasAnyRole('VT-01', 'VT-03')")
+    public ResponseEntity<ApiResponse<SupplierDebtResponse>> receiveSupplierRefund(
+            Principal principal,
+            @Valid @RequestBody com.sales.dto.request.ReceiveSupplierRefundRequest request) {
+        SupplierDebtResponse result = supplierDebtService.receiveSupplierRefund(principal.getName(), request);
+        ApiResponse<SupplierDebtResponse> response = ApiResponse.<SupplierDebtResponse>builder()
+                .code(1000)
+                .message("Thu tiền hoàn từ nhà cung cấp thành công")
+                .result(result)
+                .build();
+        return ResponseEntity.ok(response);
+    }
+
     @GetMapping("/history/{supplierId}")
     @PreAuthorize("hasAnyRole('VT-01', 'VT-03')")
     public ResponseEntity<ApiResponse<List<SupplierDebtResponse>>> getSupplierDebtHistory(

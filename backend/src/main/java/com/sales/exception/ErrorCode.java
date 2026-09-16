@@ -125,6 +125,8 @@ public enum ErrorCode {
     SUPPLIER_DEBT_NOT_FOUND(3035, "Khoản công nợ nhà cung cấp không tồn tại", HttpStatus.NOT_FOUND),
     INVALID_SUPPLIER_PAYMENT_AMOUNT(3036, "Số tiền thanh toán nợ nhà cung cấp không hợp lệ", HttpStatus.BAD_REQUEST),
     SUPPLIER_HAS_OUTSTANDING_DEBT(3037, "Không thể xóa nhà cung cấp đang còn công nợ chưa thanh toán", HttpStatus.BAD_REQUEST),
+    SUPPLIER_HAS_NO_REFUNDABLE_DEBT(3061, "Nhà cung cấp không có khoản nợ nào cần hoàn lại", HttpStatus.BAD_REQUEST),
+    REFUND_AMOUNT_EXCEEDS_DEBT(3062, "Số tiền thu hoàn vượt quá số tiền nhà cung cấp đang nợ lại cửa hàng", HttpStatus.BAD_REQUEST),
 
     // NCL-13 Kiểm kê kho và kiểm tra chênh lệch tồn (NCL-13-CN-004)
     INVENTORY_AUDIT_NOT_FOUND(3040, "Phiếu kiểm kê kho không tồn tại", HttpStatus.NOT_FOUND),
@@ -141,6 +143,7 @@ public enum ErrorCode {
     RECEIPT_DETAIL_NOT_FOUND_IN_RECEIPT(3047, "Mặt hàng yêu cầu trả không thuộc phiếu nhập kho gốc đã chọn", HttpStatus.BAD_REQUEST),
     SUPPLIER_RETURN_NUMBER_EXISTS(3048, "Số hiệu phiếu trả hàng nhà cung cấp đã tồn tại trên hệ thống", HttpStatus.BAD_REQUEST),
     ONLY_STORE_OWNER_CAN_RETURN_SUPPLIER(3049, "Chỉ chủ hộ kinh doanh mới có quyền lập phiếu trả hàng cho nhà cung cấp", HttpStatus.FORBIDDEN),
+    RECEIPT_ALREADY_FULLY_RETURNED(3057, "Phiếu nhập kho này đã được hoàn trả toàn bộ cho nhà cung cấp, không thể tạo thêm phiếu trả", HttpStatus.BAD_REQUEST),
 
     // NCL-15 Chiết khấu & Chương trình khuyến mại (NCL-15-CN-001 & NCL-15-CN-002)
     PROMOTION_NOT_FOUND(3050, "Chương trình khuyến mại không tồn tại", HttpStatus.NOT_FOUND),

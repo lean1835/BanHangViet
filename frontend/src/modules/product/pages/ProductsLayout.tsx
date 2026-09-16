@@ -8,6 +8,7 @@ import type { TStockFilter } from "@/modules/product/types/TStockFilter";
 import type { SupplierFilterState } from "@/modules/supplier/components/SupplierSidebar";
 import type { IInventoryAuditFilterState } from "@/modules/inventory_audit/types/IInventoryAudit";
 import type { IInventoryWarningFilterState } from "@/modules/product/types/IInventoryWarning";
+import type { SupplierReturnFilterState } from "@/modules/supplier_return/components/SupplierReturnSidebar";
 import { INVENTORY_AUDIT_FILTER_STATUS } from "@/constants/inventoryAudit";
 
 export interface IProductOutletContext {
@@ -15,6 +16,10 @@ export interface IProductOutletContext {
   stockFilter: TStockFilter;
   supplierFilter: SupplierFilterState;
   setSupplierFilter: React.Dispatch<React.SetStateAction<SupplierFilterState>>;
+  supplierReturnFilter: SupplierReturnFilterState;
+  setSupplierReturnFilter: React.Dispatch<
+    React.SetStateAction<SupplierReturnFilterState>
+  >;
   inventoryAuditFilter: IInventoryAuditFilterState;
   setInventoryAuditFilter: React.Dispatch<
     React.SetStateAction<IInventoryAuditFilterState>
@@ -48,6 +53,14 @@ export const ProductsLayout = () => {
       dateTo: "",
     });
 
+  // Supplier Return filter states
+  const [supplierReturnFilter, setSupplierReturnFilter] =
+    useState<SupplierReturnFilterState>({
+      supplierId: "",
+      fromDate: "",
+      toDate: "",
+    });
+
   // Inventory Warning & Suggestion filter states
   const [inventoryWarningFilter, setInventoryWarningFilter] =
     useState<IInventoryWarningFilterState>({
@@ -68,6 +81,8 @@ export const ProductsLayout = () => {
           onStockFilterChange={setStockFilter}
           supplierFilter={supplierFilter}
           onSupplierFilterChange={setSupplierFilter}
+          supplierReturnFilter={supplierReturnFilter}
+          onSupplierReturnFilterChange={setSupplierReturnFilter}
           inventoryAuditFilter={inventoryAuditFilter}
           onInventoryAuditFilterChange={setInventoryAuditFilter}
           inventoryWarningFilter={inventoryWarningFilter}
@@ -82,6 +97,8 @@ export const ProductsLayout = () => {
             stockFilter,
             supplierFilter,
             setSupplierFilter,
+            supplierReturnFilter,
+            setSupplierReturnFilter,
             inventoryAuditFilter,
             setInventoryAuditFilter,
             inventoryWarningFilter,

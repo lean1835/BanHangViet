@@ -10,6 +10,7 @@ import { RevenueReportSidebar } from "./RevenueReportSidebar";
 import { PosRevenueReportSidebar } from "./PosRevenueReportSidebar";
 import { RevenueComparisonSidebar } from "./RevenueComparisonSidebar";
 import { ActivityLogSidebar } from "./ActivityLogSidebar";
+import { InventoryValuationSidebar } from "@/modules/inventory_valuation/components/InventoryValuationSidebar";
 
 const getNavLinkClassName = ({ isActive }: { isActive: boolean }) =>
   `flex min-h-11 w-full items-center rounded-md px-3 py-2 text-left text-xs font-bold transition-all lg:min-h-0 ${
@@ -49,6 +50,10 @@ export const ReportSidebar: React.FC = () => {
   const isAnomalyAlertRoute =
     location.pathname === APP_ROUTES.REPORT_ANOMALY_ALERTS ||
     location.pathname.startsWith("/reports/anomaly-alerts");
+
+  const isInventoryValuationRoute =
+    location.pathname === APP_ROUTES.REPORT_INVENTORY_VALUATION ||
+    location.pathname.startsWith("/reports/inventory-valuation");
 
   const { filter, handleFilterChange, handleResetFilter } = useAuditLogFilter();
 
@@ -123,6 +128,13 @@ export const ReportSidebar: React.FC = () => {
       {isAnomalyAlertRoute && (
         <div className="pt-2 border-t border-slate-200">
           <AnomalyAlertSidebar />
+        </div>
+      )}
+
+      {/* 6. Inventory Valuation Filter */}
+      {isInventoryValuationRoute && (
+        <div className="pt-2 border-t border-slate-200">
+          <InventoryValuationSidebar />
         </div>
       )}
     </div>

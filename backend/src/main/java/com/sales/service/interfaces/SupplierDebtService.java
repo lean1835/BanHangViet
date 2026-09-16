@@ -14,6 +14,8 @@ public interface SupplierDebtService {
 
     SupplierDebtResponse paySupplierDebt(String currentUsername, PaySupplierDebtRequest request);
 
+    SupplierDebtResponse receiveSupplierRefund(String currentUsername, com.sales.dto.request.ReceiveSupplierRefundRequest request);
+
     List<SupplierDebtResponse> getSupplierDebtHistory(String currentUsername, String supplierId);
 
     List<SupplierDebtResponse> getSupplierDebts(String currentUsername, String statusFilter);

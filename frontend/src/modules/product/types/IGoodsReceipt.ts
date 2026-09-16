@@ -1,3 +1,5 @@
+export type TGoodsReceiptReturnStatus = "NOT_RETURNED" | "PARTIALLY_RETURNED" | "FULLY_RETURNED";
+
 export interface IGoodsReceipt {
   id: string;
   receiptNumber: string;
@@ -6,6 +8,8 @@ export interface IGoodsReceipt {
   totalAmount?: number;
   receivedAt: string;
   notes?: string;
+  returnStatus?: TGoodsReceiptReturnStatus;
+  totalReturnedAmount?: number;
   createdByUserId: string;
   createdByUserName: string;
   createdAt?: string;
@@ -35,6 +39,8 @@ export interface IGoodsReceiptDetailInfo {
   totalAmount?: number;
   receivedAt: string;
   notes?: string;
+  returnStatus?: TGoodsReceiptReturnStatus;
+  totalReturnedAmount?: number;
   createdByUserId: string;
   createdByUserName: string;
   details: IGoodsReceiptDetail[];

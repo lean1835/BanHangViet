@@ -49,6 +49,8 @@ public class GoodsReceiptServiceImpl implements GoodsReceiptService {
     private final SupplierRepository supplierRepository;
     private final ActivityLogHelper activityLogHelper;
     private final SupplierDebtService supplierDebtService;
+    private final SupplierReturnRepository supplierReturnRepository;
+    private final SupplierReturnItemRepository supplierReturnItemRepository;
     private final ObjectMapper objectMapper;
 
     private User getAuthenticatedUser(String username) {
@@ -121,6 +123,8 @@ public class GoodsReceiptServiceImpl implements GoodsReceiptService {
                 .totalAmount(receipt.getTotalAmount())
                 .receivedAt(receipt.getReceivedAt())
                 .notes(receipt.getNotes())
+                .returnStatus("NOT_RETURNED")
+                .totalReturnedAmount(BigDecimal.ZERO)
                 .createdByUserId(receipt.getCreatedByUser().getId())
                 .createdByUserName(receipt.getCreatedByUser().getFullName())
                 .createdAt(receipt.getCreatedAt())
@@ -345,8 +349,33 @@ public class GoodsReceiptServiceImpl implements GoodsReceiptService {
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
         Page<GoodsReceipt> receiptPage = goodsReceiptRepository.findByHouseholdId(household.getId(), pageable);
 
-        List<GoodsReceiptResponse> content = receiptPage.getContent().stream()
-                .map(this::mapToResponse)
+        List<GoodsReceipt> receipts = receiptPage.getContent();
+        List<String> receiptIds = receipts.stream().map(GoodsReceipt::getId).collect(Collectors.toList());
+
+        Map<String, BigDecimal> returnedAmountMap = new HashMap<>();
+        if (!receiptIds.isEmpty()) {
+            List<Object[]> results = supplierReturnRepository.sumTotalReturnAmountByReceiptIds(receiptIds, household.getId());
+            for (Object[] row : results) {
+                String rId = (String) row[0];
+                BigDecimal amount = (BigDecimal) row[1];
+                returnedAmountMap.put(rId, amount);
+            }
+        }
+
+        List<GoodsReceiptResponse> content = receipts.stream()
+                .map(r -> {
+                    GoodsReceiptResponse resp = this.mapToResponse(r);
+                    BigDecimal returnedAmount = returnedAmountMap.getOrDefault(r.getId(), BigDecimal.ZERO);
+                    resp.setTotalReturnedAmount(returnedAmount);
+                    if (returnedAmount.compareTo(BigDecimal.ZERO) <= 0) {
+                        resp.setReturnStatus("NOT_RETURNED");
+                    } else if (r.getTotalAmount() != null && returnedAmount.compareTo(r.getTotalAmount().subtract(new BigDecimal("0.01"))) >= 0) {
+                        resp.setReturnStatus("FULLY_RETURNED");
+                    } else {
+                        resp.setReturnStatus("PARTIALLY_RETURNED");
+                    }
+                    return resp;
+                })
                 .collect(Collectors.toList());
 
         return PageResponse.<GoodsReceiptResponse>builder()
@@ -369,6 +398,37 @@ public class GoodsReceiptServiceImpl implements GoodsReceiptService {
                 .orElseThrow(() -> new AppException(ErrorCode.GOODS_RECEIPT_NOT_FOUND));
 
         List<GoodsReceiptDetail> details = goodsReceiptDetailRepository.findByReceiptId(id);
+        List<String> detailIds = details.stream().map(GoodsReceiptDetail::getId).collect(Collectors.toList());
+
+        Map<String, BigDecimal> returnedQtyMap = new HashMap<>();
+        if (!detailIds.isEmpty()) {
+            List<SupplierReturnItemRepository.ReceiptDetailReturnedProjection> returnedList =
+                    supplierReturnItemRepository.sumQuantityReturnedByDetailIds(detailIds);
+            for (SupplierReturnItemRepository.ReceiptDetailReturnedProjection proj : returnedList) {
+                returnedQtyMap.put(proj.getDetailId(), proj.getTotalReturned());
+            }
+        }
+
+        BigDecimal totalReturnedAmount = BigDecimal.ZERO;
+        boolean allFullyReturned = !details.isEmpty();
+        boolean hasAnyReturned = false;
+
+        for (GoodsReceiptDetail detail : details) {
+            BigDecimal importedQty = detail.getQuantity() != null ? detail.getQuantity() : BigDecimal.ZERO;
+            BigDecimal returnedQty = returnedQtyMap.getOrDefault(detail.getId(), BigDecimal.ZERO);
+            BigDecimal remaining = importedQty.subtract(returnedQty);
+            if (remaining.compareTo(BigDecimal.ZERO) > 0) {
+                allFullyReturned = false;
+            }
+            if (returnedQty.compareTo(BigDecimal.ZERO) > 0) {
+                hasAnyReturned = true;
+                BigDecimal price = detail.getPurchasePrice() != null ? detail.getPurchasePrice() : BigDecimal.ZERO;
+                totalReturnedAmount = totalReturnedAmount.add(returnedQty.multiply(price));
+            }
+        }
+
+        String returnStatus = allFullyReturned ? "FULLY_RETURNED" : (hasAnyReturned ? "PARTIALLY_RETURNED" : "NOT_RETURNED");
+
         List<GoodsReceiptDetailResponse> detailResponses = details.stream()
                 .map(this::mapDetailToResponse)
                 .collect(Collectors.toList());
@@ -381,6 +441,8 @@ public class GoodsReceiptServiceImpl implements GoodsReceiptService {
                 .totalAmount(receipt.getTotalAmount())
                 .receivedAt(receipt.getReceivedAt())
                 .notes(receipt.getNotes())
+                .returnStatus(returnStatus)
+                .totalReturnedAmount(totalReturnedAmount)
                 .createdByUserId(receipt.getCreatedByUser().getId())
                 .createdByUserName(receipt.getCreatedByUser().getFullName())
                 .details(detailResponses)
