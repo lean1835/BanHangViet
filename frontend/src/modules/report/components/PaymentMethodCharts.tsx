@@ -52,7 +52,12 @@ export const PaymentMethodCharts: React.FC<PaymentMethodChartsProps> = ({
 
   const sortedTrends = [...dailyTrends].sort((a, b) => (a.date || "").localeCompare(b.date || ""));
   const maxDayTotal = Math.max(
-    ...sortedTrends.map((d) => Math.max(d.totalAmount || 0, d.cashAmount + d.bankTransferAmount)),
+    ...sortedTrends.map((d) =>
+      Math.max(
+        d.totalAmount || 0,
+        (d.cashAmount || 0) + (d.bankTransferAmount || 0) + (d.debtAmount || 0)
+      )
+    ),
     100000
   );
   const chartHeight = 150;
@@ -68,9 +73,11 @@ export const PaymentMethodCharts: React.FC<PaymentMethodChartsProps> = ({
   };
 
   const renderTooltipContent = (t: IDailyPaymentTrend) => {
-    const total = t.totalAmount || (t.cashAmount + t.bankTransferAmount + (t.debtAmount || 0));
+    const debt = t.debtAmount || 0;
+    const total = t.totalAmount || (t.cashAmount + t.bankTransferAmount + debt);
     const cashPct = total > 0 ? ((t.cashAmount / total) * 100).toFixed(1) : "0.0";
     const transferPct = total > 0 ? ((t.bankTransferAmount / total) * 100).toFixed(1) : "0.0";
+    const debtPct = total > 0 ? ((debt / total) * 100).toFixed(1) : "0.0";
 
     const parts = (t.date || "").split("-");
     const displayDate = parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : t.date;
@@ -122,30 +129,28 @@ export const PaymentMethodCharts: React.FC<PaymentMethodChartsProps> = ({
             </div>
           </div>
 
-          {/* Ghi nợ (nếu có) */}
-          {t.debtAmount > 0 && (
-            <div className="flex items-center justify-between gap-3">
-              <span className="flex items-center gap-1.5 text-slate-600">
-                <BookOpen className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                <span>Ghi nợ:</span>
+          {/* Ghi nợ */}
+          <div className="flex items-center justify-between gap-3">
+            <span className="flex items-center gap-1.5 text-slate-600">
+              <BookOpen className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+              <span>Ghi nợ:</span>
+            </span>
+            <div className="flex items-center gap-1.5">
+              <span className="font-bold text-amber-700">
+                {formatCurrency(debt)}
               </span>
-              <div className="flex items-center gap-1.5">
-                <span className="font-bold text-amber-700">
-                  {formatCurrency(t.debtAmount)}
-                </span>
-                <span className="bg-amber-50 text-amber-700 text-[10px] font-semibold px-1.5 py-0.5 rounded-sm">
-                  Công nợ
-                </span>
-              </div>
+              <span className="bg-amber-50 text-amber-700 text-[10px] font-semibold px-1.5 py-0.5 rounded-sm">
+                {debtPct}%
+              </span>
             </div>
-          )}
+          </div>
         </div>
 
         {/* Footer: Tổng thu ngày */}
         <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
           <span className="flex items-center gap-1 text-slate-400 text-[11px] font-medium">
             <Wallet className="w-3.5 h-3.5 text-kv-blue-primary shrink-0" />
-            <span>Tổng thu trong ngày:</span>
+            <span>Tổng trong ngày:</span>
           </span>
           <span className="font-black text-kv-blue-primary text-sm">
             {formatCurrency(total)}
@@ -226,7 +231,7 @@ export const PaymentMethodCharts: React.FC<PaymentMethodChartsProps> = ({
               </h3>
             </div>
             <p className="text-xs text-slate-400 mt-0.5">
-              Phân bổ số tiền thu giữa Tiền mặt và Chuyển khoản
+              Phân bổ số tiền giữa Tiền mặt, Chuyển khoản và Ghi nợ
             </p>
           </div>
           <div className="flex items-center gap-3 text-[11px] font-medium">
@@ -235,6 +240,9 @@ export const PaymentMethodCharts: React.FC<PaymentMethodChartsProps> = ({
             </span>
             <span className="flex items-center gap-1 text-slate-600 font-semibold">
               <QrCode className="w-3.5 h-3.5 text-kv-blue-primary shrink-0" /> Chuyển khoản
+            </span>
+            <span className="flex items-center gap-1 text-slate-600 font-semibold">
+              <BookOpen className="w-3.5 h-3.5 text-amber-600 shrink-0" /> Ghi nợ
             </span>
           </div>
         </div>
@@ -251,6 +259,7 @@ export const PaymentMethodCharts: React.FC<PaymentMethodChartsProps> = ({
                 const isHovered = hoveredDate === t.date;
                 const cashHeight = (t.cashAmount / maxDayTotal) * chartHeight;
                 const transferHeight = (t.bankTransferAmount / maxDayTotal) * chartHeight;
+                const debtHeight = ((t.debtAmount || 0) / maxDayTotal) * chartHeight;
 
                 return (
                   <Tooltip
@@ -272,7 +281,7 @@ export const PaymentMethodCharts: React.FC<PaymentMethodChartsProps> = ({
                     mouseEnterDelay={0.05}
                   >
                     <div
-                      className={`flex flex-col items-center flex-1 min-w-[36px] px-1 py-1.5 rounded-xl transition-all duration-200 cursor-pointer group ${
+                      className={`flex flex-col items-center flex-1 min-w-[38px] px-1 py-1.5 rounded-xl transition-all duration-200 cursor-pointer group ${
                         isHovered ? "bg-slate-100/90 shadow-2xs" : "hover:bg-slate-50"
                       }`}
                       onMouseEnter={() => setHoveredDate(t.date)}
@@ -282,11 +291,15 @@ export const PaymentMethodCharts: React.FC<PaymentMethodChartsProps> = ({
                       <div className="flex items-end gap-1 w-full justify-center h-[150px]">
                         <div
                           style={{ height: `${Math.max(cashHeight, t.cashAmount > 0 ? 4 : 0)}px` }}
-                          className="w-2.5 sm:w-3 rounded-t-xs bg-emerald-500 opacity-90 transition-all group-hover:opacity-100 group-hover:brightness-110 shadow-2xs"
+                          className="w-2 sm:w-2.5 rounded-t-xs bg-emerald-500 opacity-90 transition-all group-hover:opacity-100 group-hover:brightness-110 shadow-2xs"
                         />
                         <div
                           style={{ height: `${Math.max(transferHeight, t.bankTransferAmount > 0 ? 4 : 0)}px` }}
-                          className="w-2.5 sm:w-3 rounded-t-xs bg-kv-blue-primary opacity-90 transition-all group-hover:opacity-100 group-hover:brightness-110 shadow-2xs"
+                          className="w-2 sm:w-2.5 rounded-t-xs bg-kv-blue-primary opacity-90 transition-all group-hover:opacity-100 group-hover:brightness-110 shadow-2xs"
+                        />
+                        <div
+                          style={{ height: `${Math.max(debtHeight, (t.debtAmount || 0) > 0 ? 4 : 0)}px` }}
+                          className="w-2 sm:w-2.5 rounded-t-xs bg-amber-500 opacity-90 transition-all group-hover:opacity-100 group-hover:brightness-110 shadow-2xs"
                         />
                       </div>
 

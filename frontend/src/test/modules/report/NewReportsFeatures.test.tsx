@@ -318,6 +318,7 @@ describe("NCL-07-CN-011: Báo cáo doanh thu theo hình thức thanh toán", () 
     );
 
     expect(screen.getByText("Xu hướng thanh toán theo ngày")).toBeInTheDocument();
+    expect(screen.getByText("Ghi nợ")).toBeInTheDocument();
     expect(screen.getByText("09/09")).toBeInTheDocument();
 
     // Hover over column
@@ -332,6 +333,7 @@ describe("NCL-07-CN-011: Báo cáo doanh thu theo hình thức thanh toán", () 
     expect(await screen.findByText(/Ngày 09\/09\/2026/)).toBeInTheDocument();
     expect(screen.getByText(/137\.481\.490\s*đ/)).toBeInTheDocument();
     expect(screen.getByText(/1\.000\.000\s*đ/)).toBeInTheDocument();
+    expect(screen.getByText(/500\.000\s*đ/)).toBeInTheDocument();
   });
 
   it("blocks cashier VT-02 from accessing PaymentMethodReportPage", () => {
