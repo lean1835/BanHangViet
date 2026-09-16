@@ -11,6 +11,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -82,7 +83,9 @@ public class OrderCollectedAmountIntegrationTest {
     @Test
     @DisplayName("NCL-03-CN-011 & P1-01: Phân định đúng Doanh thu thực thu và Tiền mặt vào két ca")
     void sumCollectedAmountByShiftId_includesBankTransferInCombinedOrder() {
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDate.now().atTime(12, 0);
+        shift.setOpenedAt(now.minusHours(2));
+        shift = shiftRepository.save(shift);
 
         // 1. Đơn 1: Thuần tiền mặt CASH 500.000đ
         Order cashOrder = orderRepository.save(Order.builder()

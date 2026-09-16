@@ -389,6 +389,7 @@ public class SyncServiceImpl implements SyncService {
                                 .productName(product.getName())
                                 .quantity(itemReq.getQuantity())
                                 .unitPrice(itemReq.getUnitPrice())
+                                .costPrice(product.getCostPrice() != null ? product.getCostPrice() : BigDecimal.ZERO)
                                 .discountAmount(itemReq.getDiscountAmount() != null ? itemReq.getDiscountAmount() : BigDecimal.ZERO)
                                 .taxRatePercentage(itemReq.getTaxRatePercentage() != null ? itemReq.getTaxRatePercentage() : BigDecimal.ZERO)
                                 .taxAmount(itemReq.getTaxAmount() != null ? itemReq.getTaxAmount() : BigDecimal.ZERO)
@@ -699,11 +700,13 @@ public class SyncServiceImpl implements SyncService {
                             .productName(product.getName())
                             .quantity(itemReq.getQuantity())
                             .unitPrice(itemReq.getUnitPrice())
+                            .costPrice(product.getCostPrice() != null ? product.getCostPrice() : BigDecimal.ZERO)
                             .discountAmount(itemReq.getDiscountAmount() != null ? itemReq.getDiscountAmount() : BigDecimal.ZERO)
                             .taxRatePercentage(itemReq.getTaxRatePercentage() != null ? itemReq.getTaxRatePercentage() : BigDecimal.ZERO)
                             .taxAmount(itemReq.getTaxAmount() != null ? itemReq.getTaxAmount() : BigDecimal.ZERO)
                             .subtotal(itemReq.getSubtotal() != null ? itemReq.getSubtotal() : BigDecimal.ZERO)
                             .build();
+
 
                     newItems.add(orderItem);
                 }
@@ -803,6 +806,7 @@ public class SyncServiceImpl implements SyncService {
                             .productName(product.getName())
                             .quantity(itemReq.getQuantity())
                             .unitPrice(itemReq.getUnitPrice())
+                            .costPrice(product.getCostPrice() != null ? product.getCostPrice() : BigDecimal.ZERO)
                             .discountAmount(itemReq.getDiscountAmount() != null ? itemReq.getDiscountAmount() : BigDecimal.ZERO)
                             .taxRatePercentage(itemReq.getTaxRatePercentage() != null ? itemReq.getTaxRatePercentage() : BigDecimal.ZERO)
                             .taxAmount(itemReq.getTaxAmount() != null ? itemReq.getTaxAmount() : BigDecimal.ZERO)

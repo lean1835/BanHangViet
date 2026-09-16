@@ -2,15 +2,20 @@ package com.sales.controller;
 
 import com.sales.dto.ApiResponse;
 import com.sales.dto.response.*;
+import com.sales.service.interfaces.ReportExportService;
 import com.sales.service.interfaces.ReportService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.security.Principal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 @RestController
@@ -20,6 +25,7 @@ import java.util.List;
 public class ReportController {
 
     private final ReportService reportService;
+    private final ReportExportService reportExportService;
 
     @GetMapping("/daily")
     public ResponseEntity<ApiResponse<List<DailyRevenueProjection>>> getDailyRevenue(
@@ -150,5 +156,107 @@ public class ReportController {
                 .result(result)
                 .build();
         return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/employee-shifts")
+    public ResponseEntity<ApiResponse<EmployeeShiftReportResponse>> getEmployeeShiftReport(
+            Principal principal,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate,
+            @RequestParam(required = false) String userId,
+            @RequestParam(required = false) java.math.BigDecimal threshold) {
+        EmployeeShiftReportResponse result = reportService.getEmployeeShiftReport(
+                principal.getName(), fromDate, toDate, userId, threshold);
+        ApiResponse<EmployeeShiftReportResponse> response = ApiResponse.<EmployeeShiftReportResponse>builder()
+                .code(1000)
+                .message("Lấy báo cáo doanh thu theo nhân viên và theo ca thành công")
+                .result(result)
+                .build();
+        return ResponseEntity.ok(response);
+    }
+
+    // NCL-07-CN-008: Báo cáo lãi gộp theo ngày và theo mặt hàng
+    @GetMapping("/gross-profit")
+    public ResponseEntity<ApiResponse<GrossProfitReportResponse>> getGrossProfitReport(
+            Principal principal,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate,
+            @RequestParam(required = false) String productId) {
+        GrossProfitReportResponse result = reportService.getGrossProfitReport(principal.getName(), fromDate, toDate, productId);
+        ApiResponse<GrossProfitReportResponse> response = ApiResponse.<GrossProfitReportResponse>builder()
+                .code(1000)
+                .message("Lấy báo cáo lãi gộp thành công")
+                .result(result)
+                .build();
+        return ResponseEntity.ok(response);
+    }
+
+    // NCL-07-CN-011: Báo cáo doanh thu theo hình thức thanh toán
+    @GetMapping("/payment-methods")
+    public ResponseEntity<ApiResponse<PaymentMethodReportResponse>> getPaymentMethodReport(
+            Principal principal,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate,
+            @RequestParam(required = false) String userId,
+            @RequestParam(required = false) String shiftId) {
+        PaymentMethodReportResponse result = reportService.getPaymentMethodReport(principal.getName(), fromDate, toDate, userId, shiftId);
+        ApiResponse<PaymentMethodReportResponse> response = ApiResponse.<PaymentMethodReportResponse>builder()
+                .code(1000)
+                .message("Lấy báo cáo doanh thu theo hình thức thanh toán thành công")
+                .result(result)
+                .build();
+        return ResponseEntity.ok(response);
+    }
+
+    // NCL-07-CN-012: Báo cáo doanh thu theo nhóm hàng
+    @GetMapping("/product-groups")
+    public ResponseEntity<ApiResponse<ProductGroupReportResponse>> getProductGroupReport(
+            Principal principal,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate) {
+        ProductGroupReportResponse result = reportService.getProductGroupReport(principal.getName(), fromDate, toDate);
+        ApiResponse<ProductGroupReportResponse> response = ApiResponse.<ProductGroupReportResponse>builder()
+                .code(1000)
+                .message("Lấy báo cáo doanh thu theo nhóm hàng thành công")
+                .result(result)
+                .build();
+        return ResponseEntity.ok(response);
+    }
+
+    // NCL-07-CN-012: Chi tiết mặt hàng trong nhóm hàng (drill-down)
+    @GetMapping("/product-groups/{groupId}/products")
+    public ResponseEntity<ApiResponse<ProductGroupRevenueDetailResponse>> getProductGroupDetail(
+            Principal principal,
+            @PathVariable String groupId,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate) {
+        ProductGroupRevenueDetailResponse result = reportService.getProductGroupDetail(principal.getName(), groupId, fromDate, toDate);
+        ApiResponse<ProductGroupRevenueDetailResponse> response = ApiResponse.<ProductGroupRevenueDetailResponse>builder()
+                .code(1000)
+                .message("Lấy chi tiết mặt hàng trong nhóm thành công")
+                .result(result)
+                .build();
+        return ResponseEntity.ok(response);
+    }
+
+    // NCL-07-CN-009: Xuất báo cáo ra file Excel (.xlsx)
+    @GetMapping("/export")
+    public ResponseEntity<byte[]> exportReport(
+            Principal principal,
+            @RequestParam(defaultValue = "DAILY") String reportType,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate,
+            @RequestParam(required = false) String filter1,
+            @RequestParam(required = false) String filter2) {
+        byte[] excelData = reportExportService.exportReportToExcel(
+                principal.getName(), reportType, fromDate, toDate, filter1, filter2);
+
+        String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
+        String filename = "report_" + reportType.toLowerCase() + "_" + timestamp + ".xlsx";
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
+                .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                .body(excelData);
     }
 }
