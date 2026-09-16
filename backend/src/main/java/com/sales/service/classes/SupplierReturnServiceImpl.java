@@ -160,6 +160,16 @@ public class SupplierReturnServiceImpl implements SupplierReturnService {
 
         Supplier supplier = receipt.getSupplier();
 
+        boolean allItemsFullyReturned = !items.isEmpty() && items.stream().allMatch(i -> i.getRemainingReturnableQuantity().compareTo(BigDecimal.ZERO) <= 0);
+        boolean hasAnyReturned = items.stream().anyMatch(i -> i.getPreviouslyReturnedQuantity().compareTo(BigDecimal.ZERO) > 0);
+        boolean hasAnyReturnable = items.stream().anyMatch(i -> i.getMaxAllowedReturnQuantity().compareTo(BigDecimal.ZERO) > 0);
+
+        String returnStatus = allItemsFullyReturned ? "FULLY_RETURNED" : (hasAnyReturned ? "PARTIALLY_RETURNED" : "NOT_RETURNED");
+        BigDecimal totalReturnedAmount = items.stream()
+                .map(i -> (i.getPreviouslyReturnedQuantity() != null ? i.getPreviouslyReturnedQuantity() : BigDecimal.ZERO)
+                        .multiply(i.getPurchasePrice() != null ? i.getPurchasePrice() : BigDecimal.ZERO))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
         return ReceiptReturnableCheckResponse.builder()
                 .receiptId(receipt.getId())
                 .receiptNumber(receipt.getReceiptNumber())
@@ -170,6 +180,10 @@ public class SupplierReturnServiceImpl implements SupplierReturnService {
                 .supplierCurrentDebt(supplier != null ? supplier.getCurrentDebt() : BigDecimal.ZERO)
                 .receiptTotalAmount(receipt.getTotalAmount())
                 .items(items)
+                .returnStatus(returnStatus)
+                .isFullyReturned(allItemsFullyReturned)
+                .isReturnable(hasAnyReturnable && !allItemsFullyReturned)
+                .totalReturnedAmount(totalReturnedAmount)
                 .build();
     }
 
@@ -201,6 +215,27 @@ public class SupplierReturnServiceImpl implements SupplierReturnService {
         Map<String, GoodsReceiptDetail> detailMap = receiptDetails.stream()
                 .collect(Collectors.toMap(GoodsReceiptDetail::getId, d -> d));
 
+        List<String> allDetailIds = receiptDetails.stream().map(GoodsReceiptDetail::getId).collect(Collectors.toList());
+        Map<String, BigDecimal> returnedQtyMap = new HashMap<>();
+        if (!allDetailIds.isEmpty()) {
+            List<SupplierReturnItemRepository.ReceiptDetailReturnedProjection> returnedList =
+                    supplierReturnItemRepository.sumQuantityReturnedByDetailIds(allDetailIds);
+            for (SupplierReturnItemRepository.ReceiptDetailReturnedProjection proj : returnedList) {
+                returnedQtyMap.put(proj.getDetailId(), proj.getTotalReturned());
+            }
+        }
+
+        // Check if the entire receipt is already fully returned
+        boolean isAllAlreadyReturned = !receiptDetails.isEmpty() && receiptDetails.stream().allMatch(d -> {
+            BigDecimal prev = returnedQtyMap.getOrDefault(d.getId(), BigDecimal.ZERO);
+            BigDecimal imported = d.getQuantity() != null ? d.getQuantity() : BigDecimal.ZERO;
+            return imported.subtract(prev).compareTo(BigDecimal.ZERO) <= 0;
+        });
+        if (isAllAlreadyReturned) {
+            log.warn("Phiếu nhập {} đã được hoàn trả toàn bộ hàng trước đó, từ chối tạo thêm phiếu trả", receipt.getReceiptNumber());
+            throw new AppException(ErrorCode.RECEIPT_ALREADY_FULLY_RETURNED);
+        }
+
         // Generate return number
         String returnNumber = request.getReturnNumber();
         if (!StringUtils.hasText(returnNumber)) {
@@ -218,20 +253,6 @@ public class SupplierReturnServiceImpl implements SupplierReturnService {
         BigDecimal totalReturnAmount = BigDecimal.ZERO;
         List<SupplierReturnItem> itemsToSave = new ArrayList<>();
         Map<String, Product> productsToUpdate = new HashMap<>();
-
-        List<String> detailIds = request.getItems().stream()
-                .map(CreateSupplierReturnItemRequest::getReceiptDetailId)
-                .filter(Objects::nonNull)
-                .collect(Collectors.toList());
-
-        Map<String, BigDecimal> returnedQtyMap = new HashMap<>();
-        if (!detailIds.isEmpty()) {
-            List<SupplierReturnItemRepository.ReceiptDetailReturnedProjection> returnedList =
-                    supplierReturnItemRepository.sumQuantityReturnedByDetailIds(detailIds);
-            for (SupplierReturnItemRepository.ReceiptDetailReturnedProjection proj : returnedList) {
-                returnedQtyMap.put(proj.getDetailId(), proj.getTotalReturned());
-            }
-        }
 
         for (CreateSupplierReturnItemRequest itemReq : request.getItems()) {
             GoodsReceiptDetail detail = detailMap.get(itemReq.getReceiptDetailId());

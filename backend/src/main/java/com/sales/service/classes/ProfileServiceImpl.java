@@ -52,6 +52,7 @@ public class ProfileServiceImpl implements ProfileService {
     private final CacheManager cacheManager;
     private final JwtService jwtService;
     private final UserSessionService userSessionService;
+    private final com.sales.service.interfaces.UserDisplaySettingService userDisplaySettingService;
 
     private final SecureRandom secureRandom = new SecureRandom();
 
@@ -318,6 +319,7 @@ public class ProfileServiceImpl implements ProfileService {
                 .passwordChangedAt(user.getPasswordChangedAt())
                 .createdAt(user.getCreatedAt())
                 .updatedAt(user.getUpdatedAt())
+                .displaySettings(userDisplaySettingService != null ? userDisplaySettingService.getDisplaySettingForUser(user) : null)
                 .build();
     }
 

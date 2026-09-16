@@ -13,6 +13,7 @@ import {
   Power,
   Building2,
   Calendar,
+  ArrowDownLeft,
 } from "lucide-react";
 import { USER_ROLES } from "@/constants/roles";
 import { APP_ROUTES } from "@/constants/routes";
@@ -28,13 +29,19 @@ import { useDashboardDemo } from "@/providers/DashboardDemoProvider";
 import { useNotification } from "@/hooks/useNotification";
 import { formatCurrency } from "@/utils/formatCurrency";
 import { getApiErrorMessage } from "@/utils/getApiErrorMessage";
-import type { IPaySupplierDebtRequest } from "../types/ISupplierDebt";
+import type {
+  IPaySupplierDebtRequest,
+  IReceiveSupplierRefundRequest,
+} from "../types/ISupplierDebt";
 import {
   useGetSupplierByIdQuery,
   useUpdateSupplierMutation,
   useUpdateSupplierStatusMutation,
 } from "../services/supplierApi";
-import { usePaySupplierDebtMutation } from "../services/supplierDebtApi";
+import {
+  usePaySupplierDebtMutation,
+  useReceiveSupplierRefundMutation,
+} from "../services/supplierDebtApi";
 import { SupplierDebtHistoryTab } from "../components/SupplierDebtHistoryTab";
 import {
   SupplierFormModal,
@@ -42,6 +49,7 @@ import {
 } from "../components/SupplierFormModal";
 import { SupplierStatusModal } from "../components/SupplierStatusModal";
 import { PaySupplierDebtModal } from "../components/PaySupplierDebtModal";
+import { ReceiveSupplierRefundModal } from "../components/ReceiveSupplierRefundModal";
 
 export const SupplierDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -60,6 +68,7 @@ export const SupplierDetailPage: React.FC = () => {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
   const [isPayModalOpen, setIsPayModalOpen] = useState(false);
+  const [isRefundModalOpen, setIsRefundModalOpen] = useState(false);
   const [serverError, setServerError] = useState<{
     code?: number;
     message?: string;
@@ -79,6 +88,7 @@ export const SupplierDetailPage: React.FC = () => {
   const [updateSupplierStatus, { isLoading: isUpdatingStatus }] =
     useUpdateSupplierStatusMutation();
   const [paySupplierDebt] = usePaySupplierDebtMutation();
+  const [receiveSupplierRefund] = useReceiveSupplierRefundMutation();
 
   const formatDateTime = (dateStr?: string | null) => {
     if (!dateStr) return "—";
@@ -194,6 +204,32 @@ export const SupplierDetailPage: React.FC = () => {
     }
   };
 
+  const handleConfirmReceiveRefund = async (request: IReceiveSupplierRefundRequest) => {
+    if (!supplier) return;
+    try {
+      await receiveSupplierRefund(request).unwrap();
+      const amountFormatted = formatCurrency(request.amount);
+      const remainingRefundable = Math.max(
+        0,
+        Math.abs(supplier.currentDebt || 0) - request.amount
+      );
+
+      addLogEntry(
+        SUPPLIER_DEBT_LOG_ACTIONS.PAY,
+        `Thu tiền hoàn ${amountFormatted} từ nhà cung cấp "${supplier.name}". Số tiền NCC còn nợ lại: ${formatCurrency(remainingRefundable)}`
+      );
+      showSuccess(
+        `Thu tiền hoàn ${amountFormatted} từ nhà cung cấp "${supplier.name}" thành công!`
+      );
+      setIsRefundModalOpen(false);
+      refetchById();
+    } catch (err: unknown) {
+      showError(
+        getApiErrorMessage(err, "Không thể thu tiền hoàn từ nhà cung cấp")
+      );
+    }
+  };
+
   if (isLoadingById) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] gap-3 text-slate-500">
@@ -231,7 +267,9 @@ export const SupplierDetailPage: React.FC = () => {
 
   const currentSupplier = supplier;
   const isActive = currentSupplier.status !== "INACTIVE";
-  const hasDebt = (currentSupplier.currentDebt || 0) > 0;
+  const debtValue = currentSupplier.currentDebt || 0;
+  const hasDebt = debtValue > 0;
+  const hasRefundableDebt = debtValue < 0;
   const displayCode = `NCC-${(currentSupplier.id || "").slice(0, 6).toUpperCase()}`;
 
   return (
@@ -308,7 +346,9 @@ export const SupplierDetailPage: React.FC = () => {
         className={`p-5 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm ${
           hasDebt
             ? "bg-rose-50/80 border-rose-200"
-            : "bg-emerald-50/70 border-emerald-200"
+            : hasRefundableDebt
+            ? "bg-emerald-50/80 border-emerald-200"
+            : "bg-slate-50 border-slate-200"
         }`}
       >
         <div className="flex items-center gap-3.5">
@@ -316,35 +356,67 @@ export const SupplierDetailPage: React.FC = () => {
             className={`p-3 rounded-xl ${
               hasDebt
                 ? "bg-rose-500/10 text-rose-600"
-                : "bg-emerald-500/10 text-emerald-600"
+                : hasRefundableDebt
+                ? "bg-emerald-500/10 text-emerald-600"
+                : "bg-slate-500/10 text-slate-600"
             }`}
           >
-            <Wallet className="w-7 h-7" />
+            {hasRefundableDebt ? (
+              <ArrowDownLeft className="w-7 h-7" />
+            ) : (
+              <Wallet className="w-7 h-7" />
+            )}
           </div>
           <div>
             <span className="text-xs text-slate-600 font-bold block">
-              Dư nợ phải trả hiện tại
+              {hasRefundableDebt
+                ? "Nhà cung cấp đang nợ lại cửa hàng (Dư có / Cần thu hoàn)"
+                : "Dư nợ phải trả hiện tại"}
             </span>
             <span
               className={`text-xl font-black tracking-tight ${
-                hasDebt ? "text-rose-600" : "text-emerald-700"
+                hasDebt
+                  ? "text-rose-600"
+                  : hasRefundableDebt
+                  ? "text-emerald-700"
+                  : "text-slate-700"
               }`}
             >
-              {formatCurrency(currentSupplier.currentDebt || 0)}
+              {hasRefundableDebt
+                ? `NCC nợ: ${formatCurrency(Math.abs(debtValue))}`
+                : formatCurrency(debtValue)}
             </span>
+            {hasRefundableDebt && (
+              <p className="text-[11px] text-emerald-600 font-medium mt-0.5">
+                Cửa hàng đã thanh toán trước khi trả hàng, cần thu tiền hoàn từ NCC
+              </p>
+            )}
           </div>
         </div>
 
-        {canManageDebt && hasDebt && (
-          <button
-            type="button"
-            onClick={() => setIsPayModalOpen(true)}
-            className="flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg bg-rose-600 hover:bg-rose-700 active:scale-95 text-white text-xs font-bold shadow-md transition-all shrink-0"
-          >
-            <CreditCard size={15} />
-            Thanh toán nợ ngay
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          {canManageDebt && hasDebt && (
+            <button
+              type="button"
+              onClick={() => setIsPayModalOpen(true)}
+              className="flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg bg-rose-600 hover:bg-rose-700 active:scale-95 text-white text-xs font-bold shadow-md transition-all shrink-0"
+            >
+              <CreditCard size={15} />
+              Thanh toán nợ ngay
+            </button>
+          )}
+
+          {canManageDebt && hasRefundableDebt && (
+            <button
+              type="button"
+              onClick={() => setIsRefundModalOpen(true)}
+              className="flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs font-bold shadow-md transition-all shrink-0"
+            >
+              <ArrowDownLeft size={15} />
+              Thu tiền hoàn từ NCC
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Tabs Layout */}
@@ -379,6 +451,11 @@ export const SupplierDetailPage: React.FC = () => {
               {hasDebt && (
                 <span className="ml-1 px-1.5 py-0.5 rounded-full bg-rose-100 text-rose-700 text-[10px] font-bold">
                   Còn nợ
+                </span>
+              )}
+              {hasRefundableDebt && (
+                <span className="ml-1 px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-bold">
+                  NCC nợ
                 </span>
               )}
             </button>
@@ -480,6 +557,7 @@ export const SupplierDetailPage: React.FC = () => {
               currentDebt={currentSupplier.currentDebt || 0}
               canPay={canManageDebt}
               onOpenPayModal={() => setIsPayModalOpen(true)}
+              onOpenRefundModal={() => setIsRefundModalOpen(true)}
             />
           )}
         </div>
@@ -509,6 +587,14 @@ export const SupplierDetailPage: React.FC = () => {
         onClose={() => setIsPayModalOpen(false)}
         supplier={currentSupplier}
         onConfirmPayment={handleConfirmPayDebt}
+      />
+
+      {/* Receive Refund Modal */}
+      <ReceiveSupplierRefundModal
+        isOpen={isRefundModalOpen}
+        onClose={() => setIsRefundModalOpen(false)}
+        supplier={currentSupplier}
+        onConfirmRefund={handleConfirmReceiveRefund}
       />
     </div>
   );

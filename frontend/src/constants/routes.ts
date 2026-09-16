@@ -12,6 +12,7 @@ export const ROUTE_SEGMENTS = {
   ORDERS: "orders",
   CUSTOMERS: "customers",
   SUPPLIERS: "suppliers",
+  SUPPLIER_RETURNS: "supplier-returns",
   EMPLOYEES: "employees",
   REPORTS: "reports",
   REVENUE: "revenue",
@@ -49,6 +50,7 @@ export const ROUTE_SEGMENTS = {
   SESSIONS: "sessions",
   STOCK_CARD: "stock-card",
   PRICE_ADJUSTMENTS: "price-adjustments",
+  INVENTORY_VALUATION: "inventory-valuation",
   LOYALTY: "loyalty",
   GROSS_PROFIT: "gross-profit",
   EMPLOYEE_SHIFTS: "employee-shifts",
@@ -98,6 +100,10 @@ export const APP_ROUTES = {
   PRODUCT_SUPPLIERS: createRoute(
     ROUTE_SEGMENTS.PRODUCTS,
     ROUTE_SEGMENTS.SUPPLIERS,
+  ),
+  PRODUCT_SUPPLIER_RETURNS: createRoute(
+    ROUTE_SEGMENTS.PRODUCTS,
+    ROUTE_SEGMENTS.SUPPLIER_RETURNS,
   ),
   PRODUCT_STOCK_CARD: createRoute(
     ROUTE_SEGMENTS.PRODUCTS,
@@ -159,6 +165,14 @@ export const APP_ROUTES = {
   REPORT_PEAK_HOURS: createRoute(
     ROUTE_SEGMENTS.REPORTS,
     ROUTE_SEGMENTS.PEAK_HOURS,
+  ),
+  REPORT_INVENTORY_VALUATION: createRoute(
+    ROUTE_SEGMENTS.REPORTS,
+    ROUTE_SEGMENTS.INVENTORY_VALUATION,
+  ),
+  PRODUCT_INVENTORY_VALUATION: createRoute(
+    ROUTE_SEGMENTS.REPORTS,
+    ROUTE_SEGMENTS.INVENTORY_VALUATION,
   ),
   REPORT_GROSS_PROFIT: createRoute(
     ROUTE_SEGMENTS.REPORTS,

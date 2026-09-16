@@ -228,5 +228,73 @@ class SupplierDebtServiceImplTest {
         assertEquals(DebtType.DEBT_PAID, savedDebt.getType());
         assertTrue(savedDebt.getNotes().contains("Khoản tiền NCC cần hoàn lại / dư có"));
     }
+
+    @Test
+    @DisplayName("P1-02: Thu tiền hoàn từ NCC thành công đưa công nợ từ âm về 0")
+    void receiveSupplierRefund_Success_RestoresDebtToZero() {
+        supplier.setCurrentDebt(new BigDecimal("-500000.00"));
+        when(userRepository.findByUsername("owner_test")).thenReturn(Optional.of(currentUser));
+        when(supplierRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("sup-1", "hh-1"))
+                .thenReturn(Optional.of(supplier));
+
+        com.sales.dto.request.ReceiveSupplierRefundRequest request =
+                com.sales.dto.request.ReceiveSupplierRefundRequest.builder()
+                        .supplierId("sup-1")
+                        .amount(new BigDecimal("500000.00"))
+                        .paymentMethod("CASH")
+                        .notes("NCC hoàn lại tiền mặt")
+                        .build();
+
+        when(supplierDebtRepository.save(any(SupplierDebt.class))).thenAnswer(invocation -> {
+            SupplierDebt d = invocation.getArgument(0);
+            d.setId("refund-debt-1");
+            return d;
+        });
+
+        SupplierDebtResponse response = supplierDebtService.receiveSupplierRefund("owner_test", request);
+
+        assertNotNull(response);
+        assertEquals(0, BigDecimal.ZERO.compareTo(supplier.getCurrentDebt()));
+        verify(supplierRepository, times(1)).save(supplier);
+        verify(supplierDebtRepository, times(1)).save(any(SupplierDebt.class));
+    }
+
+    @Test
+    @DisplayName("P1-03: Chặn thu tiền hoàn khi NCC không có nợ âm (không có tiền cần hoàn)")
+    void receiveSupplierRefund_NoRefundableDebt_ThrowsException() {
+        supplier.setCurrentDebt(new BigDecimal("100000.00")); // Đang nợ dương
+        when(userRepository.findByUsername("owner_test")).thenReturn(Optional.of(currentUser));
+        when(supplierRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("sup-1", "hh-1"))
+                .thenReturn(Optional.of(supplier));
+
+        com.sales.dto.request.ReceiveSupplierRefundRequest request =
+                com.sales.dto.request.ReceiveSupplierRefundRequest.builder()
+                        .supplierId("sup-1")
+                        .amount(new BigDecimal("50000.00"))
+                        .build();
+
+        AppException ex = assertThrows(AppException.class, () ->
+                supplierDebtService.receiveSupplierRefund("owner_test", request));
+        assertEquals(ErrorCode.SUPPLIER_HAS_NO_REFUNDABLE_DEBT, ex.getErrorCode());
+    }
+
+    @Test
+    @DisplayName("P1-04: Chặn thu tiền hoàn vượt quá số tiền NCC đang nợ lại")
+    void receiveSupplierRefund_AmountExceedsDebt_ThrowsException() {
+        supplier.setCurrentDebt(new BigDecimal("-200000.00")); // Nợ âm 200k
+        when(userRepository.findByUsername("owner_test")).thenReturn(Optional.of(currentUser));
+        when(supplierRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("sup-1", "hh-1"))
+                .thenReturn(Optional.of(supplier));
+
+        com.sales.dto.request.ReceiveSupplierRefundRequest request =
+                com.sales.dto.request.ReceiveSupplierRefundRequest.builder()
+                        .supplierId("sup-1")
+                        .amount(new BigDecimal("300000.00")) // Yêu cầu thu 300k
+                        .build();
+
+        AppException ex = assertThrows(AppException.class, () ->
+                supplierDebtService.receiveSupplierRefund("owner_test", request));
+        assertEquals(ErrorCode.REFUND_AMOUNT_EXCEEDS_DEBT, ex.getErrorCode());
+    }
 }
 

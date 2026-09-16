@@ -25,4 +25,5 @@ public class UserProfileResponse {
     private LocalDateTime passwordChangedAt;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    private UserDisplaySettingResponse displaySettings;
 }

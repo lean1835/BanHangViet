@@ -26,4 +26,5 @@ public class InventoryValuationItemResponse {
     private BigDecimal retailValue;             // Giá trị theo giá bán = stockQuantity * retailPrice
     private LocalDate lastImportDate;           // Ngày nhập hàng gần nhất (hoặc ngày tạo)
     private Long daysInStock;                   // Số ngày tồn kho tính đến asOfDate
+    private Boolean isNegativeStock;            // Cờ đánh dấu sản phẩm bị bán âm kho (stockQuantity < 0)
 }

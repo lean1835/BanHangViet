@@ -53,6 +53,12 @@ class GoodsReceiptUnitConversionTest {
     private SupplierDebtService supplierDebtService;
 
     @Mock
+    private SupplierReturnRepository supplierReturnRepository;
+
+    @Mock
+    private SupplierReturnItemRepository supplierReturnItemRepository;
+
+    @Mock
     private ObjectMapper objectMapper;
 
     @InjectMocks
@@ -188,5 +194,69 @@ class GoodsReceiptUnitConversionTest {
 
         // Giá vốn: (10 * 8000 + 240000) / 34 = 320000 / 34 = 9411.76
         assertEquals(new BigDecimal("9411.76"), testProduct.getCostPrice());
+    }
+
+    @Test
+    @DisplayName("P2-02: getGoodsReceipts tính toán đúng returnStatus NOT_RETURNED, PARTIALLY_RETURNED, FULLY_RETURNED")
+    void getGoodsReceipts_MapsReturnStatusCorrectly() {
+        when(userRepository.findByUsername("owner")).thenReturn(Optional.of(testUser));
+
+        GoodsReceipt gr1 = GoodsReceipt.builder()
+                .id("gr-1")
+                .receiptNumber("NK-001")
+                .household(testHousehold)
+                .createdByUser(testUser)
+                .totalAmount(new BigDecimal("1000000.00"))
+                .build();
+
+        GoodsReceipt gr2 = GoodsReceipt.builder()
+                .id("gr-2")
+                .receiptNumber("NK-002")
+                .household(testHousehold)
+                .createdByUser(testUser)
+                .totalAmount(new BigDecimal("2000000.00"))
+                .build();
+
+        GoodsReceipt gr3 = GoodsReceipt.builder()
+                .id("gr-3")
+                .receiptNumber("NK-003")
+                .household(testHousehold)
+                .createdByUser(testUser)
+                .totalAmount(new BigDecimal("500000.00"))
+                .build();
+
+        org.springframework.data.domain.Page<GoodsReceipt> receiptPage =
+                new org.springframework.data.domain.PageImpl<>(List.of(gr1, gr2, gr3));
+
+        when(goodsReceiptRepository.findByHouseholdId(eq("hh-1"), any(org.springframework.data.domain.Pageable.class)))
+                .thenReturn(receiptPage);
+
+        // gr-1: chưa trả (0)
+        // gr-2: trả một phần (500k)
+        // gr-3: trả toàn bộ (500k)
+        List<Object[]> returnTotals = List.of(
+                new Object[]{"gr-2", new BigDecimal("500000.00")},
+                new Object[]{"gr-3", new BigDecimal("500000.00")}
+        );
+        when(supplierReturnRepository.sumTotalReturnAmountByReceiptIds(eq(List.of("gr-1", "gr-2", "gr-3")), eq("hh-1")))
+                .thenReturn(returnTotals);
+
+        com.sales.dto.response.PageResponse<GoodsReceiptResponse> result =
+                goodsReceiptService.getGoodsReceipts("owner", 0, 10);
+
+        assertNotNull(result);
+        assertEquals(3, result.getContent().size());
+
+        GoodsReceiptResponse resp1 = result.getContent().get(0);
+        assertEquals("NOT_RETURNED", resp1.getReturnStatus());
+        assertEquals(BigDecimal.ZERO, resp1.getTotalReturnedAmount());
+
+        GoodsReceiptResponse resp2 = result.getContent().get(1);
+        assertEquals("PARTIALLY_RETURNED", resp2.getReturnStatus());
+        assertEquals(new BigDecimal("500000.00"), resp2.getTotalReturnedAmount());
+
+        GoodsReceiptResponse resp3 = result.getContent().get(2);
+        assertEquals("FULLY_RETURNED", resp3.getReturnStatus());
+        assertEquals(new BigDecimal("500000.00"), resp3.getTotalReturnedAmount());
     }
 }

@@ -2,7 +2,7 @@ import React from "react";
 import { formatCurrency } from "@/utils/formatCurrency";
 import { TablePaginationFooter } from "@/components/common/TablePaginationFooter";
 import type { ISupplier } from "../types/ISupplier";
-import { Wallet } from "lucide-react";
+import { Wallet, ArrowDownLeft } from "lucide-react";
 
 interface SupplierTableProps {
   suppliers: ISupplier[];
@@ -14,6 +14,7 @@ interface SupplierTableProps {
   onToggleStatus: (supplier: ISupplier) => void;
   onViewDetail: (supplier: ISupplier) => void;
   onPayDebt?: (supplier: ISupplier) => void;
+  onReceiveRefund?: (supplier: ISupplier) => void;
   page?: number;
   pageSize?: number;
   totalPages?: number;
@@ -30,12 +31,14 @@ export const SupplierTable: React.FC<SupplierTableProps> = ({
   onToggleStatus,
   onViewDetail,
   onPayDebt,
+  onReceiveRefund,
   page = 0,
   pageSize = 8,
   totalPages = 0,
   onPageChange,
 }) => {
-  const showActionColumn = canManage || Boolean(canPayDebt && onPayDebt);
+  const showActionColumn =
+    canManage || Boolean(canPayDebt && (onPayDebt || onReceiveRefund));
   const displayTotal = totalCount ?? suppliers.length;
 
   return (
@@ -85,7 +88,9 @@ export const SupplierTable: React.FC<SupplierTableProps> = ({
               </thead>
               <tbody className="divide-y divide-slate-100 text-xs font-semibold text-slate-700">
                 {suppliers.map((supplier) => {
-                  const hasDebt = (supplier.currentDebt || 0) > 0;
+                  const currentDebt = supplier.currentDebt || 0;
+                  const hasDebt = currentDebt > 0;
+                  const isRefundable = currentDebt < 0;
                   const isActive = supplier.status !== "INACTIVE";
 
                   return (
@@ -129,15 +134,26 @@ export const SupplierTable: React.FC<SupplierTableProps> = ({
                         </span>
                       </td>
                       <td className="py-3.5 px-4 text-right font-bold">
-                        <span
-                          className={
-                            hasDebt
-                              ? "text-rose-600 font-bold"
-                              : "text-slate-500 font-normal"
-                          }
-                        >
-                          {formatCurrency(supplier.currentDebt || 0)}
-                        </span>
+                        {isRefundable ? (
+                          <div className="flex flex-col items-end">
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-2xs">
+                              NCC nợ: {formatCurrency(Math.abs(currentDebt))}
+                            </span>
+                            <span className="text-[10px] text-emerald-600 font-semibold mt-0.5">
+                              (Dư có / Cần thu hoàn)
+                            </span>
+                          </div>
+                        ) : (
+                          <span
+                            className={
+                              hasDebt
+                                ? "text-rose-600 font-bold"
+                                : "text-slate-400 font-normal"
+                            }
+                          >
+                            {formatCurrency(currentDebt)}
+                          </span>
+                        )}
                       </td>
                       {showActionColumn && (
                         <td
@@ -145,7 +161,19 @@ export const SupplierTable: React.FC<SupplierTableProps> = ({
                           onClick={(e) => e.stopPropagation()}
                         >
                           <div className="flex items-center justify-center gap-1">
-                            {canPayDebt && onPayDebt && (
+                            {canPayDebt && isRefundable && onReceiveRefund ? (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onReceiveRefund(supplier);
+                                }}
+                                title={`Thu tiền hoàn ${formatCurrency(Math.abs(currentDebt))} từ nhà cung cấp`}
+                                className="p-1.5 rounded-lg text-emerald-600 hover:bg-emerald-50 transition-colors"
+                              >
+                                <ArrowDownLeft className="w-4 h-4 stroke-[2.5]" />
+                              </button>
+                            ) : canPayDebt && onPayDebt ? (
                               <button
                                 type="button"
                                 onClick={(e) => {
@@ -166,7 +194,7 @@ export const SupplierTable: React.FC<SupplierTableProps> = ({
                               >
                                 <Wallet className="w-4 h-4" />
                               </button>
-                            )}
+                            ) : null}
                             {canManage && (
                               <>
                                 <button
