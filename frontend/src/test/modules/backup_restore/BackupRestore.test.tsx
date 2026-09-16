@@ -13,6 +13,11 @@ import { BackupHistoryTable } from "@/modules/backup_restore/components/BackupHi
 import { AvailableBackupsTable } from "@/modules/backup_restore/components/AvailableBackupsTable";
 import { RestorePreviewModal } from "@/modules/backup_restore/components/RestorePreviewModal";
 import { RestoreHistoryTable } from "@/modules/backup_restore/components/RestoreHistoryTable";
+import { BackupVerificationStatusBanner } from "@/modules/backup_restore/components/BackupVerificationStatusBanner";
+import { BackupVerificationOverviewCards } from "@/modules/backup_restore/components/BackupVerificationOverviewCards";
+import { BackupVerificationHistoryTable } from "@/modules/backup_restore/components/BackupVerificationHistoryTable";
+import { TriggerVerificationModal } from "@/modules/backup_restore/components/TriggerVerificationModal";
+import { VerificationDetailModal } from "@/modules/backup_restore/components/VerificationDetailModal";
 import { BackupRestorePage } from "@/modules/backup_restore/pages/BackupRestorePage";
 import { BACKUP_RESTORE_UI } from "@/constants/backupRestore";
 import { USER_ROLES, type TDemoRole } from "@/constants/roles";
@@ -22,6 +27,8 @@ import type {
   IBackupStatusOverview,
   IRestorePreview,
   IRestoreHistory,
+  IBackupVerificationHistory,
+  IBackupVerificationStatus,
 } from "@/modules/backup_restore/types/IBackupRestore";
 
 afterEach(() => {
@@ -140,6 +147,116 @@ const mockRestoreHistories: IRestoreHistory[] = [
     restoredByUserName: "Chủ hộ",
     restoredAt: "2026-09-15T15:30:00Z",
     createdAt: "2026-09-15T15:30:00Z",
+  },
+];
+
+const mockVerificationStatusNormal: IBackupVerificationStatus = {
+  latestVerification: {
+    id: "ver-1",
+    backupHistoryId: "bk-1",
+    backupFileName: "BanHangViet_Backup_FULL_2026-09-15.zip",
+    backupTime: "2026-09-15T02:00:00Z",
+    fileSize: 1536000,
+    status: "PASSED",
+    executionDurationMs: 345,
+    verifiedAt: "2026-09-16T02:05:00Z",
+    checkedFileReadable: true,
+    checkedRecordCountsMatched: true,
+    checkedAuditChainIntact: true,
+    productCount: 120,
+    customerCount: 45,
+    supplierCount: 12,
+    userCount: 5,
+    auditLogCount: 520,
+    failureReason: null,
+    triggerType: "AUTOMATIC",
+    notes: "Tự động kiểm thử sandbox",
+    createdAt: "2026-09-16T02:05:00Z",
+  },
+  latestSuccessfulVerification: {
+    id: "ver-1",
+    backupHistoryId: "bk-1",
+    backupFileName: "BanHangViet_Backup_FULL_2026-09-15.zip",
+    backupTime: "2026-09-15T02:00:00Z",
+    fileSize: 1536000,
+    status: "PASSED",
+    executionDurationMs: 345,
+    verifiedAt: "2026-09-16T02:05:00Z",
+    checkedFileReadable: true,
+    checkedRecordCountsMatched: true,
+    checkedAuditChainIntact: true,
+    productCount: 120,
+    customerCount: 45,
+    supplierCount: 12,
+    userCount: 5,
+    auditLogCount: 520,
+    failureReason: null,
+    triggerType: "AUTOMATIC",
+    notes: "Tự động kiểm thử sandbox",
+    createdAt: "2026-09-16T02:05:00Z",
+  },
+  daysSinceLastSuccess: 0,
+  maxAllowedDaysWithoutVerification: 7,
+  isOverdue: false,
+  hasFailedRecent: false,
+  overallHealthStatus: "NORMAL",
+  warningMessage: "Bản sao lưu gần nhất đã được kiểm chứng thành công và sẵn sàng phục hồi.",
+  totalVerificationsRun: 15,
+  passedVerificationsCount: 14,
+  failedVerificationsCount: 1,
+};
+
+const mockVerificationStatusDanger: IBackupVerificationStatus = {
+  ...mockVerificationStatusNormal,
+  overallHealthStatus: "DANGER",
+  hasFailedRecent: true,
+  isOverdue: true,
+  warningMessage:
+    "CẢNH BÁO NGUY HIỂM: Lần thử phục hồi bản sao lưu gần nhất bị THẤT BẠI. Chi tiết lỗi: Tệp sao lưu bị lỗi cấu trúc hoặc định dạng dữ liệu hỏng.",
+  latestVerification: {
+    ...mockVerificationStatusNormal.latestVerification!,
+    id: "ver-failed",
+    status: "FAILED",
+    checkedFileReadable: false,
+    checkedRecordCountsMatched: false,
+    checkedAuditChainIntact: false,
+    failureReason: "Tệp sao lưu bị lỗi cấu trúc hoặc định dạng dữ liệu hỏng.",
+  },
+};
+
+const mockVerificationStatusWarning: IBackupVerificationStatus = {
+  ...mockVerificationStatusNormal,
+  overallHealthStatus: "WARNING",
+  isOverdue: true,
+  daysSinceLastSuccess: 10,
+  warningMessage:
+    "CẢNH BÁO QUÁ HẠN: Đã quá 10 ngày kể từ lần kiểm chứng bản sao lưu thành công gần nhất (ngưỡng cho phép: 7 ngày).",
+};
+
+const mockVerificationHistories: IBackupVerificationHistory[] = [
+  mockVerificationStatusNormal.latestVerification!,
+  {
+    id: "ver-2",
+    backupHistoryId: "bk-2",
+    backupFileName: "BanHangViet_Backup_MANUAL_2026-09-14.zip",
+    backupTime: "2026-09-14T10:00:00Z",
+    fileSize: 1024000,
+    status: "FAILED",
+    executionDurationMs: 120,
+    verifiedAt: "2026-09-14T10:01:00Z",
+    checkedFileReadable: true,
+    checkedRecordCountsMatched: false,
+    checkedAuditChainIntact: true,
+    productCount: 120,
+    customerCount: 0,
+    supplierCount: 0,
+    userCount: 0,
+    auditLogCount: 300,
+    failureReason:
+      "Tệp sao lưu thiếu các bảng thực thể bắt buộc (customers, suppliers, users)",
+    triggerType: "MANUAL",
+    notes: "Kiểm tra sau xuất tay",
+    createdAt: "2026-09-14T10:01:00Z",
   },
 ];
 
@@ -328,4 +445,242 @@ describe("NCL-14: Module Sao lưu & Phục hồi dữ liệu (Backup & Restore)"
       expect(screen.getByText("Khôi phục sau sự cố")).toBeInTheDocument();
     });
   });
+
+  /* =======================================================================
+   * NCL-14-CN-005: Thử phục hồi định kỳ và báo cáo tình trạng bản sao lưu
+   * ======================================================================= */
+  describe("NCL-14-CN-005: Thử phục hồi định kỳ và báo cáo tình trạng bản sao lưu", () => {
+    it("TC-01: BackupVerificationStatusBanner renders NORMAL safe banner with timestamps", () => {
+      renderWithProviders(
+        <BackupVerificationStatusBanner
+          status={mockVerificationStatusNormal}
+          isLoading={false}
+        />
+      );
+
+      expect(
+        screen.getByText(BACKUP_RESTORE_UI.VERIFICATION.BANNER.SAFE_TITLE)
+      ).toBeInTheDocument();
+      expect(screen.getByText("An toàn - Đã kiểm chứng")).toBeInTheDocument();
+      expect(
+        screen.getByText("BanHangViet_Backup_FULL_2026-09-15.zip")
+      ).toBeInTheDocument();
+      expect(screen.getByText(/0 ngày/)).toBeInTheDocument();
+    });
+
+    it("TC-01: BackupVerificationOverviewCards renders health status, statistics, and trigger button", () => {
+      const handleOpenTrigger = vi.fn();
+
+      renderWithProviders(
+        <BackupVerificationOverviewCards
+          status={mockVerificationStatusNormal}
+          isLoading={false}
+          isTriggering={false}
+          onOpenTriggerModal={handleOpenTrigger}
+        />
+      );
+
+      expect(
+        screen.getByText(BACKUP_RESTORE_UI.VERIFICATION.OVERVIEW.HEALTH_LABEL)
+      ).toBeInTheDocument();
+      expect(screen.getByText("15")).toBeInTheDocument();
+      expect(screen.getByText(/14 Đạt/)).toBeInTheDocument();
+      expect(screen.getByText(/1 Lỗi/)).toBeInTheDocument();
+      expect(
+        screen.getByText(BACKUP_RESTORE_UI.VERIFICATION.OVERVIEW.TRIGGER_BTN)
+      ).toBeInTheDocument();
+
+      fireEvent.click(
+        screen.getByText(BACKUP_RESTORE_UI.VERIFICATION.OVERVIEW.TRIGGER_BTN)
+      );
+      expect(handleOpenTrigger).toHaveBeenCalledTimes(1);
+    });
+
+    it("TC-01: BackupVerificationHistoryTable renders 3 pillars and triggers onViewDetail", () => {
+      const handleViewDetail = vi.fn();
+
+      renderWithProviders(
+        <BackupVerificationHistoryTable
+          histories={mockVerificationHistories}
+          isLoading={false}
+          page={0}
+          totalPages={1}
+          totalElements={2}
+          onPageChange={vi.fn()}
+          onViewDetail={handleViewDetail}
+        />
+      );
+
+      expect(
+        screen.getByText(BACKUP_RESTORE_UI.VERIFICATION.HISTORY.TITLE)
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText("BanHangViet_Backup_FULL_2026-09-15.zip")
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText("BanHangViet_Backup_MANUAL_2026-09-14.zip")
+      ).toBeInTheDocument();
+      expect(screen.getByText("345 ms")).toBeInTheDocument();
+      expect(screen.getByText("Đạt (An toàn)")).toBeInTheDocument();
+      expect(screen.getByText("Không đạt (Lỗi)")).toBeInTheDocument();
+
+      const detailButtons = screen.getAllByText(
+        BACKUP_RESTORE_UI.VERIFICATION.HISTORY.DETAIL_BTN
+      );
+      fireEvent.click(detailButtons[0]);
+      expect(handleViewDetail).toHaveBeenCalledWith(
+        mockVerificationHistories[0]
+      );
+    });
+
+    it("TC-01: VerificationDetailModal renders 3 pillars scorecard and core entity counts", () => {
+      renderWithProviders(
+        <VerificationDetailModal
+          isOpen={true}
+          onClose={vi.fn()}
+          verification={mockVerificationStatusNormal.latestVerification!}
+        />
+      );
+
+      expect(
+        screen.getByText(BACKUP_RESTORE_UI.VERIFICATION.DETAIL_MODAL.TITLE)
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText("Kiểm chứng đạt chuẩn an toàn")
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText(
+          BACKUP_RESTORE_UI.VERIFICATION.DETAIL_MODAL.PILLAR_1_TITLE
+        )
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText(
+          BACKUP_RESTORE_UI.VERIFICATION.DETAIL_MODAL.PILLAR_2_TITLE
+        )
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText(
+          BACKUP_RESTORE_UI.VERIFICATION.DETAIL_MODAL.PILLAR_3_TITLE
+        )
+      ).toBeInTheDocument();
+
+      // Entity counts
+      expect(screen.getByText("120")).toBeInTheDocument(); // Products
+      expect(screen.getByText("45")).toBeInTheDocument(); // Customers
+      expect(screen.getByText("12")).toBeInTheDocument(); // Suppliers
+      expect(screen.getByText("5")).toBeInTheDocument(); // Users
+      expect(screen.getByText("520")).toBeInTheDocument(); // Audit logs
+    });
+
+    it("TC-02: BackupVerificationStatusBanner renders DANGER warning with failure reason on failure", () => {
+      renderWithProviders(
+        <BackupVerificationStatusBanner
+          status={mockVerificationStatusDanger}
+          isLoading={false}
+        />
+      );
+
+      expect(
+        screen.getByText(BACKUP_RESTORE_UI.VERIFICATION.BANNER.DANGER_TITLE)
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText("Nguy hiểm - Thử phục hồi thất bại")
+      ).toBeInTheDocument();
+      expect(
+        screen.getAllByText(/Tệp sao lưu bị lỗi cấu trúc hoặc định dạng dữ liệu hỏng/).length
+      ).toBeGreaterThan(0);
+    });
+
+    it("TC-02: VerificationDetailModal displays failure reason callout when verification FAILED", () => {
+      renderWithProviders(
+        <VerificationDetailModal
+          isOpen={true}
+          onClose={vi.fn()}
+          verification={mockVerificationHistories[1]}
+        />
+      );
+
+      expect(
+        screen.getByText("Kiểm chứng không đạt yêu cầu")
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText(
+          BACKUP_RESTORE_UI.VERIFICATION.DETAIL_MODAL.FAILURE_REASON_TITLE
+        )
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText(
+          /Tệp sao lưu thiếu các bảng thực thể bắt buộc \(customers, suppliers, users\)/
+        )
+      ).toBeInTheDocument();
+    });
+
+    it("TC-03: BackupVerificationStatusBanner renders WARNING alert when overdue (daysSinceLastSuccess > 7)", () => {
+      renderWithProviders(
+        <BackupVerificationStatusBanner
+          status={mockVerificationStatusWarning}
+          isLoading={false}
+        />
+      );
+
+      expect(
+        screen.getByText(BACKUP_RESTORE_UI.VERIFICATION.BANNER.WARNING_TITLE)
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText("Cảnh báo - Quá hạn kiểm chứng")
+      ).toBeInTheDocument();
+      expect(screen.getAllByText(/10 ngày/).length).toBeGreaterThan(0);
+    });
+
+    it("TC-01/TC-02: TriggerVerificationModal allows selecting backup, entering notes, and triggers onConfirmTrigger", async () => {
+      const handleConfirmTrigger = vi.fn().mockResolvedValue(undefined);
+
+      renderWithProviders(
+        <TriggerVerificationModal
+          isOpen={true}
+          onClose={vi.fn()}
+          availableBackups={mockBackupHistories}
+          isLoadingBackups={false}
+          isTriggering={false}
+          onConfirmTrigger={handleConfirmTrigger}
+        />
+      );
+
+      expect(
+        screen.getByText(BACKUP_RESTORE_UI.VERIFICATION.TRIGGER_MODAL.TITLE)
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText(
+          BACKUP_RESTORE_UI.VERIFICATION.TRIGGER_MODAL.NOTICE_TITLE
+        )
+      ).toBeInTheDocument();
+
+      const notesTextarea = screen.getByPlaceholderText(
+        BACKUP_RESTORE_UI.VERIFICATION.TRIGGER_MODAL.NOTES_PLACEHOLDER
+      );
+      fireEvent.change(notesTextarea, {
+        target: { value: "Kiểm tra thử nghiệm sandbox" },
+      });
+
+      const submitBtn = screen.getByText(
+        BACKUP_RESTORE_UI.VERIFICATION.TRIGGER_MODAL.SUBMIT_BTN
+      );
+      fireEvent.click(submitBtn);
+
+      expect(handleConfirmTrigger).toHaveBeenCalledWith(
+        undefined,
+        "Kiểm tra thử nghiệm sandbox"
+      );
+    });
+
+    it("Security & RBAC Guard: Cashier (VT-02) is blocked with RBAC warning when on BackupRestorePage", () => {
+      renderWithProviders(<BackupRestorePage />, USER_ROLES.CASHIER);
+
+      expect(
+        screen.getByText(BACKUP_RESTORE_UI.RBAC_WARNING.TITLE)
+      ).toBeInTheDocument();
+      expect(screen.getByText(/Chủ hộ kinh doanh/)).toBeInTheDocument();
+    });
+  });
 });
+

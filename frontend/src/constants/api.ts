@@ -47,6 +47,7 @@ export const API_TAG_TYPES = {
   AUDIT_LOG: "AuditLog",
   BACKUP: "Backup",
   RESTORE: "Restore",
+  BACKUP_VERIFICATION: "BackupVerification",
   ANOMALY_ALERT: "AnomalyAlert",
   PROMOTION: "Promotion",
   BARCODE: "Barcode",
