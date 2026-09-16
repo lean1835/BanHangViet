@@ -71,6 +71,7 @@ interface IPlatformSystemLogResponse {
   eventType: string;
   severity: string;
   householdId?: string;
+  householdName?: string;
   householdTaxCode?: string;
   errorCode?: string;
   technicalMessage?: string;

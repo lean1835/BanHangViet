@@ -141,8 +141,7 @@ export const ChangePlanModal: React.FC<ChangePlanModalProps> = ({
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 items-stretch">
               {plans.map((p) => {
                 const isSelected = selectedPlanCode === p.code;
-                const isStarter = p.code === "BASIC";
-                const isStandard = p.code === "STANDARD";
+                const isStarter = p.code === "STARTER";
                 const isPremium = p.code === "PREMIUM";
 
                 // Định hình màu sắc riêng biệt cho từng gói
