@@ -113,6 +113,8 @@ export const EMPLOYEE_MESSAGES = {
 export const EMPLOYEE_UI = {
   SIDEBAR: {
     TITLE: "Bộ lọc nhân viên",
+    SEARCH_LABEL: "Tìm kiếm",
+    SEARCH_PLACEHOLDER: "Tìm theo tên, tài khoản...",
     STATUS_FILTER_LABEL: "Trạng thái tài khoản",
     ROLE_FILTER_LABEL: "Vai trò phân quyền",
     ALL_ROLES_LABEL: "Tất cả vai trò",

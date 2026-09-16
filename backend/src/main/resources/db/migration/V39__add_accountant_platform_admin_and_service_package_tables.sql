@@ -159,7 +159,7 @@ CREATE INDEX idx_platform_logs_event_type ON platform_system_logs(event_type, cr
 -- 9. Khởi tạo danh mục gói dịch vụ mặc định
 INSERT INTO service_packages (id, code, name, description, max_users, max_pos_points, max_invoices_per_month, data_retention_days, price, is_active)
 VALUES
-('pkg-001', 'BASIC', 'Gói Cơ Bản', 'Dành cho hộ kinh doanh nhỏ, tối đa 3 người dùng và 300 hóa đơn/tháng', 3, 1, 300, 180, 150000.00, TRUE),
-('pkg-002', 'STANDARD', 'Gói Tiêu Chuẩn', 'Dành cho hộ kinh doanh vừa, tối đa 10 người dùng và 1.000 hóa đơn/tháng', 10, 3, 1000, 365, 300000.00, TRUE),
-('pkg-003', 'PREMIUM', 'Gói Nâng Cao', 'Dành cho chuỗi cửa hàng, tối đa 50 người dùng và 5.000 hóa đơn/tháng', 50, 10, 5000, 730, 600000.00, TRUE)
-ON DUPLICATE KEY UPDATE name = VALUES(name);
+('pkg-001', 'BASIC', 'Gói Cơ Bản', 'Dành cho hộ kinh doanh nhỏ, tối đa 3 người dùng và 300 hóa đơn/tháng', 3, 1, 300, 180, 99000.00, TRUE),
+('pkg-002', 'STANDARD', 'Gói Tiêu Chuẩn', 'Dành cho hộ kinh doanh vừa, tối đa 10 người dùng và 1.000 hóa đơn/tháng', 10, 3, 1000, 365, 499000.00, TRUE),
+('pkg-003', 'PREMIUM', 'Gói Nâng Cao', 'Dành cho chuỗi cửa hàng, tối đa 50 người dùng và 5.000 hóa đơn/tháng', 50, 10, 5000, 730, 999000.00, TRUE)
+ON DUPLICATE KEY UPDATE name = VALUES(name), price = VALUES(price);

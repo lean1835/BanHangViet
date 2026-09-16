@@ -25,6 +25,11 @@ public class PlatformHouseholdSummaryResponse {
     private LocalDateTime lockedAt;
     private Long userCount;
     private LocalDateTime lastActiveAt;
+    private String currentPackageCode;
     private String currentPackageName;
+    private java.time.LocalDate packageEndDate;
+    private Integer maxUsers;
+    private Integer maxInvoicesMonth;
+    private Integer invoiceCountMonth;
     private LocalDateTime createdAt;
 }

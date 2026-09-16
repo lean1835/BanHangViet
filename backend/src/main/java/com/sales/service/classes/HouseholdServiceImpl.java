@@ -125,7 +125,7 @@ public class HouseholdServiceImpl implements HouseholdService {
             String oldStr = oldValue != null ? objectMapper.writeValueAsString(oldValue) : null;
             String newStr = newValue != null ? objectMapper.writeValueAsString(newValue) : null;
 
-            activityLogHelper.logActivityInNewTransaction(
+            activityLogHelper.logActivity(
                     household, actor, action, "business_households", targetId, oldStr, newStr, clientIp, userAgent);
         } catch (Exception e) {
             log.error("Không thể ghi activity log cho cập nhật hộ kinh doanh", e);

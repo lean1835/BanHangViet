@@ -20,6 +20,7 @@ public class AccountantInvitationResponse {
     private String householdName;
     private String householdTaxCode;
     private String invitationToken;
+    private String accountantName;
     private String accountantPhone;
     private String accountantEmail;
     private String invitedByUsername;
@@ -30,4 +31,7 @@ public class AccountantInvitationResponse {
     private LocalDateTime acceptedAt;
     private LocalDateTime rejectedAt;
     private LocalDateTime createdAt;
+    private Boolean isNewAccountCreated;
+    private String accountantUsername;
+    private String temporaryPassword;
 }

@@ -18,6 +18,7 @@ public class PlatformSystemLogResponse {
     private String eventType;
     private PlatformLogSeverity severity;
     private String householdId;
+    private String householdName;
     private String householdTaxCode;
     private String errorCode;
     private String technicalMessage;

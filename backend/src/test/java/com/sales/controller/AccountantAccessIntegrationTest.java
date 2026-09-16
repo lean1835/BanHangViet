@@ -58,6 +58,9 @@ public class AccountantAccessIntegrationTest {
     @Autowired
     private AccountantService accountantService;
 
+    @Autowired
+    private org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
+
     private BusinessHousehold householdA;
     private BusinessHousehold householdB;
     private User ownerA;
@@ -135,7 +138,7 @@ public class AccountantAccessIntegrationTest {
 
     @Test
     @WithMockUser(username = "owner_a", roles = {"VT-01"})
-    @DisplayName("NCL-01-CN-008 TC-01: Chủ hộ mời kế toán thành công (Pending invitation)")
+    @DisplayName("TC-01: Chủ hộ mời kế toán thành công (Pending invitation)")
     public void inviteAccountant_Success() throws Exception {
         InviteAccountantRequest request = InviteAccountantRequest.builder()
                 .accountantPhone("0988776655")
@@ -155,7 +158,7 @@ public class AccountantAccessIntegrationTest {
 
     @Test
     @WithMockUser(username = "emp_test", roles = {"VT-02"})
-    @DisplayName("NCL-01-CN-008: Nhân viên bán hàng không có quyền mời kế toán -> 403 Forbidden")
+    @DisplayName("Nhân viên bán hàng không có quyền mời kế toán -> 403 Forbidden")
     public void inviteAccountant_ForbiddenForEmployee() throws Exception {
         InviteAccountantRequest request = InviteAccountantRequest.builder()
                 .accountantPhone("0988776655")
@@ -171,7 +174,7 @@ public class AccountantAccessIntegrationTest {
 
     @Test
     @WithMockUser(username = "accountant_test", roles = {"VT-03"})
-    @DisplayName("NCL-01-CN-008 TC-01: Kế toán chấp nhận lời mời qua token thành công")
+    @DisplayName("TC-01: Kế toán chấp nhận lời mời qua token thành công")
     public void acceptInvitation_Success() throws Exception {
         AccountantInvitation invitation = invitationRepository.save(AccountantInvitation.builder()
                 .household(householdA)
@@ -202,7 +205,7 @@ public class AccountantAccessIntegrationTest {
 
     @Test
     @WithMockUser(username = "accountant_test", roles = {"VT-03"})
-    @DisplayName("NCL-01-CN-008 TC-02: Kế toán lấy danh sách các hộ được phân công (đa hộ)")
+    @DisplayName("TC-02: Kế toán lấy danh sách các hộ được phân công (đa hộ)")
     public void getAssignedHouseholds_Success() throws Exception {
         assignmentRepository.save(HouseholdAccountantAssignment.builder()
                 .household(householdA)
@@ -229,7 +232,7 @@ public class AccountantAccessIntegrationTest {
 
     @Test
     @WithMockUser(username = "owner_a", roles = {"VT-01"})
-    @DisplayName("NCL-01-CN-008 TC-03: Chủ hộ thu hồi quyền kế toán và cắt phiên ngay lập tức")
+    @DisplayName("TC-03: Chủ hộ thu hồi quyền kế toán và cắt phiên ngay lập tức")
     public void revokeAccountantAssignment_Success() throws Exception {
         HouseholdAccountantAssignment assignment = assignmentRepository.save(HouseholdAccountantAssignment.builder()
                 .household(householdA)
@@ -255,8 +258,37 @@ public class AccountantAccessIntegrationTest {
     }
 
     @Test
+    @WithMockUser(username = "owner_a", roles = {"VT-01"})
+    @DisplayName("Chủ hộ hủy/thu hồi lời mời đang chờ thành công")
+    public void revokeAccountantInvitation_Success() throws Exception {
+        AccountantInvitation invitation = invitationRepository.save(AccountantInvitation.builder()
+                .household(householdA)
+                .invitedByUser(ownerA)
+                .accountantPhone("0988776655")
+                .accountantEmail("ketoan@gmail.com")
+                .invitationToken("token-to-revoke")
+                .scopePermissions("[\"INVOICE\"]")
+                .status(AccountantInvitationStatus.PENDING)
+                .invitationExpiresAt(LocalDateTime.now().plusDays(7))
+                .build());
+
+        RevokeAccountantAssignmentRequest request = RevokeAccountantAssignmentRequest.builder()
+                .reason("Chủ hộ hủy lời mời")
+                .build();
+
+        mockMvc.perform(post("/api/v1/accountant/assignments/" + invitation.getId() + "/revoke")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(1000));
+
+        AccountantInvitation updated = invitationRepository.findById(invitation.getId()).orElseThrow();
+        assertEquals(AccountantInvitationStatus.REVOKED, updated.getStatus());
+    }
+
+    @Test
     @WithMockUser(username = "accountant_test", roles = {"VT-03"})
-    @DisplayName("NCL-01-CN-008 & NCL-01-CN-009: Kế toán không thể chấp nhận lời mời hoặc chuyển vào hộ bị KHÓA")
+    @DisplayName("Kế toán không thể chấp nhận lời mời hoặc chuyển vào hộ bị KHÓA")
     public void accountant_CannotAccessLockedHousehold() {
         householdA.setStatus(com.sales.constant.HouseholdStatus.LOCKED);
         householdA.setLockReason("Hộ bị đóng băng");
@@ -340,5 +372,65 @@ public class AccountantAccessIntegrationTest {
         mockMvc.perform(get("/api/v1/reports/daily")
                         .header("X-Household-Context", householdA.getId()))
                 .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(username = "owner_a", roles = {"VT-01"})
+    @DisplayName("Chủ hộ mời kế toán mới chưa có tài khoản: Hệ thống tự sinh tài khoản và mật khẩu tạm")
+    public void inviteAccountant_AutoProvisionNewAccount_Success() throws Exception {
+        InviteAccountantRequest request = InviteAccountantRequest.builder()
+                .accountantName("Đỗ Kế Toán Mới")
+                .accountantPhone("0911223344")
+                .accountantEmail("ketoan_moi@banhangviet.vn")
+                .accessDurationDays(30)
+                .scopePermissions(List.of("INVOICE", "REPORT"))
+                .createAccountMode("AUTO_GENERATE")
+                .build();
+
+        mockMvc.perform(post("/api/v1/accountant/invitations")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(1000))
+                .andExpect(jsonPath("$.result.status").value("PENDING"))
+                .andExpect(jsonPath("$.result.isNewAccountCreated").value(true))
+                .andExpect(jsonPath("$.result.accountantUsername").isNotEmpty())
+                .andExpect(jsonPath("$.result.temporaryPassword").isNotEmpty());
+
+        User newUser = userRepository.findByPhoneNumberAndDeletedAtIsNull("0911223344")
+                .orElse(null);
+        assertNotNull(newUser, "User mới phải được tạo trong CSDL");
+        assertEquals("VT-03", newUser.getRole().getCode());
+        assertTrue(newUser.getMustChangePassword());
+        assertTrue(newUser.getIsActive());
+        assertEquals("Đỗ Kế Toán Mới", newUser.getFullName());
+    }
+
+    @Test
+    @WithMockUser(username = "owner_a", roles = {"VT-01"})
+    @DisplayName("Chủ hộ mời kế toán mới chưa có tài khoản: Chủ hộ tự đặt mật khẩu ban đầu")
+    public void inviteAccountant_ManualPassword_Success() throws Exception {
+        InviteAccountantRequest request = InviteAccountantRequest.builder()
+                .accountantName("Phạm Kế Toán Pass")
+                .accountantPhone("0922334455")
+                .accountantEmail("ketoan_pass@banhangviet.vn")
+                .accessDurationDays(30)
+                .scopePermissions(List.of("INVOICE", "REPORT"))
+                .createAccountMode("MANUAL_PASSWORD")
+                .initialPassword("Secret@123456")
+                .build();
+
+        mockMvc.perform(post("/api/v1/accountant/invitations")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(1000))
+                .andExpect(jsonPath("$.result.isNewAccountCreated").value(true))
+                .andExpect(jsonPath("$.result.temporaryPassword").value("Secret@123456"));
+
+        User newUser = userRepository.findByPhoneNumberAndDeletedAtIsNull("0922334455")
+                .orElse(null);
+        assertNotNull(newUser);
+        assertTrue(passwordEncoder.matches("Secret@123456", newUser.getPasswordHash()));
     }
 }

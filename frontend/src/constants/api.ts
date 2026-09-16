@@ -75,6 +75,10 @@ export const API_TAG_TYPES = {
   LOYALTY_TRANSACTIONS: "LoyaltyTransactions",
   ANNUAL_REVENUE: "AnnualRevenue",
   NOTIFICATION: "Notification",
+  ACCOUNTANT_INVITATION: "AccountantInvitation",
+  PLATFORM_HOUSEHOLD: "PlatformHousehold",
+  SUBSCRIPTION_PLAN: "SubscriptionPlan",
+  PLATFORM_LOG: "PlatformLog",
 } as const;
 
 export const API_TAG_TYPE_VALUES = Object.values(API_TAG_TYPES);
