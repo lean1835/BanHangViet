@@ -127,51 +127,5 @@ public class AnnualRevenueTrackingControllerTest {
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest());
     }
-
-    @Test
-    @DisplayName("API GET /notifications: Xem danh sách thông báo thành công")
-    @WithMockUser(username = "owner_test", roles = {"VT-01"})
-    void getNotifications_Success() throws Exception {
-        AppNotificationResponse notif = AppNotificationResponse.builder()
-                .id("notif-1")
-                .notificationType(RevenueThresholdConstants.NOTIF_TYPE_REVENUE_WARNING)
-                .severity("WARNING")
-                .title("Cảnh báo doanh thu")
-                .message("Đã đạt 80% ngưỡng")
-                .isRead(false)
-                .build();
-
-        PageResponse<AppNotificationResponse> pageResponse = PageResponse.<AppNotificationResponse>builder()
-                .pageNumber(0)
-                .pageSize(10)
-                .totalElements(1)
-                .totalPages(1)
-                .content(List.of(notif))
-                .build();
-
-        when(annualRevenueTrackingService.getNotifications(eq("owner_test"), eq(0), eq(10)))
-                .thenReturn(pageResponse);
-
-        mockMvc.perform(get("/api/v1/notifications")
-                        .param("page", "0")
-                        .param("size", "10")
-                        .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value(1000))
-                .andExpect(jsonPath("$.result.content").isArray())
-                .andExpect(jsonPath("$.result.totalElements").value(1));
-    }
-
-    @Test
-    @DisplayName("API GET /notifications/unread-count: Lấy số lượng thông báo chưa đọc")
-    @WithMockUser(username = "owner_test", roles = {"VT-01"})
-    void getUnreadNotificationCount_Success() throws Exception {
-        when(annualRevenueTrackingService.getUnreadNotificationCount(eq("owner_test"))).thenReturn(3L);
-
-        mockMvc.perform(get("/api/v1/notifications/unread-count")
-                        .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value(1000))
-                .andExpect(jsonPath("$.result").value(3));
-    }
 }
+

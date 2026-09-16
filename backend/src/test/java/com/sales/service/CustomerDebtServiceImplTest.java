@@ -12,6 +12,7 @@ import com.sales.repository.CustomerDebtRepository;
 import com.sales.repository.CustomerRepository;
 import com.sales.repository.UserRepository;
 import com.sales.service.classes.CustomerDebtServiceImpl;
+import com.sales.service.interfaces.AppNotificationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -48,6 +49,9 @@ class CustomerDebtServiceImplTest {
 
     @Mock
     private ObjectMapper objectMapper;
+
+    @Mock
+    private AppNotificationService appNotificationService;
 
     @InjectMocks
     private CustomerDebtServiceImpl customerDebtService;
@@ -142,6 +146,7 @@ class CustomerDebtServiceImplTest {
         verify(customerRepository, times(1)).save(customer);
         verify(customerDebtRepository, times(1)).saveAll(any());
         verify(customerDebtRepository, times(1)).save(any(CustomerDebt.class));
+        verify(appNotificationService, times(2)).closeNotificationsByTarget(eq("CUSTOMER_DEBT"), anyString());
     }
 
     @Test
