@@ -56,6 +56,9 @@ class ReturnTicketServiceImplTest {
     @Mock
     private ActivityLogHelper activityLogHelper;
 
+    @Mock
+    private BusinessHouseholdSettingsRepository settingsRepository;
+
     @InjectMocks
     private ReturnTicketServiceImpl returnTicketService;
 
@@ -1234,6 +1237,38 @@ class ReturnTicketServiceImplTest {
         assertEquals(1, topList.size());
         assertEquals("Bia Tiger", topList.get(0).getProductName());
         assertEquals(new BigDecimal("80.00"), topList.get(0).getPercentageOfTotalAmount());
+    }
+
+    @Test
+    @DisplayName("NCL-09-CN-008: Kiểm tra hạn trả hàng lấy từ BusinessHouseholdSettings (14 ngày thay vì mặc định 7 ngày)")
+    void testCheckInvoiceReturnable_CustomReturnDaysLimit() {
+        when(userRepository.findByUsername("chuho_viet")).thenReturn(Optional.of(ownerUser));
+
+        // Hóa đơn tạo cách đây 10 ngày (vượt quá mặc định 7 ngày nhưng trong hạn cấu hình 14 ngày)
+        EInvoice invoice10DaysOld = EInvoice.builder()
+                .id("inv-10days")
+                .household(household)
+                .status("ISSUED")
+                .invoiceNumber("00000100")
+                .buyerName("Khách Mua")
+                .items(new ArrayList<>())
+                .build();
+        invoice10DaysOld.setCreatedAt(LocalDateTime.now().minusDays(10));
+
+        when(eInvoiceRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("inv-10days", "house-1"))
+                .thenReturn(Optional.of(invoice10DaysOld));
+
+        BusinessHouseholdSettings customSettings = BusinessHouseholdSettings.builder()
+                .returnDaysLimit(14)
+                .build();
+        when(settingsRepository.findByHouseholdId("house-1")).thenReturn(Optional.of(customSettings));
+
+        InvoiceReturnableCheckResponse response = returnTicketService.checkInvoiceReturnable("inv-10days", "chuho_viet");
+
+        assertNotNull(response);
+        assertEquals(14, response.getMaxReturnDays());
+        assertFalse(response.isExpired());
+        assertTrue(response.isEligibleForReturn());
     }
 }
 

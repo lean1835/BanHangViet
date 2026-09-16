@@ -2,8 +2,10 @@ package com.sales.scheduler;
 
 import com.sales.constant.DebtStatus;
 import com.sales.constant.DebtType;
+import com.sales.entity.BusinessHouseholdSettings;
 import com.sales.entity.Customer;
 import com.sales.entity.CustomerDebt;
+import com.sales.repository.BusinessHouseholdSettingsRepository;
 import com.sales.repository.CustomerDebtRepository;
 import com.sales.service.interfaces.EmailService;
 import lombok.RequiredArgsConstructor;
@@ -35,6 +37,7 @@ public class DebtScheduler {
     private String defaultHouseholdName = "BanHangViet";
 
     private final CustomerDebtRepository customerDebtRepository;
+    private final BusinessHouseholdSettingsRepository settingsRepository;
     private final EmailService emailService;
     private final TransactionTemplate transactionTemplate;
 
@@ -69,7 +72,17 @@ public class DebtScheduler {
                 lastId -> customerDebtRepository.findPendingPreDueRemindersKeyset(
                         lastId, maxDueDate, PageRequest.of(0, DEFAULT_PAGE_SIZE)),
                 (customer, debt) -> {
-                    int daysBefore = customer.getReminderDaysBefore() != null ? customer.getReminderDaysBefore() : DEFAULT_REMINDER_DAYS;
+                    int daysBefore;
+                    if (customer.getReminderDaysBefore() != null) {
+                        daysBefore = customer.getReminderDaysBefore();
+                    } else if (debt.getHousehold() != null && settingsRepository != null) {
+                        daysBefore = settingsRepository.findByHouseholdId(debt.getHousehold().getId())
+                                .map(BusinessHouseholdSettings::getDebtReminderDaysBefore)
+                                .filter(d -> d != null && d > 0)
+                                .orElse(DEFAULT_REMINDER_DAYS);
+                    } else {
+                        daysBefore = DEFAULT_REMINDER_DAYS;
+                    }
                     LocalDate due = debt.getDueDate().toLocalDate();
                     LocalDate reminderStartDate = due.minusDays(daysBefore);
                     return (today.isAfter(reminderStartDate) || today.isEqual(reminderStartDate)) &&

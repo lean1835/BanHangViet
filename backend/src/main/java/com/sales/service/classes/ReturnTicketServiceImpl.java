@@ -47,8 +47,19 @@ public class ReturnTicketServiceImpl implements ReturnTicketService {
     private final CustomerDebtRepository customerDebtRepository;
     private final InvoiceStatusLogRepository invoiceStatusLogRepository;
     private final ActivityLogHelper activityLogHelper;
+    private final BusinessHouseholdSettingsRepository settingsRepository;
     @org.springframework.context.annotation.Lazy
     private final com.sales.service.interfaces.LoyaltyService loyaltyService;
+
+    private int resolveMaxReturnDays(String householdId) {
+        if (householdId == null || settingsRepository == null) {
+            return maxReturnDays;
+        }
+        return settingsRepository.findByHouseholdId(householdId)
+                .map(BusinessHouseholdSettings::getReturnDaysLimit)
+                .filter(limit -> limit != null && limit > 0)
+                .orElse(maxReturnDays);
+    }
 
 
     @Override
@@ -68,12 +79,13 @@ public class ReturnTicketServiceImpl implements ReturnTicketService {
             ineligibilityReason = "Hóa đơn gốc chưa được cấp mã hoặc đã bị hủy";
         }
 
+        int effectiveMaxReturnDays = resolveMaxReturnDays(user.getHousehold().getId());
         LocalDateTime issueTime = invoice.getCreatedAt();
         long daysSinceIssued = ChronoUnit.DAYS.between(issueTime, LocalDateTime.now());
-        boolean isExpired = daysSinceIssued > maxReturnDays;
+        boolean isExpired = daysSinceIssued > effectiveMaxReturnDays;
 
         if (isExpired && isEligible) {
-            ineligibilityReason = "Hóa đơn đã quá thời hạn trả hàng " + maxReturnDays + " ngày theo quy định";
+            ineligibilityReason = "Hóa đơn đã quá thời hạn trả hàng " + effectiveMaxReturnDays + " ngày theo quy định";
         }
 
         // Tính toán số lượng khả dụng của từng sản phẩm trong hóa đơn gốc
@@ -111,7 +123,7 @@ public class ReturnTicketServiceImpl implements ReturnTicketService {
                 .isEligibleForReturn(isEligible)
                 .isExpired(isExpired)
                 .daysSinceIssued(daysSinceIssued)
-                .maxReturnDays(maxReturnDays)
+                .maxReturnDays(effectiveMaxReturnDays)
                 .ineligibilityReason(ineligibilityReason)
                 .items(itemDtos)
                 .build();
@@ -130,8 +142,9 @@ public class ReturnTicketServiceImpl implements ReturnTicketService {
             throw new AppException(ErrorCode.INVOICE_NOT_ELIGIBLE_FOR_RETURN);
         }
 
+        int effectiveMaxReturnDays = resolveMaxReturnDays(user.getHousehold().getId());
         long daysSinceIssued = ChronoUnit.DAYS.between(invoice.getCreatedAt(), LocalDateTime.now());
-        boolean isExpired = daysSinceIssued > maxReturnDays;
+        boolean isExpired = daysSinceIssued > effectiveMaxReturnDays;
         boolean isOwner = user.getRole() != null && "VT-01".equals(user.getRole().getCode());
 
         // QTN-18: Cảnh báo quá hạn và chỉ cho lập khi chủ hộ đồng ý ngoại lệ (allowOverdueOverride == true)

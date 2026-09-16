@@ -1,6 +1,7 @@
 package com.sales.service.classes;
 
 import com.sales.constant.DebtStatus;
+import com.sales.constant.DebtType;
 import com.sales.dto.response.ImportPreviewResponse;
 import com.sales.dto.response.ImportPreviewResponse.DuplicateDetail;
 import com.sales.dto.response.ImportSupplierResultResponse;
@@ -127,7 +128,13 @@ public class SupplierImportServiceImpl implements SupplierImportService {
                 String name = ExcelParserUtils.getCellValueAsString(row.getCell(0));
                 String rawPhone = ExcelParserUtils.getCellValueAsString(row.getCell(1));
                 String taxCode = ExcelParserUtils.getCellValueAsString(row.getCell(2));
-                BigDecimal initialDebt = ExcelParserUtils.getCellValueAsBigDecimal(row.getCell(5));
+                BigDecimal initialDebt = null;
+                try {
+                    initialDebt = ExcelParserUtils.getCellValueAsBigDecimal(row.getCell(5));
+                } catch (NumberFormatException e) {
+                    errors.add(new ImportPreviewResponse.RowErrorDetail(actualRow, cleanPhone(rawPhone), name, "Dữ liệu số dư nợ đầu kỳ không đúng định dạng số"));
+                    continue;
+                }
 
                 String phone = cleanPhone(rawPhone);
 
@@ -197,6 +204,9 @@ public class SupplierImportServiceImpl implements SupplierImportService {
         List<RowErrorDetail> errors = new ArrayList<>();
         List<List<String>> errorExportRows = new ArrayList<>();
         Set<String> processedPhonesInFile = new HashSet<>();
+        List<Supplier> suppliersToUpdate = new ArrayList<>();
+        List<Supplier> suppliersToCreate = new ArrayList<>();
+        List<BigDecimal> initialDebtsForCreated = new ArrayList<>();
 
         int totalRows = 0;
         int successCount = 0;
@@ -219,7 +229,13 @@ public class SupplierImportServiceImpl implements SupplierImportService {
                 String taxCode = ExcelParserUtils.getCellValueAsString(row.getCell(2));
                 String email = ExcelParserUtils.getCellValueAsString(row.getCell(3));
                 String address = ExcelParserUtils.getCellValueAsString(row.getCell(4));
-                BigDecimal initialDebt = ExcelParserUtils.getCellValueAsBigDecimal(row.getCell(5));
+                BigDecimal initialDebt = null;
+                try {
+                    initialDebt = ExcelParserUtils.getCellValueAsBigDecimal(row.getCell(5));
+                } catch (NumberFormatException e) {
+                    addError(errors, errorExportRows, actualRow, name, cleanPhone(rawPhone), "Dữ liệu số dư nợ đầu kỳ không đúng định dạng số");
+                    continue;
+                }
                 String note = ExcelParserUtils.getCellValueAsString(row.getCell(6));
 
                 String phone = cleanPhone(rawPhone);
@@ -261,7 +277,7 @@ public class SupplierImportServiceImpl implements SupplierImportService {
                         if (StringUtils.hasText(email)) existing.setEmail(email.trim());
                         if (StringUtils.hasText(address)) existing.setAddress(address.trim());
                         if (StringUtils.hasText(note)) existing.setNote(note.trim());
-                        supplierRepository.save(existing);
+                        suppliersToUpdate.add(existing);
                         updatedCount++;
                     } else {
                         skippedCount++;
@@ -269,7 +285,7 @@ public class SupplierImportServiceImpl implements SupplierImportService {
                     continue;
                 }
 
-                // Tạo mới Supplier
+                // Chuẩn bị tạo mới Supplier
                 Supplier newSupplier = Supplier.builder()
                         .household(household)
                         .name(name.trim())
@@ -282,26 +298,41 @@ public class SupplierImportServiceImpl implements SupplierImportService {
                         .status("ACTIVE")
                         .build();
 
-                Supplier savedSupplier = supplierRepository.save(newSupplier);
-                existingByPhone.put(phone, savedSupplier);
-
-                // Ghi nhận công nợ mở đầu NCC nếu có (NCL-09-CN-009)
-                if (validInitialDebt.compareTo(BigDecimal.ZERO) > 0) {
-                    SupplierDebt openingDebt = SupplierDebt.builder()
-                            .household(household)
-                            .supplier(savedSupplier)
-                            .amount(validInitialDebt)
-                            .remainingAmount(validInitialDebt)
-                            .type("INITIAL_DEBT")
-                            .status(DebtStatus.PENDING)
-                            .dueDate(LocalDateTime.now().plusDays(30))
-                            .notes("[IMPORT_EXCEL] Số dư công nợ đầu kỳ nhập từ tệp Excel")
-                            .createdByUser(currentUser)
-                            .build();
-                    supplierDebtRepository.save(openingDebt);
-                }
-
+                suppliersToCreate.add(newSupplier);
+                initialDebtsForCreated.add(validInitialDebt);
+                existingByPhone.put(phone, newSupplier);
                 successCount++;
+            }
+
+            // Tối ưu N+1: Lưu batch hàng loạt thay vì lưu từng dòng
+            if (!suppliersToUpdate.isEmpty()) {
+                supplierRepository.saveAll(suppliersToUpdate);
+            }
+
+            if (!suppliersToCreate.isEmpty()) {
+                List<Supplier> savedSuppliers = supplierRepository.saveAll(suppliersToCreate);
+                List<SupplierDebt> debtsToSave = new ArrayList<>();
+                for (int i = 0; i < savedSuppliers.size(); i++) {
+                    Supplier savedSupplier = savedSuppliers.get(i);
+                    BigDecimal validInitialDebt = initialDebtsForCreated.get(i);
+                    if (validInitialDebt.compareTo(BigDecimal.ZERO) > 0) {
+                        SupplierDebt openingDebt = SupplierDebt.builder()
+                                .household(household)
+                                .supplier(savedSupplier)
+                                .amount(validInitialDebt)
+                                .remainingAmount(validInitialDebt)
+                                .type(DebtType.DEBT_CREATED)
+                                .status(DebtStatus.PENDING)
+                                .dueDate(LocalDateTime.now().plusDays(30))
+                                .notes("[IMPORT_EXCEL] Số dư công nợ đầu kỳ nhập từ tệp Excel")
+                                .createdByUser(currentUser)
+                                .build();
+                        debtsToSave.add(openingDebt);
+                    }
+                }
+                if (!debtsToSave.isEmpty()) {
+                    supplierDebtRepository.saveAll(debtsToSave);
+                }
             }
         } catch (Exception e) {
             log.error("Lỗi xử lý import nhà cung cấp", e);

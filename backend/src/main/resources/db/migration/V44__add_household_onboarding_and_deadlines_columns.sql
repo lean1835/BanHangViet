@@ -3,11 +3,11 @@
 
 -- 1. Bổ sung các cột vào bảng business_household_settings
 ALTER TABLE business_household_settings
-    ADD COLUMN IF NOT EXISTS is_onboarding_completed BOOLEAN NOT NULL DEFAULT FALSE,
-    ADD COLUMN IF NOT EXISTS is_onboarding_skipped BOOLEAN NOT NULL DEFAULT FALSE,
-    ADD COLUMN IF NOT EXISTS return_days_limit INT NOT NULL DEFAULT 7,
-    ADD COLUMN IF NOT EXISTS max_offline_sync_hours INT NOT NULL DEFAULT 24,
-    ADD COLUMN IF NOT EXISTS debt_reminder_days_before INT NOT NULL DEFAULT 3;
+    ADD COLUMN is_onboarding_completed BOOLEAN NOT NULL DEFAULT FALSE,
+    ADD COLUMN is_onboarding_skipped BOOLEAN NOT NULL DEFAULT FALSE,
+    ADD COLUMN return_days_limit INT NOT NULL DEFAULT 7,
+    ADD COLUMN max_offline_sync_hours INT NOT NULL DEFAULT 24,
+    ADD COLUMN debt_reminder_days_before INT NOT NULL DEFAULT 3;
 
 -- 2. Đảm bảo bảng suppliers tồn tại (phục vụ NCL-09-CN-009 & NCL-13-CN-001)
 CREATE TABLE IF NOT EXISTS suppliers (

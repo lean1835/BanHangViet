@@ -1,11 +1,13 @@
 package com.sales.utils;
 
+import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.streaming.SXSSFWorkbook;
 
 import java.io.ByteArrayOutputStream;
 import java.math.BigDecimal;
 
+@Slf4j
 public class ExcelParserUtils {
 
     private ExcelParserUtils() {
@@ -96,9 +98,43 @@ public class ExcelParserUtils {
         if (type == CellType.NUMERIC) {
             return BigDecimal.valueOf(cell.getNumericCellValue());
         } else if (type == CellType.STRING) {
-            String val = cell.getStringCellValue().trim();
+            String val = cell.getStringCellValue();
+            if (val == null) return null;
+            val = val.trim();
             if (val.isEmpty()) return null;
-            return new BigDecimal(val.replace(",", "."));
+
+            // Dọn dẹp khoảng trắng, ký hiệu tiền tệ
+            val = val.replaceAll("[₫đĐvVnNdD\\s]", "");
+            if (val.isEmpty()) return null;
+
+            // Xử lý dấu phân cách hàng nghìn / thập phân
+            if (val.contains(".") && val.contains(",")) {
+                int lastDot = val.lastIndexOf('.');
+                int lastComma = val.lastIndexOf(',');
+                if (lastDot > lastComma) {
+                    // Định dạng 1,234.56
+                    val = val.replace(",", "");
+                } else {
+                    // Định dạng 1.234,56
+                    val = val.replace(".", "").replace(",", ".");
+                }
+            } else if (val.contains(".")) {
+                long dotCount = val.chars().filter(ch -> ch == '.').count();
+                if (dotCount > 1) {
+                    // 100.000.000
+                    val = val.replace(".", "");
+                }
+            } else if (val.contains(",")) {
+                long commaCount = val.chars().filter(ch -> ch == ',').count();
+                if (commaCount > 1) {
+                    // 100,000,000
+                    val = val.replace(",", "");
+                } else {
+                    // 100,5
+                    val = val.replace(",", ".");
+                }
+            }
+            return new BigDecimal(val);
         }
         return null;
     }

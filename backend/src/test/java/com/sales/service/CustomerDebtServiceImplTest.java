@@ -8,6 +8,7 @@ import com.sales.entity.*;
 import com.sales.exception.AppException;
 import com.sales.exception.ErrorCode;
 import com.sales.repository.ActivityLogRepository;
+import com.sales.repository.BusinessHouseholdSettingsRepository;
 import com.sales.repository.CustomerDebtRepository;
 import com.sales.repository.CustomerRepository;
 import com.sales.repository.UserRepository;
@@ -45,6 +46,9 @@ class CustomerDebtServiceImplTest {
 
     @Mock
     private ActivityLogRepository activityLogRepository;
+
+    @Mock
+    private BusinessHouseholdSettingsRepository settingsRepository;
 
     @Mock
     private ObjectMapper objectMapper;
@@ -266,6 +270,11 @@ class CustomerDebtServiceImplTest {
     void getDebtReminders_Success() {
         when(userRepository.findByUsername("nhanvien")).thenReturn(Optional.of(currentUser));
 
+        BusinessHouseholdSettings settings = BusinessHouseholdSettings.builder()
+                .debtReminderDaysBefore(7)
+                .build();
+        when(settingsRepository.findByHouseholdId("house-001")).thenReturn(Optional.of(settings));
+
         CustomerDebt pendingDebt = CustomerDebt.builder()
                 .id("debt-pending")
                 .household(household)
@@ -291,5 +300,52 @@ class CustomerDebtServiceImplTest {
         assertEquals("PENDING", responses.get(0).getStatus());
 
         verify(customerDebtRepository, never()).saveAll(any());
+    }
+
+    @Test
+    @DisplayName("NCL-09-CN-008: Lọc danh sách nhắc nợ bỏ qua các khoản nợ chưa đến hạn nhắc (quá 3 ngày cấu hình)")
+    void testGetDebtReminders_FilterByReminderDaysBefore() {
+        when(userRepository.findByUsername("nhanvien")).thenReturn(Optional.of(currentUser));
+
+        BusinessHouseholdSettings settings = BusinessHouseholdSettings.builder()
+                .debtReminderDaysBefore(3)
+                .build();
+        when(settingsRepository.findByHouseholdId("house-001")).thenReturn(Optional.of(settings));
+
+        // Khoản nợ 1: đến hạn sau 2 ngày (nằm trong hạn 3 ngày -> được nhắc)
+        CustomerDebt debtSoon = CustomerDebt.builder()
+                .id("debt-soon")
+                .household(household)
+                .customer(customer)
+                .amount(new BigDecimal("50000.00"))
+                .remainingAmount(new BigDecimal("50000.00"))
+                .type("DEBT_CREATED")
+                .status("PENDING")
+                .createdByUser(currentUser)
+                .dueDate(LocalDateTime.now().plusDays(2))
+                .build();
+
+        // Khoản nợ 2: đến hạn sau 10 ngày (vượt quá 3 ngày -> bị lọc bỏ)
+        CustomerDebt debtFar = CustomerDebt.builder()
+                .id("debt-far")
+                .household(household)
+                .customer(customer)
+                .amount(new BigDecimal("200000.00"))
+                .remainingAmount(new BigDecimal("200000.00"))
+                .type("DEBT_CREATED")
+                .status("PENDING")
+                .createdByUser(currentUser)
+                .dueDate(LocalDateTime.now().plusDays(10))
+                .build();
+
+        when(customerDebtRepository.findByHouseholdIdAndStatusInAndTypeOrderByDueDateAscWithRelations(
+                eq("house-001"), eq(List.of("PENDING", "OVERDUE")), eq("DEBT_CREATED")))
+                .thenReturn(List.of(debtSoon, debtFar));
+
+        List<CustomerDebtResponse> responses = customerDebtService.getDebtReminders("nhanvien", null);
+
+        assertNotNull(responses);
+        assertEquals(1, responses.size());
+        assertEquals("debt-soon", responses.get(0).getId());
     }
 }

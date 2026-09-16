@@ -21,6 +21,7 @@ public class HouseholdOnboardingController {
     private final HouseholdOnboardingService onboardingService;
 
     @GetMapping("/status")
+    @PreAuthorize("hasAnyRole('VT-01', 'VT-02', 'VT-03')")
     @Operation(summary = "Lấy tiến độ 5 bước thiết lập ban đầu của hộ kinh doanh (NCL-09-CN-007)")
     public ResponseEntity<ApiResponse<OnboardingStatusResponse>> getStatus(
             @AuthenticationPrincipal UserDetails userDetails) {

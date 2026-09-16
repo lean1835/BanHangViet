@@ -1,5 +1,7 @@
 package com.sales.service;
 
+import com.sales.constant.DebtType;
+
 import com.sales.dto.response.ImportPreviewResponse;
 import com.sales.dto.response.ImportSupplierResultResponse;
 import com.sales.entity.BusinessHousehold;
@@ -106,14 +108,16 @@ class SupplierImportServiceImplTest {
     }
 
     @Test
-    @DisplayName("NCL-09-CN-009 (Supplier): Tệp hợp lệ -> Tạo NCC thành công và ghi nhận INITIAL_DEBT có vết [IMPORT_EXCEL]")
+    @DisplayName("NCL-09-CN-009 (Supplier): Tệp hợp lệ -> Tạo NCC thành công và ghi nhận DEBT_CREATED có vết [IMPORT_EXCEL]")
     void testImportSuppliers_ValidDataSuccess() throws Exception {
         when(userRepository.findByUsername("owner1")).thenReturn(Optional.of(ownerUser));
         when(supplierRepository.findAllByHouseholdIdAndDeletedAtIsNull("hh-1")).thenReturn(Collections.emptyList());
-        when(supplierRepository.save(any(Supplier.class))).thenAnswer(inv -> {
-            Supplier s = inv.getArgument(0);
-            s.setId("sup-generated-1");
-            return s;
+        when(supplierRepository.saveAll(anyList())).thenAnswer(inv -> {
+            List<Supplier> list = inv.getArgument(0);
+            for (Supplier s : list) {
+                s.setId("sup-generated-1");
+            }
+            return list;
         });
 
         List<String[]> rows = Collections.singletonList(
@@ -128,11 +132,14 @@ class SupplierImportServiceImplTest {
         assertEquals(1, response.getSuccessCount());
         assertEquals(0, response.getErrorCount());
 
-        verify(supplierRepository, times(1)).save(any(Supplier.class));
-        verify(supplierDebtRepository, times(1)).save(argThat(debt ->
-                "INITIAL_DEBT".equals(debt.getType())
-                        && debt.getAmount().compareTo(new BigDecimal("25000000")) == 0
-                        && debt.getNotes().contains("[IMPORT_EXCEL]")));
+        verify(supplierRepository, times(1)).saveAll(anyList());
+        verify(supplierDebtRepository, times(1)).saveAll(argThat(debts -> {
+            List<SupplierDebt> list = (List<SupplierDebt>) debts;
+            return list.size() == 1
+                    && DebtType.DEBT_CREATED.equals(list.get(0).getType())
+                    && list.get(0).getAmount().compareTo(new BigDecimal("25000000")) == 0
+                    && list.get(0).getNotes().contains("[IMPORT_EXCEL]");
+        }));
     }
 
     @Test

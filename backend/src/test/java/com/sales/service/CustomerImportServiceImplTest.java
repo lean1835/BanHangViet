@@ -1,5 +1,7 @@
 package com.sales.service;
 
+import com.sales.constant.DebtType;
+
 import com.sales.dto.response.ImportCustomerResultResponse;
 import com.sales.dto.response.ImportPreviewResponse;
 import com.sales.entity.BusinessHousehold;
@@ -106,14 +108,16 @@ class CustomerImportServiceImplTest {
     }
 
     @Test
-    @DisplayName("NCL-09-CN-009-TC-02: Tệp đúng mẫu và dữ liệu hợp lệ -> Nhập khách hàng thành công và tạo khoản INITIAL_DEBT")
+    @DisplayName("NCL-09-CN-009-TC-02: Tệp đúng mẫu và dữ liệu hợp lệ -> Nhập khách hàng thành công và tạo khoản DEBT_CREATED")
     void testImportCustomers_ValidDataSuccess() throws Exception {
         when(userRepository.findByUsername("owner1")).thenReturn(Optional.of(ownerUser));
         when(customerRepository.findAllByHouseholdIdAndDeletedAtIsNull("hh-1")).thenReturn(Collections.emptyList());
-        when(customerRepository.save(any(Customer.class))).thenAnswer(inv -> {
-            Customer c = inv.getArgument(0);
-            c.setId("cust-generated-1");
-            return c;
+        when(customerRepository.saveAll(anyList())).thenAnswer(inv -> {
+            List<Customer> list = inv.getArgument(0);
+            for (Customer c : list) {
+                c.setId("cust-generated-1");
+            }
+            return list;
         });
 
         List<String[]> rows = Collections.singletonList(
@@ -128,11 +132,14 @@ class CustomerImportServiceImplTest {
         assertEquals(1, response.getSuccessCount());
         assertEquals(0, response.getErrorCount());
 
-        verify(customerRepository, times(1)).save(any(Customer.class));
-        verify(customerDebtRepository, times(1)).save(argThat(debt ->
-                "INITIAL_DEBT".equals(debt.getType())
-                        && debt.getAmount().compareTo(new BigDecimal("1500000")) == 0
-                        && debt.getNotes().contains("[IMPORT_EXCEL]")));
+        verify(customerRepository, times(1)).saveAll(anyList());
+        verify(customerDebtRepository, times(1)).saveAll(argThat(debts -> {
+            List<CustomerDebt> list = (List<CustomerDebt>) debts;
+            return list.size() == 1
+                    && DebtType.DEBT_CREATED.equals(list.get(0).getType())
+                    && list.get(0).getAmount().compareTo(new BigDecimal("1500000")) == 0
+                    && list.get(0).getNotes().contains("[IMPORT_EXCEL]");
+        }));
     }
 
     @Test

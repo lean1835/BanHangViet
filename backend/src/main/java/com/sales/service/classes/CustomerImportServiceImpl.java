@@ -1,6 +1,7 @@
 package com.sales.service.classes;
 
 import com.sales.constant.DebtStatus;
+import com.sales.constant.DebtType;
 import com.sales.dto.response.ImportCustomerResultResponse;
 import com.sales.dto.response.ImportCustomerResultResponse.RowErrorDetail;
 import com.sales.dto.response.ImportPreviewResponse;
@@ -127,8 +128,15 @@ public class CustomerImportServiceImpl implements CustomerImportService {
                 String name = ExcelParserUtils.getCellValueAsString(row.getCell(0));
                 String rawPhone = ExcelParserUtils.getCellValueAsString(row.getCell(1));
                 String taxCode = ExcelParserUtils.getCellValueAsString(row.getCell(2));
-                BigDecimal creditLimit = ExcelParserUtils.getCellValueAsBigDecimal(row.getCell(5));
-                BigDecimal initialDebt = ExcelParserUtils.getCellValueAsBigDecimal(row.getCell(6));
+                BigDecimal creditLimit = null;
+                BigDecimal initialDebt = null;
+                try {
+                    creditLimit = ExcelParserUtils.getCellValueAsBigDecimal(row.getCell(5));
+                    initialDebt = ExcelParserUtils.getCellValueAsBigDecimal(row.getCell(6));
+                } catch (NumberFormatException e) {
+                    errors.add(new ImportPreviewResponse.RowErrorDetail(actualRow, cleanPhone(rawPhone), name, "Dữ liệu hạn mức nợ hoặc nợ đầu kỳ không đúng định dạng số"));
+                    continue;
+                }
 
                 String phone = cleanPhone(rawPhone);
 
@@ -203,6 +211,9 @@ public class CustomerImportServiceImpl implements CustomerImportService {
         List<RowErrorDetail> errors = new ArrayList<>();
         List<List<String>> errorExportRows = new ArrayList<>();
         Set<String> processedPhonesInFile = new HashSet<>();
+        List<Customer> customersToUpdate = new ArrayList<>();
+        List<Customer> customersToCreate = new ArrayList<>();
+        List<BigDecimal> initialDebtsForCreated = new ArrayList<>();
 
         int totalRows = 0;
         int successCount = 0;
@@ -225,8 +236,15 @@ public class CustomerImportServiceImpl implements CustomerImportService {
                 String taxCode = ExcelParserUtils.getCellValueAsString(row.getCell(2));
                 String email = ExcelParserUtils.getCellValueAsString(row.getCell(3));
                 String address = ExcelParserUtils.getCellValueAsString(row.getCell(4));
-                BigDecimal creditLimit = ExcelParserUtils.getCellValueAsBigDecimal(row.getCell(5));
-                BigDecimal initialDebt = ExcelParserUtils.getCellValueAsBigDecimal(row.getCell(6));
+                BigDecimal creditLimit = null;
+                BigDecimal initialDebt = null;
+                try {
+                    creditLimit = ExcelParserUtils.getCellValueAsBigDecimal(row.getCell(5));
+                    initialDebt = ExcelParserUtils.getCellValueAsBigDecimal(row.getCell(6));
+                } catch (NumberFormatException e) {
+                    addError(errors, errorExportRows, actualRow, name, cleanPhone(rawPhone), "Dữ liệu hạn mức nợ hoặc nợ đầu kỳ không đúng định dạng số");
+                    continue;
+                }
                 String deliveryChannel = ExcelParserUtils.getCellValueAsString(row.getCell(7));
 
                 String phone = cleanPhone(rawPhone);
@@ -275,7 +293,7 @@ public class CustomerImportServiceImpl implements CustomerImportService {
                         if (StringUtils.hasText(email)) existing.setEmail(email.trim());
                         if (StringUtils.hasText(address)) existing.setAddress(address.trim());
                         if (creditLimit != null) existing.setCreditLimit(validCreditLimit);
-                        customerRepository.save(existing);
+                        customersToUpdate.add(existing);
                         updatedCount++;
                     } else {
                         skippedCount++;
@@ -283,7 +301,7 @@ public class CustomerImportServiceImpl implements CustomerImportService {
                     continue;
                 }
 
-                // Tạo mới Customer
+                // Chuẩn bị tạo mới Customer
                 Customer newCustomer = Customer.builder()
                         .household(household)
                         .name(name.trim())
@@ -296,26 +314,41 @@ public class CustomerImportServiceImpl implements CustomerImportService {
                         .defaultDeliveryChannel(validChannel)
                         .build();
 
-                Customer savedCustomer = customerRepository.save(newCustomer);
-                existingByPhone.put(phone, savedCustomer);
-
-                // Ghi nhận công nợ mở đầu nếu có (QTN-13 & NCL-09-CN-009)
-                if (validInitialDebt.compareTo(BigDecimal.ZERO) > 0) {
-                    CustomerDebt openingDebt = CustomerDebt.builder()
-                            .household(household)
-                            .customer(savedCustomer)
-                            .amount(validInitialDebt)
-                            .remainingAmount(validInitialDebt)
-                            .type("INITIAL_DEBT")
-                            .status(DebtStatus.PENDING)
-                            .dueDate(LocalDateTime.now().plusDays(30))
-                            .notes("[IMPORT_EXCEL] Số dư công nợ đầu kỳ nhập từ tệp Excel")
-                            .createdByUser(currentUser)
-                            .build();
-                    customerDebtRepository.save(openingDebt);
-                }
-
+                customersToCreate.add(newCustomer);
+                initialDebtsForCreated.add(validInitialDebt);
+                existingByPhone.put(phone, newCustomer);
                 successCount++;
+            }
+
+            // Tối ưu N+1: Lưu batch hàng loạt thay vì lưu từng dòng
+            if (!customersToUpdate.isEmpty()) {
+                customerRepository.saveAll(customersToUpdate);
+            }
+
+            if (!customersToCreate.isEmpty()) {
+                List<Customer> savedCustomers = customerRepository.saveAll(customersToCreate);
+                List<CustomerDebt> debtsToSave = new ArrayList<>();
+                for (int i = 0; i < savedCustomers.size(); i++) {
+                    Customer savedCustomer = savedCustomers.get(i);
+                    BigDecimal validInitialDebt = initialDebtsForCreated.get(i);
+                    if (validInitialDebt.compareTo(BigDecimal.ZERO) > 0) {
+                        CustomerDebt openingDebt = CustomerDebt.builder()
+                                .household(household)
+                                .customer(savedCustomer)
+                                .amount(validInitialDebt)
+                                .remainingAmount(validInitialDebt)
+                                .type(DebtType.DEBT_CREATED)
+                                .status(DebtStatus.PENDING)
+                                .dueDate(LocalDateTime.now().plusDays(30))
+                                .notes("[IMPORT_EXCEL] Số dư công nợ đầu kỳ nhập từ tệp Excel")
+                                .createdByUser(currentUser)
+                                .build();
+                        debtsToSave.add(openingDebt);
+                    }
+                }
+                if (!debtsToSave.isEmpty()) {
+                    customerDebtRepository.saveAll(debtsToSave);
+                }
             }
         } catch (Exception e) {
             log.error("Lỗi xử lý import khách hàng", e);

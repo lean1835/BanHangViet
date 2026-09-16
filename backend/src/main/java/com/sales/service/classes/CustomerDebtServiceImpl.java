@@ -10,12 +10,14 @@ import com.sales.dto.response.DebtSummaryResponse;
 import com.sales.dto.response.OrderItemResponse;
 import com.sales.entity.ActivityLog;
 import com.sales.entity.BusinessHousehold;
+import com.sales.entity.BusinessHouseholdSettings;
 import com.sales.entity.Customer;
 import com.sales.entity.CustomerDebt;
 import com.sales.entity.User;
 import com.sales.exception.AppException;
 import com.sales.exception.ErrorCode;
 import com.sales.repository.ActivityLogRepository;
+import com.sales.repository.BusinessHouseholdSettingsRepository;
 import com.sales.repository.CustomerDebtRepository;
 import com.sales.repository.CustomerRepository;
 import com.sales.repository.UserRepository;
@@ -47,9 +49,20 @@ public class CustomerDebtServiceImpl implements CustomerDebtService {
     private final UserRepository userRepository;
     private final CustomerRepository customerRepository;
     private final CustomerDebtRepository customerDebtRepository;
+    private final BusinessHouseholdSettingsRepository settingsRepository;
     private final ActivityLogHelper activityLogHelper;
     private final EmailService emailService;
     private final ObjectMapper objectMapper;
+
+    private int resolveDebtReminderDaysBefore(String householdId) {
+        if (householdId == null || settingsRepository == null) {
+            return 3;
+        }
+        return settingsRepository.findByHouseholdId(householdId)
+                .map(BusinessHouseholdSettings::getDebtReminderDaysBefore)
+                .filter(d -> d != null && d > 0)
+                .orElse(3);
+    }
 
     private User getAuthenticatedUser(String username) {
         return userRepository.findByUsername(username)
@@ -235,6 +248,8 @@ public class CustomerDebtServiceImpl implements CustomerDebtService {
             throw new AppException(ErrorCode.FORBIDDEN);
         }
 
+        int reminderDays = resolveDebtReminderDaysBefore(household.getId());
+
         List<CustomerDebt> reminders;
         if (statusFilter != null && !statusFilter.trim().isEmpty()) {
             reminders = customerDebtRepository.findByHouseholdIdAndStatusInAndTypeOrderByDueDateAscWithRelations(
@@ -243,6 +258,16 @@ public class CustomerDebtServiceImpl implements CustomerDebtService {
             reminders = customerDebtRepository.findByHouseholdIdAndStatusInAndTypeOrderByDueDateAscWithRelations(
                     household.getId(), List.of(DebtStatus.PENDING, DebtStatus.OVERDUE), DebtType.DEBT_CREATED);
         }
+
+        // Lọc danh sách nhắc nợ theo cấu hình debtReminderDaysBefore của hộ:
+        // - Nợ OVERDUE hoặc không có hạn: luôn hiển thị
+        // - Nợ PENDING: chỉ hiển thị nếu sắp đến hạn trong vòng reminderDays (dueDate <= now + reminderDays)
+        LocalDateTime reminderThreshold = LocalDateTime.now().plusDays(reminderDays);
+        reminders = reminders.stream()
+                .filter(d -> DebtStatus.OVERDUE.equals(d.getStatus())
+                        || d.getDueDate() == null
+                        || !d.getDueDate().isAfter(reminderThreshold))
+                .collect(Collectors.toList());
 
         return reminders.stream().map(this::mapToResponse).collect(Collectors.toList());
     }
