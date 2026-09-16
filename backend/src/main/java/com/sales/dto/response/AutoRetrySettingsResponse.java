@@ -18,6 +18,8 @@ public class AutoRetrySettingsResponse {
     private Integer maxRetryHoursDeadline;
     private Integer maxOrderHoldingHours;
     private Integer bankTransferTimeoutMinutes;
+    private java.math.BigDecimal expenseApprovalThreshold;
+    private java.math.BigDecimal shiftDifferenceThreshold;
     private LocalDateTime updatedAt;
 }
 

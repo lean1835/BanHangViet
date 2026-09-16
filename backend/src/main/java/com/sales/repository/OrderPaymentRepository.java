@@ -52,5 +52,55 @@ public interface OrderPaymentRepository extends JpaRepository<OrderPayment, Stri
            "AND op.paymentMethod = 'BANK_TRANSFER' AND o.deletedAt IS NULL AND o.status <> 'CANCELED' " +
            "ORDER BY op.createdAt DESC")
     List<OrderPayment> findBankTransfersByShiftIdAndHouseholdId(@Param("shiftId") String shiftId, @Param("householdId") String householdId);
+
+    interface PaymentMethodRevenueProjection {
+        String getPaymentMethod();
+        BigDecimal getTotalAmount();
+        Long getCount();
+    }
+
+    @Query("""
+        SELECT 
+            op.paymentMethod as paymentMethod,
+            COALESCE(SUM(op.amount), 0) as totalAmount,
+            COUNT(op.id) as count
+        FROM OrderPayment op
+        JOIN op.order o
+        WHERE op.household.id = :householdId
+          AND o.status = 'COMPLETED'
+          AND o.deletedAt IS NULL
+          AND o.createdAt >= :startDate
+          AND o.createdAt <= :endDate
+          AND (:userId IS NULL OR o.createdByUser.id = :userId)
+          AND (:shiftId IS NULL OR o.shift.id = :shiftId)
+        GROUP BY op.paymentMethod
+    """)
+    List<PaymentMethodRevenueProjection> getRevenueByPaymentMethod(
+            @Param("householdId") String householdId,
+            @Param("startDate") java.time.LocalDateTime startDate,
+            @Param("endDate") java.time.LocalDateTime endDate,
+            @Param("userId") String userId,
+            @Param("shiftId") String shiftId
+    );
+
+    @Query("""
+        SELECT op FROM OrderPayment op
+        JOIN FETCH op.order o
+        WHERE op.household.id = :householdId
+          AND o.status = 'COMPLETED'
+          AND o.deletedAt IS NULL
+          AND o.createdAt >= :startDate
+          AND o.createdAt <= :endDate
+          AND (:userId IS NULL OR o.createdByUser.id = :userId)
+          AND (:shiftId IS NULL OR o.shift.id = :shiftId)
+        ORDER BY o.createdAt ASC
+    """)
+    List<OrderPayment> findPaymentsInPeriod(
+            @Param("householdId") String householdId,
+            @Param("startDate") java.time.LocalDateTime startDate,
+            @Param("endDate") java.time.LocalDateTime endDate,
+            @Param("userId") String userId,
+            @Param("shiftId") String shiftId
+    );
 }
 

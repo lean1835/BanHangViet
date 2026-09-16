@@ -743,6 +743,9 @@ public class OrderServiceImpl implements OrderService {
             existingItem.setQuantity(targetQuantity);
             existingItem.setBaseQuantity(targetBaseQuantity);
             existingItem.setUnitPrice(effectiveUnitPrice);
+            if (existingItem.getCostPrice() == null || existingItem.getCostPrice().compareTo(BigDecimal.ZERO) == 0) {
+                existingItem.setCostPrice(product.getCostPrice() != null ? product.getCostPrice() : BigDecimal.ZERO);
+            }
             existingItem.setUnitConversionId(unitConversionId);
             existingItem.setUnitName(unitName);
             existingItem.setConversionFactor(conversionFactor);
@@ -761,6 +764,7 @@ public class OrderServiceImpl implements OrderService {
                     .quantity(targetQuantity)
                     .baseQuantity(targetBaseQuantity)
                     .unitPrice(effectiveUnitPrice)
+                    .costPrice(product.getCostPrice() != null ? product.getCostPrice() : BigDecimal.ZERO)
                     .unitConversionId(unitConversionId)
                     .unitName(unitName)
                     .conversionFactor(conversionFactor)

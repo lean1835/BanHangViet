@@ -267,4 +267,86 @@ public class ReportControllerTest {
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isBadRequest());
     }
+
+    // --- Tests for NCL-07-CN-008: Báo cáo lãi gộp ---
+    @Test
+    @WithMockUser(username = "test_owner_report", roles = {"VT-01"})
+    public void getGrossProfitReport_asOwner_success() throws Exception {
+        mockMvc.perform(get("/api/v1/reports/gross-profit")
+                        .param("fromDate", "2026-07-01")
+                        .param("toDate", "2026-07-31")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(1000))
+                .andExpect(jsonPath("$.result.summary").exists());
+    }
+
+    @Test
+    @WithMockUser(username = "test_employee_report", roles = {"VT-02"})
+    public void getGrossProfitReport_asEmployee_forbidden() throws Exception {
+        mockMvc.perform(get("/api/v1/reports/gross-profit")
+                        .param("fromDate", "2026-07-01")
+                        .param("toDate", "2026-07-31")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isForbidden());
+    }
+
+    // --- Tests for NCL-07-CN-011: Báo cáo hình thức thanh toán ---
+    @Test
+    @WithMockUser(username = "test_owner_report", roles = {"VT-01"})
+    public void getPaymentMethodReport_asOwner_success() throws Exception {
+        mockMvc.perform(get("/api/v1/reports/payment-methods")
+                        .param("fromDate", "2026-07-01")
+                        .param("toDate", "2026-07-31")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(1000))
+                .andExpect(jsonPath("$.result.methods").isArray());
+    }
+
+    @Test
+    @WithMockUser(username = "test_employee_report", roles = {"VT-02"})
+    public void getPaymentMethodReport_asEmployee_forbidden() throws Exception {
+        mockMvc.perform(get("/api/v1/reports/payment-methods")
+                        .param("fromDate", "2026-07-01")
+                        .param("toDate", "2026-07-31")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isForbidden());
+    }
+
+    // --- Tests for NCL-07-CN-012: Báo cáo theo nhóm hàng ---
+    @Test
+    @WithMockUser(username = "test_owner_report", roles = {"VT-01"})
+    public void getProductGroupReport_asOwner_success() throws Exception {
+        mockMvc.perform(get("/api/v1/reports/product-groups")
+                        .param("fromDate", "2026-07-01")
+                        .param("toDate", "2026-07-31")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(1000))
+                .andExpect(jsonPath("$.result.groups").isArray());
+    }
+
+    @Test
+    @WithMockUser(username = "test_owner_report", roles = {"VT-01"})
+    public void getProductGroupDetail_asOwner_success() throws Exception {
+        mockMvc.perform(get("/api/v1/reports/product-groups/UNASSIGNED/products")
+                        .param("fromDate", "2026-07-01")
+                        .param("toDate", "2026-07-31")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(1000))
+                .andExpect(jsonPath("$.result.groupId").value("UNASSIGNED"));
+    }
+
+    // --- Tests for NCL-07-CN-009: Xuất báo cáo Excel ---
+    @Test
+    @WithMockUser(username = "test_employee_report", roles = {"VT-02"})
+    public void exportReport_asEmployee_forbidden() throws Exception {
+        mockMvc.perform(get("/api/v1/reports/export")
+                        .param("reportType", "GROSS_PROFIT")
+                        .param("fromDate", "2026-07-01")
+                        .param("toDate", "2026-07-31"))
+                .andExpect(status().isForbidden());
+    }
 }

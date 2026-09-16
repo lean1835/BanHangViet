@@ -20,6 +20,9 @@ spring:
       max-lifetime: 1800000
       connection-timeout: 20000
       keepalive-time: 60000
+  flyway:
+    enabled: true
+    out-of-order: true
   jpa:
     hibernate:
       ddl-auto: update

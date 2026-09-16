@@ -2,6 +2,7 @@ package com.sales.repository;
 
 import com.sales.constant.CashTransactionStatus;
 import com.sales.constant.CashTransactionType;
+import com.sales.dto.response.ShiftCashSummaryProjection;
 import com.sales.entity.CashTransaction;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -11,6 +12,7 @@ import org.springframework.stereotype.Repository;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -52,5 +54,16 @@ public interface CashTransactionRepository extends JpaRepository<CashTransaction
     @Query("SELECT COALESCE(SUM(c.amount), 0) FROM CashTransaction c WHERE c.shift.id = :shiftId AND c.status = :status")
     BigDecimal sumAmountByShiftIdAndStatus(
             @Param("shiftId") String shiftId,
+            @Param("status") CashTransactionStatus status);
+
+    @Query("SELECT " +
+           "  c.shift.id AS shiftId, " +
+           "  COALESCE(SUM(CASE WHEN c.type = 'INCOME' THEN c.amount ELSE 0 END), 0) AS incomeAmount, " +
+           "  COALESCE(SUM(CASE WHEN c.type = 'EXPENSE' THEN c.amount ELSE 0 END), 0) AS expenseAmount " +
+           "FROM CashTransaction c " +
+           "WHERE c.shift.id IN :shiftIds AND c.status = :status " +
+           "GROUP BY c.shift.id")
+    List<ShiftCashSummaryProjection> aggregateCashByShiftIdsAndStatus(
+            @Param("shiftIds") Collection<String> shiftIds,
             @Param("status") CashTransactionStatus status);
 }

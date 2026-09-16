@@ -43,6 +43,10 @@ public class OrderItem {
     @Column(name = "unit_price", nullable = false, precision = 15, scale = 2)
     private BigDecimal unitPrice;
 
+    @Column(name = "cost_price", nullable = false, precision = 15, scale = 2)
+    @Builder.Default
+    private BigDecimal costPrice = BigDecimal.ZERO;
+
     @Column(name = "unit_conversion_id", length = 36)
     private String unitConversionId;
 
