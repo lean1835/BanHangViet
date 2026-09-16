@@ -20,6 +20,8 @@ public interface BackupVerificationService {
 
     void runScheduledPeriodicVerification();
 
+    void verifyHouseholdPeriodicAsync(BusinessHousehold household);
+
     BackupVerificationHistory executeSandboxVerification(
             BusinessHousehold household,
             BackupHistory backup,

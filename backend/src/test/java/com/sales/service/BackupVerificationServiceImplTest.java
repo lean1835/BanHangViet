@@ -154,6 +154,8 @@ public class BackupVerificationServiceImplTest {
                 .status("SUCCESS")
                 .backupTime(LocalDateTime.now().minusHours(2))
                 .build();
+
+        verificationService.setBackupBaseDir(tempDir.toString());
     }
 
     @Test
@@ -351,7 +353,7 @@ public class BackupVerificationServiceImplTest {
         assertTrue(response.getCheckedFileReadable());
         assertFalse(response.getCheckedRecordCountsMatched());
         assertNotNull(response.getFailureReason());
-        assertTrue(response.getFailureReason().contains("thiếu cấu trúc dữ liệu của các bảng thực thể chính"));
+        assertTrue(response.getFailureReason().contains("thiếu hoặc không đúng định dạng các bảng thực thể bắt buộc"));
 
         verify(appNotificationRepository, times(1)).save(any(AppNotification.class));
     }
@@ -535,7 +537,8 @@ public class BackupVerificationServiceImplTest {
                 .isAutoBackupEnabled(true)
                 .build();
 
-        when(backupConfigRepository.findAllEnabledAutoBackupConfigs()).thenReturn(List.of(config));
+        when(backupConfigRepository.findAllEnabledAutoBackupConfigs(any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(config)));
         when(backupHistoryRepository.findFirstByHouseholdIdAndStatusOrderByBackupTimeDesc(household.getId(), "SUCCESS"))
                 .thenReturn(Optional.of(validBackup));
 
@@ -601,6 +604,58 @@ public class BackupVerificationServiceImplTest {
         assertNotNull(response);
         assertEquals("FAILED", response.getStatus());
         assertTrue(response.getFailureReason().contains("không có hoặc không khớp với định danh hộ kinh doanh"));
+        verify(appNotificationRepository, times(1)).save(any(AppNotification.class));
+    }
+
+    @Test
+    @DisplayName("Thử phục hồi thất bại khi tệp sao lưu chỉ có một thực thể rỗng như users mà thiếu các bảng khác (Pillar 2 fix)")
+    void testVerification_PartialEntities_OnlyUsers_Failed() throws Exception {
+        Map<String, Object> partialSnapshot = Map.of(
+                "householdId", household.getId(),
+                "users", List.of()
+                // thiếu products, customers, suppliers
+        );
+        Path partialFilePath = tempDir.resolve("partial_backup.json");
+        Files.writeString(partialFilePath, objectMapper.writeValueAsString(partialSnapshot), StandardCharsets.UTF_8);
+        validBackup.setFilePath(partialFilePath.toString());
+
+        when(userRepository.findByUsername("chuho_test")).thenReturn(Optional.of(ownerUser));
+        when(backupHistoryRepository.findFirstByHouseholdIdAndStatusOrderByBackupTimeDesc(household.getId(), "SUCCESS"))
+                .thenReturn(Optional.of(validBackup));
+
+        when(auditLogService.verifyIntegrityForHousehold(household.getId()))
+                .thenReturn(AuditIntegrityResponse.builder().isValid(true).totalRecordsChecked(10L).build());
+
+        when(verificationHistoryRepository.save(any(BackupVerificationHistory.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        BackupVerificationHistoryResponse response = verificationService.triggerVerification("chuho_test", null);
+
+        assertNotNull(response);
+        assertEquals("FAILED", response.getStatus());
+        assertFalse(response.getCheckedRecordCountsMatched());
+        assertTrue(response.getFailureReason().contains("thiếu hoặc không đúng định dạng các bảng thực thể bắt buộc"));
+        verify(appNotificationRepository, times(1)).save(any(AppNotification.class));
+    }
+
+    @Test
+    @DisplayName("Thử phục hồi thất bại khi đường dẫn tệp sao lưu vi phạm Path Traversal")
+    void testVerification_PathTraversal_Fails() {
+        validBackup.setFilePath("../../etc/passwd");
+
+        when(userRepository.findByUsername("chuho_test")).thenReturn(Optional.of(ownerUser));
+        when(backupHistoryRepository.findFirstByHouseholdIdAndStatusOrderByBackupTimeDesc(household.getId(), "SUCCESS"))
+                .thenReturn(Optional.of(validBackup));
+
+        when(verificationHistoryRepository.save(any(BackupVerificationHistory.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        BackupVerificationHistoryResponse response = verificationService.triggerVerification("chuho_test", null);
+
+        assertNotNull(response);
+        assertEquals("FAILED", response.getStatus());
+        assertFalse(response.getCheckedFileReadable());
+        assertTrue(response.getFailureReason().contains("Không tìm thấy tệp bản sao lưu"));
         verify(appNotificationRepository, times(1)).save(any(AppNotification.class));
     }
 }

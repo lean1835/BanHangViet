@@ -27,6 +27,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -63,6 +64,13 @@ public class BackupVerificationServiceImpl implements BackupVerificationService 
 
     @Value("${app.backup-verification.max-unverified-days:7}")
     private int maxAllowedDaysWithoutVerification = 7;
+
+    @Value("${app.backup-verification.base-dir:backups}")
+    private String backupBaseDir = "backups";
+
+    public void setBackupBaseDir(String backupBaseDir) {
+        this.backupBaseDir = backupBaseDir;
+    }
 
     private final BackupVerificationHistoryRepository verificationHistoryRepository;
     private final BackupHistoryRepository backupHistoryRepository;
@@ -194,44 +202,61 @@ public class BackupVerificationServiceImpl implements BackupVerificationService 
     public void runScheduledPeriodicVerification() {
         log.info("Bắt đầu tác vụ tự động kiểm thử phục hồi bản sao lưu định kỳ (NCL-14-CN-005)...");
 
-        List<BackupConfig> enabledConfigs = backupConfigRepository.findAllEnabledAutoBackupConfigs();
+        int page = 0;
+        int pageSize = 50;
+        Page<BackupConfig> configPage;
 
-        for (BackupConfig config : enabledConfigs) {
-            BusinessHousehold household = config.getHousehold();
-            if (household == null || household.getDeletedAt() != null) {
-                continue;
+        do {
+            configPage = backupConfigRepository.findAllEnabledAutoBackupConfigs(PageRequest.of(page, pageSize));
+            if (configPage == null || configPage.isEmpty()) {
+                break;
+            }
+            for (BackupConfig config : configPage.getContent()) {
+                BusinessHousehold household = config.getHousehold();
+                if (household != null && household.getDeletedAt() == null) {
+                    getSelf().verifyHouseholdPeriodicAsync(household);
+                }
+            }
+            page++;
+        } while (configPage.hasNext());
+    }
+
+    @Async("taskExecutor")
+    @Override
+    public void verifyHouseholdPeriodicAsync(BusinessHousehold household) {
+        if (household == null || household.getDeletedAt() != null) {
+            return;
+        }
+
+        try {
+            Optional<BackupHistory> latestBackupOpt = backupHistoryRepository
+                    .findFirstByHouseholdIdAndStatusOrderByBackupTimeDesc(household.getId(), "SUCCESS");
+
+            if (latestBackupOpt.isEmpty()) {
+                return;
             }
 
-            try {
-                Optional<BackupHistory> latestBackupOpt = backupHistoryRepository
-                        .findFirstByHouseholdIdAndStatusOrderByBackupTimeDesc(household.getId(), "SUCCESS");
+            BackupHistory latestBackup = latestBackupOpt.get();
 
-                if (latestBackupOpt.isEmpty()) {
-                    continue;
+            // Kiểm tra xem bản sao lưu này đã được kiểm chứng thành công gần đây chưa
+            Optional<BackupVerificationHistory> lastVerificationOpt = verificationHistoryRepository
+                    .findFirstByHouseholdIdOrderByVerifiedAtDesc(household.getId());
+
+            if (lastVerificationOpt.isPresent()) {
+                BackupVerificationHistory lastVer = lastVerificationOpt.get();
+                if (lastVer.getBackupHistory() != null
+                        && lastVer.getBackupHistory().getId().equals(latestBackup.getId())
+                        && "PASSED".equalsIgnoreCase(lastVer.getStatus())
+                        && lastVer.getVerifiedAt().isAfter(LocalDateTime.now().minusHours(23))) {
+                    // Đã kiểm chứng đạt bản này trong 24h qua, bỏ qua
+                    return;
                 }
-
-                BackupHistory latestBackup = latestBackupOpt.get();
-
-                // Kiểm tra xem bản sao lưu này đã được kiểm chứng thành công gần đây chưa
-                Optional<BackupVerificationHistory> lastVerificationOpt = verificationHistoryRepository
-                        .findFirstByHouseholdIdOrderByVerifiedAtDesc(household.getId());
-
-                if (lastVerificationOpt.isPresent()) {
-                    BackupVerificationHistory lastVer = lastVerificationOpt.get();
-                    if (lastVer.getBackupHistory() != null
-                            && lastVer.getBackupHistory().getId().equals(latestBackup.getId())
-                            && "PASSED".equalsIgnoreCase(lastVer.getStatus())
-                            && lastVer.getVerifiedAt().isAfter(LocalDateTime.now().minusHours(23))) {
-                        // Đã kiểm chứng đạt bản này trong 24h qua, bỏ qua
-                        continue;
-                    }
-                }
-
-                getSelf().executeSandboxVerification(household, latestBackup, "AUTOMATIC", "Tự động kiểm thử phục hồi theo lịch hệ thống", null);
-
-            } catch (Exception e) {
-                log.error("Lỗi khi chạy thử phục hồi định kỳ cho hộ id={}", household.getId(), e);
             }
+
+            getSelf().executeSandboxVerification(household, latestBackup, "AUTOMATIC", "Tự động kiểm thử phục hồi theo lịch hệ thống", null);
+
+        } catch (Exception e) {
+            log.error("Lỗi khi chạy thử phục hồi định kỳ bất đồng bộ cho hộ id={}", household.getId(), e);
         }
     }
 
@@ -290,31 +315,34 @@ public class BackupVerificationServiceImpl implements BackupVerificationService 
                             // ==========================================
                             // PILLAR 2: Đối soát số lượng bản ghi chính
                             // ==========================================
-                            if (snapshotData.containsKey("products")) {
+                            boolean hasProducts = snapshotData.get("products") instanceof List;
+                            boolean hasUsers = snapshotData.get("users") instanceof List;
+                            boolean hasCustomers = snapshotData.get("customers") instanceof List;
+                            boolean hasSuppliers = snapshotData.get("suppliers") instanceof List;
+
+                            if (hasProducts) {
                                 List<?> prods = (List<?>) snapshotData.get("products");
-                                productCount = prods != null ? prods.size() : 0;
+                                productCount = prods.size();
                             }
-                            if (snapshotData.containsKey("customers")) {
+                            if (hasCustomers) {
                                 List<?> custs = (List<?>) snapshotData.get("customers");
-                                customerCount = custs != null ? custs.size() : 0;
+                                customerCount = custs.size();
                             }
-                            if (snapshotData.containsKey("suppliers")) {
+                            if (hasSuppliers) {
                                 List<?> sups = (List<?>) snapshotData.get("suppliers");
-                                supplierCount = sups != null ? sups.size() : 0;
+                                supplierCount = sups.size();
                             }
-                            if (snapshotData.containsKey("users")) {
+                            if (hasUsers) {
                                 List<?> users = (List<?>) snapshotData.get("users");
-                                userCount = users != null ? users.size() : 0;
+                                userCount = users.size();
                             }
 
-                            recordCountsMatched = snapshotData.containsKey("products")
-                                    || snapshotData.containsKey("customers")
-                                    || snapshotData.containsKey("suppliers")
-                                    || snapshotData.containsKey("users");
+                            recordCountsMatched = hasProducts && hasUsers && hasCustomers && hasSuppliers;
 
                             if (!recordCountsMatched) {
                                 status = "FAILED";
-                                failureReason = "Tệp sao lưu thiếu cấu trúc dữ liệu của các bảng thực thể chính";
+                                String pillar2Reason = "Tệp sao lưu thiếu hoặc không đúng định dạng các bảng thực thể bắt buộc (products, users, customers, suppliers)";
+                                failureReason = (failureReason == null) ? pillar2Reason : failureReason + "; " + pillar2Reason;
                             }
 
                             // ==========================================
@@ -380,16 +408,30 @@ public class BackupVerificationServiceImpl implements BackupVerificationService 
     }
 
     private Path resolveBackupFilePath(String householdId, BackupHistory backup) {
+        Path baseDir = Paths.get(backupBaseDir != null ? backupBaseDir : "backups").toAbsolutePath().normalize();
+
         if (backup.getFilePath() != null && !backup.getFilePath().isBlank()) {
-            Path directPath = Paths.get(backup.getFilePath());
+            Path directPath = Paths.get(backup.getFilePath()).toAbsolutePath().normalize();
+            if (!directPath.startsWith(baseDir)) {
+                log.warn("Cảnh báo bảo mật: Đường dẫn tệp sao lưu nằm ngoài thư mục lưu trữ hợp lệ: {}", directPath);
+                return null;
+            }
             if (Files.exists(directPath)) {
                 return directPath;
             }
         }
-        Path fallbackPath = Paths.get("backups", householdId, backup.getFileName() + ".json");
-        if (Files.exists(fallbackPath)) {
-            return fallbackPath;
+
+        if (backup.getFileName() != null && !backup.getFileName().isBlank()) {
+            Path fallbackPath = baseDir.resolve(householdId).resolve(backup.getFileName() + ".json").normalize();
+            if (!fallbackPath.startsWith(baseDir)) {
+                log.warn("Cảnh báo bảo mật: Đường dẫn tệp sao lưu fallback nằm ngoài thư mục lưu trữ hợp lệ: {}", fallbackPath);
+                return null;
+            }
+            if (Files.exists(fallbackPath)) {
+                return fallbackPath;
+            }
         }
+
         return null;
     }
 
