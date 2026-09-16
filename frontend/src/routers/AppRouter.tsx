@@ -114,6 +114,18 @@ const PosTransferPage = React.lazy(
 const PosRevenueReportPage = React.lazy(
   () => import("@/modules/report/pages/PosRevenueReportPage")
 );
+const GrossProfitReportPage = React.lazy(
+  () => import("@/modules/report/pages/GrossProfitReportPage")
+);
+const EmployeeShiftReportPage = React.lazy(
+  () => import("@/modules/report/pages/EmployeeShiftReportPage")
+);
+const PaymentMethodReportPage = React.lazy(
+  () => import("@/modules/report/pages/PaymentMethodReportPage")
+);
+const ProductGroupReportPage = React.lazy(
+  () => import("@/modules/report/pages/ProductGroupReportPage")
+);
 const TaxRateSettingsPage = React.lazy(
   () => import("@/modules/settings/pages/TaxRateSettingsPage")
 );
@@ -328,6 +340,10 @@ export const AppRouter = () => (
           >
             <Route index element={<Navigate to={ROUTE_SEGMENTS.REVENUE} replace />} />
             <Route path={ROUTE_SEGMENTS.REVENUE} element={<RevenueReportPage />} />
+            <Route path={ROUTE_SEGMENTS.GROSS_PROFIT} element={<GrossProfitReportPage />} />
+            <Route path={ROUTE_SEGMENTS.PRODUCT_GROUPS} element={<ProductGroupReportPage />} />
+            <Route path={ROUTE_SEGMENTS.PAYMENT_METHODS} element={<PaymentMethodReportPage />} />
+            <Route path={ROUTE_SEGMENTS.EMPLOYEE_SHIFTS} element={<EmployeeShiftReportPage />} />
             <Route path={ROUTE_SEGMENTS.POS_REVENUE} element={<PosRevenueReportPage />} />
             <Route path={ROUTE_SEGMENTS.PEAK_HOURS} element={<PeakHoursAnalyticsPage />} />
             <Route path={ROUTE_SEGMENTS.COMPARISON} element={<RevenueComparisonPage />} />

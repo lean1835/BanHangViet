@@ -50,6 +50,10 @@ export const ROUTE_SEGMENTS = {
   STOCK_CARD: "stock-card",
   PRICE_ADJUSTMENTS: "price-adjustments",
   LOYALTY: "loyalty",
+  GROSS_PROFIT: "gross-profit",
+  EMPLOYEE_SHIFTS: "employee-shifts",
+  PAYMENT_METHODS: "payment-methods",
+  PRODUCT_GROUPS: "product-groups",
   WILDCARD: "*",
 } as const;
 
@@ -155,6 +159,22 @@ export const APP_ROUTES = {
   REPORT_PEAK_HOURS: createRoute(
     ROUTE_SEGMENTS.REPORTS,
     ROUTE_SEGMENTS.PEAK_HOURS,
+  ),
+  REPORT_GROSS_PROFIT: createRoute(
+    ROUTE_SEGMENTS.REPORTS,
+    ROUTE_SEGMENTS.GROSS_PROFIT,
+  ),
+  REPORT_EMPLOYEE_SHIFTS: createRoute(
+    ROUTE_SEGMENTS.REPORTS,
+    ROUTE_SEGMENTS.EMPLOYEE_SHIFTS,
+  ),
+  REPORT_PAYMENT_METHODS: createRoute(
+    ROUTE_SEGMENTS.REPORTS,
+    ROUTE_SEGMENTS.PAYMENT_METHODS,
+  ),
+  REPORT_PRODUCT_GROUPS: createRoute(
+    ROUTE_SEGMENTS.REPORTS,
+    ROUTE_SEGMENTS.PRODUCT_GROUPS,
   ),
   SETTINGS: createRoute(ROUTE_SEGMENTS.SETTINGS),
   SETTINGS_USER_PROFILE: createRoute(

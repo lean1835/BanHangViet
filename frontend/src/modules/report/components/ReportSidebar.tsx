@@ -10,6 +10,10 @@ import { RevenueReportSidebar } from "./RevenueReportSidebar";
 import { PosRevenueReportSidebar } from "./PosRevenueReportSidebar";
 import { RevenueComparisonSidebar } from "./RevenueComparisonSidebar";
 import { ActivityLogSidebar } from "./ActivityLogSidebar";
+import { GrossProfitReportSidebar } from "./GrossProfitReportSidebar";
+import { EmployeeShiftReportSidebar } from "./EmployeeShiftReportSidebar";
+import { PaymentMethodReportSidebar } from "./PaymentMethodReportSidebar";
+import { ProductGroupReportSidebar } from "./ProductGroupReportSidebar";
 
 const getNavLinkClassName = ({ isActive }: { isActive: boolean }) =>
   `flex min-h-11 w-full items-center rounded-md px-3 py-2 text-left text-xs font-bold transition-all lg:min-h-0 ${
@@ -25,6 +29,22 @@ export const ReportSidebar: React.FC = () => {
     location.pathname === APP_ROUTES.REPORT_REVENUE ||
     location.pathname === APP_ROUTES.REPORTS ||
     location.pathname === "/reports";
+
+  const isGrossProfitRoute =
+    location.pathname === APP_ROUTES.REPORT_GROSS_PROFIT ||
+    location.pathname.startsWith("/reports/gross-profit");
+
+  const isProductGroupRoute =
+    location.pathname === APP_ROUTES.REPORT_PRODUCT_GROUPS ||
+    location.pathname.startsWith("/reports/product-groups");
+
+  const isPaymentMethodRoute =
+    location.pathname === APP_ROUTES.REPORT_PAYMENT_METHODS ||
+    location.pathname.startsWith("/reports/payment-methods");
+
+  const isEmployeeShiftRoute =
+    location.pathname === APP_ROUTES.REPORT_EMPLOYEE_SHIFTS ||
+    location.pathname.startsWith("/reports/employee-shifts");
 
   const isPosRevenueRoute =
     location.pathname === APP_ROUTES.REPORT_POS_REVENUE ||
@@ -76,6 +96,34 @@ export const ReportSidebar: React.FC = () => {
       {isRevenueRoute && (
         <div className="pt-2 border-t border-slate-200">
           <RevenueReportSidebar />
+        </div>
+      )}
+
+      {/* 1.1 Gross Profit Report Filter */}
+      {isGrossProfitRoute && (
+        <div className="pt-2 border-t border-slate-200">
+          <GrossProfitReportSidebar />
+        </div>
+      )}
+
+      {/* 1.2 Product Group Report Filter */}
+      {isProductGroupRoute && (
+        <div className="pt-2 border-t border-slate-200">
+          <ProductGroupReportSidebar />
+        </div>
+      )}
+
+      {/* 1.3 Payment Method Report Filter */}
+      {isPaymentMethodRoute && (
+        <div className="pt-2 border-t border-slate-200">
+          <PaymentMethodReportSidebar />
+        </div>
+      )}
+
+      {/* 1.4 Employee Shift Report Filter */}
+      {isEmployeeShiftRoute && (
+        <div className="pt-2 border-t border-slate-200">
+          <EmployeeShiftReportSidebar />
         </div>
       )}
 

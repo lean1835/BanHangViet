@@ -58,3 +58,183 @@ export interface IActivityLogResponse {
   userAgent: string;
   createdAt: string;
 }
+
+// ============================================================================
+// NCL-07-CN-008: BÁO CÁO LÃI GỘP THEO NGÀY VÀ THEO MẶT HÀNG
+// ============================================================================
+export interface IGrossProfitSummary {
+  totalNetRevenue: number;
+  totalCogs: number;
+  totalGrossProfit: number;
+  grossProfitMarginPercentage: number;
+}
+
+export interface IDailyGrossProfit {
+  date: string;
+  netRevenue: number;
+  cogs: number;
+  grossProfit: number;
+  grossProfitMarginPercentage: number;
+}
+
+export interface IProductGrossProfit {
+  productId: string;
+  productSku: string;
+  productName: string;
+  unit: string;
+  quantitySold: number;
+  netRevenue: number;
+  cogs: number;
+  grossProfit: number;
+  grossProfitMarginPercentage: number;
+  isNegativeMargin: boolean;
+}
+
+export interface IMissingCostProduct {
+  productId: string;
+  productSku: string;
+  productName: string;
+  unit: string;
+  quantitySold: number;
+  netRevenue: number;
+  warningMessage?: string;
+}
+
+export interface IGrossProfitReportResponse {
+  summary: IGrossProfitSummary;
+  dailyReports: IDailyGrossProfit[];
+  itemReports: IProductGrossProfit[];
+  missingCostPriceItems: IMissingCostProduct[];
+}
+
+// ============================================================================
+// NCL-07-CN-010: BÁO CÁO DOANH THU THEO NHÂN VIÊN VÀ THEO CA
+// ============================================================================
+export interface IShiftRevenueReportItem {
+  shiftId: string;
+  userId: string;
+  username: string;
+  employeeName: string;
+  pointOfSaleId?: string;
+  pointOfSaleName?: string;
+  openedAt: string;
+  closedAt?: string;
+  openingCash: number;
+  closingCashExpected: number;
+  closingCashActual: number;
+  cashRevenue: number;
+  bankTransferRevenue: number;
+  totalRevenue: number;
+  totalOrders: number;
+  canceledOrders: number;
+  cashIncome: number;
+  cashExpense: number;
+  differenceAmount: number;
+  differenceReason?: string;
+  differenceExceeded?: boolean;
+  isDifferenceExceeded?: boolean;
+  handoversCount: number;
+  status: string;
+}
+
+export interface IEmployeeRevenueSummary {
+  userId: string;
+  username: string;
+  employeeName: string;
+  totalShifts: number;
+  totalCashRevenue: number;
+  totalBankTransferRevenue: number;
+  totalRevenue: number;
+  totalOrders: number;
+  totalCanceledOrders: number;
+  averageOrdersPerShift: number;
+  averageRevenuePerShift: number;
+  totalDifferenceAmount: number;
+  exceededShiftsCount: number;
+}
+
+export interface IEmployeeShiftReportResponse {
+  fromDate: string;
+  toDate: string;
+  appliedThreshold: number;
+  totalShiftsCount: number;
+  totalExceededShiftsCount: number;
+  totalCashRevenue: number;
+  totalBankTransferRevenue: number;
+  totalRevenue: number;
+  totalOrdersCount: number;
+  totalCanceledOrdersCount: number;
+  totalDifferenceAmount: number;
+  shifts: IShiftRevenueReportItem[];
+  employeeSummaries: IEmployeeRevenueSummary[];
+}
+
+// ============================================================================
+// NCL-07-CN-011: BÁO CÁO DOANH THU THEO HÌNH THỨC THANH TOÁN
+// ============================================================================
+export interface IPaymentMethodStat {
+  method: string;
+  methodName: string;
+  totalAmount: number;
+  percentage: number;
+  transactionCount: number;
+}
+
+export interface IDebtCollectionSummary {
+  totalDebtCreated: number;
+  totalDebtPaid: number;
+  totalDebtRemaining: number;
+}
+
+export interface IDailyPaymentTrend {
+  date: string;
+  cashAmount: number;
+  bankTransferAmount: number;
+  debtAmount: number;
+  totalAmount: number;
+}
+
+export interface IPaymentMethodReportResponse {
+  totalRevenue: number;
+  methods: IPaymentMethodStat[];
+  debtDetails: IDebtCollectionSummary;
+  dailyTrends: IDailyPaymentTrend[];
+}
+
+// ============================================================================
+// NCL-07-CN-012: BÁO CÁO DOANH THU THEO NHÓM HÀNG (KÈM DRILL-DOWN)
+// ============================================================================
+export interface IProductGroupRevenue {
+  groupId: string;
+  groupName: string;
+  totalQuantitySold: number;
+  revenue: number;
+  percentage: number;
+  previousPeriodRevenue: number;
+  growthRatePercentage: number;
+}
+
+export interface IProductGroupReportResponse {
+  totalRevenue: number;
+  groups: IProductGroupRevenue[];
+  unassignedSummary?: IProductGroupRevenue;
+  hasUnassignedProducts: boolean;
+}
+
+export interface IProductRevenueInGroup {
+  productId: string;
+  productSku: string;
+  productName: string;
+  unit: string;
+  quantitySold: number;
+  revenue: number;
+  percentageInGroup: number;
+}
+
+export interface IProductGroupRevenueDetailResponse {
+  groupId: string;
+  groupName: string;
+  totalRevenue: number;
+  items: IProductRevenueInGroup[];
+}
+
