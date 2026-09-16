@@ -162,4 +162,55 @@ class HouseholdOnboardingServiceImplTest {
         AppException ex = assertThrows(AppException.class, () -> onboardingService.skipOnboarding("staff1"));
         assertEquals(ErrorCode.FORBIDDEN, ex.getErrorCode());
     }
+
+    @Test
+    @DisplayName("P2-1: Gọi completeOnboarding khi chưa hoàn tất 4 bước bắt buộc -> Ném ngoại lệ ONBOARDING_INCOMPLETE")
+    void testCompleteOnboarding_IncompleteSteps_ThrowsOnboardingIncomplete() {
+        when(userRepository.findByUsername("owner1")).thenReturn(Optional.of(ownerUser));
+        when(settingsRepository.findByHouseholdId("hh-1")).thenReturn(Optional.of(settings));
+
+        // Thiếu range, thuế, sản phẩm
+        when(invoiceNumberRangeRepository.findActiveRangesByHouseholdId("hh-1")).thenReturn(Collections.emptyList());
+        when(invoiceTemplateRepository.findByHouseholdId("hh-1")).thenReturn(Optional.empty());
+        when(taxRateRepository.existsByHouseholdIdAndIsActiveTrue("hh-1")).thenReturn(false);
+        when(productRepository.countByHouseholdIdAndDeletedAtIsNull("hh-1")).thenReturn(0L);
+        when(userRepository.existsByHouseholdIdAndRole_CodeAndDeletedAtIsNull("hh-1", "VT-02")).thenReturn(false);
+
+        AppException ex = assertThrows(AppException.class, () -> onboardingService.completeOnboarding("owner1"));
+        assertEquals(ErrorCode.ONBOARDING_INCOMPLETE, ex.getErrorCode());
+        verify(settingsRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("P2-1: Gọi completeOnboarding khi đã hoàn tất 4 bước bắt buộc -> Đánh dấu hoàn tất thành công")
+    void testCompleteOnboarding_AllRequiredCompleted_Success() {
+        when(userRepository.findByUsername("owner1")).thenReturn(Optional.of(ownerUser));
+        when(settingsRepository.findByHouseholdId("hh-1")).thenReturn(Optional.of(settings));
+
+        when(invoiceNumberRangeRepository.findActiveRangesByHouseholdId("hh-1"))
+                .thenReturn(List.of(InvoiceNumberRange.builder().id("range-1").build()));
+        when(taxRateRepository.existsByHouseholdIdAndIsActiveTrue("hh-1")).thenReturn(true);
+        when(productRepository.countByHouseholdIdAndDeletedAtIsNull("hh-1")).thenReturn(5L);
+        when(userRepository.existsByHouseholdIdAndRole_CodeAndDeletedAtIsNull("hh-1", "VT-02")).thenReturn(true);
+        when(settingsRepository.save(any(BusinessHouseholdSettings.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        OnboardingStatusResponse response = onboardingService.completeOnboarding("owner1");
+
+        assertNotNull(response);
+        assertTrue(response.isReadyForInvoicing());
+        assertTrue(response.isCompleted());
+        verify(settingsRepository, atLeastOnce()).save(settings);
+    }
+
+    @Test
+    @DisplayName("P2-1: Nhân viên không phải chủ hộ gọi completeOnboarding -> Ném ngoại lệ FORBIDDEN")
+    void testCompleteOnboarding_ForbiddenForNonOwner() {
+        Role staffRole = Role.builder().id(2).code("VT-02").name("Thu ngân").build();
+        User staff = User.builder().id("u-2").username("staff1").role(staffRole).household(household).build();
+
+        when(userRepository.findByUsername("staff1")).thenReturn(Optional.of(staff));
+
+        AppException ex = assertThrows(AppException.class, () -> onboardingService.completeOnboarding("staff1"));
+        assertEquals(ErrorCode.FORBIDDEN, ex.getErrorCode());
+    }
 }

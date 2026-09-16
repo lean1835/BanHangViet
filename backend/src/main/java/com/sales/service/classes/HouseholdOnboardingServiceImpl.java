@@ -185,8 +185,14 @@ public class HouseholdOnboardingServiceImpl implements HouseholdOnboardingServic
         }
 
         BusinessHouseholdSettings settings = getOrCreateSettings(household);
+        OnboardingStatusResponse currentStatus = getOnboardingStatus(currentUsername);
+        if (!currentStatus.isReadyForInvoicing()) {
+            throw new AppException(ErrorCode.ONBOARDING_INCOMPLETE);
+        }
+
         settings.setIsOnboardingCompleted(true);
         settingsRepository.save(settings);
+        log.info("Hộ kinh doanh id={} đã hoàn tất 4 bước thiết lập ban đầu (Onboarding Completed)", household.getId());
 
         return getOnboardingStatus(currentUsername);
     }

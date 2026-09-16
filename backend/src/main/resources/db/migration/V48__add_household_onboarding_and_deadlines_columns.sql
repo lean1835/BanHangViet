@@ -1,4 +1,4 @@
--- Migration V44: Bổ sung cấu hình Onboarding thiết lập lần đầu và các mốc thời hạn nghiệp vụ của hộ kinh doanh
+-- Migration V48: Bổ sung cấu hình Onboarding thiết lập lần đầu và các mốc thời hạn nghiệp vụ của hộ kinh doanh
 -- Tasks: NCL-09-CN-007, NCL-09-CN-008, NCL-09-CN-009
 
 -- 1. Bổ sung các cột vào bảng business_household_settings

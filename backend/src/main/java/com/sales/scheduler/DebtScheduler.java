@@ -20,7 +20,9 @@ import org.springframework.util.StringUtils;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.function.BiConsumer;
 import java.util.function.BiPredicate;
 import java.util.function.Function;
@@ -74,6 +76,8 @@ public class DebtScheduler {
         }
         LocalDateTime maxDueDate = today.plusDays(maxDaysBefore + 1).atStartOfDay();
 
+        Map<String, Integer> householdReminderDaysCache = new HashMap<>();
+
         int processedCount = processDebtRemindersBatch(
                 lastId -> customerDebtRepository.findPendingPreDueRemindersKeyset(
                         lastId, maxDueDate, PageRequest.of(0, DEFAULT_PAGE_SIZE)),
@@ -82,10 +86,13 @@ public class DebtScheduler {
                     if (customer.getReminderDaysBefore() != null) {
                         daysBefore = customer.getReminderDaysBefore();
                     } else if (debt.getHousehold() != null && settingsRepository != null) {
-                        daysBefore = settingsRepository.findByHouseholdId(debt.getHousehold().getId())
-                                .map(BusinessHouseholdSettings::getDebtReminderDaysBefore)
-                                .filter(d -> d != null && d > 0)
-                                .orElse(DEFAULT_REMINDER_DAYS);
+                        String hhId = debt.getHousehold().getId();
+                        daysBefore = householdReminderDaysCache.computeIfAbsent(hhId, id ->
+                                settingsRepository.findByHouseholdId(id)
+                                        .map(BusinessHouseholdSettings::getDebtReminderDaysBefore)
+                                        .filter(d -> d != null && d > 0)
+                                        .orElse(DEFAULT_REMINDER_DAYS)
+                        );
                     } else {
                         daysBefore = DEFAULT_REMINDER_DAYS;
                     }

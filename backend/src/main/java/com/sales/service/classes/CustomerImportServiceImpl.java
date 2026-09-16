@@ -37,7 +37,7 @@ import java.util.stream.Collectors;
 public class CustomerImportServiceImpl implements CustomerImportService {
 
     private static final long MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
-    private static final Pattern PHONE_PATTERN = Pattern.compile("^(0|\\+84)[35789][0-9]{8}$");
+    private static final Pattern PHONE_PATTERN = Pattern.compile("^(0|\\+84)(2[0-9]{9}|[35789][0-9]{8})$");
     private static final Pattern TAX_CODE_PATTERN = Pattern.compile("^[0-9]{10}(-[0-9]{3})?$");
 
     private final CustomerRepository customerRepository;
@@ -73,6 +73,10 @@ public class CustomerImportServiceImpl implements CustomerImportService {
         if (file.getSize() > MAX_FILE_SIZE) {
             throw new AppException(ErrorCode.FILE_SIZE_EXCEEDED);
         }
+        String filename = file.getOriginalFilename();
+        if (filename == null || (!filename.toLowerCase().endsWith(".xlsx") && !filename.toLowerCase().endsWith(".xls"))) {
+            throw new AppException(ErrorCode.INVALID_FILE_FORMAT);
+        }
     }
 
     private boolean isRowEmpty(Row row) {
@@ -91,6 +95,12 @@ public class CustomerImportServiceImpl implements CustomerImportService {
         String cleaned = phone.replaceAll("[^0-9+]", "");
         if (cleaned.startsWith("+84")) {
             cleaned = "0" + cleaned.substring(3);
+        }
+        if (cleaned.length() == 9 && cleaned.matches("^[35789][0-9]{8}$")) {
+            cleaned = "0" + cleaned;
+        }
+        if (cleaned.length() == 10 && cleaned.matches("^2[0-9]{9}$")) {
+            cleaned = "0" + cleaned;
         }
         return cleaned;
     }

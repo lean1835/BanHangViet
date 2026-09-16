@@ -73,6 +73,10 @@ public class SupplierImportServiceImpl implements SupplierImportService {
         if (file.getSize() > MAX_FILE_SIZE) {
             throw new AppException(ErrorCode.FILE_SIZE_EXCEEDED);
         }
+        String filename = file.getOriginalFilename();
+        if (filename == null || (!filename.toLowerCase().endsWith(".xlsx") && !filename.toLowerCase().endsWith(".xls"))) {
+            throw new AppException(ErrorCode.INVALID_FILE_FORMAT);
+        }
     }
 
     private boolean isRowEmpty(Row row) {
@@ -91,6 +95,12 @@ public class SupplierImportServiceImpl implements SupplierImportService {
         String cleaned = phone.replaceAll("[^0-9+]", "");
         if (cleaned.startsWith("+84")) {
             cleaned = "0" + cleaned.substring(3);
+        }
+        if (cleaned.length() == 9 && cleaned.matches("^[35789][0-9]{8}$")) {
+            cleaned = "0" + cleaned;
+        }
+        if (cleaned.length() == 10 && cleaned.matches("^2[0-9]{9}$")) {
+            cleaned = "0" + cleaned;
         }
         return cleaned;
     }

@@ -181,4 +181,48 @@ class SupplierImportServiceImplTest {
         assertEquals(1, response.getSuccessCount());
         assertEquals(0, response.getErrorCount());
     }
+
+    @Test
+    @DisplayName("P1-2 (Supplier): SĐT nhà cung cấp lưu numeric trong Excel -> Tự động bù 0 thành công")
+    void testImportSuppliers_NumericCellPhone_AutoPaddedZero() throws Exception {
+        when(userRepository.findByUsername("owner1")).thenReturn(Optional.of(ownerUser));
+        when(supplierRepository.findAllByHouseholdIdAndDeletedAtIsNull("hh-1")).thenReturn(Collections.emptyList());
+        when(supplierRepository.saveAll(anyList())).thenAnswer(inv -> inv.getArgument(0));
+
+        try (Workbook workbook = new XSSFWorkbook()) {
+            Sheet sheet = workbook.createSheet("NhaCungCap");
+            Row header = sheet.createRow(0);
+            String[] headers = {"Tên nhà cung cấp", "Số điện thoại", "Mã số thuế", "Email", "Địa chỉ", "Số dư nợ đầu kỳ", "Ghi chú"};
+            for (int i = 0; i < headers.length; i++) {
+                header.createCell(i).setCellValue(headers[i]);
+            }
+            Row row = sheet.createRow(1);
+            row.createCell(0).setCellValue("NCC Phụ Tùng");
+            row.createCell(1).setCellValue(987654321.0); // Numeric cell!
+
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            workbook.write(out);
+            MockMultipartFile file = new MockMultipartFile("file", "suppliers.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", out.toByteArray());
+
+            ImportSupplierResultResponse response = supplierImportService.importSuppliers("owner1", file, "SKIP");
+
+            assertNotNull(response);
+            assertEquals(1, response.getTotalRows());
+            assertEquals(1, response.getSuccessCount());
+            assertEquals(0, response.getErrorCount());
+
+            verify(supplierRepository, times(1)).saveAll(argThat(suppliers -> {
+                List<Supplier> list = (List<Supplier>) suppliers;
+                return list.size() == 1 && "0987654321".equals(list.get(0).getPhoneNumber());
+            }));
+        }
+    }
+
+    @Test
+    @DisplayName("P2-3 (Supplier): Tệp không đúng định dạng .xlsx/.xls -> Ném ngoại lệ INVALID_FILE_FORMAT")
+    void testImportSuppliers_InvalidFileFormat() {
+        MockMultipartFile badFile = new MockMultipartFile("file", "suppliers.zip", "application/zip", new byte[]{1, 2, 3});
+        AppException ex = assertThrows(AppException.class, () -> supplierImportService.importSuppliers("owner1", badFile, "SKIP"));
+        assertEquals(ErrorCode.INVALID_FILE_FORMAT, ex.getErrorCode());
+    }
 }

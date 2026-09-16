@@ -183,4 +183,68 @@ class CustomerImportServiceImplTest {
         assertEquals("Số điện thoại không đúng định dạng Việt Nam", response.getErrors().get(0).getReason());
         assertNotNull(response.getErrorFileBase64());
     }
+
+    @Test
+    @DisplayName("P1-2: SĐT khách hàng lưu numeric trong Excel (mất số 0 thành 9 chữ số) -> Tự động bù 0 thành công")
+    void testImportCustomers_NumericCellPhone_AutoPaddedZero() throws Exception {
+        when(userRepository.findByUsername("owner1")).thenReturn(Optional.of(ownerUser));
+        when(customerRepository.findAllByHouseholdIdAndDeletedAtIsNull("hh-1")).thenReturn(Collections.emptyList());
+        when(customerRepository.saveAll(anyList())).thenAnswer(inv -> inv.getArgument(0));
+
+        try (Workbook workbook = new XSSFWorkbook()) {
+            Sheet sheet = workbook.createSheet("KhachHang");
+            Row header = sheet.createRow(0);
+            String[] headers = {"Tên khách hàng", "Số điện thoại", "Mã số thuế", "Email", "Địa chỉ", "Hạn mức nợ", "Số dư nợ đầu kỳ", "Kênh nhận"};
+            for (int i = 0; i < headers.length; i++) {
+                header.createCell(i).setCellValue(headers[i]);
+            }
+            Row row = sheet.createRow(1);
+            row.createCell(0).setCellValue("Khách Hàng Numeric");
+            row.createCell(1).setCellValue(912345678.0); // Numeric trong Excel!
+
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            workbook.write(out);
+            MockMultipartFile file = new MockMultipartFile("file", "customers.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", out.toByteArray());
+
+            ImportCustomerResultResponse response = customerImportService.importCustomers("owner1", file, "SKIP");
+
+            assertNotNull(response);
+            assertEquals(1, response.getTotalRows());
+            assertEquals(1, response.getSuccessCount());
+            assertEquals(0, response.getErrorCount());
+
+            verify(customerRepository, times(1)).saveAll(argThat(customers -> {
+                List<Customer> list = (List<Customer>) customers;
+                return list.size() == 1 && "0912345678".equals(list.get(0).getPhoneNumber());
+            }));
+        }
+    }
+
+    @Test
+    @DisplayName("P2-2: Khách hàng dùng số cố định (02x) 11 số -> Import thành công")
+    void testImportCustomers_LandlinePhoneSuccess() throws Exception {
+        when(userRepository.findByUsername("owner1")).thenReturn(Optional.of(ownerUser));
+        when(customerRepository.findAllByHouseholdIdAndDeletedAtIsNull("hh-1")).thenReturn(Collections.emptyList());
+        when(customerRepository.saveAll(anyList())).thenAnswer(inv -> inv.getArgument(0));
+
+        List<String[]> rows = Collections.singletonList(
+                new String[]{"Công ty Khách Hàng", "02431234567", "0109998888", "khach@cty.vn", "Hà Nội", "0", "0", "ZALO"}
+        );
+        MockMultipartFile file = createExcelFile(rows);
+
+        ImportCustomerResultResponse response = customerImportService.importCustomers("owner1", file, "SKIP");
+
+        assertNotNull(response);
+        assertEquals(1, response.getTotalRows());
+        assertEquals(1, response.getSuccessCount());
+        assertEquals(0, response.getErrorCount());
+    }
+
+    @Test
+    @DisplayName("P2-3: Tải tệp không đúng định dạng .xlsx/.xls -> Ném ngoại lệ INVALID_FILE_FORMAT")
+    void testImportCustomers_InvalidFileFormat() {
+        MockMultipartFile badFile = new MockMultipartFile("file", "data.csv", "text/csv", "col1,col2\nval1,val2".getBytes());
+        AppException ex = assertThrows(AppException.class, () -> customerImportService.importCustomers("owner1", badFile, "SKIP"));
+        assertEquals(ErrorCode.INVALID_FILE_FORMAT, ex.getErrorCode());
+    }
 }
