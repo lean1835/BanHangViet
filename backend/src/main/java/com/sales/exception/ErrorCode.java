@@ -70,6 +70,9 @@ public enum ErrorCode {
     EMPTY_IMPORT_FILE(2014, "Tệp import rỗng không chứa dòng dữ liệu nào", HttpStatus.BAD_REQUEST),
     FILE_SIZE_EXCEEDED(2015, "Tệp import vượt quá dung lượng tối đa cho phép (10MB)", HttpStatus.BAD_REQUEST),
     NO_DATA_TO_EXPORT(2016, "Không có dữ liệu trong khoảng thời gian đã chọn", HttpStatus.BAD_REQUEST),
+    INVALID_DEADLINE_VALUE(2041, "Mốc thời hạn cấu hình không nằm trong khoảng cho phép", HttpStatus.BAD_REQUEST),
+    INVALID_PHONE_FORMAT(2043, "Số điện thoại không đúng định dạng", HttpStatus.BAD_REQUEST),
+    IMPORT_DATA_CONFLICT(2044, "Dữ liệu tệp bị xung đột hoặc trùng lặp", HttpStatus.CONFLICT),
 
     // Cấu hình Nền tảng & Thuế suất (NCL-09 Branch 1)
     INVALID_TAX_CODE(2030, "Mã số thuế không đúng định dạng 10 hoặc 13 chữ số", HttpStatus.BAD_REQUEST),

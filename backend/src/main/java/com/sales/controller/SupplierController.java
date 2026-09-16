@@ -20,6 +20,44 @@ import java.util.List;
 public class SupplierController {
 
     private final SupplierService supplierService;
+    private final com.sales.service.interfaces.SupplierImportService supplierImportService;
+
+    @GetMapping("/import-template")
+    @PreAuthorize("hasRole('VT-01')")
+    public ResponseEntity<byte[]> getImportTemplate() throws Exception {
+        byte[] data = supplierImportService.getImportTemplate();
+        return ResponseEntity.ok()
+                .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=mau_nhap_nha_cung_cap.xlsx")
+                .header(org.springframework.http.HttpHeaders.CONTENT_TYPE, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+                .body(data);
+    }
+
+    @PostMapping("/import-preview")
+    @PreAuthorize("hasRole('VT-01')")
+    public ResponseEntity<ApiResponse<com.sales.dto.response.ImportPreviewResponse>> previewImport(
+            Principal principal,
+            @RequestParam("file") org.springframework.web.multipart.MultipartFile file) {
+        com.sales.dto.response.ImportPreviewResponse preview = supplierImportService.previewImport(principal.getName(), file);
+        return ResponseEntity.ok(ApiResponse.<com.sales.dto.response.ImportPreviewResponse>builder()
+                .code(1000)
+                .message("Phân tích tệp dữ liệu nhà cung cấp thành công")
+                .result(preview)
+                .build());
+    }
+
+    @PostMapping("/import")
+    @PreAuthorize("hasRole('VT-01')")
+    public ResponseEntity<ApiResponse<com.sales.dto.response.ImportSupplierResultResponse>> importSuppliers(
+            Principal principal,
+            @RequestParam("file") org.springframework.web.multipart.MultipartFile file,
+            @RequestParam(value = "duplicateAction", defaultValue = "SKIP") String duplicateAction) {
+        com.sales.dto.response.ImportSupplierResultResponse result = supplierImportService.importSuppliers(principal.getName(), file, duplicateAction);
+        return ResponseEntity.ok(ApiResponse.<com.sales.dto.response.ImportSupplierResultResponse>builder()
+                .code(1000)
+                .message("Nhập danh mục nhà cung cấp từ tệp thành công")
+                .result(result)
+                .build());
+    }
 
     @PostMapping
     @PreAuthorize("hasRole('VT-01')")

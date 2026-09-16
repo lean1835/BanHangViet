@@ -77,6 +77,26 @@ public class BusinessHouseholdSettings {
     @Builder.Default
     private java.math.BigDecimal shiftDifferenceThreshold = java.math.BigDecimal.ZERO;
 
+    @Column(name = "is_onboarding_completed", nullable = false)
+    @Builder.Default
+    private Boolean isOnboardingCompleted = false;
+
+    @Column(name = "is_onboarding_skipped", nullable = false)
+    @Builder.Default
+    private Boolean isOnboardingSkipped = false;
+
+    @Column(name = "return_days_limit", nullable = false)
+    @Builder.Default
+    private Integer returnDaysLimit = 7;
+
+    @Column(name = "max_offline_sync_hours", nullable = false)
+    @Builder.Default
+    private Integer maxOfflineSyncHours = 24;
+
+    @Column(name = "debt_reminder_days_before", nullable = false)
+    @Builder.Default
+    private Integer debtReminderDaysBefore = 3;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
