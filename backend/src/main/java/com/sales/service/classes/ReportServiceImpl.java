@@ -761,6 +761,17 @@ public class ReportServiceImpl implements ReportService {
 
         List<OrderItem> items = orderItemRepository.findItemsForGrossProfitReport(household.getId(), startDateTime, endDateTime);
 
+        // Gom tổng chiết khấu dòng hàng và tổng thành tiền theo đơn để phân bổ chiết khấu cấp đơn hàng (NCL-07-CN-008)
+        Map<String, BigDecimal> orderItemDiscountSums = new HashMap<>();
+        Map<String, BigDecimal> orderSubtotalSums = new HashMap<>();
+        for (OrderItem oi : items) {
+            String ordId = oi.getOrder().getId();
+            BigDecimal d = oi.getDiscountAmount() != null ? oi.getDiscountAmount() : BigDecimal.ZERO;
+            BigDecimal sub = oi.getSubtotal() != null ? oi.getSubtotal() : BigDecimal.ZERO;
+            orderItemDiscountSums.put(ordId, orderItemDiscountSums.getOrDefault(ordId, BigDecimal.ZERO).add(d));
+            orderSubtotalSums.put(ordId, orderSubtotalSums.getOrDefault(ordId, BigDecimal.ZERO).add(sub));
+        }
+
         if (productId != null && !productId.trim().isEmpty()) {
             items = items.stream()
                     .filter(oi -> oi.getProduct() != null && productId.equals(oi.getProduct().getId()))
@@ -800,7 +811,30 @@ public class ReportServiceImpl implements ReportService {
             BigDecimal effectiveQty = oi.getBaseQuantity() != null && oi.getBaseQuantity().compareTo(BigDecimal.ZERO) > 0
                     ? oi.getBaseQuantity()
                     : qty;
-            BigDecimal netRev = oi.getSubtotal() != null ? oi.getSubtotal() : BigDecimal.ZERO;
+
+            // Phân bổ chiết khấu cấp đơn hàng (VIP, khuyến mại đơn, điểm) theo tỷ lệ thành tiền dòng hàng
+            BigDecimal itemSubtotal = oi.getSubtotal() != null ? oi.getSubtotal() : BigDecimal.ZERO;
+            Order ord = oi.getOrder();
+            String ordId = ord.getId();
+            BigDecimal totalOrdDiscounts = ord.getDiscountAmount() != null ? ord.getDiscountAmount() : BigDecimal.ZERO;
+            BigDecimal pointDiscount = ord.getPointDiscountAmount() != null ? ord.getPointDiscountAmount() : BigDecimal.ZERO;
+            BigDecimal itemDiscounts = orderItemDiscountSums.getOrDefault(ordId, BigDecimal.ZERO);
+            BigDecimal orderLevelDiscount = totalOrdDiscounts.subtract(itemDiscounts).add(pointDiscount);
+            if (orderLevelDiscount.compareTo(BigDecimal.ZERO) < 0) {
+                orderLevelDiscount = BigDecimal.ZERO;
+            }
+
+            BigDecimal orderTotal = ord.getTotalAmount() != null && ord.getTotalAmount().compareTo(BigDecimal.ZERO) > 0
+                    ? ord.getTotalAmount()
+                    : orderSubtotalSums.getOrDefault(ordId, BigDecimal.ZERO);
+
+            BigDecimal allocatedDiscount = BigDecimal.ZERO;
+            if (orderTotal.compareTo(BigDecimal.ZERO) > 0 && orderLevelDiscount.compareTo(BigDecimal.ZERO) > 0) {
+                allocatedDiscount = orderLevelDiscount.multiply(itemSubtotal)
+                        .divide(orderTotal, 2, RoundingMode.HALF_UP);
+            }
+
+            BigDecimal netRev = itemSubtotal.subtract(allocatedDiscount).max(BigDecimal.ZERO);
 
             if (effectiveCost == null || effectiveCost.compareTo(BigDecimal.ZERO) <= 0) {
                 GrossProfitReportResponse.MissingCostProductDto missing = missingCostMap.computeIfAbsent(pId, k ->
@@ -1096,8 +1130,11 @@ public class ReportServiceImpl implements ReportService {
                     .build());
         }
 
+        String filterUserId = (userId != null && !userId.trim().isEmpty()) ? userId.trim() : null;
+        String filterShiftId = (shiftId != null && !shiftId.trim().isEmpty()) ? shiftId.trim() : null;
+
         PeriodDebtSummaryProjection debtSummary = customerDebtRepository.getDebtSummaryInPeriod(
-                household.getId(), startDateTime, endDateTime);
+                household.getId(), startDateTime, endDateTime, filterUserId, filterShiftId);
 
         BigDecimal debtCreated = (debtSummary != null && debtSummary.getTotalCreated() != null)
                 ? debtSummary.getTotalCreated()

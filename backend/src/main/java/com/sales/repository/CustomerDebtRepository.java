@@ -151,14 +151,21 @@ public interface CustomerDebtRepository extends JpaRepository<CustomerDebt, Stri
             COALESCE(SUM(d.amount - d.remainingAmount), 0) AS totalPaid,
             COALESCE(SUM(d.remainingAmount), 0) AS totalRemaining
         FROM CustomerDebt d
+        LEFT JOIN d.order o
+        LEFT JOIN o.shift s
         WHERE d.household.id = :householdId
           AND d.type = 'DEBT_CREATED'
           AND d.createdAt >= :startDate
           AND d.createdAt <= :endDate
+          AND (:userId IS NULL OR (o IS NOT NULL AND o.createdByUser.id = :userId) OR (o IS NULL AND d.createdByUser.id = :userId))
+          AND (:shiftId IS NULL OR (o IS NOT NULL AND s.id = :shiftId))
     """)
     PeriodDebtSummaryProjection getDebtSummaryInPeriod(
             @Param("householdId") String householdId,
             @Param("startDate") LocalDateTime startDate,
-            @Param("endDate") LocalDateTime endDate
+            @Param("endDate") LocalDateTime endDate,
+            @Param("userId") String userId,
+            @Param("shiftId") String shiftId
     );
 }
+

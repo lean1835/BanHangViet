@@ -225,20 +225,20 @@ public interface OrderItemRepository extends JpaRepository<OrderItem, String> {
     @Query("""
         SELECT 
             p.id as productId,
-            p.sku as productSku,
+            COALESCE(p.sku, 'N/A') as productSku,
             oi.productName as productName,
-            p.unit as unit,
+            COALESCE(p.unit, 'Món') as unit,
             COALESCE(SUM(oi.quantity), 0) as totalQuantity,
             COALESCE(SUM(oi.subtotal), 0) as totalRevenue
         FROM OrderItem oi
         JOIN oi.order o
-        JOIN oi.product p
+        LEFT JOIN oi.product p
         WHERE o.household.id = :householdId
           AND o.status = 'COMPLETED'
           AND o.deletedAt IS NULL
           AND o.createdAt >= :startDate
           AND o.createdAt <= :endDate
-          AND ((:groupId = 'UNASSIGNED' AND p.group IS NULL) OR (:groupId <> 'UNASSIGNED' AND p.group.id = :groupId))
+          AND ((:groupId = 'UNASSIGNED' AND (p IS NULL OR p.group IS NULL)) OR (:groupId <> 'UNASSIGNED' AND p.group.id = :groupId))
         GROUP BY p.id, p.sku, oi.productName, p.unit
         ORDER BY SUM(oi.subtotal) DESC
     """)

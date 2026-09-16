@@ -105,12 +105,14 @@ public class ReportExportServiceImpl implements ReportExportService {
                     break;
 
                 case "DAILY":
-                default:
                     reportTitle = "BÁO CÁO DOANH THU THEO NGÀY";
                     hasData = exportDailyRevenue(workbook, currentUsername, fromDate, toDate,
                             headerStyle, dataTextStyle, dataCenterStyle, dataCurrencyStyle,
                             totalRowStyle, totalCurrencyStyle);
                     break;
+
+                default:
+                    throw new AppException(ErrorCode.INVALID_INPUT);
             }
 
             if (!hasData) {

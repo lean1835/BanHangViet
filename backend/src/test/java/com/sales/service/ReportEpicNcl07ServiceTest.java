@@ -567,4 +567,122 @@ public class ReportEpicNcl07ServiceTest {
         assertThrows(AppException.class, () ->
                 reportService.getProductGroupDetail(owner.getUsername(), "G1", today, yesterday));
     }
+
+    @Test
+    public void testNCL07_GrossProfit_WithOrderLevelDiscount_Allocation() {
+        LocalDate today = LocalDate.now();
+
+        // Đơn hàng có chiết khấu cấp đơn (VIP / Voucher)
+        Order order = orderRepository.save(Order.builder()
+                .orderNumber("ORD-NCL07-DISC-01")
+                .household(household)
+                .createdByUser(owner)
+                .totalAmount(new BigDecimal("250000"))
+                .discountAmount(new BigDecimal("50000")) // Tổng giảm: 10k dòng hàng + 40k cấp đơn
+                .finalAmount(new BigDecimal("200000"))
+                .status("COMPLETED")
+                .paymentMethod("CASH")
+                .createdAt(LocalDateTime.now())
+                .build());
+
+        // Item 1: SP A (subtotal 190,000, discount 10,000, costPrice 60,000, qty 2)
+        orderItemRepository.save(OrderItem.builder()
+                .order(order)
+                .product(productA)
+                .productName(productA.getName())
+                .quantity(new BigDecimal("2"))
+                .unitPrice(new BigDecimal("100000"))
+                .costPrice(new BigDecimal("60000"))
+                .discountAmount(new BigDecimal("10000"))
+                .subtotal(new BigDecimal("190000"))
+                .build());
+
+        // Item 2: SP B (subtotal 60,000, discount 0, costPrice 0)
+        orderItemRepository.save(OrderItem.builder()
+                .order(order)
+                .product(productB)
+                .productName(productB.getName())
+                .quantity(new BigDecimal("1"))
+                .unitPrice(new BigDecimal("60000"))
+                .costPrice(BigDecimal.ZERO)
+                .discountAmount(BigDecimal.ZERO)
+                .subtotal(new BigDecimal("60000"))
+                .build());
+
+        GrossProfitReportResponse report = reportService.getGrossProfitReport(owner.getUsername(), today, today, null);
+
+        assertNotNull(report);
+        // Chiết khấu cấp đơn = 50k - 10k = 40k
+        // Phân bổ cho SP A = 40k * 190k / 250k = 30.400đ
+        // Net revenue của SP A = 190.000 - 30.400 = 159.600đ
+        // COGS SP A = 2 * 60.000 = 120.000đ
+        // Gross Profit SP A = 159.600 - 120.000 = 39.600đ
+        assertEquals(0, new BigDecimal("159600.00").compareTo(report.getSummary().getTotalNetRevenue()));
+        assertEquals(0, new BigDecimal("120000.00").compareTo(report.getSummary().getTotalCogs()));
+        assertEquals(0, new BigDecimal("39600.00").compareTo(report.getSummary().getTotalGrossProfit()));
+    }
+
+    @Test
+    public void testNCL07_PaymentMethodReport_WithUserFilter() {
+        LocalDate today = LocalDate.now();
+
+        Customer customer = customerRepository.save(Customer.builder()
+                .name("Khách hàng Test Filter")
+                .phoneNumber("0912888999")
+                .household(household)
+                .build());
+
+        User emp = userRepository.save(User.builder()
+                .username("emp_test_filter")
+                .fullName("Nhân viên Filter")
+                .passwordHash("password")
+                .role(owner.getRole())
+                .household(household)
+                .isActive(true)
+                .build());
+
+        // Nợ do owner tạo: 30k
+        customerDebtRepository.save(CustomerDebt.builder()
+                .customer(customer)
+                .household(household)
+                .createdByUser(owner)
+                .type("DEBT_CREATED")
+                .amount(new BigDecimal("30000"))
+                .remainingAmount(new BigDecimal("30000"))
+                .dueDate(LocalDateTime.now().plusDays(30))
+                .createdAt(LocalDateTime.now())
+                .build());
+
+        // Nợ do emp tạo: 70k
+        customerDebtRepository.save(CustomerDebt.builder()
+                .customer(customer)
+                .household(household)
+                .createdByUser(emp)
+                .type("DEBT_CREATED")
+                .amount(new BigDecimal("70000"))
+                .remainingAmount(new BigDecimal("70000"))
+                .dueDate(LocalDateTime.now().plusDays(30))
+                .createdAt(LocalDateTime.now())
+                .build());
+
+        // Lọc theo emp -> Chỉ thấy 70k nợ
+        PaymentMethodReportResponse reportEmp = reportService.getPaymentMethodReport(
+                owner.getUsername(), today, today, emp.getId(), null);
+        assertNotNull(reportEmp);
+        assertEquals(0, new BigDecimal("70000").compareTo(reportEmp.getDebtDetails().getTotalDebtCreated()));
+
+        // Lọc theo owner -> Chỉ thấy 30k nợ
+        PaymentMethodReportResponse reportOwner = reportService.getPaymentMethodReport(
+                owner.getUsername(), today, today, owner.getId(), null);
+        assertNotNull(reportOwner);
+        assertEquals(0, new BigDecimal("30000").compareTo(reportOwner.getDebtDetails().getTotalDebtCreated()));
+    }
+
+    @Test
+    public void testNCL07_ExcelExport_InvalidReportType_ThrowsException() {
+        LocalDate today = LocalDate.now();
+        AppException ex = assertThrows(AppException.class, () ->
+                reportExportService.exportReportToExcel(owner.getUsername(), "INVALID_TYPE", today, today, null, null));
+        assertEquals(ErrorCode.INVALID_INPUT, ex.getErrorCode());
+    }
 }
