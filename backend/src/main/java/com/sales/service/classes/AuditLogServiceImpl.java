@@ -45,13 +45,13 @@ public class AuditLogServiceImpl implements AuditLogService {
     private final UserRepository userRepository;
 
     @EventListener(ApplicationReadyEvent.class)
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    @Transactional(propagation = Propagation.REQUIRES_NEW, rollbackFor = Exception.class)
     public void onApplicationReady() {
         repairLegacyHashChain();
     }
 
     @Override
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    @Transactional(propagation = Propagation.REQUIRES_NEW, rollbackFor = Exception.class)
     public synchronized void repairLegacyHashChain() {
         try {
             List<ActivityLog> allLogs = activityLogRepository.findAll();
@@ -148,7 +148,7 @@ public class AuditLogServiceImpl implements AuditLogService {
     }
 
     @Override
-    @Transactional
+    @Transactional(readOnly = true)
     public PageResponse<ActivityLogResponse> getAuditLogs(String currentUsername, ActivityLogFilterRequest filter, String clientIp, String userAgent) {
         User currentUser = getUserByUsername(currentUsername);
         validateAccessRole(currentUser);
@@ -209,13 +209,18 @@ public class AuditLogServiceImpl implements AuditLogService {
     }
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public AuditIntegrityResponse verifyIntegrity(String currentUsername) {
         User currentUser = getUserByUsername(currentUsername);
         validateAccessRole(currentUser);
 
         String householdId = getHouseholdIdForUser(currentUser);
+        return verifyIntegrityForHousehold(householdId);
+    }
 
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public AuditIntegrityResponse verifyIntegrityForHousehold(String householdId) {
         if (householdId != null) {
             List<ActivityLog> logs = activityLogRepository.findAllByHouseholdIdOrderBySequenceNumberAsc(householdId);
             boolean hasUnindexed = logs.stream().anyMatch(l -> l.getSequenceNumber() == null || l.getHash() == null || l.getPreviousHash() == null);
@@ -329,7 +334,7 @@ public class AuditLogServiceImpl implements AuditLogService {
     }
 
     @Override
-    @Transactional
+    @Transactional(readOnly = true)
     public byte[] exportAuditLogsToExcel(String currentUsername, ActivityLogFilterRequest filter, String clientIp, String userAgent) {
         User currentUser = getUserByUsername(currentUsername);
         validateAccessRole(currentUser);
@@ -436,7 +441,7 @@ public class AuditLogServiceImpl implements AuditLogService {
     }
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public synchronized void recordLog(BusinessHousehold household, User actor, String action, String targetTable, String targetId, String oldValue, String newValue, String clientIp, String userAgent) {
         try {
             String householdId = household != null ? household.getId() : null;
