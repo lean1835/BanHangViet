@@ -1,22 +1,69 @@
 import React from "react";
-import { Calendar, SlidersHorizontal } from "lucide-react";
+import { Calendar, SlidersHorizontal, Store, RotateCcw } from "lucide-react";
 import { useReportFilter } from "../context/ReportFilterContext";
+import { useGetPointsOfSaleQuery } from "@/modules/point_of_sale/services/pointOfSaleApi";
 
 export const GrossProfitReportSidebar: React.FC = () => {
-  const { grossProfitFilter, setGrossProfitFilter, setGrossProfitPreset } = useReportFilter();
+  const { grossProfitFilter, setGrossProfitFilter, setGrossProfitPreset, resetGrossProfitFilter } =
+    useReportFilter();
+
+  const { data: posData } = useGetPointsOfSaleQuery({ size: 50 });
 
   return (
     <div className="flex flex-col gap-3.5 text-xs animate-in fade-in duration-200">
-      {/* Title */}
+      {/* Title & Reset */}
       <div className="flex items-center justify-between border-b border-slate-200 pb-2">
         <div className="flex items-center gap-1.5 font-extrabold text-xs text-slate-800">
           <SlidersHorizontal className="w-3.5 h-3.5 text-kv-blue-primary" />
           <span>BỘ LỌC LÃI GỘP</span>
         </div>
+        <button
+          type="button"
+          onClick={resetGrossProfitFilter}
+          className="text-[10px] font-bold text-kv-blue-primary hover:text-kv-blue-dark transition-colors flex items-center gap-1 cursor-pointer"
+          title="Đặt lại bộ lọc về mặc định"
+        >
+          <RotateCcw className="w-3 h-3" />
+          <span>Đặt lại</span>
+        </button>
+      </div>
+
+      {/* Point of Sale (Cơ sở / Điểm bán) Selector */}
+      <div className="flex flex-col gap-1.5">
+        <label
+          htmlFor="grossProfitPosSelect"
+          className="font-bold text-slate-400 uppercase tracking-wide text-[10px] flex items-center gap-1"
+        >
+          <Store className="w-3 h-3 text-slate-400" />
+          <span>Cơ sở / Điểm bán</span>
+        </label>
+        <select
+          id="grossProfitPosSelect"
+          value={grossProfitFilter.posId || ""}
+          onChange={(e) =>
+            setGrossProfitFilter((prev) => ({
+              ...prev,
+              posId: e.target.value,
+            }))
+          }
+          className="w-full px-2.5 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-kv-blue-primary bg-white text-xs font-bold text-slate-700 shadow-2xs cursor-pointer"
+        >
+          <option value="">🏢 Tất cả cơ sở (Toàn hệ thống)</option>
+          {posData?.content?.map((pos) => (
+            <option key={pos.id} value={pos.id}>
+              📍 {pos.name} ({pos.posCode})
+            </option>
+          ))}
+        </select>
+        <p className="text-[10px] text-slate-400 leading-tight">
+          {grossProfitFilter.posId
+            ? "Đang lọc dữ liệu theo cơ sở được chọn."
+            : "Đang hiển thị tổng hợp toàn bộ các cơ sở."}
+        </p>
       </div>
 
       {/* Quick Presets */}
-      <div className="flex flex-col gap-1.5">
+      <div className="flex flex-col gap-1.5 pt-2 border-t border-slate-100">
         <label className="font-bold text-slate-400 uppercase tracking-wide text-[10px]">
           Chọn nhanh khoảng thời gian
         </label>

@@ -130,7 +130,7 @@ export const reportApi = baseApi.injectEndpoints({
     // NCL-07-CN-008: Báo cáo lãi gộp theo ngày và theo mặt hàng
     getGrossProfitReport: builder.query<
       IApiResponse<IGrossProfitReportResponse>,
-      { fromDate?: string; toDate?: string; productId?: string } | void
+      { fromDate?: string; toDate?: string; productId?: string; posId?: string } | void
     >({
       query: (params) => ({
         url: "/reports/gross-profit",

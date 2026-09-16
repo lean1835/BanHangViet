@@ -181,8 +181,9 @@ public class ReportController {
             Principal principal,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate,
-            @RequestParam(required = false) String productId) {
-        GrossProfitReportResponse result = reportService.getGrossProfitReport(principal.getName(), fromDate, toDate, productId);
+            @RequestParam(required = false) String productId,
+            @RequestParam(required = false) String posId) {
+        GrossProfitReportResponse result = reportService.getGrossProfitReport(principal.getName(), fromDate, toDate, productId, posId);
         ApiResponse<GrossProfitReportResponse> response = ApiResponse.<GrossProfitReportResponse>builder()
                 .code(1000)
                 .message("Lấy báo cáo lãi gộp thành công")

@@ -282,6 +282,19 @@ public class ReportControllerTest {
     }
 
     @Test
+    @WithMockUser(username = "test_owner_report", roles = {"VT-01"})
+    public void getGrossProfitReport_withPosId_asOwner_success() throws Exception {
+        mockMvc.perform(get("/api/v1/reports/gross-profit")
+                        .param("fromDate", "2026-07-01")
+                        .param("toDate", "2026-07-31")
+                        .param("posId", "pos-test-1")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(1000))
+                .andExpect(jsonPath("$.result.summary").exists());
+    }
+
+    @Test
     @WithMockUser(username = "test_employee_report", roles = {"VT-02"})
     public void getGrossProfitReport_asEmployee_forbidden() throws Exception {
         mockMvc.perform(get("/api/v1/reports/gross-profit")

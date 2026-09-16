@@ -1,7 +1,8 @@
 import React, { useState } from "react";
-import { AlertTriangle, ChevronRight, Loader2 } from "lucide-react";
+import { AlertTriangle, ChevronRight, Loader2, Store } from "lucide-react";
 import { useGetGrossProfitReportQuery } from "../services/reportApi";
 import { useReportFilter } from "../context/ReportFilterContext";
+import { useGetPointsOfSaleQuery } from "@/modules/point_of_sale/services/pointOfSaleApi";
 import { useOnOrderCompleted } from "@/utils/orderEvents";
 import { GrossProfitKpis } from "./GrossProfitKpis";
 import { GrossProfitDailyChart } from "./GrossProfitDailyChart";
@@ -10,10 +11,13 @@ import { MissingCostItemsModal } from "./MissingCostItemsModal";
 import { ReportExportButton } from "./ReportExportButton";
 
 export const GrossProfitReport: React.FC = () => {
-  const { grossProfitFilter } = useReportFilter();
-  const { fromDate, toDate, productId } = grossProfitFilter;
+  const { grossProfitFilter, setGrossProfitFilter } = useReportFilter();
+  const { fromDate, toDate, productId, posId } = grossProfitFilter;
 
   const [isMissingModalOpen, setIsMissingModalOpen] = useState(false);
+
+  const { data: posData } = useGetPointsOfSaleQuery({ size: 50 });
+  const selectedPos = posData?.content?.find((p) => p.id === posId);
 
   const {
     data: apiResponse,
@@ -25,6 +29,7 @@ export const GrossProfitReport: React.FC = () => {
       fromDate: fromDate || undefined,
       toDate: toDate || undefined,
       productId: productId || undefined,
+      posId: posId || undefined,
     },
     {
       refetchOnMountOrArgChange: true,
@@ -55,13 +60,42 @@ export const GrossProfitReport: React.FC = () => {
           <p className="text-xs text-slate-500 mt-1">
             Tổng hợp doanh thu thuần, tiền vốn nhập kho và tỷ suất lợi nhuận gộp theo từng sản phẩm
           </p>
+
+          {/* Scope Indicator Badge */}
+          <div className="flex flex-wrap items-center gap-2 mt-2.5">
+            <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold border shadow-2xs ${
+              selectedPos
+                ? "bg-amber-50 border-amber-200 text-amber-800"
+                : "bg-blue-50 border-blue-200 text-kv-blue-primary"
+            }`}>
+              <Store className="w-3.5 h-3.5" />
+              <span>
+                Phạm vi:{" "}
+                <span className="font-black">
+                  {selectedPos
+                    ? `Cơ sở ${selectedPos.name} (${selectedPos.posCode})`
+                    : "Toàn bộ cơ sở (Tổng hợp toàn hệ thống)"}
+                </span>
+              </span>
+            </div>
+            {posId && (
+              <button
+                type="button"
+                onClick={() => setGrossProfitFilter((prev) => ({ ...prev, posId: "" }))}
+                className="text-xs text-kv-blue-primary hover:text-kv-blue-dark font-bold underline cursor-pointer"
+              >
+                Chuyển về xem toàn bộ cơ sở
+              </button>
+            )}
+          </div>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 self-start sm:self-auto">
           <ReportExportButton
             reportType="GROSS_PROFIT"
             fromDate={fromDate}
             toDate={toDate}
             filter1={productId}
+            filter2={posId}
           />
         </div>
       </div>
@@ -72,7 +106,7 @@ export const GrossProfitReport: React.FC = () => {
           <div className="flex items-center gap-2.5">
             <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
             <span>
-              <strong>Lưu ý:</strong> Có <strong>{missingItems.length} mặt hàng</strong> chưa được thiết lập giá vốn. Lợi nhuận gộp của các mặt hàng này đang tạm tính với giá vốn = 0đ.
+              <strong>Lưu ý:</strong> Có <strong>{missingItems.length} mặt hàng</strong> chưa được thiết lập giá vốn nên chưa được tính vào lãi gộp.
             </span>
           </div>
           <button

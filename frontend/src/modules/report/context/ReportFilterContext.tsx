@@ -157,6 +157,7 @@ export interface IGrossProfitFilterState {
   fromDate: string;
   toDate: string;
   productId: string;
+  posId: string;
   activePreset: "today" | "last7days" | "thisMonth" | "custom";
 }
 
@@ -381,6 +382,7 @@ export const ReportFilterProvider: React.FC<{ children: ReactNode }> = ({ childr
     fromDate: initialGrossProfitDates.fromDate,
     toDate: initialGrossProfitDates.toDate,
     productId: "",
+    posId: "",
     activePreset: "thisMonth",
   });
 
@@ -400,6 +402,7 @@ export const ReportFilterProvider: React.FC<{ children: ReactNode }> = ({ childr
       fromDate: dates.fromDate,
       toDate: dates.toDate,
       productId: "",
+      posId: "",
       activePreset: "thisMonth",
     });
   }, []);
