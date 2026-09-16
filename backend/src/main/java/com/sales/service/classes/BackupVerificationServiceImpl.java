@@ -283,9 +283,9 @@ public class BackupVerificationServiceImpl implements BackupVerificationService 
 
                         // Kiểm tra tính toàn vẹn đa người thuê (Multi-tenancy): householdId trong tệp phải khớp
                         Object snapHId = snapshotData.get("householdId");
-                        if (snapHId != null && !household.getId().equals(snapHId.toString())) {
+                        if (snapHId == null || !household.getId().equals(snapHId.toString())) {
                             status = "FAILED";
-                            failureReason = "Dữ liệu bản sao lưu không khớp với định danh hộ kinh doanh hiện tại";
+                            failureReason = "Dữ liệu bản sao lưu không có hoặc không khớp với định danh hộ kinh doanh hiện tại";
                         } else {
                             // ==========================================
                             // PILLAR 2: Đối soát số lượng bản ghi chính
@@ -404,7 +404,7 @@ public class BackupVerificationServiceImpl implements BackupVerificationService 
                             + (verification.getFailureReason() != null ? verification.getFailureReason() : "Lỗi kiểm tra tính toàn vẹn"))
                     .targetType("BACKUP_VERIFICATION")
                     .targetId(verification.getId())
-                    .actionUrl("/settings/backup")
+                    .actionUrl("/settings/backup-export")
                     .isRead(false)
                     .isClosed(false)
                     .build();

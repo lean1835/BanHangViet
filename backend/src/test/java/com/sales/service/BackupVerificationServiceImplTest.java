@@ -251,6 +251,7 @@ public class BackupVerificationServiceImplTest {
         verify(appNotificationRepository, times(1)).save(notifCaptor.capture());
         assertEquals("DANGER", notifCaptor.getValue().getSeverity());
         assertEquals("BACKUP_VERIFICATION_FAILED", notifCaptor.getValue().getNotificationType());
+        assertEquals("/settings/backup-export", notifCaptor.getValue().getActionUrl());
     }
 
     @Test
@@ -575,6 +576,31 @@ public class BackupVerificationServiceImplTest {
         assertNotNull(response);
         assertEquals("FAILED", response.getStatus());
         assertTrue(response.getFailureReason().contains("không khớp với định danh hộ kinh doanh"));
+        verify(appNotificationRepository, times(1)).save(any(AppNotification.class));
+    }
+
+    @Test
+    @DisplayName("Thử phục hồi thất bại khi tệp snapshot thiếu trường householdId (Multi-tenancy SEC-01)")
+    void testVerification_MissingHouseholdId_Fails() throws Exception {
+        Map<String, Object> missingHouseholdSnapshot = Map.of(
+                "products", List.of(Map.of("id", "p1"))
+        );
+        Path missingHouseholdFilePath = tempDir.resolve("missing_household_backup.json");
+        Files.writeString(missingHouseholdFilePath, objectMapper.writeValueAsString(missingHouseholdSnapshot), StandardCharsets.UTF_8);
+        validBackup.setFilePath(missingHouseholdFilePath.toString());
+
+        when(userRepository.findByUsername("chuho_test")).thenReturn(Optional.of(ownerUser));
+        when(backupHistoryRepository.findFirstByHouseholdIdAndStatusOrderByBackupTimeDesc(household.getId(), "SUCCESS"))
+                .thenReturn(Optional.of(validBackup));
+
+        when(verificationHistoryRepository.save(any(BackupVerificationHistory.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        BackupVerificationHistoryResponse response = verificationService.triggerVerification("chuho_test", null);
+
+        assertNotNull(response);
+        assertEquals("FAILED", response.getStatus());
+        assertTrue(response.getFailureReason().contains("không có hoặc không khớp với định danh hộ kinh doanh"));
         verify(appNotificationRepository, times(1)).save(any(AppNotification.class));
     }
 }
