@@ -42,6 +42,18 @@ public class UpdateAutoRetrySettingsRequest {
 
     @jakarta.validation.constraints.DecimalMin(value = "0.0", message = "Ngưỡng chênh lệch ca tối thiểu là 0")
     private java.math.BigDecimal shiftDifferenceThreshold;
+
+    @Min(value = 1, message = "Số ngày cho phép trả hàng tối thiểu là 1 ngày")
+    @Max(value = 90, message = "Số ngày cho phép trả hàng tối đa là 90 ngày")
+    private Integer returnDaysLimit;
+
+    @Min(value = 1, message = "Số giờ tối đa đồng bộ đơn offline tối thiểu là 1 giờ")
+    @Max(value = 168, message = "Số giờ tối đa đồng bộ đơn offline tối đa là 168 giờ")
+    private Integer maxOfflineSyncHours;
+
+    @Min(value = 1, message = "Số ngày nhắc nợ trước hạn tối thiểu là 1 ngày")
+    @Max(value = 30, message = "Số ngày nhắc nợ trước hạn tối đa là 30 ngày")
+    private Integer debtReminderDaysBefore;
 }
 
 
