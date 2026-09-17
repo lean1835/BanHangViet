@@ -9,6 +9,7 @@ import com.sales.dto.response.NotificationBadgeCountResponse;
 import com.sales.dto.response.NotificationSettingItemResponse;
 import com.sales.dto.response.PageResponse;
 
+import java.util.Collection;
 import java.util.List;
 
 public interface AppNotificationService {
@@ -34,7 +35,7 @@ public interface AppNotificationService {
 
     void closeNotificationsByTarget(String targetType, String targetId);
 
-    void closeNotificationsByTargetIds(String targetType, java.util.Collection<String> targetIds);
+    void closeNotificationsByTargetIds(String targetType, Collection<String> targetIds);
 
     int syncReminders(String currentUsername);
 
