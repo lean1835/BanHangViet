@@ -53,13 +53,12 @@ export const ProductExchangeListPage: React.FC = () => {
     }
   }, [singleTicketData]);
 
-  const rawTickets = ticketsData?.result?.content || [];
   const totalPages = ticketsData?.result?.totalPages || 0;
   const totalElements = ticketsData?.result?.totalElements || 0;
 
   // Client-side date filter when user picks a date range
   const displayTickets = useMemo(() => {
-    let list = rawTickets;
+    let list = ticketsData?.result?.content || [];
     if (fromDate) {
       const fromTime = new Date(`${fromDate}T00:00:00`).getTime();
       list = list.filter((t) => new Date(t.createdAt).getTime() >= fromTime);
@@ -69,7 +68,7 @@ export const ProductExchangeListPage: React.FC = () => {
       list = list.filter((t) => new Date(t.createdAt).getTime() <= toTime);
     }
     return list;
-  }, [rawTickets, fromDate, toDate]);
+  }, [ticketsData?.result?.content, fromDate, toDate]);
 
   const handleResetFilters = () => {
     setSearchQuery("");
