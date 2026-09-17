@@ -106,6 +106,14 @@ export const CreateReturnTicketPage: React.FC = () => {
       const isIssued = inv.status === "ISSUED";
       if (!isIssued) return false;
 
+      // Không cho phép trả hàng trên các hóa đơn bổ sung / điều chỉnh từ đổi trả
+      const isExchangedOrAdjusted =
+        Boolean(inv.originalInvoiceId) ||
+        inv.title?.toUpperCase().includes("ĐỔI HÀNG") ||
+        inv.title?.toUpperCase().includes("ĐIỀU CHỈNH") ||
+        (inv.items && inv.items.some((it) => (it.unitPrice && it.unitPrice < 0) || it.productName?.startsWith("Đổi trả:")));
+      if (isExchangedOrAdjusted) return false;
+
       if (!debouncedInvoiceSearch.trim()) return true;
       const q = debouncedInvoiceSearch.trim().toLowerCase();
       const numMatch = (inv.invoiceNumber || "").toLowerCase().includes(q);
@@ -139,7 +147,10 @@ export const CreateReturnTicketPage: React.FC = () => {
   // Populate selected items when checkResponse arrives or from local invoice
   useEffect(() => {
     if (checkResponse?.result?.items && checkResponse.result.items.length > 0) {
-      const items: SelectedReturnItem[] = checkResponse.result.items.map((dto: IReturnableItemDto) => ({
+      const validDtos = checkResponse.result.items.filter(
+        (dto: IReturnableItemDto) => (dto.unitPrice ?? 0) > 0 && !dto.productName?.startsWith("Đổi trả:")
+      );
+      const items: SelectedReturnItem[] = validDtos.map((dto: IReturnableItemDto) => ({
         invoiceItemId: dto.invoiceItemId,
         productId: dto.productId,
         productName: dto.productName,
@@ -155,7 +166,10 @@ export const CreateReturnTicketPage: React.FC = () => {
     } else if (selectedInvoiceId && eligibleInvoices.length > 0) {
       const currentInv = eligibleInvoices.find((i) => i.id === selectedInvoiceId);
       if (currentInv && currentInv.items && currentInv.items.length > 0) {
-        const items: SelectedReturnItem[] = currentInv.items.map((it: IInvoiceItem, idx: number) => {
+        const validItems = currentInv.items.filter(
+          (it: IInvoiceItem) => (Number(it.unitPrice) || 0) > 0 && !it.productName?.startsWith("Đổi trả:")
+        );
+        const items: SelectedReturnItem[] = validItems.map((it: IInvoiceItem, idx: number) => {
           const qty = Number(it.quantity) || 1;
           return {
             invoiceItemId: it.id || `item_${idx}`,
@@ -251,9 +265,19 @@ export const CreateReturnTicketPage: React.FC = () => {
       return;
     }
 
+    if (checkData && !checkData.isEligibleForReturn) {
+      showError(
+        checkData.ineligibilityReason ||
+          "Hóa đơn này không đủ điều kiện trả hàng theo quy định (đã từng đổi/trả hoặc quá hạn)."
+      );
+      return;
+    }
+
     if (isInvoiceExpired) {
       if (!isOwner) {
-        showError("Hóa đơn đã quá thời hạn trả hàng 7 ngày. Chỉ chủ hộ mới có quyền đồng ý ngoại lệ.");
+        showError(
+          `Hóa đơn đã quá hạn ${checkData?.maxReturnDays || 7} ngày theo quy định. Chỉ Chủ hộ mới có quyền xử lý ngoại lệ.`
+        );
         return;
       }
       if (!allowOverdueOverride) {
@@ -307,7 +331,7 @@ export const CreateReturnTicketPage: React.FC = () => {
 
   return (
     <div className="flex-1 min-h-0 w-full overflow-y-auto bg-slate-50">
-      <div className="flex flex-col gap-6 max-w-5xl mx-auto p-4 sm:p-6 pb-24 animate-page-enter">
+      <div className="flex flex-col gap-6 w-full p-4 sm:p-6 pb-24 animate-page-enter">
         {/* Top Header Navigation */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-4 bg-white p-5 rounded-xl shadow-sm">
           <div className="flex items-center gap-3">

@@ -78,6 +78,7 @@ export const API_TAG_TYPES = {
   NOTIFICATION: "Notification",
   SUPPLIER_RETURN: "SupplierReturn",
   INVENTORY_VALUATION: "InventoryValuation",
+  PRODUCT_EXCHANGE: "ProductExchange",
   DISPLAY_SETTINGS: "DisplaySettings",
   POS_LAYOUT: "PosLayout",
   ACTION_CONFIRMATION: "ActionConfirmation",

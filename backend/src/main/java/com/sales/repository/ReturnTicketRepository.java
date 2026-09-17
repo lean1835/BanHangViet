@@ -36,6 +36,10 @@ public interface ReturnTicketRepository extends JpaRepository<ReturnTicket, Stri
 
     boolean existsByTicketNumber(String ticketNumber);
 
+    boolean existsByOriginalInvoiceIdAndStatusIn(String originalInvoiceId, List<String> statuses);
+
+    boolean existsByOriginalOrderIdAndStatusIn(String originalOrderId, List<String> statuses);
+
     @Query("SELECT r.status AS status, COUNT(r.id) AS ticketCount FROM ReturnTicket r " +
            "WHERE r.household.id = :householdId " +
            "AND (COALESCE(r.approvedAt, r.createdAt) BETWEEN :startDateTime AND :endDateTime) " +
