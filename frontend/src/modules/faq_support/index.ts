@@ -1,5 +1,5 @@
 export * from "./types/faqSupport.types";
-export * from "./api/faqSupportApi";
+export * from "./services/faqSupportApi";
 export * from "./components/FaqSearchBar";
 export * from "./components/FaqCategoryTabs";
 export * from "./components/FaqAccordionItem";

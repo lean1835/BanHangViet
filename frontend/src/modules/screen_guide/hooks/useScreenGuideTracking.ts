@@ -1,5 +1,5 @@
 import { useRef, useEffect, useCallback } from "react";
-import { useTrackGuideViewMutation } from "../api/screenGuideApi";
+import { useTrackGuideViewMutation } from "../services/screenGuideApi";
 
 interface UseScreenGuideTrackingProps {
   screenCode: string | null;

@@ -8,7 +8,7 @@ import {
   useGetSupportInfoQuery,
   useGetFaqsGroupedQuery,
   useGetFaqDetailQuery,
-} from "../api/faqSupportApi";
+} from "../services/faqSupportApi";
 import { FaqSearchBar } from "../components/FaqSearchBar";
 import { FaqCategoryTabs, type TCategoryTabValue } from "../components/FaqCategoryTabs";
 import { FaqAccordionItem } from "../components/FaqAccordionItem";

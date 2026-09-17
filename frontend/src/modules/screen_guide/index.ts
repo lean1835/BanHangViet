@@ -1,5 +1,5 @@
 export * from "./types/screenGuide.types";
-export * from "./api/screenGuideApi";
+export * from "./services/screenGuideApi";
 export * from "./context/ScreenGuideContext";
 export * from "./hooks/useCurrentScreenGuide";
 export * from "./hooks/useScreenGuideTracking";

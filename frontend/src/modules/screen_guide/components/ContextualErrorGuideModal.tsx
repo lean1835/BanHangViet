@@ -1,7 +1,7 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import { AlertCircle, HelpCircle, ArrowRight, X } from "lucide-react";
-import { useGetContextualHelpQuery } from "../api/screenGuideApi";
+import { useGetContextualHelpQuery } from "../services/screenGuideApi";
 import { useScreenGuide } from "../context/ScreenGuideContext";
 
 interface ContextualErrorGuideModalProps {

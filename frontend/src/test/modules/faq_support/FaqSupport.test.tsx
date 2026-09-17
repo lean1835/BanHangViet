@@ -8,7 +8,7 @@ import {
   FaqAccordionItem,
   FaqEmptyState,
 } from "@/modules/faq_support";
-import * as faqSupportApiModule from "@/modules/faq_support/api/faqSupportApi";
+import * as faqSupportApiModule from "@/modules/faq_support/services/faqSupportApi";
 import type {
   IFaqItem,
   ISupportInfo,
@@ -17,7 +17,7 @@ import type {
 } from "@/modules/faq_support/types/faqSupport.types";
 
 // Mock RTK Query hooks của faqSupportApi
-vi.mock("@/modules/faq_support/api/faqSupportApi", () => ({
+vi.mock("@/modules/faq_support/services/faqSupportApi", () => ({
   useGetFaqsQuery: vi.fn(),
   useGetFaqsGroupedQuery: vi.fn(),
   useGetFaqDetailQuery: vi.fn(),

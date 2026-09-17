@@ -11,10 +11,10 @@ import {
   getScreenCodeFromPath,
   getScreenNameFromPath,
 } from "@/modules/screen_guide";
-import * as screenGuideApiModule from "@/modules/screen_guide/api/screenGuideApi";
+import * as screenGuideApiModule from "@/modules/screen_guide/services/screenGuideApi";
 
 // Mock screenGuideApi hooks
-vi.mock("@/modules/screen_guide/api/screenGuideApi", () => ({
+vi.mock("@/modules/screen_guide/services/screenGuideApi", () => ({
   useGetGuideByScreenCodeQuery: vi.fn(),
   useLazyGetGuideByScreenCodeQuery: vi.fn(),
   useTrackGuideViewMutation: vi.fn(),

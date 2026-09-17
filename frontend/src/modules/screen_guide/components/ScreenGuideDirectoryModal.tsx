@@ -9,7 +9,7 @@ import {
   HelpCircle,
   Loader2,
 } from "lucide-react";
-import { useGetAllGuidesQuery } from "../api/screenGuideApi";
+import { useGetAllGuidesQuery } from "../services/screenGuideApi";
 import { useScreenGuide } from "../context/ScreenGuideContext";
 import { APP_ROUTES } from "@/constants/routes";
 

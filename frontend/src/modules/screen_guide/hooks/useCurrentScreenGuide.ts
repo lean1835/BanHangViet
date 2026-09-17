@@ -1,5 +1,5 @@
 import { useScreenGuide } from "../context/ScreenGuideContext";
-import { useGetGuideByScreenCodeQuery } from "../api/screenGuideApi";
+import { useGetGuideByScreenCodeQuery } from "../services/screenGuideApi";
 import { DEFAULT_SCREEN_GUIDES } from "../data/defaultScreenGuides";
 
 export const useCurrentScreenGuide = () => {
