@@ -10,11 +10,14 @@ import com.sales.entity.*;
 import com.sales.exception.AppException;
 import com.sales.exception.ErrorCode;
 import com.sales.repository.*;
+import com.sales.service.interfaces.AppNotificationService;
+import com.sales.service.interfaces.LoyaltyService;
 import com.sales.service.interfaces.ReturnTicketService;
 import com.sales.specification.ReturnTicketSpecification;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -50,11 +53,11 @@ public class ReturnTicketServiceImpl implements ReturnTicketService {
     private final InvoiceStatusLogRepository invoiceStatusLogRepository;
     private final ActivityLogHelper activityLogHelper;
     private final BusinessHouseholdSettingsRepository settingsRepository;
-    @org.springframework.context.annotation.Lazy
-    private final com.sales.service.interfaces.LoyaltyService loyaltyService;
+    @Lazy
+    private final LoyaltyService loyaltyService;
     private final ProductExchangeItemRepository productExchangeItemRepository;
-    @org.springframework.context.annotation.Lazy
-    private final com.sales.service.interfaces.AppNotificationService appNotificationService;
+    @Lazy
+    private final AppNotificationService appNotificationService;
 
     private int resolveMaxReturnDays(String householdId) {
         if (householdId == null || settingsRepository == null) {
