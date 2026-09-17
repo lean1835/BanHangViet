@@ -159,9 +159,6 @@ export const ProductExchangePrintModal: React.FC<ProductExchangePrintModalProps>
                 <span className="font-bold">{ticket.additionalInvoiceNumber}</span>
               </div>
             )}
-            <p className="text-[10px] text-slate-500 italic mt-1">
-              * Hóa đơn gốc {ticket.originalInvoiceNumber} đã được ghi nhận thay đổi cơ cấu hàng theo quy định.
-            </p>
           </div>
 
           {/* Signatures */}

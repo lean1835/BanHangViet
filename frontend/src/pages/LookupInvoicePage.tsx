@@ -20,6 +20,7 @@ import { formatCurrency } from "@/utils/formatCurrency";
 interface ILookupDisplayInvoice {
   lookupCode: string;
   orderNumber?: string;
+  originalInvoiceId?: string;
   symbol: string;
   invoicePattern?: string;
   title?: string;
@@ -508,14 +509,14 @@ export const LookupInvoicePage: React.FC = () => {
                             {item.discountAmount && item.discountAmount > 0 ? (
                               <div>
                                 <span className="line-through text-slate-400 text-[8.5px] block font-normal">
-                                  {formatCurrency(item.unitPrice)}
+                                  {formatCurrency((item.unitPrice === 0 && item.subtotal && item.subtotal < 0) ? (item.subtotal / (item.quantity || 1)) : item.unitPrice)}
                                 </span>
                                 <span className="font-bold text-emerald-700">
-                                  {formatCurrency(Math.max(0, (item.quantity * item.unitPrice - item.discountAmount) / (item.quantity || 1)))}
+                                  {formatCurrency(Math.max(0, ((item.subtotal !== undefined && item.subtotal !== null && item.subtotal !== 0 ? item.subtotal : (item.quantity * item.unitPrice)) - item.discountAmount) / (item.quantity || 1)))}
                                 </span>
                               </div>
                             ) : (
-                              formatCurrency(item.unitPrice)
+                              formatCurrency((item.unitPrice === 0 && item.subtotal && item.subtotal < 0) ? (item.subtotal / (item.quantity || 1)) : item.unitPrice)
                             )}
                           </td>
                           <td className="p-2 border-r border-slate-200 text-right font-semibold whitespace-nowrap">
@@ -526,7 +527,9 @@ export const LookupInvoicePage: React.FC = () => {
                             )}
                           </td>
                           <td className="p-2 border-r border-slate-200 text-center text-slate-500">{item.taxRatePercentage || 8}%</td>
-                          <td className="p-2 text-right font-bold text-slate-800">{formatCurrency((item.quantity * item.unitPrice) - (item.discountAmount || 0))}</td>
+                          <td className="p-2 text-right font-bold text-slate-800">
+                            {formatCurrency((item.subtotal !== undefined && item.subtotal !== null && item.subtotal !== 0) ? item.subtotal : (item.quantity * item.unitPrice) - (item.discountAmount || 0))}
+                          </td>
                         </tr>
                       ))
                     ) : (
@@ -547,8 +550,20 @@ export const LookupInvoicePage: React.FC = () => {
 
               {/* Total Area */}
               {(() => {
+                const isAdjustmentOrExchange = Boolean(
+                  searchedInvoice.originalInvoiceId ||
+                  (searchedInvoice as any).originalInvoice ||
+                  (searchedInvoice as any).title?.includes("ĐỔI HÀNG") ||
+                  (searchedInvoice as any).title?.includes("BỔ SUNG") ||
+                  (searchedInvoice as any).footerNote?.includes("đổi hàng")
+                );
                 const originalItemsTotal = searchedInvoice.items && searchedInvoice.items.length > 0
-                  ? searchedInvoice.items.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0)
+                  ? searchedInvoice.items.reduce((sum, item) => {
+                      const lineTotal = (item.subtotal !== undefined && item.subtotal !== null && item.subtotal !== 0)
+                        ? item.subtotal
+                        : (item.quantity * item.unitPrice);
+                      return sum + lineTotal;
+                    }, 0)
                   : ((searchedInvoice.amount || 0) + (searchedInvoice.discountAmount || 0));
                 const hasDiscount = Boolean(searchedInvoice.discountAmount && searchedInvoice.discountAmount > 0);
                 const preTaxAmount = Math.max(0, originalItemsTotal - (searchedInvoice.discountAmount || 0));
@@ -562,7 +577,7 @@ export const LookupInvoicePage: React.FC = () => {
                 const payableBeforePoints = preTaxAmount + effectiveTaxAmount;
                 const pointDiscount = (searchedInvoice.pointDiscountAmount && searchedInvoice.pointDiscountAmount > 0)
                   ? searchedInvoice.pointDiscountAmount
-                  : (searchedInvoice.finalAmount !== undefined && searchedInvoice.finalAmount < payableBeforePoints)
+                  : (!isAdjustmentOrExchange && searchedInvoice.finalAmount !== undefined && searchedInvoice.finalAmount < payableBeforePoints)
                   ? Math.max(0, payableBeforePoints - searchedInvoice.finalAmount)
                   : 0;
                 const pointsRedeemed = searchedInvoice.pointsRedeemed || (pointDiscount > 0 ? Math.round(pointDiscount / 1000) : 0);

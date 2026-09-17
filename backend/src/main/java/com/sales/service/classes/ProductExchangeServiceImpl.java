@@ -615,7 +615,7 @@ public class ProductExchangeServiceImpl implements ProductExchangeService {
                 .lookupCode(lookupCode)
                 .sentToTaxAt(LocalDateTime.now())
                 .taxResponseAt(LocalDateTime.now())
-                .footerNote("Hóa đơn phát sinh phần chênh lệch cho phiếu đổi hàng dựa trên HĐ gốc " + origInvoice.getInvoiceNumber())
+                .footerNote(null)
                 .build();
 
         List<EInvoiceItem> items = new ArrayList<>();
@@ -636,13 +636,30 @@ public class ProductExchangeServiceImpl implements ProductExchangeService {
             }
         }
 
-        if (totalReturnAmount.compareTo(BigDecimal.ZERO) > 0) {
+        List<ExchangeCalculationResult.ReturnItemDetail> returnItemDetails = calculation != null ? calculation.getReturnItemDetails() : Collections.emptyList();
+        if (returnItemDetails != null && !returnItemDetails.isEmpty()) {
+            for (ExchangeCalculationResult.ReturnItemDetail retDetail : returnItemDetails) {
+                EInvoiceItem deductionItem = EInvoiceItem.builder()
+                        .invoice(additionalInvoice)
+                        .product(retDetail.getProduct())
+                        .productName("Đổi trả: " + retDetail.getProductName())
+                        .unit(retDetail.getUnit() != null ? retDetail.getUnit() : "Lần")
+                        .quantity(retDetail.getQuantity() != null ? retDetail.getQuantity() : BigDecimal.ONE)
+                        .unitPrice(retDetail.getUnitPrice() != null ? retDetail.getUnitPrice().negate() : BigDecimal.ZERO)
+                        .discountAmount(BigDecimal.ZERO)
+                        .taxRatePercentage(BigDecimal.ZERO)
+                        .taxAmount(BigDecimal.ZERO)
+                        .subtotal(retDetail.getSubtotal() != null ? retDetail.getSubtotal().negate() : BigDecimal.ZERO)
+                        .build();
+                items.add(deductionItem);
+            }
+        } else if (totalReturnAmount.compareTo(BigDecimal.ZERO) > 0) {
             EInvoiceItem deductionItem = EInvoiceItem.builder()
                     .invoice(additionalInvoice)
-                    .productName("Khấu trừ giá trị hàng đổi trả theo HĐ gốc " + origInvoice.getInvoiceNumber())
+                    .productName("Hàng đổi trả")
                     .unit("Lần")
                     .quantity(BigDecimal.ONE)
-                    .unitPrice(BigDecimal.ZERO)
+                    .unitPrice(totalReturnAmount.negate())
                     .discountAmount(BigDecimal.ZERO)
                     .taxRatePercentage(BigDecimal.ZERO)
                     .taxAmount(BigDecimal.ZERO)

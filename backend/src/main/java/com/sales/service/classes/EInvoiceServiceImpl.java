@@ -69,6 +69,9 @@ public class EInvoiceServiceImpl implements EInvoiceService {
     @org.springframework.context.annotation.Lazy
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private com.sales.service.interfaces.AppNotificationService appNotificationService;
+    @org.springframework.context.annotation.Lazy
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private ProductExchangeTicketRepository productExchangeTicketRepository;
 
     @Value("${app.frontend-url:http://localhost:3000}")
     private String frontendUrl;
@@ -195,21 +198,61 @@ public class EInvoiceServiceImpl implements EInvoiceService {
     }
 
     private InvoiceResponse mapToInvoiceResponse(EInvoice invoice, boolean includePayments) {
+        ProductExchangeTicket exchangeTicket = null;
+        if (productExchangeTicketRepository != null && invoice.getId() != null) {
+            try {
+                exchangeTicket = productExchangeTicketRepository.findByAdditionalInvoiceId(invoice.getId()).orElse(null);
+            } catch (Exception e) {
+                log.debug("Lỗi tra cứu phiếu đổi hàng cho HĐ {}: {}", invoice.getId(), e.getMessage());
+            }
+        }
+        final ProductExchangeTicket finalExchangeTicket = exchangeTicket;
+
         List<InvoiceItemResponse> items = invoice.getItems().stream()
-                .map(item -> InvoiceItemResponse.builder()
-                        .id(item.getId())
-                        .productId(item.getProduct() != null ? item.getProduct().getId() : null)
-                        .productName(item.getProductName())
-                        .unit(item.getUnit())
-                        .quantity(item.getQuantity())
-                        .unitPrice(item.getUnitPrice())
-                        .taxRatePercentage(item.getTaxRatePercentage())
-                        .taxAmount(item.getTaxAmount())
-                        .discountAmount(item.getDiscountAmount())
-                        .promotionName(item.getPromotionName())
-                        .subtotal(item.getSubtotal())
-                        .createdAt(item.getCreatedAt())
-                        .build())
+                .map(item -> {
+                    String productName = item.getProductName();
+                    String unit = item.getUnit();
+                    BigDecimal unitPrice = item.getUnitPrice();
+                    BigDecimal subtotal = item.getSubtotal();
+
+                    if (productName != null && (productName.startsWith("Khấu trừ") || productName.startsWith("Đổi trả") || (item.getSubtotal() != null && item.getSubtotal().compareTo(BigDecimal.ZERO) < 0)) && finalExchangeTicket != null) {
+                        Optional<ProductExchangeItem> returnItemOpt = finalExchangeTicket.getItems().stream()
+                                .filter(it -> "RETURN_ITEM".equals(it.getItemType()))
+                                .findFirst();
+                        if (returnItemOpt.isPresent()) {
+                            ProductExchangeItem ret = returnItemOpt.get();
+                            productName = "Đổi trả: " + ret.getProductName();
+                            if (ret.getUnit() != null) {
+                                unit = ret.getUnit();
+                            }
+                            if (ret.getUnitPrice() != null) {
+                                unitPrice = ret.getUnitPrice().negate();
+                            }
+                            if (ret.getSubtotal() != null) {
+                                subtotal = ret.getSubtotal().negate();
+                            }
+                        }
+                    }
+
+                    if (productName != null && productName.contains(" (theo HĐ gốc")) {
+                        productName = productName.substring(0, productName.indexOf(" (theo HĐ gốc")).trim();
+                    }
+
+                    return InvoiceItemResponse.builder()
+                            .id(item.getId())
+                            .productId(item.getProduct() != null ? item.getProduct().getId() : null)
+                            .productName(productName)
+                            .unit(unit)
+                            .quantity(item.getQuantity())
+                            .unitPrice(unitPrice)
+                            .taxRatePercentage(item.getTaxRatePercentage())
+                            .taxAmount(item.getTaxAmount())
+                            .discountAmount(item.getDiscountAmount())
+                            .promotionName(item.getPromotionName())
+                            .subtotal(subtotal)
+                            .createdAt(item.getCreatedAt())
+                            .build();
+                })
                 .collect(Collectors.toList());
 
         String paymentMethod = invoice.getPaymentMethod();
@@ -222,24 +265,41 @@ public class EInvoiceServiceImpl implements EInvoiceService {
 
         List<OrderPaymentResponse> paymentResponses = null;
         if (includePayments && invoice.getOrder() != null && orderPaymentRepository != null) {
-            List<OrderPayment> orderPayments = orderPaymentRepository.findByOrderId(invoice.getOrder().getId());
-            if (orderPayments != null && !orderPayments.isEmpty()) {
-                paymentResponses = orderPayments.stream()
-                        .map(op -> OrderPaymentResponse.builder()
-                                .id(op.getId())
-                                .orderId(invoice.getOrder().getId())
-                                .orderCode(invoice.getOrder().getOrderNumber())
-                                .householdId(invoice.getHousehold() != null ? invoice.getHousehold().getId() : null)
-                                .paymentMethod(op.getPaymentMethod())
-                                .amount(op.getAmount())
-                                .amountGiven(op.getAmountGiven())
-                                .changeAmount(op.getChangeAmount())
-                                .transactionCode(op.getTransactionCode())
-                                .isConfirmed(op.getIsConfirmed())
-                                .notes(op.getNotes())
-                                .createdAt(op.getCreatedAt())
-                                .build())
-                        .collect(Collectors.toList());
+            if (invoice.getOriginalInvoice() == null) {
+                List<OrderPayment> orderPayments = orderPaymentRepository.findByOrderId(invoice.getOrder().getId());
+                if (orderPayments != null && !orderPayments.isEmpty()) {
+                    paymentResponses = orderPayments.stream()
+                            .map(op -> OrderPaymentResponse.builder()
+                                    .id(op.getId())
+                                    .orderId(invoice.getOrder().getId())
+                                    .orderCode(invoice.getOrder().getOrderNumber())
+                                    .householdId(invoice.getHousehold() != null ? invoice.getHousehold().getId() : null)
+                                    .paymentMethod(op.getPaymentMethod())
+                                    .amount(op.getAmount())
+                                    .amountGiven(op.getAmountGiven())
+                                    .changeAmount(op.getChangeAmount())
+                                    .transactionCode(op.getTransactionCode())
+                                    .isConfirmed(op.getIsConfirmed())
+                                    .notes(op.getNotes())
+                                    .createdAt(op.getCreatedAt())
+                                    .build())
+                            .collect(Collectors.toList());
+                }
+            } else {
+                // Hóa đơn bổ sung đổi hàng/điều chỉnh: tạo khoản thanh toán tương ứng cho số tiền thực tế của hóa đơn này
+                OrderPaymentResponse extraPayment = OrderPaymentResponse.builder()
+                        .orderId(invoice.getOrder() != null ? invoice.getOrder().getId() : null)
+                        .orderCode(invoice.getOrder() != null ? invoice.getOrder().getOrderNumber() : null)
+                        .householdId(invoice.getHousehold() != null ? invoice.getHousehold().getId() : null)
+                        .paymentMethod(paymentMethod)
+                        .amount(invoice.getFinalAmount() != null ? invoice.getFinalAmount() : BigDecimal.ZERO)
+                        .amountGiven(invoice.getFinalAmount() != null ? invoice.getFinalAmount() : BigDecimal.ZERO)
+                        .changeAmount(BigDecimal.ZERO)
+                        .isConfirmed(true)
+                        .notes("Thanh toán tiền chênh lệch đổi hàng")
+                        .createdAt(invoice.getCreatedAt())
+                        .build();
+                paymentResponses = List.of(extraPayment);
             }
         }
 
@@ -248,7 +308,7 @@ public class EInvoiceServiceImpl implements EInvoiceService {
         BigDecimal taxAmount = invoice.getTaxAmount();
         BigDecimal totalBeforeTax = invoice.getTotalAmountBeforeTax();
 
-        if (invoice.getOrder() != null) {
+        if (invoice.getOrder() != null && invoice.getOriginalInvoice() == null) {
             Order ord = invoice.getOrder();
             if ((pointDiscount == null || pointDiscount.compareTo(BigDecimal.ZERO) == 0)
                     && ord.getPointDiscountAmount() != null && ord.getPointDiscountAmount().compareTo(BigDecimal.ZERO) > 0) {
@@ -277,8 +337,9 @@ public class EInvoiceServiceImpl implements EInvoiceService {
             }
         }
 
-        // Tự động suy luận số tiền trừ điểm nếu hóa đơn cũ chưa lưu trường điểm thưởng
-        if ((pointDiscount == null || pointDiscount.compareTo(BigDecimal.ZERO) == 0)
+        // Tự động suy luận số tiền trừ điểm nếu hóa đơn cũ chưa lưu trường điểm thưởng (chỉ áp dụng cho HĐ gốc, không áp dụng cho HĐ điều chỉnh/bổ sung)
+        if (invoice.getOriginalInvoice() == null
+                && (pointDiscount == null || pointDiscount.compareTo(BigDecimal.ZERO) == 0)
                 && invoice.getFinalAmount() != null && totalBeforeTax != null && taxAmount != null) {
             BigDecimal expectedTotal = totalBeforeTax.add(taxAmount);
             if (expectedTotal.compareTo(invoice.getFinalAmount()) > 0) {

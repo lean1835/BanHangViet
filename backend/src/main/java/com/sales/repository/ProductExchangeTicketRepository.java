@@ -35,4 +35,7 @@ public interface ProductExchangeTicketRepository extends JpaRepository<ProductEx
     Optional<String> findMaxTicketNumberByPrefix(@Param("householdId") String householdId, @Param("prefix") String prefix);
 
     boolean existsByTicketNumber(String ticketNumber);
+
+    @EntityGraph(attributePaths = {"items", "items.product", "originalInvoice"})
+    Optional<ProductExchangeTicket> findByAdditionalInvoiceId(String additionalInvoiceId);
 }
