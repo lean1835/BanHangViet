@@ -7,6 +7,11 @@ import type {
   IUpdateSupplierRequest,
   ISupplierQueryParams,
 } from "../types/ISupplier";
+import type {
+  IBackendImportPreviewResponse,
+  IBackendImportResultResponse,
+} from "@/modules/customer/types/IImportCatalog";
+
 
 const getResponseResult = <T>(response: unknown): T => {
   if (response && typeof response === "object" && "result" in response) {
@@ -172,6 +177,33 @@ export const supplierApi = baseApi.injectEndpoints({
         { type: API_TAG_TYPES.SUPPLIER, id },
       ],
     }),
+
+    previewImportSupplier: builder.mutation<IBackendImportPreviewResponse, FormData>({
+      query: (formData) => ({
+        url: "/suppliers/import-preview",
+        method: HTTP_METHODS.POST,
+        body: formData,
+      }),
+      transformResponse: (response: unknown): IBackendImportPreviewResponse =>
+        getResponseResult<IBackendImportPreviewResponse>(response),
+    }),
+
+    importSuppliers: builder.mutation<
+      IBackendImportResultResponse,
+      { formData: FormData; duplicateAction?: "SKIP" | "UPDATE" }
+    >({
+      query: ({ formData, duplicateAction = "SKIP" }) => ({
+        url: `/suppliers/import?duplicateAction=${duplicateAction}`,
+        method: HTTP_METHODS.POST,
+        body: formData,
+      }),
+      transformResponse: (response: unknown): IBackendImportResultResponse =>
+        getResponseResult<IBackendImportResultResponse>(response),
+      invalidatesTags: [
+        { type: API_TAG_TYPES.SUPPLIER, id: "LIST" },
+        { type: API_TAG_TYPES.DEBT, id: "LIST" },
+      ],
+    }),
   }),
   overrideExisting: API_CONFIG.OVERRIDE_EXISTING_ENDPOINTS,
 });
@@ -184,4 +216,7 @@ export const {
   useUpdateSupplierMutation,
   useUpdateSupplierStatusMutation,
   useDeleteSupplierMutation,
+  usePreviewImportSupplierMutation,
+  useImportSuppliersMutation,
 } = supplierApi;
+

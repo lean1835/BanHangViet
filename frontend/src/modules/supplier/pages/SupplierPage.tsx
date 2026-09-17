@@ -42,6 +42,32 @@ import { SupplierStatusModal } from "../components/SupplierStatusModal";
 import { SupplierDetailModal } from "../components/SupplierDetailModal";
 import { PaySupplierDebtModal } from "../components/PaySupplierDebtModal";
 import { ReceiveSupplierRefundModal } from "../components/ReceiveSupplierRefundModal";
+import { ImportSupplierModal } from "../components/ImportSupplierModal";
+
+// Native SVG Icon
+const FileSpreadsheetIcon: React.FC<{ size?: number; className?: string }> = ({
+  size = 14,
+  className = "",
+}) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+  >
+    <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" />
+    <path d="M14 2v4a2 2 0 0 0 2 2h4" />
+    <path d="M8 13h2" />
+    <path d="M14 13h2" />
+    <path d="M8 17h2" />
+    <path d="M14 17h2" />
+  </svg>
+);
 
 export const SupplierPage: React.FC = () => {
   const navigate = useNavigate();
@@ -63,6 +89,7 @@ export const SupplierPage: React.FC = () => {
     data: suppliers = [],
     isLoading,
     isFetching,
+    refetch,
   } = useGetSuppliersQuery();
 
   const [createSupplier] = useCreateSupplierMutation();
@@ -78,6 +105,7 @@ export const SupplierPage: React.FC = () => {
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [isPayModalOpen, setIsPayModalOpen] = useState(false);
   const [isRefundModalOpen, setIsRefundModalOpen] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [selectedSupplier, setSelectedSupplier] = useState<ISupplier | null>(
     null
   );
@@ -459,6 +487,18 @@ export const SupplierPage: React.FC = () => {
           {canManage && (
             <button
               type="button"
+              onClick={() => setIsImportModalOpen(true)}
+              className="h-9 px-3.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all"
+              title="Nhập danh bạ nhà cung cấp từ tệp Excel / CSV"
+            >
+              <FileSpreadsheetIcon size={14} className="text-emerald-600" />
+              Nhập từ tệp
+            </button>
+          )}
+
+          {canManage && (
+            <button
+              type="button"
               onClick={handleOpenCreateModal}
               className="h-9 px-4 rounded-lg bg-kv-blue-primary hover:bg-kv-blue-dark active:scale-95 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all"
             >
@@ -555,6 +595,13 @@ export const SupplierPage: React.FC = () => {
         }}
         supplier={selectedSupplier}
         onConfirmRefund={handleConfirmReceiveRefund}
+      />
+
+      {/* 9. Import Supplier from File Modal (NCL-09-CN-009) */}
+      <ImportSupplierModal
+        isOpen={isImportModalOpen}
+        onClose={() => setIsImportModalOpen(false)}
+        onImportSuccess={() => refetch()}
       />
     </div>
   );

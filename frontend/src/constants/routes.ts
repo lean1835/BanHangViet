@@ -55,6 +55,7 @@ export const ROUTE_SEGMENTS = {
   LOYALTY: "loyalty",
   NOTIFICATIONS: "notifications",
   FAQ_SUPPORT: "faq-support",
+  DEADLINES: "deadlines",
   WILDCARD: "*",
 } as const;
 
@@ -213,6 +214,10 @@ export const APP_ROUTES = {
   SETTINGS_LOYALTY: createRoute(
     ROUTE_SEGMENTS.SETTINGS,
     ROUTE_SEGMENTS.LOYALTY,
+  ),
+  SETTINGS_DEADLINES: createRoute(
+    ROUTE_SEGMENTS.SETTINGS,
+    ROUTE_SEGMENTS.DEADLINES,
   ),
   ADMIN: createRoute(ROUTE_SEGMENTS.ADMIN),
   ADMIN_OVERVIEW: createRoute(

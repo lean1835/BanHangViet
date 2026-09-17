@@ -10,9 +10,51 @@ import { PaymentMethodChart } from "../components/PaymentMethodChart";
 import { BestSellersWidget } from "../components/BestSellersWidget";
 import { ReconciliationTable } from "../components/ReconciliationTable";
 import { RecentActivityPanel } from "../components/RecentActivityPanel";
+import { SetupGuideBanner } from "../components/SetupGuideBanner";
 import { getApiErrorMessage } from "@/utils/getApiErrorMessage";
 import { getLocalDateString } from "@/utils/dateFormatter";
-import { Calendar, AlertTriangle } from "lucide-react";
+// Native SVG Icons
+interface SvgIconProps {
+  size?: number;
+  className?: string;
+}
+
+const CalendarIcon: React.FC<SvgIconProps> = ({ size = 16, className = "" }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+  >
+    <rect width="18" height="18" x="3" y="4" rx="2" ry="2" />
+    <line x1="16" x2="16" y1="2" y2="6" />
+    <line x1="8" x2="8" y1="2" y2="6" />
+    <line x1="3" x2="21" y1="10" y2="10" />
+  </svg>
+);
+
+const AlertTriangleIcon: React.FC<SvgIconProps> = ({ size = 20, className = "" }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+  >
+    <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
+    <line x1="12" x2="12" y1="9" y2="13" />
+    <line x1="12" x2="12.01" y1="17" y2="17" />
+  </svg>
+);
 import { useGetInvoicesQuery } from "@/modules/e_invoice/services/eInvoiceApi";
 import {
   useGetDashboardOverviewQuery,
@@ -136,6 +178,9 @@ export const DashboardOverviewPage = () => {
         </div>
       ) : currentRole === USER_ROLES.OWNER || currentRole === USER_ROLES.ACCOUNTANT ? (
         <div className="flex flex-col gap-6 w-full max-w-[1520px] mx-auto p-4 md:p-6 bg-slate-50/50 min-h-screen animate-auth-fade-in">
+          {/* First-time Setup Wizard & Reminder Banner (NCL-09-CN-007) */}
+          {currentRole === USER_ROLES.OWNER && <SetupGuideBanner />}
+
           {/* Header Row */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-5">
             <div>
@@ -143,7 +188,7 @@ export const DashboardOverviewPage = () => {
             </div>
             {/* Time range selection inputs */}
             <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-lg border border-slate-200 shadow-sm text-xs font-bold text-slate-700 shrink-0">
-              <Calendar className="w-4 h-4 text-slate-400" />
+              <CalendarIcon className="w-4 h-4 text-slate-400" />
               <input
                 type="date"
                 value={fromDate}
@@ -234,7 +279,7 @@ export const DashboardOverviewPage = () => {
         </div>
       ) : (
         <div className="flex flex-col items-center justify-center min-h-[400px] bg-white rounded-xl border border-slate-200 shadow-sm p-8 text-center m-6">
-          <AlertTriangle className="w-12 h-12 text-amber-500 mb-4" />
+          <AlertTriangleIcon size={48} className="w-12 h-12 text-amber-500 mb-4" />
           <h2 className="text-base font-bold text-slate-800 mb-2">Quyền truy cập bị giới hạn</h2>
           <p className="text-xs text-slate-400 font-semibold mb-6">
             Giao diện Báo cáo Doanh thu Tổng quan không khả dụng cho vai trò của bạn ({ROLE_LABELS[currentRole]}).

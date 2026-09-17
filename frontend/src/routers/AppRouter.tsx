@@ -141,6 +141,9 @@ const NotificationCenterPage = React.lazy(
 const FaqSupportPage = React.lazy(
   () => import("@/modules/faq_support/pages/FaqSupportPage")
 );
+const BusinessDeadlinesPage = React.lazy(
+  () => import("@/modules/settings/pages/BusinessDeadlinesPage")
+);
 const PlatformAdminWorkspaceLayout = React.lazy(
   () => import("@/modules/platform_admin/pages/PlatformAdminWorkspaceLayout")
 );
@@ -467,6 +470,14 @@ export const AppRouter = () => (
               element={
                 <RoleRoute allowedRoles={[USER_ROLES.OWNER]}>
                   <LoyaltyProgramSettingsPage />
+                </RoleRoute>
+              }
+            />
+            <Route
+              path={ROUTE_SEGMENTS.DEADLINES}
+              element={
+                <RoleRoute allowedRoles={[USER_ROLES.OWNER, USER_ROLES.ACCOUNTANT]}>
+                  <BusinessDeadlinesPage />
                 </RoleRoute>
               }
             />

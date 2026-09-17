@@ -15,6 +15,11 @@ import type {
   IDebtReconciliationQueryParams,
   IPageData,
 } from "../types/ICustomerDebtReconciliation";
+import type {
+  IBackendImportPreviewResponse,
+  IBackendImportResultResponse,
+} from "../types/IImportCatalog";
+
 
 export interface CreateCustomerPayload {
   name: string;
@@ -467,6 +472,34 @@ export const customerApi = baseApi.injectEndpoints({
         { type: API_TAG_TYPES.DEBT_RECONCILIATION, id: `${customerId}_LATEST` },
       ],
     }),
+
+    previewImportCustomer: builder.mutation<IBackendImportPreviewResponse, FormData>({
+      query: (formData) => ({
+        url: "/customers/import-preview",
+        method: HTTP_METHODS.POST,
+        body: formData,
+      }),
+      transformResponse: (response: unknown): IBackendImportPreviewResponse =>
+        getResponseResult<IBackendImportPreviewResponse>(response),
+    }),
+
+    importCustomers: builder.mutation<
+      IBackendImportResultResponse,
+      { formData: FormData; duplicateAction?: "SKIP" | "UPDATE" }
+    >({
+      query: ({ formData, duplicateAction = "SKIP" }) => ({
+        url: `/customers/import?duplicateAction=${duplicateAction}`,
+        method: HTTP_METHODS.POST,
+        body: formData,
+      }),
+      transformResponse: (response: unknown): IBackendImportResultResponse =>
+        getResponseResult<IBackendImportResultResponse>(response),
+      invalidatesTags: [
+        { type: API_TAG_TYPES.CUSTOMER, id: "LIST" },
+        { type: API_TAG_TYPES.DEBT, id: "LIST" },
+        { type: API_TAG_TYPES.DEBT, id: "SUMMARY" },
+      ],
+    }),
   }),
   overrideExisting: API_CONFIG.OVERRIDE_EXISTING_ENDPOINTS,
 });
@@ -493,4 +526,7 @@ export const {
   useLazyGetDebtStatementPrintQuery,
   useGetLatestDebtReconciliationQuery,
   useCreateDebtAdjustmentMutation,
+  usePreviewImportCustomerMutation,
+  useImportCustomersMutation,
 } = customerApi;
+
