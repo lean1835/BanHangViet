@@ -29,6 +29,7 @@ vi.mock("@/hooks/useNotification", () => ({
 }));
 
 const mockWriteFile = vi.fn();
+const mockJsonToSheet = vi.fn();
 let mockSheetRows: any[] = [];
 
 vi.mock("xlsx", async () => {
@@ -43,6 +44,10 @@ vi.mock("xlsx", async () => {
     utils: {
       ...actual.utils,
       sheet_to_json: () => mockSheetRows,
+      json_to_sheet: (data: any) => {
+        mockJsonToSheet(data);
+        return actual.utils.json_to_sheet(data);
+      },
     },
   };
 });
@@ -257,6 +262,12 @@ describe("NCL-09-CN-009: Nhập danh mục khách hàng và nhà cung cấp từ
       expect.stringContaining("Đã tải xuống tệp Excel mẫu danh mục Khách hàng")
     );
 
+    // Kiểm tra P1-01: Cột 3 là Email, Cột 4 là Địa chỉ cho Khách hàng
+    const customerTemplateArg = mockJsonToSheet.mock.calls[0][0];
+    const customerCols = Object.keys(customerTemplateArg[0]);
+    expect(customerCols[3]).toBe("Email");
+    expect(customerCols[4]).toBe("Địa chỉ");
+
     // 2. Switch to Supplier and download Supplier template
     const supplierTab = screen.getByRole("button", { name: /Danh mục Nhà cung cấp/i });
     fireEvent.click(supplierTab);
@@ -269,6 +280,12 @@ describe("NCL-09-CN-009: Nhập danh mục khách hàng và nhà cung cấp từ
     expect(mockShowSuccess).toHaveBeenCalledWith(
       expect.stringContaining("Đã tải xuống tệp Excel mẫu danh mục Nhà cung cấp")
     );
+
+    // Kiểm tra P1-01: Cột 3 là Email, Cột 4 là Địa chỉ cho Nhà cung cấp
+    const supplierTemplateArg = mockJsonToSheet.mock.calls[1][0];
+    const supplierCols = Object.keys(supplierTemplateArg[0]);
+    expect(supplierCols[3]).toBe("Email");
+    expect(supplierCols[4]).toBe("Địa chỉ");
   });
 
   it("TC-04: Kiểm tra chặn tệp sai định dạng và tệp vượt quá dung lượng 5MB", () => {
@@ -760,5 +777,66 @@ describe("NCL-09-CN-009: Nhập danh mục khách hàng và nhà cung cấp từ
 
     // Nút tải tệp mẫu
     expect(screen.getByRole("button", { name: /Tải tệp mẫu Excel/i })).toBeInTheDocument();
+  });
+
+  it("TC-17 (Khắc phục P1-02/P1-03/P1-04): Xử lý lỗi khi Server Batch Import thất bại - Không báo thành công giả và giữ nguyên màn hình preview", async () => {
+    const mockOnSuccess = vi.fn();
+
+    vi.spyOn(customerApiModule, "useImportCustomersMutation").mockReturnValue([
+      vi.fn().mockReturnValue({
+        unwrap: () =>
+          Promise.reject({
+            status: 500,
+            data: { message: "Máy chủ cơ sở dữ liệu gián đoạn khi nhập batch" },
+          }),
+      }),
+      { isLoading: false } as any,
+    ]);
+
+    mockSheetRows = [
+      {
+        "Tên khách hàng (*)": "Khách Hàng Test Lỗi",
+        "Số điện thoại (*)": "0918889999",
+        "Mã số thuế": "",
+      },
+    ];
+
+    renderWithProviders(
+      <ImportCustomerSupplierModal
+        isOpen={true}
+        onClose={vi.fn()}
+        defaultType="CUSTOMER"
+        onImportSuccess={mockOnSuccess}
+      />,
+      USER_ROLES.OWNER
+    );
+
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    const testFile = new File(["fake binary data"], "import_fail.xlsx", {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    });
+    Object.defineProperty(testFile, "arrayBuffer", {
+      value: async () => new ArrayBuffer(8),
+    });
+
+    fireEvent.change(fileInput, { target: { files: [testFile] } });
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /Xác nhận nhập danh mục/i })).not.toBeDisabled();
+    });
+
+    const submitButton = screen.getByRole("button", { name: /Xác nhận nhập danh mục/i });
+    fireEvent.click(submitButton);
+
+    await waitFor(() => {
+      // Hiển thị thông báo lỗi thật từ server
+      expect(mockShowError).toHaveBeenCalledWith(expect.stringContaining("Máy chủ cơ sở dữ liệu"));
+      // Không gọi callback thành công
+      expect(mockOnSuccess).not.toHaveBeenCalled();
+      // Không chuyển sang bước RESULT
+      expect(screen.queryByText(/Nhập danh mục Khách hàng thành công!/i)).not.toBeInTheDocument();
+      // Vẫn giữ nút Xác nhận nhập trên màn hình PREVIEW để người dùng sửa hoặc thử lại
+      expect(screen.getByRole("button", { name: /Xác nhận nhập danh mục/i })).toBeInTheDocument();
+    });
   });
 });

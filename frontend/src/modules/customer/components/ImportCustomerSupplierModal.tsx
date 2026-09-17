@@ -251,14 +251,13 @@ import {
 } from "../types/IImportCatalog";
 import { useNotification } from "@/hooks/useNotification";
 import { useAccessibleDialog } from "@/hooks/useAccessibleDialog";
+import { getApiErrorMessage } from "@/utils/getApiErrorMessage";
 import {
   useGetCustomersQuery,
-  useCreateCustomerMutation,
   useImportCustomersMutation,
 } from "../services/customerApi";
 import {
   useGetSuppliersQuery,
-  useCreateSupplierMutation,
   useImportSuppliersMutation,
 } from "@/modules/supplier/services/supplierApi";
 
@@ -304,8 +303,6 @@ export const ImportCustomerSupplierModal: React.FC<ImportCustomerSupplierModalPr
   const { data: existingCustomers = [] } = useGetCustomersQuery(undefined, { skip: !isOpen });
   const { data: existingSuppliers = [] } = useGetSuppliersQuery(undefined, { skip: !isOpen });
 
-  const [createCustomer] = useCreateCustomerMutation();
-  const [createSupplier] = useCreateSupplierMutation();
   const [importCustomersApi] = useImportCustomersMutation();
   const [importSuppliersApi] = useImportSuppliersMutation();
 
@@ -443,8 +440,8 @@ export const ImportCustomerSupplierModal: React.FC<ImportCustomerSupplierModalPr
           "Tên khách hàng (*)": "Nguyễn Văn An",
           "Số điện thoại (*)": "0987654321",
           "Mã số thuế": "0102030405",
-          "Địa chỉ": "123 Đường Cầu Giấy, Hà Nội",
           "Email": "nguyenvanan@gmail.com",
+          "Địa chỉ": "123 Đường Cầu Giấy, Hà Nội",
           "Hạn mức công nợ (VNĐ)": 5000000,
           "Dư nợ đầu kỳ (VNĐ)": 1500000,
           "Ghi chú": "Khách quen khu vực Cầu Giấy (chuyển từ sổ tay)",
@@ -453,8 +450,8 @@ export const ImportCustomerSupplierModal: React.FC<ImportCustomerSupplierModalPr
           "Tên khách hàng (*)": "Trần Thị Bích",
           "Số điện thoại (*)": "0912345678",
           "Mã số thuế": "",
-          "Địa chỉ": "45 Lê Lợi, TP. Hồ Chí Minh",
           "Email": "",
+          "Địa chỉ": "45 Lê Lợi, TP. Hồ Chí Minh",
           "Hạn mức công nợ (VNĐ)": 2000000,
           "Dư nợ đầu kỳ (VNĐ)": 0,
           "Ghi chú": "Khách mua lẻ thường xuyên",
@@ -463,8 +460,8 @@ export const ImportCustomerSupplierModal: React.FC<ImportCustomerSupplierModalPr
           "Tên khách hàng (*)": "Công ty TNHH Minh Phát",
           "Số điện thoại (*)": "02438889999",
           "Mã số thuế": "0109998888-001",
-          "Địa chỉ": "KCN Tân Bình, TP.HCM",
           "Email": "ketoan@minhphat.vn",
+          "Địa chỉ": "KCN Tân Bình, TP.HCM",
           "Hạn mức công nợ (VNĐ)": 20000000,
           "Dư nợ đầu kỳ (VNĐ)": 8500000,
           "Ghi chú": "Khách doanh nghiệp lấy hóa đơn",
@@ -481,8 +478,8 @@ export const ImportCustomerSupplierModal: React.FC<ImportCustomerSupplierModalPr
           "Tên nhà cung cấp (*)": "Công ty TNHH Nông Sản Xanh",
           "Số điện thoại (*)": "0909123456",
           "Mã số thuế": "0312345678",
-          "Địa chỉ": "Đà Lạt, Lâm Đồng",
           "Email": "cungung@nongsanxanh.com",
+          "Địa chỉ": "Đà Lạt, Lâm Đồng",
           "Nợ phải trả đầu kỳ (VNĐ)": 12000000,
           "Ghi chú": "Nhà cung cấp rau củ quả tươi",
         },
@@ -490,8 +487,8 @@ export const ImportCustomerSupplierModal: React.FC<ImportCustomerSupplierModalPr
           "Tên nhà cung cấp (*)": "Đại lý Bánh kẹo Hoàng Gia",
           "Số điện thoại (*)": "0988776655",
           "Mã số thuế": "",
-          "Địa chỉ": "Hoàn Kiếm, Hà Nội",
           "Email": "",
+          "Địa chỉ": "Hoàn Kiếm, Hà Nội",
           "Nợ phải trả đầu kỳ (VNĐ)": 3500000,
           "Ghi chú": "Giao hàng thứ 3 và thứ 6 hàng tuần",
         },
@@ -540,7 +537,7 @@ export const ImportCustomerSupplierModal: React.FC<ImportCustomerSupplierModalPr
         return;
       }
       const worksheet = workbook.Sheets[firstSheetName];
-      const rawRows: any[] = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
+      const rawRows = XLSX.utils.sheet_to_json<Record<string, unknown>>(worksheet, { defval: "" });
 
       if (!rawRows || rawRows.length === 0) {
         showError("Tệp tải lên không có dữ liệu dòng nào. Vui lòng kiểm tra lại.");
@@ -876,127 +873,55 @@ export const ImportCustomerSupplierModal: React.FC<ImportCustomerSupplierModalPr
 
     setIsSubmitting(true);
 
-    let imported = 0;
-    let updated = 0;
-    let skipped = previewRows.filter((r) => r.status === "DUPLICATE" && duplicateStrategy === "SKIP").length;
-
-    // 1. Try Server-Side batch import with clean file
-    if (selectedFile) {
-      try {
-        const cleanFile = buildCleanFileFromPreview(
-          rowsToImport,
-          selectedFile.name || (catalogType === "CUSTOMER" ? "KhachHang_Clean.xlsx" : "NhaCungCap_Clean.xlsx"),
-          catalogType
-        );
-        const formData = new FormData();
-        formData.append("file", cleanFile);
-
-        if (catalogType === "CUSTOMER") {
-          const res = await importCustomersApi({
-            formData,
-            duplicateAction: duplicateStrategy,
-          }).unwrap();
-
-          imported = res.successCount ?? 0;
-          updated = res.updatedCount ?? 0;
-          skipped = res.skippedCount ?? 0;
-
-          setResultMetrics({ imported, updated, skipped });
-          setStep("RESULT");
-          showSuccess("Đã nhập hoàn tất dữ liệu danh mục Khách hàng qua máy chủ!");
-          if (onImportSuccess) {
-            onImportSuccess(imported + updated);
-          }
-          setIsSubmitting(false);
-          return;
-        } else {
-          const res = await importSuppliersApi({
-            formData,
-            duplicateAction: duplicateStrategy,
-          }).unwrap();
-
-          imported = res.successCount ?? 0;
-          updated = res.updatedCount ?? 0;
-          skipped = res.skippedCount ?? 0;
-
-          setResultMetrics({ imported, updated, skipped });
-          setStep("RESULT");
-          showSuccess("Đã nhập hoàn tất dữ liệu danh mục Nhà cung cấp qua máy chủ!");
-          if (onImportSuccess) {
-            onImportSuccess(imported + updated);
-          }
-          setIsSubmitting(false);
-          return;
-        }
-      } catch {
-        // Fallback to client-side loop on network error or dev/mock mode
-      }
-    }
-
-    // 2. Client-side fallback loop
+    // Server-Side batch import with clean file
     try {
-      for (const row of rowsToImport) {
-        if (catalogType === "CUSTOMER") {
-          const cData = row.data as ICustomerImportData;
-          try {
-            await createCustomer({
-              name: cData.name,
-              phone: cData.phone,
-              phoneNumber: cData.phone,
-              taxCode: cData.taxCode || "",
-              email: cData.email || "",
-              address: cData.address || "",
-              creditLimit: cData.creditLimit || 0,
-            }).unwrap();
+      const cleanFile = buildCleanFileFromPreview(
+        rowsToImport,
+        selectedFile?.name || (catalogType === "CUSTOMER" ? "KhachHang_Clean.xlsx" : "NhaCungCap_Clean.xlsx"),
+        catalogType
+      );
+      const formData = new FormData();
+      formData.append("file", cleanFile);
 
-            if (row.status === "DUPLICATE") {
-              updated++;
-            } else {
-              imported++;
-            }
-          } catch {
-            if (row.status === "DUPLICATE") {
-              updated++;
-            } else {
-              imported++;
-            }
-          }
-        } else {
-          const sData = row.data as ISupplierImportData;
-          try {
-            await createSupplier({
-              name: sData.name,
-              phoneNumber: sData.phone,
-              taxCode: sData.taxCode || "",
-              email: sData.email || "",
-              address: sData.address || "",
-            }).unwrap();
+      if (catalogType === "CUSTOMER") {
+        const res = await importCustomersApi({
+          formData,
+          duplicateAction: duplicateStrategy,
+        }).unwrap();
 
-            if (row.status === "DUPLICATE") {
-              updated++;
-            } else {
-              imported++;
-            }
-          } catch {
-            if (row.status === "DUPLICATE") {
-              updated++;
-            } else {
-              imported++;
-            }
-          }
+        const imported = res.successCount ?? 0;
+        const updated = res.updatedCount ?? 0;
+        const skipped = res.skippedCount ?? 0;
+
+        setResultMetrics({ imported, updated, skipped });
+        setStep("RESULT");
+        showSuccess("Đã nhập hoàn tất dữ liệu danh mục Khách hàng qua máy chủ!");
+        if (onImportSuccess) {
+          onImportSuccess(imported + updated);
+        }
+      } else {
+        const res = await importSuppliersApi({
+          formData,
+          duplicateAction: duplicateStrategy,
+        }).unwrap();
+
+        const imported = res.successCount ?? 0;
+        const updated = res.updatedCount ?? 0;
+        const skipped = res.skippedCount ?? 0;
+
+        setResultMetrics({ imported, updated, skipped });
+        setStep("RESULT");
+        showSuccess("Đã nhập hoàn tất dữ liệu danh mục Nhà cung cấp qua máy chủ!");
+        if (onImportSuccess) {
+          onImportSuccess(imported + updated);
         }
       }
-
-      setResultMetrics({ imported, updated, skipped });
-      setStep("RESULT");
-      showSuccess(
-        `Đã nhập thành công ${imported} danh mục mới, cập nhật ${updated} và bỏ qua ${skipped} dòng trùng!`
+    } catch (err) {
+      const errMsg = getApiErrorMessage(
+        err,
+        `Không thể nhập danh mục ${catalogType === "CUSTOMER" ? "Khách hàng" : "Nhà cung cấp"} từ tệp. Vui lòng kiểm tra lại.`
       );
-      if (onImportSuccess) {
-        onImportSuccess(imported + updated);
-      }
-    } catch {
-      showError("Có lỗi xảy ra trong quá trình ghi nhận danh mục.");
+      showError(errMsg);
     } finally {
       setIsSubmitting(false);
     }

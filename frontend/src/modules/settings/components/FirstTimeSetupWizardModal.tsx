@@ -184,22 +184,6 @@ const CheckIcon: React.FC<SvgIconProps> = ({ size = 18, className = "" }) => (
   </svg>
 );
 
-const RotateCcwIcon: React.FC<SvgIconProps> = ({ size = 11, className = "" }) => (
-  <svg
-    width={size}
-    height={size}
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    className={className}
-  >
-    <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-    <path d="M3 3v5h5" />
-  </svg>
-);
 
 const ShoppingBagIcon: React.FC<SvgIconProps> = ({ size = 14, className = "" }) => (
   <svg
@@ -250,8 +234,6 @@ export const FirstTimeSetupWizardModal: React.FC<FirstTimeSetupWizardModalProps>
     isReadyForInvoice,
     skipGuideAsync,
     completeGuideAsync,
-    toggleMockStep,
-    resetMockOverrides,
   } = useSetupGuide();
 
   if (!isOpen) return null;
@@ -445,16 +427,6 @@ export const FirstTimeSetupWizardModal: React.FC<FirstTimeSetupWizardModalProps>
                     {isCompleted ? "Xem lại" : step.actionLabel}
                     <ArrowRightIcon size={12} />
                   </button>
-
-                  {/* Toggle button for rapid testing / mock demonstration */}
-                  <button
-                    type="button"
-                    onClick={() => toggleMockStep(step.key, !isCompleted)}
-                    title="Bấm để mô phỏng trạng thái hoàn tất cho bước này"
-                    className="text-[10px] text-slate-400 hover:text-slate-600 underline"
-                  >
-                    {isCompleted ? "Bỏ đánh dấu" : "Mô phỏng xong"}
-                  </button>
                 </div>
               </div>
             );
@@ -464,15 +436,9 @@ export const FirstTimeSetupWizardModal: React.FC<FirstTimeSetupWizardModalProps>
         {/* Modal Footer */}
         <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={resetMockOverrides}
-              className="text-[11px] text-slate-400 hover:text-slate-600 flex items-center gap-1"
-              title="Khôi phục trạng thái nhận diện tự động từ cơ sở dữ liệu"
-            >
-              <RotateCcwIcon size={11} />
-              Đặt lại nhận diện tự động
-            </button>
+            <span className="text-[11px] text-slate-500 font-normal">
+              Các bước bắt buộc cần hoàn thiện để đảm bảo hóa đơn điện tử hợp lệ
+            </span>
           </div>
 
           <div className="flex items-center gap-2">

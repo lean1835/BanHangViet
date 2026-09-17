@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 
 // Native SVG Icons
 interface SvgIconProps {
@@ -42,15 +42,25 @@ import { useSetupGuide } from "@/modules/settings/hooks/useSetupGuide";
 import { FirstTimeSetupWizardModal } from "@/modules/settings/components/FirstTimeSetupWizardModal";
 
 export const SetupGuideBanner: React.FC = () => {
-  const { progress, isReadyForInvoice, isDismissed } = useSetupGuide();
+  const { progress, isReadyForInvoice, isDismissed, isOnboardingLoading } = useSetupGuide();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const hasAutoOpenedRef = useRef(false);
+
+  // AC NCL-09-CN-007-TC-01: Tự động mở Modal hướng dẫn khi Chủ hộ đăng nhập lần đầu
+  useEffect(() => {
+    if (!isOnboardingLoading && !isReadyForInvoice && !isDismissed && !hasAutoOpenedRef.current) {
+      hasAutoOpenedRef.current = true;
+      setIsModalOpen(true);
+    }
+  }, [isOnboardingLoading, isReadyForInvoice, isDismissed]);
 
   const percentCompleted = Math.round(
     (progress.completedRequired / Math.max(progress.totalRequired, 1)) * 100
   );
 
-  // Sau khi hoàn thành tất cả các bước bắt buộc hoặc đã bỏ qua, tự động ẩn trình hướng dẫn
-  if (isReadyForInvoice || isDismissed) {
+  // AC NCL-09-CN-007-TC-02 & TC-03: Chỉ ẩn hoàn toàn Banner khi đã sẵn sàng xuất hóa đơn (hoàn thành 4 bước).
+  // Khi chủ hộ bấm "Bỏ qua để vào bán ngay", isDismissed = true nhưng Banner VẪN PHẢI HIỂN THỊ trên Dashboard.
+  if (isReadyForInvoice) {
     return null;
   }
 

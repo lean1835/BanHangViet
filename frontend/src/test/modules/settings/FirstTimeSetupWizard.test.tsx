@@ -213,6 +213,9 @@ describe("NCL-09-CN-007: Trình hướng dẫn thiết lập lần đầu", () =
   });
 
   it("TC-06: SetupGuideBanner hiển thị trên Dashboard kèm số bước còn thiếu và mở modal khi bấm Tiếp tục", () => {
+    // Giả lập trạng thái đã bỏ qua auto-open để kiểm tra thanh banner tĩnh
+    localStorage.setItem("bhv_setup_guide_dismissed", "true");
+
     renderWithProviders(<SetupGuideBanner />, USER_ROLES.OWNER);
 
     // Should display banner
@@ -225,6 +228,41 @@ describe("NCL-09-CN-007: Trình hướng dẫn thiết lập lần đầu", () =
     // Click continue opens modal
     fireEvent.click(continueButton);
     expect(screen.getByText(/Hoàn thành 4 bước cấu hình bắt buộc/i)).toBeInTheDocument();
+  });
+
+  it("TC-09 (AC NCL-09-CN-007-TC-01): Tự động hiển thị modal hướng dẫn khi Chủ hộ mới đăng nhập lần đầu", async () => {
+    // Chưa từng bỏ qua (chưa có bhv_setup_guide_dismissed) và chưa sẵn sàng xuất hóa đơn
+    renderWithProviders(<SetupGuideBanner />, USER_ROLES.OWNER);
+
+    // Modal tự động hiển thị với tiêu đề và các bước cấu hình bắt buộc
+    await waitFor(() => {
+      expect(screen.getByRole("dialog")).toBeInTheDocument();
+      expect(screen.getByText("Lần đầu đăng nhập")).toBeInTheDocument();
+      expect(screen.getByText(/Hoàn thành 4 bước cấu hình bắt buộc/i)).toBeInTheDocument();
+    });
+  });
+
+  it("TC-10 (AC NCL-09-CN-007-TC-03): Chủ hộ bấm bỏ qua để vào bán ngay, Dashboard vẫn giữ thanh nhắc kèm số bước còn thiếu", async () => {
+    renderWithProviders(<SetupGuideBanner />, USER_ROLES.OWNER);
+
+    // Modal tự động mở lần đầu
+    await waitFor(() => {
+      expect(screen.getByRole("dialog")).toBeInTheDocument();
+    });
+
+    // Bấm 'Bỏ qua để vào bán ngay'
+    const skipButton = screen.getByRole("button", { name: /Bỏ qua để vào bán ngay/i });
+    fireEvent.click(skipButton);
+
+    // Modal đóng lại
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
+
+    // Thanh banner VẪN HIỂN THỊ trên Dashboard kèm số bước còn thiếu
+    expect(screen.getByText("Trình hướng dẫn thiết lập cửa hàng")).toBeInTheDocument();
+    expect(screen.getByText(/Còn thiếu \d+ bước bắt buộc/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Tiếp tục thiết lập/i })).toBeInTheDocument();
   });
 
   it("TC-07: Hoàn thành 4 bước bắt buộc hiển thị thông điệp chúc mừng và nút vào quầy POS", async () => {

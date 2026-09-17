@@ -12,6 +12,7 @@ import { BusinessDeadlinesPage } from "@/modules/settings/pages/BusinessDeadline
 import { USER_ROLES, type TDemoRole } from "@/constants/roles";
 import { DEFAULT_BUSINESS_DEADLINES } from "@/modules/settings/types/IBusinessDeadlines";
 import * as settingsApiModule from "@/modules/settings/services/settingsApi";
+import * as auditLogApiModule from "@/modules/audit_log/services/auditLogApi";
 
 const mockShowSuccess = vi.fn();
 const mockShowError = vi.fn();
@@ -37,6 +38,47 @@ beforeEach(() => {
     }),
     { isLoading: false } as any,
   ]);
+
+  vi.spyOn(auditLogApiModule, "useGetAuditLogsQuery").mockReturnValue({
+    data: {
+      code: 1000,
+      message: "Lấy danh sách nhật ký thành công",
+      result: {
+        content: [
+          {
+            id: "log-01",
+            sequenceNumber: 1,
+            action: "UPDATE_HOUSEHOLD_SETTINGS",
+            targetTable: "business_household_settings",
+            fullName: "Chủ hộ Nguyễn Văn A",
+            username: "testowner",
+            oldValue: JSON.stringify({ maxRetryHoursDeadline: 48 }),
+            newValue: JSON.stringify({ maxRetryHoursDeadline: 24 }),
+            createdAt: "2026-09-15T08:30:15",
+            hash: "hash1",
+          },
+          {
+            id: "log-02",
+            sequenceNumber: 2,
+            action: "UPDATE_HOUSEHOLD_SETTINGS",
+            targetTable: "business_household_settings",
+            fullName: "Chủ hộ Nguyễn Văn A",
+            username: "testowner",
+            oldValue: JSON.stringify({ returnPolicyDays: 3 }),
+            newValue: JSON.stringify({ returnPolicyDays: 7 }),
+            createdAt: "2026-09-10T14:15:00",
+            hash: "hash2",
+          },
+        ],
+        totalElements: 2,
+        totalPages: 1,
+        page: 0,
+        size: 20,
+      },
+    },
+    isLoading: false,
+    refetch: vi.fn(),
+  } as any);
 });
 
 afterEach(() => {
@@ -232,6 +274,30 @@ describe("Cấu hình các mốc thời hạn nghiệp vụ của hộ", () => {
   });
 
   it("TC-06: Luồng Lưu cấu hình hợp lệ thành công và ghi nhận dòng nhật ký kiểm toán mới", async () => {
+    const mockRefetch = vi.fn();
+    vi.spyOn(auditLogApiModule, "useGetAuditLogsQuery").mockReturnValue({
+      data: {
+        code: 1000,
+        message: "OK",
+        result: {
+          content: [
+            {
+              id: "log-01",
+              action: "UPDATE_HOUSEHOLD_SETTINGS",
+              targetTable: "business_household_settings",
+              fullName: "Chủ hộ Nguyễn Văn A",
+              oldValue: JSON.stringify({ maxRetryHoursDeadline: 48 }),
+              newValue: JSON.stringify({ maxRetryHoursDeadline: 24 }),
+              createdAt: "2026-09-15T08:30:15",
+            },
+          ],
+          totalElements: 1,
+        },
+      },
+      isLoading: false,
+      refetch: mockRefetch,
+    } as any);
+
     renderWithProviders(<BusinessDeadlinesPanel />, USER_ROLES.OWNER);
 
     const saveButton = screen.getByRole("button", { name: /Lưu cấu hình/i });
@@ -250,14 +316,12 @@ describe("Cấu hình các mốc thời hạn nghiệp vụ của hộ", () => {
       );
     });
 
-    // Verify localStorage has been updated
+    // Verify refetch audit logs was called to sync with Backend
+    expect(mockRefetch).toHaveBeenCalled();
+
+    // Verify localStorage cached config
     const savedConfig = JSON.parse(localStorage.getItem("household_business_deadlines") || "{}");
     expect(savedConfig.returnPolicyDays).toBe(14);
-
-    // Verify audit log has the new entry
-    const savedLogs = JSON.parse(localStorage.getItem("bhv_deadlines_audit_logs") || "[]");
-    expect(savedLogs.length).toBeGreaterThanOrEqual(4);
-    expect(savedLogs[0].reason).toContain("Chủ hộ lưu cấu hình thời hạn mới");
   });
 
   it("TC-07: Khôi phục cấu hình về mặc định khuyến nghị có hộp thoại xác nhận", async () => {

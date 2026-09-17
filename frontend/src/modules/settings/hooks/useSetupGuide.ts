@@ -24,12 +24,13 @@ export const useSetupGuide = () => {
   const [skipOnboardingMutation] = useSkipOnboardingMutation();
   const [completeOnboardingMutation] = useCompleteOnboardingMutation();
 
-  // Query component APIs as client-side fallback / real-time reactivity
-  const { data: householdData } = useGetMyHouseholdQuery();
-  const { data: invoiceTemplateData } = useGetInvoiceTemplateQuery();
-  const { data: taxRatesData } = useGetAllTaxRatesQuery();
-  const { data: productsData } = useGetProductsQuery({ size: 1 });
-  const { data: employeesData } = useGetAllEmployeesQuery();
+  // Query component APIs as client-side fallback / real-time reactivity (chỉ query khi BE chưa trả về steps)
+  const hasBeSteps = Boolean(onboardingData?.result?.steps?.length);
+  const { data: householdData } = useGetMyHouseholdQuery(undefined, { skip: hasBeSteps });
+  const { data: invoiceTemplateData } = useGetInvoiceTemplateQuery(undefined, { skip: hasBeSteps });
+  const { data: taxRatesData } = useGetAllTaxRatesQuery(undefined, { skip: hasBeSteps });
+  const { data: productsData } = useGetProductsQuery({ size: 1 }, { skip: hasBeSteps });
+  const { data: employeesData } = useGetAllEmployeesQuery(undefined, { skip: hasBeSteps });
 
   const [isDismissed, setIsDismissed] = useState<boolean>(() => {
     return localStorage.getItem(STORAGE_KEY_DISMISSED) === "true";

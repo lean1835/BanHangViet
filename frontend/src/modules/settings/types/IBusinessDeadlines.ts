@@ -83,9 +83,9 @@ export interface IBackendAutoRetrySettings {
 export const mapBackendToUiDeadlines = (be: Partial<IBackendAutoRetrySettings>): IBusinessDeadlinesConfig => {
   return {
     ...DEFAULT_BUSINESS_DEADLINES,
-    ...(be as any),
-    returnPolicyDays: be.returnDaysLimit ?? (be as any).returnPolicyDays ?? DEFAULT_BUSINESS_DEADLINES.returnPolicyDays,
-    offlineSyncHoursDeadline: be.maxOfflineSyncHours ?? (be as any).offlineSyncHoursDeadline ?? DEFAULT_BUSINESS_DEADLINES.offlineSyncHoursDeadline,
+    ...(be as Partial<IBusinessDeadlinesConfig>),
+    returnPolicyDays: be.returnDaysLimit ?? DEFAULT_BUSINESS_DEADLINES.returnPolicyDays,
+    offlineSyncHoursDeadline: be.maxOfflineSyncHours ?? DEFAULT_BUSINESS_DEADLINES.offlineSyncHoursDeadline,
   };
 };
 

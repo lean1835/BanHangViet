@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 // Native SVG Icons (standard 24x24 viewBox, currentColor, strokeWidth=2)
 interface SvgIconProps {
   size?: number;
@@ -114,6 +114,10 @@ import {
   useUpdateHouseholdSettingsMutation,
 } from "../services/settingsApi";
 import {
+  useGetAuditLogsQuery,
+} from "@/modules/audit_log/services/auditLogApi";
+import type { IActivityLog } from "@/modules/audit_log/types/IAuditLog";
+import {
   type IBusinessDeadlinesConfig,
   type IBusinessDeadlinesAuditLog,
   DEFAULT_BUSINESS_DEADLINES,
@@ -124,75 +128,78 @@ import { useDashboardDemo } from "@/providers/DashboardDemoProvider";
 import { USER_ROLES } from "@/constants/roles";
 import { getApiErrorMessage } from "@/utils/getApiErrorMessage";
 
-// Sample initial audit logs for mockup demonstration (NCL-09-CN-008-TC-03)
-const INITIAL_AUDIT_LOGS: IBusinessDeadlinesAuditLog[] = [
-  {
-    id: "log-01",
-    timestamp: "2026-09-15 08:30:15",
-    actorName: "Chủ hộ Nguyễn Văn A",
+const SETTING_LABELS: Record<string, string> = {
+  maxRetryAttempts: "Số lần tự động gửi lại tối đa",
+  retryIntervalMinutes: "Khoảng cách giữa các lần thử lại",
+  maxRetryHoursDeadline: "Hạn tối đa gửi lại hóa đơn lỗi",
+  maxOrderHoldingHours: "Thời gian giữ đơn hàng treo tối đa",
+  bankTransferTimeoutMinutes: "Thời gian chờ chuyển khoản QR",
+  returnDaysLimit: "Thời hạn đổi trả hàng",
+  returnPolicyDays: "Thời hạn đổi trả hàng",
+  maxOfflineSyncHours: "Hạn đồng bộ ngoại tuyến",
+  debtReminderDaysBefore: "Số ngày gửi nhắc nhở công nợ trước hạn",
+  autoRetryEnabled: "Tự động thử lại khi gửi hóa đơn",
+};
+
+const formatBackendAuditLog = (log: IActivityLog): IBusinessDeadlinesAuditLog => {
+  let oldParsed: Record<string, unknown> = {};
+  let newParsed: Record<string, unknown> = {};
+  try {
+    if (log.oldValue) oldParsed = JSON.parse(log.oldValue);
+  } catch {
+    // ignore
+  }
+  try {
+    if (log.newValue) newParsed = JSON.parse(log.newValue);
+  } catch {
+    // ignore
+  }
+
+  const changedKeys = Object.keys(newParsed).filter(
+    (k) => oldParsed[k] !== undefined && String(oldParsed[k]) !== String(newParsed[k])
+  );
+
+  let settingLabel = "Cập nhật các mốc thời hạn nghiệp vụ";
+  let oldValDisplay = "-";
+  let newValDisplay = "-";
+
+  if (changedKeys.length === 1) {
+    const k = changedKeys[0];
+    settingLabel = SETTING_LABELS[k] || k;
+    oldValDisplay = String(oldParsed[k]);
+    newValDisplay = String(newParsed[k]);
+  } else if (changedKeys.length > 1) {
+    settingLabel = `Điều chỉnh ${changedKeys.length} mốc thời hạn`;
+    oldValDisplay = changedKeys.map((k) => `${SETTING_LABELS[k] || k}: ${oldParsed[k]}`).join(" | ");
+    newValDisplay = changedKeys.map((k) => `${SETTING_LABELS[k] || k}: ${newParsed[k]}`).join(" | ");
+  } else if (log.oldValue || log.newValue) {
+    oldValDisplay = log.oldValue || "-";
+    newValDisplay = log.newValue || "-";
+  }
+
+  const timestamp = log.createdAt
+    ? new Date(log.createdAt).toLocaleString("vi-VN", {
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+      })
+    : "-";
+
+  return {
+    id: log.id,
+    timestamp,
+    actorName: log.fullName || log.username || "Chủ hộ",
     actorRole: "Chủ hộ kinh doanh (VT-01)",
-    settingKey: "maxRetryHoursDeadline",
-    settingLabel: "Hạn tối đa gửi lại hóa đơn lỗi",
-    oldValue: "48 giờ",
-    newValue: "24 giờ",
-    reason: "Rút ngắn để tránh quá hạn truyền nhận cơ quan thuế cuối ngày",
-  },
-  {
-    id: "log-02",
-    timestamp: "2026-09-10 14:15:00",
-    actorName: "Chủ hộ Nguyễn Văn A",
-    actorRole: "Chủ hộ kinh doanh (VT-01)",
-    settingKey: "returnPolicyDays",
-    settingLabel: "Thời hạn đổi trả hàng",
-    oldValue: "3 ngày",
-    newValue: "7 ngày",
-    reason: "Tăng thời hạn chăm sóc khách hàng thân thiết",
-  },
-  {
-    id: "log-03",
-    timestamp: "2026-09-01 09:00:00",
-    actorName: "Hệ thống",
-    actorRole: "Khởi tạo ban đầu",
-    settingKey: "all",
-    settingLabel: "Khởi tạo tham số chuẩn",
-    oldValue: "-",
-    newValue: "Áp dụng cấu hình mặc định Bán Hàng Việt",
-    reason: "Khai báo sau khi đăng ký tài khoản hộ kinh doanh",
-  },
-  {
-    id: "log-04",
-    timestamp: "2026-08-25 16:20:00",
-    actorName: "Chủ hộ Nguyễn Văn A",
-    actorRole: "Chủ hộ kinh doanh (VT-01)",
-    settingKey: "maxOrderHoldingHours",
-    settingLabel: "Thời gian giữ đơn hàng treo tối đa",
-    oldValue: "24 giờ",
-    newValue: "12 giờ",
-    reason: "Tối ưu hóa giải phóng tồn kho cho đơn bán tại quầy",
-  },
-  {
-    id: "log-05",
-    timestamp: "2026-08-20 10:00:00",
-    actorName: "Chủ hộ Nguyễn Văn A",
-    actorRole: "Chủ hộ kinh doanh (VT-01)",
-    settingKey: "debtReminderDaysBefore",
-    settingLabel: "Số ngày gửi nhắc nhở công nợ trước hạn",
-    oldValue: "5 ngày",
-    newValue: "3 ngày",
-    reason: "Điều chỉnh chu kỳ nhắc nợ khách hàng",
-  },
-  {
-    id: "log-06",
-    timestamp: "2026-08-15 08:30:00",
-    actorName: "Hệ thống",
-    actorRole: "Khởi tạo ban đầu",
-    settingKey: "bankTransferTimeoutMinutes",
-    settingLabel: "Thời gian chờ chuyển khoản QR",
-    oldValue: "30 phút",
-    newValue: "15 phút",
-    reason: "Khuyến nghị chuẩn chuyển khoản NAPAS247",
-  },
-];
+    settingKey: changedKeys.length === 1 ? changedKeys[0] : "multiple",
+    settingLabel,
+    oldValue: oldValDisplay,
+    newValue: newValDisplay,
+    reason: "Chủ hộ lưu cấu hình thời hạn mới",
+  };
+};
 
 export const BusinessDeadlinesPanel: React.FC = () => {
   const { showSuccess, showError, showWarning } = useNotification();
@@ -206,14 +213,20 @@ export const BusinessDeadlinesPanel: React.FC = () => {
   const [formData, setFormData] = useState<IBusinessDeadlinesConfig>(DEFAULT_BUSINESS_DEADLINES);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
-  const [auditLogs, setAuditLogs] = useState<IBusinessDeadlinesAuditLog[]>(() => {
-    try {
-      const stored = localStorage.getItem("bhv_deadlines_audit_logs");
-      return stored ? JSON.parse(stored) : INITIAL_AUDIT_LOGS;
-    } catch {
-      return INITIAL_AUDIT_LOGS;
-    }
+
+  // Lấy nhật ký thay đổi thật từ Backend activity_logs (NCL-09-CN-008-TC-03)
+  const { data: auditLogsData, refetch: refetchAuditLogs } = useGetAuditLogsQuery({
+    action: "UPDATE_HOUSEHOLD_SETTINGS",
+    size: 20,
   });
+
+  const auditLogs: IBusinessDeadlinesAuditLog[] = useMemo(() => {
+    const apiLogs = auditLogsData?.result?.content;
+    if (Array.isArray(apiLogs) && apiLogs.length > 0) {
+      return apiLogs.map(formatBackendAuditLog);
+    }
+    return [];
+  }, [auditLogsData]);
 
   useEffect(() => {
     if (apiData?.result) {
@@ -297,7 +310,7 @@ export const BusinessDeadlinesPanel: React.FC = () => {
     return warnings;
   }, [formData]);
 
-  const handleFieldChange = (key: keyof IBusinessDeadlinesConfig, val: any) => {
+  const handleFieldChange = (key: keyof IBusinessDeadlinesConfig, val: number | boolean | string) => {
     setFormData((prev) => ({
       ...prev,
       [key]: val,
@@ -327,38 +340,12 @@ export const BusinessDeadlinesPanel: React.FC = () => {
 
     try {
       await updateSettings(formData).unwrap();
-
-      // Append to audit log (NCL-09-CN-008-TC-03)
-      const nowStr = new Date().toLocaleString("vi-VN", {
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
-      });
-
-      const newLog: IBusinessDeadlinesAuditLog = {
-        id: "log-" + Date.now(),
-        timestamp: nowStr,
-        actorName: "Chủ hộ (Hiện tại)",
-        actorRole: "Chủ hộ kinh doanh (VT-01)",
-        settingKey: "multiple",
-        settingLabel: "Cập nhật các mốc thời hạn nghiệp vụ",
-        oldValue: "Giá trị trước đó",
-        newValue: `Gửi lại: ${formData.maxRetryHoursDeadline}h | Treo đơn: ${formData.maxOrderHoldingHours}h | Đổi trả: ${formData.returnPolicyDays}d`,
-        reason: "Chủ hộ lưu cấu hình thời hạn mới",
-      };
-
-      const updatedLogs = [newLog, ...auditLogs];
-      setAuditLogs(updatedLogs);
+      refetchAuditLogs();
       try {
         localStorage.setItem("household_business_deadlines", JSON.stringify(formData));
-        localStorage.setItem("bhv_deadlines_audit_logs", JSON.stringify(updatedLogs));
       } catch {
         // ignore
       }
-
       showSuccess("Đã lưu và áp dụng thành công các mốc thời hạn nghiệp vụ của hộ!");
     } catch (err) {
       const msg = getApiErrorMessage(err, "Không thể lưu cấu hình mốc thời hạn");
@@ -726,7 +713,14 @@ export const BusinessDeadlinesPanel: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {auditLogs.map((log) => (
+                {auditLogs.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="py-6 text-center text-slate-400">
+                      Chưa có nhật ký thay đổi mốc thời hạn nào được ghi nhận.
+                    </td>
+                  </tr>
+                ) : (
+                  auditLogs.map((log) => (
                   <tr key={log.id} className="hover:bg-slate-50/60 transition-colors">
                     <td className="py-2.5 px-3 font-medium whitespace-nowrap text-slate-700">
                       {log.timestamp}
@@ -752,7 +746,8 @@ export const BusinessDeadlinesPanel: React.FC = () => {
                       {log.reason || "Cập nhật cấu hình định kỳ"}
                     </td>
                   </tr>
-                ))}
+                  ))
+                )}
               </tbody>
             </table>
           </div>
