@@ -9,6 +9,7 @@ import com.sales.exception.ErrorCode;
 import com.sales.repository.*;
 import com.sales.service.classes.ActivityLogHelper;
 import com.sales.service.classes.ReturnTicketServiceImpl;
+import com.sales.service.interfaces.AppNotificationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -61,6 +62,9 @@ class ReturnTicketServiceImplTest {
 
     @Mock
     private ProductExchangeItemRepository productExchangeItemRepository;
+
+    @Mock
+    private AppNotificationService appNotificationService;
 
     @InjectMocks
     private ReturnTicketServiceImpl returnTicketService;

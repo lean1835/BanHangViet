@@ -18,6 +18,9 @@ import {
 import { formatCurrency } from "@/utils/formatCurrency";
 import { useDebounce } from "@/hooks/useDebounce";
 import { PRODUCT_QUERY_CONFIG } from "@/constants/product";
+import { useAppSelector } from "@/hooks/useRedux";
+import { NotificationCenterDropdown } from "@/modules/notification/components/NotificationCenterDropdown";
+import { ScreenGuideTriggerButton } from "@/modules/screen_guide";
 
 interface IPosHeaderProps {
   products: IProduct[];
@@ -80,6 +83,9 @@ export const PosHeader: React.FC<IPosHeaderProps> = ({
   const [dragOverTabIndex, setDragOverTabIndex] = useState<number | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const searchContainerRef = useRef<HTMLDivElement>(null);
+
+  const displaySettings = useAppSelector((state) => state.displaySettings);
+  const simpleModeEnabled = Boolean(displaySettings?.simpleModeEnabled);
 
   // Live API Search Query with Debounce (P1.2 performance optimization)
   const { data: searchResultData, isLoading } = useGetProductsQuery({
@@ -181,6 +187,7 @@ export const PosHeader: React.FC<IPosHeaderProps> = ({
                 <Search size={16} />
               </span>
               <input
+                id="pos-search-input"
                 ref={searchInputRef}
                 type="text"
                 className="w-full h-10 bg-white text-slate-800 text-xs sm:text-[13px] rounded-full pl-10 pr-20 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300 placeholder-slate-400 font-medium shadow-inner transition-all"
@@ -449,85 +456,87 @@ export const PosHeader: React.FC<IPosHeaderProps> = ({
           </button>
         </div>
 
-        {/* Pinned Fixed Actions: Đơn treo & Phòng/Bàn (Cố định, không bị cuộn theo danh sách tab) */}
-        <div className="shrink-0 flex items-center gap-1.5 pl-1.5 pr-1 border-l border-blue-500/50">
-          {/* Held Orders Drawer Button (NCL-03-CN-010) */}
-          {(onOpenHeldOrders || onOpenHeldOrdersDrawer) && (
-            <button
-              type="button"
-              onClick={onOpenHeldOrders || onOpenHeldOrdersDrawer}
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg font-extrabold text-xs transition-all shrink-0 select-none shadow-xs ${
-                overdueHeldOrdersCount > 0
-                  ? "bg-rose-500 hover:bg-rose-600 text-white animate-pulse ring-2 ring-rose-300"
-                  : heldOrdersCount > 0
-                  ? "bg-amber-400 hover:bg-amber-500 text-amber-950"
-                  : "bg-blue-500/80 hover:bg-blue-500 text-white"
-              }`}
-              title="Xem danh sách các đơn đang treo trong ca"
-            >
-              <Clock className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Đơn treo</span>
-              {heldOrdersCount > 0 && (
-                <span
-                  className={`px-1.5 py-0.2 rounded-full text-[10px] font-black ${
-                    overdueHeldOrdersCount > 0
-                      ? "bg-white text-rose-700"
-                      : "bg-amber-900 text-white"
-                  }`}
-                >
-                  {heldOrdersCount}
-                </span>
-              )}
-            </button>
-          )}
+        {/* Pinned Fixed Actions: Đơn treo & Phòng/Bàn (Chỉ hiển thị khi KHÔNG ở Chế độ đơn giản) */}
+        {!simpleModeEnabled && (
+          <div className="shrink-0 flex items-center gap-1.5 pl-1.5 pr-1 border-l border-blue-500/50">
+            {/* Held Orders Drawer Button (NCL-03-CN-010) */}
+            {(onOpenHeldOrders || onOpenHeldOrdersDrawer) && (
+              <button
+                type="button"
+                onClick={onOpenHeldOrders || onOpenHeldOrdersDrawer}
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg font-extrabold text-xs transition-all shrink-0 select-none shadow-xs ${
+                  overdueHeldOrdersCount > 0
+                    ? "bg-rose-500 hover:bg-rose-600 text-white animate-pulse ring-2 ring-rose-300"
+                    : heldOrdersCount > 0
+                    ? "bg-amber-400 hover:bg-amber-500 text-amber-950"
+                    : "bg-blue-500/80 hover:bg-blue-500 text-white"
+                }`}
+                title="Xem danh sách các đơn đang treo trong ca"
+              >
+                <Clock className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Đơn treo</span>
+                {heldOrdersCount > 0 && (
+                  <span
+                    className={`px-1.5 py-0.2 rounded-full text-[10px] font-black ${
+                      overdueHeldOrdersCount > 0
+                        ? "bg-white text-rose-700"
+                        : "bg-amber-900 text-white"
+                    }`}
+                  >
+                    {heldOrdersCount}
+                  </span>
+                )}
+              </button>
+            )}
 
-          {/* Table Management Button (NCL-03-CN-010 - VT-01 Owner) */}
-          {onOpenTableManagement && (
-            <button
-              type="button"
-              onClick={onOpenTableManagement}
-              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-indigo-500/80 hover:bg-indigo-500 text-white font-extrabold text-xs transition-all shrink-0 select-none shadow-xs"
-              title="Quản lý bàn ăn và khu vực (Dành cho chủ hộ kinh doanh)"
-            >
-              <UtensilsCrossed className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Phòng/Bàn</span>
-            </button>
-          )}
+            {/* Table Management Button (NCL-03-CN-010 - VT-01 Owner) */}
+            {onOpenTableManagement && (
+              <button
+                type="button"
+                onClick={onOpenTableManagement}
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-indigo-500/80 hover:bg-indigo-500 text-white font-extrabold text-xs transition-all shrink-0 select-none shadow-xs"
+                title="Quản lý bàn ăn và khu vực (Dành cho chủ hộ kinh doanh)"
+              >
+                <UtensilsCrossed className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Phòng/Bàn</span>
+              </button>
+            )}
 
-          {/* Shift Handover Button (NCL-03-CN-013) */}
-          {onOpenShiftHandover && (
-            <button
-              type="button"
-              onClick={onOpenShiftHandover}
-              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-teal-500/80 hover:bg-teal-500 text-white font-extrabold text-xs transition-all shrink-0 select-none shadow-xs"
-              title="Bàn giao ca cho nhân viên tiếp theo"
-            >
-              <Users className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Bàn giao ca</span>
-            </button>
-          )}
+            {/* Shift Handover Button (NCL-03-CN-013) */}
+            {onOpenShiftHandover && (
+              <button
+                type="button"
+                onClick={onOpenShiftHandover}
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-teal-500/80 hover:bg-teal-500 text-white font-extrabold text-xs transition-all shrink-0 select-none shadow-xs"
+                title="Bàn giao ca cho nhân viên tiếp theo"
+              >
+                <Users className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Bàn giao ca</span>
+              </button>
+            )}
 
-          {/* Cash Transaction Button (NCL-03-CN-014: Ghi thu chi tiền mặt) */}
-          {onOpenCashTransaction && (
-            <button
-              type="button"
-              onClick={onOpenCashTransaction}
-              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-600/85 hover:bg-emerald-600 text-white font-extrabold text-xs transition-all shrink-0 select-none shadow-xs"
-              title="Ghi thu chi tiền mặt ngoài bán hàng trong ca"
-            >
-              <Wallet className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Thu/Chi</span>
-              {pendingExpenseCount > 0 && (
-                <span
-                  className="px-1.5 py-0.2 rounded-full text-[10px] font-black bg-amber-400 text-amber-950 animate-pulse"
-                  title={`Có ${pendingExpenseCount} khoản chi đang chờ Chủ hộ duyệt`}
-                >
-                  {pendingExpenseCount}
-                </span>
-              )}
-            </button>
-          )}
-        </div>
+            {/* Cash Transaction Button (NCL-03-CN-014: Ghi thu chi tiền mặt) */}
+            {onOpenCashTransaction && (
+              <button
+                type="button"
+                onClick={onOpenCashTransaction}
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-600/85 hover:bg-emerald-600 text-white font-extrabold text-xs transition-all shrink-0 select-none shadow-xs"
+                title="Ghi thu chi tiền mặt ngoài bán hàng trong ca"
+              >
+                <Wallet className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Thu/Chi</span>
+                {pendingExpenseCount > 0 && (
+                  <span
+                    className="px-1.5 py-0.2 rounded-full text-[10px] font-black bg-amber-400 text-amber-950 animate-pulse"
+                    title={`Có ${pendingExpenseCount} khoản chi đang chờ Chủ hộ duyệt`}
+                  >
+                    {pendingExpenseCount}
+                  </span>
+                )}
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Right: Actions & User Info */}
         <div className="shrink-0 flex items-center gap-3">
@@ -541,6 +550,9 @@ export const PosHeader: React.FC<IPosHeaderProps> = ({
               {isOnline ? "Trực tuyến" : "Ngoại tuyến"}
             </span>
           </div>
+
+          <NotificationCenterDropdown />
+          <ScreenGuideTriggerButton targetScreenCode="SCREEN_POS_CHECKOUT" />
 
           <div className="h-4 w-[1px] bg-blue-400 hidden sm:block" />
 

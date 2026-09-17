@@ -40,6 +40,41 @@
     min-width: 0;
   }
 
+  /* Accessibility & Simple Mode adjustments (NCL-19-CN-001) */
+  html[data-font-size="LARGE"] {
+    font-size: 16px;
+  }
+
+  html[data-font-size="EXTRA_LARGE"] {
+    font-size: 18px;
+  }
+
+  html[data-simple-mode="true"] {
+    font-size: 18px;
+  }
+
+  html[data-simple-mode="true"][data-font-size="EXTRA_LARGE"] {
+    font-size: 21px;
+  }
+
+  /* Touch buttons enlargement in Simple Mode */
+  html[data-simple-mode="true"] .app-touch-button,
+  html[data-button-size="LARGE"] .app-touch-button {
+    min-height: var(--app-min-touch-height, 52px) !important;
+    font-size: 1.05rem !important;
+  }
+
+  html[data-button-size="EXTRA_LARGE"] .app-touch-button {
+    min-height: var(--app-min-touch-height, 64px) !important;
+    font-size: 1.25rem !important;
+  }
+
+  html[data-high-contrast="true"] {
+    --kv-text-dark: #000000;
+    --kv-text-body: #111827;
+    --kv-gray-border: #64748b;
+    filter: contrast(1.08);
+  }
 }
 
 /* Ẩn triệt để icon con mắt và clear mặc định của Microsoft Edge / IE */

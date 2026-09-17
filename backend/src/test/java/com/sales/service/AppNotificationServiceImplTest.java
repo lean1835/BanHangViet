@@ -191,6 +191,41 @@ public class AppNotificationServiceImplTest {
         assertNotNull(closedNotif.getReadAt());
     }
 
+    @Test
+    @DisplayName("Batch: Tự động đóng nhiều thông báo cùng lúc theo targetType và danh sách targetIds")
+    void closeNotificationsByTargetIds_BatchClosesSuccessfully() {
+        AppNotification notif1 = AppNotification.builder()
+                .id("notif-debt-1")
+                .household(mockHousehold)
+                .targetType("CUSTOMER_DEBT")
+                .targetId("debt-101")
+                .notificationType(NotificationTypeConstant.DEBT_DUE)
+                .isClosed(false)
+                .isRead(false)
+                .build();
+        AppNotification notif2 = AppNotification.builder()
+                .id("notif-debt-2")
+                .household(mockHousehold)
+                .targetType("CUSTOMER_DEBT")
+                .targetId("debt-102")
+                .notificationType(NotificationTypeConstant.DEBT_OVERDUE)
+                .isClosed(false)
+                .isRead(false)
+                .build();
+
+        when(notificationRepository.findByTargetTypeAndTargetIdInAndIsClosedFalse("CUSTOMER_DEBT", List.of("debt-101", "debt-102")))
+                .thenReturn(List.of(notif1, notif2));
+
+        notificationService.closeNotificationsByTargetIds("CUSTOMER_DEBT", List.of("debt-101", "debt-102"));
+
+        ArgumentCaptor<List<AppNotification>> captor = ArgumentCaptor.forClass(List.class);
+        verify(notificationRepository, times(1)).saveAll(captor.capture());
+
+        List<AppNotification> savedList = captor.getValue();
+        assertEquals(2, savedList.size());
+        assertTrue(savedList.stream().allMatch(n -> n.getIsClosed() && n.getIsRead() && n.getClosedAt() != null));
+    }
+
     // =========================================================================
     // TC-03: Ràng buộc phân quyền vai trò QTN-10 đối với nhân viên bán hàng
     // =========================================================================
@@ -399,18 +434,23 @@ public class AppNotificationServiceImplTest {
                 .thenReturn(Collections.emptyList());
 
         // Mock 1 khoản công nợ đến hạn
-        Customer customer = Customer.builder().id("cust-1").name("Nguyễn Văn An").build();
+        Customer customer = Customer.builder()
+                .id("cust-1")
+                .name("Nguyễn Văn An")
+                .currentDebt(new BigDecimal("3500000.00"))
+                .build();
         CustomerDebt dueDebt = CustomerDebt.builder()
                 .id("debt-due-1")
                 .household(mockHousehold)
                 .customer(customer)
                 .amount(new BigDecimal("3500000.00"))
+                .remainingAmount(new BigDecimal("3500000.00"))
                 .dueDate(LocalDateTime.now().plusDays(1))
                 .status("PENDING")
                 .type("DEBT_CREATED")
                 .build();
 
-        when(customerDebtRepository.findByHouseholdIdAndStatusInAndTypeOrderByDueDateAsc(eq("house-uuid-1"), any(), eq("DEBT_CREATED")))
+        when(customerDebtRepository.findByHouseholdIdAndStatusInAndTypeOrderByDueDateAscWithRelations(eq("house-uuid-1"), any(), eq("DEBT_CREATED")))
                 .thenReturn(List.of(dueDebt));
         when(notificationRepository.findByHouseholdIdAndTargetTypeAndIsClosedFalse("house-uuid-1", "CUSTOMER_DEBT"))
                 .thenReturn(Collections.emptyList());

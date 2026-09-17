@@ -25,6 +25,7 @@ import {
   useUpdateInvoiceMutation,
 } from "@/modules/e_invoice/services/eInvoiceApi";
 import { markOfflineOrderInvoiceIssued } from "@/modules/sync/utils/offlineSyncStorage";
+import { ContextualErrorGuideModal } from "@/modules/screen_guide";
 
 interface IOrderSuccessModalProps {
   isOpen: boolean;
@@ -53,6 +54,7 @@ export const OrderSuccessModal: React.FC<IOrderSuccessModalProps> = ({
   const [paperSize, setPaperSize] = useState<"K80" | "K57">("K80");
   const [showQr, setShowQr] = useState<boolean>(true);
   const [realInvoice, setRealInvoice] = useState<IInvoice | null>(null);
+  const [contextualHelpErrorCode, setContextualHelpErrorCode] = useState<number | null>(null);
 
   // RTK Query Mutations from eInvoiceApi
   const [createInvoiceDraft, { isLoading: isIssuingInvoice }] =
@@ -172,6 +174,12 @@ export const OrderSuccessModal: React.FC<IOrderSuccessModalProps> = ({
       if (isAlreadyIssued) {
         setIssueSuccessAlertMsg("Hóa đơn điện tử cho đơn hàng này đã được phát hành trước đó!");
         setShowIssueSuccessAlert(true);
+        return;
+      }
+
+      // NCL-19-CN-003 TC-02: Bị chặn xuất hóa đơn do chưa cấu hình mẫu số / ký hiệu hóa đơn (Code 4001)
+      if (err?.data?.code === 4001 || errMsg.includes("mẫu hóa đơn") || errMsg.includes("ký hiệu")) {
+        setContextualHelpErrorCode(4001);
         return;
       }
       const fallbackInv: IInvoice = {
@@ -1060,6 +1068,15 @@ export const OrderSuccessModal: React.FC<IOrderSuccessModalProps> = ({
             </div>
           </div>
         </div>
+      )}
+
+      {/* TC-02: Modal trợ giúp ngữ cảnh khi bị chặn phát hành hóa đơn do thiếu cấu hình */}
+      {contextualHelpErrorCode !== null && (
+        <ContextualErrorGuideModal
+          isOpen={true}
+          errorCode={contextualHelpErrorCode}
+          onClose={() => setContextualHelpErrorCode(null)}
+        />
       )}
     </div>
   );

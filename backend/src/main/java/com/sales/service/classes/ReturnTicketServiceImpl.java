@@ -1,5 +1,7 @@
 package com.sales.service.classes;
 
+import com.sales.constant.DebtStatus;
+import com.sales.constant.DebtType;
 import com.sales.dto.request.CreateReturnTicketItemRequest;
 import com.sales.dto.request.CreateReturnTicketRequest;
 import com.sales.dto.request.RejectReturnTicketRequest;
@@ -8,11 +10,14 @@ import com.sales.entity.*;
 import com.sales.exception.AppException;
 import com.sales.exception.ErrorCode;
 import com.sales.repository.*;
+import com.sales.service.interfaces.AppNotificationService;
+import com.sales.service.interfaces.LoyaltyService;
 import com.sales.service.interfaces.ReturnTicketService;
 import com.sales.specification.ReturnTicketSpecification;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -48,9 +53,11 @@ public class ReturnTicketServiceImpl implements ReturnTicketService {
     private final InvoiceStatusLogRepository invoiceStatusLogRepository;
     private final ActivityLogHelper activityLogHelper;
     private final BusinessHouseholdSettingsRepository settingsRepository;
-    @org.springframework.context.annotation.Lazy
-    private final com.sales.service.interfaces.LoyaltyService loyaltyService;
+    @Lazy
+    private final LoyaltyService loyaltyService;
     private final ProductExchangeItemRepository productExchangeItemRepository;
+    @Lazy
+    private final AppNotificationService appNotificationService;
 
     private int resolveMaxReturnDays(String householdId) {
         if (householdId == null || settingsRepository == null) {
@@ -319,13 +326,58 @@ public class ReturnTicketServiceImpl implements ReturnTicketService {
             customerRepository.save(customer);
 
             if (actualDebtReduced.compareTo(BigDecimal.ZERO) > 0) {
+                // Đồng bộ hóa remainingAmount và status của các khoản nợ mở (PENDING/OVERDUE) theo nguyên tắc FIFO
+                List<CustomerDebt> activeDebts = customerDebtRepository.findByCustomerIdAndHouseholdIdAndStatusInAndTypeOrderByCreatedAtAsc(
+                        customer.getId(), user.getHousehold().getId(), List.of(DebtStatus.PENDING, DebtStatus.OVERDUE), DebtType.DEBT_CREATED);
+
+                BigDecimal remainingRefundToDeduct = actualDebtReduced;
+                List<CustomerDebt> updatedDebts = new ArrayList<>();
+
+                for (CustomerDebt debt : activeDebts) {
+                    if (remainingRefundToDeduct.compareTo(BigDecimal.ZERO) <= 0) {
+                        break;
+                    }
+                    BigDecimal unpaid = debt.getRemainingAmount() != null ? debt.getRemainingAmount() : BigDecimal.ZERO;
+                    if (unpaid.compareTo(BigDecimal.ZERO) <= 0) {
+                        continue;
+                    }
+
+                    if (remainingRefundToDeduct.compareTo(unpaid) >= 0) {
+                        remainingRefundToDeduct = remainingRefundToDeduct.subtract(unpaid);
+                        debt.setRemainingAmount(BigDecimal.ZERO);
+                        debt.setStatus(DebtStatus.PAID);
+                    } else {
+                        debt.setRemainingAmount(unpaid.subtract(remainingRefundToDeduct));
+                        remainingRefundToDeduct = BigDecimal.ZERO;
+                    }
+                    updatedDebts.add(debt);
+                }
+
+                if (!updatedDebts.isEmpty()) {
+                    customerDebtRepository.saveAll(updatedDebts);
+                    if (appNotificationService != null) {
+                        List<String> paidDebtIds = updatedDebts.stream()
+                                .filter(d -> DebtStatus.PAID.equals(d.getStatus()))
+                                .map(CustomerDebt::getId)
+                                .toList();
+                        if (!paidDebtIds.isEmpty()) {
+                            try {
+                                appNotificationService.closeNotificationsByTargetIds("CUSTOMER_DEBT", paidDebtIds);
+                            } catch (Exception e) {
+                                log.warn("Lỗi khi tự động đóng thông báo nợ khi giảm trừ phiếu trả hàng: {}", e.getMessage());
+                            }
+                        }
+                    }
+                }
+
                 CustomerDebt debtRecord = CustomerDebt.builder()
                         .household(user.getHousehold())
                         .customer(customer)
                         .order(ticket.getOriginalOrder())
                         .amount(actualDebtReduced)
-                        .type("DEBT_PAID")
-                        .status("PAID")
+                        .remainingAmount(BigDecimal.ZERO)
+                        .type(DebtType.DEBT_PAID)
+                        .status(DebtStatus.PAID)
                         .dueDate(LocalDateTime.now())
                         .notes("Giảm trừ công nợ từ phiếu trả hàng " + ticket.getTicketNumber())
                         .createdByUser(user)
