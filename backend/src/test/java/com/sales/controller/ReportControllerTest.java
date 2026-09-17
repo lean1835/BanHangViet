@@ -388,6 +388,19 @@ public class ReportControllerTest {
     }
 
     @Test
+    @WithMockUser(username = "test_owner_report", roles = {"VT-01"})
+    public void exportReport_asOwner_grossProfitWithPos_noData_badRequest() throws Exception {
+        mockMvc.perform(get("/api/v1/reports/export")
+                        .param("reportType", "GROSS_PROFIT")
+                        .param("fromDate", "2026-07-01")
+                        .param("toDate", "2026-07-31")
+                        .param("filter1", "prod-1")
+                        .param("filter2", "pos-test-1"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(2016));
+    }
+
+    @Test
     @WithMockUser(username = "test_employee_report", roles = {"VT-02"})
     public void exportReport_asEmployee_forbidden() throws Exception {
         mockMvc.perform(get("/api/v1/reports/export")

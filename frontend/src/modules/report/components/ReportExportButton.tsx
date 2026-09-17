@@ -41,8 +41,7 @@ export const ReportExportButton: React.FC<ReportExportButtonProps> = ({
       const fileName = generateReportFileName(reportType);
       downloadBlobFile(blob, fileName);
       showSuccess(`Xuất báo cáo Excel thành công! (Tệp: ${fileName})`);
-    } catch (err: unknown) {
-      console.error("Export report error:", err);
+    } catch {
       showError("Không thể xuất báo cáo ra Excel. Vui lòng thử lại sau.");
     }
   };
