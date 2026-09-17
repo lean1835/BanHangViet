@@ -11,6 +11,7 @@ import java.time.LocalDateTime;
 public class AppNotificationResponse {
     private String id;
     private String notificationType;
+    private String notificationCategory;
     private String severity;
     private String title;
     private String message;

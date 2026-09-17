@@ -70,6 +70,11 @@ public enum ErrorCode {
     EMPTY_IMPORT_FILE(2014, "Tệp import rỗng không chứa dòng dữ liệu nào", HttpStatus.BAD_REQUEST),
     FILE_SIZE_EXCEEDED(2015, "Tệp import vượt quá dung lượng tối đa cho phép (10MB)", HttpStatus.BAD_REQUEST),
     NO_DATA_TO_EXPORT(2016, "Không có dữ liệu trong khoảng thời gian đã chọn", HttpStatus.BAD_REQUEST),
+    INVALID_DEADLINE_VALUE(2071, "Mốc thời hạn cấu hình không nằm trong khoảng cho phép", HttpStatus.BAD_REQUEST),
+    INVALID_PHONE_FORMAT(2072, "Số điện thoại không đúng định dạng", HttpStatus.BAD_REQUEST),
+    IMPORT_DATA_CONFLICT(2073, "Dữ liệu tệp bị xung đột hoặc trùng lặp", HttpStatus.CONFLICT),
+    INVALID_FILE_FORMAT(2074, "Định dạng tệp không hợp lệ, chỉ chấp nhận tệp Excel (.xlsx, .xls)", HttpStatus.BAD_REQUEST),
+    ONBOARDING_INCOMPLETE(2075, "Chưa hoàn thành đầy đủ các bước thiết lập bắt buộc", HttpStatus.BAD_REQUEST),
 
     // Cấu hình Nền tảng & Thuế suất (NCL-09 Branch 1)
     INVALID_TAX_CODE(2030, "Mã số thuế không đúng định dạng 10 hoặc 13 chữ số", HttpStatus.BAD_REQUEST),
@@ -404,9 +409,39 @@ public enum ErrorCode {
     NO_BACKUP_AVAILABLE_FOR_VERIFICATION(5035, "Không tìm thấy bản sao lưu hợp lệ nào để thực hiện thử phục hồi", HttpStatus.BAD_REQUEST),
     VERIFICATION_EXECUTION_FAILED(5036, "Quá trình chạy thử phục hồi bản sao lưu gặp sự cố kỹ thuật", HttpStatus.INTERNAL_SERVER_ERROR),
     BACKUP_VERIFICATION_NOT_FOUND(5037, "Không tìm thấy bản ghi lịch sử kiểm chứng sao lưu", HttpStatus.NOT_FOUND),
-    ONLY_STORE_OWNER_CAN_VERIFY_BACKUP(5038, "Chỉ chủ hộ kinh doanh mới có quyền thực hiện thử phục hồi và xem tình trạng sao lưu", HttpStatus.FORBIDDEN);
+    ONLY_STORE_OWNER_CAN_VERIFY_BACKUP(5038, "Chỉ chủ hộ kinh doanh mới có quyền thực hiện thử phục hồi và xem tình trạng sao lưu", HttpStatus.FORBIDDEN),
+
+    // NCL-19-CN-001 Chế độ hiển thị chữ lớn và thao tác đơn giản
+    DISPLAY_SETTING_NOT_FOUND(8001, "Cấu hình hiển thị người dùng không tồn tại trên hệ thống", HttpStatus.NOT_FOUND),
+    INVALID_FONT_SIZE_LEVEL(8002, "Mức cỡ chữ không hợp lệ (chỉ chấp nhận STANDARD, LARGE, EXTRA_LARGE)", HttpStatus.BAD_REQUEST),
+    INVALID_BUTTON_SIZE_LEVEL(8003, "Mức kích thước nút không hợp lệ (chỉ chấp nhận STANDARD, LARGE, EXTRA_LARGE)", HttpStatus.BAD_REQUEST),
+    ACTION_CONFIRMATION_REQUIRED(8004, "Thao tác không thể hoàn tác yêu cầu bước xác nhận đồng ý với các hậu quả nêu ra", HttpStatus.BAD_REQUEST),
+    UNSUPPORTED_ACTION_TYPE(8005, "Loại hành động không được hỗ trợ phân tích hậu quả", HttpStatus.BAD_REQUEST),
+    TARGET_OBJECT_NOT_FOUND(8006, "Đối tượng thực hiện thao tác không tồn tại hoặc không thuộc hộ kinh doanh của bạn", HttpStatus.NOT_FOUND),
+
+    // NCL-19-CN-002 Trung tâm thông báo trong ứng dụng
+    INVALID_NOTIFICATION_TYPE(8010, "Loại thông báo không hợp lệ hoặc không được hệ thống hỗ trợ", HttpStatus.BAD_REQUEST),
+    INVALID_NOTIFICATION_SEVERITY(8011, "Mức độ nghiêm trọng của thông báo không hợp lệ (chỉ chấp nhận INFO, WARNING, DANGER)", HttpStatus.BAD_REQUEST),
+    NOTIFICATION_ACCESS_DENIED(8012, "Bạn không có quyền xem thông báo này do ràng buộc bảo mật dữ liệu tài chính (QTN-10)", HttpStatus.FORBIDDEN),
+    NOTIFICATION_SETTING_NOT_FOUND(8013, "Không tìm thấy cấu hình nhận thông báo của người dùng", HttpStatus.NOT_FOUND),
+    CANNOT_DISABLE_MANDATORY_NOTIFICATION(8014, "Không thể tắt các thông báo cảnh báo nghiêm trọng bắt buộc của hệ thống", HttpStatus.BAD_REQUEST),
+
+    // NCL-19-CN-003 Hướng dẫn ngắn tại chỗ theo từng màn hình
+    SCREEN_GUIDE_NOT_FOUND(8020, "Không tìm thấy nội dung hướng dẫn cho màn hình này", HttpStatus.NOT_FOUND),
+    SCREEN_GUIDE_CODE_EXISTS(8021, "Mã màn hình hướng dẫn đã tồn tại trên hệ thống", HttpStatus.BAD_REQUEST),
+    INVALID_SCREEN_GUIDE_STEPS(8022, "Hướng dẫn màn hình phải bao gồm từ 3 đến 5 bước ngắn gọn", HttpStatus.BAD_REQUEST),
+    ONLY_ADMIN_CAN_MANAGE_GUIDES(8023, "Chỉ quản trị viên nền tảng mới có quyền thêm hoặc sửa đổi nội dung hướng dẫn", HttpStatus.FORBIDDEN),
+    INVALID_SCREEN_GUIDE_ROLE(8024, "Nhóm vai trò mục tiêu không hợp lệ (chỉ chấp nhận ALL, VT-01, VT-02, VT-03)", HttpStatus.BAD_REQUEST),
+
+    // NCL-19-CN-004 Màn hình câu hỏi thường gặp và thông tin hỗ trợ
+    FAQ_NOT_FOUND(8030, "Câu hỏi thường gặp không tồn tại trên hệ thống", HttpStatus.NOT_FOUND),
+    FAQ_CATEGORY_INVALID(8031, "Nhóm câu hỏi không hợp lệ (chỉ chấp nhận INVOICE, SALES, ACCOUNT, DATA)", HttpStatus.BAD_REQUEST),
+    SUPPORT_CHANNEL_NOT_FOUND(8032, "Kênh hỗ trợ kỹ thuật không tồn tại trên hệ thống", HttpStatus.NOT_FOUND),
+    ONLY_ADMIN_CAN_MANAGE_FAQS(8033, "Chỉ quản trị viên nền tảng mới có quyền cấu hình nội dung câu hỏi và kênh hỗ trợ", HttpStatus.FORBIDDEN),
+    SUPPORT_CHANNEL_TYPE_INVALID(8034, "Loại kênh hỗ trợ không hợp lệ (chỉ chấp nhận HOTLINE, ZALO, EMAIL, WORKING_HOURS, PORTAL)", HttpStatus.BAD_REQUEST);
 
     private final int code;
     private final String message;
     private final HttpStatusCode statusCode;
 }
+

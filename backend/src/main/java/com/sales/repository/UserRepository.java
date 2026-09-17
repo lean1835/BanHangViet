@@ -33,7 +33,14 @@ public interface UserRepository extends JpaRepository<User, String> {
 
     @EntityGraph(attributePaths = {"role", "household", "pointOfSale"})
     @Query("SELECT u FROM User u WHERE u.household.id = :householdId AND u.role.code = :roleCode AND u.deletedAt IS NULL")
-    Optional<User> findFirstByHouseholdIdAndRoleCode(@Param("householdId") String householdId, @Param("roleCode") String roleCode);
+    List<User> findByHouseholdIdAndRoleCode(@Param("householdId") String householdId, @Param("roleCode") String roleCode);
+
+    default Optional<User> findFirstByHouseholdIdAndRoleCode(String householdId, String roleCode) {
+        List<User> users = findByHouseholdIdAndRoleCode(householdId, roleCode);
+        return users.isEmpty() ? Optional.empty() : Optional.of(users.get(0));
+    }
+
+    boolean existsByHouseholdIdAndRole_CodeAndDeletedAtIsNull(String householdId, String roleCode);
 
     @EntityGraph(attributePaths = {"role", "pointOfSale"})
     List<User> findByPointOfSaleIdAndDeletedAtIsNull(String pointOfSaleId);

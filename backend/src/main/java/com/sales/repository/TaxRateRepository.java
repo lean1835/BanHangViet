@@ -15,5 +15,6 @@ public interface TaxRateRepository extends JpaRepository<TaxRate, String> {
     java.util.List<TaxRate> findByHouseholdIdOrderByCreatedAtDesc(String householdId);
     boolean existsByHouseholdIdAndName(String householdId, String name);
     boolean existsByHouseholdIdAndNameAndIdNot(String householdId, String name, String id);
+    boolean existsByHouseholdIdAndIsActiveTrue(String householdId);
 }
 

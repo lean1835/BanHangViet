@@ -66,6 +66,9 @@ public class EInvoiceServiceImpl implements EInvoiceService {
     private final InvoiceNumberRangeService invoiceNumberRangeService;
     private final TaxConnectionService taxConnectionService;
     private final com.sales.service.interfaces.ServicePackageService servicePackageService;
+    @org.springframework.context.annotation.Lazy
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.sales.service.interfaces.AppNotificationService appNotificationService;
 
     @Value("${app.frontend-url:http://localhost:3000}")
     private String frontendUrl;
@@ -579,6 +582,10 @@ public class EInvoiceServiceImpl implements EInvoiceService {
                                 "Cảm ơn quý khách đã mua hàng! Hóa đơn điện tử khởi tạo từ máy tính tiền có mã của CQT.")
                         .build()));
 
+        if (template.getInvoiceSymbol() == null || template.getInvoiceSymbol().trim().isEmpty()) {
+            throw new AppException(ErrorCode.INVOICE_TEMPLATE_NOT_FOUND, "/settings/invoice-template", "SCREEN_INVOICE_CONFIG");
+        }
+
         String lookupCode;
         do {
             lookupCode = UUID.randomUUID().toString().replaceAll("-", "").substring(0, 10).toUpperCase();
@@ -687,6 +694,10 @@ public class EInvoiceServiceImpl implements EInvoiceService {
 
         if (!"DRAFT".equals(invoice.getStatus())) {
             throw new AppException(ErrorCode.INVOICE_NOT_SEND_ERROR);
+        }
+
+        if (invoice.getInvoiceSymbol() == null || invoice.getInvoiceSymbol().trim().isEmpty()) {
+            throw new AppException(ErrorCode.INVOICE_TEMPLATE_NOT_FOUND, "/settings/invoice-template", "SCREEN_INVOICE_CONFIG");
         }
 
         Map<String, Object> oldVal = buildInvoiceLogMap(invoice);
@@ -1028,6 +1039,15 @@ public class EInvoiceServiceImpl implements EInvoiceService {
             }
         }
 
+        // NCL-19-CN-002-TC-02: Tự động đóng thông báo lỗi khi hóa đơn được cấp mã
+        if (appNotificationService != null) {
+            try {
+                appNotificationService.closeNotificationsByTarget("INVOICE", saved.getId());
+            } catch (Exception e) {
+                log.warn("Lỗi khi tự động đóng thông báo cho hóa đơn: {}", e.getMessage());
+            }
+        }
+
         String actorName = currentUser != null ? currentUser.getUsername() : "Hệ thống tự động";
         invoiceStatusLogRepository.save(InvoiceStatusLog.builder()
                 .invoice(saved)
@@ -1092,6 +1112,28 @@ public class EInvoiceServiceImpl implements EInvoiceService {
 
         logActivity(invoice.getHousehold(), currentUser, "REJECT_TAX", saved.getId(), oldVal,
                 buildInvoiceLogMap(saved));
+
+        // NCL-19-CN-002-TC-01: Tạo thông báo lỗi hóa đơn gửi cơ quan thuế thất bại
+        if (appNotificationService != null) {
+            try {
+                String invLabel = saved.getInvoiceNumber() != null ? saved.getInvoiceNumber() : saved.getLookupCode();
+                appNotificationService.createNotification(
+                        saved.getHousehold().getId(),
+                        com.sales.dto.request.CreateNotificationRequest.builder()
+                                .targetUserId(saved.getCreatedByUser() != null ? saved.getCreatedByUser().getId() : null)
+                                .notificationType(com.sales.constant.NotificationTypeConstant.INVOICE_ERROR)
+                                .severity("DANGER")
+                                .title("Cảnh báo: Hóa đơn " + invLabel + " bị lỗi gửi cơ quan thuế")
+                                .message("Hóa đơn điện tử gửi cơ quan thuế không thành công. Chi tiết lỗi: " + saved.getTaxAuthorityResponse() + ". Vui lòng kiểm tra và gửi lại.")
+                                .actionUrl("/e-invoices?id=" + saved.getId())
+                                .targetType("INVOICE")
+                                .targetId(saved.getId())
+                                .build()
+                );
+            } catch (Exception e) {
+                log.warn("Lỗi khi tạo thông báo hóa đơn gửi lỗi: {}", e.getMessage());
+            }
+        }
 
         log.info("Thuế từ chối cấp mã hóa đơn. ID={}, Lý do={}", invoiceId, saved.getTaxAuthorityResponse());
         return mapToInvoiceResponse(saved);
