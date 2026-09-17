@@ -53,6 +53,7 @@ interface IAccountantInvitationResponse {
   householdName?: string;
   householdTaxCode?: string;
   invitationToken: string;
+  accountantName?: string;
   accountantPhone: string;
   accountantEmail?: string;
   invitedByUsername?: string;
@@ -305,6 +306,51 @@ export const accountantInvitationApi = baseApi.injectEndpoints({
         { type: API_TAG_TYPES.REPORT, id: "LIST" },
       ],
     }),
+
+    acceptAccountantInvitation: builder.mutation<
+      unknown,
+      { token: string; notes?: string }
+    >({
+      query: ({ token, notes }) => ({
+        url: `/accountant/invitations/${token}/accept`,
+        method: HTTP_METHODS.POST,
+        body: notes ? { notes } : undefined,
+      }),
+      invalidatesTags: [
+        { type: API_TAG_TYPES.ACCOUNTANT_INVITATION, id: "LIST" },
+        { type: API_TAG_TYPES.ACCOUNTANT_INVITATION, id: "HOUSEHOLDS" },
+        { type: API_TAG_TYPES.ACCOUNTANT_INVITATION, id: "PENDING" },
+      ],
+    }),
+
+    getMyPendingInvitations: builder.query<IAccountantInvitation[], void>({
+      query: () => ({
+        url: "/accountant/my-pending-invitations",
+        method: HTTP_METHODS.GET,
+      }),
+      transformResponse: (response: { result: IAccountantInvitationResponse[] }) => {
+        return (response.result || []).map((inv: IAccountantInvitationResponse) => ({
+          id: inv.id,
+          householdId: inv.householdId || "",
+          householdName: inv.householdName || "Hộ kinh doanh",
+          taxCode: inv.householdTaxCode || "",
+          accountantName: inv.accountantName || inv.accountantPhone || "Kế toán",
+          phoneNumber: inv.accountantPhone || "",
+          email: inv.accountantEmail || "",
+          scopes: Array.isArray(inv.scopePermissions)
+            ? inv.scopePermissions
+            : typeof inv.scopePermissions === "string"
+              ? JSON.parse(inv.scopePermissions)
+              : [],
+          status: INVITATION_STATUS.PENDING,
+          inviteDate: inv.createdAt ? String(inv.createdAt).split("T")[0] : "",
+          expiryDate: inv.invitationExpiresAt ? String(inv.invitationExpiresAt).split("T")[0] : "",
+          invitationToken: inv.invitationToken,
+          createdBy: inv.invitedByUsername || "Chủ hộ",
+        }));
+      },
+      providesTags: [{ type: API_TAG_TYPES.ACCOUNTANT_INVITATION, id: "PENDING" }],
+    }),
   }),
   overrideExisting: API_CONFIG.OVERRIDE_EXISTING_ENDPOINTS,
 });
@@ -317,4 +363,6 @@ export const {
   useResendAccountantInvitationMutation,
   useGetAuthorizedHouseholdsQuery,
   useSwitchHouseholdMutation,
+  useAcceptAccountantInvitationMutation,
+  useGetMyPendingInvitationsQuery,
 } = accountantInvitationApi;

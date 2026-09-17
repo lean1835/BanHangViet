@@ -7,6 +7,9 @@ import com.sales.dto.response.AccountantAssignmentResponse;
 import com.sales.dto.response.AccountantInvitationResponse;
 import com.sales.dto.response.AssignedHouseholdResponse;
 
+import com.sales.entity.BusinessHousehold;
+import com.sales.entity.User;
+
 import java.util.List;
 
 public interface AccountantService {
@@ -24,4 +27,8 @@ public interface AccountantService {
     List<AssignedHouseholdResponse> getAssignedHouseholds(String currentUsername);
 
     AssignedHouseholdResponse switchActiveHousehold(String currentUsername, String householdId);
+
+    List<AccountantInvitationResponse> getMyPendingInvitations(String currentUsername);
+
+    AccountantAssignmentResponse acceptInvitationWithToken(User accountant, String token);
 }

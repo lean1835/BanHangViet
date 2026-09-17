@@ -5,6 +5,7 @@ import com.sales.constant.AccountantAssignmentStatus;
 import com.sales.constant.AccountantInvitationStatus;
 import com.sales.dto.request.AcceptInvitationRequest;
 import com.sales.dto.request.InviteAccountantRequest;
+import com.sales.dto.request.LoginRequest;
 import com.sales.dto.request.RevokeAccountantAssignmentRequest;
 import com.sales.entity.*;
 import com.sales.exception.AppException;
@@ -54,6 +55,9 @@ public class AccountantAccessIntegrationTest {
 
     @Autowired
     private HouseholdAccountantAssignmentRepository assignmentRepository;
+
+    @Autowired
+    private UserSessionRepository userSessionRepository;
 
     @Autowired
     private AccountantService accountantService;
@@ -432,5 +436,141 @@ public class AccountantAccessIntegrationTest {
                 .orElse(null);
         assertNotNull(newUser);
         assertTrue(passwordEncoder.matches("Secret@123456", newUser.getPasswordHash()));
+    }
+
+    @Test
+    @DisplayName("Kế toán đăng nhập kèm invitationToken -> Kích hoạt lời mời PENDING sang ACCEPTED và tạo phân công ACTIVE")
+    public void accountantLogin_WithInvitationToken_AcceptsInvitation_Success() throws Exception {
+        // 1. Tạo lời mời cho accountant_test
+        AccountantInvitation invitation = invitationRepository.save(AccountantInvitation.builder()
+                .household(householdA)
+                .invitedByUser(ownerA)
+                .accountantPhone("0988776655")
+                .accountantEmail("ketoan@gmail.com")
+                .invitationToken("token-login-test-999")
+                .scopePermissions("[\"INVOICE\",\"REPORT\"]")
+                .status(AccountantInvitationStatus.PENDING)
+                .invitationExpiresAt(LocalDateTime.now().plusDays(7))
+                .accessDurationDays(30)
+                .build());
+
+        // Cập nhật mật khẩu để đăng nhập thành công
+        accountant.setPasswordHash(passwordEncoder.encode("Pass@123456"));
+        userRepository.save(accountant);
+
+        // 2. Kế toán thực hiện đăng nhập kèm invitationToken
+        LoginRequest loginRequest = LoginRequest.builder()
+                .username("accountant_test")
+                .password("Pass@123456")
+                .invitationToken("token-login-test-999")
+                .build();
+
+        mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(loginRequest)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(1000))
+                .andExpect(jsonPath("$.result.token").isNotEmpty());
+
+        // 3. Kiểm tra trạng thái lời mời đã chuyển sang ACCEPTED
+        AccountantInvitation updatedInv = invitationRepository.findById(invitation.getId()).orElseThrow();
+        assertEquals(AccountantInvitationStatus.ACCEPTED, updatedInv.getStatus());
+        assertNotNull(updatedInv.getAcceptedAt());
+
+        // 4. Kiểm tra phân công đã được tự động tạo và ACTIVE
+        HouseholdAccountantAssignment assignment = assignmentRepository
+                .findByHouseholdIdAndAccountantUserId(householdA.getId(), accountant.getId())
+                .orElseThrow();
+        assertEquals(AccountantAssignmentStatus.ACTIVE, assignment.getStatus());
+    }
+
+    @Test
+    @DisplayName("Kế toán đăng nhập KHÔNG kèm token -> Lời mời vẫn giữ nguyên trạng thái PENDING để kế toán tự quyết")
+    public void accountantLogin_WithoutToken_DoesNotAutoAcceptInvitation() throws Exception {
+        // 1. Tạo lời mời cho accountant_test
+        AccountantInvitation invitation = invitationRepository.save(AccountantInvitation.builder()
+                .household(householdA)
+                .invitedByUser(ownerA)
+                .accountantPhone("0988776655")
+                .accountantEmail("ketoan@gmail.com")
+                .invitationToken("token-no-auto-888")
+                .scopePermissions("[\"INVOICE\"]")
+                .status(AccountantInvitationStatus.PENDING)
+                .invitationExpiresAt(LocalDateTime.now().plusDays(7))
+                .accessDurationDays(30)
+                .build());
+
+        accountant.setPasswordHash(passwordEncoder.encode("Pass@123456"));
+        userRepository.save(accountant);
+
+        // 2. Kế toán đăng nhập bình thường không truyền token
+        LoginRequest loginRequest = LoginRequest.builder()
+                .username("accountant_test")
+                .password("Pass@123456")
+                .build();
+
+        mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(loginRequest)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(1000));
+
+        // 3. Lời mời vẫn ở trạng thái PENDING
+        AccountantInvitation updatedInv = invitationRepository.findById(invitation.getId()).orElseThrow();
+        assertEquals(AccountantInvitationStatus.PENDING, updatedInv.getStatus());
+        assertNull(updatedInv.getAcceptedAt());
+    }
+
+    @Test
+    @WithMockUser(username = "accountant_test", roles = {"VT-03"})
+    @DisplayName("Kế toán lấy danh sách lời mời đang chờ gửi cho mình -> Trả về đúng lời mời PENDING")
+    public void accountantGetMyPendingInvitations_Success() throws Exception {
+        // 1. Tạo lời mời PENDING cho accountant_test
+        invitationRepository.save(AccountantInvitation.builder()
+                .household(householdA)
+                .invitedByUser(ownerA)
+                .accountantPhone("0988776655")
+                .accountantEmail("ketoan@gmail.com")
+                .invitationToken("token-my-pending-777")
+                .scopePermissions("[\"INVOICE\",\"REPORT\"]")
+                .status(AccountantInvitationStatus.PENDING)
+                .invitationExpiresAt(LocalDateTime.now().plusDays(7))
+                .accessDurationDays(30)
+                .build());
+
+        // 2. Gọi API getMyPendingInvitations
+        mockMvc.perform(get("/api/v1/accountant/my-pending-invitations"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(1000))
+                .andExpect(jsonPath("$.result[0].invitationToken").value("token-my-pending-777"))
+                .andExpect(jsonPath("$.result[0].status").value("PENDING"));
+    }
+
+    @Test
+    @WithMockUser(username = "owner_a", roles = {"VT-01"})
+    @DisplayName("Chủ hộ xem danh sách kế toán -> Không gây side-effect tự động accept lời mời")
+    public void ownerGetInvitations_DoesNotSideEffectStatus() throws Exception {
+        // 1. Tạo lời mời PENDING cho accountant_test
+        AccountantInvitation invitation = invitationRepository.save(AccountantInvitation.builder()
+                .household(householdA)
+                .invitedByUser(ownerA)
+                .accountantPhone("0988776655")
+                .accountantEmail("ketoan@gmail.com")
+                .invitationToken("token-cqs-test-555")
+                .scopePermissions("[\"INVOICE\"]")
+                .status(AccountantInvitationStatus.PENDING)
+                .invitationExpiresAt(LocalDateTime.now().plusDays(7))
+                .accessDurationDays(15)
+                .build());
+
+        // 2. Chủ hộ gọi API lấy danh sách lời mời
+        mockMvc.perform(get("/api/v1/accountant/invitations"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(1000))
+                .andExpect(jsonPath("$.result[?(@.invitationToken == 'token-cqs-test-555')].status").value("PENDING"));
+
+        // 3. Lời mời trong CSDL vẫn là PENDING
+        AccountantInvitation updatedInv = invitationRepository.findById(invitation.getId()).orElseThrow();
+        assertEquals(AccountantInvitationStatus.PENDING, updatedInv.getStatus());
     }
 }

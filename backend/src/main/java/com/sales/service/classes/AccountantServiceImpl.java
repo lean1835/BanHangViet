@@ -14,6 +14,7 @@ import com.sales.entity.AccountantInvitation;
 import com.sales.entity.BusinessHousehold;
 import com.sales.entity.HouseholdAccountantAssignment;
 import com.sales.entity.User;
+import com.sales.entity.UserSession;
 import com.sales.exception.AppException;
 import com.sales.exception.ErrorCode;
 import com.sales.repository.AccountantInvitationRepository;
@@ -263,6 +264,107 @@ public class AccountantServiceImpl implements AccountantService {
         return response;
     }
 
+    private HouseholdAccountantAssignment processAcceptInvitation(AccountantInvitation invitation, User accountant) {
+        if (invitation == null || accountant == null) {
+            return null;
+        }
+
+        if (invitation.getStatus() != AccountantInvitationStatus.PENDING) {
+            return null;
+        }
+
+        if (invitation.getInvitationExpiresAt() != null && invitation.getInvitationExpiresAt().isBefore(LocalDateTime.now())) {
+            invitation.setStatus(AccountantInvitationStatus.EXPIRED);
+            invitationRepository.save(invitation);
+            return null;
+        }
+
+        BusinessHousehold targetHousehold = invitation.getHousehold();
+        if (targetHousehold != null && targetHousehold.getStatus() == com.sales.constant.HouseholdStatus.LOCKED) {
+            return null;
+        }
+
+        // Cập nhật trạng thái lời mời
+        invitation.setStatus(AccountantInvitationStatus.ACCEPTED);
+        invitation.setAcceptedAt(LocalDateTime.now());
+        invitation.setAcceptedByUser(accountant);
+        invitationRepository.save(invitation);
+
+        int durationDays = invitation.getAccessDurationDays() != null ? invitation.getAccessDurationDays() : 30;
+        LocalDateTime accessExpiresAt = LocalDateTime.now().plusDays(durationDays);
+
+        // Tạo hoặc cập nhật phân công cho kế toán
+        HouseholdAccountantAssignment assignment = assignmentRepository
+                .findByHouseholdIdAndAccountantUserId(targetHousehold.getId(), accountant.getId())
+                .orElse(HouseholdAccountantAssignment.builder()
+                        .household(targetHousehold)
+                        .accountantUser(accountant)
+                        .build());
+
+        assignment.setInvitation(invitation);
+        assignment.setScopePermissions(invitation.getScopePermissions());
+        assignment.setStatus(AccountantAssignmentStatus.ACTIVE);
+        assignment.setAccessExpiresAt(accessExpiresAt);
+        assignment.setRevokedAt(null);
+        assignment.setRevokedByUser(null);
+        assignment.setRevokeReason(null);
+
+        assignment = assignmentRepository.save(assignment);
+
+        // Nếu kế toán chưa chọn hộ nào làm việc, tự động gán hộ này làm active context
+        if (accountant.getHousehold() == null) {
+            accountant.setHousehold(targetHousehold);
+            userRepository.save(accountant);
+        }
+
+        logActivity(targetHousehold, accountant, "ACCEPT_ACCOUNTANT_INVITATION", assignment.getId(), null, "Chấp nhận lời mời kế toán");
+
+        return assignment;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public AccountantAssignmentResponse acceptInvitationWithToken(User accountant, String token) {
+        if (accountant == null || token == null || token.trim().isEmpty()) {
+            return null;
+        }
+        Optional<AccountantInvitation> invOpt = invitationRepository.findByInvitationToken(token.trim());
+        if (invOpt.isEmpty()) {
+            return null;
+        }
+        AccountantInvitation invitation = invOpt.get();
+        if (invitation.getStatus() != AccountantInvitationStatus.PENDING) {
+            return null;
+        }
+        HouseholdAccountantAssignment assignment = processAcceptInvitation(invitation, accountant);
+        return assignment != null ? mapAssignmentToResponse(assignment) : null;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<AccountantInvitationResponse> getMyPendingInvitations(String currentUsername) {
+        User accountant = getAuthenticatedUser(currentUsername);
+        LocalDateTime now = LocalDateTime.now();
+        List<AccountantInvitation> pending = new java.util.ArrayList<>();
+
+        if (accountant.getPhoneNumber() != null && !accountant.getPhoneNumber().trim().isEmpty()) {
+            pending.addAll(invitationRepository.findByAccountantPhoneAndStatus(accountant.getPhoneNumber().trim(), AccountantInvitationStatus.PENDING));
+        }
+        if (accountant.getEmail() != null && !accountant.getEmail().trim().isEmpty()) {
+            List<AccountantInvitation> byEmail = invitationRepository.findByAccountantEmailAndStatus(accountant.getEmail().trim(), AccountantInvitationStatus.PENDING);
+            for (AccountantInvitation inv : byEmail) {
+                if (pending.stream().noneMatch(existing -> existing.getId().equals(inv.getId()))) {
+                    pending.add(inv);
+                }
+            }
+        }
+
+        return pending.stream()
+                .filter(inv -> inv.getInvitationExpiresAt() == null || inv.getInvitationExpiresAt().isAfter(now))
+                .map(this::mapInvitationToResponse)
+                .collect(Collectors.toList());
+    }
+
     @Override
     @Transactional(readOnly = true)
     public List<AccountantInvitationResponse> getInvitations(String currentUsername) {
@@ -300,39 +402,10 @@ public class AccountantServiceImpl implements AccountantService {
             throw new AppException(ErrorCode.HOUSEHOLD_LOCKED);
         }
 
-        // Cập nhật trạng thái lời mời
-        invitation.setStatus(AccountantInvitationStatus.ACCEPTED);
-        invitation.setAcceptedAt(LocalDateTime.now());
-        invitation.setAcceptedByUser(accountant);
-        invitationRepository.save(invitation);
-
-        LocalDateTime accessExpiresAt = LocalDateTime.now().plusDays(invitation.getAccessDurationDays());
-
-        // Tạo hoặc cập nhật phân công cho kế toán
-        HouseholdAccountantAssignment assignment = assignmentRepository
-                .findByHouseholdIdAndAccountantUserId(targetHousehold.getId(), accountant.getId())
-                .orElse(HouseholdAccountantAssignment.builder()
-                        .household(targetHousehold)
-                        .accountantUser(accountant)
-                        .build());
-
-        assignment.setInvitation(invitation);
-        assignment.setScopePermissions(invitation.getScopePermissions());
-        assignment.setStatus(AccountantAssignmentStatus.ACTIVE);
-        assignment.setAccessExpiresAt(accessExpiresAt);
-        assignment.setRevokedAt(null);
-        assignment.setRevokedByUser(null);
-        assignment.setRevokeReason(null);
-
-        assignment = assignmentRepository.save(assignment);
-
-        // Nếu kế toán chưa chọn hộ nào làm việc, tự động gán hộ này làm active context
-        if (accountant.getHousehold() == null) {
-            accountant.setHousehold(targetHousehold);
-            userRepository.save(accountant);
+        HouseholdAccountantAssignment assignment = processAcceptInvitation(invitation, accountant);
+        if (assignment == null) {
+            throw new AppException(ErrorCode.UNCATEGORIZED_EXCEPTION);
         }
-
-        logActivity(targetHousehold, accountant, "ACCEPT_ACCOUNTANT_INVITATION", assignment.getId(), null, "Chấp nhận lời mời kế toán");
 
         return mapAssignmentToResponse(assignment);
     }
@@ -418,6 +491,7 @@ public class AccountantServiceImpl implements AccountantService {
     @Transactional(readOnly = true)
     public List<AssignedHouseholdResponse> getAssignedHouseholds(String currentUsername) {
         User accountant = getAuthenticatedUser(currentUsername);
+
         String currentHouseholdId = accountant.getHousehold() != null ? accountant.getHousehold().getId() : null;
 
         List<HouseholdAccountantAssignment> assignments = assignmentRepository.findByAccountantUserId(accountant.getId());

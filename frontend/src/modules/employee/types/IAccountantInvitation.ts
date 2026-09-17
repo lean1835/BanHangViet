@@ -42,6 +42,7 @@ export interface IAccountantInvitation {
   status: TInvitationStatus;
   inviteDate: string;
   expiryDate: string;
+  invitationToken?: string;
   revokedAt?: string;
   revokeReason?: string;
   createdBy: string;

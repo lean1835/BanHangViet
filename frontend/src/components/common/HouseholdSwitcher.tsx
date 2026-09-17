@@ -1,8 +1,10 @@
 import React, { useState, useRef, useEffect } from "react";
-import { Store, ChevronDown, Check, Building2, Calendar, ShieldCheck } from "lucide-react";
+import { Store, ChevronDown, Check, Building2, Calendar, ShieldCheck, Mail } from "lucide-react";
 import {
   useGetAuthorizedHouseholdsQuery,
   useSwitchHouseholdMutation,
+  useGetMyPendingInvitationsQuery,
+  useAcceptAccountantInvitationMutation,
 } from "@/modules/employee/services/accountantInvitationApi";
 import { ACCESS_SCOPE_LABELS } from "@/modules/employee/types/IAccountantInvitation";
 import { useNotification } from "@/hooks/useNotification";
@@ -10,9 +12,12 @@ import { useNotification } from "@/hooks/useNotification";
 export const HouseholdSwitcher: React.FC = () => {
   const { data: households = [], isLoading } =
     useGetAuthorizedHouseholdsQuery();
+  const { data: pendingInvitations = [] } = useGetMyPendingInvitationsQuery();
   const [switchHousehold, { isLoading: isSwitching }] =
     useSwitchHouseholdMutation();
-  const { showSuccess } = useNotification();
+  const [acceptInvitation, { isLoading: isAccepting }] =
+    useAcceptAccountantInvitationMutation();
+  const { showSuccess, showError } = useNotification();
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -48,6 +53,20 @@ export const HouseholdSwitcher: React.FC = () => {
     }
   };
 
+  const handleAcceptInvitation = async (token: string, householdName: string) => {
+    if (!token) return;
+    try {
+      await acceptInvitation({ token }).unwrap();
+      showSuccess(`Đã chấp nhận lời mời kế toán từ: ${householdName}`);
+    } catch (err: unknown) {
+      const errorMsg =
+        typeof err === "object" && err !== null && "data" in err
+          ? ((err as { data?: { message?: string } }).data?.message ?? "Không thể chấp nhận lời mời")
+          : "Không thể chấp nhận lời mời";
+      showError(errorMsg);
+    }
+  };
+
   if (isLoading || !currentHousehold) {
     return (
       <div className="flex items-center gap-1.5 px-3 py-1 bg-white/10 rounded-lg text-white text-xs">
@@ -77,6 +96,14 @@ export const HouseholdSwitcher: React.FC = () => {
             {currentHousehold.name}
           </span>
         </div>
+        {pendingInvitations.length > 0 && (
+          <span
+            className="px-1.5 py-0.5 bg-rose-500 text-white rounded-full text-[9px] font-extrabold animate-pulse"
+            title={`Có ${pendingInvitations.length} lời mời hợp tác đang chờ bạn duyệt`}
+          >
+            {pendingInvitations.length}
+          </span>
+        )}
         <ChevronDown
           size={14}
           className={`text-blue-100 transition-transform ${
@@ -86,7 +113,59 @@ export const HouseholdSwitcher: React.FC = () => {
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 mt-1.5 w-72 sm:w-80 bg-white rounded-2xl shadow-2xl border border-slate-200 py-2 z-50 text-slate-800 text-xs animate-fade-in">
+        <div className="absolute right-0 mt-1.5 w-72 sm:w-84 bg-white rounded-2xl shadow-2xl border border-slate-200 py-2 z-50 text-slate-800 text-xs animate-fade-in">
+          {pendingInvitations.length > 0 && (
+            <div className="border-b border-amber-200 bg-amber-50/70 p-3">
+              <div className="flex items-center justify-between mb-2">
+                <span className="font-bold text-amber-900 text-[11px] flex items-center gap-1.5">
+                  <Mail size={13} className="text-amber-600" />
+                  Lời mời đang chờ bạn duyệt ({pendingInvitations.length})
+                </span>
+              </div>
+              <div className="space-y-2 max-h-40 overflow-y-auto">
+                {pendingInvitations.map((inv) => (
+                  <div
+                    key={inv.id}
+                    className="p-2.5 bg-white rounded-xl border border-amber-200 shadow-2xs text-[11px]"
+                  >
+                    <div className="flex items-center justify-between gap-1">
+                      <span className="font-bold text-slate-900 truncate">
+                        {inv.householdName}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleAcceptInvitation(
+                            inv.invitationToken || "",
+                            inv.householdName || "Hộ kinh doanh"
+                          );
+                        }}
+                        disabled={isAccepting}
+                        className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white rounded-md text-[10px] font-bold cursor-pointer transition-colors shadow-2xs shrink-0"
+                      >
+                        {isAccepting ? "Đang xử lý..." : "Chấp nhận"}
+                      </button>
+                    </div>
+                    <div className="text-[10px] text-slate-500 mt-0.5">
+                      MST: {inv.taxCode || "---"} &bull; Hạn: {inv.expiryDate || "---"}
+                    </div>
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {inv.scopes.map((s) => (
+                        <span
+                          key={s}
+                          className="bg-amber-100 text-amber-800 px-1.5 py-0.2 rounded text-[8px] font-medium"
+                        >
+                          {ACCESS_SCOPE_LABELS[s] || s}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="px-3.5 py-2 border-b border-slate-100 flex items-center justify-between">
             <span className="font-bold text-slate-700 text-[11px] uppercase tracking-wider">
               Danh sách hộ được ủy quyền

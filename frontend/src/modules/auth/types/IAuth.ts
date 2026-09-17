@@ -44,6 +44,7 @@ export interface IRegisterRequest {
 export interface ILoginRequest {
   username: string;
   password: string;
+  invitationToken?: string;
 }
 
 export interface IForgotPasswordRequest {
