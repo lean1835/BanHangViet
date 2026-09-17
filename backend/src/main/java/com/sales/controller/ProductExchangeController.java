@@ -67,6 +67,10 @@ public class ProductExchangeController {
         return ResponseEntity.ok(response);
     }
 
+    private static final java.util.Set<String> ALLOWED_SORT_FIELDS = java.util.Set.of(
+            "createdAt", "ticketNumber", "totalExchangeAmount", "totalReturnAmount", "differenceAmount", "status"
+    );
+
     @GetMapping
     @PreAuthorize("hasAnyRole('VT-01', 'VT-02', 'VT-03')")
     public ResponseEntity<ApiResponse<Page<ProductExchangeResponse>>> getExchangeTickets(
@@ -79,8 +83,13 @@ public class ProductExchangeController {
             @RequestParam(defaultValue = "createdAt,desc") String sort) {
 
         String[] sortParts = sort.split(",");
-        Sort.Direction direction = sortParts.length > 1 && "asc".equalsIgnoreCase(sortParts[1]) ? Sort.Direction.ASC : Sort.Direction.DESC;
-        Pageable pageable = PageRequest.of(page, size, Sort.by(direction, sortParts[0]));
+        String sortProperty = sortParts[0].trim();
+        if (!ALLOWED_SORT_FIELDS.contains(sortProperty)) {
+            sortProperty = "createdAt";
+        }
+        Sort.Direction direction = sortParts.length > 1 && "asc".equalsIgnoreCase(sortParts[1].trim())
+                ? Sort.Direction.ASC : Sort.Direction.DESC;
+        Pageable pageable = PageRequest.of(page, size, Sort.by(direction, sortProperty));
 
         Page<ProductExchangeResponse> result = productExchangeService.getExchangeTickets(
                 invoiceId,

@@ -56,6 +56,12 @@ class ProductExchangeServiceImplTest {
     @Mock
     private ActivityLogHelper activityLogHelper;
 
+    @Mock
+    private BusinessHouseholdSettingsRepository settingsRepository;
+
+    @Mock
+    private com.sales.service.interfaces.InvoiceNumberRangeService invoiceNumberRangeService;
+
     @InjectMocks
     private ProductExchangeServiceImpl productExchangeService;
 
@@ -327,7 +333,7 @@ class ProductExchangeServiceImplTest {
         // Kiểm tra tồn kho hai chiều: Món cũ tăng 1, món mới giảm 1
         assertEquals(oldStockP1.add(new BigDecimal("1.000")), product1.getStockQuantity());
         assertEquals(oldStockP2.subtract(new BigDecimal("1.000")), product2.getStockQuantity());
-        verify(productRepository, times(2)).save(any(Product.class));
+        verify(productRepository).saveAll(anyCollection());
     }
 
     @Test
@@ -346,6 +352,8 @@ class ProductExchangeServiceImplTest {
                 .thenReturn(Optional.of(productExpensive));
         when(productExchangeTicketRepository.findMaxTicketNumberByPrefix(eq("hh-1"), anyString()))
                 .thenReturn(Optional.empty());
+        when(invoiceNumberRangeService.allocateNextInvoiceNumber(eq("hh-1"), anyString(), anyString()))
+                .thenReturn("0000002");
 
         when(eInvoiceRepository.save(any(EInvoice.class))).thenAnswer(invocation -> {
             EInvoice inv = invocation.getArgument(0);
@@ -383,10 +391,15 @@ class ProductExchangeServiceImplTest {
         assertEquals("inv-additional-1", response.getAdditionalInvoiceId());
         assertEquals("CASH", response.getExtraPaymentMethod());
 
-        // Kiểm tra HĐ bổ sung được lưu với số tiền đúng bằng phần chênh lệch
+        // Kiểm tra HĐ bổ sung được lưu với số tiền đúng bằng phần chênh lệch, số HĐ từ range service, và có items
+        verify(invoiceNumberRangeService).allocateNextInvoiceNumber(eq("hh-1"), anyString(), anyString());
         verify(eInvoiceRepository).save(argThat(inv ->
                 inv.getFinalAmount().compareTo(new BigDecimal("20000.00")) == 0 &&
-                "CASH".equals(inv.getPaymentMethod())
+                "CASH".equals(inv.getPaymentMethod()) &&
+                "0000002".equals(inv.getInvoiceNumber()) &&
+                inv.getItems() != null &&
+                !inv.getItems().isEmpty() &&
+                "Nước giặt OMO Matic 3.5kg".equals(inv.getItems().get(0).getProductName())
         ));
     }
 
@@ -570,5 +583,105 @@ class ProductExchangeServiceImplTest {
         AppException ex = assertThrows(AppException.class, () ->
                 productExchangeService.createProductExchange(request, "khachhang"));
         assertEquals(ErrorCode.UNAUTHORIZED_RETURN_ACTION, ex.getErrorCode());
+    }
+
+    @Test
+    @DisplayName("P1-3 (QTN-19): Trùng lặp sản phẩm trong danh sách trả -> Ném DUPLICATE_EXCHANGE_ITEM")
+    void createProductExchange_DuplicateReturnItem_ThrowsException() {
+        when(userRepository.findByUsername("nhanvien1")).thenReturn(Optional.of(staffUser));
+        when(eInvoiceRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("inv-1", "hh-1"))
+                .thenReturn(Optional.of(originalInvoice));
+
+        CreateProductExchangeRequest request = CreateProductExchangeRequest.builder()
+                .originalInvoiceId("inv-1")
+                .returnItems(List.of(
+                        ExchangeReturnItemRequest.builder().productId("p-1").quantity(BigDecimal.ONE).build(),
+                        ExchangeReturnItemRequest.builder().productId("p-1").quantity(BigDecimal.ONE).build()
+                ))
+                .exchangeItems(List.of(ExchangeNewItemRequest.builder().productId("p-2").quantity(BigDecimal.ONE).build()))
+                .build();
+
+        AppException ex = assertThrows(AppException.class, () ->
+                productExchangeService.createProductExchange(request, "nhanvien1"));
+        assertEquals(ErrorCode.DUPLICATE_EXCHANGE_ITEM, ex.getErrorCode());
+    }
+
+    @Test
+    @DisplayName("P2-2 (NCL-09-CN-008): Thời hạn đổi trả động từ BusinessHouseholdSettings (14 ngày thay vì 7 ngày)")
+    void createProductExchange_DynamicReturnDaysLimit_AllowsExtendedPeriod() {
+        // Hóa đơn tạo cách đây 10 ngày (vượt quá 7 ngày mặc định, nhưng nằm trong hạn 14 ngày)
+        EInvoice oldInvoice = EInvoice.builder()
+                .id("inv-old")
+                .household(household)
+                .invoiceNumber("0000100")
+                .status("ISSUED")
+                .createdAt(LocalDateTime.now().minusDays(10))
+                .items(new ArrayList<>(List.of(invoiceItem1)))
+                .build();
+
+        BusinessHouseholdSettings settings = BusinessHouseholdSettings.builder()
+                .household(household)
+                .returnDaysLimit(14)
+                .build();
+
+        when(userRepository.findByUsername("nhanvien1")).thenReturn(Optional.of(staffUser));
+        when(settingsRepository.findByHouseholdId("hh-1")).thenReturn(Optional.of(settings));
+        when(eInvoiceRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("inv-old", "hh-1"))
+                .thenReturn(Optional.of(oldInvoice));
+        when(returnTicketItemRepository.findReturnedQuantitiesByInvoiceId(eq("inv-old"), anyList()))
+                .thenReturn(Collections.emptyList());
+        when(productExchangeItemRepository.sumReturnedQuantityByInvoiceAndProduct("inv-old", "p-1"))
+                .thenReturn(BigDecimal.ZERO);
+        when(productRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("p-1", "hh-1"))
+                .thenReturn(Optional.of(product1));
+        when(productRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("p-2", "hh-1"))
+                .thenReturn(Optional.of(product2));
+        when(productExchangeTicketRepository.findMaxTicketNumberByPrefix(eq("hh-1"), anyString()))
+                .thenReturn(Optional.empty());
+        when(productExchangeTicketRepository.save(any(ProductExchangeTicket.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+
+        CreateProductExchangeRequest request = CreateProductExchangeRequest.builder()
+                .originalInvoiceId("inv-old")
+                .returnItems(List.of(ExchangeReturnItemRequest.builder().productId("p-1").quantity(BigDecimal.ONE).build()))
+                .exchangeItems(List.of(ExchangeNewItemRequest.builder().productId("p-2").quantity(BigDecimal.ONE).build()))
+                .build();
+
+        ProductExchangeResponse response = productExchangeService.createProductExchange(request, "nhanvien1");
+        assertNotNull(response);
+        assertEquals("EQUAL_VALUE", response.getExchangeType());
+    }
+
+    @Test
+    @DisplayName("P2-2 (NCL-09-CN-008): Vượt quá thời hạn đổi trả động (15 ngày > 14 ngày) -> Ném EXCHANGE_PERIOD_EXPIRED")
+    void createProductExchange_DynamicReturnDaysLimit_ExpiredThrowsException() {
+        EInvoice expiredInvoice = EInvoice.builder()
+                .id("inv-expired")
+                .household(household)
+                .invoiceNumber("0000099")
+                .status("ISSUED")
+                .createdAt(LocalDateTime.now().minusDays(15))
+                .items(new ArrayList<>(List.of(invoiceItem1)))
+                .build();
+
+        BusinessHouseholdSettings settings = BusinessHouseholdSettings.builder()
+                .household(household)
+                .returnDaysLimit(14)
+                .build();
+
+        when(userRepository.findByUsername("nhanvien1")).thenReturn(Optional.of(staffUser));
+        when(settingsRepository.findByHouseholdId("hh-1")).thenReturn(Optional.of(settings));
+        when(eInvoiceRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("inv-expired", "hh-1"))
+                .thenReturn(Optional.of(expiredInvoice));
+
+        CreateProductExchangeRequest request = CreateProductExchangeRequest.builder()
+                .originalInvoiceId("inv-expired")
+                .returnItems(List.of(ExchangeReturnItemRequest.builder().productId("p-1").quantity(BigDecimal.ONE).build()))
+                .exchangeItems(List.of(ExchangeNewItemRequest.builder().productId("p-2").quantity(BigDecimal.ONE).build()))
+                .build();
+
+        AppException ex = assertThrows(AppException.class, () ->
+                productExchangeService.createProductExchange(request, "nhanvien1"));
+        assertEquals(ErrorCode.EXCHANGE_PERIOD_EXPIRED, ex.getErrorCode());
     }
 }

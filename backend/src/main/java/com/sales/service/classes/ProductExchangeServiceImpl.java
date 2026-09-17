@@ -46,6 +46,18 @@ public class ProductExchangeServiceImpl implements ProductExchangeService {
     private final UserRepository userRepository;
     private final InvoiceStatusLogRepository invoiceStatusLogRepository;
     private final ActivityLogHelper activityLogHelper;
+    private final BusinessHouseholdSettingsRepository settingsRepository;
+    private final com.sales.service.interfaces.InvoiceNumberRangeService invoiceNumberRangeService;
+
+    private int resolveMaxReturnDays(String householdId) {
+        if (householdId == null || settingsRepository == null) {
+            return maxReturnDays;
+        }
+        return settingsRepository.findByHouseholdId(householdId)
+                .map(BusinessHouseholdSettings::getReturnDaysLimit)
+                .filter(limit -> limit != null && limit > 0)
+                .orElse(maxReturnDays);
+    }
 
     @Override
     @Transactional(readOnly = true)
@@ -136,7 +148,7 @@ public class ProductExchangeServiceImpl implements ProductExchangeService {
             if (request.getExtraPaymentMethod() == null || request.getExtraPaymentMethod().isBlank()) {
                 throw new AppException(ErrorCode.EXTRA_PAYMENT_REQUIRED);
             }
-            additionalInvoice = createAdditionalInvoiceForDifference(invoice, diff, request.getExtraPaymentMethod(), user);
+            additionalInvoice = createAdditionalInvoiceForDifference(invoice, diff, request.getExtraPaymentMethod(), user, calculation.getNewItemDetails());
         } else {
             // NCL-11-CN-005-TC-01: Ngang giá
             exchangeType = "EQUAL_VALUE";
@@ -165,6 +177,7 @@ public class ProductExchangeServiceImpl implements ProductExchangeService {
                 .build();
 
         List<ProductExchangeItem> exchangeItemsList = new ArrayList<>();
+        Map<String, Product> productsToUpdate = new HashMap<>();
 
         // 1. Cập nhật các món trả lại (RETURN_ITEM) -> Hoàn lại tồn kho món cũ
         for (ExchangeCalculationResult.ReturnItemDetail retDetail : calculation.getReturnItemDetails()) {
@@ -186,7 +199,7 @@ public class ProductExchangeServiceImpl implements ProductExchangeService {
             // Hoàn tồn kho sản phẩm cũ
             Product p = retDetail.getProduct();
             p.setStockQuantity(p.getStockQuantity().add(retDetail.getQuantity()));
-            productRepository.save(p);
+            productsToUpdate.put(p.getId(), p);
         }
 
         // 2. Cập nhật các món đổi sang (EXCHANGE_ITEM) -> Trừ tồn kho món mới
@@ -208,7 +221,11 @@ public class ProductExchangeServiceImpl implements ProductExchangeService {
             // Trừ tồn kho sản phẩm mới
             Product p = newDetail.getProduct();
             p.setStockQuantity(p.getStockQuantity().subtract(newDetail.getQuantity()));
-            productRepository.save(p);
+            productsToUpdate.put(p.getId(), p);
+        }
+
+        if (!productsToUpdate.isEmpty()) {
+            productRepository.saveAll(productsToUpdate.values());
         }
 
         ticket.setItems(exchangeItemsList);
@@ -310,9 +327,10 @@ public class ProductExchangeServiceImpl implements ProductExchangeService {
             throw new AppException(ErrorCode.INVOICE_NOT_ELIGIBLE_FOR_EXCHANGE);
         }
 
+        int allowedDays = resolveMaxReturnDays(householdId);
         LocalDateTime issueTime = invoice.getCreatedAt();
         long daysSinceIssued = ChronoUnit.DAYS.between(issueTime, LocalDateTime.now());
-        if (daysSinceIssued > maxReturnDays) {
+        if (daysSinceIssued > allowedDays) {
             throw new AppException(ErrorCode.EXCHANGE_PERIOD_EXPIRED);
         }
 
@@ -324,6 +342,46 @@ public class ProductExchangeServiceImpl implements ProductExchangeService {
             List<ExchangeReturnItemRequest> returnItemRequests,
             List<ExchangeNewItemRequest> exchangeItemRequests,
             String householdId) {
+
+        // Validate duplicate products in return items (P1-3 / QTN-19)
+        if (returnItemRequests != null) {
+            Set<String> seenReturnProductIds = new HashSet<>();
+            for (ExchangeReturnItemRequest req : returnItemRequests) {
+                if (req.getProductId() != null && !seenReturnProductIds.add(req.getProductId())) {
+                    throw new AppException(ErrorCode.DUPLICATE_EXCHANGE_ITEM);
+                }
+            }
+        }
+
+        // Validate duplicate products in exchange new items
+        if (exchangeItemRequests != null) {
+            Set<String> seenExchangeProductIds = new HashSet<>();
+            for (ExchangeNewItemRequest req : exchangeItemRequests) {
+                if (req.getProductId() != null && !seenExchangeProductIds.add(req.getProductId())) {
+                    throw new AppException(ErrorCode.DUPLICATE_EXCHANGE_ITEM);
+                }
+            }
+        }
+
+        // Batch pre-fetch products for return items (P1-2: Eliminate N+1 query)
+        Set<String> returnProductIds = returnItemRequests != null
+                ? returnItemRequests.stream().map(ExchangeReturnItemRequest::getProductId).filter(Objects::nonNull).collect(Collectors.toSet())
+                : Collections.emptySet();
+        Map<String, Product> returnProductMap = new HashMap<>();
+        if (!returnProductIds.isEmpty()) {
+            List<Product> products = productRepository.findAllByIdInAndHouseholdIdAndDeletedAtIsNull(returnProductIds, householdId);
+            if (products != null) {
+                for (Product p : products) {
+                    returnProductMap.put(p.getId(), p);
+                }
+            }
+            for (String pid : returnProductIds) {
+                if (!returnProductMap.containsKey(pid)) {
+                    productRepository.findByIdAndHouseholdIdAndDeletedAtIsNull(pid, householdId)
+                            .ifPresent(p -> returnProductMap.put(p.getId(), p));
+                }
+            }
+        }
 
         // 1. Tính toán cho các món trả lại
         BigDecimal totalReturnAmount = BigDecimal.ZERO;
@@ -341,8 +399,10 @@ public class ProductExchangeServiceImpl implements ProductExchangeService {
         }
 
         for (ExchangeReturnItemRequest req : returnItemRequests) {
-            Product product = productRepository.findByIdAndHouseholdIdAndDeletedAtIsNull(req.getProductId(), householdId)
-                    .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_NOT_FOUND));
+            Product product = returnProductMap.get(req.getProductId());
+            if (product == null) {
+                throw new AppException(ErrorCode.PRODUCT_NOT_FOUND);
+            }
 
             // Tìm dòng trong hóa đơn gốc
             EInvoiceItem matchingInvoiceItem = null;
@@ -398,9 +458,31 @@ public class ProductExchangeServiceImpl implements ProductExchangeService {
         BigDecimal totalExchangeAmount = BigDecimal.ZERO;
         List<ExchangeCalculationResult.NewItemDetail> newDetails = new ArrayList<>();
 
+        // Batch pre-fetch products for exchange items (P1-2: Eliminate N+1 query)
+        Set<String> exchangeProductIds = exchangeItemRequests != null
+                ? exchangeItemRequests.stream().map(ExchangeNewItemRequest::getProductId).filter(Objects::nonNull).collect(Collectors.toSet())
+                : Collections.emptySet();
+        Map<String, Product> exchangeProductMap = new HashMap<>();
+        if (!exchangeProductIds.isEmpty()) {
+            List<Product> products = productRepository.findAllByIdInAndHouseholdIdAndDeletedAtIsNull(exchangeProductIds, householdId);
+            if (products != null) {
+                for (Product p : products) {
+                    exchangeProductMap.put(p.getId(), p);
+                }
+            }
+            for (String pid : exchangeProductIds) {
+                if (!exchangeProductMap.containsKey(pid)) {
+                    productRepository.findByIdAndHouseholdIdAndDeletedAtIsNull(pid, householdId)
+                            .ifPresent(p -> exchangeProductMap.put(p.getId(), p));
+                }
+            }
+        }
+
         for (ExchangeNewItemRequest req : exchangeItemRequests) {
-            Product product = productRepository.findByIdAndHouseholdIdAndDeletedAtIsNull(req.getProductId(), householdId)
-                    .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_NOT_FOUND));
+            Product product = exchangeProductMap.get(req.getProductId());
+            if (product == null) {
+                throw new AppException(ErrorCode.PRODUCT_NOT_FOUND);
+            }
 
             if (product.getStockQuantity() == null || product.getStockQuantity().compareTo(req.getQuantity()) < 0) {
                 throw new AppException(ErrorCode.INSUFFICIENT_STOCK_FOR_EXCHANGE);
@@ -413,6 +495,7 @@ public class ProductExchangeServiceImpl implements ProductExchangeService {
             BigDecimal taxRate = (product.getTaxRate() != null && product.getTaxRate().getRatePercentage() != null)
                     ? product.getTaxRate().getRatePercentage()
                     : BigDecimal.ZERO;
+            BigDecimal taxAmount = subtotal.multiply(taxRate).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
 
             newDetails.add(ExchangeCalculationResult.NewItemDetail.builder()
                     .product(product)
@@ -421,7 +504,7 @@ public class ProductExchangeServiceImpl implements ProductExchangeService {
                     .quantity(req.getQuantity())
                     .unitPrice(unitPrice)
                     .taxRatePercentage(taxRate)
-                    .taxAmount(BigDecimal.ZERO)
+                    .taxAmount(taxAmount)
                     .subtotal(subtotal)
                     .build());
         }
@@ -441,25 +524,32 @@ public class ProductExchangeServiceImpl implements ProductExchangeService {
             EInvoice origInvoice,
             BigDecimal differenceAmount,
             String paymentMethod,
-            User user) {
+            User user,
+            List<ExchangeCalculationResult.NewItemDetail> newItemDetails) {
 
         String lookupCode;
         do {
             lookupCode = UUID.randomUUID().toString().replaceAll("-", "").substring(0, 10).toUpperCase();
         } while (eInvoiceRepository.existsByLookupCodeAndDeletedAtIsNull(lookupCode));
 
+        String householdId = user.getHousehold().getId();
         String pattern = origInvoice.getInvoicePattern() != null ? origInvoice.getInvoicePattern() : "1";
         String symbol = origInvoice.getInvoiceSymbol() != null ? origInvoice.getInvoiceSymbol() : "1C26TAA";
-        Optional<String> maxNumOpt = eInvoiceRepository.findMaxInvoiceNumber(user.getHousehold().getId(), pattern, symbol);
-        int nextNum = 1;
-        if (maxNumOpt.isPresent() && maxNumOpt.get() != null) {
+        String invoiceNum = null;
+
+        if (invoiceNumberRangeService != null) {
             try {
-                nextNum = Integer.parseInt(maxNumOpt.get()) + 1;
-            } catch (NumberFormatException e) {
-                nextNum = 1;
+                invoiceNum = invoiceNumberRangeService.allocateNextInvoiceNumber(householdId, pattern, symbol);
+            } catch (AppException e) {
+                if (ErrorCode.INVOICE_RANGE_EXHAUSTED.equals(e.getErrorCode())) {
+                    throw e;
+                }
+                invoiceNum = fallbackNextInvoiceNumber(householdId, pattern, symbol);
             }
+        } else {
+            invoiceNum = fallbackNextInvoiceNumber(householdId, pattern, symbol);
         }
-        String invoiceNum = String.format("%07d", nextNum);
+
         String taxAuthCode = "CQT-" + UUID.randomUUID().toString().substring(0, 15).toUpperCase();
 
         EInvoice additionalInvoice = EInvoice.builder()
@@ -488,7 +578,42 @@ public class ProductExchangeServiceImpl implements ProductExchangeService {
                 .footerNote("Hóa đơn phát sinh phần chênh lệch cho phiếu đổi hàng dựa trên HĐ gốc " + origInvoice.getInvoiceNumber())
                 .build();
 
+        List<EInvoiceItem> items = new ArrayList<>();
+        if (newItemDetails != null) {
+            for (ExchangeCalculationResult.NewItemDetail newDetail : newItemDetails) {
+                EInvoiceItem item = EInvoiceItem.builder()
+                        .invoice(additionalInvoice)
+                        .product(newDetail.getProduct())
+                        .productName(newDetail.getProductName())
+                        .unit(newDetail.getUnit())
+                        .quantity(newDetail.getQuantity())
+                        .unitPrice(newDetail.getUnitPrice())
+                        .taxRatePercentage(newDetail.getTaxRatePercentage() != null ? newDetail.getTaxRatePercentage() : BigDecimal.ZERO)
+                        .taxAmount(newDetail.getTaxAmount() != null ? newDetail.getTaxAmount() : BigDecimal.ZERO)
+                        .subtotal(newDetail.getSubtotal())
+                        .build();
+                items.add(item);
+            }
+        }
+        additionalInvoice.setItems(items);
+
         return eInvoiceRepository.save(additionalInvoice);
+    }
+
+    private String fallbackNextInvoiceNumber(String householdId, String pattern, String symbol) {
+        Optional<String> maxNumOpt = eInvoiceRepository.findMaxInvoiceNumber(householdId, pattern, symbol);
+        int nextNum = 1;
+        int length = 7;
+        if (maxNumOpt.isPresent() && maxNumOpt.get() != null) {
+            String maxNumStr = maxNumOpt.get();
+            length = Math.max(maxNumStr.length(), 7);
+            try {
+                nextNum = Integer.parseInt(maxNumStr) + 1;
+            } catch (NumberFormatException e) {
+                nextNum = 1;
+            }
+        }
+        return String.format("%0" + length + "d", nextNum);
     }
 
     private synchronized String generateTicketNumber(String householdId) {

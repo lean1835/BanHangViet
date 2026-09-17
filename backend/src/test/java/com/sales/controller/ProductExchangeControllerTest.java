@@ -207,4 +207,22 @@ class ProductExchangeControllerTest {
                 .andExpect(jsonPath("$.code").value(1000))
                 .andExpect(jsonPath("$.result.content[0].ticketNumber").value("DX-20260916-0001"));
     }
+
+    @Test
+    @DisplayName("P3-1: GET /api/v1/product-exchanges với sort field không hợp lệ -> tự động fallback về createdAt")
+    @WithMockUser(username = "owner_test", roles = {"VT-01"})
+    void getExchangeTickets_invalidSort_fallsBackToCreatedAt() throws Exception {
+        Page<ProductExchangeResponse> page = new PageImpl<>(Collections.emptyList());
+        org.mockito.ArgumentCaptor<Pageable> pageableCaptor = org.mockito.ArgumentCaptor.forClass(Pageable.class);
+
+        when(productExchangeService.getExchangeTickets(any(), any(), any(), pageableCaptor.capture(), eq("owner_test")))
+                .thenReturn(page);
+
+        mockMvc.perform(get("/api/v1/product-exchanges")
+                        .param("sort", "maliciousColumn;DROP TABLE,asc"))
+                .andExpect(status().isOk());
+
+        org.junit.jupiter.api.Assertions.assertEquals("createdAt",
+                pageableCaptor.getValue().getSort().iterator().next().getProperty());
+    }
 }

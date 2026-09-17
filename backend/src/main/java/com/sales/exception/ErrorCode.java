@@ -132,6 +132,7 @@ public enum ErrorCode {
     EMPTY_EXCHANGE_NEW_ITEMS(4036, "Phiếu đổi hàng phải chọn ít nhất một mặt hàng muốn đổi sang", HttpStatus.BAD_REQUEST),
     EXCHANGE_LOWER_VALUE_REDIRECT(4037, "Món đổi sang có giá thấp hơn. Vui lòng chuyển sang luồng Trả hàng để được hoàn tiền", HttpStatus.BAD_REQUEST),
     EXTRA_PAYMENT_REQUIRED(4038, "Khách đổi sang món có giá trị cao hơn nhưng chưa chọn phương thức thanh toán phần chênh lệch", HttpStatus.BAD_REQUEST),
+    DUPLICATE_EXCHANGE_ITEM(4039, "Không được chứa sản phẩm trùng lặp trong cùng một yêu cầu đổi hàng", HttpStatus.BAD_REQUEST),
 
     // NCL-13 Quản lý nhà cung cấp & Công nợ phải trả (NCL-13-CN-003)
     SUPPLIER_NOT_FOUND(3031, "Nhà cung cấp không tồn tại", HttpStatus.NOT_FOUND),
