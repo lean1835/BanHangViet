@@ -84,6 +84,7 @@ export const API_TAG_TYPES = {
   SCREEN_GUIDE: "ScreenGuide",
   FAQ: "Faq",
   SUPPORT_CHANNEL: "SupportChannel",
+  ONBOARDING: "Onboarding",
 } as const;
 
 export const API_TAG_TYPE_VALUES = Object.values(API_TAG_TYPES);

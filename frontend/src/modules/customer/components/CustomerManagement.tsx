@@ -13,6 +13,7 @@ interface CustomerManagementProps {
   onConfirmReminder: (customer: ICustomer, message?: string) => void;
   onConfirmPayDebt: (data: DebtPaymentData) => void | Promise<void>;
   onOpenReconcileModal?: (customer: ICustomer) => void;
+  onOpenImportModal?: () => void;
 }
 
 export const CustomerManagement: React.FC<CustomerManagementProps> = ({
@@ -25,6 +26,7 @@ export const CustomerManagement: React.FC<CustomerManagementProps> = ({
   onConfirmReminder,
   onConfirmPayDebt,
   onOpenReconcileModal,
+  onOpenImportModal,
 }) => {
   return (
     <div className="w-full">
@@ -38,6 +40,7 @@ export const CustomerManagement: React.FC<CustomerManagementProps> = ({
         onConfirmReminder={onConfirmReminder}
         onConfirmPayDebt={onConfirmPayDebt}
         onOpenReconcileModal={onOpenReconcileModal}
+        onOpenImportModal={onOpenImportModal}
       />
     </div>
   );
