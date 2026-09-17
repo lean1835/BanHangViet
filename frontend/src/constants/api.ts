@@ -78,6 +78,7 @@ export const API_TAG_TYPES = {
   NOTIFICATION: "Notification",
   SUPPLIER_RETURN: "SupplierReturn",
   INVENTORY_VALUATION: "InventoryValuation",
+  PRODUCT_EXCHANGE: "ProductExchange",
 } as const;
 
 export const API_TAG_TYPE_VALUES = Object.values(API_TAG_TYPES);

@@ -53,6 +53,12 @@ const ReturnTicketListPage = React.lazy(
 const CreateReturnTicketPage = React.lazy(
   () => import("@/modules/return_ticket/pages/CreateReturnTicketPage")
 );
+const ProductExchangeListPage = React.lazy(
+  () => import("@/modules/product_exchange/pages/ProductExchangeListPage")
+);
+const CreateProductExchangePage = React.lazy(
+  () => import("@/modules/product_exchange/pages/CreateProductExchangePage")
+);
 const CustomerPage = React.lazy(() => import("@/modules/customer/pages/CustomerPage"));
 const CustomerDetailPage = React.lazy(
   () => import("@/modules/customer/pages/CustomerDetailPage")
@@ -284,6 +290,22 @@ export const AppRouter = () => (
             element={
               <RoleRoute allowedRoles={ROLE_GROUPS.NORMAL_MANAGEMENT}>
                 <CreateReturnTicketPage />
+              </RoleRoute>
+            }
+          />
+          <Route
+            path={ROUTE_SEGMENTS.PRODUCT_EXCHANGES}
+            element={
+              <RoleRoute allowedRoles={ROLE_GROUPS.NORMAL_MANAGEMENT}>
+                <ProductExchangeListPage />
+              </RoleRoute>
+            }
+          />
+          <Route
+            path={`${ROUTE_SEGMENTS.PRODUCT_EXCHANGES}/create`}
+            element={
+              <RoleRoute allowedRoles={ROLE_GROUPS.NORMAL_MANAGEMENT}>
+                <CreateProductExchangePage />
               </RoleRoute>
             }
           />
