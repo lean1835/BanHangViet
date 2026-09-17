@@ -282,6 +282,19 @@ public class ReportControllerTest {
     }
 
     @Test
+    @WithMockUser(username = "test_owner_report", roles = {"VT-01"})
+    public void getGrossProfitReport_withPosId_asOwner_success() throws Exception {
+        mockMvc.perform(get("/api/v1/reports/gross-profit")
+                        .param("fromDate", "2026-07-01")
+                        .param("toDate", "2026-07-31")
+                        .param("posId", "pos-test-1")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(1000))
+                .andExpect(jsonPath("$.result.summary").exists());
+    }
+
+    @Test
     @WithMockUser(username = "test_employee_report", roles = {"VT-02"})
     public void getGrossProfitReport_asEmployee_forbidden() throws Exception {
         mockMvc.perform(get("/api/v1/reports/gross-profit")
@@ -339,7 +352,54 @@ public class ReportControllerTest {
                 .andExpect(jsonPath("$.result.groupId").value("UNASSIGNED"));
     }
 
+    // --- Tests for NCL-07-CN-010: Báo cáo nhân viên và ca ---
+    @Test
+    @WithMockUser(username = "test_owner_report", roles = {"VT-01"})
+    public void getEmployeeShiftReport_asOwner_success() throws Exception {
+        mockMvc.perform(get("/api/v1/reports/employee-shifts")
+                        .param("fromDate", "2026-07-01")
+                        .param("toDate", "2026-07-31")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(1000))
+                .andExpect(jsonPath("$.result.totalShiftsCount").exists());
+    }
+
+    @Test
+    @WithMockUser(username = "test_employee_report", roles = {"VT-02"})
+    public void getEmployeeShiftReport_asEmployee_forbidden() throws Exception {
+        mockMvc.perform(get("/api/v1/reports/employee-shifts")
+                        .param("fromDate", "2026-07-01")
+                        .param("toDate", "2026-07-31")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isForbidden());
+    }
+
     // --- Tests for NCL-07-CN-009: Xuất báo cáo Excel ---
+    @Test
+    @WithMockUser(username = "test_owner_report", roles = {"VT-01"})
+    public void exportReport_asOwner_noData_badRequest() throws Exception {
+        mockMvc.perform(get("/api/v1/reports/export")
+                        .param("reportType", "GROSS_PROFIT")
+                        .param("fromDate", "2026-07-01")
+                        .param("toDate", "2026-07-31"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(2016));
+    }
+
+    @Test
+    @WithMockUser(username = "test_owner_report", roles = {"VT-01"})
+    public void exportReport_asOwner_grossProfitWithPos_noData_badRequest() throws Exception {
+        mockMvc.perform(get("/api/v1/reports/export")
+                        .param("reportType", "GROSS_PROFIT")
+                        .param("fromDate", "2026-07-01")
+                        .param("toDate", "2026-07-31")
+                        .param("filter1", "prod-1")
+                        .param("filter2", "pos-test-1"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(2016));
+    }
+
     @Test
     @WithMockUser(username = "test_employee_report", roles = {"VT-02"})
     public void exportReport_asEmployee_forbidden() throws Exception {

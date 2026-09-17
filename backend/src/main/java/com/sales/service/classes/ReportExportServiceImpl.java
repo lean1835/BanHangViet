@@ -71,7 +71,7 @@ public class ReportExportServiceImpl implements ReportExportService {
             switch (normType) {
                 case "GROSS_PROFIT":
                     reportTitle = "BÁO CÁO LÃI GỘP THEO NGÀY VÀ MẶT HÀNG";
-                    hasData = exportGrossProfit(workbook, currentUsername, fromDate, toDate, filter1,
+                    hasData = exportGrossProfit(workbook, currentUsername, fromDate, toDate, filter1, filter2,
                             headerStyle, dataTextStyle, dataCenterStyle, dataCurrencyStyle, dataPercentStyle,
                             totalRowStyle, totalCurrencyStyle, alertHeaderStyle);
                     break;
@@ -173,11 +173,11 @@ public class ReportExportServiceImpl implements ReportExportService {
         sheet.setColumnWidth(2, 40 * 256);
     }
 
-    private boolean exportGrossProfit(Workbook workbook, String username, LocalDate fromDate, LocalDate toDate, String productId,
+    private boolean exportGrossProfit(Workbook workbook, String username, LocalDate fromDate, LocalDate toDate, String productId, String posId,
                                       CellStyle headerStyle, CellStyle textStyle, CellStyle centerStyle,
                                       CellStyle currStyle, CellStyle pctStyle, CellStyle totalStyle,
                                       CellStyle totalCurrStyle, CellStyle alertHeaderStyle) {
-        GrossProfitReportResponse report = reportService.getGrossProfitReport(username, fromDate, toDate, productId);
+        GrossProfitReportResponse report = reportService.getGrossProfitReport(username, fromDate, toDate, productId, posId);
         if (report == null || (report.getItemReports().isEmpty() && report.getDailyReports().isEmpty() && report.getMissingCostPriceItems().isEmpty())) {
             return false;
         }

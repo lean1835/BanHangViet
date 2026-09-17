@@ -7,6 +7,22 @@ export const REPORT_NAVIGATION_ITEMS = [
     label: "Doanh thu & Bán chạy",
   },
   {
+    path: APP_ROUTES.REPORT_GROSS_PROFIT,
+    label: "Lãi gộp theo mặt hàng",
+  },
+  {
+    path: APP_ROUTES.REPORT_PRODUCT_GROUPS,
+    label: "Doanh thu theo nhóm hàng",
+  },
+  {
+    path: APP_ROUTES.REPORT_PAYMENT_METHODS,
+    label: "Hình thức thanh toán",
+  },
+  {
+    path: APP_ROUTES.REPORT_EMPLOYEE_SHIFTS,
+    label: "Doanh thu ca & nhân viên",
+  },
+  {
     path: APP_ROUTES.REPORT_POS_REVENUE,
     label: "Doanh thu theo điểm bán",
   },

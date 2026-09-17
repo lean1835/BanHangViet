@@ -748,6 +748,12 @@ public class ReportServiceImpl implements ReportService {
     @Override
     @Transactional(readOnly = true)
     public GrossProfitReportResponse getGrossProfitReport(String currentUsername, LocalDate fromDate, LocalDate toDate, String productId) {
+        return getGrossProfitReport(currentUsername, fromDate, toDate, productId, null);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public GrossProfitReportResponse getGrossProfitReport(String currentUsername, LocalDate fromDate, LocalDate toDate, String productId, String posId) {
         BusinessHousehold household = getHouseholdAndValidate(currentUsername);
 
         LocalDate start = fromDate != null ? fromDate : LocalDate.now().minusDays(30);
@@ -760,6 +766,13 @@ public class ReportServiceImpl implements ReportService {
         LocalDateTime endDateTime = end.atTime(LocalTime.MAX);
 
         List<OrderItem> items = orderItemRepository.findItemsForGrossProfitReport(household.getId(), startDateTime, endDateTime);
+
+        String filterPosId = (posId != null && !posId.trim().isEmpty()) ? posId.trim() : null;
+        if (filterPosId != null) {
+            items = items.stream()
+                    .filter(oi -> oi.getOrder().getPointOfSale() != null && filterPosId.equals(oi.getOrder().getPointOfSale().getId()))
+                    .collect(Collectors.toList());
+        }
 
         // Gom tổng chiết khấu dòng hàng và tổng thành tiền theo đơn để phân bổ chiết khấu cấp đơn hàng (NCL-07-CN-008)
         Map<String, BigDecimal> orderItemDiscountSums = new HashMap<>();
@@ -779,6 +792,17 @@ public class ReportServiceImpl implements ReportService {
         }
 
         List<ReturnTicketItem> returnedItems = returnTicketItemRepository.findApprovedReturnedItemsInPeriod(household.getId(), startDateTime, endDateTime);
+        if (filterPosId != null) {
+            returnedItems = returnedItems.stream()
+                    .filter(rti -> {
+                        ReturnTicket rt = rti.getReturnTicket();
+                        if (rt == null || rt.getOriginalOrder() == null || rt.getOriginalOrder().getPointOfSale() == null) {
+                            return false;
+                        }
+                        return filterPosId.equals(rt.getOriginalOrder().getPointOfSale().getId());
+                    })
+                    .collect(Collectors.toList());
+        }
         if (productId != null && !productId.trim().isEmpty()) {
             returnedItems = returnedItems.stream()
                     .filter(rti -> rti.getProduct() != null && productId.equals(rti.getProduct().getId()))
