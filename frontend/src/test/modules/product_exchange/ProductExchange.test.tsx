@@ -8,6 +8,7 @@ import { NotificationProvider } from "@/providers/NotificationProvider";
 import { ProductExchangeTable } from "@/modules/product_exchange/components/ProductExchangeTable";
 import { ProductExchangeSidebar } from "@/modules/product_exchange/components/ProductExchangeSidebar";
 import { ProductExchangeDetailModal } from "@/modules/product_exchange/components/ProductExchangeDetailModal";
+import { ProductExchangePrintModal } from "@/modules/product_exchange/components/ProductExchangePrintModal";
 import { ExchangeSummaryPanel } from "@/modules/product_exchange/components/ExchangeSummaryPanel";
 import { NewItemsSection } from "@/modules/product_exchange/components/NewItemsSection";
 import {
@@ -228,6 +229,23 @@ describe("NCL-11-CN-005: Product Exchange Module Tests", () => {
       fireEvent.click(resetBtn);
       expect(onResetFilters).toHaveBeenCalled();
     });
+
+    it("renders properly with disabled prop and displays Khóa badge", () => {
+      renderWithProviders(<ProductExchangeSidebar disabled />);
+
+      expect(screen.getByText("Bộ lọc phiếu đổi hàng")).toBeInTheDocument();
+      expect(screen.getByText("Khóa")).toBeInTheDocument();
+      expect(screen.queryByText("Đặt lại")).not.toBeInTheDocument();
+
+      const searchInput = screen.getByPlaceholderText("Số phiếu, mã HĐ, khách...");
+      expect(searchInput).toBeDisabled();
+
+      const exchangeSelect = screen.getByLabelText("Loại hình đổi hàng");
+      expect(exchangeSelect).toBeDisabled();
+
+      const statusSelect = screen.getByLabelText("Trạng thái phiếu");
+      expect(statusSelect).toBeDisabled();
+    });
   });
 
   describe("ExchangeSummaryPanel Component (NCL-11-CN-005 Logic)", () => {
@@ -403,4 +421,49 @@ describe("NCL-11-CN-005: Product Exchange Module Tests", () => {
       expect(onRemoveItem).toHaveBeenCalledWith("p1");
     });
   });
+
+  describe("ProductExchangePrintModal", () => {
+    it("renders quick-checkout format (K80 thermal style) correctly", () => {
+      const onClose = vi.fn();
+      const printSpy = vi.spyOn(window, "print").mockImplementation(() => {});
+
+      const ticketWithDifference: IProductExchangeTicket = {
+        ...mockTickets[0],
+        differenceAmount: 1478000,
+        totalReturnAmount: 20000000,
+        totalExchangeAmount: 21478000,
+        additionalInvoiceNumber: "00000004",
+      };
+
+      renderWithProviders(
+        <ProductExchangePrintModal ticket={ticketWithDifference} onClose={onClose} />
+      );
+
+      // Verify header & title
+      expect(screen.getAllByText(/Xem Trước Bản In Phiếu Đổi Hàng/i)[0]).toBeInTheDocument();
+      expect(screen.getAllByText(/PHIẾU ĐỔI HÀNG/i)[0]).toBeInTheDocument();
+      expect(screen.getByText(/K80 \(80mm\)/i)).toBeInTheDocument();
+
+      // Verify sections
+      expect(screen.getByText(/\[1\] HÀNG TRẢ LẠI \(HOÀN KHO\)/i)).toBeInTheDocument();
+      expect(screen.getByText(/\[2\] HÀNG ĐỔI MỚI \(TRỪ KHO\)/i)).toBeInTheDocument();
+      expect(screen.getByText(/Chênh lệch thanh toán:/i)).toBeInTheDocument();
+      expect(screen.getByText(/\+1.478.000 đ/)).toBeInTheDocument();
+      expect(screen.getByText(/Khách cần trả thêm \(Phụ thu\)/i)).toBeInTheDocument();
+      expect(screen.getByText(/00000004/)).toBeInTheDocument();
+
+      // Trigger print
+      const printButton = screen.getByRole("button", { name: /IN PHIẾU ĐỔI HÀNG/i });
+      fireEvent.click(printButton);
+      expect(printSpy).toHaveBeenCalled();
+    });
+
+    it("returns null when ticket is null", () => {
+      const { container } = renderWithProviders(
+        <ProductExchangePrintModal ticket={null} onClose={vi.fn()} />
+      );
+      expect(container.firstChild).toBeNull();
+    });
+  });
 });
+

@@ -11,6 +11,7 @@ import { NewItemsSection, type SelectedNewItemRow } from "../components/NewItems
 import { ExchangeSummaryPanel } from "../components/ExchangeSummaryPanel";
 import { ProductExchangeDetailModal } from "../components/ProductExchangeDetailModal";
 import { ProductExchangePrintModal } from "../components/ProductExchangePrintModal";
+import { ProductExchangeSidebar } from "../components/ProductExchangeSidebar";
 import {
   useCheckExchangeEligibilityMutation,
   useCreateProductExchangeMutation,
@@ -56,7 +57,12 @@ export const CreateProductExchangePage: React.FC = () => {
   const handleSelectInvoice = useCallback((invoice: IInvoice) => {
     setSelectedInvoice(invoice);
 
-    const rows: SelectedReturnItemRow[] = (invoice.items || []).map((item) => {
+    // Chỉ lấy các mặt hàng bán ra thực tế, loại trừ các dòng ghi trừ đổi trả từ lần trước (giá âm hoặc tiền tố Đổi trả:)
+    const validItems = (invoice.items || []).filter(
+      (item) => (item.unitPrice ?? 0) > 0 && !item.productName?.startsWith("Đổi trả:")
+    );
+
+    const rows: SelectedReturnItemRow[] = validItems.map((item) => {
       const soldQty = item.quantity || 1;
       return {
         invoiceItemId: item.id || `item-${item.productId}`,
@@ -203,6 +209,14 @@ export const CreateProductExchangePage: React.FC = () => {
       return;
     }
 
+    if (eligibilityData?.result && !eligibilityData.result.isEligible) {
+      showError(
+        eligibilityData.result.message ||
+          "Hóa đơn này không đủ điều kiện đổi hàng theo quy định (đã từng đổi/trả hoặc quá hạn)."
+      );
+      return;
+    }
+
     if (differenceAmount < -0.01) {
       showError("Món đổi sang có giá thấp hơn. Vui lòng chuyển sang luồng Trả hàng theo quy định.");
       return;
@@ -238,8 +252,8 @@ export const CreateProductExchangePage: React.FC = () => {
   };
 
   return (
-    <DashboardWorkspaceLayout>
-      <div className="p-4 md:p-6 space-y-6 max-w-7xl mx-auto">
+    <DashboardWorkspaceLayout sidebar={<ProductExchangeSidebar disabled />}>
+      <div className="w-full space-y-6 flex-1">
         {/* Top Header */}
         <div className="flex items-center gap-3">
           <button
@@ -266,6 +280,7 @@ export const CreateProductExchangePage: React.FC = () => {
             setReturnItems([]);
             setExchangeItems([]);
           }}
+          eligibilityData={eligibilityData?.result}
         />
 
         {/* Step 2 & 3: Side by Side Comparison Grid */}

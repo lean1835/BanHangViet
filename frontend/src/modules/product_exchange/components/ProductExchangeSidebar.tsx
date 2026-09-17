@@ -1,53 +1,87 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   EXCHANGE_TYPES,
   EXCHANGE_STATUS,
 } from "@/constants/productExchange";
 
 export interface IProductExchangeSidebarProps {
-  searchQuery: string;
-  onSearchChange: (val: string) => void;
-  exchangeTypeFilter: string;
-  onExchangeTypeChange: (val: string) => void;
-  statusFilter: string;
-  onStatusChange: (val: string) => void;
-  fromDate: string;
-  toDate: string;
-  onFromDateChange: (val: string) => void;
-  onToDateChange: (val: string) => void;
-  onResetFilters: () => void;
+  searchQuery?: string;
+  onSearchChange?: (val: string) => void;
+  exchangeTypeFilter?: string;
+  onExchangeTypeChange?: (val: string) => void;
+  statusFilter?: string;
+  onStatusChange?: (val: string) => void;
+  fromDate?: string;
+  toDate?: string;
+  onFromDateChange?: (val: string) => void;
+  onToDateChange?: (val: string) => void;
+  onResetFilters?: () => void;
+  disabled?: boolean;
 }
 
 export const ProductExchangeSidebar: React.FC<IProductExchangeSidebarProps> = ({
-  searchQuery,
+  searchQuery: propSearchQuery,
   onSearchChange,
-  exchangeTypeFilter,
+  exchangeTypeFilter: propExchangeType,
   onExchangeTypeChange,
-  statusFilter,
+  statusFilter: propStatusFilter,
   onStatusChange,
-  fromDate,
-  toDate,
+  fromDate: propFromDate,
+  toDate: propToDate,
   onFromDateChange,
   onToDateChange,
   onResetFilters,
+  disabled = false,
 }) => {
+  const [internalSearch, setInternalSearch] = useState("");
+  const [internalExchangeType, setInternalExchangeType] = useState("ALL");
+  const [internalStatus, setInternalStatus] = useState("ALL");
+  const [internalFromDate, setInternalFromDate] = useState("");
+  const [internalToDate, setInternalToDate] = useState("");
+
+  const searchQuery = propSearchQuery !== undefined ? propSearchQuery : internalSearch;
+  const handleSearchChange = onSearchChange || setInternalSearch;
+
+  const exchangeTypeFilter =
+    propExchangeType !== undefined ? propExchangeType : internalExchangeType;
+  const handleExchangeTypeChange = onExchangeTypeChange || setInternalExchangeType;
+
+  const statusFilter = propStatusFilter !== undefined ? propStatusFilter : internalStatus;
+  const handleStatusChange = onStatusChange || setInternalStatus;
+
+  const fromDate = propFromDate !== undefined ? propFromDate : internalFromDate;
+  const handleFromDateChange = onFromDateChange || setInternalFromDate;
+
+  const toDate = propToDate !== undefined ? propToDate : internalToDate;
+  const handleToDateChange = onToDateChange || setInternalToDate;
+
+  const handleReset =
+    onResetFilters ||
+    (() => {
+      setInternalSearch("");
+      setInternalExchangeType("ALL");
+      setInternalStatus("ALL");
+      setInternalFromDate("");
+      setInternalToDate("");
+    });
+
   const setDatePreset = (preset: "today" | "7days" | "thisMonth") => {
     const today = new Date();
     const formatDate = (d: Date) => d.toISOString().split("T")[0];
 
     if (preset === "today") {
       const dStr = formatDate(today);
-      onFromDateChange(dStr);
-      onToDateChange(dStr);
+      handleFromDateChange(dStr);
+      handleToDateChange(dStr);
     } else if (preset === "7days") {
       const past = new Date();
       past.setDate(today.getDate() - 7);
-      onFromDateChange(formatDate(past));
-      onToDateChange(formatDate(today));
+      handleFromDateChange(formatDate(past));
+      handleToDateChange(formatDate(today));
     } else if (preset === "thisMonth") {
       const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
-      onFromDateChange(formatDate(firstDay));
-      onToDateChange(formatDate(today));
+      handleFromDateChange(formatDate(firstDay));
+      handleToDateChange(formatDate(today));
     }
   };
 
@@ -56,13 +90,19 @@ export const ProductExchangeSidebar: React.FC<IProductExchangeSidebarProps> = ({
       {/* Title */}
       <div className="font-extrabold text-sm text-slate-800 border-b pb-2 flex items-center justify-between">
         <span>Bộ lọc phiếu đổi hàng</span>
-        <button
-          type="button"
-          onClick={onResetFilters}
-          className="text-[10px] font-bold text-kv-blue-primary hover:text-kv-blue-dark transition-colors cursor-pointer"
-        >
-          Đặt lại
-        </button>
+        {disabled ? (
+          <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded">
+            Khóa
+          </span>
+        ) : (
+          <button
+            type="button"
+            onClick={handleReset}
+            className="text-[10px] font-bold text-kv-blue-primary hover:text-kv-blue-dark transition-colors cursor-pointer"
+          >
+            Đặt lại
+          </button>
+        )}
       </div>
 
       {/* Quick Search */}
@@ -72,10 +112,13 @@ export const ProductExchangeSidebar: React.FC<IProductExchangeSidebarProps> = ({
         </span>
         <input
           type="text"
+          disabled={disabled}
           value={searchQuery}
-          onChange={(e) => onSearchChange(e.target.value)}
+          onChange={(e) => handleSearchChange(e.target.value)}
           placeholder="Số phiếu, mã HĐ, khách..."
-          className="border border-slate-300 h-9 px-3 rounded-lg focus:outline-none focus:border-kv-blue-primary text-xs font-semibold"
+          className={`border border-slate-300 h-9 px-3 rounded-lg focus:outline-none focus:border-kv-blue-primary text-xs font-semibold ${
+            disabled ? "bg-slate-100 text-slate-400 cursor-not-allowed" : ""
+          }`}
         />
       </div>
 
@@ -89,9 +132,14 @@ export const ProductExchangeSidebar: React.FC<IProductExchangeSidebarProps> = ({
         </label>
         <select
           id="exchangeTypeSelect"
+          disabled={disabled}
           value={exchangeTypeFilter}
-          onChange={(e) => onExchangeTypeChange(e.target.value)}
-          className="w-full border border-slate-300 h-9 px-3 rounded-lg focus:outline-none focus:border-kv-blue-primary text-xs font-semibold text-slate-700 bg-white cursor-pointer"
+          onChange={(e) => handleExchangeTypeChange(e.target.value)}
+          className={`w-full border border-slate-300 h-9 px-3 rounded-lg focus:outline-none focus:border-kv-blue-primary text-xs font-semibold ${
+            disabled
+              ? "bg-slate-100 text-slate-400 cursor-not-allowed"
+              : "text-slate-700 bg-white cursor-pointer"
+          }`}
         >
           <option value="ALL">Tất cả loại đổi</option>
           <option value={EXCHANGE_TYPES.EQUAL_VALUE}>Đổi ngang giá (diff = 0)</option>
@@ -110,9 +158,14 @@ export const ProductExchangeSidebar: React.FC<IProductExchangeSidebarProps> = ({
         </label>
         <select
           id="exchangeStatusSelect"
+          disabled={disabled}
           value={statusFilter}
-          onChange={(e) => onStatusChange(e.target.value)}
-          className="w-full border border-slate-300 h-9 px-3 rounded-lg focus:outline-none focus:border-kv-blue-primary text-xs font-semibold text-slate-700 bg-white cursor-pointer"
+          onChange={(e) => handleStatusChange(e.target.value)}
+          className={`w-full border border-slate-300 h-9 px-3 rounded-lg focus:outline-none focus:border-kv-blue-primary text-xs font-semibold ${
+            disabled
+              ? "bg-slate-100 text-slate-400 cursor-not-allowed"
+              : "text-slate-700 bg-white cursor-pointer"
+          }`}
         >
           <option value="ALL">Tất cả phiếu</option>
           <option value={EXCHANGE_STATUS.COMPLETED}>Hoàn thành</option>
@@ -132,9 +185,12 @@ export const ProductExchangeSidebar: React.FC<IProductExchangeSidebarProps> = ({
             </label>
             <input
               type="date"
+              disabled={disabled}
               value={fromDate}
-              onChange={(e) => onFromDateChange(e.target.value)}
-              className="w-full border border-slate-300 h-9 px-3 rounded-lg focus:outline-none focus:border-kv-blue-primary text-xs font-semibold text-slate-700"
+              onChange={(e) => handleFromDateChange(e.target.value)}
+              className={`w-full border border-slate-300 h-9 px-3 rounded-lg focus:outline-none focus:border-kv-blue-primary text-xs font-semibold ${
+                disabled ? "bg-slate-100 text-slate-400 cursor-not-allowed" : "text-slate-700"
+              }`}
             />
           </div>
           <div>
@@ -143,9 +199,12 @@ export const ProductExchangeSidebar: React.FC<IProductExchangeSidebarProps> = ({
             </label>
             <input
               type="date"
+              disabled={disabled}
               value={toDate}
-              onChange={(e) => onToDateChange(e.target.value)}
-              className="w-full border border-slate-300 h-9 px-3 rounded-lg focus:outline-none focus:border-kv-blue-primary text-xs font-semibold text-slate-700"
+              onChange={(e) => handleToDateChange(e.target.value)}
+              className={`w-full border border-slate-300 h-9 px-3 rounded-lg focus:outline-none focus:border-kv-blue-primary text-xs font-semibold ${
+                disabled ? "bg-slate-100 text-slate-400 cursor-not-allowed" : "text-slate-700"
+              }`}
             />
           </div>
         </div>
@@ -154,22 +213,37 @@ export const ProductExchangeSidebar: React.FC<IProductExchangeSidebarProps> = ({
         <div className="grid grid-cols-3 gap-1 pt-1">
           <button
             type="button"
+            disabled={disabled}
             onClick={() => setDatePreset("today")}
-            className="rounded border border-slate-200 bg-slate-50 py-1.5 text-[10px] font-bold text-slate-600 hover:bg-slate-100 transition-colors"
+            className={`rounded border border-slate-200 py-1.5 text-[10px] font-bold transition-colors ${
+              disabled
+                ? "bg-slate-100 text-slate-400 cursor-not-allowed opacity-60"
+                : "bg-slate-50 text-slate-600 hover:bg-slate-100 cursor-pointer"
+            }`}
           >
             Hôm nay
           </button>
           <button
             type="button"
+            disabled={disabled}
             onClick={() => setDatePreset("7days")}
-            className="rounded border border-slate-200 bg-slate-50 py-1.5 text-[10px] font-bold text-slate-600 hover:bg-slate-100 transition-colors"
+            className={`rounded border border-slate-200 py-1.5 text-[10px] font-bold transition-colors ${
+              disabled
+                ? "bg-slate-100 text-slate-400 cursor-not-allowed opacity-60"
+                : "bg-slate-50 text-slate-600 hover:bg-slate-100 cursor-pointer"
+            }`}
           >
             7 ngày
           </button>
           <button
             type="button"
+            disabled={disabled}
             onClick={() => setDatePreset("thisMonth")}
-            className="rounded border border-slate-200 bg-slate-50 py-1.5 text-[10px] font-bold text-slate-600 hover:bg-slate-100 transition-colors"
+            className={`rounded border border-slate-200 py-1.5 text-[10px] font-bold transition-colors ${
+              disabled
+                ? "bg-slate-100 text-slate-400 cursor-not-allowed opacity-60"
+                : "bg-slate-50 text-slate-600 hover:bg-slate-100 cursor-pointer"
+            }`}
           >
             Tháng này
           </button>
@@ -180,8 +254,13 @@ export const ProductExchangeSidebar: React.FC<IProductExchangeSidebarProps> = ({
       <div className="border-t pt-3">
         <button
           type="button"
-          onClick={onResetFilters}
-          className="w-full border border-slate-300 h-9 rounded-lg hover:bg-slate-50 font-bold text-xs text-slate-600 transition-colors cursor-pointer"
+          disabled={disabled}
+          onClick={handleReset}
+          className={`w-full border border-slate-300 h-9 rounded-lg font-bold text-xs transition-colors ${
+            disabled
+              ? "bg-slate-100 text-slate-400 cursor-not-allowed opacity-60"
+              : "hover:bg-slate-50 text-slate-600 cursor-pointer"
+          }`}
         >
           Xóa bộ lọc
         </button>

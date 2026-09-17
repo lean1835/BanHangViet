@@ -46,6 +46,15 @@ public class DatabaseMigrationInitializer implements CommandLineRunner {
         }
 
         try {
+            // Đảm bảo chk_inv_status trên e_invoices cho phép trạng thái MANUAL_PROCESSING cho tự động gửi lại
+            jdbcTemplate.execute("ALTER TABLE e_invoices DROP CHECK chk_inv_status;");
+            jdbcTemplate.execute("ALTER TABLE e_invoices ADD CONSTRAINT chk_inv_status CHECK (status IN ('DRAFT', 'WAITING_TAX_CODE', 'ISSUED', 'SEND_ERROR', 'ADJUSTED', 'CANCELED', 'MANUAL_PROCESSING'));");
+            log.info("DatabaseMigrationInitializer: Đã cập nhật check constraint chk_inv_status trên bảng e_invoices bao gồm MANUAL_PROCESSING.");
+        } catch (Exception e) {
+            log.warn("DatabaseMigrationInitializer: Bỏ qua cập nhật chk_inv_status: {}", e.getMessage());
+        }
+
+        try {
             // Drop check constraints trên e_invoice_items cho phép đơn giá và thành tiền âm khi lập hóa đơn đổi trả
             List<String> checkConstraints = jdbcTemplate.query(
                 "SELECT CONSTRAINT_NAME FROM information_schema.TABLE_CONSTRAINTS " +

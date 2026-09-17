@@ -55,6 +55,7 @@ public class ReturnTicketServiceImpl implements ReturnTicketService {
     private final BusinessHouseholdSettingsRepository settingsRepository;
     @Lazy
     private final LoyaltyService loyaltyService;
+    private final ProductExchangeTicketRepository productExchangeTicketRepository;
     private final ProductExchangeItemRepository productExchangeItemRepository;
     @Lazy
     private final AppNotificationService appNotificationService;
@@ -85,6 +86,48 @@ public class ReturnTicketServiceImpl implements ReturnTicketService {
         if (!"ISSUED".equals(invoice.getStatus()) && !"ADJUSTED".equals(invoice.getStatus())) {
             isEligible = false;
             ineligibilityReason = "Hóa đơn gốc chưa được cấp mã hoặc đã bị hủy";
+        }
+
+        // Kiểm tra xem hóa đơn này có phải hóa đơn bổ sung/điều chỉnh từ đổi trả không
+        if (isEligible) {
+            boolean isAdditionalOrAdjusted = invoice.getOriginalInvoice() != null || invoice.getReturnTicket() != null
+                    || (invoice.getTitle() != null && (invoice.getTitle().toUpperCase().contains("ĐỔI HÀNG") || invoice.getTitle().toUpperCase().contains("ĐIỀU CHỈNH")))
+                    || productExchangeTicketRepository.findByAdditionalInvoiceId(invoice.getId()).isPresent();
+            if (isAdditionalOrAdjusted) {
+                isEligible = false;
+                ineligibilityReason = "Hóa đơn bổ sung/điều chỉnh từ việc đổi trả không được phép trả hàng lại theo quy định";
+            }
+        }
+
+        // Kiểm tra xem hóa đơn này đã từng đổi hàng hoặc trả hàng chưa
+        if (isEligible) {
+            boolean alreadyExchanged = productExchangeTicketRepository.existsByOriginalInvoiceIdAndStatusIn(
+                    invoice.getId(), List.of("COMPLETED", "PENDING")
+            );
+            if (!alreadyExchanged && invoice.getOrder() != null) {
+                alreadyExchanged = productExchangeTicketRepository.existsByOriginalOrderIdAndStatusIn(
+                        invoice.getOrder().getId(), List.of("COMPLETED", "PENDING")
+                );
+            }
+            if (alreadyExchanged) {
+                isEligible = false;
+                ineligibilityReason = "Đơn hàng/Hóa đơn này đã từng thực hiện đổi hàng, không được phép trả hàng lại theo quy định";
+            }
+        }
+
+        if (isEligible) {
+            boolean alreadyReturned = returnTicketRepository.existsByOriginalInvoiceIdAndStatusIn(
+                    invoice.getId(), List.of("PENDING", "APPROVED")
+            );
+            if (!alreadyReturned && invoice.getOrder() != null) {
+                alreadyReturned = returnTicketRepository.existsByOriginalOrderIdAndStatusIn(
+                        invoice.getOrder().getId(), List.of("PENDING", "APPROVED")
+                );
+            }
+            if (alreadyReturned) {
+                isEligible = false;
+                ineligibilityReason = "Đơn hàng/Hóa đơn này đã từng thực hiện trả hàng, không được phép trả hàng lại theo quy định";
+            }
         }
 
         int effectiveMaxReturnDays = resolveMaxReturnDays(user.getHousehold().getId());
@@ -148,6 +191,39 @@ public class ReturnTicketServiceImpl implements ReturnTicketService {
 
         if (!"ISSUED".equals(invoice.getStatus()) && !"ADJUSTED".equals(invoice.getStatus())) {
             throw new AppException(ErrorCode.INVOICE_NOT_ELIGIBLE_FOR_RETURN);
+        }
+
+        // 1. Chặn hóa đơn bổ sung/điều chỉnh từ việc đổi trả
+        if (invoice.getOriginalInvoice() != null || invoice.getReturnTicket() != null
+                || (invoice.getTitle() != null && (invoice.getTitle().toUpperCase().contains("ĐỔI HÀNG") || invoice.getTitle().toUpperCase().contains("ĐIỀU CHỈNH")))
+                || productExchangeTicketRepository.findByAdditionalInvoiceId(invoice.getId()).isPresent()) {
+            throw new AppException(ErrorCode.INVOICE_ALREADY_EXCHANGED_OR_RETURNED);
+        }
+
+        // 2. Chặn nếu đã từng đổi hàng
+        boolean alreadyExchanged = productExchangeTicketRepository.existsByOriginalInvoiceIdAndStatusIn(
+                invoice.getId(), List.of("COMPLETED", "PENDING")
+        );
+        if (!alreadyExchanged && invoice.getOrder() != null) {
+            alreadyExchanged = productExchangeTicketRepository.existsByOriginalOrderIdAndStatusIn(
+                    invoice.getOrder().getId(), List.of("COMPLETED", "PENDING")
+            );
+        }
+        if (alreadyExchanged) {
+            throw new AppException(ErrorCode.INVOICE_ALREADY_EXCHANGED_OR_RETURNED);
+        }
+
+        // 3. Chặn nếu đã từng trả hàng
+        boolean alreadyReturnedTicket = returnTicketRepository.existsByOriginalInvoiceIdAndStatusIn(
+                invoice.getId(), List.of("PENDING", "APPROVED")
+        );
+        if (!alreadyReturnedTicket && invoice.getOrder() != null) {
+            alreadyReturnedTicket = returnTicketRepository.existsByOriginalOrderIdAndStatusIn(
+                    invoice.getOrder().getId(), List.of("PENDING", "APPROVED")
+            );
+        }
+        if (alreadyReturnedTicket) {
+            throw new AppException(ErrorCode.INVOICE_ALREADY_EXCHANGED_OR_RETURNED);
         }
 
         int effectiveMaxReturnDays = resolveMaxReturnDays(user.getHousehold().getId());

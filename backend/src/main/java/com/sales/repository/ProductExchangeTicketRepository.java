@@ -38,4 +38,8 @@ public interface ProductExchangeTicketRepository extends JpaRepository<ProductEx
 
     @EntityGraph(attributePaths = {"items", "items.product", "originalInvoice"})
     Optional<ProductExchangeTicket> findByAdditionalInvoiceId(String additionalInvoiceId);
+
+    boolean existsByOriginalInvoiceIdAndStatusIn(String originalInvoiceId, List<String> statuses);
+
+    boolean existsByOriginalOrderIdAndStatusIn(String originalOrderId, List<String> statuses);
 }

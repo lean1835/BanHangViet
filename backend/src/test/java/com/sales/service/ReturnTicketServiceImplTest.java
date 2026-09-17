@@ -61,6 +61,9 @@ class ReturnTicketServiceImplTest {
     private BusinessHouseholdSettingsRepository settingsRepository;
 
     @Mock
+    private ProductExchangeTicketRepository productExchangeTicketRepository;
+
+    @Mock
     private ProductExchangeItemRepository productExchangeItemRepository;
 
     @Mock
@@ -1312,6 +1315,57 @@ class ReturnTicketServiceImplTest {
         AppException ex = assertThrows(AppException.class, () ->
                 returnTicketService.createReturnTicket(request, "chuho_viet"));
         assertEquals(ErrorCode.EXCEEDED_RETURNABLE_QUANTITY, ex.getErrorCode());
+    }
+
+    @Test
+    void createReturnTicket_AlreadyExchanged_ThrowsException() {
+        when(userRepository.findByUsername("chuho_viet")).thenReturn(Optional.of(ownerUser));
+        when(eInvoiceRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("inv-1", household.getId()))
+                .thenReturn(Optional.of(issuedInvoice));
+        when(productExchangeTicketRepository.existsByOriginalInvoiceIdAndStatusIn(eq("inv-1"), anyList()))
+                .thenReturn(true);
+
+        CreateReturnTicketRequest request = CreateReturnTicketRequest.builder()
+                .originalInvoiceId("inv-1")
+                .items(List.of(CreateReturnTicketItemRequest.builder()
+                        .invoiceItemId("item-1")
+                        .productId(product.getId())
+                        .quantity(BigDecimal.ONE)
+                        .build()))
+                .build();
+
+        AppException ex = assertThrows(AppException.class, () ->
+                returnTicketService.createReturnTicket(request, "chuho_viet"));
+        assertEquals(ErrorCode.INVOICE_ALREADY_EXCHANGED_OR_RETURNED, ex.getErrorCode());
+    }
+
+    @Test
+    void createReturnTicket_AdditionalInvoice_ThrowsException() {
+        EInvoice additionalInvoice = EInvoice.builder()
+                .id("inv-additional")
+                .household(household)
+                .title("HÓA ĐƠN BÁN HÀNG BỔ SUNG ĐỔI HÀNG")
+                .status("ISSUED")
+                .createdAt(LocalDateTime.now())
+                .originalInvoice(issuedInvoice)
+                .build();
+
+        when(userRepository.findByUsername("chuho_viet")).thenReturn(Optional.of(ownerUser));
+        when(eInvoiceRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("inv-additional", household.getId()))
+                .thenReturn(Optional.of(additionalInvoice));
+
+        CreateReturnTicketRequest request = CreateReturnTicketRequest.builder()
+                .originalInvoiceId("inv-additional")
+                .items(List.of(CreateReturnTicketItemRequest.builder()
+                        .invoiceItemId("item-1")
+                        .productId(product.getId())
+                        .quantity(BigDecimal.ONE)
+                        .build()))
+                .build();
+
+        AppException ex = assertThrows(AppException.class, () ->
+                returnTicketService.createReturnTicket(request, "chuho_viet"));
+        assertEquals(ErrorCode.INVOICE_ALREADY_EXCHANGED_OR_RETURNED, ex.getErrorCode());
     }
 }
 

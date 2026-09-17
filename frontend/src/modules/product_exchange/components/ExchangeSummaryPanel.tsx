@@ -293,7 +293,7 @@ export const ExchangeSummaryPanel: React.FC<ExchangeSummaryPanelProps> = ({
             ) : (
               <>
                 <FileText className="w-4 h-4" />
-                <span>Xác Nhận & Xuất HĐ Bổ Sung (+{formatCurrency(differenceAmount)})</span>
+                <span>Xác Nhận & Xuất HĐ Bổ Sung</span>
               </>
             )}
           </button>
