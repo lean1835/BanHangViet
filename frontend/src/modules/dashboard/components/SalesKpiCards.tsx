@@ -1,5 +1,69 @@
 import { useNavigate } from "react-router-dom";
-import { FileSpreadsheet, AlertCircle, BarChart3 } from "lucide-react";
+import React from "react";
+
+// Native SVG Icons
+interface SvgIconProps {
+  size?: number;
+  className?: string;
+}
+
+const FileSpreadsheetIcon: React.FC<SvgIconProps> = ({ size = 24, className = "" }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+  >
+    <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" />
+    <path d="M14 2v4a2 2 0 0 0 2 2h4" />
+    <path d="M8 13h2" />
+    <path d="M14 13h2" />
+    <path d="M8 17h2" />
+    <path d="M14 17h2" />
+  </svg>
+);
+
+const AlertCircleIcon: React.FC<SvgIconProps> = ({ size = 24, className = "" }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+  >
+    <circle cx="12" cy="12" r="10" />
+    <line x1="12" y1="8" x2="12" y2="12" />
+    <line x1="12" y1="16" x2="12.01" y2="16" />
+  </svg>
+);
+
+const BarChart3Icon: React.FC<SvgIconProps> = ({ size = 24, className = "" }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+  >
+    <path d="M3 3v18h18" />
+    <path d="M18 17V9" />
+    <path d="M13 17V5" />
+    <path d="M8 17v-3" />
+  </svg>
+);
 import { formatCurrency } from "@/utils/formatCurrency";
 import { APP_ROUTES } from "@/constants/routes";
 import { useAnimatedNumber } from "@/hooks/useAnimatedNumber";
@@ -37,7 +101,7 @@ export const SalesKpiCards = ({
           </div>
         </div>
         <div className="w-12 h-12 bg-blue-50 text-kv-blue-primary rounded-full flex items-center justify-center shrink-0">
-          <FileSpreadsheet className="w-6 h-6" />
+          <FileSpreadsheetIcon size={24} className="w-6 h-6" />
         </div>
       </div>
 
@@ -51,12 +115,12 @@ export const SalesKpiCards = ({
             {animatedFailedInvoices}
           </h3>
           <div className="flex items-center gap-1 mt-1 text-[11px] text-rose-500 font-bold">
-            <AlertCircle className="w-3.5 h-3.5" />
+            <AlertCircleIcon size={14} className="w-3.5 h-3.5" />
             <span>Cần gửi lại CQT</span>
           </div>
         </div>
         <div className="w-12 h-12 bg-rose-50 text-rose-500 rounded-full flex items-center justify-center shrink-0">
-          <AlertCircle className="w-6 h-6" />
+          <AlertCircleIcon size={24} className="w-6 h-6" />
         </div>
       </div>
 
@@ -104,7 +168,7 @@ export const SalesKpiCards = ({
           </div>
         </div>
         <div className="w-12 h-12 bg-purple-50 text-purple-600 rounded-full flex items-center justify-center shrink-0 group-hover:bg-purple-600 group-hover:text-white transition-all">
-          <BarChart3 className="w-6 h-6" />
+          <BarChart3Icon size={24} className="w-6 h-6" />
         </div>
       </div>
     </div>

@@ -1,6 +1,7 @@
 import { useState, useLayoutEffect, useRef } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { ShoppingCart } from "lucide-react";
+import { useAppSelector } from "@/hooks/useRedux";
 import {
   HIDDEN_NAVIGATION_BY_ROLE,
   NAVIGATION_ITEM_IDS,
@@ -13,6 +14,7 @@ import { USER_ROLES } from "@/constants/roles";
 import type { TDemoRole } from "@/constants/roles";
 import { NotificationCenterDropdown } from "@/modules/notification/components/NotificationCenterDropdown";
 import { HouseholdSwitcher } from "@/components/common/HouseholdSwitcher";
+import { ScreenGuideTriggerButton } from "@/modules/screen_guide";
 
 interface DashboardNavigationProps {
   currentRole: TDemoRole;
@@ -77,6 +79,8 @@ export const DashboardNavigation = ({
 
   const activeItem = visibleItems.find(isItemActive);
 
+  const displaySettings = useAppSelector((state) => state.displaySettings);
+
   useLayoutEffect(() => {
     const updateIndicator = () => {
       if (activeItem && itemRefs.current[activeItem.id]) {
@@ -98,8 +102,35 @@ export const DashboardNavigation = ({
 
     updateIndicator();
     window.addEventListener("resize", updateIndicator);
-    return () => window.removeEventListener("resize", updateIndicator);
-  }, [location.pathname, activeItem]);
+
+    // Sử dụng ResizeObserver để cập nhật lại vị trí ngay khi cỡ chữ / kích thước thẻ thay đổi
+    let observer: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== "undefined") {
+      observer = new ResizeObserver(() => {
+        updateIndicator();
+      });
+      if (navRef.current) {
+        observer.observe(navRef.current);
+      }
+      if (activeItem && itemRefs.current[activeItem.id]) {
+        observer.observe(itemRefs.current[activeItem.id]!);
+      }
+    }
+
+    const timer = setTimeout(updateIndicator, 60);
+
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener("resize", updateIndicator);
+      observer?.disconnect();
+    };
+  }, [
+    location.pathname,
+    activeItem,
+    displaySettings?.fontSizeLevel,
+    displaySettings?.simpleModeEnabled,
+    displaySettings?.fontScalePercentage,
+  ]);
 
   return (
     <div className="flex h-12 shrink-0 items-center justify-between gap-3 bg-kv-blue-primary px-3 text-white shadow-md sm:px-4 select-none">
@@ -160,8 +191,12 @@ export const DashboardNavigation = ({
         )}
 
         {(currentRole === USER_ROLES.OWNER ||
-          currentRole === USER_ROLES.ACCOUNTANT) && (
-          <NotificationCenterDropdown />
+          currentRole === USER_ROLES.ACCOUNTANT ||
+          currentRole === USER_ROLES.CASHIER) && (
+          <>
+            <NotificationCenterDropdown />
+            <ScreenGuideTriggerButton />
+          </>
         )}
 
         {!isPosScreen && (

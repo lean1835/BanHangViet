@@ -47,6 +47,7 @@ export const API_TAG_TYPES = {
   AUDIT_LOG: "AuditLog",
   BACKUP: "Backup",
   RESTORE: "Restore",
+  BACKUP_VERIFICATION: "BackupVerification",
   ANOMALY_ALERT: "AnomalyAlert",
   PROMOTION: "Promotion",
   BARCODE: "Barcode",
@@ -79,6 +80,15 @@ export const API_TAG_TYPES = {
   PLATFORM_HOUSEHOLD: "PlatformHousehold",
   SUBSCRIPTION_PLAN: "SubscriptionPlan",
   PLATFORM_LOG: "PlatformLog",
+  SUPPLIER_RETURN: "SupplierReturn",
+  INVENTORY_VALUATION: "InventoryValuation",
+  DISPLAY_SETTINGS: "DisplaySettings",
+  POS_LAYOUT: "PosLayout",
+  ACTION_CONFIRMATION: "ActionConfirmation",
+  SCREEN_GUIDE: "ScreenGuide",
+  FAQ: "Faq",
+  SUPPORT_CHANNEL: "SupportChannel",
+  ONBOARDING: "Onboarding",
 } as const;
 
 export const API_TAG_TYPE_VALUES = Object.values(API_TAG_TYPES);

@@ -35,6 +35,13 @@ export interface IPaySupplierDebtRequest {
   notes?: string | null;
 }
 
+export interface IReceiveSupplierRefundRequest {
+  supplierId: string;
+  amount: number;
+  paymentMethod?: string;
+  notes?: string | null;
+}
+
 export interface ISupplierDebtQueryParams {
   status?: string;
 }

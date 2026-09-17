@@ -43,6 +43,9 @@ public class ProductUnitConversionServiceImpl implements ProductUnitConversionSe
     private final ActivityLogHelper activityLogHelper;
     private final ObjectMapper objectMapper;
 
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private ProductExchangeItemRepository productExchangeItemRepository;
+
     private User getAuthenticatedUser(String username) {
         return userRepository.findByUsername(username)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
@@ -237,6 +240,9 @@ public class ProductUnitConversionServiceImpl implements ProductUnitConversionSe
             return true;
         }
         if (inventoryAuditDetailRepository != null && inventoryAuditDetailRepository.hasStockMovementByProduct(productId, householdId)) {
+            return true;
+        }
+        if (productExchangeItemRepository != null && productExchangeItemRepository.hasStockMovementByProduct(productId, householdId)) {
             return true;
         }
         return false;

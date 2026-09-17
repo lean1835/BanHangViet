@@ -24,7 +24,24 @@ describe("Trung tâm thông báo (NotificationCenterDropdown)", () => {
 
     // Mở dropdown
     fireEvent.click(bellBtn);
-    expect(screen.getByText("Trung tâm thông báo")).toBeInTheDocument();
-    expect(screen.getByText(/Xem theo dõi doanh thu lũy kế năm/i)).toBeInTheDocument();
+    expect(screen.getByText("Thông báo")).toBeInTheDocument();
+    expect(screen.getByText(/Xem tất cả thông báo/i)).toBeInTheDocument();
+    expect(screen.getByText("Chưa đọc")).toBeInTheDocument();
+    // Không còn nút load/quét lại
+    expect(screen.queryByTitle("Quét lại việc cần làm")).not.toBeInTheDocument();
+  });
+
+  it("Không hiển thị số đỏ khi unreadCount = 0 mặc dù unclosedCount > 0 (đã đọc hết)", () => {
+    localStorage.clear();
+    render(
+      <Provider store={store}>
+        <MemoryRouter>
+          <NotificationCenterDropdown />
+        </MemoryRouter>
+      </Provider>
+    );
+
+    // Khi không có thông báo chưa đọc, không được có badge số đỏ ngoài chuông
+    expect(screen.queryByText("15")).not.toBeInTheDocument();
   });
 });

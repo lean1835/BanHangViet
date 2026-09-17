@@ -20,6 +20,44 @@ import java.util.List;
 public class CustomerController {
 
     private final CustomerService customerService;
+    private final com.sales.service.interfaces.CustomerImportService customerImportService;
+
+    @GetMapping("/import-template")
+    @PreAuthorize("hasRole('VT-01')")
+    public ResponseEntity<byte[]> getImportTemplate() {
+        byte[] data = customerImportService.getImportTemplate();
+        return ResponseEntity.ok()
+                .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=mau_nhap_khach_hang.xlsx")
+                .header(org.springframework.http.HttpHeaders.CONTENT_TYPE, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+                .body(data);
+    }
+
+    @PostMapping("/import-preview")
+    @PreAuthorize("hasRole('VT-01')")
+    public ResponseEntity<ApiResponse<com.sales.dto.response.ImportPreviewResponse>> previewImport(
+            Principal principal,
+            @RequestParam("file") org.springframework.web.multipart.MultipartFile file) {
+        com.sales.dto.response.ImportPreviewResponse preview = customerImportService.previewImport(principal.getName(), file);
+        return ResponseEntity.ok(ApiResponse.<com.sales.dto.response.ImportPreviewResponse>builder()
+                .code(1000)
+                .message("Phân tích tệp dữ liệu khách hàng thành công")
+                .result(preview)
+                .build());
+    }
+
+    @PostMapping("/import")
+    @PreAuthorize("hasRole('VT-01')")
+    public ResponseEntity<ApiResponse<com.sales.dto.response.ImportCustomerResultResponse>> importCustomers(
+            Principal principal,
+            @RequestParam("file") org.springframework.web.multipart.MultipartFile file,
+            @RequestParam(value = "duplicateAction", defaultValue = "SKIP") String duplicateAction) {
+        com.sales.dto.response.ImportCustomerResultResponse result = customerImportService.importCustomers(principal.getName(), file, duplicateAction);
+        return ResponseEntity.ok(ApiResponse.<com.sales.dto.response.ImportCustomerResultResponse>builder()
+                .code(1000)
+                .message("Nhập danh mục khách hàng từ tệp thành công")
+                .result(result)
+                .build());
+    }
 
     @PostMapping
     @PreAuthorize("hasAnyRole('VT-01', 'VT-02')")

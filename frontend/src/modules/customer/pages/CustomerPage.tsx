@@ -21,6 +21,7 @@ import { DebtReminderModal } from "../components/DebtReminderModal";
 import { DebtReconciliationModal } from "../components/DebtReconciliationModal";
 import { DebtStatementPrintModal } from "../components/DebtStatementPrintModal";
 import { DebtAdjustmentModal } from "../components/DebtAdjustmentModal";
+import { ImportCustomerModal } from "../components/ImportCustomerModal";
 import {
   useGetCustomersQuery,
   useGetDebtRemindersQuery,
@@ -70,6 +71,7 @@ export const CustomerPage: React.FC = () => {
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<ICustomer | null>(null);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
 
   // Merge debt reminders data (dueDate, debtCreatedAt) into customer objects
   const customersWithDebtInfo = useMemo(() => {
@@ -387,6 +389,7 @@ export const CustomerPage: React.FC = () => {
           onConfirmReminder={handleConfirmReminder}
           onConfirmPayDebt={handleConfirmPayDebt}
           onOpenReconcileModal={(c) => setReconcileCustomer(c)}
+          onOpenImportModal={() => setIsImportModalOpen(true)}
         />
       )}
 
@@ -426,6 +429,13 @@ export const CustomerPage: React.FC = () => {
         customer={editingCustomer}
         existingCustomers={apiCustomers}
         onOpenEditModal={handleOpenEditModal}
+      />
+
+      {/* Import Customer from File Modal (NCL-09-CN-009) */}
+      <ImportCustomerModal
+        isOpen={isImportModalOpen}
+        onClose={() => setIsImportModalOpen(false)}
+        onImportSuccess={() => refetch()}
       />
 
       {/* Debt Reconciliation Modal (NCL-10-CN-007) */}

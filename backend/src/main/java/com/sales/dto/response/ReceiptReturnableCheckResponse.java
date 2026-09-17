@@ -20,4 +20,8 @@ public class ReceiptReturnableCheckResponse {
     private BigDecimal supplierCurrentDebt;
     private BigDecimal receiptTotalAmount;
     private List<ReceiptReturnableItemResponse> items;
+    private String returnStatus; // NOT_RETURNED, PARTIALLY_RETURNED, FULLY_RETURNED
+    private Boolean isFullyReturned;
+    private Boolean isReturnable;
+    private BigDecimal totalReturnedAmount;
 }

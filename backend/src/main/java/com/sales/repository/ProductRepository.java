@@ -25,6 +25,8 @@ public interface ProductRepository extends JpaRepository<Product, String>, JpaSp
 
     boolean existsBySkuAndHouseholdIdAndDeletedAtIsNull(String sku, String householdId);
 
+    long countByHouseholdIdAndDeletedAtIsNull(String householdId);
+
     boolean existsBySkuAndHouseholdIdAndIdNotAndDeletedAtIsNull(String sku, String householdId, String id);
 
     boolean existsByHouseholdIdAndBarcodeAndDeletedAtIsNull(String householdId, String barcode);

@@ -18,6 +18,8 @@ public class GlobalExceptionHandler {
         ApiResponse<?> apiResponse = ApiResponse.builder()
                 .code(errorCode.getCode())
                 .message(errorCode.getMessage())
+                .actionUrl(exception.getActionUrl())
+                .guideScreenCode(exception.getGuideScreenCode())
                 .build();
         return ResponseEntity.status(errorCode.getStatusCode()).body(apiResponse);
     }

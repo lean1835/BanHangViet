@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sales.constant.DebtStatus;
 import com.sales.constant.DebtType;
 import com.sales.dto.request.PaySupplierDebtRequest;
+import com.sales.dto.request.ReceiveSupplierRefundRequest;
 import com.sales.dto.response.SupplierDebtResponse;
 import com.sales.dto.response.SupplierDebtSummaryResponse;
 import com.sales.entity.*;
@@ -200,6 +201,61 @@ public class SupplierDebtServiceImpl implements SupplierDebtService {
         logActivity(household, user, "PAY_SUPPLIER_DEBT", savedPayment.getId(), null, buildDebtLogMap(savedPayment));
 
         return mapToResponse(savedPayment);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public SupplierDebtResponse receiveSupplierRefund(String currentUsername, ReceiveSupplierRefundRequest request) {
+        User user = getAuthenticatedUser(currentUsername);
+        BusinessHousehold household = user.getHousehold();
+
+        Supplier supplier = supplierRepository.findByIdAndHouseholdIdAndDeletedAtIsNull(request.getSupplierId(), household.getId())
+                .orElseThrow(() -> new AppException(ErrorCode.SUPPLIER_NOT_FOUND));
+
+        BigDecimal currentDebt = supplier.getCurrentDebt() != null ? supplier.getCurrentDebt() : BigDecimal.ZERO;
+        if (currentDebt.compareTo(BigDecimal.ZERO) >= 0) {
+            throw new AppException(ErrorCode.SUPPLIER_HAS_NO_REFUNDABLE_DEBT);
+        }
+
+        BigDecimal refundableAmount = currentDebt.abs();
+        if (request.getAmount() == null || request.getAmount().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new AppException(ErrorCode.INVALID_SUPPLIER_PAYMENT_AMOUNT);
+        }
+
+        if (request.getAmount().compareTo(refundableAmount) > 0) {
+            throw new AppException(ErrorCode.REFUND_AMOUNT_EXCEEDS_DEBT);
+        }
+
+        // Tăng currentDebt lên (từ số âm về 0 hoặc giảm bớt khoản NCC đang nợ)
+        BigDecimal newDebt = currentDebt.add(request.getAmount());
+        if (newDebt.compareTo(BigDecimal.ZERO) > 0) {
+            newDebt = BigDecimal.ZERO;
+        }
+        supplier.setCurrentDebt(newDebt);
+        supplierRepository.save(supplier);
+
+        String paymentMethod = StringUtils.hasText(request.getPaymentMethod()) ? request.getPaymentMethod() : "CASH";
+        String notes = StringUtils.hasText(request.getNotes())
+                ? request.getNotes()
+                : "Thu tiền hoàn trả từ nhà cung cấp do trả hàng";
+
+        SupplierDebt refundRecord = SupplierDebt.builder()
+                .household(household)
+                .supplier(supplier)
+                .amount(request.getAmount())
+                .remainingAmount(BigDecimal.ZERO)
+                .type(DebtType.DEBT_CREATED)
+                .status(DebtStatus.PAID)
+                .paymentMethod(paymentMethod)
+                .notes(notes)
+                .createdByUser(user)
+                .build();
+
+        SupplierDebt savedRefund = supplierDebtRepository.save(refundRecord);
+
+        logActivity(household, user, "RECEIVE_SUPPLIER_REFUND", savedRefund.getId(), null, buildDebtLogMap(savedRefund));
+
+        return mapToResponse(savedRefund);
     }
 
     @Override

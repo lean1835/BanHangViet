@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { formatCurrency } from "@/utils/formatCurrency";
 import { formatDateShort } from "@/utils/dateFormatter";
 import { useGetSuppliersQuery } from "@/modules/supplier/services/supplierApi";
+import { useGetSupplierReturnsQuery } from "@/modules/supplier_return/services/supplierReturnApi";
 import { TablePaginationFooter } from "@/components/common/TablePaginationFooter";
 import type { IGoodsReceipt } from "../types/IGoodsReceipt";
 
@@ -25,6 +26,11 @@ export const StockEntryHistoryTable = ({
   onPageChange,
 }: StockEntryHistoryTableProps) => {
   const { data: suppliers = [] } = useGetSuppliersQuery();
+  const { data: allReturnsData } = useGetSupplierReturnsQuery({
+    page: 0,
+    size: 200,
+  });
+
   const supplierMap = useMemo(() => {
     const map = new Map<string, string>();
     for (const s of suppliers) {
@@ -34,6 +40,19 @@ export const StockEntryHistoryTable = ({
     }
     return map;
   }, [suppliers]);
+
+  const returnsSummaryMap = useMemo(() => {
+    const map = new Map<string, number>();
+    (allReturnsData?.content || []).forEach((ret) => {
+      if (ret.receiptId) {
+        map.set(ret.receiptId, (map.get(ret.receiptId) || 0) + (ret.totalReturnAmount || 0));
+      }
+      if (ret.receiptNumber) {
+        map.set(ret.receiptNumber, (map.get(ret.receiptNumber) || 0) + (ret.totalReturnAmount || 0));
+      }
+    });
+    return map;
+  }, [allReturnsData]);
 
   const displayTotal = totalElements || receipts.length;
 
@@ -56,11 +75,11 @@ export const StockEntryHistoryTable = ({
             <thead>
               <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold text-xs">
                 <th className="p-3 w-12 text-center">#</th>
-                <th className="p-3">Nhà cung cấp</th>
+                <th className="p-3">Mã phiếu / NCC</th>
                 <th className="p-3">Thời gian nhập</th>
                 <th className="p-3 text-right">Tổng tiền phiếu (đ)</th>
+                <th className="p-3 text-center">Trạng thái trả</th>
                 <th className="p-3">Ghi chú</th>
-                <th className="p-3 w-24 text-center">Thao tác</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 font-medium text-slate-700 text-xs">
@@ -69,6 +88,24 @@ export const StockEntryHistoryTable = ({
                   receipt.supplierName ||
                   (receipt.supplierId ? supplierMap.get(receipt.supplierId) : undefined) ||
                   "— (Nhập lẻ)";
+
+                const returnedFromSummary =
+                  (receipt.id ? returnsSummaryMap.get(receipt.id) : 0) ||
+                  (receipt.receiptNumber ? returnsSummaryMap.get(receipt.receiptNumber) : 0) ||
+                  0;
+
+                const totalReturned =
+                  receipt.totalReturnedAmount && receipt.totalReturnedAmount > 0
+                    ? receipt.totalReturnedAmount
+                    : returnedFromSummary;
+
+                const isFullyReturned =
+                  receipt.returnStatus === "FULLY_RETURNED" ||
+                  (Boolean(receipt.totalAmount) && totalReturned >= (receipt.totalAmount || 0) - 1);
+
+                const isPartiallyReturned =
+                  !isFullyReturned &&
+                  (receipt.returnStatus === "PARTIALLY_RETURNED" || totalReturned > 0);
 
                 return (
                   <tr
@@ -82,10 +119,13 @@ export const StockEntryHistoryTable = ({
                       {page * pageSize + index + 1}
                     </td>
 
-                    {/* 2. Nhà cung cấp */}
-                    <td className="p-3 font-semibold text-slate-700">
-                      <span className="block max-w-[240px] truncate" title={supplierDisplayName}>
-                        {supplierDisplayName}
+                    {/* 2. Mã phiếu / Nhà cung cấp */}
+                    <td className="p-3">
+                      <span className="font-extrabold text-blue-700 text-xs block group-hover:underline">
+                        {receipt.receiptNumber}
+                      </span>
+                      <span className="block max-w-[220px] truncate text-slate-600 text-[11px] font-normal mt-0.5" title={supplierDisplayName}>
+                        NCC: {supplierDisplayName}
                       </span>
                     </td>
 
@@ -99,20 +139,26 @@ export const StockEntryHistoryTable = ({
                       {formatCurrency(receipt.totalAmount || 0)}
                     </td>
 
-                    {/* 5. Ghi chú */}
-                    <td className="p-3 text-slate-500 max-w-[220px] truncate font-normal" title={receipt.notes}>
-                      {receipt.notes || "---"}
+                    {/* 5. Trạng thái trả hàng */}
+                    <td className="p-3 text-center">
+                      {isFullyReturned ? (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-rose-50 text-rose-700 border border-rose-200 shadow-2xs">
+                          Đã trả toàn bộ
+                        </span>
+                      ) : isPartiallyReturned ? (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200 shadow-2xs">
+                          Đã trả 1 phần
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-slate-100 text-slate-500 border border-slate-200">
+                          Chưa trả
+                        </span>
+                      )}
                     </td>
 
-                    {/* 6. Action button */}
-                    <td className="p-3 text-center" onClick={(e) => e.stopPropagation()}>
-                      <button
-                        type="button"
-                        onClick={() => onViewDetails(receipt.id)}
-                        className="px-2.5 py-1 rounded-lg border border-slate-200 bg-white hover:bg-kv-blue-primary hover:text-white hover:border-kv-blue-primary text-slate-600 font-bold transition-all text-[11px] shadow-2xs"
-                      >
-                        Chi tiết
-                      </button>
+                    {/* 6. Ghi chú */}
+                    <td className="p-3 text-slate-500 max-w-[200px] truncate font-normal" title={receipt.notes}>
+                      {receipt.notes || "---"}
                     </td>
                   </tr>
                 );

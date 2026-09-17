@@ -466,4 +466,55 @@ class SupplierReturnServiceImplTest {
         assertEquals(1, response.getContent().size());
         assertEquals("sr-001", response.getContent().get(0).getId());
     }
+
+    @Test
+    @DisplayName("TC-11: Phiếu nhập đã trả toàn bộ hàng -> createSupplierReturn ném RECEIPT_ALREADY_FULLY_RETURNED")
+    void createSupplierReturn_alreadyFullyReturned_throwsException() {
+        when(userRepository.findByUsername("owner_test")).thenReturn(Optional.of(ownerUser));
+        when(goodsReceiptRepository.findByIdAndHouseholdId("gr-001", "hh-001")).thenReturn(Optional.of(goodsReceipt));
+        when(goodsReceiptDetailRepository.findByReceiptId("gr-001")).thenReturn(List.of(goodsReceiptDetail));
+
+        SupplierReturnItemRepository.ReceiptDetailReturnedProjection proj = mock(SupplierReturnItemRepository.ReceiptDetailReturnedProjection.class);
+        when(proj.getDetailId()).thenReturn("grd-001");
+        // Detail has 24, previous returned = 24 -> fully returned
+        when(proj.getTotalReturned()).thenReturn(new BigDecimal("24.000"));
+        when(supplierReturnItemRepository.sumQuantityReturnedByDetailIds(List.of("grd-001"))).thenReturn(List.of(proj));
+
+        CreateSupplierReturnRequest request = CreateSupplierReturnRequest.builder()
+                .receiptId("gr-001")
+                .reason("Hàng hỏng")
+                .items(List.of(
+                        CreateSupplierReturnItemRequest.builder()
+                                .receiptDetailId("grd-001")
+                                .quantity(new BigDecimal("1.000"))
+                                .build()
+                ))
+                .build();
+
+        AppException ex = assertThrows(AppException.class, () ->
+                supplierReturnService.createSupplierReturn("owner_test", request)
+        );
+
+        assertEquals(ErrorCode.RECEIPT_ALREADY_FULLY_RETURNED, ex.getErrorCode());
+    }
+
+    @Test
+    @DisplayName("TC-12: checkReceiptReturnable với phiếu nhập đã trả toàn bộ -> returnStatus = FULLY_RETURNED và isFullyReturned = true")
+    void checkReceiptReturnable_fullyReturned_statusCorrect() {
+        when(userRepository.findByUsername("owner_test")).thenReturn(Optional.of(ownerUser));
+        when(goodsReceiptRepository.findByIdAndHouseholdId("gr-001", "hh-001")).thenReturn(Optional.of(goodsReceipt));
+        when(goodsReceiptDetailRepository.findByReceiptId("gr-001")).thenReturn(List.of(goodsReceiptDetail));
+
+        SupplierReturnItemRepository.ReceiptDetailReturnedProjection proj = mock(SupplierReturnItemRepository.ReceiptDetailReturnedProjection.class);
+        when(proj.getDetailId()).thenReturn("grd-001");
+        when(proj.getTotalReturned()).thenReturn(new BigDecimal("24.000"));
+        when(supplierReturnItemRepository.sumQuantityReturnedByDetailIds(List.of("grd-001"))).thenReturn(List.of(proj));
+
+        ReceiptReturnableCheckResponse response = supplierReturnService.checkReceiptReturnable("owner_test", "gr-001");
+
+        assertNotNull(response);
+        assertEquals("FULLY_RETURNED", response.getReturnStatus());
+        assertTrue(response.getIsFullyReturned());
+        assertFalse(response.getIsReturnable());
+    }
 }

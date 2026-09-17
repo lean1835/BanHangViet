@@ -19,6 +19,8 @@ public class GoodsReceiptResponse {
     private String notes;
     private String createdByUserId;
     private String createdByUserName;
+    private String returnStatus; // NOT_RETURNED, PARTIALLY_RETURNED, FULLY_RETURNED
+    private BigDecimal totalReturnedAmount;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

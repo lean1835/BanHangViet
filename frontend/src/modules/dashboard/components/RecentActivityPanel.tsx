@@ -1,4 +1,154 @@
-import { RotateCw, FileText, PlusCircle, AlertTriangle, Key, Activity, Trash2, ArrowUpRight } from "lucide-react";
+import React from "react";
+
+// Native SVG Icons
+interface SvgIconProps {
+  size?: number;
+  className?: string;
+}
+
+const RotateCwIcon: React.FC<SvgIconProps> = ({ size = 16, className = "" }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+  >
+    <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" />
+    <path d="M21 3v5h-5" />
+  </svg>
+);
+
+const FileTextIcon: React.FC<SvgIconProps> = ({ size = 16, className = "" }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+  >
+    <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" />
+    <path d="M14 2v4a2 2 0 0 0 2 2h4" />
+    <path d="M10 9H8" />
+    <path d="M16 13H8" />
+    <path d="M16 17H8" />
+  </svg>
+);
+
+const PlusCircleIcon: React.FC<SvgIconProps> = ({ size = 16, className = "" }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+  >
+    <circle cx="12" cy="12" r="10" />
+    <line x1="12" y1="8" x2="12" y2="16" />
+    <line x1="8" y1="12" x2="16" y2="12" />
+  </svg>
+);
+
+const AlertTriangleIcon: React.FC<SvgIconProps> = ({ size = 16, className = "" }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+  >
+    <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
+    <line x1="12" y1="9" x2="12" y2="13" />
+    <line x1="12" y1="17" x2="12.01" y2="17" />
+  </svg>
+);
+
+const KeyIcon: React.FC<SvgIconProps> = ({ size = 16, className = "" }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+  >
+    <circle cx="7.5" cy="15.5" r="5.5" />
+    <path d="m21 2-9.6 9.6" />
+    <path d="m15.5 7.5 3 3L22 7l-3-3" />
+  </svg>
+);
+
+const ActivityIcon: React.FC<SvgIconProps> = ({ size = 16, className = "" }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+  >
+    <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+  </svg>
+);
+
+const Trash2Icon: React.FC<SvgIconProps> = ({ size = 16, className = "" }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+  >
+    <path d="M3 6h18" />
+    <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+    <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+    <line x1="10" y1="11" x2="10" y2="17" />
+    <line x1="14" y1="11" x2="14" y2="17" />
+  </svg>
+);
+
+const ArrowUpRightIcon: React.FC<SvgIconProps> = ({ size = 12, className = "" }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+  >
+    <path d="M7 17 17 7" />
+    <path d="M7 7h10v10" />
+  </svg>
+);
 import { Link } from "react-router-dom";
 import { APP_ROUTES } from "@/constants/routes";
 import type { IActivityLog } from "@/modules/report/types/IActivityLog";
@@ -30,27 +180,27 @@ export const RecentActivityPanel = ({ logs }: RecentActivityPanelProps) => {
   const getIcon = (action: string) => {
     const actionUpper = action.toUpperCase();
     if (actionUpper.includes("ĐĂNG_NHẬP") || actionUpper.includes("LOGIN")) {
-      return <Key className="w-4 h-4 text-blue-600" />;
+      return <KeyIcon size={16} className="w-4 h-4 text-blue-600" />;
     }
     if (actionUpper.includes("PHÁT_HÀNH") || actionUpper.includes("INVOICE") || actionUpper.includes("TAX")) {
-      return <FileText className="w-4 h-4 text-emerald-600" />;
+      return <FileTextIcon size={16} className="w-4 h-4 text-emerald-600" />;
     }
     if (actionUpper.includes("GỬI_LẠI") || actionUpper.includes("RESEND")) {
-      return <RotateCw className="w-4 h-4 text-violet-600" />;
+      return <RotateCwIcon size={16} className="w-4 h-4 text-violet-600" />;
     }
     if (actionUpper.includes("TẠO") || actionUpper.includes("THÊM") || actionUpper.includes("CREATE")) {
-      return <PlusCircle className="w-4 h-4 text-sky-600" />;
+      return <PlusCircleIcon size={16} className="w-4 h-4 text-sky-600" />;
     }
     if (actionUpper.includes("CẬP_NHẬT") || actionUpper.includes("EDIT") || actionUpper.includes("UPDATE")) {
-      return <RotateCw className="w-4 h-4 text-amber-600" />;
+      return <RotateCwIcon size={16} className="w-4 h-4 text-amber-600" />;
     }
     if (actionUpper.includes("HỦY") || actionUpper.includes("XÓA") || actionUpper.includes("DELETE")) {
-      return <Trash2 className="w-4 h-4 text-rose-600" />;
+      return <Trash2Icon size={16} className="w-4 h-4 text-rose-600" />;
     }
     if (actionUpper.includes("LỖI") || actionUpper.includes("XUNG_ĐỘT")) {
-      return <AlertTriangle className="w-4 h-4 text-orange-600" />;
+      return <AlertTriangleIcon size={16} className="w-4 h-4 text-orange-600" />;
     }
-    return <Activity className="w-4 h-4 text-slate-500" />;
+    return <ActivityIcon size={16} className="w-4 h-4 text-slate-500" />;
   };
 
   const getBgColor = (action: string) => {
@@ -77,14 +227,14 @@ export const RecentActivityPanel = ({ logs }: RecentActivityPanelProps) => {
           )}
         </span>
         <Link to={APP_ROUTES.REPORT_ACTIVITY_LOGS} className="text-[10px] text-kv-blue-primary font-bold uppercase tracking-wider cursor-pointer hover:underline flex items-center gap-0.5">
-          Xem tất cả <ArrowUpRight className="w-3 h-3" />
+          Xem tất cả <ArrowUpRightIcon size={12} className="w-3 h-3" />
         </Link>
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3.5 min-h-0 divide-y divide-slate-100">
         {logs.length === 0 ? (
           <div className="flex-1 flex flex-col justify-center items-center text-slate-400 text-center py-8">
-            <Activity className="w-10 h-10 text-slate-300 mb-2" />
+            <ActivityIcon size={40} className="w-10 h-10 text-slate-300 mb-2" />
             <span className="font-semibold text-xs">Không có nhật ký hoạt động nào trong ngày chọn.</span>
           </div>
         ) : (

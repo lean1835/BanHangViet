@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { Clock, CalendarCheck } from "lucide-react";
+import { Clock, CalendarCheck, MoreHorizontal, Sparkles } from "lucide-react";
 import { APP_ROUTES } from "@/constants/routes";
 import {
   useGetProductsQuery,
@@ -61,6 +61,7 @@ import { BankTransferModal } from "../components/BankTransferModal";
 import { CancelOrderModal } from "@/modules/order/components/CancelOrderModal";
 import { HoldOrderModal } from "../components/HoldOrderModal";
 import { HeldOrdersDrawer } from "../components/HeldOrdersDrawer";
+import { PosMoreActionsModal } from "../components/PosMoreActionsModal";
 import { ShiftHandoverModal } from "@/modules/shift/components/ShiftHandoverModal";
 import { CreateCashTransactionModal } from "@/modules/shift/components/CreateCashTransactionModal";
 import { useGetShiftCashSummaryQuery } from "@/modules/shift/services/cashTransactionApi";
@@ -94,6 +95,10 @@ const createInitialTab = (index: number): IPosTab => ({
 export const PosPage = () => {
   const navigate = useNavigate();
   const authenticatedUser = useAppSelector((state) => state.auth.user);
+  const displaySettings = useAppSelector((state) => state.displaySettings);
+  const isSimpleMode = Boolean(displaySettings?.simpleModeEnabled);
+  const [isMoreActionsModalOpen, setIsMoreActionsModalOpen] = useState(false);
+
   const { isOnline, setOrders, addLogEntry, setCustomers, currentRole } = useDashboardDemo();
 
   const canManage =
@@ -2074,16 +2079,42 @@ export const PosPage = () => {
       {/* POS Main Workspace Body */}
       <div className="flex-1 min-h-0 flex gap-3 p-3 overflow-hidden">
         {/* Left Area: Cart Table */}
-        <PosCartTable
-          items={activeTab.items}
-          onUpdateQuantity={handleUpdateQuantity}
-          onRemoveItem={handleRemoveItem}
-          onClearCart={handleClearCart}
-          canManage={canManage}
-          onToggleBypass={handleToggleBypassPromotion}
-          onChangeUnit={handleChangeUnit}
-          onOpenWeightModal={handleOpenWeightModal}
-        />
+        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+          {isSimpleMode && (
+            <div className="bg-gradient-to-r from-amber-50/90 to-blue-50/90 border border-amber-200/90 px-3.5 py-2 rounded-xl mb-2 flex items-center justify-between text-xs text-amber-950 shadow-2xs shrink-0">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                <span className="font-extrabold text-amber-900">
+                  Chế độ chữ lớn & thao tác đơn giản
+                </span>
+                <span className="text-slate-500 hidden xl:inline text-[11px]">
+                  • 4 thao tác chính: Tìm hàng (F3), Thêm hàng (Enter), Thanh toán (F9), Xuất HĐ (F10)
+                </span>
+              </div>
+              <button
+                type="button"
+                id="pos-open-more-actions"
+                onClick={() => setIsMoreActionsModalOpen(true)}
+                className="px-2.5 py-1 rounded-lg bg-white hover:bg-slate-50 border border-amber-300 font-extrabold text-xs text-amber-900 flex items-center gap-1 shadow-xs cursor-pointer shrink-0"
+                title="Mở bảng các chức năng phụ"
+              >
+                <MoreHorizontal size={13} />
+                <span>Xem thêm thao tác</span>
+              </button>
+            </div>
+          )}
+
+          <PosCartTable
+            items={activeTab.items}
+            onUpdateQuantity={handleUpdateQuantity}
+            onRemoveItem={handleRemoveItem}
+            onClearCart={handleClearCart}
+            canManage={canManage}
+            onToggleBypass={handleToggleBypassPromotion}
+            onChangeUnit={handleChangeUnit}
+            onOpenWeightModal={handleOpenWeightModal}
+          />
+        </div>
 
         {/* Right Area: Payment Sidebar */}
         <PosPaymentSidebar
@@ -2271,6 +2302,24 @@ export const PosPage = () => {
           isOwner={canManage}
         />
       )}
+
+      {/* Pos More Actions Modal (NCL-19-CN-001 - Thu gọn chức năng phụ) */}
+      <PosMoreActionsModal
+        isOpen={isMoreActionsModalOpen}
+        onClose={() => setIsMoreActionsModalOpen(false)}
+        onOpenTableManagement={
+          canManage ? () => setIsTableManagementModalOpen(true) : undefined
+        }
+        onOpenHeldOrders={() => setIsHeldOrdersDrawerOpen(true)}
+        onOpenShiftHandover={() => setIsShiftHandoverModalOpen(true)}
+        onOpenCashTransaction={() => setIsCashTransactionModalOpen(true)}
+        onOpenCombinedPayment={handleOpenCombinedPaymentModal}
+        onCancelOrder={handleOpenCancelOrder}
+        canManage={canManage}
+        heldOrdersCount={heldOrdersCount}
+        pendingExpenseCount={pendingExpenseCount}
+        minTouchHeight={displaySettings?.minTouchHeight || "52px"}
+      />
 
       {/* Warning Overlay: No Active Sales Shift */}
       {!isShiftLoading && !isShiftOpen && (

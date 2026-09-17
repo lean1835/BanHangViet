@@ -2,8 +2,10 @@ package com.sales.scheduler;
 
 import com.sales.constant.DebtStatus;
 import com.sales.constant.DebtType;
+import com.sales.entity.BusinessHouseholdSettings;
 import com.sales.entity.Customer;
 import com.sales.entity.CustomerDebt;
+import com.sales.repository.BusinessHouseholdSettingsRepository;
 import com.sales.repository.CustomerDebtRepository;
 import com.sales.service.interfaces.EmailService;
 import lombok.RequiredArgsConstructor;
@@ -15,10 +17,13 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.util.StringUtils;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.function.BiConsumer;
 import java.util.function.BiPredicate;
 import java.util.function.Function;
@@ -35,6 +40,7 @@ public class DebtScheduler {
     private String defaultHouseholdName = "BanHangViet";
 
     private final CustomerDebtRepository customerDebtRepository;
+    private final BusinessHouseholdSettingsRepository settingsRepository;
     private final EmailService emailService;
     private final TransactionTemplate transactionTemplate;
 
@@ -45,10 +51,15 @@ public class DebtScheduler {
                 List.of(DebtStatus.PENDING), DebtType.DEBT_CREATED, LocalDateTime.now());
         if (!expiredDebts.isEmpty()) {
             for (CustomerDebt debt : expiredDebts) {
-                debt.setStatus(DebtStatus.OVERDUE);
+                boolean hasRemaining = debt.getRemainingAmount() != null
+                        ? debt.getRemainingAmount().compareTo(BigDecimal.ZERO) > 0
+                        : debt.getAmount() != null && debt.getAmount().compareTo(BigDecimal.ZERO) > 0;
+                if (hasRemaining) {
+                    debt.setStatus(DebtStatus.OVERDUE);
+                }
             }
             transactionTemplate.executeWithoutResult(status -> customerDebtRepository.saveAll(expiredDebts));
-            log.info("Marked {} debts as OVERDUE", expiredDebts.size());
+            log.info("Processed {} expired debts (marked OVERDUE)", expiredDebts.size());
         }
     }
 
@@ -61,15 +72,36 @@ public class DebtScheduler {
     }
 
     private void processPreDueReminders(LocalDate today) {
-        Integer maxDays = customerDebtRepository.findMaxPendingReminderDaysBefore();
-        int maxDaysBefore = (maxDays != null && maxDays > 0) ? maxDays : DEFAULT_REMINDER_DAYS;
+        Integer maxCustomerDays = customerDebtRepository.findMaxPendingReminderDaysBefore();
+        int maxDaysBefore = (maxCustomerDays != null && maxCustomerDays > 0) ? maxCustomerDays : DEFAULT_REMINDER_DAYS;
+        if (settingsRepository != null) {
+            Integer maxHouseholdDays = settingsRepository.findMaxDebtReminderDaysBefore();
+            if (maxHouseholdDays != null && maxHouseholdDays > 0) {
+                maxDaysBefore = Math.max(maxDaysBefore, maxHouseholdDays);
+            }
+        }
         LocalDateTime maxDueDate = today.plusDays(maxDaysBefore + 1).atStartOfDay();
+
+        Map<String, Integer> householdReminderDaysCache = new HashMap<>();
 
         int processedCount = processDebtRemindersBatch(
                 lastId -> customerDebtRepository.findPendingPreDueRemindersKeyset(
                         lastId, maxDueDate, PageRequest.of(0, DEFAULT_PAGE_SIZE)),
                 (customer, debt) -> {
-                    int daysBefore = customer.getReminderDaysBefore() != null ? customer.getReminderDaysBefore() : DEFAULT_REMINDER_DAYS;
+                    int daysBefore;
+                    if (customer.getReminderDaysBefore() != null) {
+                        daysBefore = customer.getReminderDaysBefore();
+                    } else if (debt.getHousehold() != null && settingsRepository != null) {
+                        String hhId = debt.getHousehold().getId();
+                        daysBefore = householdReminderDaysCache.computeIfAbsent(hhId, id ->
+                                settingsRepository.findByHouseholdId(id)
+                                        .map(BusinessHouseholdSettings::getDebtReminderDaysBefore)
+                                        .filter(d -> d != null && d > 0)
+                                        .orElse(DEFAULT_REMINDER_DAYS)
+                        );
+                    } else {
+                        daysBefore = DEFAULT_REMINDER_DAYS;
+                    }
                     LocalDate due = debt.getDueDate().toLocalDate();
                     LocalDate reminderStartDate = due.minusDays(daysBefore);
                     return (today.isAfter(reminderStartDate) || today.isEqual(reminderStartDate)) &&

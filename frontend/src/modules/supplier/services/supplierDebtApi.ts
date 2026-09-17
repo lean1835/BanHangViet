@@ -4,6 +4,7 @@ import type {
   ISupplierDebt,
   ISupplierDebtSummary,
   IPaySupplierDebtRequest,
+  IReceiveSupplierRefundRequest,
   ISupplierDebtQueryParams,
   TSupplierDebtType,
   TSupplierDebtStatus,
@@ -157,6 +158,26 @@ export const supplierDebtApi = baseApi.injectEndpoints({
         { type: API_TAG_TYPES.DEBT, id: `SUPPLIER_${supplierId}` },
       ],
     }),
+
+    receiveSupplierRefund: builder.mutation<ISupplierDebt, IReceiveSupplierRefundRequest>({
+      query: (body) => ({
+        url: "/supplier-debts/receive-refund",
+        method: HTTP_METHODS.POST,
+        body,
+      }),
+      transformResponse: (response: unknown): ISupplierDebt => {
+        const result = getResponseResult<unknown>(response);
+        return mapSupplierDebt(result);
+      },
+      invalidatesTags: (_result, _error, { supplierId }) => [
+        { type: API_TAG_TYPES.SUPPLIER, id: "LIST" },
+        { type: API_TAG_TYPES.SUPPLIER, id: supplierId },
+        { type: API_TAG_TYPES.SUPPLIER, id: "SUMMARY" },
+        { type: API_TAG_TYPES.DEBT, id: "SUPPLIER_SUMMARY" },
+        { type: API_TAG_TYPES.DEBT, id: "SUPPLIER_LIST" },
+        { type: API_TAG_TYPES.DEBT, id: `SUPPLIER_${supplierId}` },
+      ],
+    }),
   }),
   overrideExisting: API_CONFIG.OVERRIDE_EXISTING_ENDPOINTS,
 });
@@ -166,4 +187,5 @@ export const {
   useGetSupplierDebtHistoryQuery,
   useGetSupplierDebtsQuery,
   usePaySupplierDebtMutation,
+  useReceiveSupplierRefundMutation,
 } = supplierDebtApi;

@@ -10,20 +10,24 @@ import com.sales.dto.response.DebtSummaryResponse;
 import com.sales.dto.response.OrderItemResponse;
 import com.sales.entity.ActivityLog;
 import com.sales.entity.BusinessHousehold;
+import com.sales.entity.BusinessHouseholdSettings;
 import com.sales.entity.Customer;
 import com.sales.entity.CustomerDebt;
 import com.sales.entity.User;
 import com.sales.exception.AppException;
 import com.sales.exception.ErrorCode;
 import com.sales.repository.ActivityLogRepository;
+import com.sales.repository.BusinessHouseholdSettingsRepository;
 import com.sales.repository.CustomerDebtRepository;
 import com.sales.repository.CustomerRepository;
 import com.sales.repository.UserRepository;
+import com.sales.service.interfaces.AppNotificationService;
 import com.sales.service.interfaces.CustomerDebtService;
 import com.sales.service.interfaces.EmailService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -47,9 +51,21 @@ public class CustomerDebtServiceImpl implements CustomerDebtService {
     private final UserRepository userRepository;
     private final CustomerRepository customerRepository;
     private final CustomerDebtRepository customerDebtRepository;
+    private final BusinessHouseholdSettingsRepository settingsRepository;
     private final ActivityLogHelper activityLogHelper;
     private final EmailService emailService;
     private final ObjectMapper objectMapper;
+    private final AppNotificationService appNotificationService;
+
+    private int resolveDebtReminderDaysBefore(String householdId) {
+        if (householdId == null || settingsRepository == null) {
+            return 3;
+        }
+        return settingsRepository.findByHouseholdId(householdId)
+                .map(BusinessHouseholdSettings::getDebtReminderDaysBefore)
+                .filter(d -> d != null && d > 0)
+                .orElse(3);
+    }
 
     private User getAuthenticatedUser(String username) {
         return userRepository.findByUsername(username)
@@ -180,6 +196,19 @@ public class CustomerDebtServiceImpl implements CustomerDebtService {
 
         if (!updatedDebts.isEmpty()) {
             customerDebtRepository.saveAll(updatedDebts);
+
+            // NCL-19-CN-002 & QTN-14: Tự động đóng thông báo nhắc nợ khi khoản nợ đã thanh toán đủ
+            if (appNotificationService != null) {
+                for (CustomerDebt debt : updatedDebts) {
+                    if (DebtStatus.PAID.equals(debt.getStatus())) {
+                        try {
+                            appNotificationService.closeNotificationsByTarget("CUSTOMER_DEBT", debt.getId());
+                        } catch (Exception e) {
+                            log.warn("Lỗi khi tự động đóng thông báo công nợ {}: {}", debt.getId(), e.getMessage());
+                        }
+                    }
+                }
+            }
         }
 
         // Trừ dư nợ hiện tại của khách hàng
@@ -235,6 +264,8 @@ public class CustomerDebtServiceImpl implements CustomerDebtService {
             throw new AppException(ErrorCode.FORBIDDEN);
         }
 
+        int reminderDays = resolveDebtReminderDaysBefore(household.getId());
+
         List<CustomerDebt> reminders;
         if (statusFilter != null && !statusFilter.trim().isEmpty()) {
             reminders = customerDebtRepository.findByHouseholdIdAndStatusInAndTypeOrderByDueDateAscWithRelations(
@@ -243,6 +274,16 @@ public class CustomerDebtServiceImpl implements CustomerDebtService {
             reminders = customerDebtRepository.findByHouseholdIdAndStatusInAndTypeOrderByDueDateAscWithRelations(
                     household.getId(), List.of(DebtStatus.PENDING, DebtStatus.OVERDUE), DebtType.DEBT_CREATED);
         }
+
+        // Lọc danh sách nhắc nợ theo cấu hình debtReminderDaysBefore của hộ:
+        // - Nợ OVERDUE hoặc không có hạn: luôn hiển thị
+        // - Nợ PENDING: chỉ hiển thị nếu sắp đến hạn trong vòng reminderDays (dueDate <= now + reminderDays)
+        LocalDateTime reminderThreshold = LocalDateTime.now().plusDays(reminderDays);
+        reminders = reminders.stream()
+                .filter(d -> DebtStatus.OVERDUE.equals(d.getStatus())
+                        || d.getDueDate() == null
+                        || !d.getDueDate().isAfter(reminderThreshold))
+                .collect(Collectors.toList());
 
         return reminders.stream().map(this::mapToResponse).collect(Collectors.toList());
     }

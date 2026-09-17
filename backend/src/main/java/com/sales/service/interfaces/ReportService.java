@@ -27,6 +27,8 @@ public interface ReportService {
 
     GrossProfitReportResponse getGrossProfitReport(String currentUsername, LocalDate fromDate, LocalDate toDate, String productId);
 
+    GrossProfitReportResponse getGrossProfitReport(String currentUsername, LocalDate fromDate, LocalDate toDate, String productId, String posId);
+
     PaymentMethodReportResponse getPaymentMethodReport(String currentUsername, LocalDate fromDate, LocalDate toDate, String userId, String shiftId);
 
     ProductGroupReportResponse getProductGroupReport(String currentUsername, LocalDate fromDate, LocalDate toDate);

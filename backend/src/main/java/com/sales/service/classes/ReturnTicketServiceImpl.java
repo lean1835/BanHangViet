@@ -1,5 +1,7 @@
 package com.sales.service.classes;
 
+import com.sales.constant.DebtStatus;
+import com.sales.constant.DebtType;
 import com.sales.dto.request.CreateReturnTicketItemRequest;
 import com.sales.dto.request.CreateReturnTicketRequest;
 import com.sales.dto.request.RejectReturnTicketRequest;
@@ -8,11 +10,14 @@ import com.sales.entity.*;
 import com.sales.exception.AppException;
 import com.sales.exception.ErrorCode;
 import com.sales.repository.*;
+import com.sales.service.interfaces.AppNotificationService;
+import com.sales.service.interfaces.LoyaltyService;
 import com.sales.service.interfaces.ReturnTicketService;
 import com.sales.specification.ReturnTicketSpecification;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -47,8 +52,22 @@ public class ReturnTicketServiceImpl implements ReturnTicketService {
     private final CustomerDebtRepository customerDebtRepository;
     private final InvoiceStatusLogRepository invoiceStatusLogRepository;
     private final ActivityLogHelper activityLogHelper;
-    @org.springframework.context.annotation.Lazy
-    private final com.sales.service.interfaces.LoyaltyService loyaltyService;
+    private final BusinessHouseholdSettingsRepository settingsRepository;
+    @Lazy
+    private final LoyaltyService loyaltyService;
+    private final ProductExchangeItemRepository productExchangeItemRepository;
+    @Lazy
+    private final AppNotificationService appNotificationService;
+
+    private int resolveMaxReturnDays(String householdId) {
+        if (householdId == null || settingsRepository == null) {
+            return maxReturnDays;
+        }
+        return settingsRepository.findByHouseholdId(householdId)
+                .map(BusinessHouseholdSettings::getReturnDaysLimit)
+                .filter(limit -> limit != null && limit > 0)
+                .orElse(maxReturnDays);
+    }
 
 
     @Override
@@ -68,12 +87,13 @@ public class ReturnTicketServiceImpl implements ReturnTicketService {
             ineligibilityReason = "Hóa đơn gốc chưa được cấp mã hoặc đã bị hủy";
         }
 
+        int effectiveMaxReturnDays = resolveMaxReturnDays(user.getHousehold().getId());
         LocalDateTime issueTime = invoice.getCreatedAt();
         long daysSinceIssued = ChronoUnit.DAYS.between(issueTime, LocalDateTime.now());
-        boolean isExpired = daysSinceIssued > maxReturnDays;
+        boolean isExpired = daysSinceIssued > effectiveMaxReturnDays;
 
         if (isExpired && isEligible) {
-            ineligibilityReason = "Hóa đơn đã quá thời hạn trả hàng " + maxReturnDays + " ngày theo quy định";
+            ineligibilityReason = "Hóa đơn đã quá thời hạn trả hàng " + effectiveMaxReturnDays + " ngày theo quy định";
         }
 
         // Tính toán số lượng khả dụng của từng sản phẩm trong hóa đơn gốc
@@ -111,7 +131,7 @@ public class ReturnTicketServiceImpl implements ReturnTicketService {
                 .isEligibleForReturn(isEligible)
                 .isExpired(isExpired)
                 .daysSinceIssued(daysSinceIssued)
-                .maxReturnDays(maxReturnDays)
+                .maxReturnDays(effectiveMaxReturnDays)
                 .ineligibilityReason(ineligibilityReason)
                 .items(itemDtos)
                 .build();
@@ -130,8 +150,9 @@ public class ReturnTicketServiceImpl implements ReturnTicketService {
             throw new AppException(ErrorCode.INVOICE_NOT_ELIGIBLE_FOR_RETURN);
         }
 
+        int effectiveMaxReturnDays = resolveMaxReturnDays(user.getHousehold().getId());
         long daysSinceIssued = ChronoUnit.DAYS.between(invoice.getCreatedAt(), LocalDateTime.now());
-        boolean isExpired = daysSinceIssued > maxReturnDays;
+        boolean isExpired = daysSinceIssued > effectiveMaxReturnDays;
         boolean isOwner = user.getRole() != null && "VT-01".equals(user.getRole().getCode());
 
         // QTN-18: Cảnh báo quá hạn và chỉ cho lập khi chủ hộ đồng ý ngoại lệ (allowOverdueOverride == true)
@@ -305,13 +326,58 @@ public class ReturnTicketServiceImpl implements ReturnTicketService {
             customerRepository.save(customer);
 
             if (actualDebtReduced.compareTo(BigDecimal.ZERO) > 0) {
+                // Đồng bộ hóa remainingAmount và status của các khoản nợ mở (PENDING/OVERDUE) theo nguyên tắc FIFO
+                List<CustomerDebt> activeDebts = customerDebtRepository.findByCustomerIdAndHouseholdIdAndStatusInAndTypeOrderByCreatedAtAsc(
+                        customer.getId(), user.getHousehold().getId(), List.of(DebtStatus.PENDING, DebtStatus.OVERDUE), DebtType.DEBT_CREATED);
+
+                BigDecimal remainingRefundToDeduct = actualDebtReduced;
+                List<CustomerDebt> updatedDebts = new ArrayList<>();
+
+                for (CustomerDebt debt : activeDebts) {
+                    if (remainingRefundToDeduct.compareTo(BigDecimal.ZERO) <= 0) {
+                        break;
+                    }
+                    BigDecimal unpaid = debt.getRemainingAmount() != null ? debt.getRemainingAmount() : BigDecimal.ZERO;
+                    if (unpaid.compareTo(BigDecimal.ZERO) <= 0) {
+                        continue;
+                    }
+
+                    if (remainingRefundToDeduct.compareTo(unpaid) >= 0) {
+                        remainingRefundToDeduct = remainingRefundToDeduct.subtract(unpaid);
+                        debt.setRemainingAmount(BigDecimal.ZERO);
+                        debt.setStatus(DebtStatus.PAID);
+                    } else {
+                        debt.setRemainingAmount(unpaid.subtract(remainingRefundToDeduct));
+                        remainingRefundToDeduct = BigDecimal.ZERO;
+                    }
+                    updatedDebts.add(debt);
+                }
+
+                if (!updatedDebts.isEmpty()) {
+                    customerDebtRepository.saveAll(updatedDebts);
+                    if (appNotificationService != null) {
+                        List<String> paidDebtIds = updatedDebts.stream()
+                                .filter(d -> DebtStatus.PAID.equals(d.getStatus()))
+                                .map(CustomerDebt::getId)
+                                .toList();
+                        if (!paidDebtIds.isEmpty()) {
+                            try {
+                                appNotificationService.closeNotificationsByTargetIds("CUSTOMER_DEBT", paidDebtIds);
+                            } catch (Exception e) {
+                                log.warn("Lỗi khi tự động đóng thông báo nợ khi giảm trừ phiếu trả hàng: {}", e.getMessage());
+                            }
+                        }
+                    }
+                }
+
                 CustomerDebt debtRecord = CustomerDebt.builder()
                         .household(user.getHousehold())
                         .customer(customer)
                         .order(ticket.getOriginalOrder())
                         .amount(actualDebtReduced)
-                        .type("DEBT_PAID")
-                        .status("PAID")
+                        .remainingAmount(BigDecimal.ZERO)
+                        .type(DebtType.DEBT_PAID)
+                        .status(DebtStatus.PAID)
                         .dueDate(LocalDateTime.now())
                         .notes("Giảm trừ công nợ từ phiếu trả hàng " + ticket.getTicketNumber())
                         .createdByUser(user)
@@ -903,6 +969,28 @@ public class ReturnTicketServiceImpl implements ReturnTicketService {
                 returnedQtyMap.merge(key, qty, BigDecimal::add);
             }
         }
+
+        // Kế thừa số lượng đã đổi qua phiếu đổi hàng (NCL-11-CN-005) để tránh trả quá số lượng đã mua
+        if (productExchangeItemRepository != null) {
+            List<ProductExchangeItem> exchangeItems = productExchangeItemRepository.findCompletedReturnItemsByInvoiceId(invoiceId);
+            if (exchangeItems != null) {
+                for (ProductExchangeItem item : exchangeItems) {
+                    BigDecimal qty = item.getQuantity() != null ? item.getQuantity() : BigDecimal.ZERO;
+                    String key = null;
+                    if (item.getInvoiceItemId() != null) {
+                        key = item.getInvoiceItemId();
+                    } else if (item.getProduct() != null) {
+                        key = item.getProduct().getId();
+                    } else if (item.getProductName() != null) {
+                        key = item.getProductName();
+                    }
+                    if (key != null) {
+                        returnedQtyMap.merge(key, qty, BigDecimal::add);
+                    }
+                }
+            }
+        }
+
         return returnedQtyMap;
     }
 

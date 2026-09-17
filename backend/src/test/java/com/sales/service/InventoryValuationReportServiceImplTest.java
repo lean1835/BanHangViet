@@ -429,4 +429,48 @@ class InventoryValuationReportServiceImplTest {
         assertEquals(1, report.getItems().size());
         assertEquals("BIA-01", report.getItems().get(0).getSku());
     }
+
+    @Test
+    @DisplayName("P2-03: Nhóm hàng âm kho không làm 0% tỷ trọng vốn của các nhóm hàng dương khác")
+    void testInventoryValuation_NegativeStockGroup_DoesNotZeroPercentages() {
+        Product prodNegative = Product.builder()
+                .id("p-negative")
+                .sku("NEG-01")
+                .name("Hàng Bị Âm Kho")
+                .unit("Lon")
+                .household(household)
+                .group(ProductGroup.builder().id("grp-neg").name("Nhóm Âm Kho").household(household).build())
+                .costPrice(new BigDecimal("100000.00"))
+                .stockQuantity(new BigDecimal("-100.000")) // Value = -10.000.000
+                .price(new BigDecimal("120000.00"))
+                .createdAt(LocalDateTime.now().minusDays(5))
+                .build();
+
+        when(userRepository.findByUsername("chu_ho")).thenReturn(Optional.of(ownerUser));
+        // prodBeer (24.000.000), prodSnack (400.000) và prodNegative (-10.000.000)
+        when(productRepository.findProductsForValuationReport(eq("hh-100"), any(), any()))
+                .thenReturn(List.of(prodBeer, prodSnack, prodNegative));
+
+        when(goodsReceiptDetailRepository.findLatestReceiptDatesByHousehold("hh-100"))
+                .thenReturn(Collections.emptyList());
+
+        InventoryValuationReportResponse report = service.getInventoryValuationReport(
+                "chu_ho", null, null, null, "inventoryValue", "desc");
+
+        assertNotNull(report);
+        List<ProductGroupValuationResponse> groups = report.getGroupValuations();
+        assertEquals(3, groups.size());
+
+        // Nhóm Đồ Uống (prodBeer: 24.000.000) phải có tỷ trọng > 0 (24tr / 24.4tr = ~98.36%)
+        ProductGroupValuationResponse beerGroup = groups.stream()
+                .filter(g -> "Đồ Uống".equals(g.getGroupName()))
+                .findFirst().orElseThrow();
+        assertTrue(beerGroup.getValuePercentage().compareTo(BigDecimal.ZERO) > 0, "Tỷ trọng nhóm Đồ Uống phải > 0%");
+
+        // Nhóm Âm Kho (-10.000.000) tỷ trọng = 0%
+        ProductGroupValuationResponse negGroup = groups.stream()
+                .filter(g -> "Nhóm Âm Kho".equals(g.getGroupName()))
+                .findFirst().orElseThrow();
+        assertEquals(BigDecimal.ZERO, negGroup.getValuePercentage());
+    }
 }

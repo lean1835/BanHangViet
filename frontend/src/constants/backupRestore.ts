@@ -89,6 +89,89 @@ export const RESTORE_STATUS_STYLES: Record<
   },
 };
 
+export const VERIFICATION_STATUSES = {
+  PASSED: "PASSED",
+  FAILED: "FAILED",
+} as const;
+
+export type TVerificationStatus =
+  (typeof VERIFICATION_STATUSES)[keyof typeof VERIFICATION_STATUSES];
+
+export const VERIFICATION_STATUS_LABELS: Record<TVerificationStatus, string> = {
+  [VERIFICATION_STATUSES.PASSED]: "Đạt (An toàn)",
+  [VERIFICATION_STATUSES.FAILED]: "Không đạt (Lỗi)",
+};
+
+export const VERIFICATION_STATUS_STYLES: Record<
+  TVerificationStatus,
+  { bg: string; text: string; border: string; label: string }
+> = {
+  [VERIFICATION_STATUSES.PASSED]: {
+    bg: "bg-emerald-50 text-emerald-700 border-emerald-200",
+    text: "text-emerald-700",
+    border: "border-emerald-200",
+    label: "Đạt (An toàn)",
+  },
+  [VERIFICATION_STATUSES.FAILED]: {
+    bg: "bg-rose-50 text-rose-700 border-rose-200",
+    text: "text-rose-700",
+    border: "border-rose-200",
+    label: "Không đạt (Lỗi)",
+  },
+};
+
+export const VERIFICATION_HEALTH_STATUSES = {
+  NORMAL: "NORMAL",
+  WARNING: "WARNING",
+  DANGER: "DANGER",
+} as const;
+
+export type TVerificationHealthStatus =
+  (typeof VERIFICATION_HEALTH_STATUSES)[keyof typeof VERIFICATION_HEALTH_STATUSES];
+
+export const VERIFICATION_HEALTH_STYLES: Record<
+  TVerificationHealthStatus,
+  { bg: string; text: string; border: string; badge: string; label: string }
+> = {
+  [VERIFICATION_HEALTH_STATUSES.NORMAL]: {
+    bg: "bg-emerald-50",
+    text: "text-emerald-800",
+    border: "border-emerald-200",
+    badge: "bg-emerald-100 text-emerald-800 border-emerald-300",
+    label: "An toàn - Đã kiểm chứng",
+  },
+  [VERIFICATION_HEALTH_STATUSES.WARNING]: {
+    bg: "bg-amber-50",
+    text: "text-amber-800",
+    border: "border-amber-200",
+    badge: "bg-amber-100 text-amber-800 border-amber-300",
+    label: "Cảnh báo - Quá hạn kiểm chứng",
+  },
+  [VERIFICATION_HEALTH_STATUSES.DANGER]: {
+    bg: "bg-rose-50",
+    text: "text-rose-800",
+    border: "border-rose-200",
+    badge: "bg-rose-100 text-rose-800 border-rose-300",
+    label: "Nguy hiểm - Thử phục hồi thất bại",
+  },
+};
+
+export const VERIFICATION_TRIGGER_TYPES = {
+  AUTOMATIC: "AUTOMATIC",
+  MANUAL: "MANUAL",
+} as const;
+
+export type TVerificationTriggerType =
+  (typeof VERIFICATION_TRIGGER_TYPES)[keyof typeof VERIFICATION_TRIGGER_TYPES];
+
+export const VERIFICATION_TRIGGER_TYPE_LABELS: Record<
+  TVerificationTriggerType,
+  string
+> = {
+  [VERIFICATION_TRIGGER_TYPES.AUTOMATIC]: "Tự động định kỳ",
+  [VERIFICATION_TRIGGER_TYPES.MANUAL]: "Kích hoạt thủ công",
+};
+
 export const BACKUP_RESTORE_CONFIG = {
   MIN_RETENTION_COUNT: 1,
   MAX_RETENTION_COUNT: 100,
@@ -104,10 +187,12 @@ export const BACKUP_RESTORE_UI = {
   TABS: {
     AUTO_BACKUP: "auto_backup",
     RESTORE: "restore",
+    VERIFICATION: "verification",
     MANUAL_EXPORT: "manual_export",
     LABELS: {
       AUTO_BACKUP: "Sao lưu tự động & Lịch sử",
       RESTORE: "Phục hồi dữ liệu",
+      VERIFICATION: "Tình trạng & Thử phục hồi",
       MANUAL_EXPORT: "Xuất dữ liệu thủ công (Excel/ZIP)",
     },
   },
@@ -194,5 +279,90 @@ export const BACKUP_RESTORE_UI = {
     EXECUTE_BTN: "Tiến hành phục hồi CSDL",
     EXECUTING_BTN: "Đang phục hồi dữ liệu...",
     CANCEL_BTN: "Hủy bỏ",
+  },
+  VERIFICATION: {
+    OVERVIEW: {
+      TITLE: "Báo cáo tình trạng & Thử phục hồi định kỳ",
+      SUBTITLE:
+        "Kiểm chứng tự động trong môi trường tạm độc lập (Sandbox), đối soát số lượng bản ghi và thẩm định chuỗi kiểm toán SHA-256",
+      HEALTH_LABEL: "Tình trạng sức khỏe bản sao lưu",
+      LATEST_VERIFIED_LABEL: "Lần kiểm chứng gần nhất:",
+      DAYS_SINCE_SUCCESS_LABEL: "Thời gian từ lần thành công cuối:",
+      MAX_ALLOWED_DAYS_LABEL: "Hạn mức tối đa:",
+      TOTAL_RUNS_LABEL: "Tổng số lần kiểm thử:",
+      PASSED_COUNT_LABEL: "Số lần Đạt:",
+      FAILED_COUNT_LABEL: "Số lần Thất bại:",
+      TRIGGER_BTN: "Kích hoạt thử phục hồi ngay",
+      TRIGGERING_BTN: "Đang chạy thử nghiệm sandbox...",
+    },
+    BANNER: {
+      SAFE_TITLE: "Bản sao lưu gần nhất an toàn và đã được kiểm chứng",
+      SAFE_DESC:
+        "Bản sao lưu gần nhất đã được kiểm thử phục hồi trong môi trường tạm thành công. CSDL toàn vẹn và sẵn sàng phục hồi khi cần.",
+      WARNING_TITLE: "Cảnh báo: Bản sao lưu quá hạn kiểm chứng",
+      WARNING_DESC:
+        "Đã quá nhiều ngày kể từ lần kiểm chứng bản sao lưu thành công gần nhất. Vui lòng kích hoạt thử phục hồi để đảm bảo dữ liệu luôn sẵn sàng.",
+      DANGER_TITLE: "CẢNH BÁO NGUY HIỂM: Thử phục hồi bản sao lưu thất bại!",
+      DANGER_DESC:
+        "Lần chạy thử phục hồi gần nhất không đạt tiêu chuẩn an toàn. Bản sao lưu có thể bị hỏng, thiếu thực thể hoặc đứt gãy chuỗi kiểm toán.",
+    },
+    HISTORY: {
+      TITLE: "Nhật ký các lần chạy thử phục hồi (Sandbox Verification)",
+      SUBTITLE:
+        "Ghi nhận chi tiết kết quả 3 trụ cột kỹ thuật của từng lần kiểm thử tự động hoặc thủ công",
+      EMPTY: "Chưa có bản ghi lịch sử kiểm thử phục hồi nào.",
+      COLUMNS: {
+        BACKUP_FILE: "Tên tệp sao lưu",
+        TRIGGER_TYPE: "Hình thức",
+        DURATION: "Thời gian chạy",
+        PILLARS: "3 Trụ cột kiểm tra",
+        STATUS: "Kết quả",
+        VERIFIED_AT: "Thời điểm kiểm thử",
+        ACTION: "Thao tác",
+      },
+      DETAIL_BTN: "Xem chi tiết",
+    },
+    TRIGGER_MODAL: {
+      TITLE: "Kích hoạt thử phục hồi bản sao lưu (Sandbox Drill)",
+      SUBTITLE:
+        "Hệ thống sẽ chạy thử phục hồi vào môi trường tạm và kiểm tra toàn vẹn đa tầng",
+      NOTICE_TITLE: "BẢO ĐẢM AN TOÀN TUYỆT ĐỐI CHO DỮ LIỆU ĐANG CHẠY",
+      NOTICE_DESC:
+        "Thao tác này chạy độc lập trong môi trường tạm (Sandbox) và tự động dọn dẹp sau khi kiểm tra xong. Dữ liệu bán hàng thực tế trên hệ thống KHÔNG bị gián đoạn hay ảnh hưởng.",
+      TARGET_SELECT_LABEL: "Chọn bản sao lưu cần kiểm chứng:",
+      TARGET_LATEST_OPTION: "Bản sao lưu thành công mới nhất (Khuyên dùng)",
+      NOTES_LABEL: "Ghi chú kiểm thử (tùy chọn):",
+      NOTES_PLACEHOLDER: "Ví dụ: Kiểm tra định kỳ sau đợt cập nhật danh mục...",
+      SUBMIT_BTN: "Bắt đầu chạy thử nghiệm",
+      SUBMITTING_BTN: "Đang kiểm thử sandbox...",
+      CANCEL_BTN: "Đóng",
+    },
+    DETAIL_MODAL: {
+      TITLE: "Chi tiết kết quả kiểm chứng bản sao lưu",
+      SUBTITLE: "Bảng điểm đối soát 3 trụ cột kỹ thuật và tính toàn vẹn CSDL",
+      INFO_SECTION: "Thông tin phiên kiểm thử",
+      BACKUP_FILE_LABEL: "Tệp bản sao lưu:",
+      BACKUP_TIME_LABEL: "Thời điểm sao lưu:",
+      FILE_SIZE_LABEL: "Dung lượng tệp:",
+      EXECUTION_TIME_LABEL: "Thời gian thực thi:",
+      TRIGGER_TYPE_LABEL: "Hình thức kích hoạt:",
+      VERIFIED_AT_LABEL: "Thời điểm hoàn tất:",
+      NOTES_LABEL: "Ghi chú:",
+      PILLARS_SECTION: "Kết quả đối soát 3 Trụ cột Thẩm định",
+      PILLAR_1_TITLE: "Trụ cột 1: Đọc tệp & Tính hợp lệ đa người thuê",
+      PILLAR_1_DESC: "Tệp sao lưu không rỗng, giải mã JSON hợp lệ và đúng hộ kinh doanh",
+      PILLAR_2_TITLE: "Trụ cột 2: Đối soát số lượng bản ghi chính",
+      PILLAR_2_DESC: "Đầy đủ các thực thể cốt lõi cho kịch bản phục hồi",
+      PILLAR_3_TITLE: "Trụ cột 3: Thẩm định chuỗi kiểm toán SHA-256 (QTN-25)",
+      PILLAR_3_DESC: "Chuỗi băm liên kết bất biến của nhật ký kiểm toán không bị đứt gãy",
+      COUNTS_SECTION: "Số lượng bản ghi các bảng chính trong bản sao lưu",
+      PRODUCT_COUNT: "Hàng hóa (Products):",
+      CUSTOMER_COUNT: "Khách hàng (Customers):",
+      SUPPLIER_COUNT: "Nhà cung cấp (Suppliers):",
+      USER_COUNT: "Tài khoản (Users):",
+      AUDIT_COUNT: "Nhật ký kiểm toán (Audit Logs):",
+      FAILURE_REASON_TITLE: "Nguyên nhân thất bại chi tiết:",
+      CLOSE_BTN: "Đóng",
+    },
   },
 } as const;

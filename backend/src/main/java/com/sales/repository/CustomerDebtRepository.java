@@ -72,6 +72,7 @@ public interface CustomerDebtRepository extends JpaRepository<CustomerDebt, Stri
            "WHERE d.status = 'PENDING' AND d.type = 'DEBT_CREATED' AND d.reminderSent = false")
     Integer findMaxPendingReminderDaysBefore();
 
+    @EntityGraph(attributePaths = {"customer"})
     List<CustomerDebt> findByStatusInAndTypeAndDueDateBefore(
             Collection<String> statuses, String type, LocalDateTime dateTime);
 

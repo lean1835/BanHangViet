@@ -387,9 +387,9 @@ export const CashierShiftDashboard: React.FC = () => {
           </div>
         ) : (
         <div className="overflow-x-auto">
-          <table className="responsive-data-table responsive-data-table--page w-full text-left border-collapse text-[11px]">
+          <table className="responsive-data-table responsive-data-table--page w-full text-left border-collapse text-xs sm:text-sm">
             <thead>
-              <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold">
+              <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold text-xs sm:text-sm">
                 <th className="p-3">{SHIFT_UI.COMMON.TABLE_COLUMNS.CODE}</th>
                 <th className="p-3">{SHIFT_UI.COMMON.TABLE_COLUMNS.OPENED_AT}</th>
                 <th className="p-3">{SHIFT_UI.COMMON.TABLE_COLUMNS.CLOSED_AT}</th>
@@ -431,20 +431,20 @@ export const CashierShiftDashboard: React.FC = () => {
                 }
                 return filtered.map((s) => (
                   <tr key={s.id} className="hover:bg-slate-50/50">
-                    <td className="p-3 font-bold text-slate-800 font-mono text-[10px]">
+                    <td className="p-3 font-bold text-slate-800 font-mono text-xs">
                       {s.id.slice(-SHIFT_CODE_SUFFIX_LENGTH)}
                     </td>
-                    <td className="p-3 text-slate-500">{formatDate(s.openedAt)}</td>
-                    <td className="p-3 text-slate-500">{formatDate(s.closedAt)}</td>
-                    <td className="p-3 text-right">{formatCurrency(s.openingCash)}</td>
-                    <td className="p-3 text-right">{formatCurrency(s.closingCashExpected)}</td>
-                    <td className="p-3 text-right font-bold text-slate-800">
+                    <td className="p-3 text-slate-600 text-xs">{formatDate(s.openedAt)}</td>
+                    <td className="p-3 text-slate-600 text-xs">{formatDate(s.closedAt)}</td>
+                    <td className="p-3 text-right text-xs sm:text-sm">{formatCurrency(s.openingCash)}</td>
+                    <td className="p-3 text-right text-xs sm:text-sm">{formatCurrency(s.closingCashExpected)}</td>
+                    <td className="p-3 text-right font-bold text-slate-800 text-xs sm:text-sm">
                       {s.closingCashActual !== null
                         ? formatCurrency(s.closingCashActual)
                         : SHIFT_UI.COMMON.EMPTY_VALUE}
                     </td>
                     <td
-                      className={`p-3 text-right font-bold ${
+                      className={`p-3 text-right font-bold text-xs sm:text-sm ${
                         (s.differenceAmount || 0) === 0
                           ? "text-emerald-600"
                           : (s.differenceAmount || 0) < 0
@@ -456,12 +456,12 @@ export const CashierShiftDashboard: React.FC = () => {
                         ? SHIFT_UI.COMMON.EMPTY_VALUE
                         : formatCurrency(s.differenceAmount)}
                     </td>
-                    <td className="p-3 text-slate-500 max-w-[150px] truncate" title={s.differenceReason || ""}>
+                    <td className="p-3 text-slate-600 max-w-[150px] truncate text-xs" title={s.differenceReason || ""}>
                       {s.differenceReason || SHIFT_UI.COMMON.EMPTY_VALUE}
                     </td>
                     <td className="p-3 text-center">
                       <span
-                        className={`px-2 py-0.5 rounded text-[10px] font-bold whitespace-nowrap inline-block text-center min-w-[70px] ${
+                        className={`px-2.5 py-1 rounded text-xs font-bold whitespace-nowrap inline-block text-center min-w-[76px] ${
                           s.status === SHIFT_STATUS.OPEN
                             ? "bg-blue-100 text-blue-700"
                             : "bg-slate-100 text-slate-600"

@@ -28,7 +28,7 @@ public class HouseholdSettingsController {
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Chưa xác thực"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Không có quyền truy cập")
     })
-    @GetMapping
+    @GetMapping({"", "/deadlines"})
     @PreAuthorize("hasAnyRole('VT-01', 'VT-02', 'VT-03')")
     public ResponseEntity<ApiResponse<AutoRetrySettingsResponse>> getSettings(Authentication authentication) {
         AutoRetrySettingsResponse settings = settingsService.getSettings(authentication.getName());
@@ -45,7 +45,7 @@ public class HouseholdSettingsController {
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Dữ liệu cấu hình không hợp lệ"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Không có quyền cập nhật (chỉ dành cho VT-01)")
     })
-    @PutMapping
+    @PutMapping({"", "/deadlines"})
     @PreAuthorize("hasRole('VT-01')")
     public ResponseEntity<ApiResponse<AutoRetrySettingsResponse>> updateSettings(
             Authentication authentication,

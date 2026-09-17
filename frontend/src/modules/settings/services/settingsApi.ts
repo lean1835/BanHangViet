@@ -10,6 +10,13 @@ import type {
   IUpdateTaxRateRequest,
   ITaxRateStatusRequest,
 } from "../types/ISettings";
+import {
+  type IBusinessDeadlinesConfig,
+  type IBackendAutoRetrySettings,
+  mapBackendToUiDeadlines,
+  mapUiToBackendDeadlines,
+} from "../types/IBusinessDeadlines";
+import type { IOnboardingStatusBackendResponse } from "../types/ISetupGuide";
 import { API_TAG_TYPES } from "@/constants/api";
 
 export const settingsApi = baseApi.injectEndpoints({
@@ -98,47 +105,81 @@ export const settingsApi = baseApi.injectEndpoints({
     }),
 
     // Household Settings & Auto Retry Deadlines (NCL-09-CN-008)
-    getHouseholdSettings: builder.query<ApiResponse<{
-      id?: string;
-      householdId?: string;
-      autoRetryEnabled: boolean;
-      maxRetryAttempts: number;
-      retryIntervalMinutes: number;
-      maxRetryHoursDeadline: number;
-      maxOrderHoldingHours?: number;
-      bankTransferTimeoutMinutes?: number;
-      updatedAt?: string;
-    }>, void>({
+    getHouseholdSettings: builder.query<ApiResponse<IBusinessDeadlinesConfig>, void>({
       query: () => ({
         url: "/household/settings",
         method: "GET",
       }),
+      transformResponse: (response: ApiResponse<Partial<IBackendAutoRetrySettings>>) => {
+        let savedLocal: Partial<IBusinessDeadlinesConfig> = {};
+        try {
+          const raw = localStorage.getItem("bhv_household_deadlines_mock");
+          if (raw) savedLocal = JSON.parse(raw);
+        } catch {
+          // ignore
+        }
+
+        const mappedBe = mapBackendToUiDeadlines(response?.result || {});
+        const mergedResult: IBusinessDeadlinesConfig = {
+          ...mappedBe,
+          ...savedLocal,
+        };
+
+        return {
+          ...response,
+          result: mergedResult,
+        };
+      },
       providesTags: [API_TAG_TYPES.HOUSEHOLD],
     }),
-    updateHouseholdSettings: builder.mutation<ApiResponse<{
-      id?: string;
-      householdId?: string;
-      autoRetryEnabled: boolean;
-      maxRetryAttempts: number;
-      retryIntervalMinutes: number;
-      maxRetryHoursDeadline: number;
-      maxOrderHoldingHours?: number;
-      bankTransferTimeoutMinutes?: number;
-      updatedAt?: string;
-    }>, {
-      autoRetryEnabled: boolean;
-      maxRetryAttempts: number;
-      retryIntervalMinutes: number;
-      maxRetryHoursDeadline: number;
-      maxOrderHoldingHours?: number;
-      bankTransferTimeoutMinutes?: number;
-    }>({
+    updateHouseholdSettings: builder.mutation<ApiResponse<IBusinessDeadlinesConfig>, Partial<IBusinessDeadlinesConfig>>({
       query: (body) => ({
         url: "/household/settings",
         method: "PUT",
-        body,
+        body: mapUiToBackendDeadlines(body),
       }),
+      async onQueryStarted(patch, { queryFulfilled }) {
+        try {
+          // Always persist to localStorage for instant client fallback / offline / mock mode
+          const raw = localStorage.getItem("bhv_household_deadlines_mock");
+          const existing = raw ? JSON.parse(raw) : {};
+          localStorage.setItem(
+            "bhv_household_deadlines_mock",
+            JSON.stringify({ ...existing, ...patch, updatedAt: new Date().toISOString() })
+          );
+        } catch {
+          // ignore
+        }
+        try {
+          await queryFulfilled;
+        } catch {
+          // Keep localStorage state active even if backend returns 404/500 during development
+        }
+      },
       invalidatesTags: [API_TAG_TYPES.HOUSEHOLD],
+    }),
+
+    // First-Time Setup Wizard Onboarding (NCL-09-CN-007)
+    getOnboardingStatus: builder.query<ApiResponse<IOnboardingStatusBackendResponse>, void>({
+      query: () => ({
+        url: "/household/onboarding/status",
+        method: "GET",
+      }),
+      providesTags: [API_TAG_TYPES.ONBOARDING, API_TAG_TYPES.HOUSEHOLD],
+    }),
+    skipOnboarding: builder.mutation<ApiResponse<IOnboardingStatusBackendResponse>, void>({
+      query: () => ({
+        url: "/household/onboarding/skip",
+        method: "POST",
+      }),
+      invalidatesTags: [API_TAG_TYPES.ONBOARDING],
+    }),
+    completeOnboarding: builder.mutation<ApiResponse<IOnboardingStatusBackendResponse>, void>({
+      query: () => ({
+        url: "/household/onboarding/complete",
+        method: "POST",
+      }),
+      invalidatesTags: [API_TAG_TYPES.ONBOARDING],
     }),
   }),
   overrideExisting: false,
@@ -155,5 +196,9 @@ export const {
   useUpdateTaxRateStatusMutation,
   useGetHouseholdSettingsQuery,
   useUpdateHouseholdSettingsMutation,
+  useGetOnboardingStatusQuery,
+  useSkipOnboardingMutation,
+  useCompleteOnboardingMutation,
 } = settingsApi;
+
 

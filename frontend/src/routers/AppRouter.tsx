@@ -1,5 +1,5 @@
 import React, { Suspense } from "react";
-import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes, useSearchParams } from "react-router-dom";
 import { APP_ROUTES, ROUTE_SEGMENTS } from "@/constants/routes";
 import { APP_MESSAGES } from "@/constants/app";
 import { ROLE_GROUPS, USER_ROLES } from "@/constants/roles";
@@ -67,6 +67,9 @@ const SupplierPage = React.lazy(() => import("@/modules/supplier/pages/SupplierP
 const SupplierDetailPage = React.lazy(
   () => import("@/modules/supplier/pages/SupplierDetailPage")
 );
+const SupplierReturnListPage = React.lazy(
+  () => import("@/modules/supplier_return/pages/SupplierReturnListPage")
+);
 const EmployeePage = React.lazy(() => import("@/modules/employee/pages/EmployeePage"));
 const ReportsLayout = React.lazy(() => import("@/modules/report/pages/ReportsLayout"));
 const RevenueReportPage = React.lazy(
@@ -92,9 +95,15 @@ const AnomalyAlertPage = React.lazy(
 const SalesInvoiceListingPage = React.lazy(
   () => import("@/modules/tax_report/pages/SalesInvoiceListingPage")
 );
+const InventoryValuationPage = React.lazy(
+  () => import("@/modules/inventory_valuation/pages/InventoryValuationPage")
+);
 const SettingsLayout = React.lazy(() => import("@/modules/settings/pages/SettingsLayout"));
 const UserProfilePage = React.lazy(
   () => import("@/modules/settings/pages/UserProfilePage")
+);
+const DisplaySettingsPage = React.lazy(
+  () => import("@/modules/settings/pages/DisplaySettingsPage")
 );
 const UserSessionPage = React.lazy(
   () => import("@/modules/settings/pages/UserSessionPage")
@@ -114,6 +123,18 @@ const PosTransferPage = React.lazy(
 const PosRevenueReportPage = React.lazy(
   () => import("@/modules/report/pages/PosRevenueReportPage")
 );
+const GrossProfitReportPage = React.lazy(
+  () => import("@/modules/report/pages/GrossProfitReportPage")
+);
+const EmployeeShiftReportPage = React.lazy(
+  () => import("@/modules/report/pages/EmployeeShiftReportPage")
+);
+const PaymentMethodReportPage = React.lazy(
+  () => import("@/modules/report/pages/PaymentMethodReportPage")
+);
+const ProductGroupReportPage = React.lazy(
+  () => import("@/modules/report/pages/ProductGroupReportPage")
+);
 const TaxRateSettingsPage = React.lazy(
   () => import("@/modules/settings/pages/TaxRateSettingsPage")
 );
@@ -125,6 +146,15 @@ const BackupExportPage = React.lazy(
 );
 const LoyaltyProgramSettingsPage = React.lazy(
   () => import("@/modules/settings/pages/LoyaltyProgramSettingsPage")
+);
+const NotificationCenterPage = React.lazy(
+  () => import("@/modules/notification/pages/NotificationCenterPage")
+);
+const FaqSupportPage = React.lazy(
+  () => import("@/modules/faq_support/pages/FaqSupportPage")
+);
+const BusinessDeadlinesPage = React.lazy(
+  () => import("@/modules/settings/pages/BusinessDeadlinesPage")
 );
 const PlatformAdminWorkspaceLayout = React.lazy(
   () => import("@/modules/platform_admin/pages/PlatformAdminWorkspaceLayout")
@@ -146,6 +176,15 @@ const TaxInvoiceApprovalRoutePage = React.lazy(
 );
 const PosPage = React.lazy(() => import("@/modules/pos/pages/PosPage"));
 const LookupInvoicePage = React.lazy(() => import("@/pages/LookupInvoicePage"));
+
+const DebtsRedirect: React.FC = () => {
+  const [searchParams] = useSearchParams();
+  const customerId = searchParams.get("customerId");
+  if (customerId) {
+    return <Navigate to={`${APP_ROUTES.CUSTOMERS}/${customerId}?tab=debt`} replace />;
+  }
+  return <Navigate to={`${APP_ROUTES.CUSTOMERS}?debtStatus=OVERDUE`} replace />;
+};
 
 const loadingFallback = (
   <div className="flex justify-center items-center h-screen">{APP_MESSAGES.LOADING}</div>
@@ -218,6 +257,10 @@ export const AppRouter = () => (
             <Route path={ROUTE_SEGMENTS.POS_TRANSFERS} element={<PosTransferPage />} />
             <Route path={ROUTE_SEGMENTS.SUPPLIERS} element={<SupplierPage />} />
             <Route path={`${ROUTE_SEGMENTS.SUPPLIERS}/:id`} element={<SupplierDetailPage />} />
+            <Route
+              path={ROUTE_SEGMENTS.SUPPLIER_RETURNS}
+              element={<SupplierReturnListPage />}
+            />
             <Route path=":id" element={<ProductDetailPage />} />
           </Route>
 
@@ -328,6 +371,10 @@ export const AppRouter = () => (
           >
             <Route index element={<Navigate to={ROUTE_SEGMENTS.REVENUE} replace />} />
             <Route path={ROUTE_SEGMENTS.REVENUE} element={<RevenueReportPage />} />
+            <Route path={ROUTE_SEGMENTS.GROSS_PROFIT} element={<GrossProfitReportPage />} />
+            <Route path={ROUTE_SEGMENTS.PRODUCT_GROUPS} element={<ProductGroupReportPage />} />
+            <Route path={ROUTE_SEGMENTS.PAYMENT_METHODS} element={<PaymentMethodReportPage />} />
+            <Route path={ROUTE_SEGMENTS.EMPLOYEE_SHIFTS} element={<EmployeeShiftReportPage />} />
             <Route path={ROUTE_SEGMENTS.POS_REVENUE} element={<PosRevenueReportPage />} />
             <Route path={ROUTE_SEGMENTS.PEAK_HOURS} element={<PeakHoursAnalyticsPage />} />
             <Route path={ROUTE_SEGMENTS.COMPARISON} element={<RevenueComparisonPage />} />
@@ -337,12 +384,26 @@ export const AppRouter = () => (
             <Route path={ROUTE_SEGMENTS.ACTIVITY_LOGS} element={<ActivityLogPage />} />
             <Route path={ROUTE_SEGMENTS.AUDIT_LOGS} element={<AuditLogPage />} />
             <Route path={ROUTE_SEGMENTS.ANOMALY_ALERTS} element={<AnomalyAlertPage />} />
+            <Route
+              path={ROUTE_SEGMENTS.INVENTORY_VALUATION}
+              element={
+                <RoleRoute allowedRoles={[USER_ROLES.OWNER, USER_ROLES.ACCOUNTANT]}>
+                  <InventoryValuationPage />
+                </RoleRoute>
+              }
+            />
           </Route>
 
           {/* Redirect từ URL thông báo của Backend /tax/annual-revenue */}
           <Route
             path="tax/annual-revenue"
             element={<Navigate to={APP_ROUTES.REPORT_ANNUAL_REVENUE} replace />}
+          />
+
+          {/* Redirect từ URL thông báo của Backend /debts sang trang khách hàng & công nợ */}
+          <Route
+            path="debts"
+            element={<DebtsRedirect />}
           />
 
           <Route
@@ -354,7 +415,24 @@ export const AppRouter = () => (
             }
           >
             <Route index element={<Navigate to={ROUTE_SEGMENTS.USER_PROFILE} replace />} />
-            <Route path={ROUTE_SEGMENTS.USER_PROFILE} element={<UserProfilePage />} />
+            <Route
+              path={ROUTE_SEGMENTS.USER_PROFILE}
+              element={<UserProfilePage />}
+            />
+            <Route
+              path={ROUTE_SEGMENTS.DISPLAY}
+              element={
+                <RoleRoute
+                  allowedRoles={[
+                    USER_ROLES.OWNER,
+                    USER_ROLES.CASHIER,
+                    USER_ROLES.ACCOUNTANT,
+                  ]}
+                >
+                  <DisplaySettingsPage />
+                </RoleRoute>
+              }
+            />
             <Route
               path={ROUTE_SEGMENTS.SESSIONS}
               element={
@@ -411,8 +489,61 @@ export const AppRouter = () => (
                 </RoleRoute>
               }
             />
+            <Route
+              path={ROUTE_SEGMENTS.DEADLINES}
+              element={
+                <RoleRoute allowedRoles={[USER_ROLES.OWNER, USER_ROLES.ACCOUNTANT]}>
+                  <BusinessDeadlinesPage />
+                </RoleRoute>
+              }
+            />
+            <Route
+              path={ROUTE_SEGMENTS.FAQ_SUPPORT}
+              element={
+                <RoleRoute
+                  allowedRoles={[
+                    USER_ROLES.OWNER,
+                    USER_ROLES.CASHIER,
+                    USER_ROLES.ACCOUNTANT,
+                  ]}
+                >
+                  <FaqSupportPage />
+                </RoleRoute>
+              }
+            />
             <Route path={ROUTE_SEGMENTS.PRINTER} element={<Navigate to={ROUTE_SEGMENTS.BUSINESS_INFO} replace />} />
           </Route>
+
+          <Route
+            path={ROUTE_SEGMENTS.FAQ_SUPPORT}
+            element={
+              <RoleRoute
+                allowedRoles={[
+                  USER_ROLES.OWNER,
+                  USER_ROLES.ACCOUNTANT,
+                  USER_ROLES.CASHIER,
+                  USER_ROLES.PLATFORM_ADMIN,
+                ]}
+              >
+                <FaqSupportPage />
+              </RoleRoute>
+            }
+          />
+
+          <Route
+            path={ROUTE_SEGMENTS.NOTIFICATIONS}
+            element={
+              <RoleRoute
+                allowedRoles={[
+                  USER_ROLES.OWNER,
+                  USER_ROLES.ACCOUNTANT,
+                  USER_ROLES.CASHIER,
+                ]}
+              >
+                <NotificationCenterPage />
+              </RoleRoute>
+            }
+          />
 
           <Route
             path={ROUTE_SEGMENTS.POS}
