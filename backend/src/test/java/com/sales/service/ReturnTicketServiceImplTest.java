@@ -62,6 +62,9 @@ class ReturnTicketServiceImplTest {
     @Mock
     private ProductExchangeItemRepository productExchangeItemRepository;
 
+    @Mock
+    private com.sales.service.interfaces.AppNotificationService appNotificationService;
+
     @InjectMocks
     private ReturnTicketServiceImpl returnTicketService;
 

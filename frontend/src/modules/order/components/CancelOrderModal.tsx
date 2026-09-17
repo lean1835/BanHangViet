@@ -7,6 +7,7 @@ import {
   UserCheck,
   PackageX,
   HelpCircle,
+  ShieldAlert,
 } from "lucide-react";
 import {
   ORDER_CANCEL_DEFAULT_REASONS,
@@ -17,6 +18,7 @@ import {
   useCancelOrderMutation,
   useGetCancelReasonsQuery,
 } from "@/modules/order/services/orderApi";
+import { useGetActionConsequencesQuery } from "../services/actionConfirmationApi";
 import { formatCurrency } from "@/utils/formatCurrency";
 import { getApiErrorMessage } from "@/utils/getApiErrorMessage";
 import type { IOrderResponse } from "@/modules/order/types/IOrder";
@@ -40,6 +42,12 @@ export const CancelOrderModal: React.FC<ICancelOrderModalProps> = ({
   const { data: reasonsData, isLoading: isLoadingReasons } =
     useGetCancelReasonsQuery(undefined, { skip: !isOpen });
   const [cancelOrder, { isLoading: isCanceling }] = useCancelOrderMutation();
+
+  const { data: consequenceData } = useGetActionConsequencesQuery(
+    { actionType: "CANCEL_ORDER", targetId: order?.id || "" },
+    { skip: !isOpen || !order?.id }
+  );
+  const actionConsequence = consequenceData?.result;
 
   const reasons = reasonsData?.result || ORDER_CANCEL_DEFAULT_REASONS;
 
@@ -216,6 +224,29 @@ export const CancelOrderModal: React.FC<ICancelOrderModalProps> = ({
               <strong>Quy tắc nghiệp vụ:</strong> {ORDER_CANCEL_MESSAGES.STOCK_NEUTRALITY_NOTICE}
             </div>
           </div>
+
+          {/* Action Consequence Warning Box (NCL-19-CN-001 - TC-03) */}
+          {actionConsequence && actionConsequence.consequences && (
+            <div className="bg-rose-50/90 border-2 border-rose-200 rounded-xl p-3.5 space-y-2 text-rose-950">
+              <div className="flex items-center gap-2">
+                <ShieldAlert className="w-4 h-4 text-rose-600 shrink-0" />
+                <span className="font-extrabold text-xs text-rose-900">
+                  {actionConsequence.warningTitle || "Cảnh báo hậu quả thao tác một chiều:"}
+                </span>
+                <span className="text-[10px] font-black uppercase bg-rose-200 text-rose-800 px-1.5 py-0.5 rounded ml-auto">
+                  Không thể hoàn tác
+                </span>
+              </div>
+              <ul className="text-[11px] text-slate-700 space-y-1 bg-white/70 p-2.5 rounded-lg border border-rose-100">
+                {actionConsequence.consequences.map((c, i) => (
+                  <li key={i} className="flex items-start gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0 mt-1.5" />
+                    <span>{c}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           {/* Validation / Server Error Alert */}
           {validationError && (

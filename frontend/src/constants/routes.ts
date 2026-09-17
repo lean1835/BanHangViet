@@ -47,11 +47,14 @@ export const ROUTE_SEGMENTS = {
   POS_REVENUE: "pos-revenue",
   PEAK_HOURS: "peak-hours",
   USER_PROFILE: "user-profile",
+  DISPLAY: "display",
   SESSIONS: "sessions",
   STOCK_CARD: "stock-card",
   PRICE_ADJUSTMENTS: "price-adjustments",
   INVENTORY_VALUATION: "inventory-valuation",
   LOYALTY: "loyalty",
+  NOTIFICATIONS: "notifications",
+  FAQ_SUPPORT: "faq-support",
   WILDCARD: "*",
 } as const;
 
@@ -175,6 +178,10 @@ export const APP_ROUTES = {
     ROUTE_SEGMENTS.SETTINGS,
     ROUTE_SEGMENTS.USER_PROFILE,
   ),
+  SETTINGS_DISPLAY: createRoute(
+    ROUTE_SEGMENTS.SETTINGS,
+    ROUTE_SEGMENTS.DISPLAY,
+  ),
   SETTINGS_SESSIONS: createRoute(
     ROUTE_SEGMENTS.SETTINGS,
     ROUTE_SEGMENTS.SESSIONS,
@@ -235,4 +242,10 @@ export const APP_ROUTES = {
   LOOKUP_INVOICE: createRoute(ROUTE_SEGMENTS.LOOKUP_INVOICE),
   PROMOTIONS: createRoute(ROUTE_SEGMENTS.PROMOTIONS),
   PROMOTION_REPORT: (id: string) => `${createRoute(ROUTE_SEGMENTS.PROMOTIONS)}/${id}/report`,
+  NOTIFICATIONS: createRoute(ROUTE_SEGMENTS.NOTIFICATIONS),
+  SETTINGS_FAQ_SUPPORT: createRoute(
+    ROUTE_SEGMENTS.SETTINGS,
+    ROUTE_SEGMENTS.FAQ_SUPPORT,
+  ),
+  SUPPORT: createRoute(ROUTE_SEGMENTS.FAQ_SUPPORT),
 } as const;

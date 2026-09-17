@@ -15,6 +15,11 @@ export const SETTINGS_NAVIGATION_ITEMS: readonly ISettingsNavigationItem[] = [
     allowedRoles: [USER_ROLES.OWNER, USER_ROLES.CASHIER, USER_ROLES.ACCOUNTANT],
   },
   {
+    path: APP_ROUTES.SETTINGS_DISPLAY,
+    label: "Chế độ hiển thị & Trợ năng",
+    allowedRoles: [USER_ROLES.OWNER, USER_ROLES.CASHIER, USER_ROLES.ACCOUNTANT],
+  },
+  {
     path: APP_ROUTES.SETTINGS_SESSIONS,
     label: "Phiên đăng nhập",
     allowedRoles: [USER_ROLES.OWNER, USER_ROLES.CASHIER, USER_ROLES.ACCOUNTANT],
@@ -48,6 +53,11 @@ export const SETTINGS_NAVIGATION_ITEMS: readonly ISettingsNavigationItem[] = [
     path: APP_ROUTES.SETTINGS_LOYALTY,
     label: "Tích điểm khách thân thiết",
     allowedRoles: [USER_ROLES.OWNER],
+  },
+  {
+    path: APP_ROUTES.SETTINGS_FAQ_SUPPORT,
+    label: "Câu hỏi thường gặp & Hỗ trợ",
+    allowedRoles: [USER_ROLES.OWNER, USER_ROLES.CASHIER, USER_ROLES.ACCOUNTANT],
   },
 ] as const;
 

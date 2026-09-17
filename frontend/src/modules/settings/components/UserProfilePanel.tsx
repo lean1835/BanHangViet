@@ -237,6 +237,7 @@ export const UserProfilePanel: React.FC = () => {
           </div>
         </div>
 
+
         {/* Thông tin bảo mật mật khẩu bổ sung */}
         {profile?.passwordChangedAt && (
           <div className="flex items-center gap-2 text-xs text-slate-500 bg-slate-50/80 px-4 py-2.5 rounded-xl border border-slate-200/60">

@@ -356,6 +356,34 @@ public class AppNotificationServiceImpl implements AppNotificationService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    public void closeNotificationsByTargetIds(String targetType, Collection<String> targetIds) {
+        if (targetType == null || targetIds == null || targetIds.isEmpty()) {
+            return;
+        }
+
+        List<AppNotification> activeNotifs = notificationRepository
+                .findByTargetTypeAndTargetIdInAndIsClosedFalse(targetType, targetIds);
+
+        if (activeNotifs.isEmpty()) {
+            return;
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        for (AppNotification notif : activeNotifs) {
+            notif.setIsClosed(true);
+            notif.setClosedAt(now);
+            notif.setIsRead(true);
+            if (notif.getReadAt() == null) {
+                notif.setReadAt(now);
+            }
+        }
+
+        notificationRepository.saveAll(activeNotifs);
+        log.info("Đã tự động đóng {} thông báo cho targetType={}, count={}", activeNotifs.size(), targetType, targetIds.size());
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
     public int syncReminders(String currentUsername) {
         User currentUser = validateAndGetUser(currentUsername);
         BusinessHousehold household = currentUser.getHousehold();
@@ -404,7 +432,7 @@ public class AppNotificationServiceImpl implements AppNotificationService {
 
         // 2. Quét công nợ đến hạn & quá hạn (QTN-14 & TC-01) - Tối ưu batching không gọi N+1
         LocalDateTime today = LocalDateTime.now();
-        List<CustomerDebt> debts = customerDebtRepository.findByHouseholdIdAndStatusInAndTypeOrderByDueDateAsc(
+        List<CustomerDebt> debts = customerDebtRepository.findByHouseholdIdAndStatusInAndTypeOrderByDueDateAscWithRelations(
                 household.getId(), List.of("PENDING", "OVERDUE"), "DEBT_CREATED");
 
         if (!debts.isEmpty()) {
@@ -417,7 +445,20 @@ public class AppNotificationServiceImpl implements AppNotificationService {
                 }
             }
 
+            Set<String> debtIdsToClose = new HashSet<>();
+
             for (CustomerDebt debt : debts) {
+                // Kiểm tra nếu khách hàng đã hết nợ (currentDebt <= 0) hoặc khoản nợ đã thanh toán xong (remainingAmount <= 0)
+                boolean isCustomerDebtZero = debt.getCustomer() != null && debt.getCustomer().getCurrentDebt() != null
+                        && debt.getCustomer().getCurrentDebt().compareTo(BigDecimal.ZERO) <= 0;
+                boolean isDebtAmountZero = debt.getRemainingAmount() != null
+                        && debt.getRemainingAmount().compareTo(BigDecimal.ZERO) <= 0;
+
+                if (isCustomerDebtZero || isDebtAmountZero) {
+                    debtIdsToClose.add(debt.getId());
+                    continue;
+                }
+
                 if (debt.getDueDate() != null && debt.getDueDate().isBefore(today.plusDays(3))) {
                     boolean isOverdue = debt.getDueDate().isBefore(today);
                     String notifType = isOverdue ? NotificationTypeConstant.DEBT_OVERDUE : NotificationTypeConstant.DEBT_DUE;
@@ -427,8 +468,9 @@ public class AppNotificationServiceImpl implements AppNotificationService {
                     if (!openDebtKeys.contains(debtKey)) {
                         String customerName = debt.getCustomer() != null ? debt.getCustomer().getName() : "Khách hàng";
                         String title = (isOverdue ? "Quá hạn thu nợ: " : "Đến hạn thu nợ: ") + customerName;
+                        BigDecimal displayAmount = debt.getRemainingAmount() != null ? debt.getRemainingAmount() : debt.getAmount();
                         String message = String.format("Khoản nợ giá trị %s VNĐ của khách hàng %s hạn thanh toán vào ngày %s. Vui lòng đôn đốc thu hồi.",
-                                formatCurrency(debt.getAmount()), customerName, debt.getDueDate().toLocalDate());
+                                formatCurrency(displayAmount), customerName, debt.getDueDate().toLocalDate());
 
                         AppNotification notif = AppNotification.builder()
                                 .household(household)
@@ -447,6 +489,10 @@ public class AppNotificationServiceImpl implements AppNotificationService {
                         openDebtKeys.add(debtKey);
                     }
                 }
+            }
+
+            if (!debtIdsToClose.isEmpty()) {
+                closeNotificationsByTargetIds("CUSTOMER_DEBT", debtIdsToClose);
             }
         }
 

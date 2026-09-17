@@ -3,7 +3,9 @@ import { createPortal } from "react-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { ShieldAlert } from "lucide-react";
 import { useAccessibleDialog } from "@/hooks/useAccessibleDialog";
+import { useGetActionConsequencesQuery } from "@/modules/order/services/actionConfirmationApi";
 
 const cancelInvoiceSchema = z.object({
   cancelReason: z
@@ -39,6 +41,12 @@ export const CancelInvoiceModal: React.FC<CancelInvoiceModalProps> = ({
       cancelReason: "",
     },
   });
+
+  const { data: consequenceData } = useGetActionConsequencesQuery(
+    { actionType: "CANCEL_INVOICE", targetId: invoiceLookupCode },
+    { skip: !isOpen || !invoiceLookupCode }
+  );
+  const actionConsequence = consequenceData?.result;
 
   const dialogRef = useAccessibleDialog({
     isOpen,
@@ -107,6 +115,29 @@ export const CancelInvoiceModal: React.FC<CancelInvoiceModalProps> = ({
               Bạn đang yêu cầu hủy hóa đơn có mã tra cứu <span className="font-bold">{invoiceLookupCode}</span>.
               Hành động này không thể hoàn tác và sẽ được ghi vào nhật ký hệ thống.
             </div>
+
+            {/* Action Consequence Warning Box (NCL-19-CN-001 - TC-03) */}
+            {actionConsequence && actionConsequence.consequences && (
+              <div className="bg-rose-50/90 border-2 border-rose-200 rounded-xl p-3.5 space-y-2 text-rose-950">
+                <div className="flex items-center gap-2">
+                  <ShieldAlert className="w-4 h-4 text-rose-600 shrink-0" />
+                  <span className="font-extrabold text-xs text-rose-900">
+                    {actionConsequence.warningTitle || "Hậu quả pháp lý khi hủy hóa đơn:"}
+                  </span>
+                  <span className="text-[10px] font-black uppercase bg-rose-200 text-rose-800 px-1.5 py-0.5 rounded ml-auto">
+                    Không thể hoàn tác
+                  </span>
+                </div>
+                <ul className="text-[11px] text-slate-700 space-y-1 bg-white/70 p-2.5 rounded-lg border border-rose-100">
+                  {actionConsequence.consequences.map((c, i) => (
+                    <li key={i} className="flex items-start gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0 mt-1" />
+                      <span>{c}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
 
             <div className="flex flex-col gap-1.5">
               <label className="text-slate-500 font-bold uppercase text-[9px]">
