@@ -41,6 +41,7 @@ public class StockCardServiceImpl implements StockCardService {
     private final ReturnTicketItemRepository returnTicketItemRepository;
     private final InventoryAuditDetailRepository inventoryAuditDetailRepository;
     private final SupplierReturnItemRepository supplierReturnItemRepository;
+    private final ProductExchangeItemRepository productExchangeItemRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -112,11 +113,27 @@ public class StockCardServiceImpl implements StockCardService {
             openingSupplierReturn = BigDecimal.ZERO;
         }
 
+        BigDecimal openingExchangeReturn = productExchangeItemRepository != null
+                ? productExchangeItemRepository.sumQuantityBefore(product.getId(), household.getId(), "RETURN_ITEM", startDateTime)
+                : BigDecimal.ZERO;
+        if (openingExchangeReturn == null) {
+            openingExchangeReturn = BigDecimal.ZERO;
+        }
+
+        BigDecimal openingExchangeNew = productExchangeItemRepository != null
+                ? productExchangeItemRepository.sumQuantityBefore(product.getId(), household.getId(), "EXCHANGE_ITEM", startDateTime)
+                : BigDecimal.ZERO;
+        if (openingExchangeNew == null) {
+            openingExchangeNew = BigDecimal.ZERO;
+        }
+
         BigDecimal openingMovements = openingIn
                 .subtract(openingOut)
                 .add(openingReturn)
                 .subtract(openingSupplierReturn)
-                .add(openingAudit);
+                .add(openingAudit)
+                .add(openingExchangeReturn)
+                .subtract(openingExchangeNew);
 
         LocalDateTime productCreatedAt = product.getCreatedAt();
         BigDecimal openingStock;
@@ -337,6 +354,44 @@ public class StockCardServiceImpl implements StockCardService {
                     .quantityChange(qty.negate())
                     .performedBy(performer)
                     .notes(returnNotes)
+                    .build());
+        }
+
+        // 5.6 Product exchanges in period (NCL-11-CN-005)
+        List<ProductExchangeItem> exchangeItems = productExchangeItemRepository != null
+                ? productExchangeItemRepository.findStockMovementsByProductInPeriod(product.getId(), household.getId(), startDateTime, endDateTime)
+                : Collections.emptyList();
+        if (exchangeItems == null) {
+            exchangeItems = Collections.emptyList();
+        }
+        for (ProductExchangeItem pei : exchangeItems) {
+            ProductExchangeTicket ticket = pei.getExchangeTicket();
+            LocalDateTime ts = ticket.getCreatedAt();
+            BigDecimal qty = pei.getQuantity() != null ? pei.getQuantity() : BigDecimal.ZERO;
+            String performer = resolvePerformer(ticket.getCreatedByUser());
+
+            boolean isReturn = "RETURN_ITEM".equalsIgnoreCase(pei.getItemType());
+            String changeType = isReturn ? StockChangeType.IN : StockChangeType.OUT;
+            BigDecimal qtyIn = isReturn ? qty : BigDecimal.ZERO;
+            BigDecimal qtyOut = isReturn ? BigDecimal.ZERO : qty;
+            BigDecimal qtyChange = isReturn ? qty : qty.negate();
+            String typeName = isReturn ? "Đổi hàng (Nhận lại món cũ)" : "Đổi hàng (Xuất món mới)";
+            String notes = "Phiếu đổi hàng " + ticket.getTicketNumber() + (ticket.getReason() != null ? " - " + ticket.getReason() : "");
+
+            periodMovements.add(StockMovementInternal.builder()
+                    .id(pei.getId())
+                    .documentId(ticket.getId())
+                    .documentType(StockMovementType.PRODUCT_EXCHANGE)
+                    .documentTypeName(typeName)
+                    .documentNumber(ticket.getTicketNumber())
+                    .documentUrl("/product-exchanges?id=" + ticket.getId())
+                    .timestamp(ts)
+                    .changeType(changeType)
+                    .quantityIn(qtyIn)
+                    .quantityOut(qtyOut)
+                    .quantityChange(qtyChange)
+                    .performedBy(performer)
+                    .notes(notes)
                     .build());
         }
 
