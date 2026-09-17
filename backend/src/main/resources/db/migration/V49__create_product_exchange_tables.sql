@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS product_exchange_tickets (
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (id),
-    CONSTRAINT uq_exchange_ticket_number UNIQUE (ticket_number),
+    CONSTRAINT uk_pet_household_ticket UNIQUE (household_id, ticket_number),
     CONSTRAINT chk_exchange_type CHECK (exchange_type IN ('EQUAL_VALUE', 'HIGHER_VALUE', 'LOWER_VALUE')),
     CONSTRAINT chk_exchange_status CHECK (status IN ('COMPLETED', 'REDIRECTED_TO_RETURN', 'CANCELED')),
     CONSTRAINT chk_extra_payment_method CHECK (

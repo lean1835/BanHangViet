@@ -12,7 +12,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Entity
-@Table(name = "product_exchange_tickets")
+@Table(name = "product_exchange_tickets", uniqueConstraints = {
+    @UniqueConstraint(name = "uk_pet_household_ticket", columnNames = {"household_id", "ticket_number"})
+})
 @Getter
 @Setter
 @ToString
@@ -48,7 +50,7 @@ public class ProductExchangeTicket {
     @ToString.Exclude
     private Customer customer;
 
-    @Column(name = "ticket_number", nullable = false, length = 50, unique = true)
+    @Column(name = "ticket_number", nullable = false, length = 50)
     private String ticketNumber;
 
     @ManyToOne(fetch = FetchType.LAZY)

@@ -24,6 +24,21 @@ public interface ProductExchangeItemRepository extends JpaRepository<ProductExch
             @Param("originalInvoiceId") String originalInvoiceId,
             @Param("productId") String productId);
 
+    @Query("SELECT i.product.id, SUM(i.quantity) FROM ProductExchangeItem i " +
+           "WHERE i.exchangeTicket.originalInvoice.id = :originalInvoiceId " +
+           "AND i.itemType = 'RETURN_ITEM' " +
+           "AND i.exchangeTicket.status = 'COMPLETED' " +
+           "GROUP BY i.product.id")
+    List<Object[]> sumReturnedQuantitiesByInvoiceGroupByProduct(
+            @Param("originalInvoiceId") String originalInvoiceId);
+
+    @Query("SELECT i FROM ProductExchangeItem i " +
+           "WHERE i.exchangeTicket.originalInvoice.id = :originalInvoiceId " +
+           "AND i.itemType = 'RETURN_ITEM' " +
+           "AND i.exchangeTicket.status = 'COMPLETED'")
+    List<ProductExchangeItem> findCompletedReturnItemsByInvoiceId(
+            @Param("originalInvoiceId") String originalInvoiceId);
+
     @Query("SELECT COUNT(i) > 0 FROM ProductExchangeItem i " +
            "WHERE i.product.id = :productId " +
            "AND i.exchangeTicket.household.id = :householdId")

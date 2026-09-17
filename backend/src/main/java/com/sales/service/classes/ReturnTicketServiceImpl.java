@@ -50,6 +50,7 @@ public class ReturnTicketServiceImpl implements ReturnTicketService {
     private final BusinessHouseholdSettingsRepository settingsRepository;
     @org.springframework.context.annotation.Lazy
     private final com.sales.service.interfaces.LoyaltyService loyaltyService;
+    private final ProductExchangeItemRepository productExchangeItemRepository;
 
     private int resolveMaxReturnDays(String householdId) {
         if (householdId == null || settingsRepository == null) {
@@ -916,6 +917,28 @@ public class ReturnTicketServiceImpl implements ReturnTicketService {
                 returnedQtyMap.merge(key, qty, BigDecimal::add);
             }
         }
+
+        // Kế thừa số lượng đã đổi qua phiếu đổi hàng (NCL-11-CN-005) để tránh trả quá số lượng đã mua
+        if (productExchangeItemRepository != null) {
+            List<ProductExchangeItem> exchangeItems = productExchangeItemRepository.findCompletedReturnItemsByInvoiceId(invoiceId);
+            if (exchangeItems != null) {
+                for (ProductExchangeItem item : exchangeItems) {
+                    BigDecimal qty = item.getQuantity() != null ? item.getQuantity() : BigDecimal.ZERO;
+                    String key = null;
+                    if (item.getInvoiceItemId() != null) {
+                        key = item.getInvoiceItemId();
+                    } else if (item.getProduct() != null) {
+                        key = item.getProduct().getId();
+                    } else if (item.getProductName() != null) {
+                        key = item.getProductName();
+                    }
+                    if (key != null) {
+                        returnedQtyMap.merge(key, qty, BigDecimal::add);
+                    }
+                }
+            }
+        }
+
         return returnedQtyMap;
     }
 

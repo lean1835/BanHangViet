@@ -59,6 +59,9 @@ class ReturnTicketServiceImplTest {
     @Mock
     private BusinessHouseholdSettingsRepository settingsRepository;
 
+    @Mock
+    private ProductExchangeItemRepository productExchangeItemRepository;
+
     @InjectMocks
     private ReturnTicketServiceImpl returnTicketService;
 
@@ -1269,6 +1272,42 @@ class ReturnTicketServiceImplTest {
         assertEquals(14, response.getMaxReturnDays());
         assertFalse(response.isExpired());
         assertTrue(response.isEligibleForReturn());
+    }
+
+    @Test
+    @DisplayName("QTN-19: Khách đã đổi 1 món qua ProductExchange, trả tiếp vượt quá số lượng còn lại -> Ném EXCEEDED_RETURNABLE_QUANTITY")
+    void createReturnTicket_ExceedsQuantityWhenExchangedPreviously_ThrowsException() {
+        when(userRepository.findByUsername("chuho_viet")).thenReturn(Optional.of(ownerUser));
+        when(eInvoiceRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("inv-1", "house-1"))
+                .thenReturn(Optional.of(issuedInvoice));
+
+        // issuedInvoice có 5 sản phẩm (item-1, quantity 5.000)
+        // Đã đổi 1 sản phẩm qua phiếu đổi hàng ProductExchange -> còn 4
+        ProductExchangeItem pei = ProductExchangeItem.builder()
+                .invoiceItemId("item-1")
+                .product(product)
+                .quantity(BigDecimal.ONE)
+                .itemType("RETURN_ITEM")
+                .build();
+
+        when(returnTicketItemRepository.findReturnedQuantitiesByInvoiceId(eq("inv-1"), anyList()))
+                .thenReturn(Collections.emptyList());
+        when(productExchangeItemRepository.findCompletedReturnItemsByInvoiceId("inv-1"))
+                .thenReturn(List.of(pei));
+
+        // Yêu cầu trả thêm 5 món -> 1 (đã đổi) + 5 (yêu cầu) = 6 > 5 (đã mua)
+        CreateReturnTicketRequest request = CreateReturnTicketRequest.builder()
+                .originalInvoiceId("inv-1")
+                .items(List.of(CreateReturnTicketItemRequest.builder()
+                        .invoiceItemId("item-1")
+                        .productId(product.getId())
+                        .quantity(new BigDecimal("5.000"))
+                        .build()))
+                .build();
+
+        AppException ex = assertThrows(AppException.class, () ->
+                returnTicketService.createReturnTicket(request, "chuho_viet"));
+        assertEquals(ErrorCode.EXCEEDED_RETURNABLE_QUANTITY, ex.getErrorCode());
     }
 }
 
