@@ -46,6 +46,34 @@ public class DatabaseMigrationInitializer implements CommandLineRunner {
         }
 
         try {
+            // Đảm bảo chk_inv_status trên e_invoices cho phép trạng thái MANUAL_PROCESSING cho tự động gửi lại
+            jdbcTemplate.execute("ALTER TABLE e_invoices DROP CHECK chk_inv_status;");
+            jdbcTemplate.execute("ALTER TABLE e_invoices ADD CONSTRAINT chk_inv_status CHECK (status IN ('DRAFT', 'WAITING_TAX_CODE', 'ISSUED', 'SEND_ERROR', 'ADJUSTED', 'CANCELED', 'MANUAL_PROCESSING'));");
+            log.info("DatabaseMigrationInitializer: Đã cập nhật check constraint chk_inv_status trên bảng e_invoices bao gồm MANUAL_PROCESSING.");
+        } catch (Exception e) {
+            log.warn("DatabaseMigrationInitializer: Bỏ qua cập nhật chk_inv_status: {}", e.getMessage());
+        }
+
+        try {
+            // Drop check constraints trên e_invoice_items cho phép đơn giá và thành tiền âm khi lập hóa đơn đổi trả
+            List<String> checkConstraints = jdbcTemplate.query(
+                "SELECT CONSTRAINT_NAME FROM information_schema.TABLE_CONSTRAINTS " +
+                "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'e_invoice_items' AND CONSTRAINT_TYPE = 'CHECK'",
+                (rs, rowNum) -> rs.getString("CONSTRAINT_NAME")
+            );
+            for (String chkName : checkConstraints) {
+                try {
+                    jdbcTemplate.execute("ALTER TABLE e_invoice_items DROP CHECK `" + chkName + "`");
+                    log.info("DatabaseMigrationInitializer: Đã xóa check constraint {} trên e_invoice_items.", chkName);
+                } catch (Exception dropEx) {
+                    log.debug("DatabaseMigrationInitializer: Bỏ qua drop {}: {}", chkName, dropEx.getMessage());
+                }
+            }
+        } catch (Exception e) {
+            log.warn("DatabaseMigrationInitializer: Bỏ qua kiểm tra check constraints e_invoice_items: {}", e.getMessage());
+        }
+
+        try {
             // Cho phép changed_by_user_id NULL khi hệ thống tự động ghi log trạng thái hóa đơn (scheduler auto retry)
             jdbcTemplate.execute("ALTER TABLE invoice_status_logs MODIFY COLUMN changed_by_user_id VARCHAR(36) NULL;");
             log.info("DatabaseMigrationInitializer: Đã đảm bảo invoice_status_logs.changed_by_user_id cho phép NULL.");
@@ -132,6 +160,28 @@ public class DatabaseMigrationInitializer implements CommandLineRunner {
             }
         } catch (Exception e) {
             log.warn("DatabaseMigrationInitializer: Bỏ qua khởi tạo platform_system_logs: {}", e.getMessage());
+        }
+
+        try {
+            // Cập nhật các dòng hàng khấu trừ cũ sang định dạng Đổi trả kèm tên sản phẩm (bỏ theo HĐ gốc)
+            String updateDeductionSql =
+                "UPDATE e_invoice_items eii " +
+                "JOIN product_exchange_tickets pet ON pet.additional_invoice_id = eii.invoice_id " +
+                "JOIN product_exchange_items pei ON pei.exchange_ticket_id = pet.id AND pei.item_type = 'RETURN_ITEM' " +
+                "SET eii.product_name = CONCAT('Đổi trả: ', pei.product_name), " +
+                "    eii.unit = pei.unit, " +
+                "    eii.product_id = pei.product_id, " +
+                "    eii.unit_price = -ABS(pei.unit_price) " +
+                "WHERE eii.product_name LIKE 'Khấu trừ%' OR eii.product_name LIKE 'Đổi trả: % (theo HĐ gốc%';";
+            int updatedRows = jdbcTemplate.update(updateDeductionSql);
+            if (updatedRows > 0) {
+                log.info("DatabaseMigrationInitializer: Đã cập nhật {} dòng đổi trả cũ sang định dạng gọn gàng.", updatedRows);
+            }
+
+            // Lược bỏ bớt chú thích dài dòng trên hóa đơn đổi hàng cũ
+            jdbcTemplate.update("UPDATE e_invoices SET footer_note = NULL WHERE footer_note LIKE 'Hóa đơn phát sinh phần chênh lệch cho phiếu đổi hàng%';");
+        } catch (Exception e) {
+            log.warn("DatabaseMigrationInitializer: Bỏ qua cập nhật e_invoice_items khấu trừ cũ: {}", e.getMessage());
         }
     }
 }

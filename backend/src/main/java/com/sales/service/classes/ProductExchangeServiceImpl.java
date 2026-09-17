@@ -40,6 +40,7 @@ public class ProductExchangeServiceImpl implements ProductExchangeService {
 
     private final ProductExchangeTicketRepository productExchangeTicketRepository;
     private final ProductExchangeItemRepository productExchangeItemRepository;
+    private final ReturnTicketRepository returnTicketRepository;
     private final ReturnTicketItemRepository returnTicketItemRepository;
     private final EInvoiceRepository eInvoiceRepository;
     private final ProductRepository productRepository;
@@ -65,7 +66,21 @@ public class ProductExchangeServiceImpl implements ProductExchangeService {
         User user = getUserByUsername(currentUsername);
         validateStaffOrOwnerRole(user);
 
-        EInvoice invoice = getEligibleInvoice(request.getOriginalInvoiceId(), user.getHousehold().getId());
+        EInvoice invoice;
+        try {
+            invoice = getEligibleInvoice(request.getOriginalInvoiceId(), user.getHousehold().getId());
+        } catch (AppException e) {
+            return ExchangeEligibilityResponse.builder()
+                    .isEligible(false)
+                    .exchangeType("INELIGIBLE")
+                    .totalReturnAmount(BigDecimal.ZERO)
+                    .totalExchangeAmount(BigDecimal.ZERO)
+                    .differenceAmount(BigDecimal.ZERO)
+                    .requireNewInvoice(false)
+                    .redirectToReturnFlow(false)
+                    .message(e.getMessage())
+                    .build();
+        }
 
         // Validate items and calculate amounts
         ExchangeCalculationResult calculation = calculateExchange(
@@ -327,6 +342,39 @@ public class ProductExchangeServiceImpl implements ProductExchangeService {
             throw new AppException(ErrorCode.INVOICE_NOT_ELIGIBLE_FOR_EXCHANGE);
         }
 
+        // 1. Không cho phép đổi trên hóa đơn con / bổ sung / điều chỉnh từ đổi trả
+        if (invoice.getOriginalInvoice() != null || invoice.getReturnTicket() != null
+                || (invoice.getTitle() != null && (invoice.getTitle().toUpperCase().contains("ĐỔI HÀNG") || invoice.getTitle().toUpperCase().contains("ĐIỀU CHỈNH")))
+                || productExchangeTicketRepository.findByAdditionalInvoiceId(invoice.getId()).isPresent()) {
+            throw new AppException(ErrorCode.INVOICE_ALREADY_EXCHANGED_OR_RETURNED);
+        }
+
+        // 2. Không cho phép đổi nếu hóa đơn gốc đã từng thực hiện đổi hàng
+        boolean alreadyExchanged = productExchangeTicketRepository.existsByOriginalInvoiceIdAndStatusIn(
+                invoice.getId(), List.of("COMPLETED", "PENDING")
+        );
+        if (!alreadyExchanged && invoice.getOrder() != null) {
+            alreadyExchanged = productExchangeTicketRepository.existsByOriginalOrderIdAndStatusIn(
+                    invoice.getOrder().getId(), List.of("COMPLETED", "PENDING")
+            );
+        }
+        if (alreadyExchanged) {
+            throw new AppException(ErrorCode.INVOICE_ALREADY_EXCHANGED_OR_RETURNED);
+        }
+
+        // 3. Không cho phép đổi nếu hóa đơn gốc đã từng thực hiện trả hàng
+        boolean alreadyReturned = returnTicketRepository.existsByOriginalInvoiceIdAndStatusIn(
+                invoice.getId(), List.of("PENDING", "APPROVED")
+        );
+        if (!alreadyReturned && invoice.getOrder() != null) {
+            alreadyReturned = returnTicketRepository.existsByOriginalOrderIdAndStatusIn(
+                    invoice.getOrder().getId(), List.of("PENDING", "APPROVED")
+            );
+        }
+        if (alreadyReturned) {
+            throw new AppException(ErrorCode.INVOICE_ALREADY_EXCHANGED_OR_RETURNED);
+        }
+
         int allowedDays = resolveMaxReturnDays(householdId);
         LocalDateTime issueTime = invoice.getCreatedAt();
         long daysSinceIssued = ChronoUnit.DAYS.between(issueTime, LocalDateTime.now());
@@ -465,6 +513,13 @@ public class ProductExchangeServiceImpl implements ProductExchangeService {
             BigDecimal subtotal = unitPrice.multiply(req.getQuantity()).setScale(2, RoundingMode.HALF_UP);
             totalReturnAmount = totalReturnAmount.add(subtotal);
 
+            BigDecimal taxRate = matchingInvoiceItem.getTaxRatePercentage() != null
+                    ? matchingInvoiceItem.getTaxRatePercentage()
+                    : (product.getTaxRate() != null && product.getTaxRate().getRatePercentage() != null
+                            ? product.getTaxRate().getRatePercentage()
+                            : BigDecimal.ZERO);
+            BigDecimal taxAmount = subtotal.multiply(taxRate).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+
             returnDetails.add(ExchangeCalculationResult.ReturnItemDetail.builder()
                     .product(product)
                     .invoiceItemId(matchingInvoiceItem.getId())
@@ -472,8 +527,8 @@ public class ProductExchangeServiceImpl implements ProductExchangeService {
                     .unit(matchingInvoiceItem.getUnit())
                     .quantity(req.getQuantity())
                     .unitPrice(unitPrice)
-                    .taxRatePercentage(matchingInvoiceItem.getTaxRatePercentage())
-                    .taxAmount(matchingInvoiceItem.getTaxAmount() != null ? matchingInvoiceItem.getTaxAmount() : BigDecimal.ZERO)
+                    .taxRatePercentage(taxRate)
+                    .taxAmount(taxAmount)
                     .subtotal(subtotal)
                     .build());
         }
@@ -577,19 +632,31 @@ public class ProductExchangeServiceImpl implements ProductExchangeService {
         String taxAuthCode = "CQT-" + UUID.randomUUID().toString().substring(0, 15).toUpperCase();
 
         List<ExchangeCalculationResult.NewItemDetail> newItemDetails = calculation != null ? calculation.getNewItemDetails() : Collections.emptyList();
+        List<ExchangeCalculationResult.ReturnItemDetail> returnItemDetails = calculation != null ? calculation.getReturnItemDetails() : Collections.emptyList();
+
         BigDecimal totalReturnAmount = calculation != null && calculation.getTotalReturnAmount() != null
                 ? calculation.getTotalReturnAmount()
                 : BigDecimal.ZERO;
 
-        BigDecimal totalTax = BigDecimal.ZERO;
+        BigDecimal newTax = BigDecimal.ZERO;
         if (newItemDetails != null) {
             for (ExchangeCalculationResult.NewItemDetail itemDetail : newItemDetails) {
                 if (itemDetail.getTaxAmount() != null) {
-                    totalTax = totalTax.add(itemDetail.getTaxAmount());
+                    newTax = newTax.add(itemDetail.getTaxAmount());
                 }
             }
         }
 
+        BigDecimal returnTax = BigDecimal.ZERO;
+        if (returnItemDetails != null) {
+            for (ExchangeCalculationResult.ReturnItemDetail retDetail : returnItemDetails) {
+                if (retDetail.getTaxAmount() != null) {
+                    returnTax = returnTax.add(retDetail.getTaxAmount());
+                }
+            }
+        }
+
+        BigDecimal totalTax = newTax.subtract(returnTax);
         BigDecimal finalAmount = differenceAmount.add(totalTax);
 
         EInvoice additionalInvoice = EInvoice.builder()
@@ -615,7 +682,7 @@ public class ProductExchangeServiceImpl implements ProductExchangeService {
                 .lookupCode(lookupCode)
                 .sentToTaxAt(LocalDateTime.now())
                 .taxResponseAt(LocalDateTime.now())
-                .footerNote("Hóa đơn phát sinh phần chênh lệch cho phiếu đổi hàng dựa trên HĐ gốc " + origInvoice.getInvoiceNumber())
+                .footerNote(null)
                 .build();
 
         List<EInvoiceItem> items = new ArrayList<>();
@@ -636,13 +703,33 @@ public class ProductExchangeServiceImpl implements ProductExchangeService {
             }
         }
 
-        if (totalReturnAmount.compareTo(BigDecimal.ZERO) > 0) {
+        if (returnItemDetails != null && !returnItemDetails.isEmpty()) {
+            for (ExchangeCalculationResult.ReturnItemDetail retDetail : returnItemDetails) {
+                BigDecimal retTaxRate = retDetail.getTaxRatePercentage() != null ? retDetail.getTaxRatePercentage() : BigDecimal.ZERO;
+                BigDecimal retTaxAmount = retDetail.getTaxAmount() != null ? retDetail.getTaxAmount().negate() : BigDecimal.ZERO;
+
+                EInvoiceItem deductionItem = EInvoiceItem.builder()
+                        .invoice(additionalInvoice)
+                        .product(retDetail.getProduct())
+                        .productName("Đổi trả: " + retDetail.getProductName())
+                        .unit(retDetail.getUnit() != null ? retDetail.getUnit() : "Lần")
+                        .quantity(retDetail.getQuantity() != null ? retDetail.getQuantity() : BigDecimal.ONE)
+                        .unitPrice(retDetail.getUnitPrice() != null ? retDetail.getUnitPrice().negate() : BigDecimal.ZERO)
+                        .discountAmount(BigDecimal.ZERO)
+                        .taxRatePercentage(retTaxRate)
+                        .taxAmount(retTaxAmount)
+                        .subtotal(retDetail.getSubtotal() != null ? retDetail.getSubtotal().negate() : BigDecimal.ZERO)
+                        .build();
+                items.add(deductionItem);
+            }
+        } else if (totalReturnAmount.compareTo(BigDecimal.ZERO) > 0) {
             EInvoiceItem deductionItem = EInvoiceItem.builder()
                     .invoice(additionalInvoice)
-                    .productName("Khấu trừ giá trị hàng đổi trả theo HĐ gốc " + origInvoice.getInvoiceNumber())
+                    .productName("Hàng đổi trả")
                     .unit("Lần")
                     .quantity(BigDecimal.ONE)
                     .unitPrice(totalReturnAmount.negate())
+                    .discountAmount(BigDecimal.ZERO)
                     .taxRatePercentage(BigDecimal.ZERO)
                     .taxAmount(BigDecimal.ZERO)
                     .subtotal(totalReturnAmount.negate())

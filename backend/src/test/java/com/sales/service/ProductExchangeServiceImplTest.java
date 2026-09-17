@@ -39,6 +39,9 @@ class ProductExchangeServiceImplTest {
     private ProductExchangeItemRepository productExchangeItemRepository;
 
     @Mock
+    private ReturnTicketRepository returnTicketRepository;
+
+    @Mock
     private ReturnTicketItemRepository returnTicketItemRepository;
 
     @Mock
@@ -760,6 +763,116 @@ class ProductExchangeServiceImplTest {
     }
 
     @Test
+    @DisplayName("FixBug: Cả món cũ và món mới đều có thuế VAT -> HĐ bổ sung khấu trừ đúng thuế của món trả lại")
+    void createProductExchange_HigherValueBothTaxed_DeductsReturnTaxCorrectly() {
+        TaxRate tax10 = TaxRate.builder().id("tax-10").ratePercentage(new BigDecimal("10.00")).build();
+        Product productTax1 = Product.builder()
+                .id("p-tax1")
+                .name("Sản phẩm gốc có thuế")
+                .unit("Cái")
+                .price(new BigDecimal("20000000.00"))
+                .taxRate(tax10)
+                .stockQuantity(new BigDecimal("10.000"))
+                .household(household)
+                .build();
+
+        Product productTax2 = Product.builder()
+                .id("p-tax2")
+                .name("Sản phẩm mới đổi sang có thuế")
+                .unit("Cái")
+                .price(new BigDecimal("21478000.00"))
+                .taxRate(tax10)
+                .stockQuantity(new BigDecimal("10.000"))
+                .household(household)
+                .build();
+
+        EInvoiceItem taxItem = EInvoiceItem.builder()
+                .id("item-tax-1")
+                .product(productTax1)
+                .productName(productTax1.getName())
+                .unit(productTax1.getUnit())
+                .quantity(BigDecimal.ONE)
+                .unitPrice(new BigDecimal("20000000.00"))
+                .taxRatePercentage(new BigDecimal("10.00"))
+                .taxAmount(new BigDecimal("2000000.00"))
+                .subtotal(new BigDecimal("20000000.00"))
+                .build();
+
+        EInvoice invoiceWithTax = EInvoice.builder()
+                .id("inv-tax-orig")
+                .household(household)
+                .invoiceNumber("0000003")
+                .invoicePattern("1")
+                .invoiceSymbol("1C26TAA")
+                .status("ISSUED")
+                .createdAt(LocalDateTime.now().minusDays(1))
+                .buyerName("Khách lẻ")
+                .items(new ArrayList<>(List.of(taxItem)))
+                .build();
+
+        when(userRepository.findByUsername("nhanvien1")).thenReturn(Optional.of(staffUser));
+        when(eInvoiceRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("inv-tax-orig", "hh-1"))
+                .thenReturn(Optional.of(invoiceWithTax));
+        when(returnTicketItemRepository.findReturnedQuantitiesByInvoiceId(eq("inv-tax-orig"), anyList()))
+                .thenReturn(Collections.emptyList());
+        when(productExchangeItemRepository.sumReturnedQuantitiesByInvoiceGroupByProduct("inv-tax-orig"))
+                .thenReturn(Collections.emptyList());
+        when(productRepository.findAllByIdInAndHouseholdIdAndDeletedAtIsNull(any(), eq("hh-1")))
+                .thenReturn(List.of(productTax1, productTax2));
+        when(invoiceNumberRangeService.allocateNextInvoiceNumber(eq("hh-1"), anyString(), anyString()))
+                .thenReturn("0000004");
+
+        EInvoice savedInvoice = EInvoice.builder()
+                .id("inv-additional-tax-net")
+                .invoiceNumber("0000004")
+                .build();
+        when(eInvoiceRepository.save(any(EInvoice.class))).thenReturn(savedInvoice);
+
+        when(productExchangeTicketRepository.findMaxTicketNumberByPrefix(eq("hh-1"), anyString()))
+                .thenReturn(Optional.empty());
+        when(productExchangeTicketRepository.save(any(ProductExchangeTicket.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+
+        CreateProductExchangeRequest request = CreateProductExchangeRequest.builder()
+                .originalInvoiceId("inv-tax-orig")
+                .returnItems(List.of(ExchangeReturnItemRequest.builder()
+                        .productId("p-tax1")
+                        .quantity(BigDecimal.ONE)
+                        .build()))
+                .exchangeItems(List.of(ExchangeNewItemRequest.builder()
+                        .productId("p-tax2")
+                        .quantity(BigDecimal.ONE)
+                        .build()))
+                .extraPaymentMethod("BANK_TRANSFER")
+                .reason("Đổi sang máy tốt hơn")
+                .build();
+
+        ProductExchangeResponse response = productExchangeService.createProductExchange(request, "nhanvien1");
+
+        assertNotNull(response);
+        assertEquals("HIGHER_VALUE", response.getExchangeType());
+        assertEquals(0, new BigDecimal("1478000.00").compareTo(response.getDifferenceAmount()));
+
+        // Chênh lệch trước thuế: 21.478.000 - 20.000.000 = 1.478.000
+        // Thuế hàng mới (10%): 2.147.800
+        // Thuế khấu trừ hàng trả (10%): -2.000.000
+        // Thuế GTGT thuần: 147.800
+        // Tổng thanh toán: 1.478.000 + 147.800 = 1.625.800
+        verify(eInvoiceRepository).save(argThat(inv ->
+                inv.getTotalAmountBeforeTax().compareTo(new BigDecimal("1478000.00")) == 0 &&
+                inv.getTaxAmount().compareTo(new BigDecimal("147800.00")) == 0 &&
+                inv.getFinalAmount().compareTo(new BigDecimal("1625800.00")) == 0 &&
+                inv.getItems().size() == 2 &&
+                inv.getItems().get(0).getSubtotal().compareTo(new BigDecimal("21478000.00")) == 0 &&
+                inv.getItems().get(0).getTaxRatePercentage().compareTo(new BigDecimal("10.00")) == 0 &&
+                inv.getItems().get(0).getTaxAmount().compareTo(new BigDecimal("2147800.00")) == 0 &&
+                inv.getItems().get(1).getSubtotal().compareTo(new BigDecimal("-20000000.00")) == 0 &&
+                inv.getItems().get(1).getTaxRatePercentage().compareTo(new BigDecimal("10.00")) == 0 &&
+                inv.getItems().get(1).getTaxAmount().compareTo(new BigDecimal("-2000000.00")) == 0
+        ));
+    }
+
+    @Test
     @DisplayName("P2-2 (QTN-19 Edge-case): Hóa đơn có nhiều dòng cùng 1 sản phẩm -> Tính đúng tổng số lượng đã bán")
     void createProductExchange_MultiLineSameProduct_ComputesTotalSoldQuantity() {
         // HĐ có 2 dòng p-1: dòng 1 có 2 cái, dòng 2 có 3 cái -> Tổng bán 5 cái
@@ -821,5 +934,50 @@ class ProductExchangeServiceImplTest {
         ProductExchangeResponse response = productExchangeService.createProductExchange(request, "nhanvien1");
         assertNotNull(response);
         assertEquals("EQUAL_VALUE", response.getExchangeType());
+    }
+
+    @Test
+    void createProductExchange_AlreadyExchanged_ThrowsException() {
+        when(userRepository.findByUsername("nhanvien1")).thenReturn(Optional.of(staffUser));
+        when(eInvoiceRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("inv-1", "hh-1"))
+                .thenReturn(Optional.of(originalInvoice));
+        when(productExchangeTicketRepository.existsByOriginalInvoiceIdAndStatusIn(eq("inv-1"), anyList()))
+                .thenReturn(true);
+
+        CreateProductExchangeRequest request = CreateProductExchangeRequest.builder()
+                .originalInvoiceId("inv-1")
+                .returnItems(List.of(ExchangeReturnItemRequest.builder().productId("p-1").quantity(BigDecimal.ONE).build()))
+                .exchangeItems(List.of(ExchangeNewItemRequest.builder().productId("p-2").quantity(BigDecimal.ONE).build()))
+                .build();
+
+        AppException ex = assertThrows(AppException.class, () ->
+                productExchangeService.createProductExchange(request, "nhanvien1"));
+        assertEquals(ErrorCode.INVOICE_ALREADY_EXCHANGED_OR_RETURNED, ex.getErrorCode());
+    }
+
+    @Test
+    void createProductExchange_AdditionalInvoice_ThrowsException() {
+        EInvoice additionalInvoice = EInvoice.builder()
+                .id("inv-additional")
+                .household(household)
+                .title("HÓA ĐƠN BÁN HÀNG BỔ SUNG ĐỔI HÀNG")
+                .status("ISSUED")
+                .createdAt(LocalDateTime.now())
+                .originalInvoice(originalInvoice)
+                .build();
+
+        when(userRepository.findByUsername("nhanvien1")).thenReturn(Optional.of(staffUser));
+        when(eInvoiceRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("inv-additional", "hh-1"))
+                .thenReturn(Optional.of(additionalInvoice));
+
+        CreateProductExchangeRequest request = CreateProductExchangeRequest.builder()
+                .originalInvoiceId("inv-additional")
+                .returnItems(List.of(ExchangeReturnItemRequest.builder().productId("p-1").quantity(BigDecimal.ONE).build()))
+                .exchangeItems(List.of(ExchangeNewItemRequest.builder().productId("p-2").quantity(BigDecimal.ONE).build()))
+                .build();
+
+        AppException ex = assertThrows(AppException.class, () ->
+                productExchangeService.createProductExchange(request, "nhanvien1"));
+        assertEquals(ErrorCode.INVOICE_ALREADY_EXCHANGED_OR_RETURNED, ex.getErrorCode());
     }
 }

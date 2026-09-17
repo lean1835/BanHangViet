@@ -41,9 +41,21 @@ export const PrintInvoiceModal: React.FC<PrintInvoiceModalProps> = ({
 
   // Robust calculations
   const itemsList = invoice.items && invoice.items.length > 0 ? invoice.items : null;
+  const isAdjustmentOrExchange = Boolean(
+    invoice.originalInvoiceId ||
+    (invoice as any).originalInvoice ||
+    invoice.title?.includes("ĐỔI HÀNG") ||
+    invoice.title?.includes("BỔ SUNG") ||
+    invoice.footerNote?.includes("đổi hàng")
+  );
   const hasDiscount = Boolean(invoice.discountAmount && invoice.discountAmount > 0);
   const rawOriginalTotal = itemsList
-    ? itemsList.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0)
+    ? itemsList.reduce((sum, item) => {
+        const lineTotal = (item.subtotal !== undefined && item.subtotal !== null && item.subtotal !== 0)
+          ? item.subtotal
+          : (item.quantity * item.unitPrice);
+        return sum + lineTotal;
+      }, 0)
     : ((invoice.totalAmountBeforeTax || invoice.amount || 0) + (invoice.discountAmount || 0));
 
   const preTaxAmount = hasDiscount
@@ -57,7 +69,7 @@ export const PrintInvoiceModal: React.FC<PrintInvoiceModalProps> = ({
   const payableBeforePoints = preTaxAmount + effectiveTaxAmount;
   const pointDiscount = (invoice.pointDiscountAmount && invoice.pointDiscountAmount > 0)
     ? invoice.pointDiscountAmount
-    : (invoice.finalAmount !== undefined && invoice.finalAmount < payableBeforePoints)
+    : (!isAdjustmentOrExchange && invoice.finalAmount !== undefined && invoice.finalAmount < payableBeforePoints)
     ? Math.max(0, payableBeforePoints - invoice.finalAmount)
     : 0;
   const pointsRedeemed = invoice.pointsRedeemed || (pointDiscount > 0 ? Math.round(pointDiscount / 1000) : 0);
@@ -276,11 +288,11 @@ export const PrintInvoiceModal: React.FC<PrintInvoiceModalProps> = ({
                               </span>
                             </div>
                           ) : (
-                            formatCurrency(item.unitPrice)
+                            formatCurrency((item.unitPrice === 0 && item.subtotal && item.subtotal < 0) ? (item.subtotal / (item.quantity || 1)) : item.unitPrice)
                           )}
                         </td>
                         <td className="p-1 sm:p-1.5 text-right font-black text-slate-900 whitespace-nowrap">
-                          {formatCurrency((item.quantity * item.unitPrice) - (item.discountAmount || 0))}
+                          {formatCurrency((item.subtotal !== undefined && item.subtotal !== null && item.subtotal !== 0) ? item.subtotal : (item.quantity * item.unitPrice) - (item.discountAmount || 0))}
                         </td>
                       </tr>
                     ))

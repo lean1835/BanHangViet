@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Plus } from "lucide-react";
+import { Plus, ArrowRightLeft } from "lucide-react";
 import { DashboardWorkspaceLayout } from "@/components/layouts/DashboardWorkspaceLayout";
 import { useDashboardDemo } from "@/providers/DashboardDemoProvider";
 import { USER_ROLES } from "@/constants/roles";
@@ -184,8 +184,18 @@ export const ReturnTicketListPage: React.FC = () => {
             )}
           </div>
 
-          {/* Create Button */}
+          {/* Action Buttons */}
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => navigate(APP_ROUTES.PRODUCT_EXCHANGES)}
+              className="flex h-11 lg:h-9 items-center gap-1.5 rounded-lg bg-emerald-600 px-3.5 text-xs font-bold text-white shadow-sm transition-all hover:bg-emerald-700 active:scale-95"
+              title="Quản lý đổi hàng"
+            >
+              <ArrowRightLeft size={15} />
+              ĐỔI HÀNG
+            </button>
+
             <button
               type="button"
               onClick={() => navigate(APP_ROUTES.RETURN_TICKET_CREATE)}
