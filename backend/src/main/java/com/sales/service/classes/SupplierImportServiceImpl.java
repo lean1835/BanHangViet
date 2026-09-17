@@ -46,8 +46,13 @@ public class SupplierImportServiceImpl implements SupplierImportService {
     private final ActivityLogHelper activityLogHelper;
 
     @Override
-    public byte[] getImportTemplate() throws Exception {
-        return ExcelParserUtils.generateSupplierImportTemplate();
+    public byte[] getImportTemplate() {
+        try {
+            return ExcelParserUtils.generateSupplierImportTemplate();
+        } catch (Exception e) {
+            log.error("Failed to generate supplier import template", e);
+            throw new AppException(ErrorCode.UNCATEGORIZED_EXCEPTION);
+        }
     }
 
     private User validateAndGetUser(String currentUsername) {
@@ -114,8 +119,8 @@ public class SupplierImportServiceImpl implements SupplierImportService {
 
         Map<String, Supplier> existingByPhone = supplierRepository.findAllByHouseholdIdAndDeletedAtIsNull(household.getId())
                 .stream()
-                .filter(s -> StringUtils.hasText(s.getPhoneNumber()))
-                .collect(Collectors.toMap(Supplier::getPhoneNumber, s -> s, (s1, s2) -> s1));
+                .filter(s -> StringUtils.hasText(s.getPhoneNumber()) && StringUtils.hasText(cleanPhone(s.getPhoneNumber())))
+                .collect(Collectors.toMap(s -> cleanPhone(s.getPhoneNumber()), s -> s, (s1, s2) -> s1));
 
         List<DuplicateDetail> duplicates = new ArrayList<>();
         List<ImportPreviewResponse.RowErrorDetail> errors = new ArrayList<>();
@@ -208,8 +213,8 @@ public class SupplierImportServiceImpl implements SupplierImportService {
 
         Map<String, Supplier> existingByPhone = supplierRepository.findAllByHouseholdIdAndDeletedAtIsNull(household.getId())
                 .stream()
-                .filter(s -> StringUtils.hasText(s.getPhoneNumber()))
-                .collect(Collectors.toMap(Supplier::getPhoneNumber, s -> s, (s1, s2) -> s1));
+                .filter(s -> StringUtils.hasText(s.getPhoneNumber()) && StringUtils.hasText(cleanPhone(s.getPhoneNumber())))
+                .collect(Collectors.toMap(s -> cleanPhone(s.getPhoneNumber()), s -> s, (s1, s2) -> s1));
 
         List<RowErrorDetail> errors = new ArrayList<>();
         List<List<String>> errorExportRows = new ArrayList<>();

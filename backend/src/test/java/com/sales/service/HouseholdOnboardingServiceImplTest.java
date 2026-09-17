@@ -101,7 +101,7 @@ class HouseholdOnboardingServiceImplTest {
     }
 
     @Test
-    @DisplayName("NCL-09-CN-007-TC-02: Bốn bước bắt buộc đã hoàn tất -> isReadyForInvoicing = true, tự động đánh dấu completed")
+    @DisplayName("NCL-09-CN-007-TC-02: Bốn bước bắt buộc đã hoàn tất -> isReadyForInvoicing = true, isCompleted = true không ghi DB trong GET")
     void testGetOnboardingStatus_AllRequiredCompleted() {
         when(userRepository.findByUsername("owner1")).thenReturn(Optional.of(ownerUser));
         when(settingsRepository.findByHouseholdId("hh-1")).thenReturn(Optional.of(settings));
@@ -119,15 +119,13 @@ class HouseholdOnboardingServiceImplTest {
         // Nhân viên đã có
         when(userRepository.existsByHouseholdIdAndRole_CodeAndDeletedAtIsNull("hh-1", "VT-02")).thenReturn(true);
 
-        when(settingsRepository.save(any(BusinessHouseholdSettings.class))).thenAnswer(inv -> inv.getArgument(0));
-
         OnboardingStatusResponse response = onboardingService.getOnboardingStatus("owner1");
 
         assertNotNull(response);
         assertTrue(response.isReadyForInvoicing());
         assertTrue(response.isCompleted());
         assertEquals(0, response.getRemainingRequiredSteps());
-        verify(settingsRepository, times(1)).save(settings);
+        verify(settingsRepository, never()).save(any());
     }
 
     @Test

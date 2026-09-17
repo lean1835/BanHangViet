@@ -24,7 +24,7 @@ public class SupplierController {
 
     @GetMapping("/import-template")
     @PreAuthorize("hasRole('VT-01')")
-    public ResponseEntity<byte[]> getImportTemplate() throws Exception {
+    public ResponseEntity<byte[]> getImportTemplate() {
         byte[] data = supplierImportService.getImportTemplate();
         return ResponseEntity.ok()
                 .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=mau_nhap_nha_cung_cap.xlsx")

@@ -247,4 +247,25 @@ class CustomerImportServiceImplTest {
         AppException ex = assertThrows(AppException.class, () -> customerImportService.importCustomers("owner1", badFile, "SKIP"));
         assertEquals(ErrorCode.INVALID_FILE_FORMAT, ex.getErrorCode());
     }
+
+    @Test
+    @DisplayName("P2-1: Khách hàng hiện có SĐT format quốc tế (+84...) -> Khớp trùng lặp chính xác nhờ chuẩn hóa cleanPhone")
+    void testImportCustomers_ExistingPhoneWithCountryCode_MatchesDuplicate() throws Exception {
+        when(userRepository.findByUsername("owner1")).thenReturn(Optional.of(ownerUser));
+        Customer existing = Customer.builder().id("c-old").name("Khách Cũ").phoneNumber("+84912345678").build();
+        when(customerRepository.findAllByHouseholdIdAndDeletedAtIsNull("hh-1")).thenReturn(List.of(existing));
+
+        List<String[]> rows = Collections.singletonList(
+                new String[]{"Khách Cũ Nhập Lại", "0912345678", "", "", "", "0", "0", "QR"}
+        );
+        MockMultipartFile file = createExcelFile(rows);
+
+        ImportCustomerResultResponse response = customerImportService.importCustomers("owner1", file, "SKIP");
+
+        assertNotNull(response);
+        assertEquals(1, response.getTotalRows());
+        assertEquals(0, response.getSuccessCount());
+        assertEquals(1, response.getSkippedCount());
+        assertEquals(0, response.getErrorCount());
+    }
 }

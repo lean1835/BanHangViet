@@ -24,7 +24,7 @@ public class CustomerController {
 
     @GetMapping("/import-template")
     @PreAuthorize("hasRole('VT-01')")
-    public ResponseEntity<byte[]> getImportTemplate() throws Exception {
+    public ResponseEntity<byte[]> getImportTemplate() {
         byte[] data = customerImportService.getImportTemplate();
         return ResponseEntity.ok()
                 .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=mau_nhap_khach_hang.xlsx")

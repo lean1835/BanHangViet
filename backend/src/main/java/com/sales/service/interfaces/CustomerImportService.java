@@ -6,7 +6,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 public interface CustomerImportService {
 
-    byte[] getImportTemplate() throws Exception;
+    byte[] getImportTemplate();
 
     ImportPreviewResponse previewImport(String currentUsername, MultipartFile file);
 

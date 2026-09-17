@@ -225,4 +225,25 @@ class SupplierImportServiceImplTest {
         AppException ex = assertThrows(AppException.class, () -> supplierImportService.importSuppliers("owner1", badFile, "SKIP"));
         assertEquals(ErrorCode.INVALID_FILE_FORMAT, ex.getErrorCode());
     }
+
+    @Test
+    @DisplayName("P2-1 (Supplier): NCC hiện có SĐT format quốc tế (+84...) -> Khớp trùng lặp chính xác nhờ chuẩn hóa cleanPhone")
+    void testImportSuppliers_ExistingPhoneWithCountryCode_MatchesDuplicate() throws Exception {
+        when(userRepository.findByUsername("owner1")).thenReturn(Optional.of(ownerUser));
+        Supplier existing = Supplier.builder().id("s-old").name("NCC Cũ").phoneNumber("+84987654321").build();
+        when(supplierRepository.findAllByHouseholdIdAndDeletedAtIsNull("hh-1")).thenReturn(List.of(existing));
+
+        List<String[]> rows = Collections.singletonList(
+                new String[]{"NCC Cũ Nhập Lại", "0987654321", "", "", "", "0", ""}
+        );
+        MockMultipartFile file = createSupplierExcelFile(rows);
+
+        ImportSupplierResultResponse response = supplierImportService.importSuppliers("owner1", file, "SKIP");
+
+        assertNotNull(response);
+        assertEquals(1, response.getTotalRows());
+        assertEquals(0, response.getSuccessCount());
+        assertEquals(1, response.getSkippedCount());
+        assertEquals(0, response.getErrorCount());
+    }
 }

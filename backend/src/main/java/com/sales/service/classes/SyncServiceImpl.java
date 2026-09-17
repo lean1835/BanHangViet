@@ -285,6 +285,9 @@ public class SyncServiceImpl implements SyncService {
                 .details(new ArrayList<>())
                 .build();
 
+        int maxSyncHours = resolveMaxOfflineSyncHours(household.getId());
+        LocalDateTime syncDeadline = LocalDateTime.now().minusHours(maxSyncHours);
+
         for (OfflineOrderRequest req : requests) {
             List<String> warnings = new ArrayList<>();
 
@@ -332,8 +335,7 @@ public class SyncServiceImpl implements SyncService {
 
             try {
                 // Check overdue sync limit (QTN-11, AC NCL-08-CN-002-TC-02 & NCL-09-CN-008)
-                int maxSyncHours = resolveMaxOfflineSyncHours(household.getId());
-                if (req.getCreatedAt() != null && req.getCreatedAt().isBefore(LocalDateTime.now().minusHours(maxSyncHours))) {
+                if (req.getCreatedAt() != null && req.getCreatedAt().isBefore(syncDeadline)) {
                     warnings.add("Đơn hàng " + req.getOrderNumber() + " đồng bộ quá hạn quy định (" + maxSyncHours + " giờ).");
                 }
 

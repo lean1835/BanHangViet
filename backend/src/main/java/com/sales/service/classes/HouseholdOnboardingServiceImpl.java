@@ -35,6 +35,18 @@ public class HouseholdOnboardingServiceImpl implements HouseholdOnboardingServic
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
     }
 
+    private BusinessHouseholdSettings resolveSettings(BusinessHousehold household) {
+        return settingsRepository.findByHouseholdId(household.getId())
+                .orElseGet(() -> BusinessHouseholdSettings.builder()
+                        .household(household)
+                        .isOnboardingCompleted(false)
+                        .isOnboardingSkipped(false)
+                        .returnDaysLimit(7)
+                        .maxOfflineSyncHours(24)
+                        .debtReminderDaysBefore(3)
+                        .build());
+    }
+
     private BusinessHouseholdSettings getOrCreateSettings(BusinessHousehold household) {
         return settingsRepository.findByHouseholdId(household.getId())
                 .orElseGet(() -> settingsRepository.save(BusinessHouseholdSettings.builder()
@@ -48,7 +60,7 @@ public class HouseholdOnboardingServiceImpl implements HouseholdOnboardingServic
     }
 
     @Override
-    @Transactional(rollbackFor = Exception.class)
+    @Transactional(readOnly = true)
     public OnboardingStatusResponse getOnboardingStatus(String currentUsername) {
         User user = getAuthenticatedUser(currentUsername);
         BusinessHousehold household = user.getHousehold();
@@ -56,7 +68,7 @@ public class HouseholdOnboardingServiceImpl implements HouseholdOnboardingServic
             throw new AppException(ErrorCode.FORBIDDEN);
         }
 
-        BusinessHouseholdSettings settings = getOrCreateSettings(household);
+        BusinessHouseholdSettings settings = resolveSettings(household);
 
         // 1. Kiểm tra Bước 1: Thông tin hộ kinh doanh (Bắt buộc)
         boolean householdInfoCompleted = StringUtils.hasText(household.getName())
@@ -80,12 +92,7 @@ public class HouseholdOnboardingServiceImpl implements HouseholdOnboardingServic
                 && taxRateCompleted
                 && productCompleted;
 
-        // Nếu cả 4 bước bắt buộc đã xong nhưng cờ chưa bật -> tự động cập nhật
-        if (allRequiredCompleted && Boolean.FALSE.equals(settings.getIsOnboardingCompleted())) {
-            settings.setIsOnboardingCompleted(true);
-            settingsRepository.save(settings);
-            log.info("Hộ kinh doanh id={} đã hoàn tất 4 bước thiết lập ban đầu (Onboarding Completed)", household.getId());
-        }
+        boolean isCompleted = allRequiredCompleted || Boolean.TRUE.equals(settings.getIsOnboardingCompleted());
 
         List<OnboardingStepDetail> steps = new ArrayList<>();
         steps.add(OnboardingStepDetail.builder()
@@ -140,7 +147,7 @@ public class HouseholdOnboardingServiceImpl implements HouseholdOnboardingServic
         if (!productCompleted) remainingRequired++;
 
         return OnboardingStatusResponse.builder()
-                .isCompleted(Boolean.TRUE.equals(settings.getIsOnboardingCompleted()))
+                .isCompleted(isCompleted)
                 .isSkipped(Boolean.TRUE.equals(settings.getIsOnboardingSkipped()))
                 .isReadyForInvoicing(allRequiredCompleted)
                 .remainingRequiredSteps(remainingRequired)
