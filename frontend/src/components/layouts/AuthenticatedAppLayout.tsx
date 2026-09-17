@@ -8,6 +8,12 @@ import { useOfflineSync } from "@/modules/sync/hooks/useOfflineSync";
 import { OfflineSyncBanner } from "@/modules/sync/components/OfflineSyncBanner";
 import { ConflictResolutionModal } from "@/modules/sync/components/ConflictResolutionModal";
 import { useAuthExpiration } from "@/hooks/useAuthExpiration";
+import {
+  ScreenGuideProvider,
+  ScreenGuideDrawer,
+  ScreenGuideHighlightOverlay,
+  ScreenGuideDirectoryModal,
+} from "@/modules/screen_guide";
 
 export const AuthenticatedAppLayout = () => {
   useAuthExpiration();
@@ -43,45 +49,52 @@ export const AuthenticatedAppLayout = () => {
   });
 
   return (
-    <div className="h-screen max-h-screen flex flex-col overflow-hidden bg-slate-100 text-slate-800 text-xs font-sans select-none">
-      <div className="shrink-0 z-30">
-        {/* Blue Navigation Menu is hidden when on POS screen */}
-        {!isPosScreen &&
-          currentRole !== USER_ROLES.PLATFORM_ADMIN &&
-          currentRole !== USER_ROLES.TAX_AUTHORITY && (
-            <DashboardNavigation
-              currentRole={currentRole}
-              pendingCount={pendingCount}
-              onSync={triggerSync}
-            />
-          )}
-        <OfflineSyncBanner
-          isOnline={isOnline}
-          pendingCount={pendingCount}
-          conflictingOrdersCount={conflictingOrders.length}
-          warnings={warnings}
+    <ScreenGuideProvider>
+      <div className="h-screen max-h-screen flex flex-col overflow-hidden bg-slate-100 text-slate-800 text-xs font-sans select-none">
+        <div className="shrink-0 z-30">
+          {/* Blue Navigation Menu is hidden when on POS screen */}
+          {!isPosScreen &&
+            currentRole !== USER_ROLES.PLATFORM_ADMIN &&
+            currentRole !== USER_ROLES.TAX_AUTHORITY && (
+              <DashboardNavigation
+                currentRole={currentRole}
+                pendingCount={pendingCount}
+                onSync={triggerSync}
+              />
+            )}
+          <OfflineSyncBanner
+            isOnline={isOnline}
+            pendingCount={pendingCount}
+            conflictingOrdersCount={conflictingOrders.length}
+            warnings={warnings}
+            isSyncing={isSyncing}
+            unissuedOrderIds={unissuedOrderIds}
+            userRole={currentRole}
+            onSync={triggerSync}
+            onClearUnissuedOrders={clearUnissuedOrderIds}
+            onOpenConflictModal={() => setIsConflictModalOpen(true)}
+          />
+        </div>
+
+        <div className="flex-1 min-h-0 min-w-0 flex flex-col overflow-hidden">
+          <Outlet />
+        </div>
+
+        <ConflictResolutionModal
+          isOpen={isConflictModalOpen || conflictingOrders.length > 0}
+          conflictingOrders={conflictingOrders}
+          currentRole={currentRole}
           isSyncing={isSyncing}
-          unissuedOrderIds={unissuedOrderIds}
-          userRole={currentRole}
-          onSync={triggerSync}
-          onClearUnissuedOrders={clearUnissuedOrderIds}
-          onOpenConflictModal={() => setIsConflictModalOpen(true)}
+          onResolve={resolveOrderConflict}
+          onClose={() => setIsConflictModalOpen(false)}
         />
-      </div>
 
-      <div className="flex-1 min-h-0 min-w-0 flex flex-col overflow-hidden">
-        <Outlet />
+        {/* Hướng dẫn ngắn tại chỗ theo từng màn hình (NCL-19-CN-003) */}
+        <ScreenGuideDrawer />
+        <ScreenGuideHighlightOverlay />
+        <ScreenGuideDirectoryModal />
       </div>
-
-      <ConflictResolutionModal
-        isOpen={isConflictModalOpen || conflictingOrders.length > 0}
-        conflictingOrders={conflictingOrders}
-        currentRole={currentRole}
-        isSyncing={isSyncing}
-        onResolve={resolveOrderConflict}
-        onClose={() => setIsConflictModalOpen(false)}
-      />
-    </div>
+    </ScreenGuideProvider>
   );
 };
 

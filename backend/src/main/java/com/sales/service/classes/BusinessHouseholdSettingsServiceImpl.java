@@ -60,6 +60,9 @@ public class BusinessHouseholdSettingsServiceImpl implements BusinessHouseholdSe
                 .bankTransferTimeoutMinutes(settings.getBankTransferTimeoutMinutes() != null ? settings.getBankTransferTimeoutMinutes() : 15)
                 .expenseApprovalThreshold(settings.getExpenseApprovalThreshold() != null ? settings.getExpenseApprovalThreshold() : new java.math.BigDecimal("500000.00"))
                 .shiftDifferenceThreshold(settings.getShiftDifferenceThreshold() != null ? settings.getShiftDifferenceThreshold() : java.math.BigDecimal.ZERO)
+                .returnDaysLimit(settings.getReturnDaysLimit() != null ? settings.getReturnDaysLimit() : 7)
+                .maxOfflineSyncHours(settings.getMaxOfflineSyncHours() != null ? settings.getMaxOfflineSyncHours() : 24)
+                .debtReminderDaysBefore(settings.getDebtReminderDaysBefore() != null ? settings.getDebtReminderDaysBefore() : 3)
                 .updatedAt(settings.getUpdatedAt())
                 .build();
     }
@@ -86,6 +89,9 @@ public class BusinessHouseholdSettingsServiceImpl implements BusinessHouseholdSe
                     .bankTransferTimeoutMinutes(15)
                     .expenseApprovalThreshold(new java.math.BigDecimal("500000.00"))
                     .shiftDifferenceThreshold(java.math.BigDecimal.ZERO)
+                    .returnDaysLimit(7)
+                    .maxOfflineSyncHours(24)
+                    .debtReminderDaysBefore(3)
                     .updatedAt(null)
                     .build();
         }
@@ -117,6 +123,9 @@ public class BusinessHouseholdSettingsServiceImpl implements BusinessHouseholdSe
         oldVal.put("bankTransferTimeoutMinutes", settings.getBankTransferTimeoutMinutes());
         oldVal.put("expenseApprovalThreshold", settings.getExpenseApprovalThreshold());
         oldVal.put("shiftDifferenceThreshold", settings.getShiftDifferenceThreshold());
+        oldVal.put("returnDaysLimit", settings.getReturnDaysLimit());
+        oldVal.put("maxOfflineSyncHours", settings.getMaxOfflineSyncHours());
+        oldVal.put("debtReminderDaysBefore", settings.getDebtReminderDaysBefore());
 
         settings.setAutoRetryEnabled(request.getAutoRetryEnabled());
         settings.setMaxRetryAttempts(request.getMaxRetryAttempts());
@@ -134,6 +143,15 @@ public class BusinessHouseholdSettingsServiceImpl implements BusinessHouseholdSe
         if (request.getShiftDifferenceThreshold() != null) {
             settings.setShiftDifferenceThreshold(request.getShiftDifferenceThreshold());
         }
+        if (request.getReturnDaysLimit() != null) {
+            settings.setReturnDaysLimit(request.getReturnDaysLimit());
+        }
+        if (request.getMaxOfflineSyncHours() != null) {
+            settings.setMaxOfflineSyncHours(request.getMaxOfflineSyncHours());
+        }
+        if (request.getDebtReminderDaysBefore() != null) {
+            settings.setDebtReminderDaysBefore(request.getDebtReminderDaysBefore());
+        }
 
         BusinessHouseholdSettings saved = settingsRepository.save(settings);
 
@@ -146,6 +164,9 @@ public class BusinessHouseholdSettingsServiceImpl implements BusinessHouseholdSe
         newVal.put("bankTransferTimeoutMinutes", saved.getBankTransferTimeoutMinutes());
         newVal.put("expenseApprovalThreshold", saved.getExpenseApprovalThreshold());
         newVal.put("shiftDifferenceThreshold", saved.getShiftDifferenceThreshold());
+        newVal.put("returnDaysLimit", saved.getReturnDaysLimit());
+        newVal.put("maxOfflineSyncHours", saved.getMaxOfflineSyncHours());
+        newVal.put("debtReminderDaysBefore", saved.getDebtReminderDaysBefore());
 
 
 

@@ -5,6 +5,7 @@ import com.sales.constant.DebtType;
 import com.sales.entity.BusinessHousehold;
 import com.sales.entity.Customer;
 import com.sales.entity.CustomerDebt;
+import com.sales.repository.BusinessHouseholdSettingsRepository;
 import com.sales.repository.CustomerDebtRepository;
 import com.sales.service.interfaces.EmailService;
 import org.junit.jupiter.api.BeforeEach;
@@ -21,6 +22,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.function.Consumer;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -34,6 +36,9 @@ class DebtSchedulerTest {
 
     @Mock
     private CustomerDebtRepository customerDebtRepository;
+
+    @Mock
+    private BusinessHouseholdSettingsRepository settingsRepository;
 
     @Mock
     private EmailService emailService;
@@ -273,5 +278,57 @@ class DebtSchedulerTest {
 
         verify(emailService, never()).sendCustomDebtReminderEmail(any(), any(), any(), any(), any());
         verify(customerDebtRepository, never()).saveAll(any());
+    }
+
+    @Test
+    @DisplayName("P1-1: Nhắc nợ trước hạn dùng cache householdReminderDaysCache, chỉ gọi repository 1 lần cho cùng 1 hộ (Tránh N+1 query)")
+    void autoSendDebtReminders_PreDue_HouseholdSettingsCached_NoNPlusOne() {
+        BusinessHousehold household = BusinessHousehold.builder().id("hh-1").name("Hộ Kinh Doanh ABC").build();
+        Customer customer1 = Customer.builder().id("c-1").name("Khách 1").email("c1@gmail.com").reminderDaysBefore(null).build();
+        Customer customer2 = Customer.builder().id("c-2").name("Khách 2").email("c2@gmail.com").reminderDaysBefore(null).build();
+
+        CustomerDebt debt1 = CustomerDebt.builder()
+                .id("debt-101")
+                .customer(customer1)
+                .household(household)
+                .amount(new BigDecimal("100000"))
+                .remainingAmount(new BigDecimal("100000"))
+                .status(DebtStatus.PENDING)
+                .type(DebtType.DEBT_CREATED)
+                .dueDate(LocalDateTime.now().plusDays(2))
+                .reminderSent(false)
+                .build();
+
+        CustomerDebt debt2 = CustomerDebt.builder()
+                .id("debt-102")
+                .customer(customer2)
+                .household(household)
+                .amount(new BigDecimal("200000"))
+                .remainingAmount(new BigDecimal("200000"))
+                .status(DebtStatus.PENDING)
+                .type(DebtType.DEBT_CREATED)
+                .dueDate(LocalDateTime.now().plusDays(2))
+                .reminderSent(false)
+                .build();
+
+        when(customerDebtRepository.findMaxPendingReminderDaysBefore()).thenReturn(3);
+        when(settingsRepository.findMaxDebtReminderDaysBefore()).thenReturn(5);
+        when(settingsRepository.findByHouseholdId("hh-1")).thenReturn(Optional.of(
+                com.sales.entity.BusinessHouseholdSettings.builder().debtReminderDaysBefore(5).build()
+        ));
+        when(customerDebtRepository.findMinPendingOverdueReminderDaysAfter()).thenReturn(3);
+        when(customerDebtRepository.findPendingPreDueRemindersKeyset(any(), any(), any()))
+                .thenReturn(List.of(debt1, debt2))
+                .thenReturn(List.of());
+        when(customerDebtRepository.findPendingOverdueRemindersKeyset(any(), any(), any()))
+                .thenReturn(List.of());
+
+        debtScheduler.autoSendDebtReminders();
+
+        // Kiểm tra findByHouseholdId("hh-1") chỉ được gọi ĐÚNG 1 LẦN duy nhất dù có 2 khoản nợ cùng hộ
+        verify(settingsRepository, times(1)).findByHouseholdId("hh-1");
+        assertTrue(debt1.isReminderSent());
+        assertTrue(debt2.isReminderSent());
+        verify(emailService, times(2)).sendCustomDebtReminderEmail(any(), any(), any(), any(), any());
     }
 }

@@ -20,6 +20,9 @@ public class AutoRetrySettingsResponse {
     private Integer bankTransferTimeoutMinutes;
     private java.math.BigDecimal expenseApprovalThreshold;
     private java.math.BigDecimal shiftDifferenceThreshold;
+    private Integer returnDaysLimit;
+    private Integer maxOfflineSyncHours;
+    private Integer debtReminderDaysBefore;
     private LocalDateTime updatedAt;
 }
 

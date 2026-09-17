@@ -1,5 +1,6 @@
 import React from "react";
 import { Tag, Trash2, Plus, Minus, ShoppingCart, Scale, TrendingDown } from "lucide-react";
+import { useAppSelector } from "@/hooks/useRedux";
 import type { IPosCartItem } from "../types/IPos";
 import { formatCurrency } from "@/utils/formatCurrency";
 
@@ -24,6 +25,9 @@ export const PosCartTable: React.FC<IPosCartTableProps> = ({
   onChangeUnit,
   onOpenWeightModal,
 }) => {
+  const displaySettings = useAppSelector((state) => state.displaySettings);
+  const isSimpleMode = Boolean(displaySettings?.simpleModeEnabled);
+
   if (items.length === 0) {
     return (
       <div className="flex-1 bg-white rounded-xl shadow-sm border border-slate-200 p-8 flex flex-col items-center justify-center text-center select-none">
@@ -43,21 +47,21 @@ export const PosCartTable: React.FC<IPosCartTableProps> = ({
   const totalQuantity = items.reduce((acc, item) => acc + item.quantity, 0);
 
   return (
-    <div className="flex-1 bg-white rounded-xl shadow-md border border-slate-200 flex flex-col overflow-hidden select-none">
+    <div id="pos-cart-table" className="flex-1 bg-white rounded-xl shadow-md border border-slate-200 flex flex-col overflow-hidden select-none">
       {/* Header bar */}
       <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
-        <div className="text-xs font-bold text-slate-700 flex items-center gap-2">
+        <div className={`font-bold text-slate-700 flex items-center gap-2 ${isSimpleMode ? "text-sm" : "text-xs"}`}>
           <span>Danh sách hàng hóa ({items.length})</span>
-          <span className="bg-blue-100 text-kv-blue-primary text-[10px] px-2 py-0.5 rounded-full font-bold">
+          <span className={`bg-blue-100 text-kv-blue-primary px-2 py-0.5 rounded-full font-bold ${isSimpleMode ? "text-xs" : "text-[10px]"}`}>
             Tổng SL: {totalQuantity}
           </span>
         </div>
         <button
           type="button"
           onClick={onClearCart}
-          className="text-xs font-bold text-rose-500 hover:text-rose-700 hover:bg-rose-50 px-2 py-1 rounded transition-colors flex items-center gap-1"
+          className={`font-bold text-rose-500 hover:text-rose-700 hover:bg-rose-50 px-2 py-1 rounded transition-colors flex items-center gap-1 ${isSimpleMode ? "text-sm" : "text-xs"}`}
         >
-          <Trash2 size={13} />
+          <Trash2 size={isSimpleMode ? 16 : 13} />
           Xóa tất cả
         </button>
       </div>
@@ -66,18 +70,18 @@ export const PosCartTable: React.FC<IPosCartTableProps> = ({
       <div className="flex-1 overflow-y-auto">
         <table className="w-full text-left border-collapse">
           <thead>
-            <tr className="border-b border-slate-200 bg-slate-100/70 text-[11px] font-bold text-slate-500 uppercase tracking-wider sticky top-0 z-10">
-              <th className="py-2.5 px-3 text-center w-12">STT</th>
-              <th className="py-2.5 px-3">Tên sản phẩm</th>
-              <th className="py-2.5 px-3 text-center w-16">ĐVT</th>
-              <th className="py-2.5 px-3 text-center w-28">Số lượng</th>
-              <th className="py-2.5 px-3 text-right w-28">Đơn giá</th>
-              <th className="py-2.5 px-3 text-center w-20">Thuế VAT</th>
-              <th className="py-2.5 px-3 text-right w-32">Thành tiền</th>
-              <th className="py-2.5 px-3 text-center w-10"></th>
+            <tr className={`border-b border-slate-200 bg-slate-100/70 font-bold text-slate-500 uppercase tracking-wider sticky top-0 z-10 ${isSimpleMode ? "text-xs py-3" : "text-[11px] py-2.5"}`}>
+              <th className={`px-3 text-center w-12 ${isSimpleMode ? "py-3" : "py-2.5"}`}>STT</th>
+              <th className={`px-3 ${isSimpleMode ? "py-3" : "py-2.5"}`}>Tên sản phẩm</th>
+              <th className={`px-3 text-center w-16 ${isSimpleMode ? "py-3" : "py-2.5"}`}>ĐVT</th>
+              <th className={`px-3 text-center w-32 ${isSimpleMode ? "py-3" : "py-2.5"}`}>Số lượng</th>
+              <th className={`px-3 text-right w-28 ${isSimpleMode ? "py-3" : "py-2.5"}`}>Đơn giá</th>
+              <th className={`px-3 text-center w-20 ${isSimpleMode ? "py-3" : "py-2.5"}`}>Thuế VAT</th>
+              <th className={`px-3 text-right w-32 ${isSimpleMode ? "py-3" : "py-2.5"}`}>Thành tiền</th>
+              <th className={`px-3 text-center w-10 ${isSimpleMode ? "py-3" : "py-2.5"}`}></th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100 text-xs">
+          <tbody className={`divide-y divide-slate-100 ${isSimpleMode ? "text-sm" : "text-xs"}`}>
             {items.map((item, idx) => {
               const taxPct = item.product.taxRatePercentage ?? 0;
               const hasActivePromotion =
@@ -94,14 +98,14 @@ export const PosCartTable: React.FC<IPosCartTableProps> = ({
                   key={item.id}
                   className="hover:bg-blue-50/40 transition-colors group"
                 >
-                  <td className="py-2.5 px-3 text-center font-bold text-slate-400">
+                  <td className={`px-3 text-center font-bold text-slate-400 ${isSimpleMode ? "py-3 text-sm" : "py-2.5"}`}>
                     {idx + 1}
                   </td>
-                  <td className="py-2.5 px-3">
-                    <div className="font-bold text-slate-800">
+                  <td className={`px-3 ${isSimpleMode ? "py-3" : "py-2.5"}`}>
+                    <div className={`font-bold text-slate-800 ${isSimpleMode ? "text-base lg:text-lg" : ""}`}>
                       {item.product.name}
                     </div>
-                    <div className="text-[10px] text-slate-400 font-medium">
+                    <div className={`font-medium ${isSimpleMode ? "text-xs text-slate-500" : "text-[10px] text-slate-400"}`}>
                       Mã: {item.product.sku || "N/A"}
                     </div>
 
@@ -204,8 +208,8 @@ export const PosCartTable: React.FC<IPosCartTableProps> = ({
                       </span>
                     )}
                   </td>
-                  <td className="py-2.5 px-3">
-                    <div className="flex items-center justify-center gap-1 bg-slate-50 border border-slate-200 rounded-lg p-0.5">
+                  <td className={`px-3 ${isSimpleMode ? "py-3" : "py-2.5"}`}>
+                    <div className={`flex items-center justify-center gap-1 bg-slate-50 border border-slate-200 rounded-lg ${isSimpleMode ? "p-1" : "p-0.5"}`}>
                       <button
                         type="button"
                         onClick={() => {
@@ -218,9 +222,12 @@ export const PosCartTable: React.FC<IPosCartTableProps> = ({
                             : Math.max(1, item.quantity - 1);
                           onUpdateQuantity(item.id, next);
                         }}
-                        className="w-6 h-6 rounded bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 font-bold flex items-center justify-center transition-colors text-xs shrink-0"
+                        className={`rounded-lg bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 font-bold flex items-center justify-center transition-colors shrink-0 shadow-xs ${
+                          isSimpleMode ? "w-11 h-11 text-base font-extrabold" : "w-6 h-6 text-xs"
+                        }`}
+                        title="Giảm số lượng"
                       >
-                        <Minus size={11} />
+                        <Minus size={isSimpleMode ? 18 : 11} />
                       </button>
                       <input
                         type="number"
@@ -240,7 +247,9 @@ export const PosCartTable: React.FC<IPosCartTableProps> = ({
                             }
                           }
                         }}
-                        className="w-14 text-center bg-transparent font-bold text-slate-800 focus:outline-none text-xs font-mono"
+                        className={`text-center bg-transparent font-bold text-slate-800 focus:outline-none font-mono ${
+                          isSimpleMode ? "w-16 text-base font-extrabold" : "w-14 text-xs"
+                        }`}
                       />
                       <button
                         type="button"
@@ -254,9 +263,12 @@ export const PosCartTable: React.FC<IPosCartTableProps> = ({
                             : item.quantity + 1;
                           onUpdateQuantity(item.id, next);
                         }}
-                        className="w-6 h-6 rounded bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 font-bold flex items-center justify-center transition-colors text-xs shrink-0"
+                        className={`rounded-lg bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 font-bold flex items-center justify-center transition-colors shrink-0 shadow-xs ${
+                          isSimpleMode ? "w-11 h-11 text-base font-extrabold" : "w-6 h-6 text-xs"
+                        }`}
+                        title="Tăng số lượng"
                       >
-                        <Plus size={11} />
+                        <Plus size={isSimpleMode ? 18 : 11} />
                       </button>
                       {item.product.isSoldByWeight && onOpenWeightModal && (
                         <button
@@ -300,24 +312,28 @@ export const PosCartTable: React.FC<IPosCartTableProps> = ({
                       {taxPct > 0 ? `${taxPct}%` : "0%"}
                     </span>
                   </td>
-                  <td className="py-2.5 px-3 text-right">
+                  <td className={`px-3 text-right ${isSimpleMode ? "py-3 text-base lg:text-lg font-black text-slate-900" : "py-2.5 font-extrabold text-slate-800"}`}>
                     {hasActivePromotion && lineDiscount > 0 && (
                       <span className="line-through text-slate-400 text-[10px] block font-normal">
                         {formatCurrency(item.quantity * item.price)}
                       </span>
                     )}
-                    <span className="font-extrabold text-slate-800">
+                    <span>
                       {formatCurrency(item.lineTotal)}
                     </span>
                   </td>
-                  <td className="py-2.5 px-3 text-center">
+                  <td className={`px-3 text-center ${isSimpleMode ? "py-3" : "py-2.5"}`}>
                     <button
                       type="button"
                       onClick={() => onRemoveItem(item.id)}
-                      className="text-slate-300 hover:text-rose-600 transition-colors p-1 rounded hover:bg-rose-50"
-                      title="Xóa hàng hóa"
+                      title={`Xóa ${item.product.name} khỏi đơn`}
+                      className={`transition-colors rounded-lg flex items-center justify-center ${
+                        isSimpleMode
+                          ? "p-2.5 text-rose-600 hover:text-rose-800 hover:bg-rose-100"
+                          : "p-1 text-slate-300 hover:text-rose-500 hover:bg-rose-50"
+                      }`}
                     >
-                      <Trash2 size={15} />
+                      <Trash2 size={isSimpleMode ? 18 : 14} />
                     </button>
                   </td>
                 </tr>

@@ -70,6 +70,11 @@ public enum ErrorCode {
     EMPTY_IMPORT_FILE(2014, "Tệp import rỗng không chứa dòng dữ liệu nào", HttpStatus.BAD_REQUEST),
     FILE_SIZE_EXCEEDED(2015, "Tệp import vượt quá dung lượng tối đa cho phép (10MB)", HttpStatus.BAD_REQUEST),
     NO_DATA_TO_EXPORT(2016, "Không có dữ liệu trong khoảng thời gian đã chọn", HttpStatus.BAD_REQUEST),
+    INVALID_DEADLINE_VALUE(2071, "Mốc thời hạn cấu hình không nằm trong khoảng cho phép", HttpStatus.BAD_REQUEST),
+    INVALID_PHONE_FORMAT(2072, "Số điện thoại không đúng định dạng", HttpStatus.BAD_REQUEST),
+    IMPORT_DATA_CONFLICT(2073, "Dữ liệu tệp bị xung đột hoặc trùng lặp", HttpStatus.CONFLICT),
+    INVALID_FILE_FORMAT(2074, "Định dạng tệp không hợp lệ, chỉ chấp nhận tệp Excel (.xlsx, .xls)", HttpStatus.BAD_REQUEST),
+    ONBOARDING_INCOMPLETE(2075, "Chưa hoàn thành đầy đủ các bước thiết lập bắt buộc", HttpStatus.BAD_REQUEST),
 
     // Cấu hình Nền tảng & Thuế suất (NCL-09 Branch 1)
     INVALID_TAX_CODE(2030, "Mã số thuế không đúng định dạng 10 hoặc 13 chữ số", HttpStatus.BAD_REQUEST),
@@ -116,6 +121,18 @@ public enum ErrorCode {
     ADJUSTMENT_INVOICE_ALREADY_EXISTS(4026, "Hóa đơn điều chỉnh giảm đã được lập cho phiếu trả hàng này", HttpStatus.BAD_REQUEST),
     EMPTY_RETURN_TICKET_ITEMS(4027, "Phiếu trả hàng phải chọn ít nhất một mặt hàng để trả", HttpStatus.BAD_REQUEST),
     UNAUTHORIZED_RETURN_ACTION(4028, "Chỉ có chủ hộ mới có quyền duyệt hoặc từ chối phiếu trả hàng", HttpStatus.FORBIDDEN),
+
+    // NCL-11-CN-005 Đổi hàng ngang giá không hoàn tiền & đổi món khác giá
+    EXCHANGE_TICKET_NOT_FOUND(4030, "Không tìm thấy thông tin phiếu đổi hàng", HttpStatus.NOT_FOUND),
+    EXCHANGE_PERIOD_EXPIRED(4031, "Hóa đơn gốc đã quá thời hạn đổi trả theo quy định của cửa hàng", HttpStatus.BAD_REQUEST),
+    INVOICE_NOT_ELIGIBLE_FOR_EXCHANGE(4032, "Hóa đơn gốc không ở trạng thái hợp lệ để đổi hàng (phải là ISSUED và chưa bị hủy)", HttpStatus.BAD_REQUEST),
+    EXCEEDED_EXCHANGE_RETURNABLE_QUANTITY(4033, "Số lượng mặt hàng trả vượt quá số lượng còn lại có thể trả của hóa đơn gốc", HttpStatus.BAD_REQUEST),
+    INSUFFICIENT_STOCK_FOR_EXCHANGE(4034, "Sản phẩm khách chọn đổi sang không còn đủ số lượng tồn kho", HttpStatus.BAD_REQUEST),
+    EMPTY_EXCHANGE_RETURN_ITEMS(4035, "Phiếu đổi hàng phải chọn ít nhất một mặt hàng cần trả lại", HttpStatus.BAD_REQUEST),
+    EMPTY_EXCHANGE_NEW_ITEMS(4036, "Phiếu đổi hàng phải chọn ít nhất một mặt hàng muốn đổi sang", HttpStatus.BAD_REQUEST),
+    EXCHANGE_LOWER_VALUE_REDIRECT(4037, "Món đổi sang có giá thấp hơn. Vui lòng chuyển sang luồng Trả hàng để được hoàn tiền", HttpStatus.BAD_REQUEST),
+    EXTRA_PAYMENT_REQUIRED(4038, "Khách đổi sang món có giá trị cao hơn nhưng chưa chọn phương thức thanh toán phần chênh lệch", HttpStatus.BAD_REQUEST),
+    DUPLICATE_EXCHANGE_ITEM(4039, "Không được chứa sản phẩm trùng lặp trong cùng một yêu cầu đổi hàng", HttpStatus.BAD_REQUEST),
 
     // NCL-13 Quản lý nhà cung cấp & Công nợ phải trả (NCL-13-CN-003)
     SUPPLIER_NOT_FOUND(3031, "Nhà cung cấp không tồn tại", HttpStatus.NOT_FOUND),

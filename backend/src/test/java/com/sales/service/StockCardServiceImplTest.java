@@ -51,6 +51,9 @@ class StockCardServiceImplTest {
     @Mock
     private com.sales.repository.SupplierReturnItemRepository supplierReturnItemRepository;
 
+    @Mock
+    private ProductExchangeItemRepository productExchangeItemRepository;
+
     @InjectMocks
     private StockCardServiceImpl stockCardService;
 
@@ -617,5 +620,68 @@ class StockCardServiceImplTest {
         assertEquals(0, new BigDecimal("45.000").compareTo(response.getCurrentStock()));
         assertFalse(response.getIsDiscrepancy(), "Không được báo động sai lệch tồn kho khi sản phẩm có tồn ban đầu");
         assertNull(response.getWarning());
+    }
+
+    @Test
+    @DisplayName("P2-1 (NCL-02-CN-006): Kiểm tra biến động thẻ kho phát sinh từ phiếu đổi hàng (PRODUCT_EXCHANGE)")
+    void testProductExchangeMovementsInStockCard() {
+        when(userRepository.findByUsername("owner")).thenReturn(Optional.of(testUser));
+        when(productRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("prod-1", "hh-1"))
+                .thenReturn(Optional.of(testProduct));
+
+        // Phiếu đổi hàng 1: Khách trả lại 2 món SP001 (RETURN_ITEM -> IN +2)
+        ProductExchangeTicket ticket1 = ProductExchangeTicket.builder()
+                .id("dx-1")
+                .ticketNumber("DX-20260905-0001")
+                .household(testHousehold)
+                .createdByUser(testUser)
+                .status("COMPLETED")
+                .createdAt(LocalDateTime.of(2026, 9, 5, 9, 0))
+                .reason("Đổi sang hương khác")
+                .build();
+
+        ProductExchangeItem itemReturn = ProductExchangeItem.builder()
+                .id("pei-1")
+                .exchangeTicket(ticket1)
+                .itemType("RETURN_ITEM")
+                .product(testProduct)
+                .productName(testProduct.getName())
+                .quantity(new BigDecimal("2.000"))
+                .build();
+
+        // Phiếu đổi hàng 2: Khách lấy 1 món SP001 (EXCHANGE_ITEM -> OUT -1)
+        ProductExchangeTicket ticket2 = ProductExchangeTicket.builder()
+                .id("dx-2")
+                .ticketNumber("DX-20260906-0001")
+                .household(testHousehold)
+                .createdByUser(testUser)
+                .status("COMPLETED")
+                .createdAt(LocalDateTime.of(2026, 9, 6, 14, 0))
+                .reason("Khách đổi lấy SP001")
+                .build();
+
+        ProductExchangeItem itemNew = ProductExchangeItem.builder()
+                .id("pei-2")
+                .exchangeTicket(ticket2)
+                .itemType("EXCHANGE_ITEM")
+                .product(testProduct)
+                .productName(testProduct.getName())
+                .quantity(new BigDecimal("1.000"))
+                .build();
+
+        when(productExchangeItemRepository.findStockMovementsByProductInPeriod(eq("prod-1"), eq("hh-1"), any(), any()))
+                .thenReturn(List.of(itemReturn, itemNew));
+
+        StockCardResponse response = stockCardService.getStockCard(
+                "owner", "prod-1", LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 30), 0, 10);
+
+        assertNotNull(response);
+        assertEquals(0, new BigDecimal("2.000").compareTo(response.getTotalQuantityIn()));
+        assertEquals(0, new BigDecimal("1.000").compareTo(response.getTotalQuantityOut()));
+        assertEquals(2, response.getMovements().getTotalElements());
+
+        // Kiểm tra đúng loại chứng từ PRODUCT_EXCHANGE
+        assertEquals(com.sales.constant.StockMovementType.PRODUCT_EXCHANGE, response.getMovements().getContent().get(0).getDocumentType());
+        assertEquals(com.sales.constant.StockMovementType.PRODUCT_EXCHANGE, response.getMovements().getContent().get(1).getDocumentType());
     }
 }
