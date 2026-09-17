@@ -34,6 +34,8 @@ public interface AppNotificationService {
 
     void closeNotificationsByTarget(String targetType, String targetId);
 
+    void closeNotificationsByTargetIds(String targetType, java.util.Collection<String> targetIds);
+
     int syncReminders(String currentUsername);
 
     void cleanupExpiredNotificationsJob();

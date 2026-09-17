@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Tag, Crown, Ban, UtensilsCrossed, SlidersHorizontal, Award, Coins } from "lucide-react";
+import { useAppSelector } from "@/hooks/useRedux";
 import type { ICustomer } from "@/modules/customer/types/ICustomer";
 import type { IPosTab } from "../types/IPos";
 import { formatCurrency, formatNumber } from "@/utils/formatCurrency";
@@ -38,6 +39,13 @@ export const PosPaymentSidebar: React.FC<IPosPaymentSidebarProps> = ({
 }) => {
   const [customerSearchTerm, setCustomerSearchTerm] = useState<string>("");
   const [isCustomerDropdownOpen, setIsCustomerDropdownOpen] = useState<boolean>(false);
+
+  const displaySettings = useAppSelector((state) => state.displaySettings);
+  const isSimpleMode = Boolean(displaySettings?.simpleModeEnabled);
+  const showTextLabels = displaySettings?.showTextLabels ?? true;
+  const minTouchHeight = isSimpleMode
+    ? displaySettings?.minTouchHeight || "52px"
+    : undefined;
   const customerContainerRef = useRef<HTMLDivElement>(null);
 
   // Keyboard shortcut listener: F9 to Complete Payment
@@ -187,7 +195,7 @@ export const PosPaymentSidebar: React.FC<IPosPaymentSidebarProps> = ({
   };
 
   return (
-    <div className="w-80 lg:w-[380px] h-full bg-white rounded-xl shadow-md border border-slate-200 flex flex-col select-none overflow-hidden p-4 font-sans text-xs">
+    <div className={`w-80 lg:w-[380px] h-full bg-white rounded-xl shadow-md border border-slate-200 flex flex-col select-none overflow-hidden p-4 font-sans ${isSimpleMode ? "text-sm" : "text-xs"}`}>
       <div className="flex-1 min-h-0 overflow-y-auto space-y-3.5 pr-1">
         {/* 1. Mode Switcher Header */}
         <div className="bg-slate-100 p-1 rounded-xl flex items-center gap-1 font-bold">
@@ -634,25 +642,25 @@ export const PosPaymentSidebar: React.FC<IPosPaymentSidebarProps> = ({
         </div>
 
         {/* 4. KHÁCH CẦN TRẢ Highlight Box */}
-        <div className="bg-blue-50/80 border border-blue-200 rounded-xl p-3.5 flex items-center justify-between shadow-xs">
-          <span className="font-extrabold text-slate-800 text-xs uppercase tracking-wide">
+        <div className={`bg-blue-50/80 border border-blue-200 rounded-xl p-3.5 flex items-center justify-between shadow-xs ${isSimpleMode ? "py-4" : ""}`}>
+          <span className={`font-black text-slate-800 uppercase tracking-wide ${isSimpleMode ? "text-sm lg:text-base" : "text-xs"}`}>
             KHÁCH CẦN TRẢ:
           </span>
-          <span className="font-extrabold text-[#0070f4] text-lg tracking-tight">
+          <span className={`font-black text-[#0070f4] tracking-tight ${isSimpleMode ? "text-2xl lg:text-3xl" : "text-lg"}`}>
             {formatCurrency(finalTotal)}
           </span>
         </div>
 
         {/* 5. Khách thanh toán Box */}
         {tab.saleMode === "FAST" ? (
-          <div className="flex items-center justify-between text-slate-700 font-bold bg-emerald-50/60 px-3 py-2.5 rounded-xl border border-emerald-200">
+          <div className={`flex items-center justify-between text-slate-700 font-bold bg-emerald-50/60 px-3 rounded-xl border border-emerald-200 ${isSimpleMode ? "py-3.5" : "py-2.5"}`}>
             <span className="flex items-center gap-1.5">
-              <span>Khách thanh toán:</span>
-              <span className="text-[10px] bg-emerald-100 text-emerald-700 px-1.5 py-0.2 rounded font-bold">
+              <span className={isSimpleMode ? "text-sm font-bold" : "text-xs"}>Khách thanh toán:</span>
+              <span className={`bg-emerald-100 text-emerald-700 px-1.5 py-0.2 rounded font-bold ${isSimpleMode ? "text-xs" : "text-[10px]"}`}>
                 Trả đủ
               </span>
             </span>
-            <span className="font-extrabold text-emerald-700 text-base">
+            <span className={`font-extrabold text-emerald-700 ${isSimpleMode ? "text-xl lg:text-2xl" : "text-base"}`}>
               {formatCurrency(finalTotal)}
             </span>
           </div>
@@ -824,33 +832,44 @@ export const PosPaymentSidebar: React.FC<IPosPaymentSidebarProps> = ({
             type="button"
             disabled={tab.items.length === 0 && !tab.backendOrderId}
             onClick={onCancelOrder}
-            className="px-3 py-3 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold text-xs transition-all disabled:opacity-40 disabled:cursor-not-allowed text-center shadow-xs flex items-center justify-center gap-1 shrink-0"
+            style={{ minHeight: minTouchHeight }}
+            className={`rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed text-center shadow-xs flex items-center justify-center gap-1.5 shrink-0 app-touch-button ${
+              isSimpleMode ? "text-sm font-extrabold px-4 py-3" : "text-xs px-3 py-3"
+            }`}
             title="Hủy đơn chưa thanh toán kèm lý do"
           >
             <Ban className="w-4 h-4 text-rose-600" />
-            <span className="hidden sm:inline">Hủy đơn</span>
+            <span className={showTextLabels ? "inline" : "hidden sm:inline"}>
+              Hủy đơn
+            </span>
           </button>
         )}
-
 
         {/* Save Draft Button */}
         <button
           type="button"
           disabled={tab.items.length === 0 || isSavingDraft}
           onClick={onSaveDraft}
-          className="flex-1 py-3 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-900 font-bold text-xs border border-amber-300 transition-all disabled:opacity-40 disabled:cursor-not-allowed text-center shadow-xs"
+          style={{ minHeight: minTouchHeight }}
+          className={`flex-1 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-900 font-bold border border-amber-300 transition-all disabled:opacity-40 disabled:cursor-not-allowed text-center shadow-xs app-touch-button ${
+            isSimpleMode ? "text-sm font-extrabold py-3" : "text-xs py-3"
+          }`}
         >
           {isSavingDraft ? "Đang lưu..." : "Tạo đơn (Nháp)"}
         </button>
 
         {/* Complete Payment Button (F9) */}
         <button
+          id="btn-pos-checkout"
           type="button"
           disabled={tab.items.length === 0 || isCompletingOrder}
           onClick={onCompleteOrder}
-          className="flex-1 py-3 rounded-xl bg-[#0070f4] hover:bg-blue-600 text-white font-bold text-xs transition-all shadow-md hover:shadow-lg disabled:opacity-40 disabled:cursor-not-allowed text-center"
+          style={{ minHeight: minTouchHeight }}
+          className={`flex-1 rounded-xl bg-[#0070f4] hover:bg-blue-600 text-white font-extrabold transition-all shadow-md hover:shadow-lg disabled:opacity-40 disabled:cursor-not-allowed text-center flex items-center justify-center gap-2 app-touch-button ${
+            isSimpleMode ? "text-base lg:text-lg font-black py-3" : "text-xs py-3"
+          }`}
         >
-          {isCompletingOrder ? "Đang xử lý..." : "Thanh toán (F9)"}
+          <span>{isCompletingOrder ? "Đang xử lý..." : "Thanh toán (F9)"}</span>
         </button>
       </div>
     </div>

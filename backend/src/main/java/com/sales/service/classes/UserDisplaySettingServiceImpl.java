@@ -127,6 +127,10 @@ public class UserDisplaySettingServiceImpl implements UserDisplaySettingService 
             setting.setShowTextLabels(true);
             setting.setRequireConfirmationDialog(true);
             setting.setSimplifiedPosLayout(true);
+        } else {
+            // Khi tắt chế độ chữ lớn: đưa về đúng chuẩn tiêu chuẩn ban đầu
+            setting.setFontSizeLevel(FontSizeLevel.STANDARD);
+            setting.setButtonSizeLevel(ButtonSizeLevel.STANDARD);
         }
 
         UserDisplaySetting savedSetting = displaySettingRepository.save(setting);

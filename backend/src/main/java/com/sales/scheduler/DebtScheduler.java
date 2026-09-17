@@ -17,6 +17,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.util.StringUtils;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -50,10 +51,15 @@ public class DebtScheduler {
                 List.of(DebtStatus.PENDING), DebtType.DEBT_CREATED, LocalDateTime.now());
         if (!expiredDebts.isEmpty()) {
             for (CustomerDebt debt : expiredDebts) {
-                debt.setStatus(DebtStatus.OVERDUE);
+                boolean hasRemaining = debt.getRemainingAmount() != null
+                        ? debt.getRemainingAmount().compareTo(BigDecimal.ZERO) > 0
+                        : debt.getAmount() != null && debt.getAmount().compareTo(BigDecimal.ZERO) > 0;
+                if (hasRemaining) {
+                    debt.setStatus(DebtStatus.OVERDUE);
+                }
             }
             transactionTemplate.executeWithoutResult(status -> customerDebtRepository.saveAll(expiredDebts));
-            log.info("Marked {} debts as OVERDUE", expiredDebts.size());
+            log.info("Processed {} expired debts (marked OVERDUE)", expiredDebts.size());
         }
     }
 

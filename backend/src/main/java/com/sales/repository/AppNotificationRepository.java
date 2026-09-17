@@ -42,6 +42,8 @@ public interface AppNotificationRepository extends JpaRepository<AppNotification
 
     List<AppNotification> findByTargetTypeAndTargetIdAndIsClosedFalse(String targetType, String targetId);
 
+    List<AppNotification> findByTargetTypeAndTargetIdInAndIsClosedFalse(String targetType, Collection<String> targetIds);
+
     boolean existsByHouseholdIdAndTargetTypeAndTargetIdAndIsClosedFalse(String householdId, String targetType, String targetId);
 
     boolean existsByHouseholdIdAndTargetTypeAndTargetIdAndNotificationTypeAndIsClosedFalse(
