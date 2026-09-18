@@ -13,6 +13,7 @@ import { APP_ROUTES } from "@/constants/routes";
 import { USER_ROLES } from "@/constants/roles";
 import type { TDemoRole } from "@/constants/roles";
 import { NotificationCenterDropdown } from "@/modules/notification/components/NotificationCenterDropdown";
+import { HouseholdSwitcher } from "@/components/common/HouseholdSwitcher";
 import { ScreenGuideTriggerButton } from "@/modules/screen_guide";
 
 interface DashboardNavigationProps {
@@ -176,6 +177,8 @@ export const DashboardNavigation = ({
       </nav>
 
       <div className="flex items-center gap-2 shrink-0">
+        {currentRole === USER_ROLES.ACCOUNTANT && <HouseholdSwitcher />}
+
         {pendingCount > 0 && (
           <button
             onClick={onSync}

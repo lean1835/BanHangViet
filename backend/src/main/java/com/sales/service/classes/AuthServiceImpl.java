@@ -4,21 +4,24 @@ import com.sales.dto.request.LoginRequest;
 import com.sales.dto.request.RegisterRequest;
 import com.sales.dto.response.LoginResponse;
 import com.sales.dto.response.RegisterResponse;
+import com.sales.constant.RoleCode;
 import com.sales.entity.BusinessHousehold;
 import com.sales.entity.Role;
 import com.sales.entity.User;
+import com.sales.entity.UserSession;
 import com.sales.exception.AppException;
 import com.sales.exception.ErrorCode;
 import com.sales.repository.BusinessHouseholdRepository;
 import com.sales.repository.RoleRepository;
 import com.sales.repository.UserRepository;
-import com.sales.constant.RoleCode;
-import com.sales.entity.UserSession;
+import com.sales.service.interfaces.AccountantService;
 import com.sales.service.interfaces.AuthService;
 import com.sales.service.interfaces.JwtService;
 import com.sales.service.interfaces.UserSessionService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,6 +30,7 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class AuthServiceImpl implements AuthService {
 
     private final BusinessHouseholdRepository householdRepository;
@@ -35,6 +39,8 @@ public class AuthServiceImpl implements AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final UserSessionService userSessionService;
+    @Lazy
+    private final AccountantService accountantService;
 
     @Override
     @Transactional
@@ -133,6 +139,15 @@ public class AuthServiceImpl implements AuthService {
         }
 
         UserSession session = userSessionService.createSession(user, clientIp, userAgent);
+
+        // Kích hoạt lời mời kế toán nếu có invitationToken cụ thể gửi kèm khi đăng nhập
+        if (request.getInvitationToken() != null && !request.getInvitationToken().isBlank()) {
+            try {
+                accountantService.acceptInvitationWithToken(user, request.getInvitationToken().trim());
+            } catch (Exception e) {
+                log.warn("Lỗi khi kích hoạt lời mời kế toán từ token cho user {}: {}", user.getUsername(), e.getMessage());
+            }
+        }
 
         // 5. Tạo JWT token chứa sessionId
         String token = jwtService.generateToken(user, session.getId());

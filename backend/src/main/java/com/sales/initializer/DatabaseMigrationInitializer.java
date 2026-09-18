@@ -105,6 +105,64 @@ public class DatabaseMigrationInitializer implements CommandLineRunner {
         }
 
         try {
+            // Đảm bảo có sẵn 3 gói dịch vụ nền tảng mặc định (NCL-01-CN-010) với giá cập nhật
+            jdbcTemplate.execute(
+                "INSERT INTO service_packages (id, code, name, description, max_users, max_pos_points, max_invoices_per_month, data_retention_days, price, is_active, created_at, updated_at) " +
+                "VALUES " +
+                "('pkg-001', 'BASIC', 'Gói Cơ Bản (Starter)', 'Dành cho hộ kinh doanh nhỏ, tối đa 3 tài khoản và 300 hóa đơn/tháng', 3, 1, 300, 180, 99000.00, TRUE, NOW(), NOW()), " +
+                "('pkg-002', 'STANDARD', 'Gói Tiêu Chuẩn (Standard)', 'Dành cho hộ kinh doanh vừa, tối đa 10 tài khoản và 1.000 hóa đơn/tháng', 10, 3, 1000, 365, 499000.00, TRUE, NOW(), NOW()), " +
+                "('pkg-003', 'PREMIUM', 'Gói Nâng Cao (Premium)', 'Dành cho chuỗi cửa hàng, tối đa 50 tài khoản và 5.000 hóa đơn/tháng', 50, 10, 5000, 730, 999000.00, TRUE, NOW(), NOW()) " +
+                "ON DUPLICATE KEY UPDATE name = VALUES(name), price = VALUES(price);"
+            );
+            log.info("DatabaseMigrationInitializer: Đã đồng bộ 3 gói dịch vụ nền tảng mặc định (BASIC, STANDARD, PREMIUM).");
+        } catch (Exception e) {
+            log.warn("DatabaseMigrationInitializer: Bỏ qua khởi tạo service_packages: {}", e.getMessage());
+        }
+
+        try {
+            // NCL-01-CN-011: Khởi tạo dữ liệu nhật ký hệ thống toàn nền tảng mẫu (nếu chưa có)
+            Integer logCount = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM platform_system_logs;", Integer.class);
+            if (logCount == null || logCount == 0) {
+                String hh1 = null;
+                String hh2 = null;
+                try {
+                    List<String> hhIds = jdbcTemplate.queryForList("SELECT id FROM business_households LIMIT 2;", String.class);
+                    if (hhIds.size() > 0) hh1 = hhIds.get(0);
+                    if (hhIds.size() > 1) hh2 = hhIds.get(1);
+                } catch (Exception ignored) {}
+
+                String hh1Sql = hh1 != null ? "'" + hh1 + "'" : "NULL";
+                String hh2Sql = hh2 != null ? "'" + hh2 + "'" : "NULL";
+
+                java.time.LocalDateTime now = java.time.LocalDateTime.now();
+                java.time.format.DateTimeFormatter fmt = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+
+                String t1 = now.minusMinutes(12).format(fmt);
+                String t2 = now.minusMinutes(25).format(fmt);
+                String t3 = now.minusMinutes(45).format(fmt);
+                String t4 = now.minusHours(1).format(fmt);
+                String t5 = now.minusHours(3).format(fmt);
+                String t6 = now.minusHours(4).format(fmt);
+                String t7 = now.minusHours(6).format(fmt);
+
+                jdbcTemplate.execute(
+                    "INSERT INTO platform_system_logs (id, event_type, severity, household_id, error_code, message, metadata, is_widespread_incident, created_at) " +
+                    "VALUES " +
+                    "('log-001', 'TAX_GATEWAY', 'WARNING', " + hh1Sql + ", 'TAX_SLOW_4001', 'Cổng Thuế (TCT) phản hồi chậm bất thường (độ trễ 4.250ms khi truyền nhận HĐĐT)', '{\"gateway\":\"https://hoadondientu.gdt.gov.vn\",\"latencyMs\":4250,\"clientIp\":\"10.0.0.12\",\"httpStatus\":200}', FALSE, '" + t1 + "'), " +
+                    "('log-002', 'SUBSCRIPTION', 'INFO', " + hh1Sql + ", NULL, 'Nâng cấp gói dịch vụ thành công: Gói Tiêu Chuẩn (499.000 đ/tháng) - Thời hạn hiệu lực 12 tháng', '{\"actor\":\"admin\",\"planCode\":\"STANDARD\",\"price\":499000,\"durationMonths\":12}', FALSE, '" + t2 + "'), " +
+                    "('log-003', 'SECURITY', 'WARNING', " + hh2Sql + ", 'SEC_LOCK_01', 'Khóa tạm thời tài khoản hộ kinh doanh do yêu cầu tạm ngừng hoạt động sửa mặt bằng', '{\"actor\":\"admin\",\"reason\":\"Hộ tạm ngừng kinh doanh theo yêu cầu\",\"activeTokensRevoked\":3}', FALSE, '" + t3 + "'), " +
+                    "('log-004', 'INVOICE_QUEUE', 'INFO', " + hh1Sql + ", NULL, 'Xử lý thành công lô 150 hóa đơn truyền nhận thuế định kỳ qua cổng TCT theo Nghị định 123', '{\"batchId\":\"batch-20260916-01\",\"total\":150,\"success\":150,\"failed\":0}', FALSE, '" + t4 + "'), " +
+                    "('log-005', 'BACKUP', 'INFO', NULL, NULL, 'Sao lưu cơ sở dữ liệu toàn nền tảng tự động định kỳ hoàn tất thành công (dung lượng 128MB)', '{\"backupType\":\"DAILY_AUTOMATED\",\"storage\":\"local_vault\",\"sizeMb\":128,\"checksum\":\"sha256-abc1234\"}', FALSE, '" + t5 + "'), " +
+                    "('log-006', 'SYSTEM_ERROR', 'ERROR', " + hh2Sql + ", 'DB_DEADLOCK_02', 'Phát hiện xung đột khóa tài nguyên khi ghi nhận hóa đơn bán lẻ đồng thời (Deadlock tự động phục hồi)', '{\"table\":\"orders\",\"lockMode\":\"X\",\"retryCount\":2,\"recovered\":true}', FALSE, '" + t6 + "'), " +
+                    "('log-007', 'TAX_GATEWAY', 'CRITICAL', " + hh1Sql + ", 'TAX_TIMEOUT_500', 'Mất kết nối cổng Tổng cục Thuế khi đồng bộ trạng thái hóa đơn điện tử (GAP 48: chuyển hàng đợi ngoại tuyến)', '{\"endpoint\":\"/api/v1/invoices/sync\",\"httpStatus\":504,\"retryCount\":3,\"offlineQueue\":true}', TRUE, '" + t7 + "');"
+                );
+                log.info("DatabaseMigrationInitializer: Đã nạp 7 bản ghi nhật ký hệ thống mẫu phong phú (NCL-01-CN-011).");
+            }
+        } catch (Exception e) {
+            log.warn("DatabaseMigrationInitializer: Bỏ qua khởi tạo platform_system_logs: {}", e.getMessage());
+        }
+
+        try {
             // Cập nhật các dòng hàng khấu trừ cũ sang định dạng Đổi trả kèm tên sản phẩm (bỏ theo HĐ gốc)
             String updateDeductionSql =
                 "UPDATE e_invoice_items eii " +

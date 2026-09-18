@@ -119,7 +119,7 @@ class HouseholdServiceImplTest {
         assertEquals(48, response.getOfflineMaxHours());
 
         verify(householdRepository, times(1)).save(any(BusinessHousehold.class));
-        verify(activityLogHelper, times(1)).logActivityInNewTransaction(any(), any(), any(), any(), any(), any(), any(), any(), any());
+        verify(activityLogHelper, times(1)).logActivity(any(), any(), any(), any(), any(), any(), any(), any(), any());
     }
 
     @Test

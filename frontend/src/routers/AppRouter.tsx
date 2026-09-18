@@ -377,7 +377,7 @@ export const AppRouter = () => (
           <Route
             path={ROUTE_SEGMENTS.EMPLOYEES}
             element={
-              <RoleRoute allowedRoles={ROLE_GROUPS.PRODUCT_MANAGEMENT}>
+              <RoleRoute allowedRoles={[USER_ROLES.OWNER]}>
                 <EmployeePage />
               </RoleRoute>
             }

@@ -21,5 +21,8 @@ public interface AccountantInvitationRepository extends JpaRepository<Accountant
     @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"household", "invitedByUser", "acceptedByUser"})
     List<AccountantInvitation> findByAccountantPhoneAndStatus(String accountantPhone, AccountantInvitationStatus status);
 
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"household", "invitedByUser", "acceptedByUser"})
+    List<AccountantInvitation> findByAccountantEmailAndStatus(String accountantEmail, AccountantInvitationStatus status);
+
     List<AccountantInvitation> findByStatusAndInvitationExpiresAtBefore(AccountantInvitationStatus status, LocalDateTime now);
 }

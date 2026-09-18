@@ -1,20 +1,15 @@
 package com.sales.service.classes;
 
+import com.sales.constant.DatePatternConstant;
 import com.sales.constant.HouseholdStatus;
 import com.sales.constant.SubscriptionStatus;
 import com.sales.dto.request.LockHouseholdRequest;
 import com.sales.dto.response.PageResponse;
 import com.sales.dto.response.PlatformHouseholdSummaryResponse;
-import com.sales.entity.BusinessHousehold;
-import com.sales.entity.HouseholdSubscription;
-import com.sales.entity.User;
-import com.sales.entity.UserSession;
+import com.sales.entity.*;
 import com.sales.exception.AppException;
 import com.sales.exception.ErrorCode;
-import com.sales.repository.BusinessHouseholdRepository;
-import com.sales.repository.HouseholdSubscriptionRepository;
-import com.sales.repository.UserRepository;
-import com.sales.repository.UserSessionRepository;
+import com.sales.repository.*;
 import com.sales.service.interfaces.PlatformHouseholdService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -28,7 +23,10 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.YearMonth;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -42,6 +40,7 @@ public class PlatformHouseholdServiceImpl implements PlatformHouseholdService {
     private final UserRepository userRepository;
     private final UserSessionRepository userSessionRepository;
     private final HouseholdSubscriptionRepository subscriptionRepository;
+    private final HouseholdUsageStatsRepository usageStatsRepository;
     private final ActivityLogHelper activityLogHelper;
 
     private User getAuthenticatedUser(String username) {
@@ -55,7 +54,7 @@ public class PlatformHouseholdServiceImpl implements PlatformHouseholdService {
             HttpServletRequest request = attributes != null ? attributes.getRequest() : null;
             String clientIp = request != null ? request.getRemoteAddr() : null;
             String userAgent = request != null ? request.getHeader("User-Agent") : null;
-            activityLogHelper.logActivityInNewTransaction(household, actor, action, "business_households", targetId, oldValue, newValue, clientIp, userAgent);
+            activityLogHelper.logActivity(household, actor, action, "business_households", targetId, oldValue, newValue, clientIp, userAgent);
         } catch (Exception e) {
             log.error("Failed to write activity log for platform household", e);
         }
@@ -70,6 +69,14 @@ public class PlatformHouseholdServiceImpl implements PlatformHouseholdService {
         Optional<HouseholdSubscription> subOpt = subscriptionRepository
                 .findFirstByHouseholdIdAndStatusOrderByCreatedAtDesc(household.getId(), SubscriptionStatus.ACTIVE);
         String packageName = subOpt.map(s -> s.getServicePackage().getName()).orElse("Chưa gán gói");
+        String packageCode = subOpt.map(s -> s.getServicePackage().getCode()).orElse(null);
+        LocalDate packageEndDate = subOpt.map(HouseholdSubscription::getEndDate).orElse(null);
+        Integer maxUsers = subOpt.map(s -> s.getServicePackage().getMaxUsers()).orElse(5);
+        Integer maxInvoices = subOpt.map(s -> s.getServicePackage().getMaxInvoicesPerMonth()).orElse(500);
+
+        String currentMonth = YearMonth.now().format(DateTimeFormatter.ofPattern(DatePatternConstant.YEAR_MONTH));
+        Optional<HouseholdUsageStats> statsOpt = usageStatsRepository.findByHouseholdIdAndMonthYear(household.getId(), currentMonth);
+        Integer invoiceCount = statsOpt.map(HouseholdUsageStats::getInvoicesIssuedCount).orElse(0);
 
         return PlatformHouseholdSummaryResponse.builder()
                 .id(household.getId())
@@ -83,7 +90,12 @@ public class PlatformHouseholdServiceImpl implements PlatformHouseholdService {
                 .lockedAt(household.getLockedAt())
                 .userCount(userCount)
                 .lastActiveAt(lastActive)
+                .currentPackageCode(packageCode)
                 .currentPackageName(packageName)
+                .packageEndDate(packageEndDate)
+                .maxUsers(maxUsers)
+                .maxInvoicesMonth(maxInvoices)
+                .invoiceCountMonth(invoiceCount)
                 .createdAt(household.getCreatedAt())
                 .build();
     }
@@ -138,31 +150,57 @@ public class PlatformHouseholdServiceImpl implements PlatformHouseholdService {
             }
 
             // 3. Batch fetch active subscriptions
-            java.util.Map<String, String> packageMap = new java.util.HashMap<>();
+            java.util.Map<String, HouseholdSubscription> subMap = new java.util.HashMap<>();
             List<HouseholdSubscription> subscriptions = subscriptionRepository
                     .findByHouseholdIdInAndStatusOrderByCreatedAtDesc(householdIds, SubscriptionStatus.ACTIVE);
             for (HouseholdSubscription sub : subscriptions) {
                 if (sub.getHousehold() != null && sub.getServicePackage() != null) {
-                    packageMap.putIfAbsent(sub.getHousehold().getId(), sub.getServicePackage().getName());
+                    subMap.putIfAbsent(sub.getHousehold().getId(), sub);
+                }
+            }
+
+            // 4. Batch fetch usage stats for current month
+            String currentMonth = YearMonth.now().format(DateTimeFormatter.ofPattern(DatePatternConstant.YEAR_MONTH));
+            java.util.Map<String, Integer> invoiceCountMap = new java.util.HashMap<>();
+            List<HouseholdUsageStats> statsList = usageStatsRepository.findByHouseholdIdInAndMonthYear(householdIds, currentMonth);
+            for (HouseholdUsageStats stats : statsList) {
+                if (stats.getHousehold() != null) {
+                    invoiceCountMap.put(stats.getHousehold().getId(), stats.getInvoicesIssuedCount());
                 }
             }
 
             items = households.stream()
-                    .map(h -> PlatformHouseholdSummaryResponse.builder()
-                            .id(h.getId())
-                            .taxCode(h.getTaxCode())
-                            .name(h.getName())
-                            .address(h.getAddress())
-                            .phoneNumber(h.getPhoneNumber())
-                            .representativeName(h.getRepresentativeName())
-                            .status(h.getStatus())
-                            .lockReason(h.getLockReason())
-                            .lockedAt(h.getLockedAt())
-                            .userCount(userCountMap.getOrDefault(h.getId(), 0L))
-                            .lastActiveAt(lastActiveMap.get(h.getId()))
-                            .currentPackageName(packageMap.getOrDefault(h.getId(), "Chưa gán gói"))
-                            .createdAt(h.getCreatedAt())
-                            .build())
+                    .map(h -> {
+                        HouseholdSubscription activeSub = subMap.get(h.getId());
+                        ServicePackage pkg = activeSub != null ? activeSub.getServicePackage() : null;
+                        String packageName = pkg != null ? pkg.getName() : "Chưa gán gói";
+                        String packageCode = pkg != null ? pkg.getCode() : null;
+                        LocalDate packageEndDate = activeSub != null ? activeSub.getEndDate() : null;
+                        Integer maxUsers = pkg != null ? pkg.getMaxUsers() : 5;
+                        Integer maxInvoices = pkg != null ? pkg.getMaxInvoicesPerMonth() : 500;
+                        Integer invoiceCount = invoiceCountMap.getOrDefault(h.getId(), 0);
+
+                        return PlatformHouseholdSummaryResponse.builder()
+                                .id(h.getId())
+                                .taxCode(h.getTaxCode())
+                                .name(h.getName())
+                                .address(h.getAddress())
+                                .phoneNumber(h.getPhoneNumber())
+                                .representativeName(h.getRepresentativeName())
+                                .status(h.getStatus())
+                                .lockReason(h.getLockReason())
+                                .lockedAt(h.getLockedAt())
+                                .userCount(userCountMap.getOrDefault(h.getId(), 0L))
+                                .lastActiveAt(lastActiveMap.get(h.getId()))
+                                .currentPackageCode(packageCode)
+                                .currentPackageName(packageName)
+                                .packageEndDate(packageEndDate)
+                                .maxUsers(maxUsers)
+                                .maxInvoicesMonth(maxInvoices)
+                                .invoiceCountMonth(invoiceCount)
+                                .createdAt(h.getCreatedAt())
+                                .build();
+                    })
                     .collect(Collectors.toList());
         }
 

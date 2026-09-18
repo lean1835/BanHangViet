@@ -283,6 +283,90 @@ public class EmailServiceImpl implements EmailService {
         }
     }
 
+    @Override
+    @Async("taskExecutor")
+    public void sendAccountantInvitationEmailAsync(
+            String toEmail,
+            String accountantName,
+            String householdName,
+            String householdTaxCode,
+            java.util.List<String> scopes,
+            int durationDays,
+            String username,
+            String temporaryPassword,
+            boolean isNewAccount,
+            String invitationToken
+    ) {
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+
+            String rawHouseholdName = householdName != null ? householdName : "Hộ kinh doanh";
+            helper.setTo(toEmail);
+            helper.setSubject("Lời mời ủy quyền kế toán dịch vụ từ " + rawHouseholdName);
+
+            String safeName = HtmlUtils.htmlEscape(accountantName != null && !accountantName.trim().isEmpty() ? accountantName.trim() : "Quý Kế toán");
+            String safeHhName = HtmlUtils.htmlEscape(rawHouseholdName);
+            String safeTaxCode = HtmlUtils.htmlEscape(householdTaxCode != null ? householdTaxCode : "N/A");
+
+            StringBuilder scopeBadges = new StringBuilder();
+            if (scopes != null && !scopes.isEmpty()) {
+                for (String s : scopes) {
+                    String label = s;
+                    if ("INVOICE".equalsIgnoreCase(s) || "E_INVOICES".equalsIgnoreCase(s)) label = "Hóa đơn điện tử";
+                    else if ("REPORT".equalsIgnoreCase(s) || "FINANCIAL_REPORTS".equalsIgnoreCase(s)) label = "Báo cáo tài chính";
+                    else if ("TAX_DECLARATION".equalsIgnoreCase(s)) label = "Kê khai thuế";
+                    scopeBadges.append("<span style=\"display: inline-block; background: #e8f0fe; color: #0068ff; padding: 4px 10px; border-radius: 6px; font-size: 13px; font-weight: 600; margin: 2px 4px 2px 0;\">")
+                            .append(label)
+                            .append("</span>");
+                }
+            } else {
+                scopeBadges.append("<span style=\"color: #64748b;\">Toàn quyền kế toán</span>");
+            }
+
+            StringBuilder credentialsBlock = new StringBuilder();
+            if (isNewAccount && username != null && temporaryPassword != null) {
+                credentialsBlock.append("<div style=\"background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 16px; margin: 20px 0;\">")
+                        .append("  <h4 style=\"margin: 0 0 10px 0; color: #166534; font-size: 15px;\">🔐 Thông tin tài khoản đăng nhập của bạn:</h4>")
+                        .append("  <table style=\"width: 100%; border-collapse: collapse; font-size: 14px;\">")
+                        .append("    <tr><td style=\"padding: 4px 0; color: #4b5563; width: 40%;\">Tên đăng nhập:</td><td style=\"font-weight: bold; color: #111827;\">").append(HtmlUtils.htmlEscape(username)).append("</td></tr>")
+                        .append("    <tr><td style=\"padding: 4px 0; color: #4b5563;\">Mật khẩu tạm thời:</td><td style=\"font-weight: bold; color: #e11d48; font-family: monospace; font-size: 15px;\">").append(HtmlUtils.htmlEscape(temporaryPassword)).append("</td></tr>")
+                        .append("  </table>")
+                        .append("  <p style=\"margin: 10px 0 0 0; font-size: 12px; color: #65a30d;\">(*) Vui lòng đổi mật khẩu ngay ở lần đầu đăng nhập để đảm bảo an toàn.</p>")
+                        .append("</div>");
+            } else {
+                credentialsBlock.append("<div style=\"background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px; margin: 16px 0;\">")
+                        .append("  <p style=\"margin: 0; font-size: 14px; color: #334155;\">Bạn đã có tài khoản trên hệ thống. Vui lòng đăng nhập bằng tài khoản hiện có để xác nhận nhận hộ kinh doanh.</p>")
+                        .append("</div>");
+            }
+
+            String loginUrl = "http://localhost:3000/auth/login?invitationToken=" + (invitationToken != null ? invitationToken : "");
+
+            String bodyContent = "    <p style=\"margin-top: 0; font-size: 16px;\">Kính gửi <strong>" + safeName + "</strong>,</p>"
+                    + "    <p>Hộ kinh doanh <strong>" + safeHhName + "</strong> (Mã số thuế: " + safeTaxCode + ") đã gửi lời mời ủy quyền cho bạn phụ trách công tác kế toán dịch vụ trên nền tảng <strong>Bán Hàng Việt</strong>.</p>"
+                    + "    <div style=\"background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin: 20px 0;\">"
+                    + "      <table style=\"width: 100%; border-collapse: collapse; font-size: 14px;\">"
+                    + "        <tr><td style=\"padding: 6px 0; color: #64748b; width: 40%;\">Thời hạn ủy quyền:</td><td style=\"padding: 6px 0; font-weight: bold; color: #0f172a;\">" + durationDays + " ngày</td></tr>"
+                    + "        <tr><td style=\"padding: 6px 0; color: #64748b;\">Phạm vi dữ liệu:</td><td style=\"padding: 6px 0;\">" + scopeBadges + "</td></tr>"
+                    + "      </table>"
+                    + "    </div>"
+                    + credentialsBlock
+                    + "    <div style=\"text-align: center; margin: 30px 0;\">"
+                    + "      <a href=\"" + loginUrl + "\" style=\"display: inline-block; background-color: #0068ff; color: #ffffff; text-decoration: none; padding: 12px 28px; border-radius: 8px; font-weight: bold; font-size: 15px; box-shadow: 0 4px 6px -1px rgba(0, 104, 255, 0.2);\">Đăng Nhập & Kích Hoạt Quyền Kế Toán</a>"
+                    + "    </div>"
+                    + "    <p style=\"font-size: 13px; color: #64748b;\">Lời mời có hiệu lực trong vòng 72 giờ kể từ thời điểm gửi thư này.</p>";
+
+            String fullHtml = buildHtmlEmail("ỦY QUYỀN KẾ TOÁN DỊCH VỤ", safeHhName, "linear-gradient(135deg, #0068ff 0%, #0050cc 100%)", bodyContent);
+
+            helper.setText(fullHtml, true);
+            mailSender.send(message);
+            log.info("Sent accountant invitation email successfully to: {}", toEmail);
+        } catch (Exception e) {
+            log.warn("Failed to send accountant invitation email to: {} - Reason: {}", toEmail, e.getMessage());
+        }
+    }
+
+
     private String buildDebtReminderBody(DebtReminderEmailContext context) {
         return "    <p style=\"margin-top: 0; font-size: 16px;\">Kính gửi Ông/Bà <strong>" + context.getSafeCustomerName() + "</strong>,</p>"
                 + "    <p>" + context.getIntroText() + " <strong>" + context.getSafeHouseholdName() + "</strong>:</p>"

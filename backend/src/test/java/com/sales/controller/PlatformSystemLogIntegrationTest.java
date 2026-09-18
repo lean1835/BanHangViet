@@ -86,7 +86,7 @@ public class PlatformSystemLogIntegrationTest {
 
     @Test
     @WithMockUser(username = "admin_logs", roles = {"VT-04"})
-    @DisplayName("NCL-01-CN-011 TC-01: Quản trị nền tảng truy vấn nhật ký toàn hệ thống với bộ lọc")
+    @DisplayName("TC-01: Quản trị nền tảng truy vấn nhật ký toàn hệ thống với bộ lọc")
     public void queryLogs_Success() throws Exception {
         logService.logSystemEvent("SECURITY_ALERT", PlatformLogSeverity.INFO, null, "SEC_001", "Service started", "{\"version\":\"1.0\"}");
         logService.logSystemEvent("TAX_SERVICE_OFFLINE", PlatformLogSeverity.WARNING, null, "TAX_001", "Gateway slow response", "{\"latencyMs\":4500}");
@@ -101,7 +101,7 @@ public class PlatformSystemLogIntegrationTest {
 
     @Test
     @WithMockUser(username = "admin_logs", roles = {"VT-04"})
-    @DisplayName("NCL-01-CN-011 TC-03: Xem chi tiết nhật ký hệ thống kỹ thuật (chỉ chứa metadata kỹ thuật)")
+    @DisplayName("TC-03: Xem chi tiết nhật ký hệ thống kỹ thuật (chỉ chứa metadata kỹ thuật)")
     public void getLogDetail_Success() throws Exception {
         PlatformSystemLog saved = logService.logSystemEvent("TECHNICAL_ERROR", PlatformLogSeverity.ERROR, null, "DB_001", "Deadlock detected in transaction", "{\"table\":\"orders\",\"lockMode\":\"X\"}");
 
@@ -115,7 +115,7 @@ public class PlatformSystemLogIntegrationTest {
 
     @Test
     @WithMockUser(username = "admin_logs", roles = {"VT-04"})
-    @DisplayName("NCL-01-CN-011 TC-02: Tự động gom nhóm và tạo sự cố diện rộng khi vượt ngưỡng CRITICAL errors (5 lỗi trong 10 phút)")
+    @DisplayName("TC-02: Tự động gom nhóm và tạo sự cố diện rộng khi vượt ngưỡng CRITICAL errors (5 lỗi trong 10 phút)")
     public void recordLog_TriggersIncidentOnThreshold() {
         // Record 5 CRITICAL errors on tax gateway
         for (int i = 0; i < 5; i++) {
@@ -139,7 +139,7 @@ public class PlatformSystemLogIntegrationTest {
 
     @Test
     @WithMockUser(username = "owner_nologs", roles = {"VT-01"})
-    @DisplayName("NCL-01-CN-011: Người dùng không phải quản trị nền tảng không có quyền xem nhật ký -> 403 Forbidden")
+    @DisplayName("Người dùng không phải quản trị nền tảng không có quyền xem nhật ký -> 403 Forbidden")
     public void nonPlatformAdmin_CannotAccessLogs() throws Exception {
         mockMvc.perform(get("/api/v1/platform/system-logs"))
                 .andExpect(status().isForbidden());

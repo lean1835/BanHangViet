@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { Search, Plus, Edit, Trash2, Users, ClipboardCheck, LayoutGrid, List } from "lucide-react";
+import { Plus, Edit, Trash2, Users, ClipboardCheck } from "lucide-react";
 import { TablePaginationFooter } from "@/components/common/TablePaginationFooter";
 import {
   EMPLOYEE_MESSAGES,
@@ -26,7 +26,7 @@ interface EmployeeListProps {
   employees: IEmployee[];
   roles: IRole[];
   searchQuery: string;
-  setSearchQuery: (query: string) => void;
+  setSearchQuery?: (query: string) => void;
   statusFilter: TEmployeeStatusFilter;
   selectedRole: string;
   userRole?: string;
@@ -38,7 +38,6 @@ export const EmployeeList: React.FC<EmployeeListProps> = ({
   employees,
   roles,
   searchQuery,
-  setSearchQuery,
   statusFilter,
   selectedRole,
   userRole,
@@ -182,37 +181,7 @@ export const EmployeeList: React.FC<EmployeeListProps> = ({
               {EMPLOYEE_UI.LIST.REVIEW_LABEL}
             </button>
           )}
-          <div className="flex items-center border rounded-lg p-0.5 bg-slate-50">
-            <button
-              type="button"
-              aria-label="Hiển thị dạng danh sách"
-              className="flex min-h-11 min-w-11 items-center justify-center rounded bg-white p-1.5 text-slate-400 shadow-sm hover:text-slate-600 lg:min-h-0 lg:min-w-0"
-            >
-              <List size={14} />
-            </button>
-            <button
-              type="button"
-              aria-label="Hiển thị dạng lưới"
-              className="flex min-h-11 min-w-11 items-center justify-center rounded p-1.5 text-slate-400 hover:text-slate-600 lg:min-h-0 lg:min-w-0"
-            >
-              <LayoutGrid size={14} />
-            </button>
-          </div>
         </div>
-      </div>
-
-      {/* Search Bar */}
-      <div className="relative mb-4">
-        <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-400">
-          <Search size={14} />
-        </span>
-        <input
-          type="text"
-          placeholder={EMPLOYEE_UI.LIST.SEARCH_PLACEHOLDER}
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="h-11 w-full rounded-lg border border-slate-200 bg-slate-50 pl-9 pr-4 text-xs font-semibold text-slate-700 transition-all focus:border-kv-blue-primary focus:bg-white focus:outline-none lg:h-9"
-        />
       </div>
 
       {/* Table Content */}

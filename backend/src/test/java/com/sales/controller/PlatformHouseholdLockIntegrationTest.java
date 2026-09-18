@@ -49,6 +49,9 @@ public class PlatformHouseholdLockIntegrationTest {
     @Autowired
     private PasswordEncoder passwordEncoder;
 
+    @Autowired
+    private com.sales.repository.ActivityLogRepository activityLogRepository;
+
     private BusinessHousehold testHousehold;
     private User platformAdmin;
     private User householdOwner;
@@ -91,7 +94,7 @@ public class PlatformHouseholdLockIntegrationTest {
 
     @Test
     @WithMockUser(username = "admin_sys", roles = {"VT-04"})
-    @DisplayName("NCL-01-CN-009 TC-01: Quản trị nền tảng lấy danh sách hộ kinh doanh")
+    @DisplayName("TC-01: Quản trị nền tảng lấy danh sách hộ kinh doanh")
     public void listHouseholds_Success() throws Exception {
         mockMvc.perform(get("/api/v1/platform/households"))
                 .andExpect(status().isOk())
@@ -101,7 +104,7 @@ public class PlatformHouseholdLockIntegrationTest {
 
     @Test
     @WithMockUser(username = "admin_sys", roles = {"VT-04"})
-    @DisplayName("NCL-01-CN-009 TC-01: Quản trị nền tảng khóa hộ kinh doanh kèm lý do -> Cắt phiên & Đổi trạng thái LOCKED")
+    @DisplayName("TC-01: Quản trị nền tảng khóa hộ kinh doanh kèm lý do -> Cắt phiên & Đổi trạng thái LOCKED")
     public void lockHousehold_Success() throws Exception {
         LockHouseholdRequest request = LockHouseholdRequest.builder()
                 .reason("Vi phạm chính sách thanh toán dịch vụ nền tảng")
@@ -119,11 +122,14 @@ public class PlatformHouseholdLockIntegrationTest {
         assertEquals(HouseholdStatus.LOCKED, updated.getStatus());
         assertNotNull(updated.getLockedAt());
         assertEquals(platformAdmin.getId(), updated.getLockedByUserId());
+
+        assertTrue(activityLogRepository.existsByHouseholdIdAndActionAndCreatedAtBetween(
+                testHousehold.getId(), "LOCK_HOUSEHOLD", java.time.LocalDateTime.now().minusMinutes(1), java.time.LocalDateTime.now().plusMinutes(1)));
     }
 
     @Test
     @WithMockUser(username = "admin_sys", roles = {"VT-04"})
-    @DisplayName("NCL-01-CN-009 TC-01: Khóa hộ không có lý do -> Bị từ chối Bad Request")
+    @DisplayName("TC-01: Khóa hộ không có lý do -> Bị từ chối Bad Request")
     public void lockHousehold_WithoutReason_ThrowsError() throws Exception {
         LockHouseholdRequest request = LockHouseholdRequest.builder()
                 .reason("")
@@ -137,7 +143,7 @@ public class PlatformHouseholdLockIntegrationTest {
 
     @Test
     @WithMockUser(username = "admin_sys", roles = {"VT-04"})
-    @DisplayName("NCL-01-CN-009 TC-02: Quản trị nền tảng mở khóa hộ kinh doanh -> Khôi phục trạng thái ACTIVE")
+    @DisplayName("TC-02: Quản trị nền tảng mở khóa hộ kinh doanh -> Khôi phục trạng thái ACTIVE")
     public void unlockHousehold_Success() throws Exception {
         testHousehold.setStatus(HouseholdStatus.LOCKED);
         testHousehold.setLockReason("Tạm khóa để kiểm tra");
@@ -152,11 +158,14 @@ public class PlatformHouseholdLockIntegrationTest {
         BusinessHousehold updated = businessHouseholdRepository.findById(testHousehold.getId()).orElseThrow();
         assertEquals(HouseholdStatus.ACTIVE, updated.getStatus());
         assertNull(updated.getLockReason());
+
+        assertTrue(activityLogRepository.existsByHouseholdIdAndActionAndCreatedAtBetween(
+                testHousehold.getId(), "UNLOCK_HOUSEHOLD", java.time.LocalDateTime.now().minusMinutes(1), java.time.LocalDateTime.now().plusMinutes(1)));
     }
 
     @Test
     @WithMockUser(username = "owner_lock_test", roles = {"VT-01"})
-    @DisplayName("NCL-01-CN-009: Chủ hộ không có quyền khóa hộ -> 403 Forbidden")
+    @DisplayName("Chủ hộ không có quyền khóa hộ -> 403 Forbidden")
     public void nonPlatformAdmin_CannotLock() throws Exception {
         LockHouseholdRequest request = LockHouseholdRequest.builder()
                 .reason("Tự khóa")
@@ -177,7 +186,7 @@ public class PlatformHouseholdLockIntegrationTest {
     }
 
     @Test
-    @DisplayName("NCL-01-CN-009 TC-01: Tài khoản thuộc hộ bị khóa khi đăng nhập sẽ bị chặn (HOUSEHOLD_LOCKED - 2050)")
+    @DisplayName("TC-01: Tài khoản thuộc hộ bị khóa khi đăng nhập sẽ bị chặn (HOUSEHOLD_LOCKED - 2050)")
     public void login_WhenHouseholdLocked_ThrowsHouseholdLockedException() throws Exception {
         testHousehold.setStatus(HouseholdStatus.LOCKED);
         testHousehold.setLockReason("Hộ bị đóng băng");

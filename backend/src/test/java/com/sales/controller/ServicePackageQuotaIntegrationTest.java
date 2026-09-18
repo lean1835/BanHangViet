@@ -121,7 +121,7 @@ public class ServicePackageQuotaIntegrationTest {
 
     @Test
     @WithMockUser(username = "admin_pkg", roles = {"VT-04"})
-    @DisplayName("NCL-01-CN-010 TC-01: Quản trị nền tảng tạo gói dịch vụ mới thành công")
+    @DisplayName("TC-01: Quản trị nền tảng tạo gói dịch vụ mới thành công")
     public void createServicePackage_Success() throws Exception {
         CreateServicePackageRequest request = CreateServicePackageRequest.builder()
                 .code("PKG_PRO_2026")
@@ -145,7 +145,7 @@ public class ServicePackageQuotaIntegrationTest {
 
     @Test
     @WithMockUser(username = "admin_pkg", roles = {"VT-04"})
-    @DisplayName("NCL-01-CN-010 TC-01: Gán gói dịch vụ cho hộ kinh doanh")
+    @DisplayName("TC-01: Gán gói dịch vụ cho hộ kinh doanh")
     public void assignSubscription_Success() throws Exception {
         AssignSubscriptionRequest request = AssignSubscriptionRequest.builder()
                 .packageId(starterPackage.getId())
@@ -164,7 +164,7 @@ public class ServicePackageQuotaIntegrationTest {
 
     @Test
     @WithMockUser(username = "owner_pkg", roles = {"VT-01"})
-    @DisplayName("NCL-01-CN-010: Chủ hộ xem gói cước và thống kê sử dụng")
+    @DisplayName("Chủ hộ xem gói cước và thống kê sử dụng")
     public void getHouseholdSubscription_Success() throws Exception {
         AssignSubscriptionRequest assignRequest = AssignSubscriptionRequest.builder()
                 .packageId(starterPackage.getId())
@@ -182,7 +182,7 @@ public class ServicePackageQuotaIntegrationTest {
     }
 
     @Test
-    @DisplayName("NCL-01-CN-010 TC-02: Kiểm tra hạn mức User - Vượt số lượng người dùng tối đa bị chặn mã 2054")
+    @DisplayName("TC-02: Kiểm tra hạn mức User - Vượt số lượng người dùng tối đa bị chặn mã 2054")
     public void userQuota_LimitExceeded_ThrowsException() {
         AssignSubscriptionRequest assignRequest = AssignSubscriptionRequest.builder()
                 .packageId(starterPackage.getId())
@@ -211,7 +211,7 @@ public class ServicePackageQuotaIntegrationTest {
     }
 
     @Test
-    @DisplayName("NCL-01-CN-010 TC-03 (GAP 48 & QTN-01): Vượt hạn mức hóa đơn trong tháng KHÔNG CHẶN, ghi nhận cờ isInvoiceOverQuota")
+    @DisplayName("TC-03 (GAP 48 & QTN-01): Vượt hạn mức hóa đơn trong tháng KHÔNG CHẶN, ghi nhận cờ isInvoiceOverQuota")
     public void invoiceQuota_OverLimit_DoesNotBlockIssuance() {
         AssignSubscriptionRequest assignRequest = AssignSubscriptionRequest.builder()
                 .packageId(starterPackage.getId())
@@ -239,7 +239,7 @@ public class ServicePackageQuotaIntegrationTest {
     }
 
     @Test
-    @DisplayName("NCL-01-CN-010: Kiểm tra hạn mức Điểm bán (POS) - Vượt số lượng điểm bán tối đa bị chặn mã 2062")
+    @DisplayName("Kiểm tra hạn mức Điểm bán (POS) - Vượt số lượng điểm bán tối đa bị chặn mã 2062")
     public void posQuota_LimitExceeded_ThrowsException() {
         AssignSubscriptionRequest assignRequest = AssignSubscriptionRequest.builder()
                 .packageId(starterPackage.getId())

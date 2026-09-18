@@ -48,6 +48,7 @@ public class PlatformSystemLogServiceImpl implements PlatformSystemLogService {
                 .eventType(logEntity.getEventType())
                 .severity(logEntity.getSeverity())
                 .householdId(logEntity.getHousehold() != null ? logEntity.getHousehold().getId() : null)
+                .householdName(logEntity.getHousehold() != null ? logEntity.getHousehold().getName() : null)
                 .householdTaxCode(logEntity.getHousehold() != null ? logEntity.getHousehold().getTaxCode() : null)
                 .errorCode(logEntity.getErrorCode())
                 .technicalMessage(logEntity.getMessage())

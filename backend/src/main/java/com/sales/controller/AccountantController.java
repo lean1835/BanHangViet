@@ -113,4 +113,15 @@ public class AccountantController {
                 .result(result)
                 .build());
     }
+
+    @GetMapping("/my-pending-invitations")
+    @PreAuthorize("hasRole('VT-03')")
+    public ResponseEntity<ApiResponse<List<AccountantInvitationResponse>>> getMyPendingInvitations(Principal principal) {
+        List<AccountantInvitationResponse> result = accountantService.getMyPendingInvitations(principal.getName());
+        return ResponseEntity.ok(ApiResponse.<List<AccountantInvitationResponse>>builder()
+                .code(1000)
+                .message("Lấy danh sách lời mời đang chờ thành công")
+                .result(result)
+                .build());
+    }
 }
