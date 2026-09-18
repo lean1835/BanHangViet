@@ -464,6 +464,14 @@ export const AppRouter = () => (
               }
             />
             <Route
+              path={ROUTE_SEGMENTS.SESSIONS}
+              element={
+                <RoleRoute allowedRoles={[USER_ROLES.OWNER, USER_ROLES.CASHIER, USER_ROLES.ACCOUNTANT]}>
+                  <UserSessionPage />
+                </RoleRoute>
+              }
+            />
+            <Route
               path={ROUTE_SEGMENTS.POINTS_OF_SALE}
               element={
                 <RoleRoute allowedRoles={[USER_ROLES.OWNER]}>

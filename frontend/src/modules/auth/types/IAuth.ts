@@ -81,3 +81,38 @@ export interface IResetPasswordRequest {
 export interface IResetPasswordResponse {
   message: string;
 }
+
+export interface IForgotPasswordRequest {
+  phoneNumber?: string;
+  email?: string;
+}
+
+export interface IForgotPasswordResponse {
+  phoneNumber?: string;
+  email?: string;
+  expiresInSeconds: number;
+  message: string;
+}
+
+export interface IVerifyOtpRequest {
+  phoneNumber?: string;
+  email?: string;
+  otpCode: string;
+}
+
+export interface IVerifyOtpResponse {
+  valid: boolean;
+  message: string;
+}
+
+export interface IResetPasswordRequest {
+  phoneNumber?: string;
+  email?: string;
+  otpCode: string;
+  newPassword: string;
+  confirmPassword: string;
+}
+
+export interface IResetPasswordResponse {
+  message: string;
+}
