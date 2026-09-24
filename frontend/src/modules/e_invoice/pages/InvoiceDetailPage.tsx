@@ -527,7 +527,6 @@ export const InvoiceDetailPage: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-2 shrink-0 flex-wrap">
-            {/* NCL-05-CN-007: Nút Xem bản thể hiện */}
             <button
               type="button"
               onClick={() => setShowRepresentationModal(true)}
@@ -550,7 +549,6 @@ export const InvoiceDetailPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Banner Cảnh báo Hóa đơn cần xử lý thủ công (NCL-04-CN-007) */}
         {invoice.status === E_INVOICE_STATUS.MANUAL_PROCESSING && (
           <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3 shadow-xs animate-fade-in">
             <div className="p-2 rounded-lg bg-amber-100 text-amber-700 shrink-0 mt-0.5">
@@ -587,7 +585,6 @@ export const InvoiceDetailPage: React.FC = () => {
         <div className="flex flex-col lg:flex-row items-start gap-6">
           {/* Left Column: Standard Electronic Invoice Document Paper */}
           <div className="flex-1 w-full bg-white border border-slate-200 rounded-xl p-6 sm:p-8 shadow-sm flex flex-col gap-6 text-[10px] text-slate-800 font-medium relative overflow-hidden">
-            {/* Watermark (NCL-05-CN-007) */}
             {repData?.watermarkText ? (
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none z-10">
                 <div className="transform -rotate-[30deg] border-4 border-dashed border-red-500/35 text-red-600/30 font-black text-3xl sm:text-4xl uppercase tracking-widest px-6 py-3 rounded-2xl text-center">
@@ -854,7 +851,6 @@ export const InvoiceDetailPage: React.FC = () => {
               )}
             </div>
 
-            {/* Adjustment Reference Note (NCL-05-CN-007) */}
             {repData?.referenceNote && (
               <div className="border border-blue-200 bg-blue-50/80 rounded-lg p-2.5 text-[10px] font-semibold text-blue-800 flex items-center gap-2">
                 <CheckCircle2 className="w-3.5 h-3.5 text-blue-600 shrink-0" />
@@ -909,7 +905,7 @@ export const InvoiceDetailPage: React.FC = () => {
                               </span>
                             </div>
                           ) : (
-                            formatCurrency(item.unitPrice)
+                            formatCurrency((item.unitPrice === 0 && item.subtotal && item.subtotal < 0) ? (item.subtotal / (item.quantity || 1)) : item.unitPrice)
                           )}
                         </td>
                         <td className="p-2 border-r border-slate-200 text-right font-semibold whitespace-nowrap">
@@ -923,7 +919,7 @@ export const InvoiceDetailPage: React.FC = () => {
                           {item.taxRatePercentage}%
                         </td>
                         <td className="p-2 text-right font-bold text-slate-800">
-                          {formatCurrency((item.quantity * item.unitPrice) - (item.discountAmount || 0))}
+                          {formatCurrency((item.subtotal !== undefined && item.subtotal !== null && item.subtotal !== 0) ? item.subtotal : (item.quantity * item.unitPrice) - (item.discountAmount || 0))}
                         </td>
                       </tr>
                     ))
@@ -954,9 +950,26 @@ export const InvoiceDetailPage: React.FC = () => {
             {/* Total Area */}
             {(() => {
               const originalItemsTotal = invoice.items && invoice.items.length > 0
-                ? invoice.items.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0)
+                ? invoice.items.reduce((sum, item) => {
+                    const lineTotal = (item.subtotal !== undefined && item.subtotal !== null && item.subtotal !== 0)
+                      ? item.subtotal
+                      : (item.quantity * item.unitPrice);
+                    return sum + lineTotal;
+                  }, 0)
                 : ((invoice.totalAmountBeforeTax || invoice.amount || 0) + (invoice.discountAmount || 0));
               const hasDiscount = Boolean(invoice.discountAmount && invoice.discountAmount > 0);
+              const preTaxAmount = Math.max(0, originalItemsTotal - (invoice.discountAmount || 0));
+
+              // Thuế GTGT: Backend invoice.taxAmount đã là số tiền thuế thực tế sau chiết khấu (theo chuẩn Nghị định 123)
+              const effectiveTaxAmount = invoice.taxAmount !== undefined && invoice.taxAmount !== null
+                ? invoice.taxAmount
+                : (hasDiscount && originalItemsTotal > 0 ? Math.round(preTaxAmount * 0.1) : 0);
+
+              // Số tiền trừ điểm thưởng / điểm tích lũy: CHỈ hiển thị khi đơn hàng/hóa đơn thực sự dùng điểm
+              const pointDiscount = (invoice.pointDiscountAmount && invoice.pointDiscountAmount > 0)
+                ? invoice.pointDiscountAmount
+                : 0;
+              const pointsRedeemed = invoice.pointsRedeemed || 0;
 
               return (
                 <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 flex flex-col gap-2 font-bold text-slate-700 text-xs">
@@ -980,19 +993,27 @@ export const InvoiceDetailPage: React.FC = () => {
                   {hasDiscount && (
                     <div className="flex justify-between text-[10px]">
                       <span className="font-semibold text-slate-500">Cộng tiền hàng (Đã trừ CK, chưa thuế):</span>
-                      <span className="text-slate-700">
-                        {formatCurrency(invoice.totalAmountBeforeTax || (originalItemsTotal - (invoice.discountAmount || 0)))}
-                      </span>
+                      <span className="text-slate-700">{formatCurrency(preTaxAmount)}</span>
                     </div>
                   )}
 
                   {/* 4. Tiền thuế GTGT */}
                   <div className="flex justify-between text-[10px]">
                     <span className="font-semibold text-slate-500">Tổng tiền thuế GTGT:</span>
-                    <span className="text-slate-800">{formatCurrency(invoice.taxAmount)}</span>
+                    <span className="text-slate-800">{formatCurrency(effectiveTaxAmount)}</span>
                   </div>
 
-                  {/* 5. Tổng tiền thanh toán */}
+                  {/* 5. Trừ điểm thưởng / tích lũy */}
+                  {pointDiscount > 0 && (
+                    <div className="flex justify-between text-[10px] text-purple-700">
+                      <span className="font-semibold">
+                        Trừ điểm tích lũy{pointsRedeemed ? ` (${pointsRedeemed} điểm)` : ""}:
+                      </span>
+                      <span className="font-bold">-{formatCurrency(pointDiscount)}</span>
+                    </div>
+                  )}
+
+                  {/* 6. Tổng tiền thanh toán */}
                   <div className="flex justify-between border-t border-slate-200 pt-2 text-[11px] text-slate-950">
                     <span>Tổng tiền thanh toán:</span>
                     <span className="font-extrabold text-kv-blue-primary">
@@ -1297,7 +1318,6 @@ export const InvoiceDetailPage: React.FC = () => {
       )}
 
 
-      {/* Invoice Representation Modal (NCL-05-CN-007) */}
       {showRepresentationModal && (
         <InvoiceRepresentationModal
           invoiceId={invoice.id}

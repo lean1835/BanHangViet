@@ -625,7 +625,7 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
                         <td className="p-2 border-r border-slate-200 text-right whitespace-nowrap">
                           {item.discountAmount && item.discountAmount > 0 ? (
                             <div>
-                              <span className="line-through text-slate-400 text-[9px] block font-normal">
+                              <span className="line-through text-slate-400 text-[8.5px] block font-normal">
                                 {formatCurrency(item.unitPrice)}
                               </span>
                               <span className="font-bold text-emerald-700">
@@ -633,7 +633,7 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
                               </span>
                             </div>
                           ) : (
-                            formatCurrency(item.unitPrice)
+                            formatCurrency((item.unitPrice === 0 && item.subtotal && item.subtotal < 0) ? (item.subtotal / (item.quantity || 1)) : item.unitPrice)
                           )}
                         </td>
                         <td className="p-2 border-r border-slate-200 text-right font-semibold whitespace-nowrap">
@@ -645,7 +645,7 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
                         </td>
                         <td className="p-2 border-r border-slate-200 text-center text-slate-500">{item.taxRatePercentage}%</td>
                         <td className="p-2 text-right font-bold text-slate-800">
-                          {formatCurrency((item.quantity * item.unitPrice) - (item.discountAmount || 0))}
+                          {formatCurrency((item.subtotal !== undefined && item.subtotal !== null && item.subtotal !== 0) ? item.subtotal : (item.quantity * item.unitPrice) - (item.discountAmount || 0))}
                         </td>
                       </tr>
                     ))
@@ -668,9 +668,26 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
             {/* Total Area */}
             {(() => {
               const originalItemsTotal = invoice.items && invoice.items.length > 0
-                ? invoice.items.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0)
+                ? invoice.items.reduce((sum, item) => {
+                    const lineTotal = (item.subtotal !== undefined && item.subtotal !== null && item.subtotal !== 0)
+                      ? item.subtotal
+                      : (item.quantity * item.unitPrice);
+                    return sum + lineTotal;
+                  }, 0)
                 : ((invoice.totalAmountBeforeTax || invoice.amount || 0) + (invoice.discountAmount || 0));
               const hasDiscount = Boolean(invoice.discountAmount && invoice.discountAmount > 0);
+              const preTaxAmount = Math.max(0, originalItemsTotal - (invoice.discountAmount || 0));
+
+              // Thuế GTGT: Backend invoice.taxAmount đã là số tiền thuế thực tế sau chiết khấu (theo chuẩn Nghị định 123)
+              const effectiveTaxAmount = invoice.taxAmount !== undefined && invoice.taxAmount !== null
+                ? invoice.taxAmount
+                : (hasDiscount && originalItemsTotal > 0 ? Math.round(preTaxAmount * 0.1) : 0);
+
+              // Số tiền trừ điểm thưởng / điểm tích lũy: CHỈ hiển thị khi đơn hàng/hóa đơn thực sự dùng điểm
+              const pointDiscount = (invoice.pointDiscountAmount && invoice.pointDiscountAmount > 0)
+                ? invoice.pointDiscountAmount
+                : 0;
+              const pointsRedeemed = invoice.pointsRedeemed || 0;
 
               return (
                 <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 flex flex-col gap-2 font-bold text-slate-700 text-xs">
@@ -694,19 +711,27 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
                   {hasDiscount && (
                     <div className="flex justify-between text-[10px]">
                       <span className="font-semibold text-slate-500">Cộng tiền hàng (Đã trừ CK, chưa thuế):</span>
-                      <span className="text-slate-700">
-                        {formatCurrency(invoice.totalAmountBeforeTax || (originalItemsTotal - (invoice.discountAmount || 0)))}
-                      </span>
+                      <span className="text-slate-700">{formatCurrency(preTaxAmount)}</span>
                     </div>
                   )}
 
                   {/* 4. Tiền thuế GTGT */}
                   <div className="flex justify-between text-[10px]">
                     <span className="font-semibold text-slate-500">Tổng tiền thuế GTGT:</span>
-                    <span className="text-slate-800">{formatCurrency(invoice.taxAmount)}</span>
+                    <span className="text-slate-800">{formatCurrency(effectiveTaxAmount)}</span>
                   </div>
 
-                  {/* 5. Tổng tiền thanh toán */}
+                  {/* 5. Trừ điểm thưởng / tích lũy */}
+                  {pointDiscount > 0 && (
+                    <div className="flex justify-between text-[10px] text-purple-700">
+                      <span className="font-semibold">
+                        Trừ điểm tích lũy{pointsRedeemed ? ` (${pointsRedeemed} điểm)` : ""}:
+                      </span>
+                      <span className="font-bold">-{formatCurrency(pointDiscount)}</span>
+                    </div>
+                  )}
+
+                  {/* 6. Tổng tiền thanh toán */}
                   <div className="flex justify-between border-t border-slate-200 pt-2 text-[11px] text-slate-950">
                     <span>Tổng tiền thanh toán:</span>
                     <span className="font-extrabold text-kv-blue-primary">
@@ -943,7 +968,6 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
                   </button>
                 )}
 
-                {/* Return ticket creation (NCL-11-CN-001) */}
                 {invoice.status === E_INVOICE_STATUS.ISSUED &&
                   (currentRole === USER_ROLES.OWNER || currentRole === USER_ROLES.CASHIER) && (
                   <button
@@ -1005,7 +1029,6 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
           />
         )}
 
-        {/* Return Ticket Creation Modal (NCL-11-CN-001) */}
         {showCreateReturnModal && (
           <CreateReturnTicketModal
             isOpen={showCreateReturnModal}

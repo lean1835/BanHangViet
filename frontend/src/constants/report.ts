@@ -1,40 +1,104 @@
 import { APP_ROUTES } from "./routes";
+import { USER_ROLES } from "./roles";
 import { E_INVOICE_STATUS } from "./eInvoice";
 
-export const REPORT_NAVIGATION_ITEMS = [
+export interface IReportNavItem {
+  path: string;
+  label: string;
+  allowedRoles?: readonly string[];
+}
+
+export interface IReportGroup {
+  id: string;
+  label: string;
+  items: IReportNavItem[];
+}
+
+export const REPORT_GROUPS: readonly IReportGroup[] = [
   {
-    path: APP_ROUTES.REPORT_REVENUE,
-    label: "Doanh thu & Bán chạy",
+    id: "sales",
+    label: "Doanh thu",
+    items: [
+      {
+        path: APP_ROUTES.REPORT_REVENUE,
+        label: "Tổng quan doanh thu",
+      },
+      {
+        path: APP_ROUTES.REPORT_GROSS_PROFIT,
+        label: "Lãi gộp theo mặt hàng",
+      },
+      {
+        path: APP_ROUTES.REPORT_PRODUCT_GROUPS,
+        label: "Doanh thu theo nhóm hàng",
+      },
+      {
+        path: APP_ROUTES.REPORT_PAYMENT_METHODS,
+        label: "Hình thức thanh toán",
+      },
+      {
+        path: APP_ROUTES.REPORT_PEAK_HOURS,
+        label: "Giờ cao điểm",
+      },
+      {
+        path: APP_ROUTES.REPORT_COMPARISON,
+        label: "So sánh doanh thu kỳ",
+      },
+    ],
   },
   {
-    path: APP_ROUTES.REPORT_POS_REVENUE,
-    label: "Doanh thu theo điểm bán",
+    id: "operations",
+    label: "Vận hành",
+    items: [
+      {
+        path: APP_ROUTES.REPORT_EMPLOYEE_SHIFTS,
+        label: "Bán hàng theo ca",
+      },
+      {
+        path: APP_ROUTES.REPORT_POS_REVENUE,
+        label: "Doanh thu theo điểm bán",
+      },
+      {
+        path: APP_ROUTES.REPORT_INVENTORY_VALUATION,
+        label: "Giá trị tồn kho theo giá vốn",
+        allowedRoles: [USER_ROLES.OWNER, USER_ROLES.ACCOUNTANT],
+      },
+    ],
   },
   {
-    path: APP_ROUTES.REPORT_PEAK_HOURS,
-    label: "Giờ cao điểm & Ngày bán chạy",
+    id: "tax",
+    label: "Thuế",
+    items: [
+      {
+        path: APP_ROUTES.REPORT_TAX_DECLARATION,
+        label: "Tờ khai thuế",
+      },
+      {
+        path: APP_ROUTES.REPORT_ANNUAL_REVENUE,
+        label: "Doanh thu lũy kế năm",
+      },
+    ],
   },
   {
-    path: APP_ROUTES.REPORT_COMPARISON,
-    label: "So sánh doanh thu kỳ",
-  },
-  {
-    path: APP_ROUTES.REPORT_TAX_DECLARATION,
-    label: "Tờ khai thuế & Bảng kê",
-  },
-  {
-    path: APP_ROUTES.REPORT_ACTIVITY_LOGS,
-    label: "Nhật ký hoạt động",
-  },
-  {
-    path: APP_ROUTES.REPORT_AUDIT_LOGS,
-    label: "Nhật ký kiểm toán",
-  },
-  {
-    path: APP_ROUTES.REPORT_ANOMALY_ALERTS,
-    label: "Cảnh báo bất thường",
+    id: "audit",
+    label: "Kiểm soát",
+    items: [
+      {
+        path: APP_ROUTES.REPORT_ACTIVITY_LOGS,
+        label: "Nhật ký hoạt động",
+      },
+      {
+        path: APP_ROUTES.REPORT_AUDIT_LOGS,
+        label: "Nhật ký kiểm toán",
+      },
+      {
+        path: APP_ROUTES.REPORT_ANOMALY_ALERTS,
+        label: "Cảnh báo bất thường",
+      },
+    ],
   },
 ] as const;
+
+export const REPORT_NAVIGATION_ITEMS = REPORT_GROUPS.flatMap((g) => g.items);
 
 export const REPORT_UI = {
   SIDEBAR: {
@@ -69,6 +133,23 @@ export const REPORT_UI = {
     BTN_UPDATE_SETTINGS: "Cập nhật thông tin hộ ngay",
     ROLE_RESTRICTION_TOOLTIP:
       "Chỉ Kế toán (VT-03) và Chủ hộ (VT-01) mới có quyền xuất tờ khai thuế.",
+  },
+  ANNUAL_REVENUE: {
+    TITLE: "Theo dõi doanh thu lũy kế năm & Cảnh báo ngưỡng 1 tỷ",
+    DESCRIPTION:
+      "Theo dõi doanh thu thực tế từ hóa đơn hợp lệ và cảnh báo ngưỡng 1 tỷ đồng.",
+    MANDATORY_THRESHOLD_LABEL: "Ngưỡng bắt buộc pháp lý:",
+    MANDATORY_THRESHOLD_VALUE: "1.000.000.000 đ",
+    WARNING_THRESHOLD_LABEL: "Mức cảnh báo đã đặt:",
+    PROJECTED_DATE_LABEL: "Dự kiến chạm mốc 1 tỷ:",
+    AVERAGE_MONTHLY_LABEL: "Tốc độ trung bình / tháng:",
+    REMAINING_AMOUNT_LABEL: "Doanh thu còn lại:",
+    VALID_INVOICE_COUNT_LABEL: "Số HĐ hợp lệ:",
+    TAX_AMOUNT_LABEL: "Tổng tiền thuế tương ứng:",
+    BTN_CONFIG_THRESHOLD: "Cấu hình mức cảnh báo",
+    CONFIG_MODAL_TITLE: "Thiết lập mức cảnh báo ngưỡng doanh thu năm",
+    CONFIG_MODAL_DESC:
+      "Hệ thống sẽ tự động gửi thông báo đến Trung tâm thông báo khi doanh thu lũy kế trong năm chạm hoặc vượt tỷ lệ này (cho phép từ 50% đến 99%).",
   },
   COMPARISON: {
     TITLE: "Đối chiếu & So sánh doanh thu hai kỳ liên tiếp",

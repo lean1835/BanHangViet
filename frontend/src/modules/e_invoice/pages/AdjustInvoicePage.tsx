@@ -225,7 +225,7 @@ export const AdjustInvoicePage: React.FC = () => {
 
   return (
     <div className="flex-1 min-h-0 w-full overflow-y-auto bg-slate-50">
-      <div className="flex flex-col gap-6 max-w-5xl mx-auto p-4 sm:p-6 pb-24">
+      <div className="flex flex-col gap-6 w-full p-4 sm:p-6 pb-24">
         {/* Top Banner Navigation */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-4">
         <div>
@@ -480,6 +480,14 @@ export const AdjustInvoicePage: React.FC = () => {
               <span className="font-semibold text-slate-500">Tổng tiền thuế GTGT:</span>
               <span>{formatCurrency(taxAmount)}</span>
             </div>
+            {Boolean(invoice?.pointDiscountAmount && invoice.pointDiscountAmount > 0) && (
+              <div className="flex justify-between text-[10px] text-purple-700">
+                <span className="font-semibold">
+                  Trừ điểm tích lũy{invoice.pointsRedeemed ? ` (${invoice.pointsRedeemed} điểm)` : ""}:
+                </span>
+                <span className="font-bold">-{formatCurrency(invoice.pointDiscountAmount || 0)}</span>
+              </div>
+            )}
             <div className="flex justify-between border-t border-slate-200 pt-2 text-[11px] text-slate-950">
               <span>Tổng tiền thanh toán mới:</span>
               <span className="font-extrabold text-kv-blue-primary">{formatCurrency(finalAmount)}</span>

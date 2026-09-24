@@ -9,7 +9,6 @@ import type {
 
 export const salesInvoiceListingApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
-    // NCL-12-CN-001: Lập bảng kê hóa đơn bán ra theo kỳ
     generateSalesRegister: builder.mutation<
       IApiResponse<ITaxPeriodResponse>,
       IGenerateTaxRegisterRequest
@@ -26,7 +25,6 @@ export const salesInvoiceListingApi = baseApi.injectEndpoints({
       ],
     }),
 
-    // NCL-12-CN-001: Lấy danh sách dòng bảng kê hóa đơn bán ra theo kỳ (phân trang)
     getSalesRegisterItems: builder.query<
       IApiResponse<IPageResponse<ITaxSalesRegisterItem>>,
       { periodId: string; page?: number; size?: number }
@@ -68,7 +66,6 @@ export const salesInvoiceListingApi = baseApi.injectEndpoints({
       ],
     }),
 
-    // NCL-12-CN-003: Xuất tờ khai thuế và bảng kê hóa đơn ra file Excel
     exportTaxDeclaration: builder.mutation<Blob, string>({
       query: (periodId) => ({
         url: `/tax-periods/${periodId}/export-declaration`,

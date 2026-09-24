@@ -3,6 +3,9 @@ import type {
   TBackupTriggerType,
   TBackupStatus,
   TRestoreStatus,
+  TVerificationStatus,
+  TVerificationHealthStatus,
+  TVerificationTriggerType,
 } from "@/constants/backupRestore";
 
 export interface IBackupConfig {
@@ -92,4 +95,46 @@ export interface IRestoreHistory {
   restoredByUserName?: string | null;
   restoredAt: string;
   createdAt: string;
+}
+
+export interface IBackupVerificationHistory {
+  id: string;
+  backupHistoryId: string;
+  backupFileName: string;
+  backupTime: string;
+  fileSize: number;
+  status: TVerificationStatus;
+  executionDurationMs: number;
+  verifiedAt: string;
+  checkedFileReadable: boolean;
+  checkedRecordCountsMatched: boolean;
+  checkedAuditChainIntact: boolean;
+  productCount: number;
+  customerCount: number;
+  supplierCount: number;
+  userCount: number;
+  auditLogCount: number;
+  failureReason?: string | null;
+  triggerType: TVerificationTriggerType;
+  notes?: string | null;
+  createdAt: string;
+}
+
+export interface IBackupVerificationStatus {
+  latestVerification?: IBackupVerificationHistory | null;
+  latestSuccessfulVerification?: IBackupVerificationHistory | null;
+  daysSinceLastSuccess?: number | null;
+  maxAllowedDaysWithoutVerification: number;
+  isOverdue: boolean;
+  hasFailedRecent: boolean;
+  overallHealthStatus: TVerificationHealthStatus;
+  warningMessage: string;
+  totalVerificationsRun: number;
+  passedVerificationsCount: number;
+  failedVerificationsCount: number;
+}
+
+export interface ITriggerVerificationRequest {
+  backupHistoryId?: string;
+  notes?: string;
 }

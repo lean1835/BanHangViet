@@ -78,6 +78,9 @@ export const returnTicketApi = baseApi.injectEndpoints({
           { type: API_TAG_TYPES.STOCK_CARD },
           { type: API_TAG_TYPES.STOCK_CARD, id: "LIST" },
           { type: API_TAG_TYPES.POS_INVENTORY, id: "LIST" },
+          { type: API_TAG_TYPES.CUSTOMER },
+          { type: API_TAG_TYPES.LOYALTY_SUMMARY },
+          { type: API_TAG_TYPES.LOYALTY_TRANSACTIONS },
         ];
         if (result?.result?.items) {
           result.result.items.forEach((item) => {
@@ -111,6 +114,9 @@ export const returnTicketApi = baseApi.injectEndpoints({
           { type: API_TAG_TYPES.STOCK_CARD, id: "LIST" },
           { type: API_TAG_TYPES.POS_INVENTORY, id: "LIST" },
           { type: API_TAG_TYPES.DEBT, id: "LIST" },
+          { type: API_TAG_TYPES.CUSTOMER },
+          { type: API_TAG_TYPES.LOYALTY_SUMMARY },
+          { type: API_TAG_TYPES.LOYALTY_TRANSACTIONS },
         ];
         if (result?.result?.items) {
           result.result.items.forEach((item) => {

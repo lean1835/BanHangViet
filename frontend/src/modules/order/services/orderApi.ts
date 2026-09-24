@@ -138,6 +138,8 @@ export const orderApi = baseApi.injectEndpoints({
         API_TAG_TYPES.DEBT,
         API_TAG_TYPES.PRODUCT,
         API_TAG_TYPES.POS_INVENTORY,
+        API_TAG_TYPES.LOYALTY_SUMMARY,
+        API_TAG_TYPES.LOYALTY_TRANSACTIONS,
         API_TAG_TYPES.INVENTORY_WARNING,
         API_TAG_TYPES.SALES_ANALYTICS,
         { type: API_TAG_TYPES.SALES_ANALYTICS, id: "PEAK_HOURS" },
@@ -148,7 +150,6 @@ export const orderApi = baseApi.injectEndpoints({
         { type: API_TAG_TYPES.DINING_TABLE, id: "LIST" },
       ],
     }),
-    // NCL-03-CN-011: Lấy chi tiết các hình thức thanh toán của đơn hàng
     getOrderPayments: builder.query<IApiResponse<IOrderPaymentResponse[]>, string>({
       query: (orderId) => ({
         url: `/orders/${orderId}/payments`,
@@ -159,7 +160,6 @@ export const orderApi = baseApi.injectEndpoints({
         { type: API_TAG_TYPES.ORDER, id: orderId },
       ],
     }),
-    // NCL-03-CN-012: Xác nhận đã nhận tiền chuyển khoản ngân hàng trước khi chốt đơn
     confirmBankTransfer: builder.mutation<
       IApiResponse<IOrderPaymentResponse>,
       { orderId: string; data: IConfirmBankTransferRequest }
@@ -175,7 +175,6 @@ export const orderApi = baseApi.injectEndpoints({
         { type: API_TAG_TYPES.ORDER, id: ORDER_API_TAG_IDS.LIST },
       ],
     }),
-    // NCL-03-CN-012: Xác nhận giao dịch chuyển khoản cho dòng thanh toán cụ thể
     confirmPaymentBankTransfer: builder.mutation<
       IApiResponse<IOrderPaymentResponse>,
       { orderId: string; paymentId: string; data: IConfirmBankTransferRequest }
@@ -191,7 +190,6 @@ export const orderApi = baseApi.injectEndpoints({
         { type: API_TAG_TYPES.ORDER, id: ORDER_API_TAG_IDS.LIST },
       ],
     }),
-    // NCL-03-CN-012: Đổi phương thức thanh toán linh hoạt khi khách hủy chuyển khoản
     switchPaymentMethod: builder.mutation<
       IApiResponse<IOrderResponse>,
       { orderId: string; data: ISwitchPaymentMethodRequest }
@@ -253,7 +251,6 @@ export const orderApi = baseApi.injectEndpoints({
       }),
       providesTags: [{ type: API_TAG_TYPES.ORDER, id: "CANCELED_STATISTICS" }],
     }),
-    // NCL-03-CN-010: Đặt tên nhận diện và treo nhiều đơn theo bàn hoặc khách
     getHeldOrders: builder.query<IApiResponse<IHeldOrderSummaryResponse[]>, void>({
       query: () => ({
         url: "/orders/held",
@@ -340,7 +337,6 @@ export const {
   useHoldOrderMutation,
   useUpdateOrderLabelMutation,
   useSwitchDiningTableMutation,
-  // NCL-03-CN-011 & NCL-03-CN-012 hooks
   useGetOrderPaymentsQuery,
   useLazyGetOrderPaymentsQuery,
   useConfirmBankTransferMutation,

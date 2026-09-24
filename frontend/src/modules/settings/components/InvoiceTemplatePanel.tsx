@@ -122,6 +122,7 @@ export const InvoiceTemplatePanel: React.FC = () => {
                 Ký hiệu hóa đơn <span className="text-rose-500">*</span>
               </label>
               <input
+                id="input-invoice-symbol"
                 type="text"
                 {...register("invoiceSymbol")}
                 className={`border ${
@@ -141,6 +142,7 @@ export const InvoiceTemplatePanel: React.FC = () => {
                 Mẫu số hóa đơn <span className="text-rose-500">*</span>
               </label>
               <input
+                id="select-invoice-pattern"
                 type="text"
                 {...register("invoicePattern")}
                 className={`border ${
@@ -201,6 +203,7 @@ export const InvoiceTemplatePanel: React.FC = () => {
 
           <div className="flex justify-end pt-2">
             <button
+              id="btn-save-invoice-template"
               type="submit"
               disabled={isUpdating}
               className="bg-kv-blue-primary hover:bg-kv-blue-dark text-white font-bold px-6 h-10 rounded-lg transition-colors flex items-center gap-2 text-xs shadow-sm disabled:opacity-50"

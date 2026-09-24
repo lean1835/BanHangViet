@@ -25,6 +25,7 @@ import {
   useUpdateInvoiceMutation,
 } from "@/modules/e_invoice/services/eInvoiceApi";
 import { markOfflineOrderInvoiceIssued } from "@/modules/sync/utils/offlineSyncStorage";
+import { ContextualErrorGuideModal } from "@/modules/screen_guide";
 
 interface IOrderSuccessModalProps {
   isOpen: boolean;
@@ -53,6 +54,7 @@ export const OrderSuccessModal: React.FC<IOrderSuccessModalProps> = ({
   const [paperSize, setPaperSize] = useState<"K80" | "K57">("K80");
   const [showQr, setShowQr] = useState<boolean>(true);
   const [realInvoice, setRealInvoice] = useState<IInvoice | null>(null);
+  const [contextualHelpErrorCode, setContextualHelpErrorCode] = useState<number | null>(null);
 
   // RTK Query Mutations from eInvoiceApi
   const [createInvoiceDraft, { isLoading: isIssuingInvoice }] =
@@ -100,6 +102,7 @@ export const OrderSuccessModal: React.FC<IOrderSuccessModalProps> = ({
     manualDiscountCash,
     totalOrderLevelDiscounts: discountCash,
     totalTaxAmount: taxAmount,
+    pointDiscountAmount,
   } = calculatePosTotals(tab);
 
   // Handle Real Invoice Issuance (POST /invoices/draft)
@@ -141,6 +144,8 @@ export const OrderSuccessModal: React.FC<IOrderSuccessModalProps> = ({
         totalAmountBeforeTax: itemsSum,
         taxAmount: taxAmount,
         discountAmount: discountCash,
+        pointDiscountAmount: pointDiscountAmount,
+        pointsRedeemed: tab.pointsRedeemed,
         finalAmount: finalTotal,
         items: tab.items.map((item, idx) => ({
           id: item.id || `item_${idx}`,
@@ -169,6 +174,11 @@ export const OrderSuccessModal: React.FC<IOrderSuccessModalProps> = ({
       if (isAlreadyIssued) {
         setIssueSuccessAlertMsg("Hóa đơn điện tử cho đơn hàng này đã được phát hành trước đó!");
         setShowIssueSuccessAlert(true);
+        return;
+      }
+
+      if (err?.data?.code === 4001 || errMsg.includes("mẫu hóa đơn") || errMsg.includes("ký hiệu")) {
+        setContextualHelpErrorCode(4001);
         return;
       }
       const fallbackInv: IInvoice = {
@@ -538,6 +548,13 @@ export const OrderSuccessModal: React.FC<IOrderSuccessModalProps> = ({
                 <div className="flex justify-between text-emerald-700">
                   <span>Chiết khấu thêm:</span>
                   <span className="font-bold">-{formatCurrency(manualDiscountCash)}</span>
+                </div>
+              )}
+
+              {pointDiscountAmount > 0 && (
+                <div className="flex justify-between text-purple-700 font-semibold">
+                  <span>Trừ điểm thưởng{tab.pointsRedeemed ? ` (${tab.pointsRedeemed} điểm)` : ""}:</span>
+                  <span className="font-bold">-{formatCurrency(pointDiscountAmount)}</span>
                 </div>
               )}
 
@@ -929,6 +946,13 @@ export const OrderSuccessModal: React.FC<IOrderSuccessModalProps> = ({
                   </div>
                 )}
 
+                {pointDiscountAmount > 0 && (
+                  <div className="flex justify-between text-purple-700 font-semibold">
+                    <span>Trừ điểm thưởng{tab.pointsRedeemed ? ` (${tab.pointsRedeemed} điểm)` : ""}:</span>
+                    <span className="font-bold">-{formatCurrency(pointDiscountAmount)}</span>
+                  </div>
+                )}
+
                 <div className="flex justify-between items-center font-black text-xs sm:text-sm pt-1.5 border-t border-slate-900 text-slate-900 bg-slate-50 px-2 py-1 rounded">
                   <span>TỔNG THANH TOÁN:</span>
                   <span className="text-sm sm:text-base text-slate-900">{formatCurrency(finalTotal)}</span>
@@ -1043,6 +1067,15 @@ export const OrderSuccessModal: React.FC<IOrderSuccessModalProps> = ({
             </div>
           </div>
         </div>
+      )}
+
+      {/* TC-02: Modal trợ giúp ngữ cảnh khi bị chặn phát hành hóa đơn do thiếu cấu hình */}
+      {contextualHelpErrorCode !== null && (
+        <ContextualErrorGuideModal
+          isOpen={true}
+          errorCode={contextualHelpErrorCode}
+          onClose={() => setContextualHelpErrorCode(null)}
+        />
       )}
     </div>
   );

@@ -2,6 +2,31 @@ import React, { useState, useMemo, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { Search, Plus, Edit, Trash2, AlertTriangle, Bell, Wallet, Calendar, Eye } from "lucide-react";
+
+// Native SVG Icon
+const FileSpreadsheetIcon: React.FC<{ size?: number; className?: string }> = ({
+  size = 14,
+  className = "",
+}) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+  >
+    <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" />
+    <path d="M14 2v4a2 2 0 0 0 2 2h4" />
+    <path d="M8 13h2" />
+    <path d="M14 13h2" />
+    <path d="M8 17h2" />
+    <path d="M14 17h2" />
+  </svg>
+);
 import { TablePaginationFooter } from "@/components/common/TablePaginationFooter";
 import { CUSTOMER_UI } from "@/constants/customer";
 import { APP_ROUTES } from "@/constants/routes";
@@ -21,6 +46,8 @@ interface CustomerListProps {
   onDeleteCustomer: (id: string) => void;
   onConfirmReminder: (customer: ICustomer, message?: string) => void;
   onConfirmPayDebt: (data: DebtPaymentData) => void | Promise<void>;
+  onOpenReconcileModal?: (customer: ICustomer) => void;
+  onOpenImportModal?: () => void;
 }
 
 export const CustomerList: React.FC<CustomerListProps> = ({
@@ -32,6 +59,7 @@ export const CustomerList: React.FC<CustomerListProps> = ({
   onDeleteCustomer,
   onConfirmReminder,
   onConfirmPayDebt,
+  onOpenImportModal,
 }) => {
   const navigate = useNavigate();
   const [customerToDelete, setCustomerToDelete] = useState<ICustomer | null>(null);
@@ -83,8 +111,20 @@ export const CustomerList: React.FC<CustomerListProps> = ({
           />
         </div>
 
-        {/* Create button */}
+        {/* Action buttons */}
         <div className="flex items-center gap-2 flex-wrap">
+          {onOpenImportModal && (
+            <button
+              type="button"
+              onClick={onOpenImportModal}
+              className="flex h-11 items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 text-xs font-bold text-slate-700 shadow-xs transition-all hover:bg-slate-50 hover:border-slate-400 lg:h-9"
+              title="Nhập danh bạ khách hàng từ tệp Excel / CSV"
+            >
+              <FileSpreadsheetIcon size={14} className="text-emerald-600" />
+              Nhập từ tệp
+            </button>
+          )}
+
           <button
             type="button"
             onClick={onOpenCreateModal}

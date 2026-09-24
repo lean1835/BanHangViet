@@ -5,9 +5,7 @@ import {
   getPreviousWeekDateRange,
 } from "@/utils/dateFormatter";
 
-// ==========================================
 // 1. REVENUE REPORT FILTER
-// ==========================================
 export interface IRevenueFilterState {
   fromDate: string;
   toDate: string;
@@ -34,9 +32,7 @@ export const getRevenuePresetDates = (preset: "today" | "last7days" | "thisMonth
   };
 };
 
-// ==========================================
 // 2. COMPARISON REPORT FILTER
-// ==========================================
 export interface IComparisonFilterState {
   period1Start: string;
   period1End: string;
@@ -79,17 +75,13 @@ export const getComparisonPresetPeriods = (preset: "monthVsMonth" | "weekVsWeek"
   };
 };
 
-// ==========================================
 // 3. ACTIVITY LOG FILTER
-// ==========================================
 export interface IActivityLogFilterState {
   fromDate: string;
   toDate: string;
 }
 
-// ==========================================
 // 4. PEAK HOURS REPORT FILTER
-// ==========================================
 export interface IPeakHoursFilterState {
   fromDate: string;
   toDate: string;
@@ -117,9 +109,7 @@ export const getPeakHoursPresetDates = (preset: "thisWeek" | "lastWeek" | "14day
   return { fromDate: getLocalDateString(start), toDate: getLocalDateString(end) };
 };
 
-// ==========================================
 // 5. POS REVENUE REPORT FILTER
-// ==========================================
 export interface IPosRevenueFilterState {
   fromDate: string;
   toDate: string;
@@ -150,9 +140,37 @@ export const getPosRevenuePresetDates = (preset: "today" | "thisWeek" | "thisMon
   return { fromDate: getLocalDateString(firstDayQuarter), toDate: todayStr };
 };
 
-// ==========================================
+export interface IGrossProfitFilterState {
+  fromDate: string;
+  toDate: string;
+  productId: string;
+  posId: string;
+  activePreset: "today" | "last7days" | "thisMonth" | "custom";
+}
+
+export interface IEmployeeShiftFilterState {
+  fromDate: string;
+  toDate: string;
+  userId: string;
+  threshold?: number;
+  activePreset: "today" | "last7days" | "thisMonth" | "custom";
+}
+
+export interface IPaymentMethodFilterState {
+  fromDate: string;
+  toDate: string;
+  userId: string;
+  shiftId: string;
+  activePreset: "today" | "last7days" | "thisMonth" | "custom";
+}
+
+export interface IProductGroupFilterState {
+  fromDate: string;
+  toDate: string;
+  activePreset: "today" | "last7days" | "thisMonth" | "custom";
+}
+
 // UNIFIED REPORT CONTEXT
-// ==========================================
 export interface IReportFilterContextType {
   // Revenue
   revenueFilter: IRevenueFilterState;
@@ -181,6 +199,26 @@ export interface IReportFilterContextType {
   setPosRevenueFilter: React.Dispatch<React.SetStateAction<IPosRevenueFilterState>>;
   setPosRevenuePreset: (preset: "today" | "thisWeek" | "thisMonth" | "thisQuarter") => void;
   resetPosRevenueFilter: () => void;
+
+  grossProfitFilter: IGrossProfitFilterState;
+  setGrossProfitFilter: React.Dispatch<React.SetStateAction<IGrossProfitFilterState>>;
+  setGrossProfitPreset: (preset: "today" | "last7days" | "thisMonth") => void;
+  resetGrossProfitFilter: () => void;
+
+  employeeShiftFilter: IEmployeeShiftFilterState;
+  setEmployeeShiftFilter: React.Dispatch<React.SetStateAction<IEmployeeShiftFilterState>>;
+  setEmployeeShiftPreset: (preset: "today" | "last7days" | "thisMonth") => void;
+  resetEmployeeShiftFilter: () => void;
+
+  paymentMethodFilter: IPaymentMethodFilterState;
+  setPaymentMethodFilter: React.Dispatch<React.SetStateAction<IPaymentMethodFilterState>>;
+  setPaymentMethodPreset: (preset: "today" | "last7days" | "thisMonth") => void;
+  resetPaymentMethodFilter: () => void;
+
+  productGroupFilter: IProductGroupFilterState;
+  setProductGroupFilter: React.Dispatch<React.SetStateAction<IProductGroupFilterState>>;
+  setProductGroupPreset: (preset: "today" | "last7days" | "thisMonth") => void;
+  resetProductGroupFilter: () => void;
 }
 
 export const ReportFilterContext = createContext<IReportFilterContextType | undefined>(undefined);
@@ -310,6 +348,122 @@ export const ReportFilterProvider: React.FC<{ children: ReactNode }> = ({ childr
     });
   }, []);
 
+  const initialGrossProfitDates = useMemo(() => getRevenuePresetDates("thisMonth"), []);
+  const [grossProfitFilter, setGrossProfitFilter] = useState<IGrossProfitFilterState>({
+    fromDate: initialGrossProfitDates.fromDate,
+    toDate: initialGrossProfitDates.toDate,
+    productId: "",
+    posId: "",
+    activePreset: "thisMonth",
+  });
+
+  const setGrossProfitPreset = useCallback((preset: "today" | "last7days" | "thisMonth") => {
+    const dates = getRevenuePresetDates(preset);
+    setGrossProfitFilter((prev) => ({
+      ...prev,
+      fromDate: dates.fromDate,
+      toDate: dates.toDate,
+      activePreset: preset,
+    }));
+  }, []);
+
+  const resetGrossProfitFilter = useCallback(() => {
+    const dates = getRevenuePresetDates("thisMonth");
+    setGrossProfitFilter({
+      fromDate: dates.fromDate,
+      toDate: dates.toDate,
+      productId: "",
+      posId: "",
+      activePreset: "thisMonth",
+    });
+  }, []);
+
+  const initialShiftDates = useMemo(() => getRevenuePresetDates("thisMonth"), []);
+  const [employeeShiftFilter, setEmployeeShiftFilter] = useState<IEmployeeShiftFilterState>({
+    fromDate: initialShiftDates.fromDate,
+    toDate: initialShiftDates.toDate,
+    userId: "",
+    threshold: undefined,
+    activePreset: "thisMonth",
+  });
+
+  const setEmployeeShiftPreset = useCallback((preset: "today" | "last7days" | "thisMonth") => {
+    const dates = getRevenuePresetDates(preset);
+    setEmployeeShiftFilter((prev) => ({
+      ...prev,
+      fromDate: dates.fromDate,
+      toDate: dates.toDate,
+      activePreset: preset,
+    }));
+  }, []);
+
+  const resetEmployeeShiftFilter = useCallback(() => {
+    const dates = getRevenuePresetDates("thisMonth");
+    setEmployeeShiftFilter({
+      fromDate: dates.fromDate,
+      toDate: dates.toDate,
+      userId: "",
+      threshold: undefined,
+      activePreset: "thisMonth",
+    });
+  }, []);
+
+  const initialPaymentDates = useMemo(() => getRevenuePresetDates("thisMonth"), []);
+  const [paymentMethodFilter, setPaymentMethodFilter] = useState<IPaymentMethodFilterState>({
+    fromDate: initialPaymentDates.fromDate,
+    toDate: initialPaymentDates.toDate,
+    userId: "",
+    shiftId: "",
+    activePreset: "thisMonth",
+  });
+
+  const setPaymentMethodPreset = useCallback((preset: "today" | "last7days" | "thisMonth") => {
+    const dates = getRevenuePresetDates(preset);
+    setPaymentMethodFilter((prev) => ({
+      ...prev,
+      fromDate: dates.fromDate,
+      toDate: dates.toDate,
+      activePreset: preset,
+    }));
+  }, []);
+
+  const resetPaymentMethodFilter = useCallback(() => {
+    const dates = getRevenuePresetDates("thisMonth");
+    setPaymentMethodFilter({
+      fromDate: dates.fromDate,
+      toDate: dates.toDate,
+      userId: "",
+      shiftId: "",
+      activePreset: "thisMonth",
+    });
+  }, []);
+
+  const initialGroupDates = useMemo(() => getRevenuePresetDates("thisMonth"), []);
+  const [productGroupFilter, setProductGroupFilter] = useState<IProductGroupFilterState>({
+    fromDate: initialGroupDates.fromDate,
+    toDate: initialGroupDates.toDate,
+    activePreset: "thisMonth",
+  });
+
+  const setProductGroupPreset = useCallback((preset: "today" | "last7days" | "thisMonth") => {
+    const dates = getRevenuePresetDates(preset);
+    setProductGroupFilter((prev) => ({
+      ...prev,
+      fromDate: dates.fromDate,
+      toDate: dates.toDate,
+      activePreset: preset,
+    }));
+  }, []);
+
+  const resetProductGroupFilter = useCallback(() => {
+    const dates = getRevenuePresetDates("thisMonth");
+    setProductGroupFilter({
+      fromDate: dates.fromDate,
+      toDate: dates.toDate,
+      activePreset: "thisMonth",
+    });
+  }, []);
+
   const contextValue = useMemo(
     () => ({
       revenueFilter,
@@ -330,6 +484,22 @@ export const ReportFilterProvider: React.FC<{ children: ReactNode }> = ({ childr
       setPosRevenueFilter,
       setPosRevenuePreset,
       resetPosRevenueFilter,
+      grossProfitFilter,
+      setGrossProfitFilter,
+      setGrossProfitPreset,
+      resetGrossProfitFilter,
+      employeeShiftFilter,
+      setEmployeeShiftFilter,
+      setEmployeeShiftPreset,
+      resetEmployeeShiftFilter,
+      paymentMethodFilter,
+      setPaymentMethodFilter,
+      setPaymentMethodPreset,
+      resetPaymentMethodFilter,
+      productGroupFilter,
+      setProductGroupFilter,
+      setProductGroupPreset,
+      resetProductGroupFilter,
     }),
     [
       revenueFilter,
@@ -345,6 +515,18 @@ export const ReportFilterProvider: React.FC<{ children: ReactNode }> = ({ childr
       posRevenueFilter,
       setPosRevenuePreset,
       resetPosRevenueFilter,
+      grossProfitFilter,
+      setGrossProfitPreset,
+      resetGrossProfitFilter,
+      employeeShiftFilter,
+      setEmployeeShiftPreset,
+      resetEmployeeShiftFilter,
+      paymentMethodFilter,
+      setPaymentMethodPreset,
+      resetPaymentMethodFilter,
+      productGroupFilter,
+      setProductGroupPreset,
+      resetProductGroupFilter,
     ]
   );
 
@@ -366,4 +548,3 @@ export const useReportFilter = () => {
 export const useOptionalReportFilter = () => {
   return useContext(ReportFilterContext);
 };
-

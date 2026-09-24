@@ -17,3 +17,24 @@ export const generatePeriodSchema = z.object({
 });
 
 export type TGeneratePeriodFormData = z.infer<typeof generatePeriodSchema>;
+
+export const warningThresholdSchema = z.object({
+  warningThresholdPercentage: z.coerce
+    .number({ invalid_type_error: "Tỷ lệ cảnh báo phải là số" })
+    .min(50, "Tỷ lệ cảnh báo hợp lệ phải từ 50.0% đến 99.0%")
+    .max(99, "Tỷ lệ cảnh báo hợp lệ phải từ 50.0% đến 99.0%"),
+});
+
+export type TWarningThresholdFormData = z.infer<typeof warningThresholdSchema>;
+
+export const taxReminderSettingsSchema = z.object({
+  taxPeriodType: z.enum(["MONTHLY", "QUARTERLY"]),
+  taxReminderDaysBefore: z.coerce
+    .number({ invalid_type_error: "Số ngày nhắc phải là số" })
+    .int("Số ngày nhắc phải là số nguyên")
+    .min(1, "Số ngày nhắc trước hạn phải từ 1 đến 30 ngày")
+    .max(30, "Số ngày nhắc trước hạn phải từ 1 đến 30 ngày"),
+  taxReminderEnabled: z.boolean(),
+});
+
+export type TTaxReminderSettingsFormData = z.infer<typeof taxReminderSettingsSchema>;

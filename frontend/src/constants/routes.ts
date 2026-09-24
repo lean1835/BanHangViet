@@ -12,12 +12,14 @@ export const ROUTE_SEGMENTS = {
   ORDERS: "orders",
   CUSTOMERS: "customers",
   SUPPLIERS: "suppliers",
+  SUPPLIER_RETURNS: "supplier-returns",
   EMPLOYEES: "employees",
   REPORTS: "reports",
   REVENUE: "revenue",
   COMPARISON: "comparison",
   ACTIVITY_LOGS: "activity-logs",
   TAX_DECLARATION: "tax-declaration",
+  ANNUAL_REVENUE: "annual-revenue",
   AUDIT_LOGS: "audit-logs",
   ANOMALY_ALERTS: "anomaly-alerts",
   TAX_SALES_INVOICE: "tax-sales-invoices",
@@ -28,6 +30,7 @@ export const ROUTE_SEGMENTS = {
   ADMIN: "admin",
   OVERVIEW: "overview",
   HOUSEHOLDS: "households",
+  PACKAGES: "packages",
   LOGS: "logs",
   TAX_AUTHORITY: "tax-authority",
   INVOICES: "invoices",
@@ -35,6 +38,7 @@ export const ROUTE_SEGMENTS = {
   POS: "pos",
   E_INVOICES: "e-invoices",
   RETURN_TICKETS: "return-tickets",
+  PRODUCT_EXCHANGES: "product-exchanges",
   LOOKUP_INVOICE: "lookup-invoice",
   INVOICE_TEMPLATE: "invoice-template",
   BACKUP_EXPORT: "backup-export",
@@ -45,9 +49,19 @@ export const ROUTE_SEGMENTS = {
   POS_REVENUE: "pos-revenue",
   PEAK_HOURS: "peak-hours",
   USER_PROFILE: "user-profile",
+  DISPLAY: "display",
   SESSIONS: "sessions",
   STOCK_CARD: "stock-card",
   PRICE_ADJUSTMENTS: "price-adjustments",
+  INVENTORY_VALUATION: "inventory-valuation",
+  LOYALTY: "loyalty",
+  GROSS_PROFIT: "gross-profit",
+  EMPLOYEE_SHIFTS: "employee-shifts",
+  PAYMENT_METHODS: "payment-methods",
+  PRODUCT_GROUPS: "product-groups",
+  NOTIFICATIONS: "notifications",
+  FAQ_SUPPORT: "faq-support",
+  DEADLINES: "deadlines",
   WILDCARD: "*",
 } as const;
 
@@ -93,6 +107,10 @@ export const APP_ROUTES = {
     ROUTE_SEGMENTS.PRODUCTS,
     ROUTE_SEGMENTS.SUPPLIERS,
   ),
+  PRODUCT_SUPPLIER_RETURNS: createRoute(
+    ROUTE_SEGMENTS.PRODUCTS,
+    ROUTE_SEGMENTS.SUPPLIER_RETURNS,
+  ),
   PRODUCT_STOCK_CARD: createRoute(
     ROUTE_SEGMENTS.PRODUCTS,
     ROUTE_SEGMENTS.STOCK_CARD,
@@ -130,6 +148,10 @@ export const APP_ROUTES = {
     ROUTE_SEGMENTS.REPORTS,
     ROUTE_SEGMENTS.TAX_DECLARATION,
   ),
+  REPORT_ANNUAL_REVENUE: createRoute(
+    ROUTE_SEGMENTS.REPORTS,
+    ROUTE_SEGMENTS.ANNUAL_REVENUE,
+  ),
   REPORT_AUDIT_LOGS: createRoute(
     ROUTE_SEGMENTS.REPORTS,
     ROUTE_SEGMENTS.AUDIT_LOGS,
@@ -150,10 +172,38 @@ export const APP_ROUTES = {
     ROUTE_SEGMENTS.REPORTS,
     ROUTE_SEGMENTS.PEAK_HOURS,
   ),
+  REPORT_INVENTORY_VALUATION: createRoute(
+    ROUTE_SEGMENTS.REPORTS,
+    ROUTE_SEGMENTS.INVENTORY_VALUATION,
+  ),
+  PRODUCT_INVENTORY_VALUATION: createRoute(
+    ROUTE_SEGMENTS.REPORTS,
+    ROUTE_SEGMENTS.INVENTORY_VALUATION,
+  ),
+  REPORT_GROSS_PROFIT: createRoute(
+    ROUTE_SEGMENTS.REPORTS,
+    ROUTE_SEGMENTS.GROSS_PROFIT,
+  ),
+  REPORT_EMPLOYEE_SHIFTS: createRoute(
+    ROUTE_SEGMENTS.REPORTS,
+    ROUTE_SEGMENTS.EMPLOYEE_SHIFTS,
+  ),
+  REPORT_PAYMENT_METHODS: createRoute(
+    ROUTE_SEGMENTS.REPORTS,
+    ROUTE_SEGMENTS.PAYMENT_METHODS,
+  ),
+  REPORT_PRODUCT_GROUPS: createRoute(
+    ROUTE_SEGMENTS.REPORTS,
+    ROUTE_SEGMENTS.PRODUCT_GROUPS,
+  ),
   SETTINGS: createRoute(ROUTE_SEGMENTS.SETTINGS),
   SETTINGS_USER_PROFILE: createRoute(
     ROUTE_SEGMENTS.SETTINGS,
     ROUTE_SEGMENTS.USER_PROFILE,
+  ),
+  SETTINGS_DISPLAY: createRoute(
+    ROUTE_SEGMENTS.SETTINGS,
+    ROUTE_SEGMENTS.DISPLAY,
   ),
   SETTINGS_SESSIONS: createRoute(
     ROUTE_SEGMENTS.SETTINGS,
@@ -180,8 +230,16 @@ export const APP_ROUTES = {
     ROUTE_SEGMENTS.BACKUP_EXPORT,
   ),
   SETTINGS_PRINTER: createRoute(
+  ROUTE_SEGMENTS.SETTINGS,
+  ROUTE_SEGMENTS.PRINTER,
+),
+  SETTINGS_LOYALTY: createRoute(
     ROUTE_SEGMENTS.SETTINGS,
-    ROUTE_SEGMENTS.PRINTER,
+    ROUTE_SEGMENTS.LOYALTY,
+  ),
+  SETTINGS_DEADLINES: createRoute(
+    ROUTE_SEGMENTS.SETTINGS,
+    ROUTE_SEGMENTS.DEADLINES,
   ),
   ADMIN: createRoute(ROUTE_SEGMENTS.ADMIN),
   ADMIN_OVERVIEW: createRoute(
@@ -191,6 +249,10 @@ export const APP_ROUTES = {
   ADMIN_HOUSEHOLDS: createRoute(
     ROUTE_SEGMENTS.ADMIN,
     ROUTE_SEGMENTS.HOUSEHOLDS,
+  ),
+  ADMIN_PACKAGES: createRoute(
+    ROUTE_SEGMENTS.ADMIN,
+    ROUTE_SEGMENTS.PACKAGES,
   ),
   ADMIN_LOGS: createRoute(ROUTE_SEGMENTS.ADMIN, ROUTE_SEGMENTS.LOGS),
   TAX_AUTHORITY: createRoute(ROUTE_SEGMENTS.TAX_AUTHORITY),
@@ -208,7 +270,15 @@ export const APP_ROUTES = {
   E_INVOICES_ADJUST: (id: string) => `/e-invoices/${id}/adjust`,
   RETURN_TICKETS: createRoute(ROUTE_SEGMENTS.RETURN_TICKETS),
   RETURN_TICKET_CREATE: `${createRoute(ROUTE_SEGMENTS.RETURN_TICKETS)}/create`,
+  PRODUCT_EXCHANGES: createRoute(ROUTE_SEGMENTS.PRODUCT_EXCHANGES),
+  PRODUCT_EXCHANGE_CREATE: `${createRoute(ROUTE_SEGMENTS.PRODUCT_EXCHANGES)}/create`,
   LOOKUP_INVOICE: createRoute(ROUTE_SEGMENTS.LOOKUP_INVOICE),
   PROMOTIONS: createRoute(ROUTE_SEGMENTS.PROMOTIONS),
   PROMOTION_REPORT: (id: string) => `${createRoute(ROUTE_SEGMENTS.PROMOTIONS)}/${id}/report`,
+  NOTIFICATIONS: createRoute(ROUTE_SEGMENTS.NOTIFICATIONS),
+  SETTINGS_FAQ_SUPPORT: createRoute(
+    ROUTE_SEGMENTS.SETTINGS,
+    ROUTE_SEGMENTS.FAQ_SUPPORT,
+  ),
+  SUPPORT: createRoute(ROUTE_SEGMENTS.FAQ_SUPPORT),
 } as const;

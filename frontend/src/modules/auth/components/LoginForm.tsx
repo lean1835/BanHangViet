@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { Link, useOutletContext } from "react-router-dom";
+import { Link, useOutletContext, useSearchParams } from "react-router-dom";
 import { Form, Input, Alert } from "antd";
 import type { AuthOutletContext } from "@/pages/AuthPage";
 import { useLoginMutation } from "../services/authApi";
@@ -38,6 +38,8 @@ interface LoginFormProps {
 
 export const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
   const outletContext = useOutletContext<AuthOutletContext | null>();
+  const [searchParams] = useSearchParams();
+  const invitationToken = searchParams.get("invitationToken") || undefined;
   const [form] = Form.useForm();
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [rememberMe, setRememberMe] = useState(false);
@@ -117,7 +119,10 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
       const parsedValues = loginSchema.parse(formValues);
 
       try {
-        const response = await login(parsedValues).unwrap();
+        const response = await login({
+          ...parsedValues,
+          invitationToken,
+        }).unwrap();
         if (outletContext?.triggerDoorOpening) {
           await outletContext.triggerDoorOpening();
         }
@@ -171,6 +176,16 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
           type="error"
           showIcon
           className="mb-4 rounded-xl border-red-200 bg-red-50/70 text-xs"
+        />
+      )}
+
+      {invitationToken && (
+        <Alert
+          message="Kích hoạt tài khoản kế toán"
+          description="Hệ thống sẽ tự động kích hoạt quyền kế toán cho hộ kinh doanh khi bạn đăng nhập."
+          type="info"
+          showIcon
+          className="mb-4 rounded-xl border-blue-200 bg-blue-50/80 text-xs text-blue-900"
         />
       )}
 

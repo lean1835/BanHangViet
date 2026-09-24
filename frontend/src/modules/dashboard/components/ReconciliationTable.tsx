@@ -1,6 +1,27 @@
 import { useState, useMemo } from "react";
 import { createPortal } from "react-dom";
-import { CheckCircle2 } from "lucide-react";
+// Native SVG Icons
+interface SvgIconProps {
+  size?: number;
+  className?: string;
+}
+
+const CheckCircle2Icon: React.FC<SvgIconProps> = ({ size = 16, className = "" }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+  >
+    <circle cx="12" cy="12" r="10" />
+    <path d="m9 12 2 2 4-4" />
+  </svg>
+);
 import { useGetShiftsHistoryQuery } from "@/modules/shift/services/shiftApi";
 import type { IShiftResponse } from "@/modules/shift/types/IShift";
 import { useNotification } from "@/hooks/useNotification";
@@ -323,7 +344,7 @@ export const ReconciliationTable = ({ date, currentRole }: ReconciliationTablePr
                     className="bg-emerald-50 text-emerald-700 border border-emerald-300 py-1.5 px-3 text-[10px] font-black rounded flex items-center gap-1 cursor-not-allowed shrink-0 shadow-2xs"
                     title="Ngày này đã được chốt đối chiếu"
                   >
-                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                    <CheckCircle2Icon size={14} className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                     <span>Đã chốt</span>
                   </button>
                 ) : (

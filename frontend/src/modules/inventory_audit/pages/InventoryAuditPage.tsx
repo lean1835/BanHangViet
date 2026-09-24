@@ -48,7 +48,6 @@ export const InventoryAuditPage = () => {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState<boolean>(false);
   const [selectedAuditId, setSelectedAuditId] = useState<string | null>(null);
 
-  // Read id query param to automatically open audit detail (NCL-02-CN-006 TC-02)
   const [searchParams] = useSearchParams();
   useEffect(() => {
     const id = searchParams.get("id");

@@ -1,0 +1,33 @@
+package com.sales.modules.customer.dto.response;
+
+import lombok.*;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class CustomerResponse {
+    private String id;
+    private String householdId;
+    private String name;
+    private String phoneNumber;
+    private String taxCode;
+    private String email;
+    private String address;
+    private BigDecimal creditLimit;
+    private BigDecimal currentDebt;
+    private BigDecimal discountRate;
+    private String discountType;
+    private BigDecimal totalSpent;
+    private Boolean isVip;
+    private Integer loyaltyPoints;
+    private Integer reminderDaysBefore;
+    private Integer reminderDaysAfter;
+    private String defaultDeliveryChannel;
+    private String defaultDeliveryAddress;
+    private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
+}

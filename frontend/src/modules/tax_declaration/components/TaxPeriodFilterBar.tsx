@@ -94,7 +94,6 @@ export const TaxPeriodFilterBar: React.FC<ITaxPeriodFilterBarProps> = ({
             <span>Lập kỳ mới</span>
           </button>
         )}
-        {/* Nút Xuất tờ khai thuế -> Mở xem trước mẫu 01 & Tải file (NCL-12-CN-003) */}
         {canExport && selectedPeriod ? (
           <button
             type="button"
@@ -122,7 +121,7 @@ export const TaxPeriodFilterBar: React.FC<ITaxPeriodFilterBarProps> = ({
           </div>
         )}
 
-        {/* Nút Chốt kỳ / Mở lại kỳ (NCL-12-CN-004) */}
+
         {selectedPeriod && (
           <>
             {status !== "LOCKED" ? (

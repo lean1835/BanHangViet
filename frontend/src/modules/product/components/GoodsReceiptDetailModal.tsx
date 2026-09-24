@@ -5,6 +5,11 @@ import { useGetSuppliersQuery } from "@/modules/supplier/services/supplierApi";
 import { useGetMyHouseholdQuery } from "@/modules/settings/services/settingsApi";
 import { formatCurrency, formatNumber } from "@/utils/formatCurrency";
 import { convertNumberToWords } from "@/modules/e_invoice/utils/eInvoiceHelpers";
+import { RotateCcw, Check } from "lucide-react";
+import { useDashboardDemo } from "@/providers/DashboardDemoProvider";
+import { USER_ROLES } from "@/constants/roles";
+import { CreateSupplierReturnModal } from "@/modules/supplier_return/components/CreateSupplierReturnModal";
+import { useGetSupplierReturnsQuery } from "@/modules/supplier_return/services/supplierReturnApi";
 import type { IGoodsReceiptDetail } from "../types/IGoodsReceipt";
 
 interface GoodsReceiptDetailModalProps {
@@ -50,6 +55,9 @@ export const GoodsReceiptDetailModal: React.FC<GoodsReceiptDetailModalProps> = (
   receiptId,
 }) => {
   const modalRef = useRef<HTMLDivElement>(null);
+  const { currentRole } = useDashboardDemo();
+  const isOwner = currentRole === USER_ROLES.OWNER;
+  const [isReturnModalOpen, setIsReturnModalOpen] = React.useState(false);
 
   // Queries for receipt detail, household info, suppliers, and products
   const { data: detailInfo, isLoading, error } = useGetGoodsReceiptByIdQuery(receiptId || "", {
@@ -88,6 +96,34 @@ export const GoodsReceiptDetailModal: React.FC<GoodsReceiptDetailModalProps> = (
     if (!detailInfo?.supplierId) return null;
     return suppliers.find((s) => s.id === detailInfo.supplierId) || null;
   }, [detailInfo?.supplierId, suppliers]);
+
+  const { data: allReturnsData } = useGetSupplierReturnsQuery(
+    { keyword: detailInfo?.receiptNumber || undefined },
+    { skip: !detailInfo || !isOpen }
+  );
+
+  const totalReturnedFromList = useMemo(() => {
+    if (!detailInfo) return 0;
+    return (allReturnsData?.content || []).reduce((sum, ret) => {
+      if (ret.receiptId === detailInfo.id || ret.receiptNumber === detailInfo.receiptNumber) {
+        return sum + (ret.totalReturnAmount || 0);
+      }
+      return sum;
+    }, 0);
+  }, [allReturnsData, detailInfo]);
+
+  const totalReturned =
+    detailInfo?.totalReturnedAmount && detailInfo.totalReturnedAmount > 0
+      ? detailInfo.totalReturnedAmount
+      : totalReturnedFromList;
+
+  const isFullyReturned =
+    detailInfo?.returnStatus === "FULLY_RETURNED" ||
+    (Boolean(detailInfo?.totalAmount) && totalReturned >= (detailInfo?.totalAmount || 0) - 1);
+
+  const isPartiallyReturned =
+    !isFullyReturned &&
+    (detailInfo?.returnStatus === "PARTIALLY_RETURNED" || totalReturned > 0);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -361,6 +397,15 @@ export const GoodsReceiptDetailModal: React.FC<GoodsReceiptDetailModalProps> = (
                 <h1 className="text-xl sm:text-2xl font-bold uppercase tracking-wide text-black">
                   PHIẾU NHẬP KHO
                 </h1>
+                {isFullyReturned ? (
+                  <span className="inline-block mt-1.5 px-3 py-0.5 border-2 border-rose-600 text-rose-700 font-extrabold text-[11px] rounded tracking-wider uppercase bg-rose-50/50">
+                    [ ĐÃ HOÀN TRẢ TOÀN BỘ ]
+                  </span>
+                ) : isPartiallyReturned ? (
+                  <span className="inline-block mt-1.5 px-3 py-0.5 border-2 border-amber-600 text-amber-700 font-extrabold text-[11px] rounded tracking-wider uppercase bg-amber-50/50">
+                    [ ĐÃ HOÀN TRẢ MỘT PHẦN ]
+                  </span>
+                ) : null}
               </div>
 
               {/* Supplier and Extra Info Block with clean dotted underlines */}
@@ -543,8 +588,41 @@ export const GoodsReceiptDetailModal: React.FC<GoodsReceiptDetailModalProps> = (
           )}
         </div>
 
-        {/* Footer Close Button */}
-        <div className="flex justify-end gap-3 p-3.5 bg-white border-t border-slate-200 shrink-0 no-print">
+        {/* Footer Actions */}
+        <div className="flex items-center justify-between gap-3 p-3.5 bg-white border-t border-slate-200 shrink-0 no-print">
+          <div>
+            {isOwner && detailInfo && (
+              isFullyReturned ? (
+                <button
+                  type="button"
+                  disabled
+                  className="h-9 px-4 rounded-xl bg-slate-100 border border-slate-300 text-slate-500 font-bold text-xs flex items-center gap-1.5 cursor-not-allowed shadow-2xs"
+                  title="Phiếu nhập này đã được hoàn trả toàn bộ hàng cho nhà cung cấp"
+                >
+                  <Check className="h-3.5 w-3.5 text-rose-600" />
+                  <span>Đã trả hàng toàn bộ</span>
+                </button>
+              ) : isPartiallyReturned ? (
+                <button
+                  type="button"
+                  onClick={() => setIsReturnModalOpen(true)}
+                  className="h-9 px-4 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold transition-all text-xs flex items-center gap-1.5 shadow-2xs active:scale-95"
+                >
+                  <RotateCcw className="h-3.5 w-3.5" />
+                  <span>Trả thêm cho NCC</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setIsReturnModalOpen(true)}
+                  className="h-9 px-4 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold transition-all text-xs flex items-center gap-1.5 shadow-2xs active:scale-95"
+                >
+                  <RotateCcw className="h-3.5 w-3.5" />
+                  <span>Trả hàng cho NCC</span>
+                </button>
+              )
+            )}
+          </div>
           <button
             type="button"
             onClick={onClose}
@@ -554,6 +632,19 @@ export const GoodsReceiptDetailModal: React.FC<GoodsReceiptDetailModalProps> = (
           </button>
         </div>
       </div>
+
+      {/* Modal Lập phiếu trả hàng NCC */}
+      {isReturnModalOpen && receiptId && (
+        <CreateSupplierReturnModal
+          isOpen={isReturnModalOpen}
+          onClose={() => setIsReturnModalOpen(false)}
+          receiptId={receiptId}
+          onSuccess={() => {
+            setIsReturnModalOpen(false);
+            onClose();
+          }}
+        />
+      )}
     </div>,
     document.body
   );

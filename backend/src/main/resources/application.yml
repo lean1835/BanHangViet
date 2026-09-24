@@ -8,6 +8,11 @@ server:
 spring:
   application:
     name: sales-service
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: ${MAX_FILE_SIZE:50MB}
+      max-request-size: ${MAX_REQUEST_SIZE:50MB}
   datasource:
     url: ${DB_URL:jdbc:mysql://localhost:3306/ban_hang_viet?createDatabaseIfNotExist=true&useSSL=false&serverTimezone=Asia/Ho_Chi_Minh&allowPublicKeyRetrieval=true&useUnicode=true&characterEncoding=UTF-8&characterSetResults=UTF-8}
     username: ${DB_USER:root}
@@ -21,6 +26,7 @@ spring:
       connection-timeout: 20000
       keepalive-time: 60000
   jpa:
+    open-in-view: false
     hibernate:
       ddl-auto: update
     show-sql: ${SHOW_SQL:false}
@@ -50,6 +56,7 @@ spring:
           writetimeout: ${MAIL_WRITE_TIMEOUT:5000}
 
 app:
+  system-version: ${SYSTEM_VERSION:v1.2.0-STABLE}
   jwt:
     secret: ${JWT_SECRET:9a4f2c8d3e1b7f0a5c8d2e4b6a1f3c5e7a9b0c2d4e6f8a0b1c3d5e7f9a1b3c5e}
     expiration-ms: ${JWT_EXPIRATION_MS:86400000} # 24 hours
@@ -57,10 +64,26 @@ app:
   default-household-name: ${DEFAULT_HOUSEHOLD_NAME:BanHangViet}
   return-ticket:
     max-days: ${MAX_RETURN_DAYS:7}
+  backup-verification:
+    max-unverified-days: ${BACKUP_VERIFICATION_MAX_UNVERIFIED_DAYS:7}
+  scheduler:
+    tax-reminder:
+      cron: ${TAX_REMINDER_CRON:0 0 7 * * *} # Tự động quét và nhắc nộp tờ khai vào 07:00 sáng hàng ngày
+    backup-verification:
+      cron: ${BACKUP_VERIFICATION_CRON:0 30 2 * * *} # Tự động quét và chạy thử phục hồi vào 02:30 sáng hàng ngày
+  chatbot:
+    gemini:
+      api-key: ${GEMINI_API_KEY:}
+      model: ${GEMINI_MODEL:gemini-3.5-flash-lite}
+      fallback-models: ${GEMINI_FALLBACK_MODELS:gemini-3.1-flash-lite,gemini-2.5-flash-lite,gemini-3.5-flash,gemini-3.8-flash,gemini-3.7-flash,gemini-3.6-flash,gemini-3-flash,gemini-2.5-flash}
+      api-url: ${GEMINI_API_URL:https://generativelanguage.googleapis.com/v1beta/models}
+      connect-timeout-ms: ${GEMINI_CONNECT_TIMEOUT_MS:3000}
+      read-timeout-ms: ${GEMINI_READ_TIMEOUT_MS:15000}
 
 management:
   endpoints:
     web:
       exposure:
         include: health
+
 

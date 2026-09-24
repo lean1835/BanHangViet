@@ -6,6 +6,20 @@ import type {
   ICollectDebtRequest,
   IDebtSummaryResponse,
 } from "../types/ICustomerDebt";
+import type {
+  IDebtReconciliationResponse,
+  IDebtStatementPrintResponse,
+  IDebtReconciliationPreviewRequest,
+  ICreateDebtReconciliationRequest,
+  ICreateDebtAdjustmentRequest,
+  IDebtReconciliationQueryParams,
+  IPageData,
+} from "../types/ICustomerDebtReconciliation";
+import type {
+  IBackendImportPreviewResponse,
+  IBackendImportResultResponse,
+} from "../types/IImportCatalog";
+
 
 export interface CreateCustomerPayload {
   name: string;
@@ -301,6 +315,190 @@ export const customerApi = baseApi.injectEndpoints({
         { type: API_TAG_TYPES.DEBT, id: "REMINDERS" },
       ],
     }),
+
+
+    previewDebtReconciliation: builder.mutation<
+      IDebtReconciliationResponse,
+      IDebtReconciliationPreviewRequest
+    >({
+      query: (body) => ({
+        url: "/debts/reconciliations/preview",
+        method: HTTP_METHODS.POST,
+        body,
+      }),
+      transformResponse: (response: unknown): IDebtReconciliationResponse => {
+        return getResponseResult<IDebtReconciliationResponse>(response);
+      },
+    }),
+
+    createDebtReconciliation: builder.mutation<
+      IDebtReconciliationResponse,
+      ICreateDebtReconciliationRequest
+    >({
+      query: (body) => ({
+        url: "/debts/reconciliations",
+        method: HTTP_METHODS.POST,
+        body,
+      }),
+      transformResponse: (response: unknown): IDebtReconciliationResponse => {
+        return getResponseResult<IDebtReconciliationResponse>(response);
+      },
+      invalidatesTags: (_result, _error, { customerId }) => [
+        { type: API_TAG_TYPES.CUSTOMER, id: customerId },
+        { type: API_TAG_TYPES.CUSTOMER, id: "LIST" },
+        { type: API_TAG_TYPES.DEBT, id: customerId },
+        { type: API_TAG_TYPES.DEBT, id: "LIST" },
+        { type: API_TAG_TYPES.DEBT, id: "SUMMARY" },
+        { type: API_TAG_TYPES.DEBT_RECONCILIATION, id: "LIST" },
+        { type: API_TAG_TYPES.DEBT_RECONCILIATION, id: `${customerId}_LATEST` },
+      ],
+    }),
+
+    confirmDebtReconciliation: builder.mutation<
+      IDebtReconciliationResponse,
+      { id: string; notes?: string }
+    >({
+      query: ({ id, notes }) => ({
+        url: `/debts/reconciliations/${id}/confirm`,
+        method: HTTP_METHODS.POST,
+        body: notes ? { notes } : {},
+      }),
+      transformResponse: (response: unknown): IDebtReconciliationResponse => {
+        return getResponseResult<IDebtReconciliationResponse>(response);
+      },
+      invalidatesTags: (result, _error, { id }) => [
+        { type: API_TAG_TYPES.DEBT_RECONCILIATION, id },
+        { type: API_TAG_TYPES.DEBT_RECONCILIATION, id: "LIST" },
+        { type: API_TAG_TYPES.CUSTOMER, id: "LIST" },
+        { type: API_TAG_TYPES.DEBT, id: "LIST" },
+        { type: API_TAG_TYPES.DEBT, id: "SUMMARY" },
+        ...(result?.customerId
+          ? [
+              { type: API_TAG_TYPES.CUSTOMER, id: result.customerId },
+              { type: API_TAG_TYPES.DEBT, id: result.customerId },
+              { type: API_TAG_TYPES.DEBT_RECONCILIATION, id: `${result.customerId}_LATEST` },
+            ]
+          : []),
+      ],
+    }),
+
+    cancelDebtReconciliation: builder.mutation<void, string>({
+      query: (id) => ({
+        url: `/debts/reconciliations/${id}/cancel`,
+        method: HTTP_METHODS.POST,
+      }),
+      invalidatesTags: (_result, _error, id) => [
+        { type: API_TAG_TYPES.DEBT_RECONCILIATION, id },
+        { type: API_TAG_TYPES.DEBT_RECONCILIATION, id: "LIST" },
+      ],
+    }),
+
+    getDebtReconciliationById: builder.query<IDebtReconciliationResponse, string>({
+      query: (id) => ({
+        url: `/debts/reconciliations/${id}`,
+        method: HTTP_METHODS.GET,
+      }),
+      transformResponse: (response: unknown): IDebtReconciliationResponse => {
+        return getResponseResult<IDebtReconciliationResponse>(response);
+      },
+      providesTags: (_result, _error, id) => [
+        { type: API_TAG_TYPES.DEBT_RECONCILIATION, id },
+      ],
+    }),
+
+    getDebtReconciliations: builder.query<
+      IPageData<IDebtReconciliationResponse>,
+      IDebtReconciliationQueryParams | void
+    >({
+      query: (params) => ({
+        url: "/debts/reconciliations",
+        method: HTTP_METHODS.GET,
+        params: params || undefined,
+      }),
+      transformResponse: (
+        response: unknown,
+      ): IPageData<IDebtReconciliationResponse> => {
+        return getResponseResult<IPageData<IDebtReconciliationResponse>>(response);
+      },
+      providesTags: [{ type: API_TAG_TYPES.DEBT_RECONCILIATION, id: "LIST" }],
+    }),
+
+    getDebtStatementPrint: builder.query<IDebtStatementPrintResponse, string>({
+      query: (id) => ({
+        url: `/debts/reconciliations/${id}/print`,
+        method: HTTP_METHODS.GET,
+      }),
+      transformResponse: (response: unknown): IDebtStatementPrintResponse => {
+        return getResponseResult<IDebtStatementPrintResponse>(response);
+      },
+      providesTags: (_result, _error, id) => [
+        { type: API_TAG_TYPES.DEBT_RECONCILIATION, id: `${id}_PRINT` },
+      ],
+    }),
+
+    getLatestDebtReconciliation: builder.query<IDebtReconciliationResponse | null, string>({
+      query: (customerId) => ({
+        url: `/debts/reconciliations/customer/${customerId}/latest`,
+        method: HTTP_METHODS.GET,
+      }),
+      transformResponse: (response: unknown): IDebtReconciliationResponse | null => {
+        return getResponseResult<IDebtReconciliationResponse | null>(response) || null;
+      },
+      providesTags: (_result, _error, customerId) => [
+        { type: API_TAG_TYPES.DEBT_RECONCILIATION, id: `${customerId}_LATEST` },
+      ],
+    }),
+
+    createDebtAdjustment: builder.mutation<
+      ICustomerDebtResponse,
+      ICreateDebtAdjustmentRequest
+    >({
+      query: (body) => ({
+        url: "/debts/adjustments",
+        method: HTTP_METHODS.POST,
+        body,
+      }),
+      transformResponse: (response: unknown): ICustomerDebtResponse => {
+        return getResponseResult<ICustomerDebtResponse>(response);
+      },
+      invalidatesTags: (_result, _error, { customerId }) => [
+        { type: API_TAG_TYPES.CUSTOMER, id: customerId },
+        { type: API_TAG_TYPES.CUSTOMER, id: "LIST" },
+        { type: API_TAG_TYPES.DEBT, id: customerId },
+        { type: API_TAG_TYPES.DEBT, id: "LIST" },
+        { type: API_TAG_TYPES.DEBT, id: "SUMMARY" },
+        { type: API_TAG_TYPES.DEBT_RECONCILIATION, id: "LIST" },
+        { type: API_TAG_TYPES.DEBT_RECONCILIATION, id: `${customerId}_LATEST` },
+      ],
+    }),
+
+    previewImportCustomer: builder.mutation<IBackendImportPreviewResponse, FormData>({
+      query: (formData) => ({
+        url: "/customers/import-preview",
+        method: HTTP_METHODS.POST,
+        body: formData,
+      }),
+      transformResponse: (response: unknown): IBackendImportPreviewResponse =>
+        getResponseResult<IBackendImportPreviewResponse>(response),
+    }),
+
+    importCustomers: builder.mutation<
+      IBackendImportResultResponse,
+      { formData: FormData; duplicateAction?: "SKIP" | "UPDATE" }
+    >({
+      query: ({ formData, duplicateAction = "SKIP" }) => ({
+        url: `/customers/import?duplicateAction=${duplicateAction}`,
+        method: HTTP_METHODS.POST,
+        body: formData,
+      }),
+      transformResponse: (response: unknown): IBackendImportResultResponse =>
+        getResponseResult<IBackendImportResultResponse>(response),
+      invalidatesTags: [
+        { type: API_TAG_TYPES.CUSTOMER, id: "LIST" },
+        { type: API_TAG_TYPES.DEBT, id: "LIST" },
+        { type: API_TAG_TYPES.DEBT, id: "SUMMARY" },
+      ],
+    }),
   }),
   overrideExisting: API_CONFIG.OVERRIDE_EXISTING_ENDPOINTS,
 });
@@ -317,4 +515,17 @@ export const {
   useGetDebtRemindersQuery,
   useGetDebtSummaryQuery,
   useRemindCustomerDebtMutation,
+  usePreviewDebtReconciliationMutation,
+  useCreateDebtReconciliationMutation,
+  useConfirmDebtReconciliationMutation,
+  useCancelDebtReconciliationMutation,
+  useGetDebtReconciliationByIdQuery,
+  useGetDebtReconciliationsQuery,
+  useGetDebtStatementPrintQuery,
+  useLazyGetDebtStatementPrintQuery,
+  useGetLatestDebtReconciliationQuery,
+  useCreateDebtAdjustmentMutation,
+  usePreviewImportCustomerMutation,
+  useImportCustomersMutation,
 } = customerApi;
+

@@ -16,6 +16,7 @@ backend/.env
 target/
 
 # IDEs and OS
+.gemini/
 .idea/
 .vscode/
 *.suo

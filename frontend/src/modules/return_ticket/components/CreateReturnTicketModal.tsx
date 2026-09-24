@@ -51,11 +51,9 @@ export const CreateReturnTicketModal: React.FC<CreateReturnTicketModalProps> = (
   const { showSuccess, showError, showWarning } = useNotification();
   const isOwner = currentRole === USER_ROLES.OWNER;
 
-  // Step 1 vs Step 2 State
   const [selectedInvoiceId, setSelectedInvoiceId] = useState<string>(initialInvoiceId || "");
   const [invoiceSearchQuery, setInvoiceSearchQuery] = useState<string>("");
 
-  // Items & Refund Settings State (Step 2)
   const [selectedItems, setSelectedItems] = useState<SelectedReturnItem[]>([]);
   const [refundPaymentMethod, setRefundPaymentMethod] = useState<TRefundPaymentMethod>(
     REFUND_PAYMENT_METHODS.CASH
@@ -388,7 +386,6 @@ export const CreateReturnTicketModal: React.FC<CreateReturnTicketModalProps> = (
 
         {/* Modal Form Content */}
         {!selectedInvoiceId ? (
-          /* STEP 1: Full Invoice Table Picker */
           <div className="flex-1 overflow-y-auto p-5 sm:p-6 flex flex-col gap-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50 p-4 rounded-xl border border-slate-200">
               <div className="flex-1">
@@ -521,7 +518,6 @@ export const CreateReturnTicketModal: React.FC<CreateReturnTicketModalProps> = (
               </table>
             </div>
 
-            {/* Footer Step 1 */}
             <div className="flex items-center justify-between pt-3 border-t border-slate-200">
               <span className="text-[11px] text-slate-500 font-medium">
                 Tìm thấy <strong>{eligibleInvoices.length}</strong> hóa đơn đủ điều kiện
@@ -536,7 +532,6 @@ export const CreateReturnTicketModal: React.FC<CreateReturnTicketModalProps> = (
             </div>
           </div>
         ) : (
-          /* STEP 2: Product Items Selection & Refund Amount Form */
           <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-5 sm:p-6 flex flex-col gap-5">
             {/* Selected Invoice Info Card */}
             <div className="flex flex-col gap-3 bg-slate-50 p-4 rounded-xl border border-slate-200">
@@ -635,7 +630,6 @@ export const CreateReturnTicketModal: React.FC<CreateReturnTicketModalProps> = (
               </div>
             )}
 
-            {/* Step 2 Table: Items on Invoice */}
             {checkData && (
               <div className="flex flex-col gap-2">
                 <div className="flex items-center justify-between">
@@ -731,7 +725,6 @@ export const CreateReturnTicketModal: React.FC<CreateReturnTicketModalProps> = (
               </div>
             )}
 
-            {/* Step 3: Payment Method & Reason */}
             {selectedItems.length > 0 && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 border-t border-slate-200">
                 <div className="flex flex-col gap-2">

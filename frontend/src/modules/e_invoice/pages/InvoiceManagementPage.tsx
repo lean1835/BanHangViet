@@ -149,7 +149,6 @@ export const InvoiceManagementPage = () => {
   const [selectedNoticeId, setSelectedNoticeId] = useState<string | null>(null);
   const [isExporting, setIsExporting] = useState<boolean>(false);
 
-  // Tab 3: Filters State (Kiểm soát cuối ngày NCL-04-CN-008)
   const todayStr = useMemo(() => new Date().toISOString().split("T")[0], []);
   const [dailyDate, setDailyDate] = useState<string>(todayStr);
   const [dailyIssueType, setDailyIssueType] = useState<TDailyIssueType>("UNINVOICED_ORDERS");
@@ -161,13 +160,11 @@ export const InvoiceManagementPage = () => {
     totalFailed: number;
   }>();
 
-  // Tab 4: Filters State (Hàng đợi lỗi & Gửi lại NCL-04-CN-007)
   const [retrySearchQuery, setRetrySearchQuery] = useState<string>("");
   const [retryErrorCategory, setRetryErrorCategory] = useState<TRetryErrorCategoryFilter>("ALL");
   const [retryCountFilter, setRetryCountFilter] = useState<TRetryCountFilter>("ALL");
   const [manualQueueCount, setManualQueueCount] = useState<number>(0);
 
-  // Tab 5: Filters State (Dải số hóa đơn NCL-04-CN-009)
   const [rangeStatusFilter, setRangeStatusFilter] = useState<TRangeStatusFilter>("ALL");
   const [rangeSearchQuery, setRangeSearchQuery] = useState<string>("");
   const [isRangeModalOpen, setIsRangeModalOpen] = useState<boolean>(false);
@@ -205,46 +202,36 @@ export const InvoiceManagementPage = () => {
   useEffect(() => {
     if (isOnline && apiInvoicesData?.result?.content) {
       const fetchedList = apiInvoicesData.result.content;
-      setMockInvoices((prev) => {
-        const map = new Map<string, IInvoice>();
-        prev.forEach((inv) => map.set(inv.lookupCode || inv.id, inv));
-        fetchedList.forEach((inv) => map.set(inv.lookupCode || inv.id, inv));
-        const merged = Array.from(map.values()).sort((a, b) => {
-          const timeA = new Date(a.createdAt || a.time || 0).getTime();
-          const timeB = new Date(b.createdAt || b.time || 0).getTime();
-          return timeB - timeA;
-        });
-        try {
-          localStorage.setItem(STORAGE_KEYS.POS_OFFLINE_INVOICES, JSON.stringify(merged));
-        } catch {
-          /* ignore storage error */
-        }
-        return merged;
-      });
+      setMockInvoices(fetchedList);
+      try {
+        localStorage.setItem(STORAGE_KEYS.POS_OFFLINE_INVOICES, JSON.stringify(fetchedList));
+      } catch {
+        /* ignore storage error */
+      }
     }
   }, [isOnline, apiInvoicesData, setMockInvoices]);
 
   // Combine online/offline data với bộ lọc đa điều kiện
+  const currentHhId = authUser?.household?.id;
   const displayedInvoices = useMemo(() => {
     let sourceList: IInvoice[] = [];
     if (isOnline && apiInvoicesData?.result?.content) {
-      const map = new Map<string, IInvoice>();
-      if (mockInvoices) {
-        mockInvoices.forEach((inv) => map.set(inv.lookupCode || inv.id, inv));
-      }
-      apiInvoicesData.result.content.forEach((inv) => map.set(inv.lookupCode || inv.id, inv));
-      sourceList = Array.from(map.values());
+      // 1. Khi Online: Dữ liệu chuẩn xác 100% từ API Backend của chính hộ đang đăng nhập
+      sourceList = apiInvoicesData.result.content;
     } else {
-      if (mockInvoices && mockInvoices.length > 0) {
-        sourceList = mockInvoices;
-      } else {
-        try {
-          const raw = localStorage.getItem(STORAGE_KEYS.POS_OFFLINE_INVOICES);
-          if (raw) sourceList = JSON.parse(raw);
-        } catch {
-          /* ignore storage parse error */
-        }
-      }
+      const rawInvoices = (mockInvoices && mockInvoices.length > 0)
+        ? mockInvoices
+        : (() => {
+            try {
+              const raw = localStorage.getItem(STORAGE_KEYS.POS_OFFLINE_INVOICES);
+              return raw ? JSON.parse(raw) : [];
+            } catch {
+              return [];
+            }
+          })();
+      sourceList = currentHhId
+        ? rawInvoices.filter((inv: IInvoice) => inv.householdId === currentHhId)
+        : rawInvoices;
     }
 
     return sourceList
@@ -293,6 +280,7 @@ export const InvoiceManagementPage = () => {
     isOnline,
     apiInvoicesData,
     mockInvoices,
+    currentHhId,
     statusFilter,
     versionFilter,
     templateUpdatedAt,
@@ -318,7 +306,6 @@ export const InvoiceManagementPage = () => {
     setRepresentationInvoiceId(invoice.id);
   };
 
-  // NCL-05-CN-006: Xuất danh sách hóa đơn ra Excel
   const handleExportExcel = async () => {
     if (!isOnline) {
       showWarning("Chức năng xuất Excel yêu cầu kết nối mạng tới máy chủ.");
@@ -454,10 +441,8 @@ export const InvoiceManagementPage = () => {
           </div>
         </div>
 
-        {/* Cảnh báo dải số sắp hết / hết số (NCL-04-CN-009) */}
         <InvoiceRangeAlertBanner onNavigateToRangeTab={() => handleTabChange("INVOICE_RANGE")} />
 
-        {/* Cảnh báo tuân thủ QTN-06: Hóa đơn lỗi cần gửi lại trong hạn (NCL-04-CN-007) */}
         {manualQueueCount > 0 && activeTab !== "AUTO_RETRY" && (
           <div className="p-3.5 bg-amber-50/95 border border-amber-300 rounded-xl flex items-center justify-between gap-3 text-xs shadow-xs animate-fade-in">
             <div className="flex items-center gap-2.5">
@@ -638,7 +623,6 @@ export const InvoiceManagementPage = () => {
           </div>
         )}
 
-        {/* Drawer xem chi tiết kết nối Cơ quan thuế 7 ngày (NCL-04-CN-010) */}
         <TaxConnectionDrawer
           isOpen={isTaxDrawerOpen}
           onClose={() => setIsTaxDrawerOpen(false)}
@@ -649,7 +633,6 @@ export const InvoiceManagementPage = () => {
         />
       </div>
 
-      {/* Modal Xem Bản Thể Hiện Hóa Đơn Điện Tử (NCL-05-CN-007) */}
       {representationInvoiceId && (
         <InvoiceRepresentationModal
           invoiceId={representationInvoiceId}
@@ -658,7 +641,6 @@ export const InvoiceManagementPage = () => {
         />
       )}
 
-      {/* Modal Lập Thông Báo Sai Sót Mẫu 04/SS (NCL-05-CN-005) */}
       {showCreateNoticeModal && (
         <CreateErrorNoticeModal
           isOpen={showCreateNoticeModal}
@@ -670,7 +652,6 @@ export const InvoiceManagementPage = () => {
         />
       )}
 
-      {/* Modal Xem Chi Tiết Thông Báo Sai Sót Mẫu 04/SS (NCL-05-CN-005) */}
       {selectedNoticeId && (
         <ErrorNoticeDetailModal
           noticeId={selectedNoticeId}

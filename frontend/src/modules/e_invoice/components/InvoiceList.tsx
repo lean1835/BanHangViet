@@ -55,7 +55,6 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
-          {/* NCL-05-CN-006: Nút Xuất Excel */}
           {canExport && onExportExcel && (
             <button
               type="button"

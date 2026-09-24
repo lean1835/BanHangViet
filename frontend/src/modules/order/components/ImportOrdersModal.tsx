@@ -406,7 +406,6 @@ export const ImportOrdersModal: React.FC<ImportOrdersModalProps> = ({
 
         {/* Modal Body */}
         <div className="p-4 overflow-y-auto flex-1 flex flex-col gap-4 text-xs bg-white min-h-0">
-          {/* Step 1: Upload */}
           {isParsing && (
             <div className="py-16 flex flex-col items-center justify-center text-center gap-3">
               <Loader2 className="w-9 h-9 text-kv-blue-primary animate-spin" />
@@ -467,7 +466,6 @@ export const ImportOrdersModal: React.FC<ImportOrdersModalProps> = ({
             </div>
           )}
 
-          {/* Step 2: Interactive Preview & Edit Table */}
           {!isParsing && step === "PREVIEW" && (
             <div className="flex flex-col gap-3 flex-1 min-h-0">
               {/* Summary Stats & Action Toolbar */}

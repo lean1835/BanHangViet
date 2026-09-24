@@ -1,6 +1,7 @@
 import { useState, useLayoutEffect, useRef } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { ShoppingCart } from "lucide-react";
+import { useAppSelector } from "@/hooks/useRedux";
 import {
   HIDDEN_NAVIGATION_BY_ROLE,
   NAVIGATION_ITEM_IDS,
@@ -11,6 +12,9 @@ import {
 import { APP_ROUTES } from "@/constants/routes";
 import { USER_ROLES } from "@/constants/roles";
 import type { TDemoRole } from "@/constants/roles";
+import { NotificationCenterDropdown } from "@/modules/notification/components/NotificationCenterDropdown";
+import { HouseholdSwitcher } from "@/components/common/HouseholdSwitcher";
+import { ScreenGuideTriggerButton } from "@/modules/screen_guide";
 
 interface DashboardNavigationProps {
   currentRole: TDemoRole;
@@ -22,6 +26,7 @@ const isNavigationItemVisible = (itemId: string, currentRole: TDemoRole): boolea
   const hiddenItems = HIDDEN_NAVIGATION_BY_ROLE[currentRole] || [];
   return !hiddenItems.includes(itemId);
 };
+
 
 export const DashboardNavigation = ({
   currentRole,
@@ -43,6 +48,7 @@ export const DashboardNavigation = ({
     opacity: 0,
   });
   const [hasRendered, setHasRendered] = useState(false);
+  const [optimisticActiveId, setOptimisticActiveId] = useState<string | null>(null);
 
   const isPosScreen =
     location.pathname === APP_ROUTES.POS ||
@@ -53,6 +59,10 @@ export const DashboardNavigation = ({
   );
 
   const isItemActive = (item: IPrimaryNavigationItem) => {
+    if (optimisticActiveId) {
+      return item.id === optimisticActiveId;
+    }
+
     const isPortalOverview =
       (currentRole === USER_ROLES.PLATFORM_ADMIN ||
         currentRole === USER_ROLES.TAX_AUTHORITY) &&
@@ -75,6 +85,12 @@ export const DashboardNavigation = ({
 
   const activeItem = visibleItems.find(isItemActive);
 
+  const displaySettings = useAppSelector((state) => state.displaySettings);
+
+  useLayoutEffect(() => {
+    setOptimisticActiveId(null);
+  }, [location.pathname]);
+
   useLayoutEffect(() => {
     const updateIndicator = () => {
       if (activeItem && itemRefs.current[activeItem.id]) {
@@ -96,8 +112,35 @@ export const DashboardNavigation = ({
 
     updateIndicator();
     window.addEventListener("resize", updateIndicator);
-    return () => window.removeEventListener("resize", updateIndicator);
-  }, [location.pathname, activeItem]);
+
+    // Sử dụng ResizeObserver để cập nhật lại vị trí ngay khi cỡ chữ / kích thước thẻ thay đổi
+    let observer: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== "undefined") {
+      observer = new ResizeObserver(() => {
+        updateIndicator();
+      });
+      if (navRef.current) {
+        observer.observe(navRef.current);
+      }
+      if (activeItem && itemRefs.current[activeItem.id]) {
+        observer.observe(itemRefs.current[activeItem.id]!);
+      }
+    }
+
+    const timer = setTimeout(updateIndicator, 60);
+
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener("resize", updateIndicator);
+      observer?.disconnect();
+    };
+  }, [
+    location.pathname,
+    activeItem,
+    displaySettings?.fontSizeLevel,
+    displaySettings?.simpleModeEnabled,
+    displaySettings?.fontScalePercentage,
+  ]);
 
   return (
     <div className="flex h-12 shrink-0 items-center justify-between gap-3 bg-kv-blue-primary px-3 text-white shadow-md sm:px-4 select-none">
@@ -131,6 +174,7 @@ export const DashboardNavigation = ({
               }}
               to={item.path}
               end={item.id === NAVIGATION_ITEM_IDS.DASHBOARD}
+              onClick={() => setOptimisticActiveId(item.id)}
               className={`relative z-10 h-full shrink-0 px-3 sm:px-5 flex items-center gap-1.5 font-bold transition-colors duration-200 border-b-2 text-xs whitespace-nowrap leading-none ${
                 isActive
                   ? "text-kv-blue-primary border-transparent"
@@ -144,6 +188,8 @@ export const DashboardNavigation = ({
       </nav>
 
       <div className="flex items-center gap-2 shrink-0">
+        {currentRole === USER_ROLES.ACCOUNTANT && <HouseholdSwitcher />}
+
         {pendingCount > 0 && (
           <button
             onClick={onSync}
@@ -153,6 +199,15 @@ export const DashboardNavigation = ({
             <span className="flex h-2 w-2 rounded-full bg-amber-400 animate-ping" />
             <span>{pendingCount} đơn chờ đồng bộ</span>
           </button>
+        )}
+
+        {(currentRole === USER_ROLES.OWNER ||
+          currentRole === USER_ROLES.ACCOUNTANT ||
+          currentRole === USER_ROLES.CASHIER) && (
+          <>
+            <NotificationCenterDropdown />
+            <ScreenGuideTriggerButton />
+          </>
         )}
 
         {!isPosScreen && (

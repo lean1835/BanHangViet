@@ -20,6 +20,7 @@ import { formatCurrency } from "@/utils/formatCurrency";
 interface ILookupDisplayInvoice {
   lookupCode: string;
   orderNumber?: string;
+  originalInvoiceId?: string;
   symbol: string;
   invoicePattern?: string;
   title?: string;
@@ -37,6 +38,8 @@ interface ILookupDisplayInvoice {
   amount: number;
   taxAmount: number;
   discountAmount: number;
+  pointDiscountAmount?: number;
+  pointsRedeemed?: number;
   finalAmount: number;
   status: string;
   taxAuthorityCode: string;
@@ -125,6 +128,8 @@ export const LookupInvoicePage: React.FC = () => {
             amount: preTaxAmount,
             taxAmount: data.taxAmount ?? Math.round(preTaxAmount * 0.08),
             discountAmount: data.discountAmount || 0,
+            pointDiscountAmount: (data as any).pointDiscountAmount || 0,
+            pointsRedeemed: (data as any).pointsRedeemed || 0,
             finalAmount: data.finalAmount || preTaxAmount + (data.taxAmount || 0),
             status: data.status || "ISSUED",
             taxAuthorityCode: data.taxAuthorityCode || "-",
@@ -504,14 +509,14 @@ export const LookupInvoicePage: React.FC = () => {
                             {item.discountAmount && item.discountAmount > 0 ? (
                               <div>
                                 <span className="line-through text-slate-400 text-[8.5px] block font-normal">
-                                  {formatCurrency(item.unitPrice)}
+                                  {formatCurrency((item.unitPrice === 0 && item.subtotal && item.subtotal < 0) ? (item.subtotal / (item.quantity || 1)) : item.unitPrice)}
                                 </span>
                                 <span className="font-bold text-emerald-700">
-                                  {formatCurrency(Math.max(0, (item.quantity * item.unitPrice - item.discountAmount) / (item.quantity || 1)))}
+                                  {formatCurrency(Math.max(0, ((item.subtotal !== undefined && item.subtotal !== null && item.subtotal !== 0 ? item.subtotal : (item.quantity * item.unitPrice)) - item.discountAmount) / (item.quantity || 1)))}
                                 </span>
                               </div>
                             ) : (
-                              formatCurrency(item.unitPrice)
+                              formatCurrency((item.unitPrice === 0 && item.subtotal && item.subtotal < 0) ? (item.subtotal / (item.quantity || 1)) : item.unitPrice)
                             )}
                           </td>
                           <td className="p-2 border-r border-slate-200 text-right font-semibold whitespace-nowrap">
@@ -522,7 +527,9 @@ export const LookupInvoicePage: React.FC = () => {
                             )}
                           </td>
                           <td className="p-2 border-r border-slate-200 text-center text-slate-500">{item.taxRatePercentage || 8}%</td>
-                          <td className="p-2 text-right font-bold text-slate-800">{formatCurrency((item.quantity * item.unitPrice) - (item.discountAmount || 0))}</td>
+                          <td className="p-2 text-right font-bold text-slate-800">
+                            {formatCurrency((item.subtotal !== undefined && item.subtotal !== null && item.subtotal !== 0) ? item.subtotal : (item.quantity * item.unitPrice) - (item.discountAmount || 0))}
+                          </td>
                         </tr>
                       ))
                     ) : (
@@ -544,9 +551,26 @@ export const LookupInvoicePage: React.FC = () => {
               {/* Total Area */}
               {(() => {
                 const originalItemsTotal = searchedInvoice.items && searchedInvoice.items.length > 0
-                  ? searchedInvoice.items.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0)
+                  ? searchedInvoice.items.reduce((sum, item) => {
+                      const lineTotal = (item.subtotal !== undefined && item.subtotal !== null && item.subtotal !== 0)
+                        ? item.subtotal
+                        : (item.quantity * item.unitPrice);
+                      return sum + lineTotal;
+                    }, 0)
                   : ((searchedInvoice.amount || 0) + (searchedInvoice.discountAmount || 0));
                 const hasDiscount = Boolean(searchedInvoice.discountAmount && searchedInvoice.discountAmount > 0);
+                const preTaxAmount = Math.max(0, originalItemsTotal - (searchedInvoice.discountAmount || 0));
+
+                // Thuế GTGT: Backend searchedInvoice.taxAmount đã là số tiền thuế thực tế sau chiết khấu (theo chuẩn Nghị định 123)
+                const effectiveTaxAmount = searchedInvoice.taxAmount !== undefined && searchedInvoice.taxAmount !== null
+                  ? searchedInvoice.taxAmount
+                  : (hasDiscount && originalItemsTotal > 0 ? Math.round(preTaxAmount * 0.1) : 0);
+
+                // Số tiền trừ điểm thưởng / điểm tích lũy: CHỈ hiển thị khi đơn hàng/hóa đơn thực sự dùng điểm
+                const pointDiscount = (searchedInvoice.pointDiscountAmount && searchedInvoice.pointDiscountAmount > 0)
+                  ? searchedInvoice.pointDiscountAmount
+                  : 0;
+                const pointsRedeemed = searchedInvoice.pointsRedeemed || 0;
 
                 return (
                   <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 flex flex-col gap-2 font-bold text-slate-700 text-xs">
@@ -570,15 +594,25 @@ export const LookupInvoicePage: React.FC = () => {
                     {hasDiscount && (
                       <div className="flex justify-between text-[10px]">
                         <span className="font-semibold text-slate-500">Cộng tiền hàng (Đã trừ CK, chưa thuế):</span>
-                        <span className="text-slate-700">{formatCurrency(searchedInvoice.amount)}</span>
+                        <span className="text-slate-700">{formatCurrency(preTaxAmount)}</span>
                       </div>
                     )}
 
                     {/* 4. Tiền thuế GTGT */}
                     <div className="flex justify-between text-[10px]">
                       <span className="font-semibold text-slate-500">Tổng tiền thuế GTGT:</span>
-                      <span className="text-slate-800">{formatCurrency(searchedInvoice.taxAmount)}</span>
+                      <span className="text-slate-800">{formatCurrency(effectiveTaxAmount)}</span>
                     </div>
+
+                    {/* 4.1 Trừ điểm thưởng / tích lũy */}
+                    {pointDiscount > 0 && (
+                      <div className="flex justify-between text-[10px] text-purple-700">
+                        <span className="font-semibold">
+                          Trừ điểm tích lũy{pointsRedeemed ? ` (${pointsRedeemed} điểm)` : ""}:
+                        </span>
+                        <span className="font-bold">-{formatCurrency(pointDiscount)}</span>
+                      </div>
+                    )}
 
                     {/* 5. Tổng tiền thanh toán */}
                     <div className="flex justify-between border-t border-slate-200 pt-2 text-[11px] text-slate-950">

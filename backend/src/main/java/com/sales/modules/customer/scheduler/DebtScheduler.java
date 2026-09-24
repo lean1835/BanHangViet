@@ -1,0 +1,219 @@
+package com.sales.modules.customer.scheduler;
+import com.sales.common.constant.DebtStatus;
+import com.sales.common.constant.DebtType;
+import com.sales.modules.auth.entity.BusinessHouseholdSettings;
+import com.sales.modules.customer.entity.Customer;
+import com.sales.modules.customer.entity.CustomerDebt;
+import com.sales.modules.auth.repository.BusinessHouseholdSettingsRepository;
+import com.sales.modules.customer.repository.CustomerDebtRepository;
+import com.sales.common.utils.EmailService;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.util.StringUtils;
+
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.function.BiConsumer;
+import java.util.function.BiPredicate;
+import java.util.function.Function;
+
+@Component
+@RequiredArgsConstructor
+@Slf4j
+public class DebtScheduler {
+
+    private static final int DEFAULT_PAGE_SIZE = 100;
+    private static final int DEFAULT_REMINDER_DAYS = 3;
+
+    @Value("${app.default-household-name:BanHangViet}")
+    private String defaultHouseholdName = "BanHangViet";
+
+    private final CustomerDebtRepository customerDebtRepository;
+    private final BusinessHouseholdSettingsRepository settingsRepository;
+    private final EmailService emailService;
+    private final TransactionTemplate transactionTemplate;
+
+    @Scheduled(cron = "${app.scheduler.overdue-scan.cron:0 0 0 * * *}")
+    public void scanAndMarkOverdueDebts() {
+        log.info("Starting background job to scan and mark overdue debts");
+        List<CustomerDebt> expiredDebts = customerDebtRepository.findByStatusInAndTypeAndDueDateBefore(
+                List.of(DebtStatus.PENDING), DebtType.DEBT_CREATED, LocalDateTime.now());
+        if (!expiredDebts.isEmpty()) {
+            for (CustomerDebt debt : expiredDebts) {
+                boolean hasRemaining = debt.getRemainingAmount() != null
+                        ? debt.getRemainingAmount().compareTo(BigDecimal.ZERO) > 0
+                        : debt.getAmount() != null && debt.getAmount().compareTo(BigDecimal.ZERO) > 0;
+                if (hasRemaining) {
+                    debt.setStatus(DebtStatus.OVERDUE);
+                }
+            }
+            // Batch saving in chunks of 500 to avoid locking the database table
+            final int batchSize = 500;
+            for (int i = 0; i < expiredDebts.size(); i += batchSize) {
+                List<CustomerDebt> batch = expiredDebts.subList(i, Math.min(i + batchSize, expiredDebts.size()));
+                transactionTemplate.executeWithoutResult(status -> customerDebtRepository.saveAll(batch));
+            }
+            log.info("Processed {} expired debts (marked OVERDUE)", expiredDebts.size());
+        }
+    }
+
+    @Scheduled(cron = "${app.scheduler.debt-reminder.cron:0 0 1 * * *}")
+    public void autoSendDebtReminders() {
+        log.info("Starting background job to scan and send auto debt reminders");
+        LocalDate today = LocalDate.now();
+        processPreDueReminders(today);
+        processOverdueReminders(today);
+    }
+
+    private void processPreDueReminders(LocalDate today) {
+        Integer maxCustomerDays = customerDebtRepository.findMaxPendingReminderDaysBefore();
+        int maxDaysBefore = (maxCustomerDays != null && maxCustomerDays > 0) ? maxCustomerDays : DEFAULT_REMINDER_DAYS;
+        if (settingsRepository != null) {
+            Integer maxHouseholdDays = settingsRepository.findMaxDebtReminderDaysBefore();
+            if (maxHouseholdDays != null && maxHouseholdDays > 0) {
+                maxDaysBefore = Math.max(maxDaysBefore, maxHouseholdDays);
+            }
+        }
+        LocalDateTime maxDueDate = today.plusDays(maxDaysBefore + 1).atStartOfDay();
+
+        Map<String, Integer> householdReminderDaysCache = new HashMap<>();
+
+        int processedCount = processDebtRemindersBatch(
+                lastId -> customerDebtRepository.findPendingPreDueRemindersKeyset(
+                        lastId, maxDueDate, PageRequest.of(0, DEFAULT_PAGE_SIZE)),
+                (customer, debt) -> {
+                    int daysBefore;
+                    if (customer.getReminderDaysBefore() != null) {
+                        daysBefore = customer.getReminderDaysBefore();
+                    } else if (debt.getHousehold() != null && settingsRepository != null) {
+                        String hhId = debt.getHousehold().getId();
+                        daysBefore = householdReminderDaysCache.computeIfAbsent(hhId, id ->
+                                settingsRepository.findByHouseholdId(id)
+                                        .map(BusinessHouseholdSettings::getDebtReminderDaysBefore)
+                                        .filter(d -> d != null && d > 0)
+                                        .orElse(DEFAULT_REMINDER_DAYS)
+                        );
+                    } else {
+                        daysBefore = DEFAULT_REMINDER_DAYS;
+                    }
+                    LocalDate due = debt.getDueDate().toLocalDate();
+                    LocalDate reminderStartDate = due.minusDays(daysBefore);
+                    return (today.isAfter(reminderStartDate) || today.isEqual(reminderStartDate)) &&
+                            (today.isBefore(due) || today.isEqual(due));
+                },
+                (debt, email) -> {
+                    String householdName = debt.getHousehold() != null ? debt.getHousehold().getName() : defaultHouseholdName;
+                    String orderText = debt.getOrder() != null ? "Đơn hàng " + debt.getOrder().getOrderNumber() : "Khoản nợ";
+                    String msg = "Kính gửi " + debt.getCustomer().getName() + ",\nCửa hàng " + householdName + " xin thông báo " + orderText + " của Quý khách có dư nợ: " + debt.getRemainingAmount() + " VND, hạn trả: " + (debt.getDueDate() != null ? debt.getDueDate().toLocalDate() : "") + ". Rất mong Quý khách sắp xếp thanh toán. Trân trọng!";
+                    emailService.sendCustomDebtReminderEmail(
+                            email,
+                            debt.getCustomer().getName(),
+                            householdName,
+                            debt.getRemainingAmount(),
+                            msg
+                    );
+                    debt.setReminderSent(true);
+                },
+                "trước hạn"
+        );
+
+        if (processedCount > 0) {
+            log.info("Sent pre-due reminders for {} debts", processedCount);
+        }
+    }
+
+    private void processOverdueReminders(LocalDate today) {
+        Integer minDays = customerDebtRepository.findMinPendingOverdueReminderDaysAfter();
+        int minDaysAfter = (minDays != null && minDays > 0) ? minDays : DEFAULT_REMINDER_DAYS;
+        LocalDateTime maxOverdueDueDate = today.minusDays(minDaysAfter - 1).atStartOfDay();
+
+        int processedCount = processDebtRemindersBatch(
+                lastId -> customerDebtRepository.findPendingOverdueRemindersKeyset(
+                        lastId, maxOverdueDueDate, PageRequest.of(0, DEFAULT_PAGE_SIZE)),
+                (customer, debt) -> {
+                    int daysAfter = customer.getReminderDaysAfter() != null ? customer.getReminderDaysAfter() : DEFAULT_REMINDER_DAYS;
+                    LocalDate overdueReminderDate = debt.getDueDate().toLocalDate().plusDays(daysAfter);
+                    return today.isAfter(overdueReminderDate) || today.isEqual(overdueReminderDate);
+                },
+                (debt, email) -> {
+                    String householdName = debt.getHousehold() != null ? debt.getHousehold().getName() : defaultHouseholdName;
+                    String orderText = debt.getOrder() != null ? "Đơn hàng " + debt.getOrder().getOrderNumber() : "Khoản nợ";
+                    String msg = "Kính gửi " + debt.getCustomer().getName() + ",\nCửa hàng " + householdName + " xin thông báo " + orderText + " của Quý khách hiện đã QUÁ HẠN với dư nợ: " + debt.getRemainingAmount() + " VND, hạn trả: " + (debt.getDueDate() != null ? debt.getDueDate().toLocalDate() : "") + ". Kính mong Quý khách nhanh chóng sắp xếp thanh toán dứt điểm!";
+                    emailService.sendCustomDebtReminderEmail(
+                            email,
+                            debt.getCustomer().getName(),
+                            householdName,
+                            debt.getRemainingAmount(),
+                            msg
+                    );
+                    debt.setOverdueReminderSent(true);
+                },
+                "quá hạn"
+        );
+
+        if (processedCount > 0) {
+            log.info("Sent overdue reminders for {} debts", processedCount);
+        }
+    }
+
+    private int processDebtRemindersBatch(
+            Function<String, List<CustomerDebt>> pageFetcher,
+            BiPredicate<Customer, CustomerDebt> eligibilityChecker,
+            BiConsumer<CustomerDebt, String> emailSender,
+            String reminderTypeLog
+    ) {
+        String lastId = "";
+        int processedCount = 0;
+
+        while (true) {
+            List<CustomerDebt> pendingDebts = pageFetcher.apply(lastId);
+            if (pendingDebts == null || pendingDebts.isEmpty()) {
+                break;
+            }
+
+            List<CustomerDebt> toSave = new ArrayList<>();
+
+            for (CustomerDebt debt : pendingDebts) {
+                lastId = debt.getId(); // Update lastId for keyset pagination
+                try {
+                    Customer customer = debt.getCustomer();
+                    if (customer == null || debt.getDueDate() == null) {
+                        continue;
+                    }
+
+                    if (eligibilityChecker.test(customer, debt)) {
+                        String email = customer.getEmail();
+                        // Defensive check: Dù query SQL đã lọc email null/rỗng, vẫn kiểm tra lại ở tầng Application để đảm bảo an toàn tuyệt đối
+                        if (StringUtils.hasText(email)) {
+                            emailSender.accept(debt, email.trim());
+                            toSave.add(debt);
+                            processedCount++;
+                        }
+                    }
+                } catch (Exception e) {
+                    log.error("Lỗi khi xử lý nhắc nợ {} cho debt ID: {}", reminderTypeLog, debt.getId(), e);
+                }
+            }
+
+            if (!toSave.isEmpty()) {
+                transactionTemplate.executeWithoutResult(status -> customerDebtRepository.saveAll(toSave));
+            }
+
+            if (pendingDebts.size() < DEFAULT_PAGE_SIZE) {
+                break;
+            }
+        }
+
+        return processedCount;
+    }
+}

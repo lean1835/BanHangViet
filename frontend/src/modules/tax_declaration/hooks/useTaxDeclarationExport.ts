@@ -5,7 +5,7 @@ import {
   exportTaxDeclarationToPdf,
   exportTaxDeclarationToXml,
 } from "../utils/taxExportHelper";
-import { downloadTaxDeclarationExcel } from "../services/taxDeclarationApi";
+import { downloadTaxDeclarationExcel, useMarkDeclarationAsExportedMutation } from "../services/taxDeclarationApi";
 import type {
   ITaxDeclarationPeriodResponse,
   ITaxRevenueSummaryResponse,
@@ -27,6 +27,7 @@ interface IUseTaxDeclarationExportProps {
   };
   previewElementId?: string;
   onMissingInfoAlert?: () => void;
+  onExportSuccess?: () => void;
   isMissingInfo: boolean;
   roleAllowed: boolean;
 }
@@ -38,12 +39,14 @@ export const useTaxDeclarationExport = ({
   householdData,
   previewElementId = "tax-declaration-form-simulation",
   onMissingInfoAlert,
+  onExportSuccess,
   isMissingInfo,
   roleAllowed,
 }: IUseTaxDeclarationExportProps) => {
   const { showSuccess, showError, showWarning } = useNotification();
   const { addLogEntry } = useDashboardDemo();
   const [isExporting, setIsExporting] = useState(false);
+  const [markDeclarationAsExported] = useMarkDeclarationAsExportedMutation();
 
   const handleExport = useCallback(
     async (format: TTaxExportFormat) => {
@@ -80,6 +83,12 @@ export const useTaxDeclarationExport = ({
           exportTaxDeclarationToXml(period, revenueSummary, registerItems, householdData);
         }
 
+        try {
+          await markDeclarationAsExported(period.id).unwrap();
+        } catch {
+          // Bỏ qua nếu lỗi nhẹ, không làm gián đoạn tải file
+        }
+
         const formatLabels: Record<TTaxExportFormat, string> = {
           PDF: "PDF (Mẫu 01/CNKD A4)",
           EXCEL: "Excel từ Máy chủ (Tờ khai 01 + Bảng kê 01-2)",
@@ -92,6 +101,10 @@ export const useTaxDeclarationExport = ({
         showSuccess(
           `Xuất tờ khai thuế ${period.periodName} (${format}) thành công! Đã ghi nhận lịch sử kiểm toán.`
         );
+
+        if (onExportSuccess) {
+          onExportSuccess();
+        }
       } catch (err: unknown) {
         const errorMsg = err instanceof Error ? err.message : "Xuất tờ khai thuế thất bại. Vui lòng thử lại!";
         showError(errorMsg);
@@ -112,6 +125,8 @@ export const useTaxDeclarationExport = ({
       showWarning,
       showSuccess,
       addLogEntry,
+      markDeclarationAsExported,
+      onExportSuccess,
     ]
   );
 

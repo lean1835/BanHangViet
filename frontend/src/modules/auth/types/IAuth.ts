@@ -6,6 +6,12 @@ export interface IHousehold {
   address: string;
 }
 
+export interface IUserRole {
+  id?: string;
+  code?: string;
+  name?: string;
+}
+
 export interface IUser {
   id: string;
   username: string;
@@ -13,6 +19,7 @@ export interface IUser {
   phoneNumber?: string | null;
   email?: string | null;
   roleId: string;
+  role?: IUserRole | null;
   pointOfSaleId?: string | null;
   pointOfSaleName?: string | null;
   posCode?: string | null;
@@ -37,6 +44,7 @@ export interface IRegisterRequest {
 export interface ILoginRequest {
   username: string;
   password: string;
+  invitationToken?: string;
 }
 
 export interface IForgotPasswordRequest {
@@ -73,3 +81,4 @@ export interface IResetPasswordRequest {
 export interface IResetPasswordResponse {
   message: string;
 }
+

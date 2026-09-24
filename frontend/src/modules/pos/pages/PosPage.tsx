@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { Clock, CalendarCheck } from "lucide-react";
+import { Clock, CalendarCheck, MoreHorizontal, Sparkles } from "lucide-react";
 import { APP_ROUTES } from "@/constants/routes";
 import {
   useGetProductsQuery,
@@ -19,6 +19,7 @@ import {
   useGetHeldOrdersQuery,
   useLazyGetOrderQuery,
 } from "@/modules/order/services/orderApi";
+import { useApplyPointsToOrderMutation } from "@/modules/customer/services/loyaltyApi";
 import { useGetActiveShiftQuery } from "@/modules/shift/services/shiftApi";
 import { useGetMyHouseholdQuery } from "@/modules/settings/services/settingsApi";
 import { useAutoApplyPromotionsMutation } from "@/modules/promotion/services/promotionApi";
@@ -60,6 +61,7 @@ import { BankTransferModal } from "../components/BankTransferModal";
 import { CancelOrderModal } from "@/modules/order/components/CancelOrderModal";
 import { HoldOrderModal } from "../components/HoldOrderModal";
 import { HeldOrdersDrawer } from "../components/HeldOrdersDrawer";
+import { PosMoreActionsModal } from "../components/PosMoreActionsModal";
 import { ShiftHandoverModal } from "@/modules/shift/components/ShiftHandoverModal";
 import { CreateCashTransactionModal } from "@/modules/shift/components/CreateCashTransactionModal";
 import { useGetShiftCashSummaryQuery } from "@/modules/shift/services/cashTransactionApi";
@@ -93,6 +95,10 @@ const createInitialTab = (index: number): IPosTab => ({
 export const PosPage = () => {
   const navigate = useNavigate();
   const authenticatedUser = useAppSelector((state) => state.auth.user);
+  const displaySettings = useAppSelector((state) => state.displaySettings);
+  const isSimpleMode = Boolean(displaySettings?.simpleModeEnabled);
+  const [isMoreActionsModalOpen, setIsMoreActionsModalOpen] = useState(false);
+
   const { isOnline, setOrders, addLogEntry, setCustomers, currentRole } = useDashboardDemo();
 
   const canManage =
@@ -120,7 +126,6 @@ export const PosPage = () => {
   const activeShift = activeShiftData?.result;
   const isShiftOpen = Boolean(activeShift);
 
-  // Query Held Orders for active shift (NCL-03-CN-010)
   const { data: heldOrdersData } = useGetHeldOrdersQuery(undefined, {
     skip: !isShiftOpen || isOnline === false,
   });
@@ -130,7 +135,6 @@ export const PosPage = () => {
   const heldOrdersCount = heldOrdersList.length;
   const overdueHeldOrdersCount = heldOrdersList.filter((o) => o.isOverdue).length;
 
-  // Query Cash Summary for active shift (NCL-03-CN-014)
   const { data: cashSummaryData } = useGetShiftCashSummaryQuery(activeShift?.id || "", {
     skip: !isShiftOpen || isOnline === false,
     pollingInterval: 30000,
@@ -154,8 +158,8 @@ export const PosPage = () => {
   const [autoApplyPromotions] = useAutoApplyPromotionsMutation();
   const [scanBarcode] = useScanBarcodeMutation();
   const [resolveTierPrice] = useResolveTierPriceMutation();
+  const [applyPointsToOrder] = useApplyPointsToOrderMutation();
 
-  // Helper: Đồng bộ bậc giá sỉ & lẻ tự động từ server (NCL-02-CN-010, TC-01, TC-02)
   const resolveTiersForItems = async (
     items: IPosCartItem[]
   ): Promise<IPosCartItem[]> => {
@@ -202,7 +206,6 @@ export const PosPage = () => {
     }
   };
 
-  // Helper: Đồng bộ khuyến mại tự động từ server (QTN-26, NCL-15-CN-002)
   const syncPromotionsForItems = async (
     items: IPosCartItem[]
   ): Promise<IPosCartItem[]> => {
@@ -353,11 +356,9 @@ export const PosPage = () => {
     finalTotal: number;
   } | null>(null);
 
-  // Cancel order modal state (NCL-03-CN-009)
   const [isCancelModalOpen, setIsCancelModalOpen] = useState<boolean>(false);
   const [orderToCancel, setOrderToCancel] = useState<IOrderResponse | null>(null);
 
-  // Hold order & Table management modals state (NCL-03-CN-010)
   const [isHoldModalOpen, setIsHoldModalOpen] = useState<boolean>(false);
   const [isHeldOrdersDrawerOpen, setIsHeldOrdersDrawerOpen] = useState<boolean>(false);
   const [isTableManagementModalOpen, setIsTableManagementModalOpen] = useState<boolean>(false);
@@ -367,19 +368,15 @@ export const PosPage = () => {
   const [holdModalCurrentTableId, setHoldModalCurrentTableId] = useState<string | null>(null);
   const [holdModalCurrentTableName, setHoldModalCurrentTableName] = useState<string | null>(null);
 
-  // Combined payment modal state (NCL-03-CN-011)
   const [isCombinedPaymentModalOpen, setIsCombinedPaymentModalOpen] = useState<boolean>(false);
 
-  // Bank transfer confirmation modal state (NCL-03-CN-012)
   const [isBankTransferModalOpen, setIsBankTransferModalOpen] = useState<boolean>(false);
   const [bankTransferOrderId, setBankTransferOrderId] = useState<string>("");
   const [bankTransferQrUrl, setBankTransferQrUrl] = useState<string | null>(null);
   const [bankTransferAmount, setBankTransferAmount] = useState<number>(0);
 
-  // Shift handover modal state (NCL-03-CN-013)
   const [isShiftHandoverModalOpen, setIsShiftHandoverModalOpen] = useState<boolean>(false);
 
-  // Cash transaction modal state (NCL-03-CN-014)
   const [isCashTransactionModalOpen, setIsCashTransactionModalOpen] = useState<boolean>(false);
 
   // Loading states
@@ -407,7 +404,6 @@ export const PosPage = () => {
     );
   };
 
-  // Auto-restore / synchronize held orders in POS tabs (NCL-03-CN-010 - TC-02)
   const hasAutoRestoredRef = useRef<boolean>(false);
   useEffect(() => {
     const list = heldOrdersData?.result;
@@ -682,7 +678,6 @@ export const PosPage = () => {
       )
     );
 
-    // Automatic price tier resolution followed by promotion sync (NCL-02-CN-010)
     const itemsWithTiers = await resolveTiersForItems(newItems);
     const syncedItems = await syncPromotionsForItems(itemsWithTiers);
     setTabs((prevTabs) =>
@@ -974,7 +969,6 @@ export const PosPage = () => {
       )
     );
 
-    // Automatic price tier resolution followed by promotion sync (NCL-02-CN-010)
     const itemsWithTiers = await resolveTiersForItems(newItems);
     const syncedItems = await syncPromotionsForItems(itemsWithTiers);
     setTabs((prevTabs) =>
@@ -1104,6 +1098,13 @@ export const PosPage = () => {
             discountValue: activeTab.discountValue,
           }).unwrap();
         }
+
+        if (activeTab.pointsRedeemed && activeTab.pointsRedeemed > 0) {
+          await applyPointsToOrder({
+            orderId,
+            body: { pointsToRedeem: activeTab.pointsRedeemed },
+          }).unwrap();
+        }
       }
 
       updateActiveTab({
@@ -1124,7 +1125,6 @@ export const PosPage = () => {
     }
   };
 
-  // Open Cancel Order Modal (NCL-03-CN-009)
   const handleOpenCancelOrder = async () => {
     if (activeTab.items.length === 0 && !activeTab.backendOrderId) {
       showToast("Đơn hàng chưa có sản phẩm nào để hủy.");
@@ -1190,7 +1190,6 @@ export const PosPage = () => {
     }
   };
 
-  // Native Order Cancellation Sync (NCL-03-CN-009)
   // Khi hủy đơn (tại POS, tại màn Quản lý, hoặc từ thiết bị/tab khác),
   // màn bán hàng tự động native xóa đơn/dọn sạch giỏ hàng ngay lập tức.
   const handleRemoveCanceledOrderTab = useCallback(
@@ -1303,7 +1302,6 @@ export const PosPage = () => {
     setOrderToCancel(null);
   };
 
-  // Open Hold Order Modal (NCL-03-CN-010)
   const handleOpenHoldOrderModal = async () => {
     if (activeTab.items.length === 0 && !activeTab.backendOrderId) {
       showToast("Đơn hàng chưa có sản phẩm nào để đặt bàn hoặc treo đơn.");
@@ -1614,11 +1612,17 @@ export const PosPage = () => {
           discountValue: activeTab.discountValue,
         }).unwrap();
       }
+
+      if (activeTab.pointsRedeemed && activeTab.pointsRedeemed > 0) {
+        await applyPointsToOrder({
+          orderId,
+          body: { pointsToRedeem: activeTab.pointsRedeemed },
+        }).unwrap();
+      }
     }
     return orderId;
   };
 
-  // Open Combined Payment Modal (NCL-03-CN-011)
   const handleOpenCombinedPaymentModal = async () => {
     if (activeTab.items.length === 0) return;
     try {
@@ -1630,7 +1634,6 @@ export const PosPage = () => {
     }
   };
 
-  // Confirm and Complete Combined Payment (NCL-03-CN-011)
   const handleConfirmCombinedPayment = async (
     payments: IOrderPaymentRequest[],
     dueDate?: string
@@ -1701,7 +1704,6 @@ export const PosPage = () => {
     }
   };
 
-  // Bank Transfer Success Confirmation (NCL-03-CN-012)
   const handleBankTransferConfirmSuccess = async (txCode: string) => {
     try {
       const totals = calculatePosTotals(activeTab);
@@ -1753,14 +1755,13 @@ export const PosPage = () => {
     }
   };
 
-  // Bank Transfer switch to cash (NCL-03-CN-012-TC-03)
   const handleBankTransferSwitchToCash = () => {
     updateActiveTab({
       paymentMethod: "CASH",
       bankTransferConfirmed: false,
       bankTransferTxCode: undefined,
     });
-    showToast("Đã đổi sang hình thức Tiền mặt theo yêu cầu của khách hàng (NCL-03-CN-012)");
+    showToast("Đã đổi sang hình thức Tiền mặt theo yêu cầu của khách hàng");
   };
 
   // Complete Order (Thanh toán hoàn tất)
@@ -1779,7 +1780,6 @@ export const PosPage = () => {
       changeAmount,
     } = totals;
 
-    // NCL-03-CN-011: If COMBINED payment is selected, verify or open modal
     if (activeTab.paymentMethod === "COMBINED") {
       if (!activeTab.combinedPayments || activeTab.combinedPayments.length === 0) {
         setIsCompletingOrder(false);
@@ -1798,7 +1798,6 @@ export const PosPage = () => {
       }
     }
 
-    // NCL-03-CN-012: If BANK_TRANSFER is selected, verify bank confirmation step
     if (activeTab.paymentMethod === "BANK_TRANSFER" && !activeTab.bankTransferConfirmed) {
       try {
         const orderId = await ensureBackendOrderSaved();
@@ -2056,16 +2055,42 @@ export const PosPage = () => {
       {/* POS Main Workspace Body */}
       <div className="flex-1 min-h-0 flex gap-3 p-3 overflow-hidden">
         {/* Left Area: Cart Table */}
-        <PosCartTable
-          items={activeTab.items}
-          onUpdateQuantity={handleUpdateQuantity}
-          onRemoveItem={handleRemoveItem}
-          onClearCart={handleClearCart}
-          canManage={canManage}
-          onToggleBypass={handleToggleBypassPromotion}
-          onChangeUnit={handleChangeUnit}
-          onOpenWeightModal={handleOpenWeightModal}
-        />
+        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+          {isSimpleMode && (
+            <div className="bg-gradient-to-r from-amber-50/90 to-blue-50/90 border border-amber-200/90 px-3.5 py-2 rounded-xl mb-2 flex items-center justify-between text-xs text-amber-950 shadow-2xs shrink-0">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                <span className="font-extrabold text-amber-900">
+                  Chế độ chữ lớn & thao tác đơn giản
+                </span>
+                <span className="text-slate-500 hidden xl:inline text-[11px]">
+                  • 4 thao tác chính: Tìm hàng (F3), Thêm hàng (Enter), Thanh toán (F9), Xuất HĐ (F10)
+                </span>
+              </div>
+              <button
+                type="button"
+                id="pos-open-more-actions"
+                onClick={() => setIsMoreActionsModalOpen(true)}
+                className="px-2.5 py-1 rounded-lg bg-white hover:bg-slate-50 border border-amber-300 font-extrabold text-xs text-amber-900 flex items-center gap-1 shadow-xs cursor-pointer shrink-0"
+                title="Mở bảng các chức năng phụ"
+              >
+                <MoreHorizontal size={13} />
+                <span>Xem thêm thao tác</span>
+              </button>
+            </div>
+          )}
+
+          <PosCartTable
+            items={activeTab.items}
+            onUpdateQuantity={handleUpdateQuantity}
+            onRemoveItem={handleRemoveItem}
+            onClearCart={handleClearCart}
+            canManage={canManage}
+            onToggleBypass={handleToggleBypassPromotion}
+            onChangeUnit={handleChangeUnit}
+            onOpenWeightModal={handleOpenWeightModal}
+          />
+        </div>
 
         {/* Right Area: Payment Sidebar */}
         <PosPaymentSidebar
@@ -2103,7 +2128,6 @@ export const PosPage = () => {
         />
       )}
 
-      {/* Combined Payment Modal (NCL-03-CN-011) */}
       {isCombinedPaymentModalOpen && (
         <CombinedPaymentModal
           isOpen={isCombinedPaymentModalOpen}
@@ -2120,7 +2144,6 @@ export const PosPage = () => {
         />
       )}
 
-      {/* Bank Transfer Confirmation Modal (NCL-03-CN-012) */}
       {isBankTransferModalOpen && (
         <BankTransferModal
           isOpen={isBankTransferModalOpen}
@@ -2144,7 +2167,6 @@ export const PosPage = () => {
         />
       )}
 
-      {/* Voice Search Modal (NCL-16-CN-003) */}
       {isVoiceModalOpen && (
         <VoiceSearchModal
           isOpen={isVoiceModalOpen}
@@ -2186,7 +2208,6 @@ export const PosPage = () => {
         />
       )}
 
-      {/* Cancel Order Modal (NCL-03-CN-009) */}
       <CancelOrderModal
         isOpen={isCancelModalOpen}
         onClose={() => {
@@ -2197,7 +2218,6 @@ export const PosPage = () => {
         onSuccess={handleCancelOrderSuccess}
       />
 
-      {/* Hold Order / Assign Table Modal (NCL-03-CN-010) */}
       {isHoldModalOpen && holdModalOrderId && (
         <HoldOrderModal
           isOpen={isHoldModalOpen}
@@ -2214,7 +2234,6 @@ export const PosPage = () => {
         />
       )}
 
-      {/* Held Orders Drawer (NCL-03-CN-010) */}
       <HeldOrdersDrawer
         isOpen={isHeldOrdersDrawerOpen}
         onClose={() => setIsHeldOrdersDrawerOpen(false)}
@@ -2223,7 +2242,6 @@ export const PosPage = () => {
         onCancelOrder={handleCancelHeldOrderFromDrawer}
       />
 
-      {/* Dining Table Management Modal (NCL-03-CN-010 - VT-01 Owner) */}
       {isTableManagementModalOpen && (
         <DiningTableManagementModal
           isOpen={isTableManagementModalOpen}
@@ -2231,7 +2249,6 @@ export const PosPage = () => {
         />
       )}
 
-      {/* Shift Handover Modal (NCL-03-CN-013) */}
       {isShiftHandoverModalOpen && (
         <ShiftHandoverModal
           isOpen={isShiftHandoverModalOpen}
@@ -2244,7 +2261,6 @@ export const PosPage = () => {
         />
       )}
 
-      {/* Cash Transaction Modal (NCL-03-CN-014: Ghi thu chi tiền mặt ngoài bán hàng) */}
       {isCashTransactionModalOpen && (
         <CreateCashTransactionModal
           isOpen={isCashTransactionModalOpen}
@@ -2253,6 +2269,23 @@ export const PosPage = () => {
           isOwner={canManage}
         />
       )}
+
+      <PosMoreActionsModal
+        isOpen={isMoreActionsModalOpen}
+        onClose={() => setIsMoreActionsModalOpen(false)}
+        onOpenTableManagement={
+          canManage ? () => setIsTableManagementModalOpen(true) : undefined
+        }
+        onOpenHeldOrders={() => setIsHeldOrdersDrawerOpen(true)}
+        onOpenShiftHandover={() => setIsShiftHandoverModalOpen(true)}
+        onOpenCashTransaction={() => setIsCashTransactionModalOpen(true)}
+        onOpenCombinedPayment={handleOpenCombinedPaymentModal}
+        onCancelOrder={handleOpenCancelOrder}
+        canManage={canManage}
+        heldOrdersCount={heldOrdersCount}
+        pendingExpenseCount={pendingExpenseCount}
+        minTouchHeight={displaySettings?.minTouchHeight || "52px"}
+      />
 
       {/* Warning Overlay: No Active Sales Shift */}
       {!isShiftLoading && !isShiftOpen && (

@@ -28,7 +28,6 @@ export const SalesInvoiceListingPage: React.FC = () => {
   const currentYear = currentDate.getFullYear();
   const currentMonth = currentDate.getMonth() + 1;
 
-  // Mode Switcher: "SUMMARY" (NCL-12-CN-002) | "LISTING" (NCL-12-CN-001)
   const [activeTab, setActiveTab] = useState<"SUMMARY" | "LISTING">("SUMMARY");
 
   const [filters, setFilters] = useState<ITaxPeriodQueryParams>({
@@ -77,7 +76,6 @@ export const SalesInvoiceListingPage: React.FC = () => {
     { skip: !activePeriodId || currentRole === USER_ROLES.CASHIER }
   );
 
-  // 5. Query lấy danh sách dòng bảng kê hóa đơn bán ra (NCL-12-CN-001)
   const {
     data: registerItemsData,
     isLoading: isRegisterItemsLoading,
@@ -86,7 +84,6 @@ export const SalesInvoiceListingPage: React.FC = () => {
     { skip: !activePeriodId || currentRole === USER_ROLES.CASHIER }
   );
 
-  // 6. Query lấy tổng hợp doanh thu theo mức thuế suất (NCL-12-CN-002)
   const {
     data: revenueSummaryData,
     isLoading: isSummaryLoading,
@@ -95,7 +92,6 @@ export const SalesInvoiceListingPage: React.FC = () => {
     skip: !activePeriodId || currentRole === USER_ROLES.CASHIER,
   });
 
-  // 7. Mutation xuất file Excel tờ khai thuế & bảng kê (NCL-12-CN-003)
   const [exportTaxDeclaration, { isLoading: isExporting }] = useExportTaxDeclarationMutation();
 
   const handleFilterChange = (newFilters: Partial<ITaxPeriodQueryParams>) => {
@@ -186,7 +182,6 @@ export const SalesInvoiceListingPage: React.FC = () => {
   const summaryResult = revenueSummaryData?.result;
   const taxRateSummaries = summaryResult?.taxRateSummaries || [];
 
-  // Parse 400 error when tax rates are expired or deactivated (NCL-12-CN-002 TC-02)
   const isExpiredRateError =
     summaryError &&
     "status" in summaryError &&
@@ -225,7 +220,6 @@ export const SalesInvoiceListingPage: React.FC = () => {
           </p>
         </div>
 
-        {/* Action Button: Xuất Excel (NCL-12-CN-003) */}
         <div className="flex items-center gap-2">
           <button
             onClick={() => setIsExportModalOpen(true)}
@@ -333,7 +327,6 @@ export const SalesInvoiceListingPage: React.FC = () => {
         </div>
       )}
 
-      {/* Tab 1 Content: NCL-12-CN-002 (Tổng hợp doanh thu chịu thuế theo kỳ) */}
       {activeTab === "SUMMARY" && activePeriodId && (
         <div className="space-y-6">
           {/* TC-01: Summary KPI Cards */}
@@ -353,7 +346,6 @@ export const SalesInvoiceListingPage: React.FC = () => {
         </div>
       )}
 
-      {/* Tab 2 Content: NCL-12-CN-001 (Bảng kê hóa đơn bán ra) */}
       {activeTab === "LISTING" && activePeriodId && (
         <div className="space-y-6">
           <SalesInvoiceSummaryCards

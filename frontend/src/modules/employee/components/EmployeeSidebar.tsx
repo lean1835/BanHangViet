@@ -1,4 +1,5 @@
 import React from "react";
+import { Search } from "lucide-react";
 import {
   EMPLOYEE_INPUT_NAMES,
   EMPLOYEE_ROLE_FILTER_ALL,
@@ -10,6 +11,8 @@ import { USER_ROLES } from "@/constants/roles";
 import type { IRole } from "../types/IEmployee";
 
 interface EmployeeSidebarProps {
+  searchQuery: string;
+  setSearchQuery: (query: string) => void;
   statusFilter: TEmployeeStatusFilter;
   setStatusFilter: (status: TEmployeeStatusFilter) => void;
   selectedRole: string;
@@ -18,6 +21,8 @@ interface EmployeeSidebarProps {
 }
 
 export const EmployeeSidebar: React.FC<EmployeeSidebarProps> = ({
+  searchQuery,
+  setSearchQuery,
   statusFilter,
   setStatusFilter,
   selectedRole,
@@ -29,6 +34,25 @@ export const EmployeeSidebar: React.FC<EmployeeSidebarProps> = ({
       {/* Title */}
       <div className="font-extrabold text-sm text-slate-800 border-b pb-2">
         {EMPLOYEE_UI.SIDEBAR.TITLE}
+      </div>
+
+      {/* Tìm kiếm */}
+      <div className="flex flex-col gap-1.5">
+        <span className="font-bold text-slate-400 uppercase tracking-wide text-[10px]">
+          {EMPLOYEE_UI.SIDEBAR.SEARCH_LABEL}
+        </span>
+        <div className="relative">
+          <span className="absolute inset-y-0 left-0 flex items-center pl-2.5 pointer-events-none text-slate-400">
+            <Search size={14} />
+          </span>
+          <input
+            type="text"
+            placeholder={EMPLOYEE_UI.SIDEBAR.SEARCH_PLACEHOLDER}
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="h-9 w-full rounded-lg border border-slate-200 bg-slate-50 pl-8 pr-2.5 text-xs font-semibold text-slate-700 transition-all focus:border-kv-blue-primary focus:bg-white focus:outline-none"
+          />
+        </div>
       </div>
 
       {/* Trạng thái hoạt động */}

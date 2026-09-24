@@ -57,6 +57,7 @@ const authSlice = createSlice({
       state.isAuthenticated = false;
       localStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
       localStorage.removeItem(STORAGE_KEYS.AUTH_USER);
+      localStorage.removeItem(STORAGE_KEYS.POS_OFFLINE_INVOICES);
     },
     updateToken: (state, action: PayloadAction<string>) => {
       state.token = action.payload;

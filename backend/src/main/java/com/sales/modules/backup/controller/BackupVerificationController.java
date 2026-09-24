@@ -1,0 +1,62 @@
+package com.sales.modules.backup.controller;
+import com.sales.common.dto.ApiResponse;
+import com.sales.modules.backup.dto.request.TriggerVerificationRequest;
+import com.sales.modules.backup.dto.response.BackupVerificationHistoryResponse;
+import com.sales.modules.backup.dto.response.BackupVerificationStatusResponse;
+import com.sales.common.dto.PageResponse;
+import com.sales.modules.backup.service.BackupVerificationService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.*;
+
+import java.security.Principal;
+
+@RestController
+@RequestMapping("/api/v1/backup-verification")
+@RequiredArgsConstructor
+public class BackupVerificationController {
+
+    private final BackupVerificationService backupVerificationService;
+
+    @GetMapping("/status")
+    @PreAuthorize("hasAnyRole('VT-01', 'OWNER')")
+    public ApiResponse<BackupVerificationStatusResponse> getVerificationStatus(Principal principal) {
+        BackupVerificationStatusResponse response = backupVerificationService.getVerificationStatus(principal.getName());
+        return ApiResponse.<BackupVerificationStatusResponse>builder()
+                .code(1000)
+                .message("Lấy tình trạng kiểm chứng bản sao lưu thành công")
+                .result(response)
+                .build();
+    }
+
+    @GetMapping("/histories")
+    @PreAuthorize("hasAnyRole('VT-01', 'OWNER')")
+    public ApiResponse<PageResponse<BackupVerificationHistoryResponse>> getVerificationHistories(
+            Principal principal,
+            @RequestParam(value = "page", defaultValue = "0") int page,
+            @RequestParam(value = "size", defaultValue = "10") int size) {
+        PageResponse<BackupVerificationHistoryResponse> response = backupVerificationService.getVerificationHistories(principal.getName(), page, size);
+        return ApiResponse.<PageResponse<BackupVerificationHistoryResponse>>builder()
+                .code(1000)
+                .message("Lấy danh sách lịch sử thử phục hồi thành công")
+                .result(response)
+                .build();
+    }
+
+    @PostMapping("/trigger")
+    @PreAuthorize("hasAnyRole('VT-01', 'OWNER')")
+    public ApiResponse<BackupVerificationHistoryResponse> triggerVerification(
+            Principal principal,
+            @jakarta.validation.Valid @RequestBody(required = false) TriggerVerificationRequest request) {
+        BackupVerificationHistoryResponse response = backupVerificationService.triggerVerification(principal.getName(), request);
+        boolean passed = "PASSED".equalsIgnoreCase(response.getStatus());
+        String responseMessage = passed
+                ? "Chạy thử phục hồi bản sao lưu vào môi trường tạm thành công. Dữ liệu toàn vẹn."
+                : "Thử phục hồi bản sao lưu thất bại: " + (response.getFailureReason() != null ? response.getFailureReason() : "Dữ liệu không toàn vẹn.");
+        return ApiResponse.<BackupVerificationHistoryResponse>builder()
+                .code(1000)
+                .message(responseMessage)
+                .result(response)
+                .build();
+    }
+}

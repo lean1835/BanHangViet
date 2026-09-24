@@ -41,17 +41,30 @@ export const PrintInvoiceModal: React.FC<PrintInvoiceModalProps> = ({
 
   // Robust calculations
   const itemsList = invoice.items && invoice.items.length > 0 ? invoice.items : null;
-  const itemsSum = itemsList
-    ? itemsList.reduce((sum, item) => sum + (item.subtotal || item.unitPrice * item.quantity), 0)
-    : (invoice.totalAmountBeforeTax || invoice.amount || (invoice.finalAmount ? invoice.finalAmount - (invoice.taxAmount || 0) : 0));
-
-  const preTaxAmount = itemsSum > 0 ? itemsSum : (invoice.finalAmount - (invoice.taxAmount || 0));
-  const taxAmount = invoice.taxAmount ?? Math.round(preTaxAmount * 0.08);
-  const finalTotal = invoice.finalAmount || (preTaxAmount + taxAmount);
-  const rawOriginalTotal = itemsList
-    ? itemsList.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0)
-    : (itemsSum + (invoice.discountAmount || 0));
   const hasDiscount = Boolean(invoice.discountAmount && invoice.discountAmount > 0);
+  const rawOriginalTotal = itemsList
+    ? itemsList.reduce((sum, item) => {
+        const lineTotal = (item.subtotal !== undefined && item.subtotal !== null && item.subtotal !== 0)
+          ? item.subtotal
+          : (item.quantity * item.unitPrice);
+        return sum + lineTotal;
+      }, 0)
+    : ((invoice.totalAmountBeforeTax || invoice.amount || 0) + (invoice.discountAmount || 0));
+
+  const preTaxAmount = hasDiscount
+    ? Math.max(0, rawOriginalTotal - (invoice.discountAmount || 0))
+    : (invoice.totalAmountBeforeTax || rawOriginalTotal);
+
+  const effectiveTaxAmount = invoice.taxAmount !== undefined && invoice.taxAmount !== null
+    ? invoice.taxAmount
+    : (invoice.taxAmount ?? Math.round(preTaxAmount * 0.1));
+
+  const pointDiscount = (invoice.pointDiscountAmount && invoice.pointDiscountAmount > 0)
+    ? invoice.pointDiscountAmount
+    : 0;
+  const pointsRedeemed = invoice.pointsRedeemed || 0;
+
+  const finalTotal = invoice.finalAmount ?? Math.max(0, preTaxAmount + effectiveTaxAmount - pointDiscount);
   
   const createdDateStr = invoice.time || new Date().toLocaleString("vi-VN", {
     day: "2-digit",
@@ -265,11 +278,11 @@ export const PrintInvoiceModal: React.FC<PrintInvoiceModalProps> = ({
                               </span>
                             </div>
                           ) : (
-                            formatCurrency(item.unitPrice)
+                            formatCurrency((item.unitPrice === 0 && item.subtotal && item.subtotal < 0) ? (item.subtotal / (item.quantity || 1)) : item.unitPrice)
                           )}
                         </td>
                         <td className="p-1 sm:p-1.5 text-right font-black text-slate-900 whitespace-nowrap">
-                          {formatCurrency((item.quantity * item.unitPrice) - (item.discountAmount || 0))}
+                          {formatCurrency((item.subtotal !== undefined && item.subtotal !== null && item.subtotal !== 0) ? item.subtotal : (item.quantity * item.unitPrice) - (item.discountAmount || 0))}
                         </td>
                       </tr>
                     ))
@@ -313,10 +326,18 @@ export const PrintInvoiceModal: React.FC<PrintInvoiceModalProps> = ({
               )}
 
               {/* 4. Tiền thuế GTGT */}
-              {taxAmount > 0 && (
+              {effectiveTaxAmount > 0 && (
                 <div className="flex justify-between font-semibold text-slate-700">
                   <span>Tổng tiền thuế GTGT:</span>
-                  <span className="font-bold text-slate-900">{formatCurrency(taxAmount)}</span>
+                  <span className="font-bold text-slate-900">{formatCurrency(effectiveTaxAmount)}</span>
+                </div>
+              )}
+
+              {/* 4.1 Trừ điểm thưởng / điểm tích lũy */}
+              {pointDiscount > 0 && (
+                <div className="flex justify-between font-semibold text-purple-700">
+                  <span>Trừ điểm thưởng{pointsRedeemed ? ` (${pointsRedeemed} điểm)` : ""}:</span>
+                  <span className="font-bold">-{formatCurrency(pointDiscount)}</span>
                 </div>
               )}
 

@@ -19,14 +19,20 @@ import { getApiErrorMessage } from "@/utils/getApiErrorMessage";
 import { formatCurrency } from "@/utils/formatCurrency";
 import type { IProductOutletContext } from "@/modules/product/pages/ProductsLayout";
 import type { ISupplier } from "../types/ISupplier";
-import type { IPaySupplierDebtRequest } from "../types/ISupplierDebt";
+import type {
+  IPaySupplierDebtRequest,
+  IReceiveSupplierRefundRequest,
+} from "../types/ISupplierDebt";
 import {
   useGetSuppliersQuery,
   useCreateSupplierMutation,
   useUpdateSupplierMutation,
   useUpdateSupplierStatusMutation,
 } from "../services/supplierApi";
-import { usePaySupplierDebtMutation } from "../services/supplierDebtApi";
+import {
+  usePaySupplierDebtMutation,
+  useReceiveSupplierRefundMutation,
+} from "../services/supplierDebtApi";
 import { SupplierTable } from "../components/SupplierTable";
 import {
   SupplierFormModal,
@@ -35,6 +41,33 @@ import {
 import { SupplierStatusModal } from "../components/SupplierStatusModal";
 import { SupplierDetailModal } from "../components/SupplierDetailModal";
 import { PaySupplierDebtModal } from "../components/PaySupplierDebtModal";
+import { ReceiveSupplierRefundModal } from "../components/ReceiveSupplierRefundModal";
+import { ImportSupplierModal } from "../components/ImportSupplierModal";
+
+// Native SVG Icon
+const FileSpreadsheetIcon: React.FC<{ size?: number; className?: string }> = ({
+  size = 14,
+  className = "",
+}) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+  >
+    <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" />
+    <path d="M14 2v4a2 2 0 0 0 2 2h4" />
+    <path d="M8 13h2" />
+    <path d="M14 13h2" />
+    <path d="M8 17h2" />
+    <path d="M14 17h2" />
+  </svg>
+);
 
 export const SupplierPage: React.FC = () => {
   const navigate = useNavigate();
@@ -56,6 +89,7 @@ export const SupplierPage: React.FC = () => {
     data: suppliers = [],
     isLoading,
     isFetching,
+    refetch,
   } = useGetSuppliersQuery();
 
   const [createSupplier] = useCreateSupplierMutation();
@@ -63,12 +97,15 @@ export const SupplierPage: React.FC = () => {
   const [updateSupplierStatus, { isLoading: isUpdatingStatus }] =
     useUpdateSupplierStatusMutation();
   const [paySupplierDebt] = usePaySupplierDebtMutation();
+  const [receiveSupplierRefund] = useReceiveSupplierRefundMutation();
 
   // Modal States
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
   const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [isPayModalOpen, setIsPayModalOpen] = useState(false);
+  const [isRefundModalOpen, setIsRefundModalOpen] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [selectedSupplier, setSelectedSupplier] = useState<ISupplier | null>(
     null
   );
@@ -297,6 +334,35 @@ export const SupplierPage: React.FC = () => {
     }
   };
 
+  const handleOpenRefundModal = (supplier: ISupplier) => {
+    setSelectedSupplier(supplier);
+    setIsRefundModalOpen(true);
+  };
+
+  const handleConfirmReceiveRefund = async (
+    payload: IReceiveSupplierRefundRequest
+  ) => {
+    try {
+      const result = await receiveSupplierRefund(payload).unwrap();
+      const supplierName = selectedSupplier?.name || "nhà cung cấp";
+      addLogEntry(
+        "RECEIVE_REFUND",
+        `Thu tiền hoàn ${formatCurrency(payload.amount)} từ ${supplierName} (${payload.paymentMethod === "BANK_TRANSFER" ? "Chuyển khoản" : "Tiền mặt"})`
+      );
+      showSuccess(
+        `Thu tiền hoàn thành công ${formatCurrency(result.amount)} từ ${supplierName}!`
+      );
+      setIsRefundModalOpen(false);
+    } catch (err: unknown) {
+      const message = getApiErrorMessage(
+        err,
+        "Không thể ghi nhận thu tiền hoàn. Vui lòng thử lại."
+      );
+      showError(message);
+      throw err;
+    }
+  };
+
   const handleExportFile = () => {
     if (suppliers.length === 0) {
       showError("Không có dữ liệu nhà cung cấp để xuất file.");
@@ -421,6 +487,18 @@ export const SupplierPage: React.FC = () => {
           {canManage && (
             <button
               type="button"
+              onClick={() => setIsImportModalOpen(true)}
+              className="h-9 px-3.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all"
+              title="Nhập danh bạ nhà cung cấp từ tệp Excel / CSV"
+            >
+              <FileSpreadsheetIcon size={14} className="text-emerald-600" />
+              Nhập từ tệp
+            </button>
+          )}
+
+          {canManage && (
+            <button
+              type="button"
               onClick={handleOpenCreateModal}
               className="h-9 px-4 rounded-lg bg-kv-blue-primary hover:bg-kv-blue-dark active:scale-95 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all"
             >
@@ -454,6 +532,7 @@ export const SupplierPage: React.FC = () => {
         onToggleStatus={handleOpenStatusModal}
         onViewDetail={handleOpenDetailModal}
         onPayDebt={handleOpenPayModal}
+        onReceiveRefund={handleOpenRefundModal}
         page={page}
         pageSize={PAGE_SIZE}
         totalPages={totalPages}
@@ -492,6 +571,7 @@ export const SupplierPage: React.FC = () => {
         onEdit={handleOpenEditModal}
         onToggleStatus={handleOpenStatusModal}
         onOpenPayModal={handleOpenPayModal}
+        onOpenRefundModal={handleOpenRefundModal}
         canManage={canManageDebt}
       />
 
@@ -505,6 +585,25 @@ export const SupplierPage: React.FC = () => {
         supplier={selectedSupplier}
         onConfirmPayment={handleConfirmPayDebt}
       />
+
+      {/* 8. Receive Supplier Refund Modal */}
+      <ReceiveSupplierRefundModal
+        isOpen={isRefundModalOpen}
+        onClose={() => {
+          setIsRefundModalOpen(false);
+          setSelectedSupplier(null);
+        }}
+        supplier={selectedSupplier}
+        onConfirmRefund={handleConfirmReceiveRefund}
+      />
+
+      {isImportModalOpen && (
+        <ImportSupplierModal
+          isOpen={isImportModalOpen}
+          onClose={() => setIsImportModalOpen(false)}
+          onImportSuccess={() => refetch()}
+        />
+      )}
     </div>
   );
 };

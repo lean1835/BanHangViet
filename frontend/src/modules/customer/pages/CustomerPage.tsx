@@ -18,6 +18,10 @@ import { CustomerFormModal } from "../components/CustomerFormModal";
 import { CustomerDetailModal } from "../components/CustomerDetailModal";
 import { DebtPaymentModal, type DebtPaymentData } from "../components/DebtPaymentModal";
 import { DebtReminderModal } from "../components/DebtReminderModal";
+import { DebtReconciliationModal } from "../components/DebtReconciliationModal";
+import { DebtStatementPrintModal } from "../components/DebtStatementPrintModal";
+import { DebtAdjustmentModal } from "../components/DebtAdjustmentModal";
+import { ImportCustomerModal } from "../components/ImportCustomerModal";
 import {
   useGetCustomersQuery,
   useGetDebtRemindersQuery,
@@ -61,10 +65,13 @@ export const CustomerPage: React.FC = () => {
   const [selectedDebtStatus, setSelectedDebtStatus] = useState<string>(
     CUSTOMER_FILTER_OPTIONS.DEFAULT_DEBT_STATUS,
   );
+  const [debtFrom, setDebtFrom] = useState("");
+  const [debtTo, setDebtTo] = useState("");
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<ICustomer | null>(null);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
 
   // Merge debt reminders data (dueDate, debtCreatedAt) into customer objects
   const customersWithDebtInfo = useMemo(() => {
@@ -146,9 +153,19 @@ export const CustomerPage: React.FC = () => {
         if (!isOverdue) return false;
       }
 
+      // 3. Debt Range Filter
+      if (debtFrom) {
+        const min = parseFloat(debtFrom);
+        if (!isNaN(min) && currentDebt < min) return false;
+      }
+      if (debtTo) {
+        const max = parseFloat(debtTo);
+        if (!isNaN(max) && currentDebt > max) return false;
+      }
+
       return true;
     });
-  }, [customersWithDebtInfo, debouncedSearch, selectedDebtStatus]);
+  }, [customersWithDebtInfo, debouncedSearch, selectedDebtStatus, debtFrom, debtTo]);
 
   // Handlers
   const handleOpenCreateModal = () => {
@@ -319,6 +336,11 @@ export const CustomerPage: React.FC = () => {
   const [drawerPayDebtCustomer, setDrawerPayDebtCustomer] = useState<ICustomer | null>(null);
   const [drawerRemindCustomer, setDrawerRemindCustomer] = useState<ICustomer | null>(null);
 
+  // Reconciliation & Adjustment state
+  const [reconcileCustomer, setReconcileCustomer] = useState<ICustomer | null>(null);
+  const [adjustmentCustomer, setAdjustmentCustomer] = useState<ICustomer | null>(null);
+  const [printReconciliationId, setPrintReconciliationId] = useState<string | null>(null);
+
   const selectedCustomerDetail = useMemo(() => {
     if (!routeCustomerId) return null;
     return customersWithDebtInfo.find((c) => c.id === routeCustomerId) || null;
@@ -330,6 +352,10 @@ export const CustomerPage: React.FC = () => {
         <CustomerSidebar
           selectedDebtStatus={selectedDebtStatus}
           onSelectDebtStatus={setSelectedDebtStatus}
+          debtFrom={debtFrom}
+          debtTo={debtTo}
+          onDebtFromChange={setDebtFrom}
+          onDebtToChange={setDebtTo}
         />
       }
     >
@@ -362,6 +388,8 @@ export const CustomerPage: React.FC = () => {
           onDeleteCustomer={handleDeleteCustomer}
           onConfirmReminder={handleConfirmReminder}
           onConfirmPayDebt={handleConfirmPayDebt}
+          onOpenReconcileModal={(c) => setReconcileCustomer(c)}
+          onOpenImportModal={() => setIsImportModalOpen(true)}
         />
       )}
 
@@ -373,6 +401,9 @@ export const CustomerPage: React.FC = () => {
         onOpenEditModal={handleOpenEditModal}
         onOpenPayDebtModal={(c) => setDrawerPayDebtCustomer(c)}
         onOpenRemindModal={(c) => setDrawerRemindCustomer(c)}
+        onOpenReconcileModal={(c) => setReconcileCustomer(c)}
+        onOpenAdjustmentModal={(c) => setAdjustmentCustomer(c)}
+        onOpenPrintModal={(recId) => setPrintReconciliationId(recId)}
       />
 
       {/* Modals triggered from Detail Drawer */}
@@ -398,6 +429,33 @@ export const CustomerPage: React.FC = () => {
         customer={editingCustomer}
         existingCustomers={apiCustomers}
         onOpenEditModal={handleOpenEditModal}
+      />
+
+      {isImportModalOpen && (
+        <ImportCustomerModal
+          isOpen={isImportModalOpen}
+          onClose={() => setIsImportModalOpen(false)}
+          onImportSuccess={() => refetch()}
+        />
+      )}
+
+      <DebtReconciliationModal
+        isOpen={Boolean(reconcileCustomer)}
+        onClose={() => setReconcileCustomer(null)}
+        customer={reconcileCustomer}
+        onOpenPrintModal={(recId) => setPrintReconciliationId(recId)}
+      />
+
+      <DebtStatementPrintModal
+        isOpen={Boolean(printReconciliationId)}
+        onClose={() => setPrintReconciliationId(null)}
+        reconciliationId={printReconciliationId}
+      />
+
+      <DebtAdjustmentModal
+        isOpen={Boolean(adjustmentCustomer)}
+        onClose={() => setAdjustmentCustomer(null)}
+        customer={adjustmentCustomer}
       />
     </DashboardWorkspaceLayout>
   );

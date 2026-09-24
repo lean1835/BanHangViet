@@ -1,0 +1,17 @@
+package com.sales.modules.invoice.repository;
+import com.sales.modules.invoice.entity.InvoiceStatusLog;
+import org.springframework.data.jpa.repository.EntityGraph;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+
+import java.util.List;
+
+@Repository
+public interface InvoiceStatusLogRepository extends JpaRepository<InvoiceStatusLog, String> {
+
+    @EntityGraph(attributePaths = {"changedByUser"})
+    List<InvoiceStatusLog> findByInvoiceIdOrderByCreatedAtAsc(String invoiceId);
+
+    @EntityGraph(attributePaths = {"changedByUser"})
+    List<InvoiceStatusLog> findByInvoiceIdOrderByCreatedAtDesc(String invoiceId);
+}

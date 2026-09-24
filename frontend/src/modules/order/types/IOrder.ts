@@ -59,7 +59,11 @@ export interface IOrderResponse {
   customerId: string | null;
   customerName: string | null;
   totalAmount: number;
+  taxAmount?: number;
   discountAmount: number;
+  pointDiscountAmount?: number;
+  pointsRedeemed?: number;
+  pointsEarned?: number;
   finalAmount: number;
   paymentMethod: TOrderPaymentMethod | null;
   paymentStatus: string;
@@ -82,14 +86,12 @@ export interface IOrderResponse {
   canceledByUsername?: string | null;
   canceledByFullName?: string | null;
   canceledAt?: string | null;
-  // NCL-03-CN-010: Đặt tên nhận diện và treo nhiều đơn theo bàn hoặc khách
   orderLabel?: string | null;
   diningTableId?: string | null;
   diningTableName?: string | null;
   diningTableArea?: string | null;
   isOverdue?: boolean | null;
   holdingDurationMinutes?: number | null;
-  // NCL-03-CN-011 & NCL-03-CN-012: Thanh toán kết hợp & Xác nhận chuyển khoản
   payments?: IOrderPaymentResponse[];
   isBankTransferConfirmed?: boolean | null;
 }
@@ -149,7 +151,6 @@ export interface ICanceledOrderStatisticsParams {
   toDate?: string;
 }
 
-// NCL-03-CN-010: Đặt tên nhận diện và treo nhiều đơn theo bàn hoặc khách
 export interface IHeldOrderSummaryResponse {
   id: string;
   orderId?: string;
@@ -183,7 +184,6 @@ export interface ISwitchDiningTableRequest {
   newDiningTableId: string;
 }
 
-// NCL-03-CN-011 & NCL-03-CN-012: Thanh toán kết hợp & Xác nhận chuyển khoản ngân hàng
 export interface IOrderPaymentRequest {
   paymentMethod: "CASH" | "BANK_TRANSFER" | "DEBT";
   amount: number;
