@@ -196,14 +196,12 @@ export const PriceAdjustmentPage: React.FC<PriceAdjustmentPageProps> = ({
       {/* Tab Content */}
       {activeTab === "SETUP" ? (
         <div className="flex flex-col gap-6">
-          {/* Step 1: Form */}
           <PriceAdjustmentForm
             isLoading={isPreviewing}
             onPreview={handlePreview}
             initialGroupId={initialGroupId}
           />
 
-          {/* Step 2: Preview table (if previewData exists) */}
           {previewResponse && (
             <PriceAdjustmentPreviewTable
               previewData={previewResponse}

@@ -24,10 +24,10 @@ env:
 
 jobs:
   # ==========================================
-  # STAGE 1: VERIFY BACKEND (Spring Boot) & FRONTEND (React)
+  # STAGE 1: VERIFY BACKEND & FRONTEND IN PARALLEL
   # ==========================================
-  verify:
-    name: Lint & Test (BE & FE)
+  verify-backend:
+    name: Test Backend (Spring Boot Maven)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -40,8 +40,15 @@ jobs:
           distribution: 'temurin'
           cache: 'maven'
 
-      - name: Test Backend (Spring Boot Maven)
+      - name: Run Backend Tests
         run: cd backend && mvn test -B
+
+  verify-frontend:
+    name: Lint & Build Frontend (React)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
 
       - name: Setup Node 22 (Frontend)
         uses: actions/setup-node@v4
@@ -50,7 +57,7 @@ jobs:
           cache: 'npm'
           cache-dependency-path: frontend/package-lock.json
 
-      - name: Lint & Build Check Frontend (React)
+      - name: Install, Lint & Build Frontend
         run: cd frontend && npm ci && npm run lint && npm run build
 
   # ==========================================
@@ -58,7 +65,7 @@ jobs:
   # ==========================================
   build-and-push:
     name: Build & Push Images to GHCR
-    needs: verify
+    needs: [verify-backend, verify-frontend]
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/production' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     steps:
@@ -134,16 +141,16 @@ jobs:
           # Tạo thư mục trên VPS
           ssh -o StrictHostKeyChecking=accept-new ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_IP }} "mkdir -p $DEPLOY_PATH/scripts $DEPLOY_PATH/backend"
 
-          # Sync docker-compose.yml và deploy.sh
+          # Sync docker-compose.yml và toàn bộ scripts (*.sh)
           scp -o StrictHostKeyChecking=accept-new docker-compose.yml ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_IP }}:$DEPLOY_PATH/docker-compose.yml
-          scp -o StrictHostKeyChecking=accept-new scripts/deploy.sh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_IP }}:$DEPLOY_PATH/scripts/deploy.sh
+          scp -o StrictHostKeyChecking=accept-new scripts/*.sh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_IP }}:$DEPLOY_PATH/scripts/
 
           # Ghi file .env cho Backend từ Secret ENV_PRODUCTION (truyền an toàn qua stdin, tránh lỗi thụt lề Heredoc)
           printf '%s\n' "$ENV_PRODUCTION" | ssh -o StrictHostKeyChecking=accept-new ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_IP }} "cat > $DEPLOY_PATH/backend/.env"
 
           # Chạy script Deploy
           ssh -o StrictHostKeyChecking=accept-new ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_IP }} "
-            chmod +x $DEPLOY_PATH/scripts/deploy.sh &&
+            chmod +x $DEPLOY_PATH/scripts/*.sh &&
             BE_IMAGE_NAME='$BE_TAG' \
             FE_IMAGE_NAME='$FE_TAG' \
             DEPLOY_PATH='$DEPLOY_PATH' \

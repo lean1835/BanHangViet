@@ -77,15 +77,33 @@ export const DashboardDemoProvider = ({ children }: DashboardDemoProviderProps) 
     return [];
   });
 
+  const householdId = user?.household?.id;
+  useEffect(() => {
+    if (householdId) {
+      setInvoices((prev) =>
+        prev.filter((inv) => inv.householdId === householdId)
+      );
+    } else if (!user) {
+      setInvoices([]);
+      try {
+        localStorage.removeItem(STORAGE_KEYS.POS_OFFLINE_INVOICES);
+      } catch {
+        /* ignore */
+      }
+    }
+  }, [householdId, user]);
+
   useEffect(() => {
     try {
       if (invoices.length > 0) {
         localStorage.setItem(STORAGE_KEYS.POS_OFFLINE_INVOICES, JSON.stringify(invoices));
+      } else if (householdId) {
+        localStorage.removeItem(STORAGE_KEYS.POS_OFFLINE_INVOICES);
       }
     } catch {
       /* ignore storage write error */
     }
-  }, [invoices]);
+  }, [invoices, householdId]);
   const [customers, setCustomers] = useState<ICustomer[]>([]);
   const [logs, setLogs] = useState<IActivityLog[]>([]);
   const [stockEntries, setStockEntries] = useState<IStockEntry[]>([]);
@@ -103,9 +121,12 @@ export const DashboardDemoProvider = ({ children }: DashboardDemoProviderProps) 
     data: apiOrdersData,
     error: ordersError,
     isError: isOrdersError,
-    isLoading: isOrdersLoading,
+    isLoading: isOrdersQueryLoading,
+    isFetching: isOrdersQueryFetching,
     refetch: refetchOrdersQuery,
   } = useGetOrdersHistoryQuery(undefined, { skip: !isOnline || !canFetchOrders });
+
+  const isOrdersLoading = isOrdersQueryLoading || isOrdersQueryFetching;
 
   useEffect(() => {
     if (isOnline && apiOrdersData?.result) {

@@ -30,6 +30,7 @@ export const ROUTE_SEGMENTS = {
   ADMIN: "admin",
   OVERVIEW: "overview",
   HOUSEHOLDS: "households",
+  PACKAGES: "packages",
   LOGS: "logs",
   TAX_AUTHORITY: "tax-authority",
   INVOICES: "invoices",
@@ -248,6 +249,10 @@ export const APP_ROUTES = {
   ADMIN_HOUSEHOLDS: createRoute(
     ROUTE_SEGMENTS.ADMIN,
     ROUTE_SEGMENTS.HOUSEHOLDS,
+  ),
+  ADMIN_PACKAGES: createRoute(
+    ROUTE_SEGMENTS.ADMIN,
+    ROUTE_SEGMENTS.PACKAGES,
   ),
   ADMIN_LOGS: createRoute(ROUTE_SEGMENTS.ADMIN, ROUTE_SEGMENTS.LOGS),
   TAX_AUTHORITY: createRoute(ROUTE_SEGMENTS.TAX_AUTHORITY),

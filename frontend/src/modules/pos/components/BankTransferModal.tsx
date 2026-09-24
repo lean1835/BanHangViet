@@ -56,7 +56,6 @@ export const BankTransferModal: React.FC<IBankTransferModalProps> = ({
     setTimeout(() => setCopiedAmount(false), 2000);
   };
 
-  // Confirm bank transfer (NCL-03-CN-012-TC-01)
   const handleConfirm = async () => {
     if (!transactionCode.trim()) {
       setErrorMessage("Vui lòng nhập Mã giao dịch ngân hàng hoặc 4 số cuối để đối soát!");
@@ -82,7 +81,6 @@ export const BankTransferModal: React.FC<IBankTransferModalProps> = ({
     }
   };
 
-  // Switch to cash when customer cancels bank transfer (NCL-03-CN-012-TC-03)
   const handleSwitchToCash = async () => {
     setErrorMessage(null);
     try {

@@ -80,7 +80,6 @@ export const PosRevenueReportPage: React.FC = () => {
     };
   }, [apiReportData, fromDate, toDate]);
 
-  // Role Guard: NCL-17-CN-004-TC-03 requires blocking salesperson VT-02
   const isSalesperson = currentRole === USER_ROLES.CASHIER;
 
   if (isSalesperson) {

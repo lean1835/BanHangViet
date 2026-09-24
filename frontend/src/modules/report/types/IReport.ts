@@ -59,9 +59,6 @@ export interface IActivityLogResponse {
   createdAt: string;
 }
 
-// ============================================================================
-// NCL-07-CN-008: BÁO CÁO LÃI GỘP THEO NGÀY VÀ THEO MẶT HÀNG
-// ============================================================================
 export interface IGrossProfitSummary {
   totalNetRevenue: number;
   totalCogs: number;
@@ -107,9 +104,6 @@ export interface IGrossProfitReportResponse {
   missingCostPriceItems: IMissingCostProduct[];
 }
 
-// ============================================================================
-// NCL-07-CN-010: BÁO CÁO DOANH THU THEO NHÂN VIÊN VÀ THEO CA
-// ============================================================================
 export interface IShiftRevenueReportItem {
   shiftId: string;
   userId: string;
@@ -169,9 +163,6 @@ export interface IEmployeeShiftReportResponse {
   employeeSummaries: IEmployeeRevenueSummary[];
 }
 
-// ============================================================================
-// NCL-07-CN-011: BÁO CÁO DOANH THU THEO HÌNH THỨC THANH TOÁN
-// ============================================================================
 export interface IPaymentMethodStat {
   method: string;
   methodName: string;
@@ -201,9 +192,6 @@ export interface IPaymentMethodReportResponse {
   dailyTrends: IDailyPaymentTrend[];
 }
 
-// ============================================================================
-// NCL-07-CN-012: BÁO CÁO DOANH THU THEO NHÓM HÀNG (KÈM DRILL-DOWN)
-// ============================================================================
 export interface IProductGroupRevenue {
   groupId: string;
   groupName: string;

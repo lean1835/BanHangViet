@@ -112,7 +112,6 @@ export const TaxPeriodProgressChecklistBanner: React.FC<
 
       {/* 2. Checklist 4 bước trực quan */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 pt-3">
-        {/* Bước 1: Bảng kê bán ra */}
         <div
           onClick={() => onSelectTab && onSelectTab("ANNEX")}
           className={`p-2.5 rounded-xl border flex items-center justify-between transition-all cursor-pointer select-none ${
@@ -140,7 +139,6 @@ export const TaxPeriodProgressChecklistBanner: React.FC<
           <FileSpreadsheet className="w-3.5 h-3.5 text-slate-400 shrink-0" />
         </div>
 
-        {/* Bước 2: Bảng kê mua vào */}
         <div
           onClick={() => onSelectTab && onSelectTab("PURCHASE_REGISTER")}
           className={`p-2.5 rounded-xl border flex items-center justify-between transition-all cursor-pointer select-none ${
@@ -170,7 +168,6 @@ export const TaxPeriodProgressChecklistBanner: React.FC<
           <ShoppingBag className="w-3.5 h-3.5 text-slate-400 shrink-0" />
         </div>
 
-        {/* Bước 3: Xuất tờ khai thuế */}
         <div
           onClick={() => onOpenExport && onOpenExport()}
           className={`p-2.5 rounded-xl border flex items-center justify-between transition-all cursor-pointer select-none ${
@@ -216,7 +213,6 @@ export const TaxPeriodProgressChecklistBanner: React.FC<
           <FileDown className="w-3.5 h-3.5 text-slate-400 shrink-0 ml-1" />
         </div>
 
-        {/* Bước 4: Chốt sổ kỳ thuế */}
         <div
           onClick={() => onOpenLockModal && onOpenLockModal()}
           className={`p-2.5 rounded-xl border flex items-center justify-between transition-all cursor-pointer select-none ${

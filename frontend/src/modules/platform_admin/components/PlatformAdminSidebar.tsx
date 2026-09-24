@@ -1,5 +1,5 @@
-import React from "react";
-import { NavLink, useNavigate, type NavLinkRenderProps } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { LogOut } from "lucide-react";
 import {
   PLATFORM_ADMIN_COPY,
@@ -10,16 +10,15 @@ import { logout } from "@/stores/authSlice";
 import { baseApi } from "@/stores/baseApi";
 import { APP_ROUTES } from "@/constants/routes";
 
-const getNavLinkClassName = ({ isActive }: NavLinkRenderProps): string =>
-  `flex min-h-11 w-full items-center rounded-md px-3 py-2 text-left text-xs font-bold transition-all lg:min-h-0 ${
-    isActive
-      ? "bg-kv-blue-light text-kv-blue-primary"
-      : "hover:bg-slate-50 text-slate-600"
-  }`;
-
 export const PlatformAdminSidebar: React.FC = () => {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
+  const location = useLocation();
+  const [optimisticTo, setOptimisticTo] = useState<string | null>(null);
+
+  useEffect(() => {
+    setOptimisticTo(null);
+  }, [location.pathname]);
 
   const handleLogout = () => {
     dispatch(baseApi.util.resetApiState());
@@ -39,7 +38,15 @@ export const PlatformAdminSidebar: React.FC = () => {
               key={item.to}
               to={item.to}
               end
-              className={getNavLinkClassName}
+              onClick={() => setOptimisticTo(item.to)}
+              className={({ isActive }) => {
+                const active = optimisticTo ? optimisticTo === item.to : isActive;
+                return `flex min-h-11 w-full items-center rounded-md px-3 py-2 text-left text-xs font-bold transition-all lg:min-h-0 ${
+                  active
+                    ? "bg-kv-blue-light text-kv-blue-primary"
+                    : "hover:bg-slate-50 text-slate-600"
+                }`;
+              }}
             >
               {item.label}
             </NavLink>

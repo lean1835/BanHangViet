@@ -110,7 +110,6 @@ export const PosPaymentSidebar: React.FC<IPosPaymentSidebarProps> = ({
     changeAmount,
   } = calculatePosTotals(tab);
 
-  // Loyalty Program Config & Customer Loyalty Summary (NCL-10-CN-008)
   const { data: loyaltyConfig } = useGetLoyaltyConfigQuery();
   const { data: customerLoyalty } = useGetCustomerLoyaltySummaryQuery(
     tab.customer?.id || "",
@@ -164,6 +163,13 @@ export const PosPaymentSidebar: React.FC<IPosPaymentSidebarProps> = ({
 
   // Auto-sync amountGiven when applying discounts, in FAST mode, or when paying in full
   useEffect(() => {
+    // If DEBT or COMBINED payment method, do not auto-fill amountGiven with finalTotal
+    if (tab.paymentMethod === "DEBT" || tab.paymentMethod === "COMBINED") {
+      prevDiscountSignatureRef.current = `${tab.customer?.id || ""}_${tab.discountType}_${tab.discountValue}_${tab.vatRate}_${totalPromotionDiscount}_${tab.pointsRedeemed || 0}`;
+      prevFinalTotalRef.current = finalTotal;
+      return;
+    }
+
     const currentDiscountSignature = `${tab.customer?.id || ""}_${tab.discountType}_${tab.discountValue}_${tab.vatRate}_${totalPromotionDiscount}_${tab.pointsRedeemed || 0}`;
     const discountChanged = prevDiscountSignatureRef.current !== currentDiscountSignature;
     const wasPayingInFull = tab.amountGiven === prevFinalTotalRef.current || !tab.amountGiven;
@@ -177,6 +183,7 @@ export const PosPaymentSidebar: React.FC<IPosPaymentSidebarProps> = ({
     prevDiscountSignatureRef.current = currentDiscountSignature;
     prevFinalTotalRef.current = finalTotal;
   }, [
+    tab.paymentMethod,
     tab.saleMode,
     finalTotal,
     tab.customer?.id,
@@ -377,7 +384,6 @@ export const PosPaymentSidebar: React.FC<IPosPaymentSidebarProps> = ({
           </div>
         )}
 
-        {/* Loyalty Points Badge & Redeem Controls (NCL-10-CN-008) */}
         {tab.customer && isLoyaltyEnabled && (
           <div className="bg-blue-50/40 p-3 rounded-xl border border-blue-100 space-y-2">
             <div className="flex items-center justify-between text-xs">
@@ -467,7 +473,6 @@ export const PosPaymentSidebar: React.FC<IPosPaymentSidebarProps> = ({
           </div>
         )}
 
-        {/* Dining Table & Order Label (NCL-03-CN-010) */}
         <div className="bg-slate-50/80 p-2.5 rounded-xl border border-slate-200">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1.5 text-xs min-w-0 flex-1 mr-2">
@@ -522,7 +527,6 @@ export const PosPaymentSidebar: React.FC<IPosPaymentSidebarProps> = ({
             </span>
           </div>
 
-          {/* Promotion Discount (NCL-15-CN-002) */}
           {totalPromotionDiscount > 0 && (
             <div className="flex items-center justify-between text-emerald-700 font-bold text-xs bg-emerald-50/80 px-2 py-1.5 rounded-lg border border-emerald-200">
               <span className="flex items-center gap-1">
@@ -535,7 +539,6 @@ export const PosPaymentSidebar: React.FC<IPosPaymentSidebarProps> = ({
             </div>
           )}
 
-          {/* Customer VIP Discount (NCL-15-CN-003) */}
           {customerDiscountCash > 0 && (
             <div className="flex items-center justify-between text-amber-800 font-bold text-xs bg-amber-50/80 px-2 py-1.5 rounded-lg border border-amber-200">
               <span className="flex items-center gap-1">
@@ -775,7 +778,6 @@ export const PosPaymentSidebar: React.FC<IPosPaymentSidebarProps> = ({
             ))}
           </div>
 
-          {/* Combined Payment Details Card (NCL-03-CN-011) */}
           {tab.paymentMethod === "COMBINED" && (
             <div className="mt-2 p-2.5 rounded-xl bg-blue-50/90 border border-blue-200 text-xs space-y-2 shadow-2xs">
               <div className="flex items-center justify-between">
@@ -826,7 +828,6 @@ export const PosPaymentSidebar: React.FC<IPosPaymentSidebarProps> = ({
 
       {/* 7. Main Action Buttons Sticky at Bottom */}
       <div className="pt-3 mt-2 border-t border-slate-200 flex items-center gap-2 shrink-0 bg-white">
-        {/* Cancel Order Button (NCL-03-CN-009) */}
         {onCancelOrder && (
           <button
             type="button"

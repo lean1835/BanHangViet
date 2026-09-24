@@ -459,7 +459,6 @@ export const PosHeader: React.FC<IPosHeaderProps> = ({
         {/* Pinned Fixed Actions: Đơn treo & Phòng/Bàn (Chỉ hiển thị khi KHÔNG ở Chế độ đơn giản) */}
         {!simpleModeEnabled && (
           <div className="shrink-0 flex items-center gap-1.5 pl-1.5 pr-1 border-l border-blue-500/50">
-            {/* Held Orders Drawer Button (NCL-03-CN-010) */}
             {(onOpenHeldOrders || onOpenHeldOrdersDrawer) && (
               <button
                 type="button"
@@ -489,7 +488,6 @@ export const PosHeader: React.FC<IPosHeaderProps> = ({
               </button>
             )}
 
-            {/* Table Management Button (NCL-03-CN-010 - VT-01 Owner) */}
             {onOpenTableManagement && (
               <button
                 type="button"
@@ -502,7 +500,6 @@ export const PosHeader: React.FC<IPosHeaderProps> = ({
               </button>
             )}
 
-            {/* Shift Handover Button (NCL-03-CN-013) */}
             {onOpenShiftHandover && (
               <button
                 type="button"
@@ -515,7 +512,6 @@ export const PosHeader: React.FC<IPosHeaderProps> = ({
               </button>
             )}
 
-            {/* Cash Transaction Button (NCL-03-CN-014: Ghi thu chi tiền mặt) */}
             {onOpenCashTransaction && (
               <button
                 type="button"

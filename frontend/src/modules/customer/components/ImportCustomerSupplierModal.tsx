@@ -241,6 +241,39 @@ const Loader2Icon: React.FC<SvgIconProps> = ({ size = 16, className = "" }) => (
     <path d="M21 12a9 9 0 1 1-6.219-8.56" />
   </svg>
 );
+
+const ChevronLeftIcon: React.FC<SvgIconProps> = ({ size = 16, className = "" }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+  >
+    <polyline points="15 18 9 12 15 6" />
+  </svg>
+);
+
+const ChevronRightIcon: React.FC<SvgIconProps> = ({ size = 16, className = "" }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+  >
+    <polyline points="9 18 15 12 9 6" />
+  </svg>
+);
+
 import {
   type ImportCatalogType,
   type ImportRowStatus,
@@ -269,6 +302,99 @@ interface ImportCustomerSupplierModalProps {
   allowTypeSwitch?: boolean;
   onImportSuccess?: (count: number) => void;
 }
+
+// Row validation logic (O(N) batch validation capable of 10,000+ rows)
+const validateSingleRow = (
+  row: IImportPreviewRow,
+  currentPhones: Set<string>,
+  currentTaxCodes: Set<string>,
+  type: ImportCatalogType,
+  isDuplicateInFile: boolean
+): IImportPreviewRow => {
+  const data = row.data;
+  const name = (data.name || "").trim();
+  const rawPhone = (data.phone || "").trim();
+  const cleanPhone = rawPhone.replace(/\D/g, "");
+  const rawTax = (data.taxCode || "").trim();
+  const cleanTax = rawTax.replace(/[^0-9-]/g, "");
+  const creditLimit = "creditLimit" in data ? Number(data.creditLimit) || 0 : 0;
+  const initialDebt = Number(data.initialDebt) || 0;
+
+  let isError = false;
+  let isDuplicate = false;
+  let errorMessage = "";
+  let duplicateField = "";
+
+  if (!name) {
+    isError = true;
+    errorMessage = "Tên không được để trống";
+  } else if (!cleanPhone) {
+    isError = true;
+    errorMessage = "Số điện thoại không được để trống";
+  } else if (cleanPhone.length < 10 || cleanPhone.length > 11) {
+    isError = true;
+    errorMessage = `Số điện thoại phải từ 10 - 11 chữ số (hiện tại: ${cleanPhone.length} số)`;
+  } else if (cleanTax && cleanTax.replace(/\D/g, "").length !== 10 && cleanTax.replace(/\D/g, "").length !== 13) {
+    isError = true;
+    errorMessage = `Mã số thuế phải gồm 10 hoặc 13 chữ số (hiện tại: ${cleanTax.length})`;
+  } else if (creditLimit < 0) {
+    isError = true;
+    errorMessage = "Hạn mức công nợ không được là số âm";
+  } else if (initialDebt < 0) {
+    isError = true;
+    errorMessage = type === "CUSTOMER" ? "Dư nợ đầu kỳ không được là số âm" : "Nợ phải trả đầu kỳ không được là số âm";
+  } else {
+    if (isDuplicateInFile) {
+      isDuplicate = true;
+      duplicateField = "phone";
+      errorMessage = "Trùng lặp số điện thoại với một dòng khác trong cùng tệp tải lên";
+    } else if (currentPhones.has(cleanPhone)) {
+      isDuplicate = true;
+      duplicateField = "phone";
+      errorMessage = `Số điện thoại đã tồn tại trên hồ sơ ${type === "CUSTOMER" ? "khách hàng" : "nhà cung cấp"} của hệ thống`;
+    } else if (cleanTax && currentTaxCodes.has(cleanTax.replace(/\D/g, ""))) {
+      isDuplicate = true;
+      duplicateField = "taxCode";
+      errorMessage = `Mã số thuế đã tồn tại trên hồ sơ ${type === "CUSTOMER" ? "khách hàng" : "nhà cung cấp"} của hệ thống`;
+    }
+  }
+
+  return {
+    ...row,
+    data: {
+      ...data,
+      name,
+      phone: cleanPhone,
+      taxCode: cleanTax,
+      ...(type === "CUSTOMER" ? { creditLimit } : {}),
+      initialDebt,
+    },
+    status: isError ? "ERROR" : isDuplicate ? "DUPLICATE" : "VALID",
+    errorMessage: errorMessage || undefined,
+    duplicateField: isDuplicate ? duplicateField : undefined,
+  };
+};
+
+const validateRowsBatch = (
+  rows: IImportPreviewRow[],
+  currentPhones: Set<string>,
+  currentTaxCodes: Set<string>,
+  type: ImportCatalogType
+): IImportPreviewRow[] => {
+  const phoneCounts = new Map<string, number>();
+  for (let i = 0; i < rows.length; i++) {
+    const p = (rows[i].data.phone || "").replace(/\D/g, "");
+    if (p) {
+      phoneCounts.set(p, (phoneCounts.get(p) || 0) + 1);
+    }
+  }
+
+  return rows.map((r) => {
+    const p = (r.data.phone || "").replace(/\D/g, "");
+    const isDuplicate = !!p && (phoneCounts.get(p) || 0) > 1;
+    return validateSingleRow(r, currentPhones, currentTaxCodes, type, isDuplicate);
+  });
+};
 
 export const ImportCustomerSupplierModal: React.FC<ImportCustomerSupplierModalProps> = ({
   isOpen,
@@ -346,89 +472,11 @@ export const ImportCustomerSupplierModal: React.FC<ImportCustomerSupplierModalPr
     );
   }, [catalogType, existingCustomers, existingSuppliers]);
 
-  // Row validation logic (matches project standards)
-  const validateRow = (
-    row: IImportPreviewRow,
-    allRows: IImportPreviewRow[],
-    currentPhones: Set<string>,
-    currentTaxCodes: Set<string>,
-    type: ImportCatalogType
-  ): IImportPreviewRow => {
-    const data = row.data;
-    const name = (data.name || "").trim();
-    const rawPhone = (data.phone || "").trim();
-    const cleanPhone = rawPhone.replace(/\D/g, "");
-    const rawTax = (data.taxCode || "").trim();
-    const cleanTax = rawTax.replace(/[^0-9-]/g, "");
-    const creditLimit = "creditLimit" in data ? Number(data.creditLimit) || 0 : 0;
-    const initialDebt = Number(data.initialDebt) || 0;
-
-    let isError = false;
-    let isDuplicate = false;
-    let errorMessage = "";
-    let duplicateField = "";
-
-    if (!name) {
-      isError = true;
-      errorMessage = "Tên không được để trống";
-    } else if (!cleanPhone) {
-      isError = true;
-      errorMessage = "Số điện thoại không được để trống";
-    } else if (cleanPhone.length < 10 || cleanPhone.length > 11) {
-      isError = true;
-      errorMessage = `Số điện thoại phải từ 10 - 11 chữ số (hiện tại: ${cleanPhone.length} số)`;
-    } else if (cleanTax && cleanTax.replace(/\D/g, "").length !== 10 && cleanTax.replace(/\D/g, "").length !== 13) {
-      isError = true;
-      errorMessage = `Mã số thuế phải gồm 10 hoặc 13 chữ số (hiện tại: ${cleanTax.length})`;
-    } else if (creditLimit < 0) {
-      isError = true;
-      errorMessage = "Hạn mức công nợ không được là số âm";
-    } else if (initialDebt < 0) {
-      isError = true;
-      errorMessage = type === "CUSTOMER" ? "Dư nợ đầu kỳ không được là số âm" : "Nợ phải trả đầu kỳ không được là số âm";
-    } else {
-      // Check duplicate within file rows
-      const duplicateInFile = allRows.some(
-        (r) => r.id !== row.id && (r.data.phone || "").replace(/\D/g, "") === cleanPhone
-      );
-      if (duplicateInFile) {
-        isDuplicate = true;
-        duplicateField = "phone";
-        errorMessage = "Trùng lặp số điện thoại với một dòng khác trong cùng tệp tải lên";
-      } else if (currentPhones.has(cleanPhone)) {
-        isDuplicate = true;
-        duplicateField = "phone";
-        errorMessage = `Số điện thoại đã tồn tại trên hồ sơ ${type === "CUSTOMER" ? "khách hàng" : "nhà cung cấp"} của hệ thống`;
-      } else if (cleanTax && currentTaxCodes.has(cleanTax.replace(/\D/g, ""))) {
-        isDuplicate = true;
-        duplicateField = "taxCode";
-        errorMessage = `Mã số thuế đã tồn tại trên hồ sơ ${type === "CUSTOMER" ? "khách hàng" : "nhà cung cấp"} của hệ thống`;
-      }
-    }
-
-    return {
-      ...row,
-      data: {
-        ...data,
-        name,
-        phone: cleanPhone,
-        taxCode: cleanTax,
-        ...(type === "CUSTOMER" ? { creditLimit } : {}),
-        initialDebt,
-      },
-      status: isError ? "ERROR" : isDuplicate ? "DUPLICATE" : "VALID",
-      errorMessage: errorMessage || undefined,
-      duplicateField: isDuplicate ? duplicateField : undefined,
-    };
-  };
-
   // Re-validate rows when DB catalog updates
   useEffect(() => {
     setPreviewRows((prev) => {
       if (prev.length === 0) return prev;
-      return prev.map((row, _, arr) =>
-        validateRow(row, arr, existingPhones, existingTaxCodes, catalogType)
-      );
+      return validateRowsBatch(prev, existingPhones, existingTaxCodes, catalogType);
     });
   }, [existingPhones, existingTaxCodes, catalogType]);
 
@@ -636,22 +684,21 @@ export const ImportCustomerSupplierModal: React.FC<ImportCustomerSupplierModalPr
         };
       });
 
-      // Validate all parsed rows
-      const validated = parsed.map((row, _, arr) =>
-        validateRow(row, arr, existingPhones, existingTaxCodes, catalogType)
-      );
+      // Validate all parsed rows in O(N)
+      const validated = validateRowsBatch(parsed, existingPhones, existingTaxCodes, catalogType);
 
       setPreviewRows(validated);
+      setCurrentPage(1);
       setStep("PREVIEW");
 
       const errorRowsCount = validated.filter((r) => r.status === "ERROR").length;
       if (errorRowsCount > 0) {
         showError(
-          `Đã tải tệp thành công (${validated.length} dòng), phát hiện ${errorRowsCount} dòng có lỗi (được tô đỏ). Vui lòng kiểm tra và sửa trực tiếp trên bảng!`
+          `Đã tải tệp thành công (${validated.length.toLocaleString()} dòng), phát hiện ${errorRowsCount.toLocaleString()} dòng có lỗi (được tô đỏ). Vui lòng kiểm tra và sửa trực tiếp trên bảng!`
         );
       } else {
         showSuccess(
-          `Đã đọc ${validated.length} dòng dữ liệu hợp lệ từ tệp bảng tính! Vui lòng kiểm tra kỹ trước khi bấm Hoàn tất.`
+          `Đã đọc ${validated.length.toLocaleString()} dòng dữ liệu hợp lệ từ tệp bảng tính! Vui lòng kiểm tra kỹ trước khi bấm Hoàn tất.`
         );
       }
     } catch {
@@ -675,6 +722,23 @@ export const ImportCustomerSupplierModal: React.FC<ImportCustomerSupplierModalPr
     return previewRows.filter((r) => r.status === statusFilter);
   }, [previewRows, statusFilter]);
 
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
+
+  const totalPages = Math.max(1, Math.ceil(filteredRows.length / pageSize));
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
+
+  const paginatedRows = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredRows.slice(start, start + pageSize);
+  }, [filteredRows, currentPage, pageSize]);
+
   // Inline editing handler
   const handleCellChange = (
     rowId: string,
@@ -692,9 +756,7 @@ export const ImportCustomerSupplierModal: React.FC<ImportCustomerSupplierModalPr
           },
         };
       });
-      return updatedList.map((r) =>
-        validateRow(r, updatedList, existingPhones, existingTaxCodes, catalogType)
-      );
+      return validateRowsBatch(updatedList, existingPhones, existingTaxCodes, catalogType);
     });
   };
 
@@ -706,12 +768,13 @@ export const ImportCustomerSupplierModal: React.FC<ImportCustomerSupplierModalPr
   };
 
   const handleToggleSelectAll = (checked: boolean) => {
-    setPreviewRows((prev) => prev.map((r) => ({ ...r, isSelected: checked })));
+    const visibleIds = new Set(paginatedRows.map((r) => r.id));
+    setPreviewRows((prev) => prev.map((r) => (visibleIds.has(r.id) ? { ...r, isSelected: checked } : r)));
   };
 
   const isAllSelected = useMemo(() => {
-    return previewRows.length > 0 && previewRows.every((r) => r.isSelected);
-  }, [previewRows]);
+    return paginatedRows.length > 0 && paginatedRows.every((r) => r.isSelected);
+  }, [paginatedRows]);
 
   const selectedCount = useMemo(() => {
     return previewRows.filter((r) => r.isSelected).length;
@@ -720,9 +783,7 @@ export const ImportCustomerSupplierModal: React.FC<ImportCustomerSupplierModalPr
   const handleDeleteRow = (rowId: string) => {
     setPreviewRows((prev) => {
       const updatedList = prev.filter((r) => r.id !== rowId);
-      return updatedList.map((r) =>
-        validateRow(r, updatedList, existingPhones, existingTaxCodes, catalogType)
-      );
+      return validateRowsBatch(updatedList, existingPhones, existingTaxCodes, catalogType);
     });
   };
 
@@ -731,9 +792,7 @@ export const ImportCustomerSupplierModal: React.FC<ImportCustomerSupplierModalPr
     if (count === 0) return;
     setPreviewRows((prev) => {
       const updatedList = prev.filter((r) => !r.isSelected);
-      return updatedList.map((r) =>
-        validateRow(r, updatedList, existingPhones, existingTaxCodes, catalogType)
-      );
+      return validateRowsBatch(updatedList, existingPhones, existingTaxCodes, catalogType);
     });
     showSuccess(`Đã xóa ${count} dòng khỏi danh sách xem trước.`);
   };
@@ -743,14 +802,11 @@ export const ImportCustomerSupplierModal: React.FC<ImportCustomerSupplierModalPr
     if (errorCount === 0) return;
     setPreviewRows((prev) => {
       const updatedList = prev.filter((r) => r.status !== "ERROR");
-      return updatedList.map((r) =>
-        validateRow(r, updatedList, existingPhones, existingTaxCodes, catalogType)
-      );
+      return validateRowsBatch(updatedList, existingPhones, existingTaxCodes, catalogType);
     });
     showSuccess(`Đã xóa ${errorCount} dòng bị lỗi khỏi danh sách xem trước.`);
   };
 
-  // Export error file (NCL-09-CN-009-TC-03)
   const handleExportErrorRows = () => {
     const errorRows = previewRows.filter((r) => r.status === "ERROR");
     if (errorRows.length === 0) {
@@ -810,7 +866,7 @@ export const ImportCustomerSupplierModal: React.FC<ImportCustomerSupplierModalPr
       const ws = XLSX.utils.aoa_to_sheet([headers, ...dataRows]);
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "KhachHang");
-      const buffer = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+      const buffer = XLSX.write(wb, { bookType: "xlsx", type: "array", compression: true });
       const blob = new Blob([buffer], {
         type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       });
@@ -840,7 +896,7 @@ export const ImportCustomerSupplierModal: React.FC<ImportCustomerSupplierModalPr
       const ws = XLSX.utils.aoa_to_sheet([headers, ...dataRows]);
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "NhaCungCap");
-      const buffer = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+      const buffer = XLSX.write(wb, { bookType: "xlsx", type: "array", compression: true });
       const blob = new Blob([buffer], {
         type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       });
@@ -1027,7 +1083,6 @@ export const ImportCustomerSupplierModal: React.FC<ImportCustomerSupplierModalPr
             </div>
           )}
 
-          {/* STEP 1: UPLOAD & DROPZONE */}
           {step === "UPLOAD" && (
             <div className="flex flex-col gap-4">
               <div
@@ -1096,7 +1151,6 @@ export const ImportCustomerSupplierModal: React.FC<ImportCustomerSupplierModalPr
             </div>
           )}
 
-          {/* STEP 2: PREVIEW & INTERACTIVE EDITING */}
           {step === "PREVIEW" && (
             <div className="flex flex-col gap-3.5 flex-1 min-h-0">
               {/* Stat Cards */}
@@ -1170,7 +1224,6 @@ export const ImportCustomerSupplierModal: React.FC<ImportCustomerSupplierModalPr
                 </div>
               </div>
 
-              {/* Duplicate Strategy Selection (NCL-09-CN-009-TC-02) */}
               {metrics.duplicateRows > 0 && (
                 <div className="p-3.5 rounded-xl bg-amber-50/70 border border-amber-200 text-amber-950">
                   <div className="flex items-center gap-2 mb-1.5">
@@ -1280,141 +1333,214 @@ export const ImportCustomerSupplierModal: React.FC<ImportCustomerSupplierModalPr
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {filteredRows.map((r) => {
-                      const isError = r.status === "ERROR";
-                      const isDuplicate = r.status === "DUPLICATE";
-                      return (
-                        <tr
-                          key={r.id}
-                          className={`transition-colors ${
-                            isError
-                              ? "bg-rose-50/50 hover:bg-rose-50/80"
-                              : isDuplicate
-                              ? "bg-amber-50/50 hover:bg-amber-50/80"
-                              : "hover:bg-slate-50/60"
-                          }`}
-                        >
-                          <td className="p-2.5 text-center">
-                            <input
-                              type="checkbox"
-                              checked={!!r.isSelected}
-                              onChange={() => handleToggleSelectRow(r.id)}
-                              className="rounded border-slate-300 text-kv-blue-primary focus:ring-kv-blue-primary cursor-pointer"
-                            />
-                          </td>
+                    {paginatedRows.length === 0 ? (
+                      <tr>
+                        <td colSpan={9} className="p-8 text-center text-slate-400 font-semibold">
+                          {previewRows.length === 0
+                            ? "Không có dòng dữ liệu nào trong bảng xem trước."
+                            : "Không có dòng dữ liệu nào phù hợp với bộ lọc hiện tại."}
+                        </td>
+                      </tr>
+                    ) : (
+                      paginatedRows.map((r) => {
+                        const isError = r.status === "ERROR";
+                        const isDuplicate = r.status === "DUPLICATE";
+                        return (
+                          <tr
+                            key={r.id}
+                            className={`transition-colors ${
+                              isError
+                                ? "bg-rose-50/50 hover:bg-rose-50/80"
+                                : isDuplicate
+                                ? "bg-amber-50/50 hover:bg-amber-50/80"
+                                : "hover:bg-slate-50/60"
+                            }`}
+                          >
+                            <td className="p-2.5 text-center">
+                              <input
+                                type="checkbox"
+                                checked={!!r.isSelected}
+                                onChange={() => handleToggleSelectRow(r.id)}
+                                className="rounded border-slate-300 text-kv-blue-primary focus:ring-kv-blue-primary cursor-pointer"
+                              />
+                            </td>
 
-                          <td className="py-2 px-3 text-center font-mono font-bold text-slate-500">
-                            #{r.rowNumber}
-                          </td>
+                            <td className="py-2 px-3 text-center font-mono font-bold text-slate-500">
+                              #{r.rowNumber}
+                            </td>
 
-                          <td className="py-2 px-3 text-center">
-                            {r.status === "VALID" && (
-                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 inline-flex items-center gap-1">
-                                <CheckIcon size={11} /> Hợp lệ
-                              </span>
-                            )}
-                            {r.status === "DUPLICATE" && (
-                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 inline-flex items-center gap-1">
-                                <AlertTriangleIcon size={11} /> Trùng lặp
-                              </span>
-                            )}
-                            {r.status === "ERROR" && (
-                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 inline-flex items-center gap-1">
-                                <AlertCircleIcon size={11} /> Lỗi
-                              </span>
-                            )}
-                          </td>
+                            <td className="py-2 px-3 text-center">
+                              {r.status === "VALID" && (
+                                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 inline-flex items-center gap-1">
+                                  <CheckIcon size={11} /> Hợp lệ
+                                </span>
+                              )}
+                              {r.status === "DUPLICATE" && (
+                                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 inline-flex items-center gap-1">
+                                  <AlertTriangleIcon size={11} /> Trùng lặp
+                                </span>
+                              )}
+                              {r.status === "ERROR" && (
+                                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 inline-flex items-center gap-1">
+                                  <AlertCircleIcon size={11} /> Lỗi
+                                </span>
+                              )}
+                            </td>
 
-                          {/* Editable Name Input */}
-                          <td className="p-1.5">
-                            <input
-                              type="text"
-                              value={r.data.name || ""}
-                              onChange={(e) => handleCellChange(r.id, "name", e.target.value)}
-                              className={`w-full h-8 px-2 border rounded text-xs font-semibold focus:outline-none ${
-                                !r.data.name?.trim()
-                                  ? "border-rose-400 bg-rose-100/80 text-rose-900 focus:border-rose-500"
-                                  : "border-slate-200 text-slate-800 focus:border-kv-blue-primary bg-white"
-                              }`}
-                            />
-                            {r.data.name && <span className="sr-only">{r.data.name}</span>}
-                          </td>
+                            {/* Editable Name Input */}
+                            <td className="p-1.5">
+                              <input
+                                type="text"
+                                value={r.data.name || ""}
+                                onChange={(e) => handleCellChange(r.id, "name", e.target.value)}
+                                className={`w-full h-8 px-2 border rounded text-xs font-semibold focus:outline-none ${
+                                  !r.data.name?.trim()
+                                    ? "border-rose-400 bg-rose-100/80 text-rose-900 focus:border-rose-500"
+                                    : "border-slate-200 text-slate-800 focus:border-kv-blue-primary bg-white"
+                                }`}
+                              />
+                              {r.data.name && <span className="sr-only">{r.data.name}</span>}
+                            </td>
 
-                          {/* Editable Phone Input */}
-                          <td className="p-1.5">
-                            <input
-                              type="text"
-                              value={r.data.phone || ""}
-                              onChange={(e) => handleCellChange(r.id, "phone", e.target.value)}
-                              className={`w-full h-8 px-2 border rounded font-mono text-xs font-medium focus:outline-none ${
-                                isError && (!r.data.phone?.trim() || r.data.phone.length < 10 || r.data.phone.length > 11)
-                                  ? "border-rose-400 bg-rose-100/80 text-rose-900 focus:border-rose-500"
-                                  : "border-slate-200 text-slate-800 focus:border-kv-blue-primary bg-white"
-                              }`}
-                            />
-                            {r.data.phone && <span className="sr-only">{r.data.phone}</span>}
-                          </td>
+                            {/* Editable Phone Input */}
+                            <td className="p-1.5">
+                              <input
+                                type="text"
+                                value={r.data.phone || ""}
+                                onChange={(e) => handleCellChange(r.id, "phone", e.target.value)}
+                                className={`w-full h-8 px-2 border rounded font-mono text-xs font-medium focus:outline-none ${
+                                  isError && (!r.data.phone?.trim() || r.data.phone.length < 10 || r.data.phone.length > 11)
+                                    ? "border-rose-400 bg-rose-100/80 text-rose-900 focus:border-rose-500"
+                                    : "border-slate-200 text-slate-800 focus:border-kv-blue-primary bg-white"
+                                }`}
+                              />
+                              {r.data.phone && <span className="sr-only">{r.data.phone}</span>}
+                            </td>
 
-                          {/* Editable Tax Code Input */}
-                          <td className="p-1.5">
-                            <input
-                              type="text"
-                              value={r.data.taxCode || ""}
-                              onChange={(e) => handleCellChange(r.id, "taxCode", e.target.value)}
-                              className={`w-full h-8 px-2 border rounded font-mono text-xs focus:outline-none ${
-                                isError && r.data.taxCode && r.data.taxCode.replace(/\D/g, "").length !== 10 && r.data.taxCode.replace(/\D/g, "").length !== 13
-                                  ? "border-rose-400 bg-rose-100/80 text-rose-900 focus:border-rose-500"
-                                  : "border-slate-200 text-slate-800 focus:border-kv-blue-primary bg-white"
-                              }`}
-                            />
-                          </td>
+                            {/* Editable Tax Code Input */}
+                            <td className="p-1.5">
+                              <input
+                                type="text"
+                                value={r.data.taxCode || ""}
+                                onChange={(e) => handleCellChange(r.id, "taxCode", e.target.value)}
+                                className={`w-full h-8 px-2 border rounded font-mono text-xs focus:outline-none ${
+                                  isError && r.data.taxCode && r.data.taxCode.replace(/\D/g, "").length !== 10 && r.data.taxCode.replace(/\D/g, "").length !== 13
+                                    ? "border-rose-400 bg-rose-100/80 text-rose-900 focus:border-rose-500"
+                                    : "border-slate-200 text-slate-800 focus:border-kv-blue-primary bg-white"
+                                }`}
+                              />
+                            </td>
 
-                          {/* Editable Initial Debt Input */}
-                          <td className="p-1.5 text-right">
-                            <input
-                              type="number"
-                              value={r.data.initialDebt ?? 0}
-                              onChange={(e) => handleCellChange(r.id, "initialDebt", parseFloat(e.target.value) || 0)}
-                              className={`w-full h-8 px-2 border rounded text-xs text-right font-semibold focus:outline-none ${
-                                (r.data.initialDebt ?? 0) < 0
-                                  ? "border-rose-400 bg-rose-100/80 text-rose-900 focus:border-rose-500"
-                                  : "border-slate-200 text-slate-800 focus:border-kv-blue-primary bg-white"
-                              }`}
-                            />
-                          </td>
+                            {/* Editable Initial Debt Input */}
+                            <td className="p-1.5 text-right">
+                              <input
+                                type="number"
+                                value={r.data.initialDebt ?? 0}
+                                onChange={(e) => handleCellChange(r.id, "initialDebt", parseFloat(e.target.value) || 0)}
+                                className={`w-full h-8 px-2 border rounded text-xs text-right font-semibold focus:outline-none ${
+                                  (r.data.initialDebt ?? 0) < 0
+                                    ? "border-rose-400 bg-rose-100/80 text-rose-900 focus:border-rose-500"
+                                    : "border-slate-200 text-slate-800 focus:border-kv-blue-primary bg-white"
+                                }`}
+                              />
+                            </td>
 
-                          {/* Error or Duplicate Details */}
-                          <td className="py-2 px-3 text-[11px] max-w-xs">
-                            {r.errorMessage ? (
-                              <span className={isError ? "text-rose-600 font-semibold" : "text-amber-700 font-medium"}>
-                                {r.errorMessage}
-                              </span>
-                            ) : (
-                              <span className="text-slate-400">Đầy đủ thông tin</span>
-                            )}
-                          </td>
+                            {/* Error or Duplicate Details */}
+                            <td className="py-2 px-3 text-[11px] max-w-xs">
+                              {r.errorMessage ? (
+                                <span className={isError ? "text-rose-600 font-semibold" : "text-amber-700 font-medium"}>
+                                  {r.errorMessage}
+                                </span>
+                              ) : (
+                                <span className="text-slate-400">Đầy đủ thông tin</span>
+                              )}
+                            </td>
 
-                          {/* Delete Single Row Button */}
-                          <td className="py-2 px-2 text-center">
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteRow(r.id)}
-                              className="text-slate-400 hover:text-rose-600 p-1 rounded transition-colors cursor-pointer"
-                              title="Xóa dòng này"
-                            >
-                              <Trash2Icon size={14} />
-                            </button>
-                          </td>
-                        </tr>
-                      );
-                    })}
+                            {/* Delete Single Row Button */}
+                            <td className="py-2 px-2 text-center">
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteRow(r.id)}
+                                className="text-slate-400 hover:text-rose-600 p-1 rounded transition-colors cursor-pointer"
+                                title="Xóa dòng này"
+                              >
+                                <Trash2Icon size={14} />
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
                   </tbody>
                 </table>
               </div>
+
+              {/* Pagination Controls */}
+              {filteredRows.length > 0 && (
+                <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-50 px-3 py-2 rounded-xl border border-slate-200 text-xs shrink-0 font-medium">
+                  <div className="text-slate-600 text-[11px]">
+                    Hiển thị{" "}
+                    <span className="font-bold text-slate-800">
+                      {((currentPage - 1) * pageSize + 1).toLocaleString()}
+                    </span>{" "}
+                    -{" "}
+                    <span className="font-bold text-slate-800">
+                      {Math.min(currentPage * pageSize, filteredRows.length).toLocaleString()}
+                    </span>{" "}
+                    trong tổng số{" "}
+                    <span className="font-bold text-slate-800">
+                      {filteredRows.length.toLocaleString()}
+                    </span>{" "}
+                    dòng
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-1.5 text-slate-600 text-[11px]">
+                      <span>Số dòng/trang:</span>
+                      <select
+                        value={pageSize}
+                        onChange={(e) => {
+                          setPageSize(Number(e.target.value));
+                          setCurrentPage(1);
+                        }}
+                        className="border border-slate-300 rounded px-1.5 py-0.5 bg-white text-slate-800 font-bold focus:outline-none focus:border-kv-blue-primary cursor-pointer"
+                      >
+                        <option value={20}>20</option>
+                        <option value={50}>50</option>
+                        <option value={100}>100</option>
+                        <option value={200}>200</option>
+                      </select>
+                    </div>
+
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        disabled={currentPage <= 1}
+                        onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                        className="p-1 rounded border border-slate-300 bg-white hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                        title="Trang trước"
+                      >
+                        <ChevronLeftIcon size={14} className="text-slate-700" />
+                      </button>
+                      <span className="px-2 font-bold text-slate-800 text-[11px]">
+                        Trang {currentPage} / {totalPages}
+                      </span>
+                      <button
+                        type="button"
+                        disabled={currentPage >= totalPages}
+                        onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                        className="p-1 rounded border border-slate-300 bg-white hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                        title="Trang sau"
+                      >
+                        <ChevronRightIcon size={14} className="text-slate-700" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
-          {/* STEP 3: RESULT */}
           {step === "RESULT" && (
             <div className="flex flex-col items-center justify-center p-8 text-center gap-4 animate-fade-in">
               <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-600">

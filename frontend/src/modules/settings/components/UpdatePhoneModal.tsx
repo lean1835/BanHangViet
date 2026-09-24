@@ -101,7 +101,6 @@ export const UpdatePhoneModal: React.FC<UpdatePhoneModalProps> = ({
     return true;
   };
 
-  // Step 1: Send OTP
   const handleSendOtp = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!validatePhone(newPhoneNumber) || isSendingOtp) return;
@@ -121,7 +120,6 @@ export const UpdatePhoneModal: React.FC<UpdatePhoneModalProps> = ({
     }
   };
 
-  // Step 2: Resend OTP
   const handleResendOtp = async () => {
     if (cooldownSeconds > 0 || isSendingOtp) return;
     try {
@@ -138,7 +136,6 @@ export const UpdatePhoneModal: React.FC<UpdatePhoneModalProps> = ({
     }
   };
 
-  // Step 2: Verify OTP
   const handleVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     const trimmedOtp = otpCode.trim();
@@ -206,7 +203,6 @@ export const UpdatePhoneModal: React.FC<UpdatePhoneModalProps> = ({
           </button>
         </div>
 
-        {/* Step 1: Input Phone */}
         {step === 1 && (
           <form onSubmit={handleSendOtp} className="flex flex-col p-6 gap-4">
             {currentPhoneNumber && (
@@ -280,7 +276,6 @@ export const UpdatePhoneModal: React.FC<UpdatePhoneModalProps> = ({
           </form>
         )}
 
-        {/* Step 2: Verify OTP */}
         {step === 2 && (
           <form onSubmit={handleVerifyOtp} className="flex flex-col p-6 gap-4">
             <div className="flex items-center justify-between p-3 rounded-xl bg-blue-50/70 border border-blue-200/80 text-xs">

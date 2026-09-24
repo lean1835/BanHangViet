@@ -38,33 +38,51 @@ const ArrowRightIcon: React.FC<SvgIconProps> = ({ size = 14, className = "" }) =
     <path d="m12 5 7 7-7 7" />
   </svg>
 );
-import { useSetupGuide } from "@/modules/settings/hooks/useSetupGuide";
+import { useSetupGuide, getAccountAutoOpenedKey } from "@/modules/settings/hooks/useSetupGuide";
 import { FirstTimeSetupWizardModal } from "@/modules/settings/components/FirstTimeSetupWizardModal";
 
 export const SetupGuideBanner: React.FC = () => {
-  const { progress, isReadyForInvoice, isDismissed, isOnboardingLoading } = useSetupGuide();
+  const {
+    progress,
+    isReadyForInvoice,
+    isDismissed,
+    isPermanentlyHidden,
+    isOnboardingLoading,
+    userKey,
+    markModalAutoOpened,
+    skipGuideAsync,
+  } = useSetupGuide();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const hasAutoOpenedRef = useRef(false);
 
-  // AC NCL-09-CN-007-TC-01: Tự động mở Modal hướng dẫn khi Chủ hộ đăng nhập lần đầu
   useEffect(() => {
-    if (!isOnboardingLoading && !isReadyForInvoice && !isDismissed && !hasAutoOpenedRef.current) {
+    if (typeof window === "undefined") return;
+    const autoOpenedKey = getAccountAutoOpenedKey(userKey);
+    const alreadyAutoOpened = localStorage.getItem(autoOpenedKey) === "true";
+
+    if (!isOnboardingLoading && !isReadyForInvoice && !isDismissed && !alreadyAutoOpened && !hasAutoOpenedRef.current) {
       hasAutoOpenedRef.current = true;
       setIsModalOpen(true);
     }
-  }, [isOnboardingLoading, isReadyForInvoice, isDismissed]);
+  }, [isOnboardingLoading, isReadyForInvoice, isDismissed, userKey]);
 
-  const percentCompleted = Math.round(
-    (progress.completedRequired / Math.max(progress.totalRequired, 1)) * 100
-  );
-
-  // AC NCL-09-CN-007-TC-02 & TC-03: Chỉ ẩn hoàn toàn Banner khi đã sẵn sàng xuất hóa đơn (hoàn thành 4 bước).
-  // Khi chủ hộ bấm "Bỏ qua để vào bán ngay", isDismissed = true nhưng Banner VẪN PHẢI HIỂN THỊ trên Dashboard.
-  if (isReadyForInvoice) {
+  // Khi đã hoàn thành hoặc người dùng bấm bỏ qua hẳn, ẩn hoàn toàn banner
+  if (isPermanentlyHidden || isReadyForInvoice) {
     return null;
   }
 
-  const missingStepsCount = progress.totalRequired - progress.completedRequired;
+  const completedOrSkipped = progress.completedRequired + (progress.skippedRequired || 0);
+  const percentCompleted = Math.min(
+    100,
+    Math.round((completedOrSkipped / Math.max(progress.totalRequired, 1)) * 100)
+  );
+
+  const missingStepsCount = Math.max(0, progress.totalRequired - completedOrSkipped);
+
+  const handleCloseModal = () => {
+    markModalAutoOpened();
+    setIsModalOpen(false);
+  };
 
   return (
     <>
@@ -92,14 +110,14 @@ export const SetupGuideBanner: React.FC = () => {
             </div>
           </div>
 
-          {/* Right Section: Compact Progress + Action Button */}
-          <div className="flex items-center gap-3.5 sm:gap-4 shrink-0 self-stretch sm:self-auto justify-between sm:justify-end pt-2 sm:pt-0 border-t sm:border-t-0 border-blue-100">
+          {/* Right Section: Compact Progress + Action Buttons */}
+          <div className="flex items-center gap-3 sm:gap-3.5 shrink-0 self-stretch sm:self-auto justify-between sm:justify-end pt-2 sm:pt-0 border-t sm:border-t-0 border-blue-100">
             {/* Progress Display */}
             <div className="flex flex-col items-start sm:items-end justify-center">
               <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
                 <span className="hidden md:inline">Tiến độ:</span>
                 <span className="font-bold text-slate-800 text-[11px] sm:text-xs">
-                  {progress.completedRequired}/{progress.totalRequired} bước ({percentCompleted}%)
+                  {completedOrSkipped}/{progress.totalRequired} bước ({percentCompleted}%)
                 </span>
               </div>
               {/* Mini progress bar track */}
@@ -110,6 +128,16 @@ export const SetupGuideBanner: React.FC = () => {
                 />
               </div>
             </div>
+
+            {/* Quick Skip Button */}
+            <button
+              type="button"
+              onClick={() => skipGuideAsync()}
+              className="inline-flex items-center justify-center h-8 px-2.5 text-xs font-semibold text-slate-500 hover:text-slate-800 hover:bg-blue-100/60 rounded-lg transition-colors cursor-pointer shrink-0"
+              title="Bỏ qua hướng dẫn thiết lập cho tài khoản này"
+            >
+              Bỏ qua hướng dẫn
+            </button>
 
             {/* CTA Button */}
             <button
@@ -129,7 +157,7 @@ export const SetupGuideBanner: React.FC = () => {
 
       <FirstTimeSetupWizardModal
         isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
+        onClose={handleCloseModal}
       />
     </>
   );

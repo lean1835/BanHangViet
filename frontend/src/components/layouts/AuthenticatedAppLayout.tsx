@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useState, Suspense, lazy } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import { APP_ROUTES } from "@/constants/routes";
 import { USER_ROLES } from "@/constants/roles";
 import { useDashboardDemo } from "@/providers/DashboardDemoProvider";
 import { DashboardNavigation } from "./DashboardNavigation";
+import { PageLoadingFallback } from "@/components/common/PageLoadingFallback";
 import { useOfflineSync } from "@/modules/sync/hooks/useOfflineSync";
 import { OfflineSyncBanner } from "@/modules/sync/components/OfflineSyncBanner";
 import { ConflictResolutionModal } from "@/modules/sync/components/ConflictResolutionModal";
@@ -14,6 +15,10 @@ import {
   ScreenGuideHighlightOverlay,
   ScreenGuideDirectoryModal,
 } from "@/modules/screen_guide";
+
+const ChatbotWidget = lazy(() =>
+  import("@/modules/chatbot").then((m) => ({ default: m.ChatbotWidget }))
+);
 
 export const AuthenticatedAppLayout = () => {
   useAuthExpiration();
@@ -77,7 +82,15 @@ export const AuthenticatedAppLayout = () => {
         </div>
 
         <div className="flex-1 min-h-0 min-w-0 flex flex-col overflow-hidden">
-          <Outlet />
+          <Suspense
+            fallback={
+              <div className="p-4 flex-1 overflow-y-auto bg-slate-100">
+                <PageLoadingFallback />
+              </div>
+            }
+          >
+            <Outlet />
+          </Suspense>
         </div>
 
         <ConflictResolutionModal
@@ -89,10 +102,16 @@ export const AuthenticatedAppLayout = () => {
           onClose={() => setIsConflictModalOpen(false)}
         />
 
-        {/* Hướng dẫn ngắn tại chỗ theo từng màn hình (NCL-19-CN-003) */}
         <ScreenGuideDrawer />
         <ScreenGuideHighlightOverlay />
         <ScreenGuideDirectoryModal />
+
+        {currentRole !== USER_ROLES.PLATFORM_ADMIN &&
+          currentRole !== USER_ROLES.TAX_AUTHORITY && (
+            <Suspense fallback={null}>
+              <ChatbotWidget />
+            </Suspense>
+          )}
       </div>
     </ScreenGuideProvider>
   );

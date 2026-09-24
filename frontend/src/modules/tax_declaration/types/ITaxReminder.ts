@@ -1,5 +1,5 @@
 /**
- * NCL-12-CN-007: Nhắc lịch nộp tờ khai theo kỳ
+ * Nhắc lịch nộp tờ khai theo kỳ
  * Data models and TypeScript types for tax filing reminders and checklist progress
  */
 
@@ -19,19 +19,15 @@ export interface IUpdateTaxReminderSettingsRequest {
 }
 
 export interface ITaxPeriodChecklistResponse {
-  // 1. Bảng kê hóa đơn bán ra (NCL-12-CN-001)
   salesRegisterGenerated: boolean;
   salesRegisterUrl: string;
 
-  // 2. Bảng kê hàng hóa mua vào (NCL-12-CN-006)
   purchaseRegisterGenerated: boolean;
   purchaseRegisterUrl: string;
 
-  // 3. Xuất tờ khai thuế mẫu 01/CNKD (NCL-12-CN-003)
   declarationExported: boolean;
   declarationExportUrl: string;
 
-  // 4. Chốt kỳ kê khai & khóa số liệu (NCL-12-CN-004)
   periodLocked: boolean;
   periodLockUrl: string;
 }

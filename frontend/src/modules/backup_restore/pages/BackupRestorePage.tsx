@@ -61,7 +61,6 @@ export const BackupRestorePage: React.FC = () => {
   const [previewData, setPreviewData] = useState<IRestorePreview | null>(null);
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
 
-  // Verification modal state (NCL-14-CN-005)
   const [isTriggerModalOpen, setIsTriggerModalOpen] = useState<boolean>(false);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState<boolean>(false);
   const [selectedVerification, setSelectedVerification] =
@@ -94,7 +93,6 @@ export const BackupRestorePage: React.FC = () => {
       { skip: !isOwner }
     );
 
-  // Verification Queries (NCL-14-CN-005)
   const {
     data: verificationStatusData,
     isLoading: isVerificationStatusLoading,
@@ -359,7 +357,6 @@ export const BackupRestorePage: React.FC = () => {
         </div>
       </div>
 
-      {/* TAB 1: Auto Backup (NCL-14-CN-002) */}
       {activeTab === "auto_backup" && (
         <div className="space-y-6">
           <BackupStatusOverviewCards
@@ -385,7 +382,6 @@ export const BackupRestorePage: React.FC = () => {
         </div>
       )}
 
-      {/* TAB 2: Restore Data (NCL-14-CN-003) */}
       {activeTab === "restore" && (
         <div className="space-y-6">
           <AvailableBackupsTable
@@ -418,7 +414,6 @@ export const BackupRestorePage: React.FC = () => {
         </div>
       )}
 
-      {/* TAB 3: Periodic Backup Verification & Health Status (NCL-14-CN-005) */}
       {activeTab === "verification" && (
         <div className="space-y-6">
           {/* Health Alert Banner */}
@@ -468,7 +463,6 @@ export const BackupRestorePage: React.FC = () => {
         </div>
       )}
 
-      {/* TAB 4: Manual Export (NCL-09-CN-006) */}
       {activeTab === "manual_export" && <BackupExportPanel />}
     </div>
   );

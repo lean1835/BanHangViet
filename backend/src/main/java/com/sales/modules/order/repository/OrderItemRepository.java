@@ -1,0 +1,266 @@
+package com.sales.modules.order.repository;
+import com.sales.modules.order.entity.OrderItem;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import org.springframework.stereotype.Repository;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
+
+@Repository
+public interface OrderItemRepository extends JpaRepository<OrderItem, String> {
+
+    Optional<OrderItem> findByIdAndOrderId(String id, String orderId);
+
+    boolean existsByUnitConversionId(String unitConversionId);
+
+    boolean existsByPriceTierId(String priceTierId);
+
+    interface PromotionMetricsProjection {
+        Long getTotalOrdersCount();
+        BigDecimal getTotalQuantitySold();
+        BigDecimal getPromotionRevenue();
+        BigDecimal getTotalDiscountAmount();
+    }
+
+    interface PromotionProductStatProjection {
+        String getProductId();
+        String getProductName();
+        BigDecimal getQuantitySold();
+        BigDecimal getRevenue();
+        BigDecimal getDiscountAmount();
+    }
+
+    @Query("""
+        SELECT 
+            COUNT(DISTINCT oi.order.id) as totalOrdersCount,
+            COALESCE(SUM(oi.quantity), 0) as totalQuantitySold,
+            COALESCE(SUM(oi.subtotal), 0) as promotionRevenue,
+            COALESCE(SUM(oi.discountAmount), 0) as totalDiscountAmount
+        FROM OrderItem oi
+        WHERE oi.promotion.id = :promotionId
+          AND oi.order.status = 'COMPLETED'
+    """)
+    PromotionMetricsProjection getPromotionMetrics(@Param("promotionId") String promotionId);
+
+    @Query("""
+        SELECT 
+            oi.product.id as productId,
+            oi.productName as productName,
+            COALESCE(SUM(oi.quantity), 0) as quantitySold,
+            COALESCE(SUM(oi.subtotal), 0) as revenue,
+            COALESCE(SUM(oi.discountAmount), 0) as discountAmount
+        FROM OrderItem oi
+        WHERE oi.promotion.id = :promotionId
+          AND oi.order.status = 'COMPLETED'
+        GROUP BY oi.product.id, oi.productName
+        ORDER BY SUM(oi.subtotal) DESC
+    """)
+    List<PromotionProductStatProjection> getPromotionProductStats(@Param("promotionId") String promotionId);
+
+    @Query("""
+        SELECT COALESCE(SUM(oi.subtotal), 0)
+        FROM OrderItem oi
+        WHERE oi.order.household.id = :householdId
+          AND oi.order.status = 'COMPLETED'
+          AND oi.order.createdAt >= :startDate
+          AND oi.order.createdAt < :endDate
+          AND oi.product.id IN :productIds
+    """)
+    BigDecimal getBaselineRevenueForProducts(
+            @Param("householdId") String householdId,
+            @Param("productIds") List<String> productIds,
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate
+    );
+
+    @Query("""
+        SELECT COALESCE(SUM(oi.subtotal), 0)
+        FROM OrderItem oi
+        WHERE oi.order.household.id = :householdId
+          AND oi.order.status = 'COMPLETED'
+          AND oi.order.createdAt >= :startDate
+          AND oi.order.createdAt < :endDate
+    """)
+    BigDecimal getBaselineRevenueForAll(
+            @Param("householdId") String householdId,
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate
+    );
+
+    @Query("""
+        SELECT oi FROM OrderItem oi
+        JOIN FETCH oi.order o
+        LEFT JOIN FETCH o.createdByUser
+        WHERE oi.product.id = :productId
+          AND o.household.id = :householdId
+          AND o.status = 'COMPLETED'
+          AND o.deletedAt IS NULL
+        ORDER BY o.createdAt ASC, oi.createdAt ASC
+    """)
+    List<OrderItem> findStockMovementsByProduct(
+            @Param("productId") String productId,
+            @Param("householdId") String householdId
+    );
+
+    @Query("""
+        SELECT oi FROM OrderItem oi
+        JOIN FETCH oi.order o
+        LEFT JOIN FETCH o.createdByUser
+        WHERE oi.product.id = :productId
+          AND o.household.id = :householdId
+          AND o.status = 'COMPLETED'
+          AND o.deletedAt IS NULL
+          AND (COALESCE(o.createdAt, oi.createdAt) BETWEEN :startDateTime AND :endDateTime)
+        ORDER BY o.createdAt ASC, oi.createdAt ASC
+    """)
+    List<OrderItem> findStockMovementsByProductInPeriod(
+            @Param("productId") String productId,
+            @Param("householdId") String householdId,
+            @Param("startDateTime") LocalDateTime startDateTime,
+            @Param("endDateTime") LocalDateTime endDateTime
+    );
+
+    @Query("""
+        SELECT COALESCE(SUM(COALESCE(oi.baseQuantity, oi.quantity)), 0)
+        FROM OrderItem oi
+        JOIN oi.order o
+        WHERE oi.product.id = :productId
+          AND o.household.id = :householdId
+          AND o.status = 'COMPLETED'
+          AND o.deletedAt IS NULL
+          AND COALESCE(o.createdAt, oi.createdAt) < :startDateTime
+    """)
+    BigDecimal sumQuantityBefore(
+            @Param("productId") String productId,
+            @Param("householdId") String householdId,
+            @Param("startDateTime") LocalDateTime startDateTime
+    );
+
+    @Query("""
+        SELECT COALESCE(SUM(COALESCE(oi.baseQuantity, oi.quantity)), 0)
+        FROM OrderItem oi
+        JOIN oi.order o
+        WHERE oi.product.id = :productId
+          AND o.household.id = :householdId
+          AND o.status = 'COMPLETED'
+          AND o.deletedAt IS NULL
+    """)
+    BigDecimal sumQuantityAllTime(
+            @Param("productId") String productId,
+            @Param("householdId") String householdId
+    );
+
+    @Query("SELECT COUNT(oi) > 0 FROM OrderItem oi " +
+           "WHERE oi.product.id = :productId " +
+           "AND oi.order.household.id = :householdId " +
+           "AND oi.order.status = 'COMPLETED' " +
+           "AND oi.order.deletedAt IS NULL")
+    boolean hasStockMovementByProduct(
+            @Param("productId") String productId,
+            @Param("householdId") String householdId
+    );
+
+    @Query("""
+        SELECT oi FROM OrderItem oi
+        JOIN FETCH oi.order o
+        LEFT JOIN FETCH oi.product p
+        WHERE o.household.id = :householdId
+          AND o.status = 'COMPLETED'
+          AND o.deletedAt IS NULL
+          AND o.createdAt >= :startDate
+          AND o.createdAt <= :endDate
+        ORDER BY o.createdAt ASC
+    """)
+    List<OrderItem> findItemsForGrossProfitReport(
+            @Param("householdId") String householdId,
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate
+    );
+
+    interface ProductGroupRevenueProjection {
+        String getGroupId();
+        String getGroupName();
+        BigDecimal getTotalQuantity();
+        BigDecimal getTotalRevenue();
+    }
+
+    @Query("""
+        SELECT 
+            pg.id as groupId,
+            COALESCE(pg.name, 'Chưa phân nhóm') as groupName,
+            COALESCE(SUM(oi.quantity), 0) as totalQuantity,
+            COALESCE(SUM(oi.subtotal), 0) as totalRevenue
+        FROM OrderItem oi
+        JOIN oi.order o
+        LEFT JOIN oi.product p
+        LEFT JOIN p.group pg
+        WHERE o.household.id = :householdId
+          AND o.status = 'COMPLETED'
+          AND o.deletedAt IS NULL
+          AND o.createdAt >= :startDate
+          AND o.createdAt <= :endDate
+        GROUP BY pg.id, pg.name
+        ORDER BY SUM(oi.subtotal) DESC
+    """)
+    List<ProductGroupRevenueProjection> getRevenueByProductGroup(
+            @Param("householdId") String householdId,
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate
+    );
+
+    interface ProductRevenueInGroupProjection {
+        String getProductId();
+        String getProductSku();
+        String getProductName();
+        String getUnit();
+        BigDecimal getTotalQuantity();
+        BigDecimal getTotalRevenue();
+    }
+
+    @Query("""
+        SELECT 
+            p.id as productId,
+            COALESCE(p.sku, 'N/A') as productSku,
+            oi.productName as productName,
+            COALESCE(p.unit, 'Món') as unit,
+            COALESCE(SUM(oi.quantity), 0) as totalQuantity,
+            COALESCE(SUM(oi.subtotal), 0) as totalRevenue
+        FROM OrderItem oi
+        JOIN oi.order o
+        LEFT JOIN oi.product p
+        WHERE o.household.id = :householdId
+          AND o.status = 'COMPLETED'
+          AND o.deletedAt IS NULL
+          AND o.createdAt >= :startDate
+          AND o.createdAt <= :endDate
+          AND ((:groupId = 'UNASSIGNED' AND (p IS NULL OR p.group IS NULL)) OR (:groupId <> 'UNASSIGNED' AND p.group.id = :groupId))
+        GROUP BY p.id, p.sku, oi.productName, p.unit
+        ORDER BY SUM(oi.subtotal) DESC
+    """)
+    List<ProductRevenueInGroupProjection> getRevenueByProductsInGroup(
+            @Param("householdId") String householdId,
+            @Param("groupId") String groupId,
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate
+    );
+
+    @Query("""
+        SELECT oi.product.id, COALESCE(SUM(COALESCE(oi.baseQuantity, oi.quantity)), 0)
+        FROM OrderItem oi
+        JOIN oi.order o
+        WHERE o.household.id = :householdId
+          AND o.status = 'COMPLETED'
+          AND o.deletedAt IS NULL
+          AND COALESCE(o.createdAt, oi.createdAt) <= :endDateTime
+        GROUP BY oi.product.id
+    """)
+    List<Object[]> sumQuantityBeforeGroupedByProduct(
+            @Param("householdId") String householdId,
+            @Param("endDateTime") LocalDateTime endDateTime
+    );
+}
+

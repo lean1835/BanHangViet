@@ -1,8 +1,5 @@
 import type { IPageResponse } from "@/types/api";
 
-// =========================================================================
-// NCL-18-CN-001: Phân tích giờ cao điểm & ngày bán chạy
-// =========================================================================
 
 export interface IPeakHourlySalesData {
   hour: number; // 0..23
@@ -88,9 +85,6 @@ export interface IPeakHoursAndDaysParams {
   posId?: string;
 }
 
-// =========================================================================
-// NCL-18-CN-002: Dự báo lượng hàng cần nhập cho kỳ tới
-// =========================================================================
 
 export interface IPurchaseSuggestion {
   productId: string;
@@ -120,9 +114,6 @@ export interface IPurchaseForecastParams {
   size?: number;
 }
 
-// =========================================================================
-// NCL-18-CN-003: Cảnh báo mặt hàng bán chậm và tồn lâu
-// =========================================================================
 
 export interface ISlowMovingSummary {
   thresholdDays: number;

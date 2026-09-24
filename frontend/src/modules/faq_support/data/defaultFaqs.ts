@@ -56,7 +56,6 @@ export const DEFAULT_SUPPORT_INFO: ISupportInfo = {
 };
 
 export const DEFAULT_FAQS: IFaqItem[] = [
-  // ==================== NHÓM 1: HÓA ĐƠN & THUẾ (INVOICE) ====================
   {
     id: "faq-inv-001",
     category: "INVOICE",
@@ -113,7 +112,6 @@ Bạn cần vào mục Cài đặt -> Mẫu hóa đơn để khai báo dải s�
     isActive: true,
   },
 
-  // ==================== NHÓM 2: BÁN HÀNG & CA (SALES) ====================
   {
     id: "faq-sal-001",
     category: "SALES",
@@ -171,7 +169,6 @@ Khi mạng Internet có trở lại, toàn bộ đơn hàng sẽ tự động đ
     isActive: true,
   },
 
-  // ==================== NHÓM 3: TÀI KHOẢN & QUYỀN (ACCOUNT) ====================
   {
     id: "faq-acc-001",
     category: "ACCOUNT",
@@ -216,7 +213,6 @@ Chủ hộ vào mục Nhân viên -> Quản lý nhân viên, tìm nhân viên đ
     isActive: true,
   },
 
-  // ==================== NHÓM 4: DỮ LIỆU & SAO LƯU (DATA) ====================
   {
     id: "faq-dat-001",
     category: "DATA",

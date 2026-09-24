@@ -79,7 +79,7 @@ export const MODULE_GROUPS: IModuleGroup[] = [
     tabs: [
       {
         screenCode: "SCREEN_REPORTS_REVENUE",
-        tabName: "Doanh thu & Bán chạy",
+        tabName: "Tổng quan doanh thu",
         actionUrl: "/reports",
       },
       {

@@ -83,7 +83,6 @@ export const useTaxDeclarationExport = ({
           exportTaxDeclarationToXml(period, revenueSummary, registerItems, householdData);
         }
 
-        // NCL-12-CN-007: Đánh dấu đã xuất tờ khai thuế và đồng bộ trạng thái nhắc việc
         try {
           await markDeclarationAsExported(period.id).unwrap();
         } catch {

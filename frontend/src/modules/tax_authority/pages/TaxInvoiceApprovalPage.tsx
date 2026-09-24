@@ -417,19 +417,30 @@ export const TaxInvoiceApprovalPage: React.FC<TaxInvoiceApprovalPageProps> = ({
                         </>
                       ) : (
                         <>
-                          <td className="p-3 text-xs font-semibold text-slate-600 max-w-[250px] truncate">
+                          <td className="p-3 text-xs font-semibold text-slate-600 max-w-[280px]">
                             {invoice.status === "ISSUED" ? (
                               <span className="font-mono font-bold text-slate-500">{invoice.taxAuthorityCode}</span>
                             ) : invoice.status === "SEND_ERROR" ? (
                               <span className="text-rose-600 text-xs italic">{invoice.taxAuthorityResponse || "Dữ liệu hóa đơn không hợp lệ."}</span>
                             ) : invoice.status === "CANCELED" ? (
-                              <span className="text-slate-500 italic">Đã hủy (Lý do: {invoice.cancelReason || "Không có"})</span>
+                              <div className="flex flex-col gap-0.5">
+                                {invoice.taxAuthorityCode && (
+                                  <span className="font-mono text-slate-400 line-through text-[11px] font-semibold">{invoice.taxAuthorityCode}</span>
+                                )}
+                                <span className="text-rose-600 text-xs italic">Đã hủy (Lý do: {invoice.cancelReason || "Không có"})</span>
+                              </div>
+                            ) : invoice.status === "ADJUSTED" ? (
+                              <span className="text-amber-600 text-xs italic">Đã điều chỉnh</span>
                             ) : (
                               "-"
                             )}
                           </td>
                           <td className="p-3 text-xs text-slate-500 font-mono">
-                            {invoice.taxResponseAt ? invoice.taxResponseAt.replace("T", " ").substring(0, 19) : (invoice.createdAt || invoice.time || "-")}
+                            {invoice.canceledAt
+                              ? invoice.canceledAt.replace("T", " ").substring(0, 19)
+                              : invoice.taxResponseAt
+                              ? invoice.taxResponseAt.replace("T", " ").substring(0, 19)
+                              : (invoice.createdAt || invoice.time || "-")}
                           </td>
                         </>
                       )}

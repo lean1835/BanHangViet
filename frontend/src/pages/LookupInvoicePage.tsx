@@ -550,13 +550,6 @@ export const LookupInvoicePage: React.FC = () => {
 
               {/* Total Area */}
               {(() => {
-                const isAdjustmentOrExchange = Boolean(
-                  searchedInvoice.originalInvoiceId ||
-                  (searchedInvoice as any).originalInvoice ||
-                  (searchedInvoice as any).title?.includes("ĐỔI HÀNG") ||
-                  (searchedInvoice as any).title?.includes("BỔ SUNG") ||
-                  (searchedInvoice as any).footerNote?.includes("đổi hàng")
-                );
                 const originalItemsTotal = searchedInvoice.items && searchedInvoice.items.length > 0
                   ? searchedInvoice.items.reduce((sum, item) => {
                       const lineTotal = (item.subtotal !== undefined && item.subtotal !== null && item.subtotal !== 0)
@@ -568,19 +561,16 @@ export const LookupInvoicePage: React.FC = () => {
                 const hasDiscount = Boolean(searchedInvoice.discountAmount && searchedInvoice.discountAmount > 0);
                 const preTaxAmount = Math.max(0, originalItemsTotal - (searchedInvoice.discountAmount || 0));
 
-                // Thuế GTGT tính trên giá sau chiết khấu thương mại theo chuẩn Nghị định 123
-                const effectiveTaxAmount = hasDiscount && searchedInvoice.taxAmount && originalItemsTotal > 0
-                  ? Math.round(searchedInvoice.taxAmount * (preTaxAmount / originalItemsTotal))
-                  : (searchedInvoice.taxAmount || 0);
+                // Thuế GTGT: Backend searchedInvoice.taxAmount đã là số tiền thuế thực tế sau chiết khấu (theo chuẩn Nghị định 123)
+                const effectiveTaxAmount = searchedInvoice.taxAmount !== undefined && searchedInvoice.taxAmount !== null
+                  ? searchedInvoice.taxAmount
+                  : (hasDiscount && originalItemsTotal > 0 ? Math.round(preTaxAmount * 0.1) : 0);
 
-                // Số tiền trừ điểm thưởng / điểm tích lũy
-                const payableBeforePoints = preTaxAmount + effectiveTaxAmount;
+                // Số tiền trừ điểm thưởng / điểm tích lũy: CHỈ hiển thị khi đơn hàng/hóa đơn thực sự dùng điểm
                 const pointDiscount = (searchedInvoice.pointDiscountAmount && searchedInvoice.pointDiscountAmount > 0)
                   ? searchedInvoice.pointDiscountAmount
-                  : (!isAdjustmentOrExchange && searchedInvoice.finalAmount !== undefined && searchedInvoice.finalAmount < payableBeforePoints)
-                  ? Math.max(0, payableBeforePoints - searchedInvoice.finalAmount)
                   : 0;
-                const pointsRedeemed = searchedInvoice.pointsRedeemed || (pointDiscount > 0 ? Math.round(pointDiscount / 1000) : 0);
+                const pointsRedeemed = searchedInvoice.pointsRedeemed || 0;
 
                 return (
                   <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 flex flex-col gap-2 font-bold text-slate-700 text-xs">

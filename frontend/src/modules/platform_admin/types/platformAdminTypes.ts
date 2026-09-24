@@ -130,3 +130,40 @@ export interface ISystemLogFilter {
   searchQuery?: string;
   timeRange?: string;
 }
+
+export interface IServicePackageItem {
+  id: string;
+  code: string;
+  name: string;
+  description?: string;
+  maxUsers: number;
+  maxPosPoints: number;
+  maxInvoicesPerMonth: number;
+  dataRetentionDays: number;
+  price: number;
+  isActive: boolean;
+}
+
+export interface ICreatePackagePayload {
+  code: string;
+  name: string;
+  description?: string;
+  maxUsers: number;
+  maxPosPoints: number;
+  maxInvoicesPerMonth: number;
+  dataRetentionDays: number;
+  price: number;
+}
+
+export interface IUpdatePackagePayload {
+  id: string;
+  name: string;
+  description?: string;
+  maxUsers: number;
+  maxPosPoints: number;
+  maxInvoicesPerMonth: number;
+  dataRetentionDays: number;
+  price: number;
+  isActive?: boolean;
+}
+

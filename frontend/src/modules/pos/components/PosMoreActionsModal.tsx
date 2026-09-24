@@ -139,7 +139,7 @@ export const PosMoreActionsModal: React.FC<IPosMoreActionsModalProps> = ({
                 id="more-actions-modal-title"
                 className="text-sm sm:text-base font-extrabold uppercase tracking-wide"
               >
-                Các chức năng xem thêm (NCL-19-CN-001)
+                Các chức năng xem thêm
               </h2>
               <p className="text-[11px] text-slate-400 font-medium">
                 Chế độ rút gọn: Các chức năng phụ được thu vào mục này để màn bán

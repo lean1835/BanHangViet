@@ -38,6 +38,16 @@ beforeEach(() => {
     { isLoading: false } as any,
   ]);
 
+  vi.spyOn(settingsApiModule, "useGetMyHouseholdQuery").mockReturnValue({
+    data: undefined,
+    isLoading: false,
+  } as any);
+
+  vi.spyOn(productApiModule, "useGetProductsQuery").mockReturnValue({
+    data: undefined,
+    isLoading: false,
+  } as any);
+
   vi.spyOn(settingsApiModule, "useCompleteOnboardingMutation").mockReturnValue([
     vi.fn().mockReturnValue({
       unwrap: () => Promise.resolve({ code: 1000, message: "OK", result: {} }),
@@ -54,14 +64,16 @@ afterEach(() => {
 
 const renderWithProviders = (
   ui: React.ReactElement,
-  role: TDemoRole = USER_ROLES.OWNER
+  role: TDemoRole = USER_ROLES.OWNER,
+  userId = "1",
+  username = "new_owner"
 ) => {
   const store = configureStore({
     reducer: {
       auth: (state = {
         user: {
-          id: "1",
-          username: "new_owner",
+          id: userId,
+          username,
           fullName: "Chủ hộ Mới",
           roleId: role,
           household: null,
@@ -314,6 +326,102 @@ describe("NCL-09-CN-007: Trình hướng dẫn thiết lập lần đầu", () =
       expect(screen.queryByText(/Cửa hàng đã sẵn sàng xuất hóa đơn điện tử/i)).not.toBeInTheDocument();
       expect(container.firstChild).toBeNull();
     });
+  });
+
+  it("TC-11: Bỏ qua từng bước (skip individual step) và khôi phục bước", async () => {
+    renderWithProviders(
+      <FirstTimeSetupWizardModal isOpen={true} onClose={vi.fn()} />,
+      USER_ROLES.OWNER,
+      "user_tc11"
+    );
+
+    // Initial check: all 4 required steps are incomplete
+    expect(screen.getByText(/Tiến độ: 0\/4 bước bắt buộc/i)).toBeInTheDocument();
+
+    // Click "Bỏ qua bước này" on the first step
+    const skipStepButtons = screen.getAllByRole("button", { name: /Bỏ qua bước này/i });
+    expect(skipStepButtons.length).toBeGreaterThanOrEqual(1);
+    fireEvent.click(skipStepButtons[0]);
+
+    // Step should now have badge "ĐÃ BỎ QUA"
+    await waitFor(() => {
+      expect(screen.getByText("ĐÃ BỎ QUA")).toBeInTheDocument();
+      expect(screen.getByText(/Tiến độ: 1\/4 bước bắt buộc/i)).toBeInTheDocument();
+    });
+
+    // An "Khôi phục bước" button should appear for the skipped step
+    const unskipButton = screen.getByRole("button", { name: /Khôi phục bước/i });
+    expect(unskipButton).toBeInTheDocument();
+
+    // Click "Khôi phục bước"
+    fireEvent.click(unskipButton);
+
+    await waitFor(() => {
+      expect(screen.queryByText("ĐÃ BỎ QUA")).not.toBeInTheDocument();
+      expect(screen.getByText(/Tiến độ: 0\/4 bước bắt buộc/i)).toBeInTheDocument();
+    });
+  });
+
+  it("TC-12: Bỏ qua tất cả trên thanh banner làm biến mất hoàn toàn hướng dẫn cho tài khoản đó", async () => {
+    // Tài khoản 1 bấm nút "Bỏ qua hướng dẫn" trực tiếp trên Banner
+    const { container } = renderWithProviders(<SetupGuideBanner />, USER_ROLES.OWNER, "user_tc12");
+
+    // Banner hiển thị và có nút Bỏ qua hướng dẫn
+    const skipAllButton = screen.getByRole("button", { name: /Bỏ qua hướng dẫn/i });
+    expect(skipAllButton).toBeInTheDocument();
+    fireEvent.click(skipAllButton);
+
+    // Banner biến mất hoàn toàn khỏi Dashboard
+    await waitFor(() => {
+      expect(screen.queryByText(/Trình hướng dẫn thiết lập cửa hàng/i)).not.toBeInTheDocument();
+      expect(container.firstChild).toBeNull();
+    });
+  });
+
+  it("TC-13: Trạng thái bỏ qua được lưu theo tài khoản - tài khoản mới tạo vẫn hiển thị hướng dẫn", async () => {
+    // 1. Tài khoản A bỏ qua toàn bộ hướng dẫn
+    const { unmount } = renderWithProviders(<SetupGuideBanner />, USER_ROLES.OWNER, "user_A");
+    const skipAllBtn = screen.getByRole("button", { name: /Bỏ qua hướng dẫn/i });
+    fireEvent.click(skipAllBtn);
+
+    await waitFor(() => {
+      expect(screen.queryByText(/Trình hướng dẫn thiết lập cửa hàng/i)).not.toBeInTheDocument();
+    });
+    unmount();
+
+    // 2. Tài khoản B (mới tạo) đăng nhập -> vẫn hiển thị banner và modal đầy đủ
+    renderWithProviders(<SetupGuideBanner />, USER_ROLES.OWNER, "user_B");
+
+    await waitFor(() => {
+      expect(screen.getAllByText("Trình hướng dẫn thiết lập cửa hàng").length).toBeGreaterThanOrEqual(1);
+      expect(screen.getByRole("dialog")).toBeInTheDocument();
+    });
+  });
+
+  it("TC-14: Đóng modal bằng nút Đóng không tự động bật lại khi chuyển trang hay mount lại Dashboard", async () => {
+    // Lần đầu mount: modal tự động bật
+    const { unmount } = renderWithProviders(<SetupGuideBanner />, USER_ROLES.OWNER, "user_tc14");
+
+    await waitFor(() => {
+      expect(screen.getByRole("dialog")).toBeInTheDocument();
+    });
+
+    // Bấm nút Đóng
+    const closeBtn = screen.getByRole("button", { name: /Đóng/i });
+    fireEvent.click(closeBtn);
+
+    // Modal đóng lại
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
+
+    // Giả lập người dùng chuyển sang trang khác (unmount banner) rồi quay lại Dashboard (mount lại banner)
+    unmount();
+    renderWithProviders(<SetupGuideBanner />, USER_ROLES.OWNER, "user_tc14");
+
+    // Banner vẫn có, nhưng MODAL KHÔNG ĐƯỢC TỰ ĐỘNG MỞ LẠI
+    expect(screen.getByText("Trình hướng dẫn thiết lập cửa hàng")).toBeInTheDocument();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 });
 

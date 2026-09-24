@@ -186,7 +186,6 @@ const toPeakHoursAndDaysResponse = (
 
 export const salesAnalyticsApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
-    // NCL-18-CN-001: Phân tích giờ cao điểm và ngày bán chạy
     getPeakHoursAndDaysAnalysis: builder.query<
       IPeakHoursAndDaysResponse,
       IPeakHoursAndDaysParams | void
@@ -206,7 +205,6 @@ export const salesAnalyticsApi = baseApi.injectEndpoints({
       ],
     }),
 
-    // NCL-18-CN-002: Dự báo lượng hàng cần nhập (alias trên sales-analytics)
     getPurchaseForecast: builder.query<
       IPageResponse<IPurchaseSuggestion>,
       IPurchaseForecastParams | void
@@ -270,7 +268,6 @@ export const salesAnalyticsApi = baseApi.injectEndpoints({
       ],
     }),
 
-    // NCL-18-CN-003: Cảnh báo hàng bán chậm và tồn lâu
     getSlowMovingProducts: builder.query<
       ISlowMovingProductListResponse,
       ISlowMovingParams | void

@@ -216,7 +216,7 @@ export const DEFAULT_SCREEN_GUIDES: Record<string, IScreenGuideResponse> = {
     faqs: [
       {
         question: "Muốn xem báo cáo để kê khai nộp thuế thì bấm vào đâu?",
-        answer: "Ở cột bên trái, bấm vào mục 'Tờ khai thuế & Bảng kê' hoặc 'Doanh thu lũy kế năm'.",
+        answer: "Ở cột bên trái, bấm vào mục 'Tờ khai thuế' hoặc 'Doanh thu lũy kế năm'.",
       },
     ],
   },

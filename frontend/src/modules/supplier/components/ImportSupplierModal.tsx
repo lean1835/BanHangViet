@@ -8,7 +8,7 @@ interface ImportSupplierModalProps {
 }
 
 /**
- * Chức năng NCL-09-CN-009: Nhập danh mục nhà cung cấp từ tệp Excel / CSV
+ * Nhập danh mục nhà cung cấp từ tệp Excel / CSV
  * Tách biệt hoàn toàn với chức năng nhập khách hàng, được gọi trong trang Quản lý Nhà cung cấp.
  */
 export const ImportSupplierModal: React.FC<ImportSupplierModalProps> = ({

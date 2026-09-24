@@ -9,6 +9,9 @@ import {
   type ISystemAuditLog,
   type ISystemIncidentAlert,
   type ISystemLogFilter,
+  type IServicePackageItem,
+  type ICreatePackagePayload,
+  type IUpdatePackagePayload,
   type TPlatformHouseholdStatus,
   type TSubscriptionPlanCode,
   type TSystemLogCategory,
@@ -205,27 +208,29 @@ export const platformAdminApi = baseApi.injectEndpoints({
       transformResponse: (response: unknown): ISubscriptionPlan[] => {
         const list = getResponseResult<IServicePackageResponse[]>(response);
         if (!Array.isArray(list)) return [];
-        return list.map((pkg) => {
-          let planCode: TSubscriptionPlanCode = "STANDARD";
-          const c = pkg.code.toUpperCase();
-          if (c.includes("STARTER") || c.includes("BASIC") || c.includes("KHỞI")) planCode = "STARTER";
-          else if (c.includes("PREMIUM") || c.includes("PRO") || c.includes("NÂNG")) planCode = "PREMIUM";
-          else if (c.includes("ENTERPRISE") || c.includes("DOANH")) planCode = "ENTERPRISE";
-          else planCode = "STANDARD";
+        return list
+          .filter((pkg) => pkg.isActive !== false)
+          .map((pkg) => {
+            let planCode: TSubscriptionPlanCode = "STANDARD";
+            const c = pkg.code.toUpperCase();
+            if (c.includes("STARTER") || c.includes("BASIC") || c.includes("KHỞI")) planCode = "STARTER";
+            else if (c.includes("PREMIUM") || c.includes("PRO") || c.includes("NÂNG")) planCode = "PREMIUM";
+            else if (c.includes("ENTERPRISE") || c.includes("DOANH")) planCode = "ENTERPRISE";
+            else planCode = "STANDARD";
 
-          return {
-            id: pkg.id,
-            code: planCode,
-            name: pkg.name,
-            maxUsers: pkg.maxUsers || 5,
-            maxPos: pkg.maxPosPoints || 2,
-            maxMonthlyInvoices: pkg.maxInvoicesPerMonth || 1000,
-            dataRetentionMonths: Math.round((pkg.dataRetentionDays || 365) / 30),
-            pricePerMonth: Number(pkg.price || 0),
-            description: pkg.description || "",
-            isPopular: planCode === "STANDARD",
-          };
-        });
+            return {
+              id: pkg.id,
+              code: planCode,
+              name: pkg.name,
+              maxUsers: pkg.maxUsers || 5,
+              maxPos: pkg.maxPosPoints || 2,
+              maxMonthlyInvoices: pkg.maxInvoicesPerMonth || 1000,
+              dataRetentionMonths: Math.round((pkg.dataRetentionDays || 365) / 30),
+              pricePerMonth: Number(pkg.price || 0),
+              description: pkg.description || "",
+              isPopular: planCode === "STANDARD",
+            };
+          });
       },
       providesTags: [{ type: API_TAG_TYPES.SUBSCRIPTION_PLAN, id: "LIST" }],
     }),
@@ -240,13 +245,14 @@ export const platformAdminApi = baseApi.injectEndpoints({
           const pkgsRes = await fetchWithBQ({ url: "/platform/packages", method: HTTP_METHODS.GET });
           if (pkgsRes.data) {
             const pkgs = getResponseResult<IServicePackageResponse[]>(pkgsRes.data);
-            const found = pkgs.find(
+            const activePkgs = pkgs.filter((p) => p.isActive !== false);
+            const found = activePkgs.find(
               (p) =>
                 p.code.toUpperCase().includes(req.planCode) ||
                 (req.planCode === "STARTER" && p.code.toUpperCase().includes("BASIC"))
             );
             if (found) packageId = found.id;
-            else if (pkgs.length > 0) packageId = pkgs[0].id;
+            else if (activePkgs.length > 0) packageId = activePkgs[0].id;
           }
         }
 
@@ -369,6 +375,86 @@ export const platformAdminApi = baseApi.injectEndpoints({
       },
       invalidatesTags: [{ type: API_TAG_TYPES.PLATFORM_LOG, id: "INCIDENT" }],
     }),
+
+    getServicePackages: builder.query<IServicePackageItem[], void>({
+      query: () => ({
+        url: "/platform/packages",
+        method: HTTP_METHODS.GET,
+      }),
+      transformResponse: (response: unknown): IServicePackageItem[] => {
+        const list = getResponseResult<IServicePackageResponse[]>(response);
+        if (!Array.isArray(list)) return [];
+        return list.map((pkg) => ({
+          id: pkg.id,
+          code: pkg.code,
+          name: pkg.name,
+          description: pkg.description || "",
+          maxUsers: pkg.maxUsers ?? 1,
+          maxPosPoints: pkg.maxPosPoints ?? 1,
+          maxInvoicesPerMonth: pkg.maxInvoicesPerMonth ?? 100,
+          dataRetentionDays: pkg.dataRetentionDays ?? 365,
+          price: Number(pkg.price ?? 0),
+          isActive: pkg.isActive ?? true,
+        }));
+      },
+      providesTags: [{ type: API_TAG_TYPES.SUBSCRIPTION_PLAN, id: "LIST" }],
+    }),
+
+    createServicePackage: builder.mutation<IServicePackageItem, ICreatePackagePayload>({
+      query: (body) => ({
+        url: "/platform/packages",
+        method: HTTP_METHODS.POST,
+        body,
+      }),
+      transformResponse: (response: unknown): IServicePackageItem => {
+        const pkg = getResponseResult<IServicePackageResponse>(response);
+        return {
+          id: pkg.id,
+          code: pkg.code,
+          name: pkg.name,
+          description: pkg.description || "",
+          maxUsers: pkg.maxUsers ?? 1,
+          maxPosPoints: pkg.maxPosPoints ?? 1,
+          maxInvoicesPerMonth: pkg.maxInvoicesPerMonth ?? 100,
+          dataRetentionDays: pkg.dataRetentionDays ?? 365,
+          price: Number(pkg.price ?? 0),
+          isActive: pkg.isActive ?? true,
+        };
+      },
+      invalidatesTags: [{ type: API_TAG_TYPES.SUBSCRIPTION_PLAN, id: "LIST" }],
+    }),
+
+    updateServicePackage: builder.mutation<IServicePackageItem, IUpdatePackagePayload>({
+      query: ({ id, ...body }) => ({
+        url: `/platform/packages/${id}`,
+        method: HTTP_METHODS.PUT,
+        body,
+      }),
+      transformResponse: (response: unknown): IServicePackageItem => {
+        const pkg = getResponseResult<IServicePackageResponse>(response);
+        return {
+          id: pkg.id,
+          code: pkg.code,
+          name: pkg.name,
+          description: pkg.description || "",
+          maxUsers: pkg.maxUsers ?? 1,
+          maxPosPoints: pkg.maxPosPoints ?? 1,
+          maxInvoicesPerMonth: pkg.maxInvoicesPerMonth ?? 100,
+          dataRetentionDays: pkg.dataRetentionDays ?? 365,
+          price: Number(pkg.price ?? 0),
+          isActive: pkg.isActive ?? true,
+        };
+      },
+      invalidatesTags: [{ type: API_TAG_TYPES.SUBSCRIPTION_PLAN, id: "LIST" }],
+    }),
+
+    deleteServicePackage: builder.mutation<void, string>({
+      query: (id) => ({
+        url: `/platform/packages/${id}`,
+        method: HTTP_METHODS.DELETE,
+      }),
+      invalidatesTags: [{ type: API_TAG_TYPES.SUBSCRIPTION_PLAN, id: "LIST" }],
+    }),
   }),
   overrideExisting: API_CONFIG.OVERRIDE_EXISTING_ENDPOINTS,
 });
@@ -382,4 +468,9 @@ export const {
   useGetPlatformSystemLogsQuery,
   useGetActiveIncidentQuery,
   useDismissIncidentMutation,
+  useGetServicePackagesQuery,
+  useCreateServicePackageMutation,
+  useUpdateServicePackageMutation,
+  useDeleteServicePackageMutation,
 } = platformAdminApi;
+

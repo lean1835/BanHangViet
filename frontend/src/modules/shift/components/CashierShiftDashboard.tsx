@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { Lock, X, AlertTriangle, CheckCircle2, Banknote, Sparkles } from "lucide-react";
 import {
   DEFAULT_SHIFT_CASH_AMOUNT,
   SHIFT_DIFFERENCE_REASON_MAX_LENGTH,
@@ -105,7 +106,6 @@ export const CashierShiftDashboard: React.FC = () => {
 
       const latestShift = refreshedActiveShift.result;
 
-      // NCL-03-CN-014: Chặn đóng ca nếu còn khoản chi PENDING_APPROVAL
       if (cashSummary?.pendingExpenseCount && cashSummary.pendingExpenseCount > 0) {
         showError(
           `Ca bán hàng còn ${cashSummary.pendingExpenseCount} khoản chi đang chờ Chủ hộ duyệt. Vui lòng liên hệ Chủ hộ phê duyệt hoặc từ chối trước khi chốt ca!`
@@ -307,7 +307,6 @@ export const CashierShiftDashboard: React.FC = () => {
               <BankTransferReconciliationSection shiftId={currentShift.id} />
             </div>
 
-            {/* NCL-03-CN-014: Ghi thu chi tiền mặt ngoài bán hàng trong ca */}
             <div className="mt-4 flex flex-col gap-4">
               <ShiftCashSummaryCard
                 shiftId={currentShift.id}
@@ -498,16 +497,31 @@ export const CashierShiftDashboard: React.FC = () => {
             role="dialog"
             aria-modal="true"
             aria-labelledby="cashier-close-shift-title"
-            className="app-modal-panel my-4 flex w-full max-w-md flex-col overflow-hidden rounded-xl border border-slate-100 bg-white text-left font-semibold text-slate-700 shadow-2xl animate-modal-bounce-in"
+            className="app-modal-panel my-auto flex w-full max-w-3xl lg:max-w-4xl max-h-[92vh] flex-col overflow-hidden rounded-2xl border border-slate-100 bg-white text-left font-semibold text-slate-700 shadow-2xl animate-modal-bounce-in"
           >
-            <div className="app-modal-header flex items-center justify-between bg-rose-600 px-5 py-3 text-white">
-              <h2 id="cashier-close-shift-title" className="text-xs font-bold uppercase tracking-wider flex items-center gap-2">
-                <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-                  <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-                </svg>
-                {SHIFT_UI.CASHIER.CLOSE_MODAL.TITLE}
-              </h2>
+            {/* Header */}
+            <div className="app-modal-header flex items-center justify-between bg-gradient-to-r from-rose-600 via-rose-600 to-rose-700 px-5 sm:px-6 py-4 text-white shadow-sm">
+              <div className="flex items-center gap-3">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/20 text-white backdrop-blur-sm">
+                  <Lock className="w-5 h-5" />
+                </div>
+                <div>
+                  <h2 id="cashier-close-shift-title" className="text-sm font-bold uppercase tracking-wider text-white">
+                    {SHIFT_UI.CASHIER.CLOSE_MODAL.TITLE}
+                  </h2>
+                  <div className="flex flex-wrap items-center gap-2 mt-0.5 text-xs text-rose-100 font-medium">
+                    <span>Nhân viên: <strong className="text-white font-semibold">{shiftToClose.fullName || shiftToClose.username}</strong></span>
+                    {shiftToClose.pointOfSaleName && (
+                      <>
+                        <span>•</span>
+                        <span>Quầy: <strong className="text-white font-semibold">{shiftToClose.pointOfSaleName}</strong></span>
+                      </>
+                    )}
+                    <span>•</span>
+                    <span>Mở ca: <strong className="text-white font-semibold">{formatDate(shiftToClose.openedAt)}</strong></span>
+                  </div>
+                </div>
+              </div>
               <button
                 onClick={() => {
                   if (isClosingShift || isActiveFetching) return;
@@ -517,35 +531,17 @@ export const CashierShiftDashboard: React.FC = () => {
                 type="button"
                 disabled={isClosingShift || isActiveFetching}
                 aria-label="Đóng hộp thoại đóng ca bán hàng"
-                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-white/80 transition-colors hover:text-white disabled:cursor-not-allowed disabled:opacity-60 lg:h-8 lg:w-8"
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-white/80 transition-colors hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
               >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <line x1="18" y1="6" x2="6" y2="18" />
-                  <line x1="6" y1="6" x2="18" y2="18" />
-                </svg>
+                <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="app-modal-body flex flex-col gap-4 p-5 font-semibold text-slate-700">
-              <p className="text-slate-500 font-medium text-xs leading-relaxed">
+            {/* Body */}
+            <div className="app-modal-body flex-1 overflow-y-auto p-5 sm:p-6 space-y-5">
+              <p className="text-slate-500 font-normal text-xs leading-relaxed">
                 {SHIFT_UI.CASHIER.CLOSE_MODAL.DESCRIPTION}
               </p>
-
-              <div className="flex flex-col gap-1">
-                <label className="text-xs text-slate-500">
-                  {SHIFT_UI.COMMON.RECONCILIATION.ACTUAL_CASH_INPUT_LABEL}
-                </label>
-                <input
-                  type="text"
-                  value={formatNumber(closingActualInput)}
-                  onChange={(e) => {
-                    const rawVal = e.target.value.replace(/\D/g, "");
-                    setClosingActualInput(rawVal ? Number(rawVal) : 0);
-                  }}
-                  disabled={isClosingShift}
-                  className="border border-slate-300 h-9 px-3 rounded-lg focus:outline-none focus:border-kv-blue-primary text-xs font-bold bg-white"
-                />
-              </div>
 
               {(() => {
                 const expectedVal =
@@ -554,80 +550,155 @@ export const CashierShiftDashboard: React.FC = () => {
 
                 return (
                   <>
-                    <div className="bg-slate-50 p-3 rounded-lg border flex flex-col gap-1.5 text-xs text-slate-600 font-bold">
-                      <div className="flex justify-between">
-                        <span>{SHIFT_UI.COMMON.RECONCILIATION.EXPECTED_CASH_LABEL}</span>
-                        <span className="font-extrabold text-slate-900">{formatCurrency(expectedVal)}</span>
+                    {/* Phần 1: Đối Soát Tiền Mặt Tại Két */}
+                    <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4 sm:p-5 space-y-4">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200/80 pb-3">
+                        <div className="flex items-center gap-2">
+                          <Banknote className="w-4 h-4 text-emerald-600" />
+                          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700">
+                            Đối Soát Tiền Mặt Tại Két
+                          </h3>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setClosingActualInput(expectedVal)}
+                          disabled={isClosingShift}
+                          className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-rose-600 hover:text-rose-700 hover:underline cursor-pointer disabled:opacity-50"
+                        >
+                          <Sparkles className="w-3.5 h-3.5" />
+                          <span>Khớp nhanh tiền kì vọng ({formatCurrency(expectedVal)})</span>
+                        </button>
                       </div>
-                      <div className="flex justify-between">
-                        <span>{SHIFT_UI.COMMON.RECONCILIATION.ACTUAL_CASH_LABEL}</span>
-                        <span className="font-extrabold text-slate-900">{formatCurrency(closingActualInput)}</span>
-                      </div>
-                      <div className="flex justify-between border-t pt-1.5">
-                        <span>{SHIFT_UI.COMMON.RECONCILIATION.DIFFERENCE_LABEL}</span>
-                        <span className={diff === 0 ? "text-emerald-600" : diff < 0 ? "text-rose-600" : "text-amber-600"}>
-                          {diff === 0
-                            ? SHIFT_UI.COMMON.ZERO_AMOUNT_LABEL
-                            : (diff > 0 ? SHIFT_UI.COMMON.POSITIVE_AMOUNT_PREFIX : "") +
-                              formatCurrency(diff)}
-                        </span>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
+                        {/* Cột trái: Nhập số tiền thực tế & Lý do chênh lệch */}
+                        <div className="space-y-3">
+                          <div className="flex flex-col gap-1.5">
+                            <label className="text-[11px] text-slate-600 font-bold uppercase tracking-wider">
+                              {SHIFT_UI.COMMON.RECONCILIATION.ACTUAL_CASH_INPUT_LABEL} <span className="text-rose-500">*</span>
+                            </label>
+                            <div className="relative">
+                              <input
+                                type="text"
+                                value={formatNumber(closingActualInput)}
+                                onChange={(e) => {
+                                  const rawVal = e.target.value.replace(/\D/g, "");
+                                  setClosingActualInput(rawVal ? Number(rawVal) : 0);
+                                }}
+                                disabled={isClosingShift}
+                                className="w-full h-11 pl-3.5 pr-8 rounded-xl border border-slate-300 bg-white text-base font-extrabold font-mono text-slate-800 shadow-2xs focus:border-rose-500 focus:outline-none focus:ring-2 focus:ring-rose-500/20 transition-all"
+                                placeholder="0"
+                              />
+                              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400 select-none">
+                                đ
+                              </span>
+                            </div>
+                            <span className="text-[11px] text-slate-400 font-medium">
+                              Nhập số tiền mặt thực tế đếm được trong két khi bàn giao ca.
+                            </span>
+                          </div>
+
+                          {diff !== 0 && (
+                            <div className="flex flex-col gap-1.5 rounded-lg border border-rose-200 bg-rose-50/50 p-3">
+                              <label className="text-rose-700 flex items-center gap-1 text-xs font-bold">
+                                <AlertTriangle className="w-3.5 h-3.5 text-rose-500" />
+                                {SHIFT_UI.COMMON.RECONCILIATION.DIFFERENCE_REASON_LABEL} <span className="text-rose-500">*</span>
+                              </label>
+                              <textarea
+                                value={closingReason}
+                                onChange={(e) => setClosingReason(e.target.value)}
+                                required
+                                maxLength={SHIFT_DIFFERENCE_REASON_MAX_LENGTH}
+                                disabled={isClosingShift}
+                                placeholder={
+                                  SHIFT_UI.COMMON.RECONCILIATION.DIFFERENCE_REASON_PLACEHOLDER
+                                }
+                                style={{ resize: "none" }}
+                                rows={2}
+                                className="w-full p-2.5 rounded-lg border border-rose-300 bg-white text-xs text-slate-700 focus:outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20"
+                              />
+                              <div className="text-right text-[10px] text-rose-600 font-medium">
+                                {closingReason.length}/{SHIFT_DIFFERENCE_REASON_MAX_LENGTH} ký tự
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Cột phải: Bảng đối soát số liệu tiền mặt */}
+                        <div className="rounded-xl border border-slate-200/90 bg-white p-4 space-y-2.5 shadow-2xs">
+                          <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 pb-1.5">
+                            Bảng Tóm Tắt Kiểm Kê
+                          </div>
+                          <div className="flex justify-between items-center text-xs">
+                            <span className="text-slate-500">{SHIFT_UI.COMMON.RECONCILIATION.EXPECTED_CASH_LABEL}</span>
+                            <span className="font-bold font-mono text-slate-700">{formatCurrency(expectedVal)}</span>
+                          </div>
+                          <div className="flex justify-between items-center text-xs">
+                            <span className="text-slate-500">{SHIFT_UI.COMMON.RECONCILIATION.ACTUAL_CASH_LABEL}</span>
+                            <span className="font-bold font-mono text-slate-900">{formatCurrency(closingActualInput)}</span>
+                          </div>
+                          <div className="border-t border-slate-100 pt-2 flex justify-between items-center text-xs">
+                            <span className="font-bold text-slate-700">{SHIFT_UI.COMMON.RECONCILIATION.DIFFERENCE_LABEL}</span>
+                            <div className="text-right">
+                              {diff === 0 ? (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                  <CheckCircle2 className="w-3.5 h-3.5" />
+                                  Khớp tiền (0 đ)
+                                </span>
+                              ) : diff < 0 ? (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200">
+                                  <AlertTriangle className="w-3.5 h-3.5" />
+                                  Thiếu: -{formatCurrency(Math.abs(diff))}
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                                  <AlertTriangle className="w-3.5 h-3.5" />
+                                  Thừa: +{formatCurrency(diff)}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
                       </div>
                     </div>
 
-                    {diff !== 0 && (
-                      <div className="flex flex-col gap-1">
-                        <label className="text-rose-600 flex items-center gap-1 text-xs">
-                          {SHIFT_UI.COMMON.RECONCILIATION.DIFFERENCE_REASON_LABEL}
-                        </label>
-                        <textarea
-                          value={closingReason}
-                          onChange={(e) => setClosingReason(e.target.value)}
-                          required
-                          maxLength={SHIFT_DIFFERENCE_REASON_MAX_LENGTH}
-                          disabled={isClosingShift}
-                          placeholder={
-                            SHIFT_UI.COMMON.RECONCILIATION.DIFFERENCE_REASON_PLACEHOLDER
-                          }
-                          style={{ resize: "none" }}
-                          className="border border-rose-300 h-16 p-2 rounded-lg focus:outline-none focus:border-rose-500 text-xs"
-                        ></textarea>
-                      </div>
-                    )}
-
-                    {/* NCL-03-CN-012 & QTN-16: Đối soát chuyển khoản ngân hàng khi đóng ca */}
-                    <div className="mt-1">
-                      <BankTransferReconciliationSection shiftId={shiftToClose.id} isCompact />
+                    {/* Phần 2: Đối Soát Chuyển Khoản Ngân Hàng */}
+                    <div className="mt-2">
+                      <BankTransferReconciliationSection shiftId={shiftToClose.id} />
                     </div>
                   </>
                 );
               })()}
+            </div>
 
-              <div className="app-modal-footer sticky bottom-0 -mx-5 -mb-5 mt-2 flex gap-3 border-t border-slate-200 bg-white p-5">
-                <button
-                  onClick={handleCloseShift}
-                  disabled={isClosingShift || isActiveFetching}
-                  aria-busy={isClosingShift || isActiveFetching}
-                  className="flex-1 bg-rose-600 hover:bg-rose-700 text-white font-bold h-9 rounded-lg transition-colors text-xs disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {(isClosingShift || isActiveFetching) && (
-                    <span
-                      aria-hidden="true"
-                      className="mr-1.5 inline-block h-3 w-3 animate-spin rounded-full border-2 border-white/40 border-t-white align-[-2px]"
-                    />
-                  )}
-                  {SHIFT_UI.CASHIER.CLOSE_MODAL.CONFIRM_BUTTON}
-                </button>
-                <button
-                  onClick={() => {
-                    setShowCloseModal(false);
-                    setShiftToClose(null);
-                  }}
-                  disabled={isClosingShift || isActiveFetching}
-                  className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold h-9 rounded-lg transition-colors text-xs disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {SHIFT_UI.COMMON.CANCEL_BUTTON}
-                </button>
-              </div>
+            {/* Footer */}
+            <div className="app-modal-footer border-t border-slate-200 bg-slate-50/70 px-5 sm:px-6 py-3.5 flex items-center justify-end gap-3 rounded-b-2xl">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowCloseModal(false);
+                  setShiftToClose(null);
+                }}
+                disabled={isClosingShift || isActiveFetching}
+                className="px-5 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-100 font-bold text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer"
+              >
+                {SHIFT_UI.COMMON.CANCEL_BUTTON}
+              </button>
+              <button
+                type="button"
+                onClick={handleCloseShift}
+                disabled={isClosingShift || isActiveFetching}
+                aria-busy={isClosingShift || isActiveFetching}
+                className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-rose-600 to-rose-700 hover:from-rose-700 hover:to-rose-800 text-white font-bold text-xs shadow-md shadow-rose-600/20 hover:shadow-lg hover:shadow-rose-600/30 transition-all flex items-center gap-2 disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer"
+              >
+                {(isClosingShift || isActiveFetching) && (
+                  <span
+                    aria-hidden="true"
+                    className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/40 border-t-white"
+                  />
+                )}
+                {SHIFT_UI.CASHIER.CLOSE_MODAL.CONFIRM_BUTTON}
+              </button>
             </div>
           </div>
         </div>,
@@ -720,7 +791,6 @@ export const CashierShiftDashboard: React.FC = () => {
         </div>,
         document.body
       )}
-      {/* NCL-03-CN-013: Shift Handover Modal */}
       {showHandoverModal && (
         <ShiftHandoverModal
           isOpen={showHandoverModal}
@@ -732,7 +802,6 @@ export const CashierShiftDashboard: React.FC = () => {
         />
       )}
 
-      {/* NCL-03-CN-014: Create Cash Transaction Modal */}
       {showCreateCashModal && currentShift && (
         <CreateCashTransactionModal
           isOpen={showCreateCashModal}

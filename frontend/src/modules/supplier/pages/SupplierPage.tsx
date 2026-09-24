@@ -597,12 +597,13 @@ export const SupplierPage: React.FC = () => {
         onConfirmRefund={handleConfirmReceiveRefund}
       />
 
-      {/* 9. Import Supplier from File Modal (NCL-09-CN-009) */}
-      <ImportSupplierModal
-        isOpen={isImportModalOpen}
-        onClose={() => setIsImportModalOpen(false)}
-        onImportSuccess={() => refetch()}
-      />
+      {isImportModalOpen && (
+        <ImportSupplierModal
+          isOpen={isImportModalOpen}
+          onClose={() => setIsImportModalOpen(false)}
+          onImportSuccess={() => refetch()}
+        />
+      )}
     </div>
   );
 };

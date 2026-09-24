@@ -667,13 +667,6 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
 
             {/* Total Area */}
             {(() => {
-              const isAdjustmentOrExchange = Boolean(
-                invoice.originalInvoiceId ||
-                (invoice as any).originalInvoice ||
-                invoice.title?.includes("ĐỔI HÀNG") ||
-                invoice.title?.includes("BỔ SUNG") ||
-                invoice.footerNote?.includes("đổi hàng")
-              );
               const originalItemsTotal = invoice.items && invoice.items.length > 0
                 ? invoice.items.reduce((sum, item) => {
                     const lineTotal = (item.subtotal !== undefined && item.subtotal !== null && item.subtotal !== 0)
@@ -685,19 +678,16 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
               const hasDiscount = Boolean(invoice.discountAmount && invoice.discountAmount > 0);
               const preTaxAmount = Math.max(0, originalItemsTotal - (invoice.discountAmount || 0));
 
-              // Thuế GTGT tính trên giá sau chiết khấu thương mại theo chuẩn Nghị định 123
-              const effectiveTaxAmount = hasDiscount && invoice.taxAmount && originalItemsTotal > 0
-                ? Math.round(invoice.taxAmount * (preTaxAmount / originalItemsTotal))
-                : (invoice.taxAmount || 0);
+              // Thuế GTGT: Backend invoice.taxAmount đã là số tiền thuế thực tế sau chiết khấu (theo chuẩn Nghị định 123)
+              const effectiveTaxAmount = invoice.taxAmount !== undefined && invoice.taxAmount !== null
+                ? invoice.taxAmount
+                : (hasDiscount && originalItemsTotal > 0 ? Math.round(preTaxAmount * 0.1) : 0);
 
-              // Số tiền trừ điểm thưởng / điểm tích lũy
-              const payableBeforePoints = preTaxAmount + effectiveTaxAmount;
+              // Số tiền trừ điểm thưởng / điểm tích lũy: CHỈ hiển thị khi đơn hàng/hóa đơn thực sự dùng điểm
               const pointDiscount = (invoice.pointDiscountAmount && invoice.pointDiscountAmount > 0)
                 ? invoice.pointDiscountAmount
-                : (!isAdjustmentOrExchange && invoice.finalAmount !== undefined && invoice.finalAmount < payableBeforePoints)
-                ? Math.max(0, payableBeforePoints - invoice.finalAmount)
                 : 0;
-              const pointsRedeemed = invoice.pointsRedeemed || (pointDiscount > 0 ? Math.round(pointDiscount / 1000) : 0);
+              const pointsRedeemed = invoice.pointsRedeemed || 0;
 
               return (
                 <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 flex flex-col gap-2 font-bold text-slate-700 text-xs">
@@ -978,7 +968,6 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
                   </button>
                 )}
 
-                {/* Return ticket creation (NCL-11-CN-001) */}
                 {invoice.status === E_INVOICE_STATUS.ISSUED &&
                   (currentRole === USER_ROLES.OWNER || currentRole === USER_ROLES.CASHIER) && (
                   <button
@@ -1040,7 +1029,6 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
           />
         )}
 
-        {/* Return Ticket Creation Modal (NCL-11-CN-001) */}
         {showCreateReturnModal && (
           <CreateReturnTicketModal
             isOpen={showCreateReturnModal}

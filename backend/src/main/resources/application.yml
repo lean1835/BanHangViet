@@ -8,6 +8,11 @@ server:
 spring:
   application:
     name: sales-service
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: ${MAX_FILE_SIZE:50MB}
+      max-request-size: ${MAX_REQUEST_SIZE:50MB}
   datasource:
     url: ${DB_URL:jdbc:mysql://localhost:3306/ban_hang_viet?createDatabaseIfNotExist=true&useSSL=false&serverTimezone=Asia/Ho_Chi_Minh&allowPublicKeyRetrieval=true&useUnicode=true&characterEncoding=UTF-8&characterSetResults=UTF-8}
     username: ${DB_USER:root}
@@ -20,10 +25,8 @@ spring:
       max-lifetime: 1800000
       connection-timeout: 20000
       keepalive-time: 60000
-  flyway:
-    enabled: true
-    out-of-order: true
   jpa:
+    open-in-view: false
     hibernate:
       ddl-auto: update
     show-sql: ${SHOW_SQL:false}
@@ -68,10 +71,19 @@ app:
       cron: ${TAX_REMINDER_CRON:0 0 7 * * *} # Tự động quét và nhắc nộp tờ khai vào 07:00 sáng hàng ngày
     backup-verification:
       cron: ${BACKUP_VERIFICATION_CRON:0 30 2 * * *} # Tự động quét và chạy thử phục hồi vào 02:30 sáng hàng ngày
+  chatbot:
+    gemini:
+      api-key: ${GEMINI_API_KEY:}
+      model: ${GEMINI_MODEL:gemini-3.5-flash-lite}
+      fallback-models: ${GEMINI_FALLBACK_MODELS:gemini-3.1-flash-lite,gemini-2.5-flash-lite,gemini-3.5-flash,gemini-3.8-flash,gemini-3.7-flash,gemini-3.6-flash,gemini-3-flash,gemini-2.5-flash}
+      api-url: ${GEMINI_API_URL:https://generativelanguage.googleapis.com/v1beta/models}
+      connect-timeout-ms: ${GEMINI_CONNECT_TIMEOUT_MS:3000}
+      read-timeout-ms: ${GEMINI_READ_TIMEOUT_MS:15000}
 
 management:
   endpoints:
     web:
       exposure:
         include: health
+
 
