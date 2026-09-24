@@ -104,7 +104,6 @@ export const settingsApi = baseApi.injectEndpoints({
       ],
     }),
 
-    // Household Settings & Auto Retry Deadlines (NCL-09-CN-008)
     getHouseholdSettings: builder.query<ApiResponse<IBusinessDeadlinesConfig>, void>({
       query: () => ({
         url: "/household/settings",
@@ -159,7 +158,6 @@ export const settingsApi = baseApi.injectEndpoints({
       invalidatesTags: [API_TAG_TYPES.HOUSEHOLD],
     }),
 
-    // First-Time Setup Wizard Onboarding (NCL-09-CN-007)
     getOnboardingStatus: builder.query<ApiResponse<IOnboardingStatusBackendResponse>, void>({
       query: () => ({
         url: "/household/onboarding/status",

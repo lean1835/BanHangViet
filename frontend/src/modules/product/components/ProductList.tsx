@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
-import { Search, Plus, Edit, Trash2, FileSpreadsheet, AlertTriangle, Printer, Barcode, Mic, Layers, Scale, TrendingUp } from "lucide-react";
+import { Search, Plus, Edit, Trash2, FileSpreadsheet, AlertTriangle, Printer, Barcode, Mic, Layers, Scale, TrendingUp, History } from "lucide-react";
 import { ImportProductsModal } from "@/modules/product/components/ImportProductsModal";
 import { BarcodePrintModal } from "@/modules/barcode/components/BarcodePrintModal";
 import { VoiceSearchModal } from "@/modules/product/components/VoiceSearchModal";
@@ -80,7 +80,6 @@ export const ProductList: React.FC<ProductListProps> = ({
   // Unit conversion modal target product
   const [unitConversionProduct, setUnitConversionProduct] = useState<IProduct | null>(null);
 
-  // Price tier modal target product (NCL-02-CN-010)
   const [priceTierProduct, setPriceTierProduct] = useState<IProduct | null>(null);
 
   // Barcode print modal target product
@@ -469,6 +468,14 @@ export const ProductList: React.FC<ProductListProps> = ({
                         <td className="p-3" onClick={(e) => e.stopPropagation()}>
                           <div className="flex items-center justify-center gap-1.5 opacity-100 transition-opacity lg:opacity-0 lg:group-hover:opacity-100 lg:group-focus-within:opacity-100">
                             <button
+                              onClick={() => handleOpenDetail(prod, "STOCK_CARD")}
+                              title="Xem thẻ kho"
+                              aria-label="Xem thẻ kho"
+                              className="flex min-h-11 min-w-11 items-center justify-center rounded p-1.5 text-slate-500 transition-colors hover:bg-slate-100 hover:text-kv-blue-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-kv-blue-primary lg:min-h-0 lg:min-w-0"
+                            >
+                              <History size={15} />
+                            </button>
+                            <button
                               onClick={() => setBarcodePrintProduct({ id: prod.id, name: prod.name })}
                               title="In tem mã vạch"
                               aria-label="In tem mã vạch"
@@ -582,13 +589,15 @@ export const ProductList: React.FC<ProductListProps> = ({
       )}
 
       {/* Import Products Modal */}
-      <ImportProductsModal
-        isOpen={isImportModalOpen}
-        onClose={() => setIsImportModalOpen(false)}
-        onImportSuccess={() => {
-          refetch();
-        }}
-      />
+      {isImportModalOpen && (
+        <ImportProductsModal
+          isOpen={isImportModalOpen}
+          onClose={() => setIsImportModalOpen(false)}
+          onImportSuccess={() => {
+            refetch();
+          }}
+        />
+      )}
 
       {/* Unit Conversion Manager Modal */}
       {unitConversionProduct && (
@@ -606,7 +615,6 @@ export const ProductList: React.FC<ProductListProps> = ({
         />
       )}
 
-      {/* Price Tier Manager Modal (NCL-02-CN-010) */}
       {priceTierProduct && (
         <PriceTierManagerModal
           isOpen={Boolean(priceTierProduct)}

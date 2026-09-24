@@ -431,14 +431,14 @@ export const CustomerPage: React.FC = () => {
         onOpenEditModal={handleOpenEditModal}
       />
 
-      {/* Import Customer from File Modal (NCL-09-CN-009) */}
-      <ImportCustomerModal
-        isOpen={isImportModalOpen}
-        onClose={() => setIsImportModalOpen(false)}
-        onImportSuccess={() => refetch()}
-      />
+      {isImportModalOpen && (
+        <ImportCustomerModal
+          isOpen={isImportModalOpen}
+          onClose={() => setIsImportModalOpen(false)}
+          onImportSuccess={() => refetch()}
+        />
+      )}
 
-      {/* Debt Reconciliation Modal (NCL-10-CN-007) */}
       <DebtReconciliationModal
         isOpen={Boolean(reconcileCustomer)}
         onClose={() => setReconcileCustomer(null)}
@@ -446,14 +446,12 @@ export const CustomerPage: React.FC = () => {
         onOpenPrintModal={(recId) => setPrintReconciliationId(recId)}
       />
 
-      {/* Debt Statement Print Modal (NCL-10-CN-007) */}
       <DebtStatementPrintModal
         isOpen={Boolean(printReconciliationId)}
         onClose={() => setPrintReconciliationId(null)}
         reconciliationId={printReconciliationId}
       />
 
-      {/* Debt Adjustment Modal (NCL-10-CN-007) */}
       <DebtAdjustmentModal
         isOpen={Boolean(adjustmentCustomer)}
         onClose={() => setAdjustmentCustomer(null)}

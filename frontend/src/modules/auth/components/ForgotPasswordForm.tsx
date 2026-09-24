@@ -105,7 +105,6 @@ export const ForgotPasswordForm: React.FC = () => {
     };
   }, [currentStep, redirectCountdown, navigate]);
 
-  // Bước 1: Yêu cầu gửi mã xác thực OTP qua Gmail
   const handleSendOtp = async (values: unknown) => {
     setErrorMsg(null);
     try {
@@ -128,7 +127,6 @@ export const ForgotPasswordForm: React.FC = () => {
     }
   };
 
-  // Gửi lại mã OTP trong Bước 2
   const handleResendOtp = async () => {
     if (cooldown > 0 || !email) return;
     setErrorMsg(null);
@@ -143,7 +141,6 @@ export const ForgotPasswordForm: React.FC = () => {
     }
   };
 
-  // Bước 2: Xác nhận OTP và đặt mật khẩu mới
   const handleResetPassword = async (values: unknown) => {
     setErrorMsg(null);
     try {
@@ -219,7 +216,6 @@ export const ForgotPasswordForm: React.FC = () => {
         />
       )}
 
-      {/* ===================== BƯỚC 1: NHẬP ĐỊA CHỈ GMAIL ===================== */}
       {currentStep === 1 && (
         <Form
           form={formStepOne}
@@ -282,7 +278,6 @@ export const ForgotPasswordForm: React.FC = () => {
         </Form>
       )}
 
-      {/* ===================== BƯỚC 2: NHẬP OTP & ĐẶT MẬT KHẨU MỚI ===================== */}
       {currentStep === 2 && (
         <Form
           form={formStepTwo}
@@ -414,7 +409,6 @@ export const ForgotPasswordForm: React.FC = () => {
         </Form>
       )}
 
-      {/* ===================== BƯỚC 3: THÀNH CÔNG ===================== */}
       {currentStep === 3 && (
         <div className="flex flex-col items-center text-center py-4 animate-card-reveal">
           <div className="w-16 h-16 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mb-4">

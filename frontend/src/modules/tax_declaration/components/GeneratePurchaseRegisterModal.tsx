@@ -112,7 +112,7 @@ export const GeneratePurchaseRegisterModal: React.FC<
                 <Sparkles className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
               </h3>
               <p className="text-xs text-slate-500 mt-0.5">
-                Tổng hợp các phiếu nhập kho phát sinh trong kỳ (NCL-12-CN-006)
+                Tổng hợp các phiếu nhập kho phát sinh trong kỳ
               </p>
             </div>
           </div>

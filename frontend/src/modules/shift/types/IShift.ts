@@ -38,7 +38,6 @@ export interface ICloseShiftRequest {
   differenceReason?: string;
 }
 
-// NCL-03-CN-012 & QTN-16: Đối soát giao dịch chuyển khoản ngân hàng trong ca
 export interface IBankTransferItemResponse {
   paymentId: string;
   orderId: string;
@@ -66,7 +65,6 @@ export interface IBankTransferReconciliationResponse {
   transactions: IBankTransferItemResponse[];
 }
 
-// NCL-03-CN-013 & QTN-15: Bàn giao ca giữa hai nhân viên
 export interface IEligibleRecipientResponse {
   userId: string;
   username: string;

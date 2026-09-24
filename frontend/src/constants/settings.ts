@@ -8,63 +8,96 @@ export interface ISettingsNavigationItem {
   allowedRoles: readonly TDemoRole[];
 }
 
-export const SETTINGS_NAVIGATION_ITEMS: readonly ISettingsNavigationItem[] = [
+export interface ISettingsGroup {
+  id: string;
+  label: string;
+  items: ISettingsNavigationItem[];
+}
+
+export const SETTINGS_GROUPS: readonly ISettingsGroup[] = [
   {
-    path: APP_ROUTES.SETTINGS_USER_PROFILE,
-    label: "Tài khoản người dùng",
-    allowedRoles: [USER_ROLES.OWNER, USER_ROLES.CASHIER, USER_ROLES.ACCOUNTANT],
+    id: "account",
+    label: "Tài khoản & Cá nhân",
+    items: [
+      {
+        path: APP_ROUTES.SETTINGS_USER_PROFILE,
+        label: "Tài khoản người dùng",
+        allowedRoles: [USER_ROLES.OWNER, USER_ROLES.CASHIER, USER_ROLES.ACCOUNTANT],
+      },
+      {
+        path: APP_ROUTES.SETTINGS_DISPLAY,
+        label: "Chế độ hiển thị & Trợ năng",
+        allowedRoles: [USER_ROLES.OWNER, USER_ROLES.CASHIER, USER_ROLES.ACCOUNTANT],
+      },
+      {
+        path: APP_ROUTES.SETTINGS_SESSIONS,
+        label: "Phiên đăng nhập",
+        allowedRoles: [USER_ROLES.OWNER, USER_ROLES.CASHIER, USER_ROLES.ACCOUNTANT],
+      },
+    ],
   },
   {
-    path: APP_ROUTES.SETTINGS_DISPLAY,
-    label: "Chế độ hiển thị & Trợ năng",
-    allowedRoles: [USER_ROLES.OWNER, USER_ROLES.CASHIER, USER_ROLES.ACCOUNTANT],
+    id: "store",
+    label: "Cửa hàng & Điểm bán",
+    items: [
+      {
+        path: APP_ROUTES.SETTINGS_BUSINESS_INFO,
+        label: "Thông tin cửa hàng",
+        allowedRoles: [USER_ROLES.OWNER, USER_ROLES.ACCOUNTANT],
+      },
+      {
+        path: APP_ROUTES.SETTINGS_POINTS_OF_SALE,
+        label: "Điểm bán (Chi nhánh)",
+        allowedRoles: [USER_ROLES.OWNER],
+      },
+      {
+        path: APP_ROUTES.SETTINGS_LOYALTY,
+        label: "Tích điểm khách thân thiết",
+        allowedRoles: [USER_ROLES.OWNER],
+      },
+    ],
   },
   {
-    path: APP_ROUTES.SETTINGS_SESSIONS,
-    label: "Phiên đăng nhập",
-    allowedRoles: [USER_ROLES.OWNER, USER_ROLES.CASHIER, USER_ROLES.ACCOUNTANT],
+    id: "tax_invoice",
+    label: "Hóa đơn & Thuế",
+    items: [
+      {
+        path: APP_ROUTES.SETTINGS_INVOICE_TEMPLATE,
+        label: "Mẫu hóa đơn",
+        allowedRoles: [USER_ROLES.OWNER, USER_ROLES.ACCOUNTANT],
+      },
+      {
+        path: APP_ROUTES.SETTINGS_TAX_RATES,
+        label: "Thuế suất",
+        allowedRoles: [USER_ROLES.OWNER, USER_ROLES.ACCOUNTANT],
+      },
+      {
+        path: APP_ROUTES.SETTINGS_DEADLINES,
+        label: "Mốc thời hạn nghiệp vụ",
+        allowedRoles: [USER_ROLES.OWNER, USER_ROLES.ACCOUNTANT],
+      },
+    ],
   },
   {
-    path: APP_ROUTES.SETTINGS_POINTS_OF_SALE,
-    label: "Điểm bán (Chi nhánh)",
-    allowedRoles: [USER_ROLES.OWNER],
-  },
-  {
-    path: APP_ROUTES.SETTINGS_BUSINESS_INFO,
-    label: "Thông tin cửa hàng",
-    allowedRoles: [USER_ROLES.OWNER, USER_ROLES.ACCOUNTANT],
-  },
-  {
-    path: APP_ROUTES.SETTINGS_INVOICE_TEMPLATE,
-    label: "Mẫu hóa đơn",
-    allowedRoles: [USER_ROLES.OWNER, USER_ROLES.ACCOUNTANT],
-  },
-  {
-    path: APP_ROUTES.SETTINGS_TAX_RATES,
-    label: "Thuế suất",
-    allowedRoles: [USER_ROLES.OWNER, USER_ROLES.ACCOUNTANT],
-  },
-  {
-    path: APP_ROUTES.SETTINGS_BACKUP_EXPORT,
-    label: "Sao lưu & Phục hồi dữ liệu",
-    allowedRoles: [USER_ROLES.OWNER],
-  },
-  {
-    path: APP_ROUTES.SETTINGS_LOYALTY,
-    label: "Tích điểm khách thân thiết",
-    allowedRoles: [USER_ROLES.OWNER],
-  },
-  {
-    path: APP_ROUTES.SETTINGS_DEADLINES,
-    label: "Mốc thời hạn nghiệp vụ",
-    allowedRoles: [USER_ROLES.OWNER, USER_ROLES.ACCOUNTANT],
-  },
-  {
-    path: APP_ROUTES.SETTINGS_FAQ_SUPPORT,
-    label: "Câu hỏi thường gặp & Hỗ trợ",
-    allowedRoles: [USER_ROLES.OWNER, USER_ROLES.CASHIER, USER_ROLES.ACCOUNTANT],
+    id: "system",
+    label: "Dữ liệu & Hỗ trợ",
+    items: [
+      {
+        path: APP_ROUTES.SETTINGS_BACKUP_EXPORT,
+        label: "Sao lưu & Phục hồi dữ liệu",
+        allowedRoles: [USER_ROLES.OWNER],
+      },
+      {
+        path: APP_ROUTES.SETTINGS_FAQ_SUPPORT,
+        label: "Câu hỏi thường gặp & Hỗ trợ",
+        allowedRoles: [USER_ROLES.OWNER, USER_ROLES.CASHIER, USER_ROLES.ACCOUNTANT],
+      },
+    ],
   },
 ] as const;
+
+export const SETTINGS_NAVIGATION_ITEMS: readonly ISettingsNavigationItem[] =
+  SETTINGS_GROUPS.flatMap((g) => g.items);
 
 export const SETTINGS_UI = {
   SIDEBAR: {

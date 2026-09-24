@@ -21,7 +21,6 @@ import { useOptionalReportFilter } from "@/modules/report/context/ReportFilterCo
 
 export const PeakHoursAnalyticsPage: React.FC = () => {
   const { currentRole } = useDashboardDemo();
-  // Role check: Only Owner (VT-01) and Accountant (VT-03) allowed; Employee (VT-02) blocked (NCL-18-CN-001-TC-03)
   const isAllowed =
     currentRole === USER_ROLES.OWNER || currentRole === USER_ROLES.ACCOUNTANT;
 
@@ -52,7 +51,6 @@ export const PeakHoursAnalyticsPage: React.FC = () => {
   // Tự động làm mới tức thì (0ms) khi có bất kỳ đơn hàng nào bán thành công (cùng tab hoặc khác tab)
   useOnOrderCompleted(refetch);
 
-  // Permission Denied View for Employee (NCL-18-CN-001-TC-03)
   if (!isAllowed) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] bg-white rounded-2xl border border-slate-200 p-8 text-center shadow-sm w-full animate-auth-fade-in">
@@ -170,7 +168,6 @@ export const PeakHoursAnalyticsPage: React.FC = () => {
           </span>
         </div>
       ) : !hasData ? (
-        /* Empty / Insufficient Data State (NCL-18-CN-001-TC-02) */
         <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm flex flex-col items-center justify-center text-center gap-3">
           <div className="w-14 h-14 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center">
             <BarChart2 className="w-7 h-7" />
@@ -183,7 +180,6 @@ export const PeakHoursAnalyticsPage: React.FC = () => {
           </p>
         </div>
       ) : (
-        /* Success State with Full Charts (NCL-18-CN-001-TC-01) */
         <div className="flex flex-col gap-6">
           {/* Heatmap Matrix */}
           <PeakHoursHeatmap heatmap={heatmap} maxRevenue={totalRevenue} />

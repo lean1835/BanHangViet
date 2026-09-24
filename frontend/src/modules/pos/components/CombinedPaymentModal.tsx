@@ -257,7 +257,6 @@ export const CombinedPaymentModal: React.FC<ICombinedPaymentModalProps> = ({
     setPaymentRows((prev) => prev.filter((_, i) => i !== index));
   };
 
-  // Confirm Bank Transfer via Backend API (NCL-03-CN-012)
   const handleConfirmBankTransfer = async (index: number) => {
     const row = paymentRows[index];
     if (!row.transactionCode || !row.transactionCode.trim()) {
@@ -340,9 +339,6 @@ export const CombinedPaymentModal: React.FC<ICombinedPaymentModalProps> = ({
                 <h3 className="font-extrabold text-slate-800 dark:text-slate-100 text-sm sm:text-base">
                   Thanh Toán Kết Hợp Nhiều Hình Thức
                 </h3>
-                <span className="px-1.5 py-0.2 rounded text-[10px] font-black bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-200 border border-blue-200 dark:border-blue-700">
-                  NCL-03-CN-011
-                </span>
               </div>
               <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
                 {orderNumber ? `Đơn hàng ${orderNumber}` : "Tách thanh toán linh hoạt"}

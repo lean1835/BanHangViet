@@ -166,28 +166,28 @@ export const DisplaySettingsPanel: React.FC = () => {
   return (
     <form
       onSubmit={handleSaveSettings}
-      className="flex flex-col flex-1 w-full bg-white rounded-2xl border border-slate-200/90 shadow-sm p-6 sm:p-8 min-h-[580px] justify-between animate-auth-fade-in"
+      className="flex flex-col w-full min-w-0 max-w-full bg-white rounded-2xl border border-slate-200/90 shadow-sm p-4 sm:p-5 lg:p-5 xl:p-6 animate-auth-fade-in relative"
     >
-      <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-4 sm:gap-4.5 min-w-0 pb-3">
         {/* Header Block */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-slate-100">
-          <div>
-            <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-md text-[11px] font-extrabold bg-blue-50 text-kv-blue-primary border border-blue-200/80 mb-1">
-              <Sparkles size={13} />
-              <span>NCL-19-CN-001 • Trải nghiệm người dùng lớn tuổi</span>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 sm:pb-3.5 border-b border-slate-100 min-w-0">
+          <div className="min-w-0">
+            <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[10px] font-extrabold bg-blue-50 text-kv-blue-primary border border-blue-200/80 mb-0.5">
+              <Sparkles size={12} />
+              <span>Trải nghiệm người dùng lớn tuổi</span>
             </div>
-            <h2 className="text-base font-extrabold text-slate-800">
+            <h2 className="text-sm sm:text-base font-extrabold text-slate-800">
               Chế độ hiển thị chữ lớn & Thao tác đơn giản
             </h2>
-            <p className="text-xs text-slate-500 mt-0.5">
+            <p className="text-[11px] text-slate-500 mt-0.5">
               Cài đặt được lưu đồng bộ theo tài khoản, giúp chủ hộ lớn tuổi nhìn
               rõ, thao tác tự tin và tránh ấn nhầm
             </p>
           </div>
 
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold border shadow-2xs self-start sm:self-auto bg-slate-50 text-slate-700 border-slate-200">
+          <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-xl text-xs font-bold border shadow-2xs self-start sm:self-auto bg-slate-50 text-slate-700 border-slate-200 shrink-0">
             <span
-              className={`w-2.5 h-2.5 rounded-full ${
+              className={`w-2 h-2 rounded-full ${
                 simpleModeEnabled
                   ? "bg-emerald-500 animate-pulse"
                   : "bg-slate-400"
@@ -202,16 +202,16 @@ export const DisplaySettingsPanel: React.FC = () => {
         </div>
 
         {/* Master Switch: Chế độ đơn giản & Chữ lớn */}
-        <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-blue-50/90 via-indigo-50/40 to-slate-50 border border-blue-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xs">
-          <div className="flex items-start gap-3.5">
-            <div className="w-11 h-11 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-md">
-              <Eye size={22} />
+        <div className="p-3 sm:p-3.5 rounded-xl bg-gradient-to-r from-blue-50/90 via-indigo-50/40 to-slate-50 border border-blue-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs min-w-0">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-9 h-9 rounded-lg bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+              <Eye size={18} />
             </div>
-            <div>
-              <h3 className="text-sm font-extrabold text-slate-900 flex items-center gap-2">
+            <div className="min-w-0">
+              <h3 className="text-xs sm:text-sm font-extrabold text-slate-900 flex items-center gap-2">
                 Kích hoạt chế độ chữ lớn & thao tác đơn giản
               </h3>
-              <p className="text-xs text-slate-600 mt-1 leading-relaxed max-w-xl">
+              <p className="text-[11px] text-slate-600 mt-0.5 leading-relaxed max-w-xl">
                 Tự động nâng cỡ chữ, mở rộng diện tích phím bấm, thu gọn màn hình
                 bán hàng vào 4 nút chính và bật cảnh báo xác nhận hậu quả khi thao
                 tác một chiều.
@@ -224,13 +224,13 @@ export const DisplaySettingsPanel: React.FC = () => {
               type="button"
               disabled={isToggling || isLoading}
               onClick={() => handleQuickToggleSimpleMode(!simpleModeEnabled)}
-              className={`relative inline-flex h-7 w-14 items-center rounded-full transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+              className={`relative inline-flex h-6 w-12 items-center rounded-full transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
                 simpleModeEnabled ? "bg-blue-600" : "bg-slate-300"
               }`}
             >
               <span
-                className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform shadow-md ${
-                  simpleModeEnabled ? "translate-x-8" : "translate-x-1"
+                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform shadow-md ${
+                  simpleModeEnabled ? "translate-x-7" : "translate-x-1"
                 }`}
               />
             </button>
@@ -238,13 +238,13 @@ export const DisplaySettingsPanel: React.FC = () => {
         </div>
 
         {/* Cấu hình chi tiết: Cỡ chữ & Kích thước nút */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 sm:gap-5 min-w-0">
           {/* Card: Cỡ chữ (Font Size Level) */}
-          <div className="p-4 bg-slate-50/70 rounded-xl border border-slate-200/80 flex flex-col justify-between space-y-3">
-            <div>
+          <div className="p-4 bg-slate-50/70 rounded-xl border border-slate-200/80 flex flex-col justify-between space-y-3 min-w-0">
+            <div className="min-w-0">
               <div className="flex items-center gap-2 text-slate-700 mb-1">
-                <Type size={16} className="text-kv-blue-primary" />
-                <h4 className="text-xs font-bold uppercase tracking-wider">
+                <Type size={16} className="text-kv-blue-primary shrink-0" />
+                <h4 className="text-xs font-bold uppercase tracking-wider truncate">
                   Mức cỡ chữ hiển thị (Font Size)
                 </h4>
               </div>
@@ -253,7 +253,7 @@ export const DisplaySettingsPanel: React.FC = () => {
                 tiền và tên mặt hàng
               </p>
 
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 min-w-0">
                 {[
                   {
                     level: "STANDARD" as TFontSizeLevel,
@@ -277,21 +277,21 @@ export const DisplaySettingsPanel: React.FC = () => {
                       key={opt.level}
                       type="button"
                       onClick={() => handleSelectFontSize(opt.level)}
-                      className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between min-h-[72px] ${
+                      className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between min-h-[72px] min-w-0 ${
                         isSelected
                           ? "bg-blue-50/90 border-blue-500 ring-2 ring-blue-400/40 text-blue-900 shadow-xs"
                           : "bg-white border-slate-200 hover:border-slate-300 text-slate-700"
                       }`}
                     >
-                      <div className="flex items-center justify-between">
-                        <span className="font-extrabold text-xs">
+                      <div className="flex items-center justify-between gap-1 min-w-0">
+                        <span className="font-extrabold text-xs truncate">
                           {opt.label}
                         </span>
                         {isSelected && (
-                          <CheckCircle2 size={14} className="text-blue-600" />
+                          <CheckCircle2 size={14} className="text-blue-600 shrink-0" />
                         )}
                       </div>
-                      <span className="text-[10px] text-slate-500 font-medium">
+                      <span className="text-[10px] text-slate-500 font-medium truncate">
                         {opt.desc}
                       </span>
                     </button>
@@ -301,7 +301,7 @@ export const DisplaySettingsPanel: React.FC = () => {
             </div>
 
             {/* Preview Cỡ chữ */}
-            <div className="p-3 bg-white rounded-lg border border-slate-200 text-slate-800">
+            <div className="p-3 bg-white rounded-lg border border-slate-200 text-slate-800 min-w-0">
               <span className="text-[10px] text-slate-400 font-bold uppercase block mb-1">
                 Xem trước cỡ chữ:
               </span>
@@ -315,7 +315,7 @@ export const DisplaySettingsPanel: React.FC = () => {
                       : "14px",
                   lineHeight: "1.3",
                 }}
-                className="font-extrabold text-slate-900"
+                className="font-extrabold text-slate-900 truncate"
               >
                 Gạo thơm Lài Miên: 185.000 đ
               </div>
@@ -323,11 +323,11 @@ export const DisplaySettingsPanel: React.FC = () => {
           </div>
 
           {/* Card: Kích thước nút bấm (Button Size / Touch Target) */}
-          <div className="p-4 bg-slate-50/70 rounded-xl border border-slate-200/80 flex flex-col justify-between space-y-3">
-            <div>
+          <div className="p-4 bg-slate-50/70 rounded-xl border border-slate-200/80 flex flex-col justify-between space-y-3 min-w-0">
+            <div className="min-w-0">
               <div className="flex items-center gap-2 text-slate-700 mb-1">
-                <Maximize2 size={16} className="text-kv-blue-primary" />
-                <h4 className="text-xs font-bold uppercase tracking-wider">
+                <Maximize2 size={16} className="text-kv-blue-primary shrink-0" />
+                <h4 className="text-xs font-bold uppercase tracking-wider truncate">
                   Kích thước nút bấm (Touch Target)
                 </h4>
               </div>
@@ -336,7 +336,7 @@ export const DisplaySettingsPanel: React.FC = () => {
                 nhầm nút
               </p>
 
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 min-w-0">
                 {[
                   {
                     level: "STANDARD" as TButtonSizeLevel,
@@ -360,21 +360,21 @@ export const DisplaySettingsPanel: React.FC = () => {
                       key={opt.level}
                       type="button"
                       onClick={() => handleSelectButtonSize(opt.level)}
-                      className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between min-h-[72px] ${
+                      className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between min-h-[72px] min-w-0 ${
                         isSelected
                           ? "bg-blue-50/90 border-blue-500 ring-2 ring-blue-400/40 text-blue-900 shadow-xs"
                           : "bg-white border-slate-200 hover:border-slate-300 text-slate-700"
                       }`}
                     >
-                      <div className="flex items-center justify-between">
-                        <span className="font-extrabold text-xs">
+                      <div className="flex items-center justify-between gap-1 min-w-0">
+                        <span className="font-extrabold text-xs truncate">
                           {opt.label}
                         </span>
                         {isSelected && (
-                          <CheckCircle2 size={14} className="text-blue-600" />
+                          <CheckCircle2 size={14} className="text-blue-600 shrink-0" />
                         )}
                       </div>
-                      <span className="text-[10px] text-slate-500 font-medium">
+                      <span className="text-[10px] text-slate-500 font-medium truncate">
                         {opt.desc}
                       </span>
                     </button>
@@ -384,8 +384,8 @@ export const DisplaySettingsPanel: React.FC = () => {
             </div>
 
             {/* Preview Nút bấm */}
-            <div className="p-3 bg-white rounded-lg border border-slate-200 flex items-center gap-2 justify-between">
-              <span className="text-[10px] text-slate-400 font-bold uppercase block">
+            <div className="p-3 bg-white rounded-lg border border-slate-200 flex items-center gap-2 justify-between min-w-0">
+              <span className="text-[10px] text-slate-400 font-bold uppercase block shrink-0">
                 Xem trước nút bấm:
               </span>
               <div
@@ -397,7 +397,7 @@ export const DisplaySettingsPanel: React.FC = () => {
                       ? "52px"
                       : "40px",
                 }}
-                className="inline-flex items-center justify-center px-4 bg-blue-600 text-white font-extrabold text-xs rounded-xl shadow-xs"
+                className="inline-flex items-center justify-center px-4 bg-blue-600 text-white font-extrabold text-xs rounded-xl shadow-xs shrink-0"
               >
                 Thanh toán (F9)
               </div>
@@ -406,25 +406,25 @@ export const DisplaySettingsPanel: React.FC = () => {
         </div>
 
         {/* Nhóm tùy chọn trợ năng nâng cao */}
-        <div className="p-4 bg-slate-50/70 rounded-xl border border-slate-200/80 space-y-3">
+        <div className="p-4 bg-slate-50/70 rounded-xl border border-slate-200/80 space-y-3 min-w-0">
           <div className="flex items-center gap-2 text-slate-700 mb-1">
-            <Sliders size={16} className="text-kv-blue-primary" />
+            <Sliders size={16} className="text-kv-blue-primary shrink-0" />
             <h4 className="text-xs font-bold uppercase tracking-wider">
               Tùy chọn thao tác và trợ năng chuyên biệt
             </h4>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1 min-w-0">
             {/* Tùy chọn 1: Hiển thị nhãn chữ */}
-            <label className="flex items-start gap-3 p-3 bg-white rounded-xl border border-slate-200 cursor-pointer hover:border-slate-300 transition-colors">
+            <label className="flex items-start gap-3 p-3 bg-white rounded-xl border border-slate-200 cursor-pointer hover:border-slate-300 transition-colors min-w-0">
               <input
                 type="checkbox"
                 checked={showTextLabels}
                 onChange={(e) => setShowTextLabels(e.target.checked)}
-                className="mt-0.5 h-4 w-4 rounded text-blue-600 focus:ring-blue-500 border-slate-300"
+                className="mt-0.5 h-4 w-4 rounded text-blue-600 focus:ring-blue-500 border-slate-300 shrink-0"
               />
-              <div>
-                <span className="text-xs font-extrabold text-slate-800 block">
+              <div className="min-w-0">
+                <span className="text-xs font-extrabold text-slate-800 block truncate">
                   Hiển thị nhãn chữ trên các nút hành động
                 </span>
                 <span className="text-[11px] text-slate-500 leading-normal block mt-0.5">
@@ -435,17 +435,17 @@ export const DisplaySettingsPanel: React.FC = () => {
             </label>
 
             {/* Tùy chọn 2: Bước xác nhận hậu quả */}
-            <label className="flex items-start gap-3 p-3 bg-white rounded-xl border border-slate-200 cursor-pointer hover:border-slate-300 transition-colors">
+            <label className="flex items-start gap-3 p-3 bg-white rounded-xl border border-slate-200 cursor-pointer hover:border-slate-300 transition-colors min-w-0">
               <input
                 type="checkbox"
                 checked={requireConfirmationDialog}
                 onChange={(e) => setRequireConfirmationDialog(e.target.checked)}
-                className="mt-0.5 h-4 w-4 rounded text-blue-600 focus:ring-blue-500 border-slate-300"
+                className="mt-0.5 h-4 w-4 rounded text-blue-600 focus:ring-blue-500 border-slate-300 shrink-0"
               />
-              <div>
+              <div className="min-w-0">
                 <span className="text-xs font-extrabold text-slate-800 flex items-center gap-1">
-                  <span>Xác nhận nêu rõ hậu quả thao tác một chiều</span>
-                  <ShieldAlert size={14} className="text-rose-500" />
+                  <span className="truncate">Xác nhận nêu rõ hậu quả thao tác một chiều</span>
+                  <ShieldAlert size={14} className="text-rose-500 shrink-0" />
                 </span>
                 <span className="text-[11px] text-slate-500 leading-normal block mt-0.5">
                   Khi bấm Hủy đơn hoặc Hủy hóa đơn, hiện bảng phân tích hậu quả
@@ -455,15 +455,15 @@ export const DisplaySettingsPanel: React.FC = () => {
             </label>
 
             {/* Tùy chọn 3: Chế độ tương phản cao */}
-            <label className="flex items-start gap-3 p-3 bg-white rounded-xl border border-slate-200 cursor-pointer hover:border-slate-300 transition-colors">
+            <label className="flex items-start gap-3 p-3 bg-white rounded-xl border border-slate-200 cursor-pointer hover:border-slate-300 transition-colors min-w-0">
               <input
                 type="checkbox"
                 checked={highContrastEnabled}
                 onChange={(e) => setHighContrastEnabled(e.target.checked)}
-                className="mt-0.5 h-4 w-4 rounded text-blue-600 focus:ring-blue-500 border-slate-300"
+                className="mt-0.5 h-4 w-4 rounded text-blue-600 focus:ring-blue-500 border-slate-300 shrink-0"
               />
-              <div>
-                <span className="text-xs font-extrabold text-slate-800 block">
+              <div className="min-w-0">
+                <span className="text-xs font-extrabold text-slate-800 block truncate">
                   Chế độ tương phản cao (High Contrast)
                 </span>
                 <span className="text-[11px] text-slate-500 leading-normal block mt-0.5">
@@ -474,15 +474,15 @@ export const DisplaySettingsPanel: React.FC = () => {
             </label>
 
             {/* Tùy chọn 4: Bố cục POS rút gọn */}
-            <label className="flex items-start gap-3 p-3 bg-white rounded-xl border border-slate-200 cursor-pointer hover:border-slate-300 transition-colors">
+            <label className="flex items-start gap-3 p-3 bg-white rounded-xl border border-slate-200 cursor-pointer hover:border-slate-300 transition-colors min-w-0">
               <input
                 type="checkbox"
                 checked={simplifiedPosLayout}
                 onChange={(e) => setSimplifiedPosLayout(e.target.checked)}
-                className="mt-0.5 h-4 w-4 rounded text-blue-600 focus:ring-blue-500 border-slate-300"
+                className="mt-0.5 h-4 w-4 rounded text-blue-600 focus:ring-blue-500 border-slate-300 shrink-0"
               />
-              <div>
-                <span className="text-xs font-extrabold text-slate-800 block">
+              <div className="min-w-0">
+                <span className="text-xs font-extrabold text-slate-800 block truncate">
                   Bố cục rút gọn màn hình POS
                 </span>
                 <span className="text-[11px] text-slate-500 leading-normal block mt-0.5">
@@ -496,11 +496,11 @@ export const DisplaySettingsPanel: React.FC = () => {
       </div>
 
       {/* Action Bar (Lưu & Khôi phục) */}
-      <div className="pt-6 mt-6 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3">
+      <div className="sticky bottom-0 z-20 bg-white/95 backdrop-blur-xs -mx-4 sm:-mx-5 lg:-mx-5 xl:-mx-6 -mb-4 sm:-mb-5 lg:-mb-5 xl:-mb-6 px-4 sm:px-5 lg:px-5 xl:px-6 py-3 border-t border-slate-200/90 rounded-b-2xl shadow-[0_-4px_12px_rgba(0,0,0,0.03)] flex flex-wrap items-center justify-between gap-3 mt-4">
         <button
           type="button"
           onClick={handleResetToDefault}
-          className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 transition-colors cursor-pointer"
+          className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 transition-colors cursor-pointer"
         >
           <RotateCcw size={14} />
           <span>Đặt lại chuẩn</span>
@@ -509,7 +509,7 @@ export const DisplaySettingsPanel: React.FC = () => {
         <button
           type="submit"
           disabled={isUpdating}
-          className="inline-flex items-center gap-2 bg-kv-blue-primary hover:bg-blue-700 active:bg-blue-800 text-white text-xs font-extrabold px-6 py-2.5 rounded-xl shadow-sm hover:shadow-md transition-all cursor-pointer disabled:opacity-50"
+          className="inline-flex items-center gap-2 bg-kv-blue-primary hover:bg-blue-700 active:bg-blue-800 text-white text-xs font-extrabold px-5 py-2 rounded-xl shadow-sm hover:shadow-md transition-all cursor-pointer disabled:opacity-50"
         >
           <Save size={15} />
           <span>{isUpdating ? "Đang lưu..." : "Lưu cấu hình hiển thị"}</span>

@@ -26,11 +26,13 @@ WORKDIR /app
 # Cài đặt curl cho Health Check
 RUN apk --no-cache add curl && rm -rf /var/cache/apk/*
 
-# Tạo user phi đặc quyền (non-root) tăng bảo mật
-RUN addgroup -S spring && adduser -S spring -G spring
+# Tạo user phi đặc quyền (non-root) tăng bảo mật và cấp quyền thư mục backups
+RUN addgroup -S spring && adduser -S spring -G spring && \
+    mkdir -p /app/backups && chown -R spring:spring /app
+
 USER spring:spring
 
-COPY --from=builder /app/target/app.jar app.jar
+COPY --chown=spring:spring --from=builder /app/target/app.jar app.jar
 
 # Port Spring Boot mặc định (8080)
 EXPOSE 8080

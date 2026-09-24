@@ -1,0 +1,64 @@
+package com.sales.modules.pos.repository;
+import com.sales.common.constant.ShiftStatus;
+import com.sales.modules.pos.entity.Shift;
+import org.springframework.data.jpa.repository.EntityGraph;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+
+import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import jakarta.persistence.LockModeType;
+import java.time.LocalDateTime;
+import java.util.Collection;
+import java.util.List;
+import java.util.Optional;
+
+
+@Repository
+public interface ShiftRepository extends JpaRepository<Shift, String> {
+    
+    boolean existsByUserIdAndStatus(String userId, ShiftStatus status);
+
+    @EntityGraph(attributePaths = {"user", "household"})
+    Optional<Shift> findByUserIdAndStatus(String userId, ShiftStatus status);
+
+    @EntityGraph(attributePaths = {"user", "household"})
+    Optional<Shift> findById(String id);
+
+    @EntityGraph(attributePaths = {"user", "household"})
+    List<Shift> findByHouseholdIdOrderByOpenedAtDesc(String householdId);
+
+    @EntityGraph(attributePaths = {"user", "household"})
+    List<Shift> findByHouseholdIdAndUserIdOrderByOpenedAtDesc(String householdId, String userId);
+
+    @EntityGraph(attributePaths = {"user", "household"})
+    List<Shift> findByHouseholdIdAndOpenedAtBetween(String householdId, LocalDateTime start, LocalDateTime end);
+
+    @EntityGraph(attributePaths = {"user", "household"})
+    List<Shift> findAllByIdInAndHouseholdId(Collection<String> ids, String householdId);
+
+    @EntityGraph(attributePaths = {"user", "household"})
+    Optional<Shift> findByIdAndHouseholdId(String id, String householdId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @EntityGraph(attributePaths = {"user", "household"})
+    @Query("SELECT s FROM Shift s WHERE s.id = :id")
+    Optional<Shift> findByIdWithLock(@Param("id") String id);
+
+    @Query("SELECT s.user.id FROM Shift s WHERE s.household.id = :householdId AND s.status = 'OPEN'")
+    List<String> findOpenShiftUserIdsByHouseholdId(@Param("householdId") String householdId);
+
+    @EntityGraph(attributePaths = {"user", "household", "pointOfSale"})
+    @Query("SELECT s FROM Shift s WHERE s.household.id = :householdId AND s.status = :status " +
+           "AND ((s.closedAt IS NOT NULL AND s.closedAt >= :start AND s.closedAt <= :end) " +
+           "     OR (s.closedAt IS NULL AND s.openedAt >= :start AND s.openedAt <= :end)) " +
+           "AND (:userId IS NULL OR s.user.id = :userId) " +
+           "ORDER BY s.openedAt DESC")
+    List<Shift> findClosedShiftsForReport(
+            @Param("householdId") String householdId,
+            @Param("status") ShiftStatus status,
+            @Param("start") LocalDateTime start,
+            @Param("end") LocalDateTime end,
+            @Param("userId") String userId);
+}

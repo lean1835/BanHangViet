@@ -561,7 +561,6 @@ export const AutoRetryQueuePanel: React.FC<AutoRetryQueuePanelProps> = ({
         )}
       </div>
 
-      {/* Modal Cài đặt mốc thời hạn tự động gửi lại (NCL-09-CN-008 & QTN-06) */}
       <AutoRetrySettingsModal
         isOpen={isSettingsModalOpen}
         onClose={() => setIsSettingsModalOpen(false)}

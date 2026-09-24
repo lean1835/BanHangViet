@@ -27,6 +27,7 @@ const isNavigationItemVisible = (itemId: string, currentRole: TDemoRole): boolea
   return !hiddenItems.includes(itemId);
 };
 
+
 export const DashboardNavigation = ({
   currentRole,
   pendingCount = 0,
@@ -47,6 +48,7 @@ export const DashboardNavigation = ({
     opacity: 0,
   });
   const [hasRendered, setHasRendered] = useState(false);
+  const [optimisticActiveId, setOptimisticActiveId] = useState<string | null>(null);
 
   const isPosScreen =
     location.pathname === APP_ROUTES.POS ||
@@ -57,6 +59,10 @@ export const DashboardNavigation = ({
   );
 
   const isItemActive = (item: IPrimaryNavigationItem) => {
+    if (optimisticActiveId) {
+      return item.id === optimisticActiveId;
+    }
+
     const isPortalOverview =
       (currentRole === USER_ROLES.PLATFORM_ADMIN ||
         currentRole === USER_ROLES.TAX_AUTHORITY) &&
@@ -80,6 +86,10 @@ export const DashboardNavigation = ({
   const activeItem = visibleItems.find(isItemActive);
 
   const displaySettings = useAppSelector((state) => state.displaySettings);
+
+  useLayoutEffect(() => {
+    setOptimisticActiveId(null);
+  }, [location.pathname]);
 
   useLayoutEffect(() => {
     const updateIndicator = () => {
@@ -164,6 +174,7 @@ export const DashboardNavigation = ({
               }}
               to={item.path}
               end={item.id === NAVIGATION_ITEM_IDS.DASHBOARD}
+              onClick={() => setOptimisticActiveId(item.id)}
               className={`relative z-10 h-full shrink-0 px-3 sm:px-5 flex items-center gap-1.5 font-bold transition-colors duration-200 border-b-2 text-xs whitespace-nowrap leading-none ${
                 isActive
                   ? "text-kv-blue-primary border-transparent"

@@ -52,7 +52,6 @@ export const SlowMovingProductTable: React.FC<SlowMovingProductTableProps> = ({
 }) => {
   const navigate = useNavigate();
 
-  // Permission Check (NCL-18-CN-003-TC-03)
   if (!isAllowed) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[300px] bg-white rounded-2xl border border-slate-200 p-8 text-center shadow-sm w-full animate-auth-fade-in">
@@ -193,7 +192,6 @@ export const SlowMovingProductTable: React.FC<SlowMovingProductTableProps> = ({
             </span>
           </div>
         ) : products.length === 0 ? (
-          /* Empty State (NCL-18-CN-003-TC-02) */
           <div className="flex-1 flex flex-col items-center justify-center py-16 text-center">
             <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mb-3">
               <ShieldCheck className="w-6 h-6" />

@@ -83,7 +83,7 @@ export const ActionConsequenceConfirmModal: React.FC<
             </div>
             <div>
               <span className="text-[10px] font-black uppercase tracking-wider bg-rose-900/60 px-2 py-0.5 rounded text-rose-200 inline-block mb-0.5">
-                Cảnh báo thao tác một chiều (NCL-19)
+                Cảnh báo thao tác một chiều
               </span>
               <h3
                 id="consequence-modal-title"

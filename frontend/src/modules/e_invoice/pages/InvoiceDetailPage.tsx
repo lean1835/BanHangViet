@@ -527,7 +527,6 @@ export const InvoiceDetailPage: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-2 shrink-0 flex-wrap">
-            {/* NCL-05-CN-007: Nút Xem bản thể hiện */}
             <button
               type="button"
               onClick={() => setShowRepresentationModal(true)}
@@ -550,7 +549,6 @@ export const InvoiceDetailPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Banner Cảnh báo Hóa đơn cần xử lý thủ công (NCL-04-CN-007) */}
         {invoice.status === E_INVOICE_STATUS.MANUAL_PROCESSING && (
           <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3 shadow-xs animate-fade-in">
             <div className="p-2 rounded-lg bg-amber-100 text-amber-700 shrink-0 mt-0.5">
@@ -587,7 +585,6 @@ export const InvoiceDetailPage: React.FC = () => {
         <div className="flex flex-col lg:flex-row items-start gap-6">
           {/* Left Column: Standard Electronic Invoice Document Paper */}
           <div className="flex-1 w-full bg-white border border-slate-200 rounded-xl p-6 sm:p-8 shadow-sm flex flex-col gap-6 text-[10px] text-slate-800 font-medium relative overflow-hidden">
-            {/* Watermark (NCL-05-CN-007) */}
             {repData?.watermarkText ? (
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none z-10">
                 <div className="transform -rotate-[30deg] border-4 border-dashed border-red-500/35 text-red-600/30 font-black text-3xl sm:text-4xl uppercase tracking-widest px-6 py-3 rounded-2xl text-center">
@@ -854,7 +851,6 @@ export const InvoiceDetailPage: React.FC = () => {
               )}
             </div>
 
-            {/* Adjustment Reference Note (NCL-05-CN-007) */}
             {repData?.referenceNote && (
               <div className="border border-blue-200 bg-blue-50/80 rounded-lg p-2.5 text-[10px] font-semibold text-blue-800 flex items-center gap-2">
                 <CheckCircle2 className="w-3.5 h-3.5 text-blue-600 shrink-0" />
@@ -953,13 +949,6 @@ export const InvoiceDetailPage: React.FC = () => {
 
             {/* Total Area */}
             {(() => {
-              const isAdjustmentOrExchange = Boolean(
-                invoice.originalInvoiceId ||
-                (invoice as any).originalInvoice ||
-                invoice.title?.includes("ĐỔI HÀNG") ||
-                invoice.title?.includes("BỔ SUNG") ||
-                invoice.footerNote?.includes("đổi hàng")
-              );
               const originalItemsTotal = invoice.items && invoice.items.length > 0
                 ? invoice.items.reduce((sum, item) => {
                     const lineTotal = (item.subtotal !== undefined && item.subtotal !== null && item.subtotal !== 0)
@@ -971,19 +960,16 @@ export const InvoiceDetailPage: React.FC = () => {
               const hasDiscount = Boolean(invoice.discountAmount && invoice.discountAmount > 0);
               const preTaxAmount = Math.max(0, originalItemsTotal - (invoice.discountAmount || 0));
 
-              // Thuế GTGT tính trên giá sau chiết khấu thương mại theo chuẩn Nghị định 123
-              const effectiveTaxAmount = hasDiscount && invoice.taxAmount && originalItemsTotal > 0
-                ? Math.round(invoice.taxAmount * (preTaxAmount / originalItemsTotal))
-                : (invoice.taxAmount || 0);
+              // Thuế GTGT: Backend invoice.taxAmount đã là số tiền thuế thực tế sau chiết khấu (theo chuẩn Nghị định 123)
+              const effectiveTaxAmount = invoice.taxAmount !== undefined && invoice.taxAmount !== null
+                ? invoice.taxAmount
+                : (hasDiscount && originalItemsTotal > 0 ? Math.round(preTaxAmount * 0.1) : 0);
 
-              // Số tiền trừ điểm thưởng / điểm tích lũy
-              const payableBeforePoints = preTaxAmount + effectiveTaxAmount;
+              // Số tiền trừ điểm thưởng / điểm tích lũy: CHỈ hiển thị khi đơn hàng/hóa đơn thực sự dùng điểm
               const pointDiscount = (invoice.pointDiscountAmount && invoice.pointDiscountAmount > 0)
                 ? invoice.pointDiscountAmount
-                : (!isAdjustmentOrExchange && invoice.finalAmount !== undefined && invoice.finalAmount < payableBeforePoints)
-                ? Math.max(0, payableBeforePoints - invoice.finalAmount)
                 : 0;
-              const pointsRedeemed = invoice.pointsRedeemed || (pointDiscount > 0 ? Math.round(pointDiscount / 1000) : 0);
+              const pointsRedeemed = invoice.pointsRedeemed || 0;
 
               return (
                 <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 flex flex-col gap-2 font-bold text-slate-700 text-xs">
@@ -1332,7 +1318,6 @@ export const InvoiceDetailPage: React.FC = () => {
       )}
 
 
-      {/* Invoice Representation Modal (NCL-05-CN-007) */}
       {showRepresentationModal && (
         <InvoiceRepresentationModal
           invoiceId={invoice.id}

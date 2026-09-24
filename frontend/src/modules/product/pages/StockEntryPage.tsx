@@ -66,7 +66,6 @@ export const StockEntryPage = () => {
     setPage(0);
   }, [stockEntrySearch]);
 
-  // Read id query param to automatically open receipt detail (NCL-02-CN-006 TC-02)
   useEffect(() => {
     const id = searchParams.get("id");
     if (id) {

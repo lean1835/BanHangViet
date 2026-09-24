@@ -41,6 +41,7 @@ export const PLATFORM_ADMIN_NAV_ITEMS = [
     to: APP_ROUTES.ADMIN_HOUSEHOLDS,
     label: `Hộ kinh doanh (${PLATFORM_ADMIN_HOUSEHOLD_COUNT})`,
   },
+  { to: APP_ROUTES.ADMIN_PACKAGES, label: "Cấu hình gói dịch vụ" },
   { to: APP_ROUTES.ADMIN_LOGS, label: "Nhật ký hệ thống" },
 ] as const;
 

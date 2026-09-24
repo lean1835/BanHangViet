@@ -128,7 +128,6 @@ export const taxDeclarationApi = baseApi.injectEndpoints({
       ],
     }),
 
-    // NCL-12-CN-006: Lập / Cập nhật bảng kê mua vào theo kỳ
     generatePurchaseRegister: builder.mutation<
       IApiResponse<ITaxPurchaseRegisterSummaryResponse>,
       IGenerateTaxPurchaseRegisterRequest
@@ -146,7 +145,6 @@ export const taxDeclarationApi = baseApi.injectEndpoints({
       ],
     }),
 
-    // NCL-12-CN-006: Lấy dữ liệu tổng hợp bảng kê mua vào của kỳ
     getPurchaseRegisterSummary: builder.query<
       IApiResponse<ITaxPurchaseRegisterSummaryResponse>,
       string
@@ -160,7 +158,6 @@ export const taxDeclarationApi = baseApi.injectEndpoints({
       ],
     }),
 
-    // NCL-12-CN-006: Lấy danh sách phân trang các dòng chi tiết hàng hóa mua vào
     getPurchaseRegisterItems: builder.query<
       IApiResponse<IPageResponse<ITaxPurchaseRegisterItemResponse>>,
       { periodId: string; page?: number; size?: number; search?: string }
@@ -175,7 +172,6 @@ export const taxDeclarationApi = baseApi.injectEndpoints({
       ],
     }),
 
-    // NCL-12-CN-007: Lấy cấu hình nhắc lịch nộp tờ khai của hộ kinh doanh
     getReminderSettings: builder.query<
       IApiResponse<ITaxReminderSettingsResponse>,
       void
@@ -187,7 +183,6 @@ export const taxDeclarationApi = baseApi.injectEndpoints({
       providesTags: [{ type: API_TAG_TYPES.REPORT, id: "TAX_REMINDER_SETTINGS" }],
     }),
 
-    // NCL-12-CN-007: Cập nhật cấu hình nhắc lịch nộp tờ khai (Chỉ chủ hộ VT-01)
     updateReminderSettings: builder.mutation<
       IApiResponse<ITaxReminderSettingsResponse>,
       IUpdateTaxReminderSettingsRequest
@@ -203,7 +198,6 @@ export const taxDeclarationApi = baseApi.injectEndpoints({
       ],
     }),
 
-    // NCL-12-CN-007: Lấy danh sách các kỳ cần nhắc nộp tờ khai kèm checklist
     getActiveReminders: builder.query<
       IApiResponse<ITaxPeriodReminderResponse[]>,
       void
@@ -215,7 +209,6 @@ export const taxDeclarationApi = baseApi.injectEndpoints({
       providesTags: [{ type: API_TAG_TYPES.REPORT, id: "TAX_REMINDERS" }],
     }),
 
-    // NCL-12-CN-007: Kích hoạt quét nhắc nhở theo thời gian thực
     triggerScanReminders: builder.mutation<
       IApiResponse<ITaxReminderScanResultResponse>,
       void
@@ -227,7 +220,6 @@ export const taxDeclarationApi = baseApi.injectEndpoints({
       invalidatesTags: [{ type: API_TAG_TYPES.REPORT, id: "TAX_REMINDERS" }],
     }),
 
-    // NCL-12-CN-007: Đánh dấu đã xuất tờ khai thuế cho kỳ
     markDeclarationAsExported: builder.mutation<
       IApiResponse<void>,
       string
@@ -310,7 +302,7 @@ export const downloadTaxDeclarationExcel = async (
 };
 
 /**
- * NCL-12-CN-006: Tải tệp Excel bảng kê mua vào từ Backend server-side POI generator
+ * Tải tệp Excel bảng kê mua vào từ Backend server-side POI generator
  */
 export const downloadPurchaseRegisterExcel = async (
   periodId: string,

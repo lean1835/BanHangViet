@@ -245,7 +245,6 @@ export const CustomerDetailModal: React.FC<CustomerDetailModalProps> = ({
             </span>
           </div>
 
-          {/* VIP & Discount Policy Card (NCL-15-CN-003) */}
           <div className="p-3.5 rounded-xl bg-gradient-to-r from-amber-50/70 to-orange-50/50 border border-amber-200 flex flex-col gap-2.5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1.5 text-xs font-extrabold text-amber-900">
@@ -574,7 +573,6 @@ export const CustomerDetailModal: React.FC<CustomerDetailModalProps> = ({
             </div>
           )}
 
-          {/* Tab 3: Debt Reconciliation Management & History (NCL-10-CN-007) */}
           {activeTab === "RECONCILIATION" && (
             <CustomerReconciliationHistoryTab
               customer={customer}

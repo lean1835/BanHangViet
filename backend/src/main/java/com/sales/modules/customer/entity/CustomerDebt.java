@@ -1,0 +1,86 @@
+package com.sales.modules.customer.entity;
+import com.sales.modules.auth.entity.BusinessHousehold;
+import com.sales.modules.auth.entity.User;
+import com.sales.modules.order.entity.Order;
+import com.sales.common.constant.DebtStatus;
+import jakarta.persistence.*;
+import lombok.*;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+
+@Entity
+@Table(name = "customer_debts")
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class CustomerDebt {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
+    @Column(length = 36, nullable = false)
+    private String id;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "household_id", nullable = false)
+    private BusinessHousehold household;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "customer_id", nullable = false)
+    private Customer customer;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "order_id")
+    private Order order;
+
+    @Column(nullable = false, precision = 15, scale = 2)
+    private BigDecimal amount;
+
+    @Column(name = "remaining_amount", nullable = false, precision = 15, scale = 2)
+    @Builder.Default
+    private BigDecimal remainingAmount = BigDecimal.ZERO;
+
+    @Column(nullable = false, length = 20)
+    private String type; // DEBT_CREATED, DEBT_PAID
+
+    @Column(nullable = false, length = 20)
+    @Builder.Default
+    private String status = DebtStatus.PENDING; // PENDING, PAID, OVERDUE
+
+    @Column(name = "due_date", nullable = false)
+    private LocalDateTime dueDate;
+
+    @Column(name = "reminder_sent", nullable = false, columnDefinition = "boolean default false")
+    @Builder.Default
+    private boolean reminderSent = false;
+
+    @Column(name = "overdue_reminder_sent", nullable = false, columnDefinition = "boolean default false")
+    @Builder.Default
+    private boolean overdueReminderSent = false;
+
+    @Column(name = "is_locked", nullable = false, columnDefinition = "boolean default false")
+    @Builder.Default
+    private boolean isLocked = false;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "reconciliation_id")
+    private CustomerDebtReconciliation reconciliation;
+
+    @Column(columnDefinition = "TEXT")
+    private String notes;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "created_by_user_id", nullable = false)
+    private User createdByUser;
+
+    @CreationTimestamp
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private LocalDateTime createdAt;
+
+    @UpdateTimestamp
+    @Column(name = "updated_at", nullable = false)
+    private LocalDateTime updatedAt;
+}

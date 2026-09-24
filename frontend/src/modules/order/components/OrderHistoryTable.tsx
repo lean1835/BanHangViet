@@ -66,6 +66,8 @@ import {
   CreditCard,
   ExternalLink,
   Edit3,
+  AlertCircle,
+  RefreshCw,
 } from "lucide-react";
 import { notifyOrderCompleted, notifyOrderCanceled } from "@/utils/orderEvents";
 
@@ -639,7 +641,6 @@ export const OrderHistoryTable: React.FC<OrderHistoryTableProps> = ({
   const [selectedOrder, setSelectedOrder] = useState<IOrderResponse | null>(null);
   const [isSubmittingOrder, setIsSubmittingOrder] = useState(false);
 
-  // Cancellation States (NCL-03-CN-009)
   const [orderToCancel, setOrderToCancel] = useState<IOrderResponse | null>(null);
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [showCanceledStatsModal, setShowCanceledStatsModal] = useState(false);
@@ -1236,7 +1237,6 @@ export const OrderHistoryTable: React.FC<OrderHistoryTableProps> = ({
       return;
     }
 
-    // NCL 08: Xử lý tạo đơn hàng khi ở chế độ Mất mạng (Offline)
     if (isOnline === false) {
       const offlineOrderNumber = `HD-OFF-${Date.now()}`;
       const calculatedTotal = selectedItems.reduce(
@@ -1957,8 +1957,15 @@ export const OrderHistoryTable: React.FC<OrderHistoryTableProps> = ({
           {ORDER_UI.HISTORY.TITLE}
         </h3>
         <div className="flex items-center gap-3">
-          <span className="text-xs font-bold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-lg">
-            {totalElements} đơn hàng
+          <span className="text-xs font-bold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-lg inline-flex items-center gap-1.5">
+            {isOrdersLoading ? (
+              <>
+                <span className="w-2 h-2 rounded-full bg-[#0070f4] animate-ping" />
+                <span className="text-blue-600">Đang tải...</span>
+              </>
+            ) : (
+              `${totalElements} đơn hàng`
+            )}
           </span>
           <button
             type="button"
@@ -1983,18 +1990,21 @@ export const OrderHistoryTable: React.FC<OrderHistoryTableProps> = ({
       {canMutateOrders && isActiveShiftError && (
         <div
           role="alert"
-          className="flex flex-col gap-3 rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700 sm:flex-row sm:items-center sm:justify-between"
+          className="flex flex-col gap-2 rounded-xl border border-rose-200 bg-rose-50/90 p-3 text-xs text-rose-700 sm:flex-row sm:items-center sm:justify-between shadow-2xs"
         >
-          <span>
-            {getApiErrorMessage(
-              activeShiftError,
-              SHIFT_MESSAGES.ACTIVE_SHIFT_LOAD_ERROR
-            )}
-          </span>
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />
+            <span className="font-semibold">
+              {getApiErrorMessage(
+                activeShiftError,
+                SHIFT_MESSAGES.ACTIVE_SHIFT_LOAD_ERROR
+              )}
+            </span>
+          </div>
           <button
             type="button"
             onClick={() => void refetchActiveShift()}
-            className="min-h-11 shrink-0 rounded-lg border border-rose-300 bg-white px-4 font-bold transition-colors hover:bg-rose-100 lg:min-h-8"
+            className="h-8 shrink-0 rounded-lg border border-rose-300 bg-white px-3.5 font-bold text-xs transition-colors hover:bg-rose-100"
           >
             Thử lại
           </button>
@@ -2004,39 +2014,21 @@ export const OrderHistoryTable: React.FC<OrderHistoryTableProps> = ({
       {canMutateOrders && isProductsError && !pendingOrderDraft && (
         <div
           role="alert"
-          className="flex flex-col gap-3 rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700 sm:flex-row sm:items-center sm:justify-between"
+          className="flex flex-col gap-2 rounded-xl border border-rose-200 bg-rose-50/90 p-3 text-xs text-rose-700 sm:flex-row sm:items-center sm:justify-between shadow-2xs"
         >
-          <span>
-            {getApiErrorMessage(
-              productsError,
-              "Không thể tải danh sách hàng hóa. Vui lòng thử lại.",
-            )}
-          </span>
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />
+            <span className="font-semibold">
+              {getApiErrorMessage(
+                productsError,
+                "Không thể tải danh sách hàng hóa. Vui lòng thử lại.",
+              )}
+            </span>
+          </div>
           <button
             type="button"
             onClick={() => void refetchProducts()}
-            className="min-h-11 shrink-0 rounded-lg border border-rose-300 bg-white px-4 font-bold transition-colors hover:bg-rose-100 lg:min-h-8"
-          >
-            Thử lại
-          </button>
-        </div>
-      )}
-
-      {isOrdersError && (
-        <div
-          role="alert"
-          className="flex flex-col gap-3 rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700 sm:flex-row sm:items-center sm:justify-between"
-        >
-          <span>
-            {getApiErrorMessage(
-              ordersError,
-              "Không thể tải lịch sử đơn hàng. Vui lòng thử lại.",
-            )}
-          </span>
-          <button
-            type="button"
-            onClick={() => refetchOrders()}
-            className="min-h-11 shrink-0 rounded-lg border border-rose-300 bg-white px-4 font-bold transition-colors hover:bg-rose-100 lg:min-h-8"
+            className="h-8 shrink-0 rounded-lg border border-rose-300 bg-white px-3.5 font-bold text-xs transition-colors hover:bg-rose-100"
           >
             Thử lại
           </button>
@@ -2044,11 +2036,9 @@ export const OrderHistoryTable: React.FC<OrderHistoryTableProps> = ({
       )}
 
       {isOrdersLoading && (
-        <div
-          role="status"
-          className="rounded-lg border border-blue-100 bg-blue-50 p-3 text-center text-sm font-semibold text-blue-700"
-        >
-          Đang tải lịch sử đơn hàng...
+        <div className="relative overflow-hidden h-1 w-full bg-blue-100 rounded-full my-0.5">
+          <div className="h-full bg-gradient-to-r from-blue-400 via-[#0070f4] to-blue-400 animate-pulse w-full" />
+          <span className="sr-only" role="status">{ORDER_UI.HISTORY.LOADING_MESSAGE}</span>
         </div>
       )}
 
@@ -2069,7 +2059,66 @@ export const OrderHistoryTable: React.FC<OrderHistoryTableProps> = ({
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
-            {filteredOrders.length === 0 ? (
+            {isOrdersLoading ? (
+              Array.from({ length: 6 }).map((_, idx) => (
+                <tr key={`skel-row-${idx}`} className="animate-pulse">
+                  <td className="p-3">
+                    <div className="h-4 w-28 bg-slate-200 rounded-md" />
+                  </td>
+                  <td className="p-3">
+                    <div className="h-4 w-20 bg-slate-200 rounded-md" />
+                  </td>
+                  <td className="p-3">
+                    <div className="h-4 w-24 bg-slate-200 rounded-md" />
+                  </td>
+                  <td className="p-3">
+                    <div className="h-4 w-28 bg-slate-200 rounded-md" />
+                  </td>
+                  <td className="p-3 text-right">
+                    <div className="h-4 w-20 bg-slate-200 rounded-md ml-auto" />
+                  </td>
+                  <td className="p-3 text-right">
+                    <div className="h-4 w-12 bg-slate-200 rounded-md ml-auto" />
+                  </td>
+                  <td className="p-3 text-right">
+                    <div className="h-4 w-20 bg-slate-200 rounded-md ml-auto" />
+                  </td>
+                  <td className="p-3">
+                    <div className="h-5 w-16 bg-slate-200 rounded-full" />
+                  </td>
+                  <td className="p-3 text-center">
+                    <div className="h-5 w-20 bg-slate-200 rounded-full mx-auto" />
+                  </td>
+                  <td className="p-3 text-center">
+                    <div className="h-7 w-16 bg-slate-200 rounded-lg mx-auto" />
+                  </td>
+                </tr>
+              ))
+            ) : isOrdersError ? (
+              <tr>
+                <td colSpan={10} className="p-10 text-center">
+                  <div className="max-w-md mx-auto flex flex-col items-center gap-3">
+                    <div className="w-11 h-11 rounded-full bg-rose-50 text-rose-500 flex items-center justify-center border border-rose-100 shadow-2xs">
+                      <AlertCircle className="w-5 h-5" />
+                    </div>
+                    <div className="space-y-1">
+                      <h4 className="text-sm font-bold text-slate-800">Không thể tải lịch sử đơn hàng</h4>
+                      <p className="text-xs text-slate-500">
+                        {getApiErrorMessage(ordersError, "Đã xảy ra lỗi khi kết nối máy chủ. Vui lòng thử lại.")}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => refetchOrders()}
+                      className="mt-1 px-4 py-1.5 rounded-lg bg-white border border-rose-200 hover:bg-rose-50 text-rose-700 font-bold text-xs inline-flex items-center gap-1.5 transition-colors shadow-xs"
+                    >
+                      <RefreshCw className="w-3.5 h-3.5" />
+                      <span>Thử lại</span>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ) : filteredOrders.length === 0 ? (
               <tr>
                 <td colSpan={10} className="p-8 text-center text-slate-400 font-medium">
                   {ORDER_UI.HISTORY.EMPTY_MESSAGE}
@@ -2177,7 +2226,7 @@ export const OrderHistoryTable: React.FC<OrderHistoryTableProps> = ({
                             type="button"
                             onClick={(e) => handleOpenCancelOrder(order, e)}
                             className="px-2.5 py-1 text-xs font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg transition-colors inline-flex items-center gap-1 shadow-2xs"
-                            title="Hủy đơn chưa thanh toán kèm lý do (NCL-03-CN-009)"
+                            title="Hủy đơn chưa thanh toán kèm lý do"
                           >
                             <Ban className="w-3.5 h-3.5" /> Hủy đơn
                           </button>
@@ -2786,7 +2835,6 @@ export const OrderHistoryTable: React.FC<OrderHistoryTableProps> = ({
                 </div>
               )}
 
-              {/* Thông tin hủy đơn nếu có (NCL-03-CN-009) */}
               {selectedOrder.status === ORDER_STATUS.CANCELED && (
                 <div className="bg-rose-50 border border-rose-200 text-rose-900 rounded-xl p-4 flex flex-col gap-2.5 shadow-2xs">
                   <div className="flex items-center gap-2 font-extrabold text-rose-700 text-sm">
@@ -3073,16 +3121,12 @@ export const OrderHistoryTable: React.FC<OrderHistoryTableProps> = ({
                     );
                   })()}
 
-                  {/* Card 3: Chi tiết các hình thức thanh toán (NCL-03-CN-011) */}
                   {selectedOrder.payments && selectedOrder.payments.length > 0 && (
                     <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-2xs flex flex-col gap-2.5 text-xs">
                       <h4 className="font-bold text-slate-800 text-xs uppercase tracking-wide flex items-center justify-between pb-2 border-b border-slate-100">
                         <span className="flex items-center gap-1.5">
                           <CreditCard className="w-3.5 h-3.5 text-blue-600" />
                           <span>Chi tiết phân bổ thanh toán ({selectedOrder.payments.length})</span>
-                        </span>
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-blue-50 text-blue-700 border border-blue-200">
-                          NCL-03-CN-011
                         </span>
                       </h4>
 
@@ -3232,7 +3276,7 @@ export const OrderHistoryTable: React.FC<OrderHistoryTableProps> = ({
                           handleOpenCancelOrder(selectedOrder);
                         }}
                         className="bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 font-bold h-9 px-4 rounded-xl transition-colors text-xs flex items-center gap-1.5 shadow-2xs"
-                        title="Hủy đơn chưa thanh toán kèm lý do (NCL-03-CN-009)"
+                        title="Hủy đơn chưa thanh toán kèm lý do"
                       >
                         <Ban className="w-3.5 h-3.5" /> Hủy đơn hàng
                       </button>
@@ -3260,7 +3304,6 @@ export const OrderHistoryTable: React.FC<OrderHistoryTableProps> = ({
         onClose={() => setShowImportModal(false)}
       />
 
-      {/* Modal Hủy Đơn Hàng Chưa Thanh Toán (NCL-03-CN-009) */}
       <CancelOrderModal
         isOpen={showCancelModal}
         onClose={() => {
@@ -3271,7 +3314,6 @@ export const OrderHistoryTable: React.FC<OrderHistoryTableProps> = ({
         onSuccess={handleCancelOrderSuccess}
       />
 
-      {/* Modal Thống Kê Đơn Hủy Theo Ca & Nhân Viên (NCL-03-CN-009) */}
       <CanceledOrderStatisticsModal
         isOpen={showCanceledStatsModal}
         onClose={() => setShowCanceledStatsModal(false)}

@@ -7,7 +7,6 @@ import { GrossProfitReport } from "../components/GrossProfitReport";
 export const GrossProfitReportPage: React.FC = () => {
   const { currentRole } = useDashboardDemo();
 
-  // Role Guard: NCL-07 requires blocking cashier/salesperson VT-02
   const isCashier = currentRole === USER_ROLES.CASHIER;
 
   if (isCashier) {

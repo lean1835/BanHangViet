@@ -61,7 +61,6 @@ export const useOfflineSync = ({
     try {
       const orderNumbers = currentList.map((o) => o.orderNumber);
 
-      // Bước 1: Gọi checkConflicts API từ Backend
       const checkRes = await checkConflicts({ offlineOrderNumbers: orderNumbers }).unwrap();
       const { duplicates = [], conflicts = [] } = checkRes.result || {};
 
@@ -98,7 +97,6 @@ export const useOfflineSync = ({
       let syncedOrderNumbers: string[] = [];
 
       if (cleanOrders.length > 0) {
-        // Bước 2: Tải danh sách đơn hàng hợp lệ lên máy chủ
         const payload = cleanOrders.map(({ localId: _localId, syncStatus: _syncStatus, errorMessage: _errorMessage, ...rest }) => rest);
         const uploadRes = await bulkUpload(payload).unwrap();
 

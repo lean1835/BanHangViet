@@ -10,6 +10,7 @@ import {
   Clock,
   Sparkles,
   Info,
+  AlertTriangle,
 } from "lucide-react";
 import type {
   IChangeSubscriptionRequest,
@@ -37,7 +38,18 @@ export const ChangePlanModal: React.FC<ChangePlanModalProps> = ({
   isLoading,
 }) => {
   const [selectedPlanCode, setSelectedPlanCode] =
-    useState<TSubscriptionPlanCode>(() => household?.planCode || "STANDARD");
+    useState<TSubscriptionPlanCode>(() => {
+      const activeMatch = plans.find((p) => p.code === household?.planCode);
+      return activeMatch?.code || plans[0]?.code || "STANDARD";
+    });
+
+  React.useEffect(() => {
+    if (plans.length > 0) {
+      const activeMatch = plans.find((p) => p.code === household?.planCode);
+      setSelectedPlanCode(activeMatch?.code || plans[0].code);
+    }
+  }, [household?.planCode, plans]);
+
   const [expiryDate, setExpiryDate] = useState(() => {
     const d = new Date();
     d.setFullYear(d.getFullYear() + 1);
@@ -138,8 +150,20 @@ export const ChangePlanModal: React.FC<ChangePlanModalProps> = ({
             <label className="block font-bold text-slate-800 mb-2.5">
               Chọn gói dịch vụ mới:
             </label>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 items-stretch">
-              {plans.map((p) => {
+            {plans.length === 0 ? (
+              <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-start gap-2.5">
+                <AlertTriangle size={17} className="text-amber-600 shrink-0 mt-0.5" />
+                <div>
+                  <strong className="font-bold">Không có gói dịch vụ nào đang hoạt động:</strong>
+                  <p className="mt-1 text-[11px] text-amber-700 leading-relaxed">
+                    Tất cả các gói dịch vụ đều đang ở trạng thái <strong>Tạm ngưng</strong>.
+                    Hệ thống chặn việc gán các gói tạm ngưng cho hộ kinh doanh mới. Vui lòng kích hoạt lại ít nhất một gói tại mục <strong>Cấu hình gói dịch vụ</strong>.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 items-stretch">
+                {plans.map((p) => {
                 const isSelected = selectedPlanCode === p.code;
                 const isStarter = p.code === "STARTER";
                 const isPremium = p.code === "PREMIUM";
@@ -224,6 +248,7 @@ export const ChangePlanModal: React.FC<ChangePlanModalProps> = ({
                 );
               })}
             </div>
+            )}
           </div>
 
           {/* Duration & Expiry */}
@@ -300,8 +325,12 @@ export const ChangePlanModal: React.FC<ChangePlanModalProps> = ({
             </button>
             <button
               type="submit"
-              disabled={isLoading}
-              className="px-5 py-2 rounded-xl bg-kv-blue-primary hover:bg-kv-blue-dark text-white font-bold transition-all shadow-md shadow-blue-500/20 flex items-center gap-1.5"
+              disabled={isLoading || plans.length === 0}
+              className={`px-5 py-2 rounded-xl font-bold transition-all flex items-center gap-1.5 ${
+                plans.length === 0
+                  ? "bg-slate-200 text-slate-400 cursor-not-allowed"
+                  : "bg-kv-blue-primary hover:bg-kv-blue-dark text-white shadow-md shadow-blue-500/20 cursor-pointer"
+              }`}
             >
               {isLoading ? (
                 <>

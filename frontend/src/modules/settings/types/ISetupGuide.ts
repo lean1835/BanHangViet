@@ -13,6 +13,7 @@ export interface ISetupStep {
   whyImportant: string;
   isRequired: boolean;
   isCompleted: boolean;
+  isSkipped?: boolean;
   actionLabel: string;
   routePath: string;
 }
@@ -21,9 +22,12 @@ export interface ISetupGuideProgress {
   totalSteps: number;
   totalRequired: number;
   completedRequired: number;
+  skippedRequired?: number;
   completedTotal: number;
+  skippedTotal?: number;
   isReadyForInvoice: boolean;
   isDismissed: boolean;
+  isPermanentlyHidden?: boolean;
   steps: ISetupStep[];
 }
 

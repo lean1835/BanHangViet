@@ -158,7 +158,6 @@ export const WeightScaleModal: React.FC<WeightScaleModalProps> = ({
     return () => clearTimeout(timer);
   }, [buyAmount, mode, product, selectedConversionId, calculateWeightApi, isOpen]);
 
-  // Live tier price resolution when weighing in modal (NCL-02-CN-010)
   const effectiveQty = mode === "WEIGHT" ? quantity : (calculatedResult?.calculatedQuantity || 0);
 
   useEffect(() => {

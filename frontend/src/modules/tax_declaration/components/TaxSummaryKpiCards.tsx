@@ -123,7 +123,6 @@ export const TaxSummaryKpiCards: React.FC<ITaxSummaryKpiCardsProps> = ({
         </div>
       </div>
 
-      {/* Bảng chi tiết tổng hợp theo mức thuế suất (NCL-12-CN-002) */}
       {summary?.taxRateSummaries && summary.taxRateSummaries.length > 0 && (
         <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
           <div className="flex items-center justify-between pb-3 border-b border-slate-100">

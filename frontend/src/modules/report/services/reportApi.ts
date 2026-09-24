@@ -127,7 +127,6 @@ export const reportApi = baseApi.injectEndpoints({
       providesTags: [{ type: API_TAG_TYPES.REPORT, id: "LOGS" }],
     }),
 
-    // NCL-07-CN-008: Báo cáo lãi gộp theo ngày và theo mặt hàng
     getGrossProfitReport: builder.query<
       IApiResponse<IGrossProfitReportResponse>,
       { fromDate?: string; toDate?: string; productId?: string; posId?: string } | void
@@ -140,7 +139,6 @@ export const reportApi = baseApi.injectEndpoints({
       providesTags: [{ type: API_TAG_TYPES.REPORT, id: "GROSS_PROFIT" }],
     }),
 
-    // NCL-07-CN-010: Báo cáo doanh thu theo nhân viên và theo ca
     getEmployeeShiftReport: builder.query<
       IApiResponse<IEmployeeShiftReportResponse>,
       { fromDate?: string; toDate?: string; userId?: string; threshold?: number } | void
@@ -153,7 +151,6 @@ export const reportApi = baseApi.injectEndpoints({
       providesTags: [{ type: API_TAG_TYPES.REPORT, id: "EMPLOYEE_SHIFTS" }],
     }),
 
-    // NCL-07-CN-011: Báo cáo doanh thu theo hình thức thanh toán
     getPaymentMethodReport: builder.query<
       IApiResponse<IPaymentMethodReportResponse>,
       { fromDate?: string; toDate?: string; userId?: string; shiftId?: string } | void
@@ -166,7 +163,6 @@ export const reportApi = baseApi.injectEndpoints({
       providesTags: [{ type: API_TAG_TYPES.REPORT, id: "PAYMENT_METHODS" }],
     }),
 
-    // NCL-07-CN-012: Báo cáo doanh thu theo nhóm hàng
     getProductGroupReport: builder.query<
       IApiResponse<IProductGroupReportResponse>,
       { fromDate?: string; toDate?: string } | void
@@ -179,7 +175,6 @@ export const reportApi = baseApi.injectEndpoints({
       providesTags: [{ type: API_TAG_TYPES.REPORT, id: "PRODUCT_GROUPS" }],
     }),
 
-    // NCL-07-CN-012: Drill-down chi tiết mặt hàng trong nhóm hàng
     getProductGroupDetail: builder.query<
       IApiResponse<IProductGroupRevenueDetailResponse>,
       { groupId: string; fromDate?: string; toDate?: string }
@@ -194,7 +189,6 @@ export const reportApi = baseApi.injectEndpoints({
       ],
     }),
 
-    // NCL-07-CN-009: Xuất báo cáo ra file Excel (.xlsx)
     exportReport: builder.mutation<
       Blob,
       {

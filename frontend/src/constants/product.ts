@@ -464,7 +464,6 @@ export const TAX_RATES = [
   },
 ] as const;
 
-// NCL-02-CN-006: Thẻ kho biến động tồn theo mặt hàng
 export const STOCK_MOVEMENT_TYPE = {
   GOODS_RECEIPT: "GOODS_RECEIPT",
   SALE_ORDER: "SALE_ORDER",
@@ -533,7 +532,6 @@ export const STOCK_CARD_MESSAGES = {
   FORBIDDEN_ROLE: "Chức năng xem Thẻ kho chỉ dành cho Chủ hộ kinh doanh (VT-01) và Kế toán (VT-03).",
 } as const;
 
-// NCL-02-CN-007: Quản lý đơn vị tính và quy đổi đơn vị mua bán
 export const UNIT_CONVERSION_ENDPOINTS = {
   LIST: (productId: string) => `/products/${productId}/unit-conversions`,
   DETAIL: (productId: string, conversionId: string) =>
@@ -581,7 +579,6 @@ export const UNIT_CONVERSION_COPY = {
     `1 ${unitName || "..."} = ${factor || 1} ${baseUnit}`,
 } as const;
 
-// NCL-02-CN-008: Bán hàng theo cân với số lượng thập phân
 export const WEIGHT_SELLING_CONSTANTS = {
   DECIMAL_PLACES_OPTIONS: [
     { value: 1, label: "1 chữ số (0.1)" },
@@ -641,7 +638,6 @@ export const WEIGHT_SELLING_MESSAGES = {
   CALCULATE_WEIGHT_SUCCESS: "Tính toán trọng lượng quy đổi thành công.",
 } as const;
 
-// NCL-02-CN-010: Quản lý giá bán lẻ và giá bán sỉ theo mức số lượng
 export const PRICE_TIER_COPY = {
   TAB_TITLE: "Bậc giá sỉ & lẻ",
   BANNER_TITLE: "Quản lý bậc giá sỉ & lẻ theo số lượng mua",

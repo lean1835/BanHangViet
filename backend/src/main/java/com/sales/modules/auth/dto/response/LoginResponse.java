@@ -1,0 +1,23 @@
+package com.sales.modules.auth.dto.response;
+
+import lombok.*;
+
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class LoginResponse {
+    private String token;
+    private String userId;
+    private String username;
+    private String fullName;
+    private String phoneNumber;
+    private String email;
+    private String roleCode;
+    private String householdId;
+    private String pointOfSaleId;
+    private String pointOfSaleName;
+    private String posCode;
+    private Boolean mustChangePassword;
+    private String sessionId;
+}

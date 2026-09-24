@@ -1,5 +1,5 @@
 /**
- * Constants for Loyalty Program & Customer Points (NCL-10-CN-008)
+ * Constants for Loyalty Program & Customer Points
  */
 
 export const POINT_TRANSACTION_TYPES = {

@@ -65,7 +65,6 @@ export const ReturnTicketListPage: React.FC = () => {
     size: pageSize,
   });
 
-  // Read id query param to automatically open ticket detail (NCL-02-CN-006 TC-02)
   const [searchParams] = useSearchParams();
   useEffect(() => {
     const id = searchParams.get("id");

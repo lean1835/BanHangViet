@@ -144,7 +144,6 @@ export const PosCartTable: React.FC<IPosCartTableProps> = ({
                       </div>
                     )}
 
-                    {/* Active Price Tier Badge (TC-01, TC-02, NCL-02-CN-010) */}
                     {item.priceTierName && (
                       <div className="mt-1 flex items-center gap-1.5 flex-wrap">
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-sky-50 text-sky-800 border border-sky-200">

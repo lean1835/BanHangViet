@@ -5,7 +5,6 @@ import type { ITaxRevenueSummaryResponse } from "../types/taxRevenueSummary.type
 
 export const taxRevenueSummaryApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
-    // NCL-12-CN-002: Tổng hợp doanh thu chịu thuế theo kỳ
     getTaxRevenueSummary: builder.query<
       IApiResponse<ITaxRevenueSummaryResponse>,
       string

@@ -238,7 +238,7 @@ export const {
 } = eInvoiceApi;
 
 /**
- * NCL-05-CN-006: Xuất danh sách hóa đơn tra cứu ra tệp Excel
+ * Xuất danh sách hóa đơn tra cứu ra tệp Excel
  */
 export const exportInvoicesToExcel = async (params?: IExportInvoicesParams): Promise<void> => {
   const token = localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
@@ -287,7 +287,7 @@ export const exportInvoicesToExcel = async (params?: IExportInvoicesParams): Pro
 };
 
 /**
- * NCL-05-CN-007: Tải bản thể hiện hóa đơn điện tử dạng HTML/PDF
+ * Tải bản thể hiện hóa đơn điện tử dạng HTML/PDF
  */
 export const downloadInvoiceRepresentationPdf = async (invoiceId: string, invoiceNumber?: string): Promise<void> => {
   const token = localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);

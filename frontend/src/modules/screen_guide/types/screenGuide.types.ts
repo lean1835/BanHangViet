@@ -1,5 +1,5 @@
 /**
- * Định nghĩa các kiểu dữ liệu cho chức năng Hướng dẫn ngắn tại chỗ theo từng màn hình (NCL-19-CN-003)
+ * Định nghĩa các kiểu dữ liệu cho chức năng Hướng dẫn ngắn tại chỗ theo từng màn hình
  * Khớp 100% với DTOs của Spring Boot Backend
  */
 

@@ -232,23 +232,41 @@ export const FirstTimeSetupWizardModal: React.FC<FirstTimeSetupWizardModalProps>
     progress,
     steps,
     isReadyForInvoice,
+    skipStep,
+    unskipStep,
     skipGuideAsync,
     completeGuideAsync,
+    markModalAutoOpened,
   } = useSetupGuide();
 
   if (!isOpen) return null;
 
-  const percentCompleted = Math.round(
-    (progress.completedRequired / progress.totalRequired) * 100
+  const completedOrSkipped = progress.completedRequired + (progress.skippedRequired || 0);
+  const percentCompleted = Math.min(
+    100,
+    Math.round((completedOrSkipped / Math.max(progress.totalRequired, 1)) * 100)
   );
 
   const handleStepClick = (path: string) => {
+    markModalAutoOpened();
     onClose();
     navigate(path);
   };
 
   const handleSkip = () => {
     skipGuideAsync();
+    markModalAutoOpened();
+    onClose();
+  };
+
+  const handleSkipAll = () => {
+    skipGuideAsync();
+    markModalAutoOpened();
+    onClose();
+  };
+
+  const handleClose = () => {
+    markModalAutoOpened();
     onClose();
   };
 
@@ -256,6 +274,7 @@ export const FirstTimeSetupWizardModal: React.FC<FirstTimeSetupWizardModalProps>
     if (isReadyForInvoice) {
       completeGuideAsync();
     }
+    markModalAutoOpened();
     onClose();
     navigate(APP_ROUTES.POS);
   };
@@ -294,7 +313,7 @@ export const FirstTimeSetupWizardModal: React.FC<FirstTimeSetupWizardModalProps>
 
             <button
               type="button"
-              onClick={onClose}
+              onClick={handleClose}
               className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors"
             >
               <XIcon size={18} />
@@ -305,7 +324,7 @@ export const FirstTimeSetupWizardModal: React.FC<FirstTimeSetupWizardModalProps>
           <div className="mt-4 pt-3 border-t border-slate-200/60">
             <div className="flex items-center justify-between text-xs mb-1.5 font-bold">
               <span className="text-slate-700">
-                Tiến độ: {progress.completedRequired}/{progress.totalRequired} bước bắt buộc
+                Tiến độ: {completedOrSkipped}/{progress.totalRequired} bước bắt buộc
               </span>
               <span
                 className={
@@ -330,7 +349,7 @@ export const FirstTimeSetupWizardModal: React.FC<FirstTimeSetupWizardModalProps>
 
         {/* Modal Body - Step list */}
         <div className="p-6 overflow-y-auto space-y-3.5 flex-1">
-          {/* Success Banner if all 4 required steps completed */}
+          {/* Success Banner if all 4 required steps completed or skipped */}
           {isReadyForInvoice && (
             <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 flex items-start gap-3 animate-fade-in">
               <CheckCircle2Icon size={20} className="text-emerald-600 shrink-0 mt-0.5" />
@@ -344,7 +363,7 @@ export const FirstTimeSetupWizardModal: React.FC<FirstTimeSetupWizardModalProps>
                 <button
                   type="button"
                   onClick={handleGoToPos}
-                  className="mt-3 inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow-sm transition-colors"
+                  className="mt-3 inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow-sm transition-colors cursor-pointer"
                 >
                   <ShoppingBagIcon size={14} />
                   Vào quầy bán hàng (POS) ngay
@@ -356,6 +375,7 @@ export const FirstTimeSetupWizardModal: React.FC<FirstTimeSetupWizardModalProps>
           {/* List of 5 steps */}
           {steps.map((step) => {
             const isCompleted = step.isCompleted;
+            const isSkipped = step.isSkipped;
             const isRequired = step.isRequired;
 
             return (
@@ -364,6 +384,8 @@ export const FirstTimeSetupWizardModal: React.FC<FirstTimeSetupWizardModalProps>
                 className={`p-4 rounded-xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${
                   isCompleted
                     ? "bg-emerald-50/40 border-emerald-200"
+                    : isSkipped
+                    ? "bg-slate-50/70 border-slate-200 opacity-85 hover:opacity-100"
                     : isRequired
                     ? "bg-white border-slate-200 hover:border-blue-300 hover:shadow-xs"
                     : "bg-slate-50/60 border-slate-200"
@@ -374,6 +396,8 @@ export const FirstTimeSetupWizardModal: React.FC<FirstTimeSetupWizardModalProps>
                     className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-xs font-bold ${
                       isCompleted
                         ? "bg-emerald-100 text-emerald-700"
+                        : isSkipped
+                        ? "bg-slate-200 text-slate-500"
                         : isRequired
                         ? "bg-blue-100 text-kv-blue-primary"
                         : "bg-slate-200 text-slate-600"
@@ -392,14 +416,24 @@ export const FirstTimeSetupWizardModal: React.FC<FirstTimeSetupWizardModalProps>
                           className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
                             isCompleted
                               ? "bg-emerald-100 text-emerald-700"
+                              : isSkipped
+                              ? "bg-slate-200 text-slate-600"
                               : "bg-amber-100 text-amber-700"
                           }`}
                         >
-                          {isCompleted ? "ĐÃ XONG" : "BẮT BUỘC"}
+                          {isCompleted ? "ĐÃ XONG" : isSkipped ? "ĐÃ BỎ QUA" : "BẮT BUỘC"}
                         </span>
                       ) : (
-                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">
-                          {isCompleted ? "ĐÃ XONG" : "TÙY CHỌN"}
+                        <span
+                          className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                            isCompleted
+                              ? "bg-emerald-100 text-emerald-700"
+                              : isSkipped
+                              ? "bg-slate-200 text-slate-600"
+                              : "bg-slate-100 text-slate-500"
+                          }`}
+                        >
+                          {isCompleted ? "ĐÃ XONG" : isSkipped ? "ĐÃ BỎ QUA" : "TÙY CHỌN"}
                         </span>
                       )}
                     </div>
@@ -421,12 +455,34 @@ export const FirstTimeSetupWizardModal: React.FC<FirstTimeSetupWizardModalProps>
                     className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg transition-colors shadow-xs ${
                       isCompleted
                         ? "bg-white border border-slate-200 text-slate-700 hover:bg-slate-50"
+                        : isSkipped
+                        ? "bg-slate-100 border border-slate-300 text-slate-700 hover:bg-slate-200"
                         : "bg-kv-blue-primary text-white hover:bg-kv-blue-dark"
                     }`}
                   >
-                    {isCompleted ? "Xem lại" : step.actionLabel}
+                    {isCompleted ? "Xem lại" : isSkipped ? "Khai báo lại" : step.actionLabel}
                     <ArrowRightIcon size={12} />
                   </button>
+
+                  {!isCompleted && (
+                    isSkipped ? (
+                      <button
+                        type="button"
+                        onClick={() => unskipStep(step.key)}
+                        className="text-[11px] font-semibold text-kv-blue-primary hover:underline transition-colors cursor-pointer"
+                      >
+                        Khôi phục bước
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => skipStep(step.key)}
+                        className="text-[11px] font-medium text-slate-500 hover:text-amber-700 hover:bg-slate-100 px-2 py-0.5 rounded transition-colors cursor-pointer"
+                      >
+                        Bỏ qua bước này
+                      </button>
+                    )
+                  )}
                 </div>
               </div>
             );
@@ -441,21 +497,32 @@ export const FirstTimeSetupWizardModal: React.FC<FirstTimeSetupWizardModalProps>
             </span>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap justify-end">
             {!isReadyForInvoice && (
-              <button
-                type="button"
-                onClick={handleSkip}
-                className="px-3.5 py-2 text-xs font-semibold text-slate-600 hover:text-slate-800 hover:bg-slate-200/60 rounded-lg transition-colors"
-              >
-                Bỏ qua để vào bán ngay
-              </button>
+              <>
+                <button
+                  type="button"
+                  onClick={handleSkipAll}
+                  className="px-3 py-1.5 text-xs font-semibold text-rose-600 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                  title="Bỏ qua tất cả các bước và ẩn hoàn toàn hướng dẫn này"
+                >
+                  Bỏ qua tất cả
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSkip}
+                  className="px-3 py-1.5 text-xs font-semibold text-slate-600 hover:text-slate-800 hover:bg-slate-200/60 rounded-lg transition-colors cursor-pointer"
+                  title="Đóng bảng để vào bán hàng ngay"
+                >
+                  Bỏ qua để vào bán ngay
+                </button>
+              </>
             )}
 
             <button
               type="button"
-              onClick={onClose}
-              className="px-4 py-2 text-xs font-bold text-slate-700 bg-white border border-slate-300 hover:bg-slate-50 rounded-lg shadow-xs transition-colors"
+              onClick={handleClose}
+              className="px-4 py-1.5 text-xs font-bold text-slate-700 bg-white border border-slate-300 hover:bg-slate-50 rounded-lg shadow-xs transition-colors cursor-pointer"
             >
               Đóng
             </button>

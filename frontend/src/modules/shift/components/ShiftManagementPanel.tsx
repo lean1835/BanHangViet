@@ -118,7 +118,6 @@ export const ShiftManagementPanel: React.FC<ShiftManagementPanelProps> = ({
 
       const latestShift = refreshedActiveShift.result;
 
-      // NCL-03-CN-014: Chặn đóng ca nếu còn khoản chi PENDING_APPROVAL
       if (cashSummary?.pendingExpenseCount && cashSummary.pendingExpenseCount > 0) {
         showError(
           `Ca bán hàng còn ${cashSummary.pendingExpenseCount} khoản chi đang chờ duyệt. Vui lòng phê duyệt hoặc từ chối trước khi chốt ca!`
@@ -270,7 +269,6 @@ export const ShiftManagementPanel: React.FC<ShiftManagementPanelProps> = ({
               </div>
             </div>
 
-            {/* NCL-03-CN-014: Dòng tiền mặt ngoài bán hàng & Danh sách phiếu thu chi */}
             <div className="flex flex-col gap-3 my-2">
               <ShiftCashSummaryCard
                 shiftId={currentShift.id}
@@ -340,7 +338,6 @@ export const ShiftManagementPanel: React.FC<ShiftManagementPanelProps> = ({
               </div>
             )}
 
-            {/* NCL-03-CN-012 & QTN-16: Đối soát chuyển khoản ngân hàng khi đóng ca */}
             {currentShift && (
               <div className="my-2">
                 <BankTransferReconciliationSection shiftId={currentShift.id} isCompact />
@@ -497,7 +494,6 @@ export const ShiftManagementPanel: React.FC<ShiftManagementPanelProps> = ({
         document.body
       )}
 
-      {/* NCL-03-CN-013: Shift Handover Modal */}
       {showHandoverModal && (
         <ShiftHandoverModal
           isOpen={showHandoverModal}
@@ -508,7 +504,6 @@ export const ShiftManagementPanel: React.FC<ShiftManagementPanelProps> = ({
         />
       )}
 
-      {/* NCL-03-CN-014: Create Cash Transaction Modal */}
       {showCreateCashModal && currentShift && (
         <CreateCashTransactionModal
           isOpen={showCreateCashModal}
@@ -522,7 +517,6 @@ export const ShiftManagementPanel: React.FC<ShiftManagementPanelProps> = ({
         />
       )}
 
-      {/* NCL-03-CN-014: Cash Category & Threshold Management Modal (VT-01) */}
       {showCategoryModal && (
         <CashCategoryManagementModal
           isOpen={showCategoryModal}

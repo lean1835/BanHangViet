@@ -214,7 +214,6 @@ export const BusinessDeadlinesPanel: React.FC = () => {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
 
-  // Lấy nhật ký thay đổi thật từ Backend activity_logs (NCL-09-CN-008-TC-03)
   const { data: auditLogsData, refetch: refetchAuditLogs } = useGetAuditLogsQuery({
     action: "UPDATE_HOUSEHOLD_SETTINGS",
     size: 20,

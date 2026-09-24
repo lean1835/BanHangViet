@@ -1,64 +1,104 @@
 import { APP_ROUTES } from "./routes";
+import { USER_ROLES } from "./roles";
 import { E_INVOICE_STATUS } from "./eInvoice";
 
-export const REPORT_NAVIGATION_ITEMS = [
+export interface IReportNavItem {
+  path: string;
+  label: string;
+  allowedRoles?: readonly string[];
+}
+
+export interface IReportGroup {
+  id: string;
+  label: string;
+  items: IReportNavItem[];
+}
+
+export const REPORT_GROUPS: readonly IReportGroup[] = [
   {
-    path: APP_ROUTES.REPORT_REVENUE,
-    label: "Doanh thu & Bán chạy",
+    id: "sales",
+    label: "Doanh thu",
+    items: [
+      {
+        path: APP_ROUTES.REPORT_REVENUE,
+        label: "Tổng quan doanh thu",
+      },
+      {
+        path: APP_ROUTES.REPORT_GROSS_PROFIT,
+        label: "Lãi gộp theo mặt hàng",
+      },
+      {
+        path: APP_ROUTES.REPORT_PRODUCT_GROUPS,
+        label: "Doanh thu theo nhóm hàng",
+      },
+      {
+        path: APP_ROUTES.REPORT_PAYMENT_METHODS,
+        label: "Hình thức thanh toán",
+      },
+      {
+        path: APP_ROUTES.REPORT_PEAK_HOURS,
+        label: "Giờ cao điểm",
+      },
+      {
+        path: APP_ROUTES.REPORT_COMPARISON,
+        label: "So sánh doanh thu kỳ",
+      },
+    ],
   },
   {
-    path: APP_ROUTES.REPORT_GROSS_PROFIT,
-    label: "Lãi gộp theo mặt hàng",
+    id: "operations",
+    label: "Vận hành",
+    items: [
+      {
+        path: APP_ROUTES.REPORT_EMPLOYEE_SHIFTS,
+        label: "Bán hàng theo ca",
+      },
+      {
+        path: APP_ROUTES.REPORT_POS_REVENUE,
+        label: "Doanh thu theo điểm bán",
+      },
+      {
+        path: APP_ROUTES.REPORT_INVENTORY_VALUATION,
+        label: "Giá trị tồn kho theo giá vốn",
+        allowedRoles: [USER_ROLES.OWNER, USER_ROLES.ACCOUNTANT],
+      },
+    ],
   },
   {
-    path: APP_ROUTES.REPORT_PRODUCT_GROUPS,
-    label: "Doanh thu theo nhóm hàng",
+    id: "tax",
+    label: "Thuế",
+    items: [
+      {
+        path: APP_ROUTES.REPORT_TAX_DECLARATION,
+        label: "Tờ khai thuế",
+      },
+      {
+        path: APP_ROUTES.REPORT_ANNUAL_REVENUE,
+        label: "Doanh thu lũy kế năm",
+      },
+    ],
   },
   {
-    path: APP_ROUTES.REPORT_PAYMENT_METHODS,
-    label: "Hình thức thanh toán",
-  },
-  {
-    path: APP_ROUTES.REPORT_EMPLOYEE_SHIFTS,
-    label: "Doanh thu ca & nhân viên",
-  },
-  {
-    path: APP_ROUTES.REPORT_POS_REVENUE,
-    label: "Doanh thu theo điểm bán",
-  },
-  {
-    path: APP_ROUTES.REPORT_PEAK_HOURS,
-    label: "Giờ cao điểm & Ngày bán chạy",
-  },
-  {
-    path: APP_ROUTES.REPORT_COMPARISON,
-    label: "So sánh doanh thu kỳ",
-  },
-  {
-    path: APP_ROUTES.REPORT_INVENTORY_VALUATION,
-    label: "Giá trị tồn kho theo giá vốn",
-  },
-  {
-    path: APP_ROUTES.REPORT_TAX_DECLARATION,
-    label: "Tờ khai thuế & Bảng kê",
-  },
-  {
-    path: APP_ROUTES.REPORT_ANNUAL_REVENUE,
-    label: "Doanh thu lũy kế năm",
-  },
-  {
-    path: APP_ROUTES.REPORT_ACTIVITY_LOGS,
-    label: "Nhật ký hoạt động",
-  },
-  {
-    path: APP_ROUTES.REPORT_AUDIT_LOGS,
-    label: "Nhật ký kiểm toán",
-  },
-  {
-    path: APP_ROUTES.REPORT_ANOMALY_ALERTS,
-    label: "Cảnh báo bất thường",
+    id: "audit",
+    label: "Kiểm soát",
+    items: [
+      {
+        path: APP_ROUTES.REPORT_ACTIVITY_LOGS,
+        label: "Nhật ký hoạt động",
+      },
+      {
+        path: APP_ROUTES.REPORT_AUDIT_LOGS,
+        label: "Nhật ký kiểm toán",
+      },
+      {
+        path: APP_ROUTES.REPORT_ANOMALY_ALERTS,
+        label: "Cảnh báo bất thường",
+      },
+    ],
   },
 ] as const;
+
+export const REPORT_NAVIGATION_ITEMS = REPORT_GROUPS.flatMap((g) => g.items);
 
 export const REPORT_UI = {
   SIDEBAR: {

@@ -301,7 +301,7 @@ describe("NCL-19-CN-001: Chế độ hiển thị chữ lớn và thao tác đơ
     );
 
     expect(
-      screen.getByText("Các chức năng xem thêm (NCL-19-CN-001)")
+      screen.getByText("Các chức năng xem thêm")
     ).toBeInTheDocument();
     expect(
       screen.getByText("Quản lý phòng / bàn")

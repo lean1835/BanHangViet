@@ -71,20 +71,17 @@ export interface IPosTab {
   amountGiven: number;
   vatRate?: number; // Order VAT rate percentage (e.g. 0, 5, 8, 10)
   isSaved: boolean;
-  // NCL-03-CN-010: Đặt tên nhận diện và treo nhiều đơn theo bàn hoặc khách
   orderLabel?: string;
   diningTableId?: string;
   diningTableName?: string;
   diningTableArea?: string;
   isOverdue?: boolean;
   holdingDurationMinutes?: number;
-  // NCL-03-CN-011 & NCL-03-CN-012: Thanh toán kết hợp & Xác nhận chuyển khoản
   combinedPayments?: IOrderPaymentRequest[];
   dueDate?: string;
   bankTransferConfirmed?: boolean;
   bankTransferTxCode?: string;
   qrCodeUrl?: string | null;
-  // NCL-10-CN-008: Tích điểm & Đổi điểm khách thân thiết
   pointsRedeemed?: number;
   pointDiscountAmount?: number;
   pointsEarned?: number;

@@ -116,7 +116,6 @@ export const CancelInvoiceModal: React.FC<CancelInvoiceModalProps> = ({
               Hành động này không thể hoàn tác và sẽ được ghi vào nhật ký hệ thống.
             </div>
 
-            {/* Action Consequence Warning Box (NCL-19-CN-001 - TC-03) */}
             {actionConsequence && actionConsequence.consequences && (
               <div className="bg-rose-50/90 border-2 border-rose-200 rounded-xl p-3.5 space-y-2 text-rose-950">
                 <div className="flex items-center gap-2">

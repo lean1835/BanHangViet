@@ -271,7 +271,6 @@ export const CreateProductExchangePage: React.FC = () => {
           </div>
         </div>
 
-        {/* Step 1: Select Invoice */}
         <InvoiceSelectSection
           selectedInvoice={selectedInvoice}
           onSelectInvoice={handleSelectInvoice}
@@ -283,7 +282,6 @@ export const CreateProductExchangePage: React.FC = () => {
           eligibilityData={eligibilityData?.result}
         />
 
-        {/* Step 2 & 3: Side by Side Comparison Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <ReturnItemsSection
             items={returnItems}
@@ -299,7 +297,6 @@ export const CreateProductExchangePage: React.FC = () => {
           />
         </div>
 
-        {/* Step 4: Eligibility Check & Decision Panel */}
         <ExchangeSummaryPanel
           totalReturnAmount={totalReturnAmount}
           totalExchangeAmount={totalExchangeAmount}

@@ -451,7 +451,6 @@ export const DebtReconciliationModal: React.FC<DebtReconciliationModalProps> = (
                 </div>
               </div>
 
-              {/* Empty transactions case (AC NCL-10-CN-007-TC-03) */}
               {!previewData.hasTransactions && (
                 <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-xl text-amber-900 flex items-center gap-2 text-xs font-semibold">
                   <Info size={16} className="text-amber-600 shrink-0" />

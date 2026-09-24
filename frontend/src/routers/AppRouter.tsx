@@ -171,6 +171,9 @@ const PlatformAdminOverviewPage = React.lazy(
 const HouseholdManagementPage = React.lazy(
   () => import("@/modules/platform_admin/pages/HouseholdManagementPage")
 );
+const PackageManagementPage = React.lazy(
+  () => import("@/modules/platform_admin/pages/PackageManagementPage")
+);
 const PlatformAdminLogsPage = React.lazy(
   () => import("@/modules/platform_admin/pages/PlatformAdminLogsPage")
 );
@@ -197,7 +200,7 @@ const loadingFallback = (
 );
 
 export const AppRouter = () => (
-  <BrowserRouter>
+  <BrowserRouter useTransitions={false}>
     <Suspense fallback={loadingFallback}>
       <Routes>
         <Route
@@ -587,6 +590,7 @@ export const AppRouter = () => (
             <Route index element={<Navigate to={ROUTE_SEGMENTS.OVERVIEW} replace />} />
             <Route path={ROUTE_SEGMENTS.OVERVIEW} element={<PlatformAdminOverviewPage />} />
             <Route path={ROUTE_SEGMENTS.HOUSEHOLDS} element={<HouseholdManagementPage />} />
+            <Route path={ROUTE_SEGMENTS.PACKAGES} element={<PackageManagementPage />} />
             <Route path={ROUTE_SEGMENTS.LOGS} element={<PlatformAdminLogsPage />} />
           </Route>
 

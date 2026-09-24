@@ -1,7 +1,9 @@
-import React from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { NavLink, useLocation } from "react-router-dom";
-import { REPORT_NAVIGATION_ITEMS, REPORT_UI } from "@/constants/report";
+import { ChevronDown } from "lucide-react";
+import { REPORT_GROUPS, REPORT_UI } from "@/constants/report";
 import { APP_ROUTES } from "@/constants/routes";
+import { useDashboardDemo } from "@/providers/DashboardDemoProvider";
 import { AuditLogSidebar } from "@/modules/audit_log/components/AuditLogSidebar";
 import { useAuditLogFilter } from "@/modules/audit_log/context/AuditLogFilterContext";
 import { AnomalyAlertSidebar } from "@/modules/anomaly_alert/components/AnomalyAlertSidebar";
@@ -16,15 +18,69 @@ import { PaymentMethodReportSidebar } from "./PaymentMethodReportSidebar";
 import { ProductGroupReportSidebar } from "./ProductGroupReportSidebar";
 import { InventoryValuationSidebar } from "@/modules/inventory_valuation/components/InventoryValuationSidebar";
 
-const getNavLinkClassName = ({ isActive }: { isActive: boolean }) =>
-  `flex min-h-11 w-full items-center rounded-md px-3 py-2 text-left text-xs font-bold transition-all lg:min-h-0 ${
-    isActive
-      ? "bg-kv-blue-light text-kv-blue-primary"
-      : "hover:bg-slate-50 text-slate-600"
-  }`;
-
 export const ReportSidebar: React.FC = () => {
   const location = useLocation();
+  const { currentRole } = useDashboardDemo();
+
+  const isItemActive = useCallback(
+    (path: string): boolean => {
+      if (path === APP_ROUTES.REPORT_REVENUE) {
+        return (
+          location.pathname === APP_ROUTES.REPORT_REVENUE ||
+          location.pathname === APP_ROUTES.REPORTS ||
+          location.pathname === "/reports"
+        );
+      }
+      return location.pathname === path || location.pathname.startsWith(`${path}/`);
+    },
+    [location.pathname]
+  );
+
+  // Lọc danh sách nhóm và các báo cáo con theo phân quyền vai trò hiện tại
+  const visibleGroups = useMemo(() => {
+    return REPORT_GROUPS.map((group) => {
+      const filteredItems = group.items.filter((item) => {
+        if (!item.allowedRoles) return true;
+        return item.allowedRoles.includes(currentRole);
+      });
+      return {
+        ...group,
+        items: filteredItems,
+      };
+    }).filter((group) => group.items.length > 0);
+  }, [currentRole]);
+
+  // Xác định nhóm nào đang chứa trang báo cáo hiện tại
+  const activeGroupId = useMemo(() => {
+    for (const group of visibleGroups) {
+      if (group.items.some((item) => isItemActive(item.path))) {
+        return group.id;
+      }
+    }
+    return visibleGroups[0]?.id || "sales";
+  }, [isItemActive, visibleGroups]);
+
+  // Trạng thái mở/đóng từng nhóm (mặc định mở nhóm đang active)
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
+    [activeGroupId]: true,
+  });
+
+  // Tự động mở nhóm khi người dùng chuyển trang sang nhóm khác
+  useEffect(() => {
+    if (activeGroupId) {
+      setOpenGroups((prev) => ({
+        ...prev,
+        [activeGroupId]: true,
+      }));
+    }
+  }, [activeGroupId]);
+
+  const toggleGroup = (groupId: string) => {
+    setOpenGroups((prev) => ({
+      ...prev,
+      [groupId]: !prev[groupId],
+    }));
+  };
 
   const isRevenueRoute =
     location.pathname === APP_ROUTES.REPORT_REVENUE ||
@@ -84,17 +140,64 @@ export const ReportSidebar: React.FC = () => {
         {REPORT_UI.SIDEBAR.TITLE}
       </div>
 
-      {/* Primary Navigation Items */}
+      {/* Danh mục phân nhóm có mũi tên xổ xuống basic */}
       <div className="flex flex-col gap-1">
-        {REPORT_NAVIGATION_ITEMS.map((item) => (
-          <NavLink
-            key={item.path}
-            to={item.path}
-            className={getNavLinkClassName}
-          >
-            {item.label}
-          </NavLink>
-        ))}
+        {visibleGroups.map((group) => {
+          const isOpen = !!openGroups[group.id];
+          const hasActiveItem = group.items.some((item) => isItemActive(item.path));
+
+          return (
+            <div key={group.id} className="flex flex-col">
+              <button
+                type="button"
+                onClick={() => toggleGroup(group.id)}
+                className={`flex min-h-10 w-full items-center justify-between rounded-md px-3 py-2 text-left text-xs font-bold transition-all cursor-pointer ${
+                  hasActiveItem
+                    ? "text-kv-blue-primary bg-slate-50"
+                    : "text-slate-700 hover:bg-slate-50"
+                }`}
+              >
+                <span>{group.label}</span>
+                <ChevronDown
+                  size={14}
+                  className={`text-slate-400 transition-transform duration-300 ease-in-out ${
+                    isOpen ? "rotate-180 text-slate-600" : ""
+                  }`}
+                />
+              </button>
+
+              <div
+                className={`grid transition-[grid-template-rows,opacity] duration-300 ease-in-out ${
+                  isOpen
+                    ? "grid-rows-[1fr] opacity-100"
+                    : "grid-rows-[0fr] opacity-0 pointer-events-none"
+                }`}
+              >
+                <div className="overflow-hidden">
+                  <div className="flex flex-col gap-0.5 pl-3 pt-0.5 pb-1.5">
+                    {group.items.map((item) => {
+                      const active = isItemActive(item.path);
+
+                      return (
+                        <NavLink
+                          key={item.path}
+                          to={item.path}
+                          className={`flex min-h-9 w-full items-center rounded-md px-3 py-1.5 text-left text-xs transition-all ${
+                            active
+                              ? "bg-kv-blue-light text-kv-blue-primary font-bold"
+                              : "hover:bg-slate-50 text-slate-600 font-normal"
+                          }`}
+                        >
+                          {item.label}
+                        </NavLink>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })}
       </div>
 
       {/* 1. Revenue Report Filter */}

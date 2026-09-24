@@ -130,7 +130,6 @@ export const TaxDeclarationPage: React.FC = () => {
       { skip: !currentPeriodId }
     );
 
-  // 3b. Query bảng kê mua vào (NCL-12-CN-006)
   const {
     data: purchaseSummaryRes,
     isLoading: isPurchaseSummaryLoading,
@@ -139,7 +138,6 @@ export const TaxDeclarationPage: React.FC = () => {
     skip: !currentPeriodId,
   });
 
-  // NCL-12-CN-007: Lấy danh sách nhắc lịch nộp tờ khai đang kích hoạt
   const { data: remindersRes, refetch: refetchReminders } = useGetActiveRemindersQuery();
   const [markDeclarationAsExported, { isLoading: isMarkingExported }] =
     useMarkDeclarationAsExportedMutation();
@@ -222,7 +220,6 @@ export const TaxDeclarationPage: React.FC = () => {
     return `${typeLabel}/${currentPeriod.year}`;
   }, [currentPeriod]);
 
-  // Handler xuất tệp Excel bảng kê mua vào (NCL-12-CN-006)
   const handleExportPurchaseRegister = async () => {
     if (!currentPeriodId) return;
     try {
@@ -245,7 +242,6 @@ export const TaxDeclarationPage: React.FC = () => {
     }
   };
 
-  // 4. Hook xử lý xuất file Excel / PDF / XML (NCL-12-CN-003)
   const { handleExport, isExporting } = useTaxDeclarationExport({
     period: currentPeriod,
     revenueSummary,
@@ -261,7 +257,6 @@ export const TaxDeclarationPage: React.FC = () => {
     roleAllowed,
   });
 
-  // 5. Hook xử lý chốt kỳ & mở lại kỳ (NCL-12-CN-004)
   const {
     isOwner,
     roleLockRestrictionReason,
@@ -282,7 +277,6 @@ export const TaxDeclarationPage: React.FC = () => {
 
   return (
     <div className="flex flex-col gap-6 w-full pb-12 animate-auth-fade-in">
-      {/* 1. Tiêu đề trang, Mô tả & Nút Cài đặt nhắc hạn (NCL-12-CN-007) */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex flex-col gap-1">
           <h1 className="text-xl font-black text-slate-800">
@@ -293,7 +287,6 @@ export const TaxDeclarationPage: React.FC = () => {
           </p>
         </div>
 
-        {/* Nút cấu hình nhắc hạn nộp tờ khai (NCL-12-CN-007) */}
         <button
           type="button"
           onClick={() => setIsReminderSettingsModalOpen(true)}
@@ -304,7 +297,6 @@ export const TaxDeclarationPage: React.FC = () => {
         </button>
       </div>
 
-      {/* Banner liên kết Theo dõi doanh thu lũy kế năm (NCL-12-CN-005) */}
       <div className="bg-gradient-to-r from-blue-900 to-indigo-900 text-white rounded-2xl p-4 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <div className="p-2.5 rounded-xl bg-white/10 text-white shrink-0">
@@ -347,7 +339,6 @@ export const TaxDeclarationPage: React.FC = () => {
         roleLockRestrictionReason={roleLockRestrictionReason}
       />
 
-      {/* 2b. Banner cảnh báo hạn nộp tờ khai & Checklist tiến độ (NCL-12-CN-007) */}
       <TaxPeriodProgressChecklistBanner
         reminder={currentPeriodReminder}
         onSelectTab={(t) => setActiveTab(t)}
@@ -713,7 +704,6 @@ export const TaxDeclarationPage: React.FC = () => {
         }}
       />
 
-      {/* Modal Chốt kỳ kê khai (NCL-12-CN-004) */}
       <LockPeriodConfirmModal
         isOpen={isLockModalOpen}
         onClose={() => setIsLockModalOpen(false)}
@@ -722,7 +712,6 @@ export const TaxDeclarationPage: React.FC = () => {
         isLoading={isLockingAction}
       />
 
-      {/* Modal Mở lại kỳ kê khai (NCL-12-CN-004) */}
       <UnlockPeriodModal
         isOpen={isUnlockModalOpen}
         onClose={() => setIsUnlockModalOpen(false)}
@@ -731,7 +720,6 @@ export const TaxDeclarationPage: React.FC = () => {
         isLoading={isLockingAction}
       />
 
-      {/* Modal Lập bảng kê mua vào kỳ mới (NCL-12-CN-006) */}
       <GeneratePurchaseRegisterModal
         isOpen={isGeneratePurchaseModalOpen}
         onClose={() => setIsGeneratePurchaseModalOpen(false)}
@@ -748,7 +736,6 @@ export const TaxDeclarationPage: React.FC = () => {
         }}
       />
 
-      {/* Modal Cài đặt nhắc lịch nộp tờ khai (NCL-12-CN-007) */}
       <TaxReminderSettingsModal
         isOpen={isReminderSettingsModalOpen}
         onClose={() => setIsReminderSettingsModalOpen(false)}

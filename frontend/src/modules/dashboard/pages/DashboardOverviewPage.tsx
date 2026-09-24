@@ -178,13 +178,12 @@ export const DashboardOverviewPage = () => {
         </div>
       ) : currentRole === USER_ROLES.OWNER || currentRole === USER_ROLES.ACCOUNTANT ? (
         <div className="flex flex-col gap-6 w-full max-w-[1520px] mx-auto p-4 md:p-6 bg-slate-50/50 min-h-screen animate-auth-fade-in">
-          {/* First-time Setup Wizard & Reminder Banner (NCL-09-CN-007) */}
           {currentRole === USER_ROLES.OWNER && <SetupGuideBanner />}
 
           {/* Header Row */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-5">
             <div>
-              <h1 className="text-3xl font-black text-slate-800 tracking-tight">Dashboard</h1>
+              <h1 className="text-3xl font-black text-slate-800 tracking-tight">Tổng quan</h1>
             </div>
             {/* Time range selection inputs */}
             <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-lg border border-slate-200 shadow-sm text-xs font-bold text-slate-700 shrink-0">

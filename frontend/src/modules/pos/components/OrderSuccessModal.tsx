@@ -177,7 +177,6 @@ export const OrderSuccessModal: React.FC<IOrderSuccessModalProps> = ({
         return;
       }
 
-      // NCL-19-CN-003 TC-02: Bị chặn xuất hóa đơn do chưa cấu hình mẫu số / ký hiệu hóa đơn (Code 4001)
       if (err?.data?.code === 4001 || errMsg.includes("mẫu hóa đơn") || errMsg.includes("ký hiệu")) {
         setContextualHelpErrorCode(4001);
         return;

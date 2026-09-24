@@ -3,12 +3,10 @@ export const ORDER_API_ENDPOINTS = {
   CANCEL_REASONS: "/orders/cancel-reasons",
   CANCELED_STATISTICS: "/orders/canceled-statistics",
   CANCEL: (orderId: string) => `/orders/${orderId}/cancel`,
-  // NCL-03-CN-010: Đặt tên nhận diện và treo nhiều đơn theo bàn hoặc khách
   HELD_ORDERS: "/orders/held",
   HOLD: (orderId: string) => `/orders/${orderId}/hold`,
   UPDATE_LABEL: (orderId: string) => `/orders/${orderId}/order-label`,
   SWITCH_TABLE: (orderId: string) => `/orders/${orderId}/switch-table`,
-  // NCL-03-CN-011 & NCL-03-CN-012: Thanh toán kết hợp & Xác nhận chuyển khoản
   PAYMENTS: (orderId: string) => `/orders/${orderId}/payments`,
   CONFIRM_BANK_TRANSFER: (orderId: string) => `/orders/${orderId}/confirm-bank-transfer`,
   CONFIRM_PAYMENT_BANK_TRANSFER: (orderId: string, paymentId: string) => `/orders/${orderId}/payments/${paymentId}/confirm-bank-transfer`,

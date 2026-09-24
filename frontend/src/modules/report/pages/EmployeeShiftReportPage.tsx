@@ -7,7 +7,6 @@ import { EmployeeShiftReport } from "../components/EmployeeShiftReport";
 export const EmployeeShiftReportPage: React.FC = () => {
   const { currentRole } = useDashboardDemo();
 
-  // Role Guard: NCL-07-CN-010-TC-03 blocks cashier/salesperson VT-02
   const isCashier = currentRole === USER_ROLES.CASHIER;
 
   if (isCashier) {

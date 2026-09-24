@@ -81,3 +81,4 @@ export interface IResetPasswordRequest {
 export interface IResetPasswordResponse {
   message: string;
 }
+
