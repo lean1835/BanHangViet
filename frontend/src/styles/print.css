@@ -1,0 +1,253 @@
+/**
+ * BanHangViet - Standardized Print Stylesheet
+ * Unifies printing rules for:
+ * 1. Thermal POS & E-Invoice receipts (K57 / K80)
+ * 2. Barcode product labels
+ * 3. Formal A4 documents (Debt statements, Goods receipts, Audits, Valuations, Exchanges, Returns, Taxes)
+ */
+
+@media print {
+  /* ── 1. General Page & Visibility Reset ── */
+  @page {
+    size: auto;
+    margin: 0mm;
+  }
+
+  html,
+  body {
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    width: 100% !important;
+    height: auto !important;
+    color: #000000 !important;
+    overflow: visible !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Completely hide background application #root when any modal portal is active */
+  body:has([id$="-modal-portal"]) #root,
+  body:has([data-printable-document="true"]) #root,
+  body:has(#debt-statement-modal-portal) #root,
+  body:has(#goods-receipt-modal-portal) #root,
+  body:has(#inventory-audit-modal-portal) #root,
+  body:has(#inventory-valuation-modal-portal) #root,
+  body:has(#product-exchange-modal-portal) #root,
+  body:has(#supplier-return-modal-portal) #root,
+  body:has(#promotion-report-modal-portal) #root,
+  body:has(#tax-declaration-modal-portal) #root {
+    display: none !important;
+    height: 0 !important;
+    overflow: hidden !important;
+  }
+
+  .no-print,
+  [data-no-print="true"] {
+    display: none !important;
+  }
+
+  /* ── 2. Thermal POS Invoices (K57 / K80) ── */
+  body:has(#printable-pos-invoice-container) *,
+  body:has(#printable-invoice-container) *,
+  body:has(.printable-thermal-invoice) * {
+    visibility: hidden !important;
+  }
+
+  #printable-pos-invoice-container,
+  #printable-pos-invoice-container *,
+  #printable-invoice-container,
+  #printable-invoice-container *,
+  .printable-thermal-invoice,
+  .printable-thermal-invoice * {
+    visibility: visible !important;
+  }
+
+  #printable-pos-invoice-container,
+  #printable-invoice-container,
+  .printable-thermal-invoice {
+    position: relative !important;
+    margin: 0 auto !important;
+    left: 0 !important;
+    right: 0 !important;
+    top: 0 !important;
+    max-width: 100% !important;
+    padding: 2mm 2mm !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    box-shadow: none !important;
+    border: none !important;
+    line-height: 1.25 !important;
+    page-break-before: avoid !important;
+    page-break-after: avoid !important;
+    page-break-inside: avoid !important;
+    break-before: avoid !important;
+    break-after: avoid !important;
+    break-inside: avoid !important;
+    overflow: hidden !important;
+    width: 78mm !important;
+    font-size: 11px !important;
+  }
+
+  /* Paper sizes for thermal printers */
+  [data-paper-size="K57"] #printable-pos-invoice-container,
+  [data-paper-size="K57"] #printable-invoice-container,
+  .paper-k57,
+  .paper-k57 #printable-pos-invoice-container,
+  .paper-k57 #printable-invoice-container {
+    width: 54mm !important;
+    font-size: 9.5px !important;
+  }
+
+  [data-paper-size="K80"] #printable-pos-invoice-container,
+  [data-paper-size="K80"] #printable-invoice-container,
+  .paper-k80,
+  .paper-k80 #printable-pos-invoice-container,
+  .paper-k80 #printable-invoice-container {
+    width: 78mm !important;
+    font-size: 11px !important;
+  }
+
+  /* ── 3. Barcode Label Print ── */
+  body:has(#barcode-print-container) * {
+    visibility: hidden !important;
+  }
+
+  #barcode-print-container,
+  #barcode-print-container * {
+    visibility: visible !important;
+  }
+
+  #barcode-print-container {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+  }
+
+  .barcode-label-item {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    margin-bottom: 8mm !important;
+  }
+
+  /* ── 4. Standard A4 Document Portals & Tables ── */
+  /* Unwrap portal wrappers to avoid nested scroll and offset */
+  [id$="-modal-portal"],
+  [data-printable-document="true"] {
+    position: static !important;
+    display: block !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: transparent !important;
+    overflow: visible !important;
+  }
+
+  [id$="-modal-panel"],
+  [id$="-scroll-container"],
+  [data-printable-panel="true"],
+  #tax-declaration-form-simulation {
+    position: static !important;
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+    background: transparent !important;
+    overflow: visible !important;
+    max-height: none !important;
+    height: auto !important;
+    border-radius: 0 !important;
+  }
+
+  /* Document body styling */
+  [id^="printable-"] {
+    position: relative !important;
+    left: auto !important;
+    top: auto !important;
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 auto !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    overflow: visible !important;
+  }
+
+  /* Document Tables & Borders */
+  [id^="printable-"] table,
+  .printable-document-table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    page-break-inside: auto !important;
+    break-inside: auto !important;
+  }
+
+  [id^="printable-"] thead,
+  .printable-document-table thead {
+    display: table-header-group !important;
+  }
+
+  [id^="printable-"] tbody,
+  .printable-document-table tbody {
+    display: table-row-group !important;
+  }
+
+  [id^="printable-"] tfoot,
+  .printable-document-table tfoot {
+    display: table-footer-group !important;
+  }
+
+  [id^="printable-"] tr,
+  .printable-document-table tr {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    page-break-after: auto !important;
+  }
+
+  [id^="printable-"] th,
+  [id^="printable-"] td,
+  .printable-document-table th,
+  .printable-document-table td {
+    border: 1px solid #000000 !important;
+    color: #000000 !important;
+    padding: 4px 6px !important;
+  }
+
+  [id^="printable-"] th,
+  .printable-document-table th {
+    background-color: #f1f5f9 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Document Signature & Party Grids */
+  [id$="-signatures"],
+  .document-signatures-grid {
+    display: flex !important;
+    flex-direction: row !important;
+    justify-content: space-between !important;
+    gap: 20px !important;
+    width: 100% !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  [id$="-signatures"] > div,
+  .document-signatures-grid > div {
+    flex: 1 1 0% !important;
+    width: 50% !important;
+  }
+
+  .signature-space {
+    height: 65px !important;
+  }
+}

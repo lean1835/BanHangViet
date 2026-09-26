@@ -26,6 +26,9 @@ describe("useBarcodeScanner: Phát hiện máy quét mã vạch và chống bắ
   });
 
   it("quét mã vạch phần cứng USB/Bluetooth thành công khi nhận chuỗi ký tự nhanh và phím Enter", () => {
+    let now = 10000;
+    vi.spyOn(Date, "now").mockImplementation(() => (now += 5));
+
     const onScanMock = vi.fn();
     render(<TestBarcodeComponent onScan={onScanMock} />);
 

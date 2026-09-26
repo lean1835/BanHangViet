@@ -55,7 +55,6 @@ export const ProductList: React.FC<ProductListProps> = ({
   const canViewStockCard = isOwner || isAccountant;
   const { showSuccess, showError } = useNotification();
 
-  // State controls
   const [searchQuery, setSearchQuery] = useState("");
   const debouncedSearch = useDebounce(
     searchQuery,
@@ -66,29 +65,15 @@ export const ProductList: React.FC<ProductListProps> = ({
   );
   const pageSize = PRODUCT_QUERY_CONFIG.PAGE_SIZE;
 
-  // Modal form controls
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<IProduct | null>(null);
-
-  // Import Excel modal controls
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
-
-  // Delete modal controls
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [productToDelete, setProductToDelete] = useState<{ id: string; name: string } | null>(null);
-
-  // Unit conversion modal target product
   const [unitConversionProduct, setUnitConversionProduct] = useState<IProduct | null>(null);
-
   const [priceTierProduct, setPriceTierProduct] = useState<IProduct | null>(null);
-
-  // Barcode print modal target product
   const [barcodePrintProduct, setBarcodePrintProduct] = useState<{ id: string; name: string } | null>(null);
-
-  // Voice search modal controls
   const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
-
-  // Price adjustment in-tab view control
   const [isPriceAdjustmentActive, setIsPriceAdjustmentActive] = useState(false);
 
   const navigate = useNavigate();

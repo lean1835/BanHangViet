@@ -332,8 +332,7 @@ export const ShiftManagementPanel: React.FC<ShiftManagementPanelProps> = ({
                   maxLength={SHIFT_DIFFERENCE_REASON_MAX_LENGTH}
                   disabled={isClosingShift}
                   placeholder={SHIFT_UI.MANAGEMENT.DIFFERENCE_REASON_PLACEHOLDER}
-                  style={{ resize: "none" }}
-                  className="border border-rose-300 h-14 p-2 rounded-lg focus:outline-none focus:border-rose-500 text-xs"
+                  className="border border-rose-300 h-14 p-2 rounded-lg focus:outline-none focus:border-rose-500 text-xs resize-none"
                 ></textarea>
               </div>
             )}

@@ -18,13 +18,16 @@ interface OfflineSyncBannerProps {
   onOpenConflictModal?: () => void;
 }
 
+const DEFAULT_WARNINGS: string[] = [];
+const DEFAULT_UNISSUED_ORDER_IDS: string[] = [];
+
 export const OfflineSyncBanner: React.FC<OfflineSyncBannerProps> = ({
   isOnline,
   pendingCount,
   conflictingOrdersCount = 0,
-  warnings = [],
+  warnings = DEFAULT_WARNINGS,
   isSyncing = false,
-  unissuedOrderIds = [],
+  unissuedOrderIds = DEFAULT_UNISSUED_ORDER_IDS,
   userRole = "VT-02",
   onSync,
   onClearUnissuedOrders,
@@ -44,7 +47,7 @@ export const OfflineSyncBanner: React.FC<OfflineSyncBannerProps> = ({
       }, 3000);
       return () => clearTimeout(timer);
     } else {
-      setVisibleWarnings([]);
+      setVisibleWarnings((prev) => (prev.length > 0 ? [] : prev));
     }
   }, [warnings]);
 

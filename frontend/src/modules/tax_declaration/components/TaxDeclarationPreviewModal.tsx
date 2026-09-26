@@ -157,47 +157,6 @@ export const TaxDeclarationPreviewModal: React.FC<
 
   return createPortal(
     <div className="fixed inset-0 z-[1000] flex items-center justify-center p-2 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-modal-backdrop">
-      {/* Fallback print stylesheet */}
-      <style>{`
-        @media print {
-          @page {
-            size: A4 portrait;
-            margin: 8mm 10mm 8mm 10mm;
-          }
-          html, body {
-            margin: 0 !important;
-            padding: 0 !important;
-            background: white !important;
-            width: 100% !important;
-            height: auto !important;
-            overflow: visible !important;
-          }
-          body * {
-            visibility: hidden !important;
-          }
-          #tax-declaration-form-simulation, #tax-declaration-form-simulation * {
-            visibility: visible !important;
-          }
-          #tax-declaration-form-simulation {
-            position: relative !important;
-            left: 0 !important;
-            top: 0 !important;
-            width: 100% !important;
-            max-width: 100% !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            border: none !important;
-            box-shadow: none !important;
-            border-radius: 0 !important;
-            min-height: auto !important;
-            background: white !important;
-            color: black !important;
-            transform: none !important;
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-          }
-        }
-      `}</style>
       <div className="bg-slate-100 rounded-2xl border border-slate-200 shadow-2xl max-w-5xl w-full h-[92vh] flex flex-col overflow-hidden animate-modal-scale">
         {/* Modal Top Header */}
         <div className="bg-white px-5 py-3.5 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3 shrink-0">

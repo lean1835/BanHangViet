@@ -179,6 +179,18 @@ export const PosHeader: React.FC<IPosHeaderProps> = ({
   return (
     <header className="bg-[#0070f4] text-white shadow-md select-none sticky top-0 z-40">
       <div className="flex items-center justify-start px-3 py-1.5 gap-3">
+        <Link
+          to={APP_ROUTES.DASHBOARD}
+          className="flex items-center gap-2 shrink-0 hover:opacity-95 transition-all group py-0.5"
+          title="Về Trang chủ Quản lý"
+        >
+          <img
+            src="/app-logo.png"
+            alt="Bán Hàng Việt Logo"
+            className="w-10 h-10 sm:w-11 sm:h-11 object-contain filter drop-shadow-[0_4px_8px_rgba(0,0,0,0.4)] drop-shadow-[0_1px_3px_rgba(0,0,0,0.25)] transition-transform duration-300 group-hover:scale-110 shrink-0"
+          />
+        </Link>
+
         {/* Left: Product Search Bar with Camera Scanner & Voice Search */}
         <div className="flex items-center gap-1.5 shrink-0">
           <div className="w-72 sm:w-80 lg:w-96 relative" ref={searchContainerRef}>

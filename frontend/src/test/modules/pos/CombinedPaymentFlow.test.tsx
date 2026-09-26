@@ -11,14 +11,10 @@ import { OrderSuccessModal } from "@/modules/pos/components/OrderSuccessModal";
 import type { IPosTab } from "@/modules/pos/types/IPos";
 import type { ICustomer } from "@/modules/customer/types/ICustomer";
 
-// Mock antd QRCode to prevent canvas issues in jsdom
-vi.mock("antd", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("antd")>();
-  return {
-    ...actual,
-    QRCode: () => <div data-testid="mock-qrcode">QR Code</div>,
-  };
-});
+// Mock antd QRCode to prevent canvas issues and avoid loading entire antd bundle
+vi.mock("antd", () => ({
+  QRCode: () => <div data-testid="mock-qrcode">QR Code</div>,
+}));
 
 // Mock mutations
 const mockConfirmBankTransferMutation = vi.fn();

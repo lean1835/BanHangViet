@@ -609,9 +609,8 @@ export const ShiftHistoryTable: React.FC<ShiftHistoryTableProps> = ({ currentRol
                                 placeholder={
                                   SHIFT_UI.HISTORY.CLOSE_MODAL.DIFFERENCE_REASON_PLACEHOLDER
                                 }
-                                style={{ resize: "none" }}
                                 rows={2}
-                                className="w-full p-2.5 rounded-lg border border-rose-300 bg-white text-xs text-slate-700 focus:outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20"
+                                className="w-full p-2.5 rounded-lg border border-rose-300 bg-white text-xs text-slate-700 focus:outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20 resize-none"
                               />
                               <div className="text-right text-[10px] text-rose-600 font-medium">
                                 {closingReason.length}/{SHIFT_DIFFERENCE_REASON_MAX_LENGTH} ký tự
