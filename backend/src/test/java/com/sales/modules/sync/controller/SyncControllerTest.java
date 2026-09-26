@@ -37,6 +37,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Collections;
+import java.util.List;
+import org.junit.jupiter.api.DisplayName;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -356,5 +358,80 @@ public class SyncControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(1000))
                 .andExpect(jsonPath("$.result").value("UP"));
+    }
+
+    @Test
+    @WithMockUser(username = "nhanvien_viet", roles = {"VT-02"})
+    @DisplayName("NCL-08-CN-003-TC-04: Nhân viên (VT-02) bị chặn quyền giải quyết xung đột -> 403 Forbidden")
+    public void testResolveConflict_AsEmployee_Forbidden() throws Exception {
+        SyncResolveRequest resolveReq = SyncResolveRequest.builder()
+                .orderNumber("ORD-CONF-FORBIDDEN")
+                .resolutionStrategy(ConflictResolutionStrategy.KEEP_SERVER)
+                .build();
+
+        mockMvc.perform(post("/api/v1/sync/resolve")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(resolveReq)))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(username = "nhanvien_viet", roles = {"VT-02"})
+    @DisplayName("NCL-08-CN-003-TC-02: Kiểm tra xung đột phát hiện đơn trùng lặp")
+    public void testCheckConflicts_WithDuplicates() throws Exception {
+        Order existing = Order.builder()
+                .household(testHousehold)
+                .createdByUser(testOwner)
+                .orderNumber("ORD-OFF-DUP-001")
+                .totalAmount(BigDecimal.valueOf(100000.00))
+                .discountAmount(BigDecimal.ZERO)
+                .finalAmount(BigDecimal.valueOf(100000.00))
+                .paymentMethod("CASH")
+                .paymentStatus("PAID")
+                .status("COMPLETED")
+                .syncStatus("SYNCED")
+                .isOffline(true)
+                .build();
+        orderRepository.save(existing);
+
+        SyncCheckRequest request = SyncCheckRequest.builder()
+                .offlineOrderNumbers(List.of("ORD-OFF-DUP-001", "ORD-OFF-NEW-002"))
+                .build();
+
+        mockMvc.perform(post("/api/v1/sync/check")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(1000))
+                .andExpect(jsonPath("$.result.duplicates[0]").value("ORD-OFF-DUP-001"));
+    }
+
+    @Test
+    @WithMockUser(username = "chuho_viet", roles = {"VT-01"})
+    @DisplayName("NCL-08-CN-006-TC-01: Lấy danh sách phiên đồng bộ thành công")
+    public void testGetSyncSessions_AsOwner_Success() throws Exception {
+        mockMvc.perform(get("/api/v1/sync/sessions")
+                        .param("page", "0")
+                        .param("size", "10"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(1000));
+    }
+
+    @Test
+    @WithMockUser(username = "chuho_viet", roles = {"VT-01"})
+    @DisplayName("NCL-08-CN-006-TC-01: Lấy thống kê đối soát phiên đồng bộ thành công")
+    public void testGetSyncReconciliationSummary_Success() throws Exception {
+        mockMvc.perform(get("/api/v1/sync/reconciliation-summary"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(1000));
+    }
+
+    @Test
+    @WithMockUser(username = "chuho_viet", roles = {"VT-01"})
+    @DisplayName("NCL-08-CN-006: Lấy chi tiết phiên đồng bộ không tồn tại -> 400 Bad Request")
+    public void testGetSyncSessionDetail_NotFound() throws Exception {
+        mockMvc.perform(get("/api/v1/sync/sessions/non-existent-session-id"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(2006));
     }
 }

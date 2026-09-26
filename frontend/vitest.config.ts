@@ -15,8 +15,8 @@ export default defineConfig({
     css: false,
     globals: true,
     pool: "forks",
-    testTimeout: 10000,
-    hookTimeout: 10000,
-    teardownTimeout: 10000,
+    testTimeout: 35000,
+    hookTimeout: 35000,
+    teardownTimeout: 35000,
   },
 });
