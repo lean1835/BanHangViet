@@ -44,14 +44,16 @@ export const AuthPage: React.FC = () => {
           <div className="z-10" />
 
           <div className="my-auto text-center flex flex-col items-center z-10 max-w-md mx-auto">
-            <div className="w-28 h-28 mb-5 flex items-center justify-center transform transition-transform hover:scale-105 duration-300">
+            <div className="relative w-36 h-36 sm:w-44 sm:h-44 mb-6 flex items-center justify-center group cursor-default">
+              {/* Soft ambient aura to make colors pop on blue background */}
+              <div className="absolute inset-0 rounded-full bg-white/25 blur-2xl transform scale-90 group-hover:scale-110 transition-transform duration-500 pointer-events-none" />
               <img
                 src="/app-logo.png"
                 alt="Bán Hàng Việt Logo"
-                className="w-full h-full object-contain drop-shadow-[0_12px_24px_rgba(0,0,0,0.25)] select-none pointer-events-none"
+                className="relative z-10 w-full h-full object-contain filter drop-shadow-[0_16px_28px_rgba(0,0,0,0.45)] drop-shadow-[0_6px_12px_rgba(0,0,0,0.3)] transition-transform duration-300 group-hover:scale-105 select-none pointer-events-none"
               />
             </div>
-            <h1 className="text-3xl xl:text-4xl font-black tracking-tight text-white">
+            <h1 className="text-3xl xl:text-4xl font-black tracking-tight text-white drop-shadow-sm">
               Bán Hàng Việt
             </h1>
             <p className="text-sm xl:text-base text-blue-100/90 mt-3 leading-relaxed font-normal">
