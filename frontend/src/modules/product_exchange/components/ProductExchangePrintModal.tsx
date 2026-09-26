@@ -60,53 +60,6 @@ export const ProductExchangePrintModal: React.FC<ProductExchangePrintModalProps>
       onClick={onClose}
       className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto animate-backdrop-fade-in"
     >
-      {/* Printable Area Wrapper with print styles (K80 thermal receipt standard) */}
-      <style>{`
-        @media print {
-          @page {
-            size: auto;
-            margin: 0mm !important;
-          }
-          html, body {
-            margin: 0 !important;
-            padding: 0 !important;
-            background: white !important;
-            width: 100% !important;
-            height: 100% !important;
-            overflow: hidden !important;
-          }
-          body * {
-            visibility: hidden !important;
-          }
-          #printable-exchange-container, #printable-exchange-container * {
-            visibility: visible !important;
-          }
-          #printable-exchange-container {
-            position: relative !important;
-            margin: 0 auto !important;
-            left: 0 !important;
-            right: 0 !important;
-            top: 0 !important;
-            width: 78mm !important;
-            max-width: 100% !important;
-            padding: 2mm 2mm !important;
-            background: white !important;
-            color: black !important;
-            box-shadow: none !important;
-            border: none !important;
-            font-size: 11px !important;
-            line-height: 1.25 !important;
-            page-break-inside: avoid !important;
-            break-inside: avoid !important;
-            overflow: hidden !important;
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-          }
-          .no-print {
-            display: none !important;
-          }
-        }
-      `}</style>
 
       <div
         ref={dialogRef}

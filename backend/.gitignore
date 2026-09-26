@@ -1,0 +1,36 @@
+# Environment variables - Bảo mật biến môi trường
+.env
+.env.*
+!.env.example
+*.local
+
+# Maven build artifacts
+target/
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+pom.xml.next
+release.properties
+dependency-reduced-pom.xml
+buildNumber.properties
+.mvn/timing.properties
+.mvn/wrapper/maven-wrapper.jar
+
+# Runtime logs
+run.log
+*.log
+logs/
+
+# Runtime database backups
+backups/
+*.zip.json
+
+# IDEs & OS
+.idea/
+*.iml
+.classpath
+.project
+.settings/
+.vscode/
+.DS_Store
+Thumbs.db

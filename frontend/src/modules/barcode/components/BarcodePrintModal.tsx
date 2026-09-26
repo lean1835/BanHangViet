@@ -196,37 +196,6 @@ export const BarcodePrintModal: React.FC<IBarcodePrintModalProps> = ({
       onClick={onClose}
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm animate-fade-in print:p-0 print:bg-white print:static"
     >
-      {/* Scoped Print CSS */}
-      <style>{`
-        @media print {
-          body * {
-            visibility: hidden !important;
-          }
-          #barcode-print-container, #barcode-print-container * {
-            visibility: visible !important;
-          }
-          #barcode-print-container {
-            position: absolute !important;
-            left: 0 !important;
-            top: 0 !important;
-            width: 100% !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            display: flex !important;
-            flex-direction: column !important;
-            align-items: center !important;
-          }
-          .barcode-label-item {
-            page-break-inside: avoid !important;
-            break-inside: avoid !important;
-            margin-bottom: 8mm !important;
-          }
-          @page {
-            margin: 2mm;
-            size: auto;
-          }
-        }
-      `}</style>
 
       <div
         onClick={(e) => e.stopPropagation()}

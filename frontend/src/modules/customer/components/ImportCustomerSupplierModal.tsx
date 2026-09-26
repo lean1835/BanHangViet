@@ -989,7 +989,6 @@ export const ImportCustomerSupplierModal: React.FC<ImportCustomerSupplierModalPr
     setPreviewRows([]);
   };
 
-  // Render Portal Modal
   if (!isOpen) return null;
 
   const isCustomer = catalogType === "CUSTOMER";

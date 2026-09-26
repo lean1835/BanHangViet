@@ -383,72 +383,19 @@ export const OrderSuccessModal: React.FC<IOrderSuccessModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto animate-fadeIn select-none"
+      data-paper-size={isK57 ? "K57" : "K80"}
+      className={`fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto animate-fadeIn select-none ${isK57 ? "paper-k57" : "paper-k80"}`}
       onClick={(e) => {
         if (e.target === e.currentTarget) {
           handleSafeClose();
         }
       }}
     >
-      {/* Printable Area Wrapper with thermal print styles */}
-      <style>{`
-        @media print {
-          @page {
-            size: auto;
-            margin: 0mm !important;
-          }
-          html, body {
-            margin: 0 !important;
-            padding: 0 !important;
-            background: white !important;
-            width: 100% !important;
-            height: 100% !important;
-            overflow: hidden !important;
-          }
-          body * {
-            visibility: hidden !important;
-          }
-          #printable-pos-invoice-container, #printable-pos-invoice-container * {
-            visibility: visible !important;
-          }
-          #printable-pos-invoice-container {
-            position: relative !important;
-            margin: 0 auto !important;
-            left: 0 !important;
-            right: 0 !important;
-            top: 0 !important;
-            width: ${isK57 ? "54mm" : "78mm"} !important;
-            max-width: 100% !important;
-            padding: 2mm 2mm !important;
-            background: white !important;
-            color: black !important;
-            box-shadow: none !important;
-            border: none !important;
-            font-size: ${isK57 ? "9.5px" : "11px"} !important;
-            line-height: 1.2 !important;
-            page-break-before: avoid !important;
-            page-break-after: avoid !important;
-            page-break-inside: avoid !important;
-            break-before: avoid !important;
-            break-after: avoid !important;
-            break-inside: avoid !important;
-            overflow: hidden !important;
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-          }
-          .no-print {
-            display: none !important;
-          }
-        }
-      `}</style>
-
-      {/* ─── VIEW 1: SUCCESS MODAL ─── */}
       {modalView === "SUCCESS" && (
         <div
           onClick={(e) => e.stopPropagation()}
           className="bg-white border border-slate-200 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden text-center p-6 relative animate-modal-bounce-in"
         >
-          {/* Top Right Close Button */}
           <button
             type="button"
             onClick={handleSafeClose}
@@ -459,7 +406,6 @@ export const OrderSuccessModal: React.FC<IOrderSuccessModalProps> = ({
             <X className="w-5 h-5" />
           </button>
 
-          {/* Animated Green Checkmark Badge */}
           <div className="relative mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 text-emerald-600 shadow-lg shadow-emerald-100 animate-bounce-in">
             <div className="absolute inset-0 rounded-full bg-emerald-400/20 animate-ping" />
             <svg

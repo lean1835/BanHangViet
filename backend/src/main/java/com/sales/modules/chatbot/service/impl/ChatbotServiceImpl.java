@@ -93,7 +93,7 @@ public class ChatbotServiceImpl implements ChatbotService {
     @Value("${app.chatbot.gemini.model:gemini-3.5-flash-lite}")
     private String geminiModel;
 
-    @Value("${app.chatbot.gemini.fallback-models:gemini-3.1-flash-lite,gemini-2.5-flash-lite,gemini-3.5-flash,gemini-3.8-flash,gemini-3.7-flash,gemini-3.6-flash,gemini-3-flash,gemini-2.5-flash}")
+    @Value("${app.chatbot.gemini.fallback-models:gemini-3.1-flash-lite,gemini-flash-lite-latest,gemini-3.1-flash-lite-preview}")
     private String geminiFallbackModels;
 
     @Value("${app.chatbot.gemini.api-url:https://generativelanguage.googleapis.com/v1beta/models}")
@@ -102,8 +102,8 @@ public class ChatbotServiceImpl implements ChatbotService {
     private final Map<String, Long> modelCooldownMap = new java.util.concurrent.ConcurrentHashMap<>();
     private static final long COOLDOWN_DURATION_MS = 60_000L; // 60 giây hạ nhiệt khi model chạm trần 429 Rate Limit
 
-    @Value("${app.chatbot.gemini.connect-timeout-ms:3000}")
-    private int geminiConnectTimeoutMs = 3000;
+    @Value("${app.chatbot.gemini.connect-timeout-ms:5000}")
+    private int geminiConnectTimeoutMs = 5000;
 
     @Value("${app.chatbot.gemini.read-timeout-ms:15000}")
     private int geminiReadTimeoutMs = 15000;
@@ -117,7 +117,7 @@ public class ChatbotServiceImpl implements ChatbotService {
                 if (restClient == null) {
                     org.springframework.http.client.SimpleClientHttpRequestFactory factory =
                             new org.springframework.http.client.SimpleClientHttpRequestFactory();
-                    factory.setConnectTimeout(java.time.Duration.ofMillis(geminiConnectTimeoutMs > 0 ? geminiConnectTimeoutMs : 3000));
+                    factory.setConnectTimeout(java.time.Duration.ofMillis(geminiConnectTimeoutMs > 0 ? geminiConnectTimeoutMs : 5000));
                     factory.setReadTimeout(java.time.Duration.ofMillis(geminiReadTimeoutMs > 0 ? geminiReadTimeoutMs : 15000));
                     restClient = RestClient.builder().requestFactory(factory).build();
                 }
@@ -246,7 +246,7 @@ public class ChatbotServiceImpl implements ChatbotService {
 
         String userMessage = request.getMessage() != null ? request.getMessage().trim() : "";
 
-        // 1. Nếu có Gemini API Key hợp lệ, thử xử lý qua chuỗi Failover Models (Multi-Model Fallback Chain)
+        // 1. Nếu có Gemini API Key hợp lệ, xử lý qua chuỗi Failover Models siêu tốc (gemini-3-flash-preview)
         if (StringUtils.hasText(geminiApiKey)) {
             List<String> candidates = getCandidateModels();
 
@@ -416,6 +416,11 @@ public class ChatbotServiceImpl implements ChatbotService {
         String endpoint = String.format("%s/%s:generateContent?key=%s", geminiApiUrl, targetModel, geminiApiKey);
 
         ObjectNode rootNode = objectMapper.createObjectNode();
+
+        // 0. Cấu hình GenerationConfig tối ưu tốc độ sinh token và giảm độ trễ
+        ObjectNode genConfig = rootNode.putObject("generationConfig");
+        genConfig.put("maxOutputTokens", 512);
+        genConfig.put("temperature", 0.3);
 
         // 1. System instruction theo vai trò người dùng (RBAC)
         ObjectNode systemInstruction = objectMapper.createObjectNode();
@@ -705,7 +710,7 @@ public class ChatbotServiceImpl implements ChatbotService {
             }
 
             if (!StringUtils.hasText(finalReply)) {
-                finalReply = "Dạ, em đã tra cứu số liệu theo yêu cầu của Anh/Chị thành công.";
+                finalReply = formatFallbackReplyFromToolResult(user, household, functionName, toolResult);
             }
 
             ActionMetadata actionMeta = determineActionMetadata(user, functionName, toolResult);
@@ -2408,6 +2413,105 @@ public class ChatbotServiceImpl implements ChatbotService {
                     "Tổng nợ phải trả nhà cung cấp hiện tại?",
                     "Tổng giá trị hàng tồn trong kho?"
             );
+        }
+    }
+
+    private String formatFallbackReplyFromToolResult(User user, BusinessHousehold household, String functionName, Map<String, Object> toolResult) {
+        if (toolResult == null || toolResult.isEmpty()) {
+            return "Dạ, em đã tra cứu số liệu theo yêu cầu của Anh/Chị thành công.";
+        }
+        if (Boolean.TRUE.equals(toolResult.get("accessDenied"))) {
+            return String.valueOf(toolResult.getOrDefault("message", "🔒 Bạn không có quyền truy cập dữ liệu này."));
+        }
+        switch (functionName) {
+            case "query_daily_revenue": {
+                String period = String.valueOf(toolResult.getOrDefault("period", "Hôm nay"));
+                String totalRev = String.valueOf(toolResult.getOrDefault("totalRevenueVnd", "0 VNĐ"));
+                Object orders = toolResult.getOrDefault("orderCount", 0);
+                return String.format("📊 **Báo Cáo Doanh Thu %s (%s)**\n\n" +
+                                "- **Cửa hàng**: %s\n" +
+                                "- **Tổng doanh thu thuần**: **%s**\n" +
+                                "- **Số lượng đơn hàng hoàn thành**: **%s đơn**\n\n" +
+                                "Anh/Chị có thể bấm vào nút bên dưới để xem chi tiết biểu đồ doanh thu.",
+                        period, LocalDate.now().toString(), household.getName(), totalRev, orders);
+            }
+            case "query_customers": {
+                Object total = toolResult.getOrDefault("totalCustomers", 0);
+                Object vip = toolResult.getOrDefault("totalVipCustomers", 0);
+                return String.format("👥 **Danh Sách Khách Hàng Thân Thiết & Ưu Đãi**\n\n" +
+                                "- **Cửa hàng**: %s\n" +
+                                "- **Tổng số khách hàng**: **%s khách**\n" +
+                                "- **Khách hàng VIP / có chiết khấu**: **%s khách**\n\n" +
+                                "Anh/Chị có thể bấm nút bên dưới để xem toàn bộ danh bạ khách hàng.",
+                        household.getName(), total, vip);
+            }
+            case "query_customer_debt": {
+                String debt = String.valueOf(toolResult.getOrDefault("totalActiveDebtVnd", "0 VNĐ"));
+                Object debtors = toolResult.getOrDefault("totalDebtors", 0);
+                return String.format("📝 **Quản Lý Công Nợ Khách Hàng Cần Thu**\n\n" +
+                                "- **Cửa hàng**: %s\n" +
+                                "- **Tổng nợ khách hàng cần thu**: **%s**\n" +
+                                "- **Số khách hàng đang nợ**: **%s người**\n\n" +
+                                "Anh/Chị có thể bấm nút bên dưới để theo dõi chi tiết từng khách nợ.",
+                        household.getName(), debt, debtors);
+            }
+            case "query_supplier_debt": {
+                String debt = String.valueOf(toolResult.getOrDefault("totalOutstandingDebtVnd", "0 VNĐ"));
+                Object suppliers = toolResult.getOrDefault("totalSuppliersWithDebt", 0);
+                return String.format("🏢 **Báo Cáo Công Nợ Nhà Cung Cấp Phải Trả**\n\n" +
+                                "- **Cửa hàng**: %s\n" +
+                                "- **Tổng nợ phải trả**: **%s**\n" +
+                                "- **Số nhà cung cấp đang có công nợ**: **%s đơn vị**\n\n" +
+                                "Anh/Chị có thể bấm nút bên dưới để quản lý các khoản công nợ đầu vào.",
+                        household.getName(), debt, suppliers);
+            }
+            case "query_active_shift": {
+                boolean hasShift = Boolean.TRUE.equals(toolResult.get("hasActiveShift"));
+                if (!hasShift) {
+                    return String.valueOf(toolResult.getOrDefault("message", "Hiện tại cửa hàng không có ca bán hàng nào đang mở."));
+                }
+                String cashierName = String.valueOf(toolResult.getOrDefault("cashierName", "Nhân viên"));
+                String openingCash = String.valueOf(toolResult.getOrDefault("openingCashVnd", "0 VNĐ"));
+                String expectedCash = String.valueOf(toolResult.getOrDefault("closingCashExpectedVnd", openingCash));
+                return String.format("🏪 **Thông Tin Ca Bán Hàng & Tiền Két Tại Quầy**\n\n" +
+                                "- **Nhân viên trực ca**: **%s**\n" +
+                                "- **Tiền quỹ đầu ca**: **%s**\n" +
+                                "- **Tiền dự kiến trong két**: **%s**\n\n" +
+                                "Anh/Chị có thể bấm nút bên dưới để xem chi tiết lịch sử ca trực.",
+                        cashierName, openingCash, expectedCash);
+            }
+            case "query_gross_profit": {
+                String netRev = String.valueOf(toolResult.getOrDefault("totalNetRevenueVnd", "0 VNĐ"));
+                String cogs = String.valueOf(toolResult.getOrDefault("totalCogsVnd", "0 VNĐ"));
+                String profit = String.valueOf(toolResult.getOrDefault("totalGrossProfitVnd", "0 VNĐ"));
+                String margin = String.valueOf(toolResult.getOrDefault("grossProfitMarginPercentage", "0%"));
+                return String.format("📈 **Báo Cáo Lợi Nhuận Gộp Hôm Nay**\n\n" +
+                                "- **Doanh thu thuần**: **%s**\n" +
+                                "- **Giá vốn hàng bán (COGS)**: **%s**\n" +
+                                "- **Lợi nhuận gộp**: **%s** (Tỷ suất: **%s**)\n\n" +
+                                "Anh/Chị có thể bấm nút bên dưới để xem báo cáo chi tiết theo sản phẩm.",
+                        netRev, cogs, profit, margin);
+            }
+            case "query_inventory_valuation": {
+                String costVal = String.valueOf(toolResult.getOrDefault("totalInventoryValueVnd", "0 VNĐ"));
+                String retailVal = String.valueOf(toolResult.getOrDefault("totalRetailValueVnd", "0 VNĐ"));
+                String profit = String.valueOf(toolResult.getOrDefault("potentialGrossProfitVnd", "0 VNĐ"));
+                return String.format("📦 **Báo Cáo Định Giá Toàn Bộ Kho Hàng**\n\n" +
+                                "- **Tổng giá trị kho (theo giá vốn)**: **%s**\n" +
+                                "- **Tổng giá trị kho (theo giá bán lẻ)**: **%s**\n" +
+                                "- **Lãi gộp tiềm năng**: **%s**\n\n" +
+                                "Anh/Chị có thể bấm nút bên dưới để xem chi tiết từng nhóm hàng.",
+                        costVal, retailVal, profit);
+            }
+            case "query_low_stock_products": {
+                Object total = toolResult.getOrDefault("totalAlertCount", 0);
+                return String.format("⚠️ **Cảnh Báo Tồn Kho Sắp Hết**\n\n" +
+                                "- **Tổng số mặt hàng dưới mức an toàn**: **%s sản phẩm**\n\n" +
+                                "Anh/Chị có thể bấm nút bên dưới để xem danh sách và tạo phiếu nhập hàng.",
+                        total);
+            }
+            default:
+                return "Dạ, em đã tra cứu số liệu theo yêu cầu của Anh/Chị thành công. Anh/Chị có thể bấm nút bên dưới để xem chi tiết.";
         }
     }
 

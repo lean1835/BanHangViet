@@ -110,61 +110,6 @@ export const PromotionReportPage: React.FC = () => {
       }
     >
       <div className="flex flex-col gap-5 w-full animate-page-enter pb-16">
-        {/* ─── PRINT CSS STYLES ─── */}
-        <style>{`
-          @media print {
-            @page {
-              size: A4 portrait;
-              margin: 8mm 10mm 8mm 10mm;
-            }
-            html, body {
-              margin: 0 !important;
-              padding: 0 !important;
-              background: #ffffff !important;
-              width: 100% !important;
-              height: auto !important;
-              overflow: visible !important;
-            }
-            #root, .screen-only, .no-print, header, aside, nav {
-              display: none !important;
-            }
-            #printable-promotion-page-report {
-              display: block !important;
-              position: relative !important;
-              top: 0 !important;
-              left: 0 !important;
-              width: 100% !important;
-              max-width: 100% !important;
-              margin: 0 !important;
-              padding: 0 !important;
-              background: #ffffff !important;
-              color: #000000 !important;
-              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif !important;
-              font-size: 8.5pt !important;
-              line-height: 1.25 !important;
-            }
-            #printable-promotion-page-report table {
-              width: 100% !important;
-              border-collapse: collapse !important;
-              border: 1px solid #000000 !important;
-              page-break-inside: avoid !important;
-            }
-            #printable-promotion-page-report th {
-              border: 1px solid #000000 !important;
-              color: #000000 !important;
-              background-color: #f1f5f9 !important;
-              padding: 4px 5px !important;
-              font-weight: bold !important;
-              -webkit-print-color-adjust: exact !important;
-              print-color-adjust: exact !important;
-            }
-            #printable-promotion-page-report td {
-              border: 1px solid #000000 !important;
-              color: #000000 !important;
-              padding: 3px 5px !important;
-            }
-          }
-        `}</style>
 
         {/* ─── SCREEN-ONLY PAGE LAYOUT ─── */}
         <div className="screen-only flex flex-col gap-5 w-full flex-1">
