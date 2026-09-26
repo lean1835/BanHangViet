@@ -114,9 +114,7 @@ export const ChatbotWidget: React.FC = () => {
   const [sendMessageMutation, { isLoading: isSending }] = useSendChatbotMessageMutation();
   const { data: quickSuggestionsData } = useGetChatbotQuickSuggestionsQuery(location.pathname);
 
-  // ---------------------------------------------------------------------------
   // Draggable FAB State & Position Persistence (Tránh che khuất các nút thao tác)
-  // ---------------------------------------------------------------------------
   const FAB_STORAGE_KEY = "BANHANGVIET_CHATBOT_FAB_POS";
   const isPosScreen = location.pathname.startsWith("/pos");
 
@@ -423,9 +421,7 @@ export const ChatbotWidget: React.FC = () => {
     currentDragPosRef.current = null;
   };
 
-  // ---------------------------------------------------------------------------
-  // Draggable Open Chat Window State (Di chuyển khung chat khi đang mở - 0ms delay)
-  // ---------------------------------------------------------------------------
+  // Draggable Open Chat Window State (Di chuyển khung chat khi đang mở)
   const windowRef = useRef<HTMLDivElement>(null);
   const isWindowDraggingRef = useRef(false);
   const hasWindowMovedRef = useRef(false);
@@ -742,12 +738,12 @@ export const ChatbotWidget: React.FC = () => {
   };
 
   // Helper render markdown inline content (bold, code, text)
-  const renderInlineContent = (line: string) => {
+  const renderInlineContent = (line: string, isUser = false) => {
     const parts = line.split(/(\*\*.*?\*\*|`.*?`)/g);
     return parts.map((part, pIdx) => {
       if (part.startsWith("**") && part.endsWith("**") && part.length >= 4) {
         return (
-          <strong key={pIdx} className="font-bold text-slate-900">
+          <strong key={pIdx} className={`font-bold ${isUser ? "text-white" : "text-slate-900"}`}>
             {part.slice(2, -2)}
           </strong>
         );
@@ -756,18 +752,22 @@ export const ChatbotWidget: React.FC = () => {
         return (
           <code
             key={pIdx}
-            className="px-1 py-0.5 bg-slate-100 text-blue-700 rounded text-[11px] font-mono border border-slate-200"
+            className={`px-1 py-0.5 rounded text-[11px] font-mono border ${
+              isUser
+                ? "bg-blue-700/80 text-white border-blue-400/40"
+                : "bg-slate-100 text-blue-700 border-slate-200"
+            }`}
           >
             {part.slice(1, -1)}
           </code>
         );
       }
-      return <span key={pIdx}>{part}</span>;
+      return <span key={pIdx} className={isUser ? "text-white" : undefined}>{part}</span>;
     });
   };
 
   // Helper render full markdown (including tables, lists, headings) without LaTeX
-  const renderFormattedText = (text: string) => {
+  const renderFormattedText = (text: string, isUser = false) => {
     const lines = text.split("\n");
     const elements: React.ReactNode[] = [];
     let i = 0;
@@ -834,7 +834,7 @@ export const ChatbotWidget: React.FC = () => {
                       key={hIdx}
                       className={`px-3 py-2 ${alignments[hIdx] || "text-left"} border-r last:border-r-0 border-slate-200 whitespace-nowrap`}
                     >
-                      {renderInlineContent(h)}
+                      {renderInlineContent(h, isUser)}
                     </th>
                   ))}
                 </tr>
@@ -854,7 +854,7 @@ export const ChatbotWidget: React.FC = () => {
                         key={cIdx}
                         className={`px-3 py-2 text-slate-800 ${alignments[cIdx] || "text-left"} border-r last:border-r-0 border-slate-100`}
                       >
-                        {renderInlineContent(cell)}
+                        {renderInlineContent(cell, isUser)}
                       </td>
                     ))}
                   </tr>
@@ -869,8 +869,8 @@ export const ChatbotWidget: React.FC = () => {
       // 2. Headings (###, ##, #)
       if (trimmed.startsWith("### ")) {
         elements.push(
-          <h4 key={`h4-${i}`} className="font-bold text-slate-900 text-xs mt-2 mb-1">
-            {renderInlineContent(trimmed.substring(4))}
+          <h4 key={`h4-${i}`} className={`font-bold text-xs mt-2 mb-1 ${isUser ? "text-white" : "text-slate-900"}`}>
+            {renderInlineContent(trimmed.substring(4), isUser)}
           </h4>
         );
         i++;
@@ -878,8 +878,8 @@ export const ChatbotWidget: React.FC = () => {
       }
       if (trimmed.startsWith("## ")) {
         elements.push(
-          <h3 key={`h3-${i}`} className="font-bold text-slate-900 text-sm mt-2.5 mb-1">
-            {renderInlineContent(trimmed.substring(3))}
+          <h3 key={`h3-${i}`} className={`font-bold text-sm mt-2.5 mb-1 ${isUser ? "text-white" : "text-slate-900"}`}>
+            {renderInlineContent(trimmed.substring(3), isUser)}
           </h3>
         );
         i++;
@@ -889,8 +889,8 @@ export const ChatbotWidget: React.FC = () => {
       // 3. Bullet list (- or *)
       if (trimmed.startsWith("- ") || trimmed.startsWith("* ")) {
         elements.push(
-          <li key={`li-${i}`} className="ml-4 list-disc text-slate-700 my-0.5 leading-relaxed">
-            {renderInlineContent(trimmed.substring(2))}
+          <li key={`li-${i}`} className={`ml-4 list-disc my-0.5 leading-relaxed ${isUser ? "text-white" : "text-slate-700"}`}>
+            {renderInlineContent(trimmed.substring(2), isUser)}
           </li>
         );
         i++;
@@ -901,8 +901,8 @@ export const ChatbotWidget: React.FC = () => {
       const numMatch = trimmed.match(/^(\d+)\.\s+(.*)$/);
       if (numMatch) {
         elements.push(
-          <li key={`oli-${i}`} className="ml-4 list-decimal text-slate-700 my-0.5 leading-relaxed">
-            {renderInlineContent(numMatch[2])}
+          <li key={`oli-${i}`} className={`ml-4 list-decimal my-0.5 leading-relaxed ${isUser ? "text-white" : "text-slate-700"}`}>
+            {renderInlineContent(numMatch[2], isUser)}
           </li>
         );
         i++;
@@ -918,8 +918,8 @@ export const ChatbotWidget: React.FC = () => {
 
       // 6. Regular paragraph
       elements.push(
-        <p key={`p-${i}`} className="my-0.5 text-slate-800 leading-relaxed">
-          {renderInlineContent(line)}
+        <p key={`p-${i}`} className={`my-0.5 leading-relaxed ${isUser ? "text-white" : "text-slate-800"}`}>
+          {renderInlineContent(line, isUser)}
         </p>
       );
       i++;
@@ -1127,8 +1127,8 @@ export const ChatbotWidget: React.FC = () => {
                   }`}
                 >
                   {/* Body Content */}
-                  <div className="space-y-1">
-                    {renderFormattedText(msg.text)}
+                  <div className={`space-y-1 ${msg.role === "user" ? "text-white" : ""}`}>
+                    {renderFormattedText(msg.text, msg.role === "user")}
                   </div>
 
                   {/* Action Link Card (Deep Link) - Cho phép điều hướng theo đúng phân quyền (Thu ngân được truy cập ca, pos, khách hàng) */}
@@ -1203,27 +1203,12 @@ export const ChatbotWidget: React.FC = () => {
                     </div>
                   ) : null}
 
-                  {/* Timestamp & Active Model Badge */}
+                  {/* Timestamp */}
                   <div
-                    className={`mt-1.5 flex items-center justify-between text-[10px] ${
-                      msg.role === "user" ? "text-blue-200 justify-end" : "text-slate-400"
+                    className={`mt-1.5 flex items-center justify-end text-[10px] ${
+                      msg.role === "user" ? "text-blue-100" : "text-slate-400"
                     }`}
                   >
-                    {msg.role === "assistant" && (
-                      <span className="inline-flex items-center gap-1 text-[9px] font-medium text-slate-400 select-none">
-                        {msg.geminiPowered ? (
-                          <>
-                            <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0"></span>
-                            <span className="font-mono text-[9px] text-slate-500">{msg.activeModel || "gemini"}</span>
-                          </>
-                        ) : (
-                          <>
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"></span>
-                            <span>Hệ thống nội bộ</span>
-                          </>
-                        )}
-                      </span>
-                    )}
                     <span>{msg.timestamp}</span>
                   </div>
                 </div>

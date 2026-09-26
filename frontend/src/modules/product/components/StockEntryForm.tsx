@@ -88,8 +88,7 @@ export const StockEntryForm = ({ currentRole, products, onSubmit }: StockEntryFo
             <textarea
               name={PRODUCT_STOCK_ENTRY_FORM_FIELDS.NOTES}
               placeholder={PRODUCT_STOCK_ENTRY_COPY.NOTES_PLACEHOLDER}
-              style={{ resize: "none" }}
-              className="border border-slate-300 h-16 p-3 rounded-lg focus:outline-none focus:border-kv-blue-primary text-xs"
+              className="border border-slate-300 h-16 p-3 rounded-lg focus:outline-none focus:border-kv-blue-primary text-xs resize-none"
             />
           </div>
 
