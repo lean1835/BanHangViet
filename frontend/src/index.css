@@ -1,3 +1,5 @@
+@import "./styles/print.css";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -591,21 +593,6 @@ input[type="password"]::-ms-clear {
 
 .animate-auth-fade-in {
   animation: authFadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-}
-
-@keyframes modalBounceIn {
-  0% {
-    transform: scale(0.9);
-    opacity: 0;
-  }
-  70% {
-    transform: scale(1.02);
-    opacity: 1;
-  }
-  100% {
-    transform: scale(1);
-    opacity: 1;
-  }
 }
 
 .animate-modal-bounce-in {
