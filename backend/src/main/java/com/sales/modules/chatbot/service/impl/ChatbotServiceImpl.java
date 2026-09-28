@@ -252,7 +252,6 @@ public class ChatbotServiceImpl implements ChatbotService {
 
         String userMessage = request.getMessage() != null ? request.getMessage().trim() : "";
 
-
         if (StringUtils.hasText(geminiApiKey)) {
             List<String> candidates = getCandidateModels();
 
@@ -418,11 +417,9 @@ public class ChatbotServiceImpl implements ChatbotService {
 
         ObjectNode rootNode = objectMapper.createObjectNode();
 
-
         ObjectNode genConfig = rootNode.putObject("generationConfig");
         genConfig.put("maxOutputTokens", 512);
         genConfig.put("temperature", 0.3);
-
 
         ObjectNode systemInstruction = objectMapper.createObjectNode();
         ArrayNode systemParts = systemInstruction.putArray("parts");
