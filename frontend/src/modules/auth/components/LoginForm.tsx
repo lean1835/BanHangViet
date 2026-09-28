@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState } from "react";
 import { Link, useOutletContext, useSearchParams } from "react-router-dom";
 import { Form, Input, Alert } from "antd";
 import type { AuthOutletContext } from "@/pages/AuthPage";
@@ -13,7 +13,6 @@ import {
 } from "@/constants/auth";
 import { APP_ROUTES } from "@/constants/routes";
 import { z } from "zod";
-import { DemoAccountsPanel } from "./DemoAccountsPanel";
 import { getApiErrorMessage } from "@/utils/getApiErrorMessage";
 import { recordFailedLoginAttempt } from "@/modules/anomaly_alert/utils/anomalyStorage";
 
@@ -43,70 +42,8 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
   const [form] = Form.useForm();
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [rememberMe, setRememberMe] = useState(false);
-  const [isDemoExpanded, setIsDemoExpanded] = useState(false);
-  const cardRef = useRef<HTMLDivElement>(null);
-  const collapseTimerRef = useRef<NodeJS.Timeout | null>(null);
   const [login, { isLoading }] = useLoginMutation();
   const dispatch = useAppDispatch();
-
-  const handleDemoExpandedChange = (expanded: boolean) => {
-    setIsDemoExpanded(expanded);
-    const el = cardRef.current?.parentElement;
-    if (!el) return;
-
-    if (collapseTimerRef.current) {
-      clearTimeout(collapseTimerRef.current);
-      collapseTimerRef.current = null;
-    }
-
-    if (expanded) {
-      // Cố định vị trí top hiện tại để khi mở danh sách demo, form chỉ mở rộng trượt êm ái xuống dưới
-      el.style.marginTop = `${el.offsetTop}px`;
-      el.style.marginBottom = "auto";
-    } else {
-      // Đợi animation đóng 300ms hoàn tất rồi mới khôi phục căn giữa tự nhiên, tránh bị giật khung
-      collapseTimerRef.current = setTimeout(() => {
-        if (el) {
-          el.style.marginTop = "";
-          el.style.marginBottom = "";
-        }
-      }, 310);
-    }
-  };
-
-  useEffect(() => {
-    const el = cardRef.current?.parentElement;
-    return () => {
-      if (collapseTimerRef.current) {
-        clearTimeout(collapseTimerRef.current);
-      }
-      if (el) {
-        el.style.marginTop = "";
-        el.style.marginBottom = "";
-      }
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!isDemoExpanded) return;
-
-    const handleResize = () => {
-      const el = cardRef.current?.parentElement;
-      if (el) {
-        el.style.marginTop = "";
-        el.style.marginBottom = "";
-        requestAnimationFrame(() => {
-          if (el) {
-            el.style.marginTop = `${el.offsetTop}px`;
-            el.style.marginBottom = "auto";
-          }
-        });
-      }
-    };
-
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, [isDemoExpanded]);
 
   const handleFinish = async (formValues: unknown) => {
     setErrorMsg(null);
@@ -147,19 +84,8 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
     }
   };
 
-  const handleDemoSelect = (username: string, password: string) => {
-    form.setFieldsValue({
-      [AUTH_FORM_FIELDS.USERNAME]: username,
-      [AUTH_FORM_FIELDS.PASSWORD]: password,
-    });
-    form.submit();
-  };
-
   return (
-    <div
-      ref={cardRef}
-      className="w-full max-w-[540px] flex flex-col bg-white rounded-3xl shadow-[0_20px_60px_rgba(15,23,42,0.06),0_1px_3px_rgba(15,23,42,0.03)] border border-slate-100 p-8 sm:p-10 transition-[box-shadow,border-color] duration-300"
-    >
+    <div className="w-full max-w-[540px] flex flex-col bg-white rounded-3xl shadow-[0_20px_60px_rgba(15,23,42,0.06),0_1px_3px_rgba(15,23,42,0.03)] border border-slate-100 p-8 sm:p-10 transition-[box-shadow,border-color] duration-300">
       {/* Greeting Header */}
       <div className="text-center mb-6">
         <h2 className="text-2xl sm:text-[27px] font-bold text-slate-800 tracking-tight">
@@ -302,14 +228,6 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
           </Link>
         </div>
       </Form>
-
-      {/* Demo Accounts Panel (Tài khoản thử nghiệm nhanh) */}
-      <div className="mt-4 pt-4 border-t border-slate-100">
-        <DemoAccountsPanel
-          onSelect={handleDemoSelect}
-          onExpandedChange={handleDemoExpandedChange}
-        />
-      </div>
     </div>
   );
 };
