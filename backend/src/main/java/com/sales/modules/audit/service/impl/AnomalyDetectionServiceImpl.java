@@ -52,7 +52,6 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Slf4j
 public class AnomalyDetectionServiceImpl implements AnomalyDetectionService {
-
     private final AnomalyAlertRepository anomalyAlertRepository;
     private final AnomalyRuleConfigRepository anomalyRuleConfigRepository;
     private final UserRepository userRepository;
@@ -99,7 +98,6 @@ public class AnomalyDetectionServiceImpl implements AnomalyDetectionService {
                 .map(this::mapToResponse)
                 .toList();
 
-        // Ghi nhật ký kiểm toán hành động tra cứu danh sách cảnh báo
         activityLogHelper.logActivityInNewTransaction(
                 currentUser.getHousehold(),
                 currentUser,
@@ -197,7 +195,6 @@ public class AnomalyDetectionServiceImpl implements AnomalyDetectionService {
         LocalDate targetDate = (scanDate != null) ? scanDate : LocalDate.now();
         List<AnomalyAlert> newAlerts = performDetection(household, targetDate);
 
-        // Lưu tất cả các cảnh báo mới phát hiện
         if (!newAlerts.isEmpty()) {
             anomalyAlertRepository.saveAll(newAlerts);
         }
@@ -212,7 +209,6 @@ public class AnomalyDetectionServiceImpl implements AnomalyDetectionService {
                 "Ghi nhận ngày an toàn (ngày sạch), không có thao tác vượt ngưỡng bất thường nào trong ngày " + targetDate :
                 "Phát hiện " + newAlerts.size() + " thao tác bất thường mới trong ngày " + targetDate;
 
-        // Ghi nhật ký kiểm toán hành động quét
         activityLogHelper.logActivityInNewTransaction(
                 household,
                 currentUser,
@@ -359,25 +355,21 @@ public class AnomalyDetectionServiceImpl implements AnomalyDetectionService {
         LocalDateTime startOfDay = targetDate.atStartOfDay();
         LocalDateTime endOfDay = targetDate.atTime(LocalTime.MAX);
 
-        // 1. Quét Hủy nhiều hóa đơn trong thời gian ngắn (MASS_INVOICE_CANCEL)
         AnomalyRuleConfig cancelRule = ruleMap.get(AnomalyAlertType.MASS_INVOICE_CANCEL);
         if (cancelRule != null && Boolean.TRUE.equals(cancelRule.getIsEnabled())) {
             scanMassInvoiceCancellations(household, cancelRule, startOfDay, endOfDay, detected);
         }
 
-        // 2. Quét Giảm giá đơn hàng bất thường (UNUSUAL_HIGH_DISCOUNT)
         AnomalyRuleConfig discountRule = ruleMap.get(AnomalyAlertType.UNUSUAL_HIGH_DISCOUNT);
         if (discountRule != null && Boolean.TRUE.equals(discountRule.getIsEnabled())) {
             scanUnusualHighDiscounts(household, discountRule, startOfDay, endOfDay, detected);
         }
 
-        // 3. Quét Điều chỉnh tồn kho lớn (LARGE_INVENTORY_ADJUSTMENT)
         AnomalyRuleConfig inventoryRule = ruleMap.get(AnomalyAlertType.LARGE_INVENTORY_ADJUSTMENT);
         if (inventoryRule != null && Boolean.TRUE.equals(inventoryRule.getIsEnabled())) {
             scanLargeInventoryAdjustments(household, inventoryRule, startOfDay, endOfDay, detected);
         }
 
-        // 4. Quét Tính toàn vẹn Hash Chain kiểm toán (AUDIT_CHAIN_BREACH)
         AnomalyRuleConfig auditChainRule = ruleMap.get(AnomalyAlertType.AUDIT_CHAIN_BREACH);
         if (auditChainRule != null && Boolean.TRUE.equals(auditChainRule.getIsEnabled())) {
             scanAuditChainBreach(household, auditChainRule, detected);
@@ -401,7 +393,6 @@ public class AnomalyDetectionServiceImpl implements AnomalyDetectionService {
             return;
         }
 
-        // Nhóm các hóa đơn đã hủy theo người hủy (canceledByUser)
         Map<User, List<EInvoice>> byUser = canceledInvoices.stream()
                 .filter(inv -> inv.getCanceledByUser() != null)
                 .collect(Collectors.groupingBy(EInvoice::getCanceledByUser));
@@ -417,7 +408,6 @@ public class AnomalyDetectionServiceImpl implements AnomalyDetectionService {
                     inv -> inv.getCanceledAt() != null ? inv.getCanceledAt() : inv.getCreatedAt()
             ));
 
-            // Thuật toán Sliding Window đếm số hóa đơn trong cửa sổ windowMinutes
             for (int i = 0; i < userInvoices.size(); i++) {
                 LocalDateTime windowStart = userInvoices.get(i).getCanceledAt() != null ?
                         userInvoices.get(i).getCanceledAt() : userInvoices.get(i).getCreatedAt();
@@ -435,7 +425,6 @@ public class AnomalyDetectionServiceImpl implements AnomalyDetectionService {
                 }
 
                 if (windowInvoices.size() >= thresholdCount) {
-                    // Kiểm tra xem cảnh báo tương tự đã tồn tại trong khoảng thời gian này chưa
                     boolean alreadyAlerted = anomalyAlertRepository.existsByHouseholdIdAndAlertTypeAndActorUserIdAndDetectedAtBetween(
                             household.getId(),
                             AnomalyAlertType.MASS_INVOICE_CANCEL,
@@ -471,7 +460,7 @@ public class AnomalyDetectionServiceImpl implements AnomalyDetectionService {
                                 .build();
 
                         result.add(alert);
-                        i += windowInvoices.size() - 1; // Nhảy qua các hóa đơn đã gom cụm
+                        i += windowInvoices.size() - 1;
                     }
                 }
             }
@@ -489,7 +478,7 @@ public class AnomalyDetectionServiceImpl implements AnomalyDetectionService {
                 end
         );
 
-        BigDecimal thresholdRate = rule.getThresholdValue(); // e.g. 30%
+        BigDecimal thresholdRate = rule.getThresholdValue();
 
         for (Order order : orders) {
             BigDecimal totalAmount = order.getTotalAmount() != null ? order.getTotalAmount() : BigDecimal.ZERO;
@@ -540,7 +529,7 @@ public class AnomalyDetectionServiceImpl implements AnomalyDetectionService {
      * Phát hiện phiếu kiểm kê có chênh lệch tồn kho lớn vượt ngưỡng
      */
     private void scanLargeInventoryAdjustments(BusinessHousehold household, AnomalyRuleConfig rule, LocalDateTime start, LocalDateTime end, List<AnomalyAlert> result) {
-        BigDecimal thresholdQty = rule.getThresholdValue(); // e.g. 50 sản phẩm
+        BigDecimal thresholdQty = rule.getThresholdValue();
 
         List<InventoryAuditDetail> details = inventoryAuditDetailRepository.findDetailsForAnomalyScan(
                 household.getId(),
@@ -705,7 +694,6 @@ public class AnomalyDetectionServiceImpl implements AnomalyDetectionService {
         String roleCode = user.getRole().getCode();
         String roleName = user.getRole().getName();
 
-        // AC-03 & TC-03: Chỉ VT-01 (Chủ hộ) hoặc VT-04 (Admin) được truy cập. VT-02 (Nhân viên bán hàng) bị CHẶN.
         if (!"VT-01".equalsIgnoreCase(roleCode) && !"VT-04".equalsIgnoreCase(roleCode) &&
             !"Chủ hộ kinhdong".equalsIgnoreCase(roleName) && !"Chủ hộ kinh doanh".equalsIgnoreCase(roleName) &&
             !"Quản trị nền tảng".equalsIgnoreCase(roleName) && !"Quản trị hệ thống".equalsIgnoreCase(roleName)) {
@@ -716,7 +704,7 @@ public class AnomalyDetectionServiceImpl implements AnomalyDetectionService {
     private String getHouseholdIdForUser(User user) {
         if (user.getRole() != null &&
             ("VT-04".equalsIgnoreCase(user.getRole().getCode()) || "Quản trị nền tảng".equalsIgnoreCase(user.getRole().getName()))) {
-            return null; // Admin được xem toàn hệ thống
+            return null;
         }
         return user.getHousehold() != null ? user.getHousehold().getId() : null;
     }

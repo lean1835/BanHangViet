@@ -28,13 +28,13 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.math.BigDecimal;
 
 @RestController
 @RequestMapping("/api/v1/reports")
 @RequiredArgsConstructor
 @PreAuthorize("hasRole('VT-01') or (hasRole('VT-03') and @accountantSecurityService.hasScope(authentication, 'REPORT'))")
 public class ReportController {
-
     private final ReportService reportService;
     private final ReportExportService reportExportService;
 
@@ -175,7 +175,7 @@ public class ReportController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate,
             @RequestParam(required = false) String userId,
-            @RequestParam(required = false) java.math.BigDecimal threshold) {
+            @RequestParam(required = false) BigDecimal threshold) {
         EmployeeShiftReportResponse result = reportService.getEmployeeShiftReport(
                 principal.getName(), fromDate, toDate, userId, threshold);
         ApiResponse<EmployeeShiftReportResponse> response = ApiResponse.<EmployeeShiftReportResponse>builder()
@@ -186,7 +186,6 @@ public class ReportController {
         return ResponseEntity.ok(response);
     }
 
-    // NCL-07-CN-008: Báo cáo lãi gộp theo ngày và theo mặt hàng
     @GetMapping("/gross-profit")
     public ResponseEntity<ApiResponse<GrossProfitReportResponse>> getGrossProfitReport(
             Principal principal,
@@ -203,7 +202,6 @@ public class ReportController {
         return ResponseEntity.ok(response);
     }
 
-    // NCL-07-CN-011: Báo cáo doanh thu theo hình thức thanh toán
     @GetMapping("/payment-methods")
     public ResponseEntity<ApiResponse<PaymentMethodReportResponse>> getPaymentMethodReport(
             Principal principal,
@@ -220,7 +218,6 @@ public class ReportController {
         return ResponseEntity.ok(response);
     }
 
-    // NCL-07-CN-012: Báo cáo doanh thu theo nhóm hàng
     @GetMapping("/product-groups")
     public ResponseEntity<ApiResponse<ProductGroupReportResponse>> getProductGroupReport(
             Principal principal,
@@ -235,7 +232,6 @@ public class ReportController {
         return ResponseEntity.ok(response);
     }
 
-    // NCL-07-CN-012: Chi tiết mặt hàng trong nhóm hàng (drill-down)
     @GetMapping("/product-groups/{groupId}/products")
     public ResponseEntity<ApiResponse<ProductGroupRevenueDetailResponse>> getProductGroupDetail(
             Principal principal,
@@ -251,7 +247,6 @@ public class ReportController {
         return ResponseEntity.ok(response);
     }
 
-    // NCL-07-CN-009: Xuất báo cáo ra file Excel (.xlsx)
     @GetMapping("/export")
     public ResponseEntity<byte[]> exportReport(
             Principal principal,

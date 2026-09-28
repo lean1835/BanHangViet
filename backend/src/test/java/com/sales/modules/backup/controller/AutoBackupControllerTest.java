@@ -33,7 +33,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Transactional
 @SuppressWarnings("unused")
 public class AutoBackupControllerTest {
-
     @Autowired
     private MockMvc mockMvc;
 

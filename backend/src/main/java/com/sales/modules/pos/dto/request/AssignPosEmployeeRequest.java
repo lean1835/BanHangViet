@@ -10,7 +10,6 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class AssignPosEmployeeRequest {
-
     @NotEmpty(message = "Danh sách mã nhân viên không được để trống")
     private List<String> userIds;
 }

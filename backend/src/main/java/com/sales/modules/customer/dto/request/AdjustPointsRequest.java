@@ -13,7 +13,6 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class AdjustPointsRequest {
-
     @NotNull(message = "Số điểm điều chỉnh không được để trống")
     private Integer pointsChange;
 

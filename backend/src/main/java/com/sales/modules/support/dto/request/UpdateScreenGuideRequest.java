@@ -11,7 +11,6 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class UpdateScreenGuideRequest {
-
     @NotBlank(message = "Tên màn hình không được để trống")
     @Size(max = 255, message = "Tên màn hình không quá 255 ký tự")
     private String screenName;

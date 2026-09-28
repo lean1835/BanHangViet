@@ -25,7 +25,6 @@ import java.util.List;
 @AllArgsConstructor
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class ReturnTicket {
-
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     @Column(length = 36, nullable = false)
@@ -75,11 +74,11 @@ public class ReturnTicket {
 
     @Column(name = "refund_payment_method", nullable = false, length = 20)
     @Builder.Default
-    private String refundPaymentMethod = "CASH"; // CASH, BANK_TRANSFER, DEBT_REDUCTION
+    private String refundPaymentMethod = "CASH";
 
     @Column(nullable = false, length = 20)
     @Builder.Default
-    private String status = "PENDING"; // PENDING, APPROVED, REJECTED
+    private String status = "PENDING";
 
     @Column(columnDefinition = "TEXT")
     private String reason;

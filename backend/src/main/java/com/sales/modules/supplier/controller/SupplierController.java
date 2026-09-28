@@ -12,32 +12,36 @@ import org.springframework.web.bind.annotation.*;
 
 import java.security.Principal;
 import java.util.List;
+import com.sales.modules.product.dto.response.ImportPreviewResponse;
+import com.sales.modules.supplier.dto.response.ImportSupplierResultResponse;
+import com.sales.modules.supplier.service.SupplierImportService;
+import org.springframework.http.HttpHeaders;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/api/v1/suppliers")
 @RequiredArgsConstructor
 public class SupplierController {
-
     private final SupplierService supplierService;
-    private final com.sales.modules.supplier.service.SupplierImportService supplierImportService;
+    private final SupplierImportService supplierImportService;
 
     @GetMapping("/import-template")
     @PreAuthorize("hasRole('VT-01')")
     public ResponseEntity<byte[]> getImportTemplate() {
         byte[] data = supplierImportService.getImportTemplate();
         return ResponseEntity.ok()
-                .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=mau_nhap_nha_cung_cap.xlsx")
-                .header(org.springframework.http.HttpHeaders.CONTENT_TYPE, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=mau_nhap_nha_cung_cap.xlsx")
+                .header(HttpHeaders.CONTENT_TYPE, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
                 .body(data);
     }
 
     @PostMapping("/import-preview")
     @PreAuthorize("hasRole('VT-01')")
-    public ResponseEntity<ApiResponse<com.sales.modules.product.dto.response.ImportPreviewResponse>> previewImport(
+    public ResponseEntity<ApiResponse<ImportPreviewResponse>> previewImport(
             Principal principal,
-            @RequestParam("file") org.springframework.web.multipart.MultipartFile file) {
-        com.sales.modules.product.dto.response.ImportPreviewResponse preview = supplierImportService.previewImport(principal.getName(), file);
-        return ResponseEntity.ok(ApiResponse.<com.sales.modules.product.dto.response.ImportPreviewResponse>builder()
+            @RequestParam("file") MultipartFile file) {
+        ImportPreviewResponse preview = supplierImportService.previewImport(principal.getName(), file);
+        return ResponseEntity.ok(ApiResponse.<ImportPreviewResponse>builder()
                 .code(1000)
                 .message("Phân tích tệp dữ liệu nhà cung cấp thành công")
                 .result(preview)
@@ -46,12 +50,12 @@ public class SupplierController {
 
     @PostMapping("/import")
     @PreAuthorize("hasRole('VT-01')")
-    public ResponseEntity<ApiResponse<com.sales.modules.supplier.dto.response.ImportSupplierResultResponse>> importSuppliers(
+    public ResponseEntity<ApiResponse<ImportSupplierResultResponse>> importSuppliers(
             Principal principal,
-            @RequestParam("file") org.springframework.web.multipart.MultipartFile file,
+            @RequestParam("file") MultipartFile file,
             @RequestParam(value = "duplicateAction", defaultValue = "SKIP") String duplicateAction) {
-        com.sales.modules.supplier.dto.response.ImportSupplierResultResponse result = supplierImportService.importSuppliers(principal.getName(), file, duplicateAction);
-        return ResponseEntity.ok(ApiResponse.<com.sales.modules.supplier.dto.response.ImportSupplierResultResponse>builder()
+        ImportSupplierResultResponse result = supplierImportService.importSuppliers(principal.getName(), file, duplicateAction);
+        return ResponseEntity.ok(ApiResponse.<ImportSupplierResultResponse>builder()
                 .code(1000)
                 .message("Nhập danh mục nhà cung cấp từ tệp thành công")
                 .result(result)

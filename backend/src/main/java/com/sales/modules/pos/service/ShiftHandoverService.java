@@ -7,7 +7,6 @@ import com.sales.modules.pos.dto.response.ShiftStagesSummaryResponse;
 import java.util.List;
 
 public interface ShiftHandoverService {
-
     /**
      * Lấy dữ liệu chốt tạm của chặng hiện tại trước khi bàn giao ca (AC-01)
      */

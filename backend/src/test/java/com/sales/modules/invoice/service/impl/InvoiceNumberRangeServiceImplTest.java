@@ -36,7 +36,6 @@ import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class InvoiceNumberRangeServiceImplTest {
-
     @Mock
     private InvoiceNumberRangeRepository rangeRepository;
 
@@ -192,7 +191,6 @@ class InvoiceNumberRangeServiceImplTest {
     @Test
     @DisplayName("NCL-04-CN-009-TC-02: Số còn lại <= warningThreshold -> Chuyển trạng thái WARNING_LOW")
     void allocateNextInvoiceNumber_WarningLow() {
-        // Range 1 to 100, current = 80 -> next = 81 -> remaining = 19 <= 20
         activeRange.setCurrentNumber(80);
         when(rangeRepository.findActiveRangesForUpdate("house-001")).thenReturn(List.of(activeRange));
 
@@ -276,7 +274,6 @@ class InvoiceNumberRangeServiceImplTest {
         assertThat(response.getContent().get(0).getDailyConsumptionRate()).isEqualTo(2.0);
         assertThat(response.getContent().get(1).getDailyConsumptionRate()).isEqualTo(2.0);
 
-        // Verify countByHouseholdIdAndCreatedAtAfter is called exactly once (prevent N+1 query)
         verify(eInvoiceRepository, times(1)).countByHouseholdIdAndCreatedAtAfter(eq("house-001"), any(LocalDateTime.class));
     }
 
@@ -330,4 +327,3 @@ class InvoiceNumberRangeServiceImplTest {
         assertThat(response.getContent().get(1).getStatus()).isEqualTo("INACTIVE");
     }
 }
-

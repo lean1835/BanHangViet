@@ -22,7 +22,6 @@ import java.util.List;
 @RequiredArgsConstructor
 @Tag(name = "Cash Transaction Categories", description = "Quản lý danh mục loại thu chi tiền mặt ngoài bán hàng")
 public class CashTransactionCategoryController {
-
     private final CashTransactionCategoryService categoryService;
 
     @GetMapping

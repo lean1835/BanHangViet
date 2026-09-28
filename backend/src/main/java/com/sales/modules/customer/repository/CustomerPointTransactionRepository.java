@@ -10,19 +10,19 @@ import org.springframework.stereotype.Repository;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
+import org.springframework.data.jpa.repository.EntityGraph;
 
 @Repository
 public interface CustomerPointTransactionRepository extends JpaRepository<CustomerPointTransaction, String> {
-
-    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"customer", "order", "returnTicket", "createdByUser"})
+    @EntityGraph(attributePaths = {"customer", "order", "returnTicket", "createdByUser"})
     Page<CustomerPointTransaction> findAllByHouseholdIdAndCustomerIdOrderByCreatedAtDesc(
             String householdId, String customerId, Pageable pageable);
 
-    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"customer", "order", "returnTicket", "createdByUser"})
+    @EntityGraph(attributePaths = {"customer", "order", "returnTicket", "createdByUser"})
     Page<CustomerPointTransaction> findAllByHouseholdIdAndCustomerIdAndTypeOrderByCreatedAtDesc(
             String householdId, String customerId, String type, Pageable pageable);
 
-    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"customer", "order", "returnTicket", "createdByUser"})
+    @EntityGraph(attributePaths = {"customer", "order", "returnTicket", "createdByUser"})
     List<CustomerPointTransaction> findAllByHouseholdIdAndCustomerIdOrderByCreatedAtDesc(
             String householdId, String customerId);
 

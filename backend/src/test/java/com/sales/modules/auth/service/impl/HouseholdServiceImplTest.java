@@ -27,7 +27,6 @@ import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class HouseholdServiceImplTest {
-
     @Mock
     private BusinessHouseholdRepository householdRepository;
 
@@ -128,7 +127,7 @@ class HouseholdServiceImplTest {
 
         UpdateHouseholdRequest request = UpdateHouseholdRequest.builder()
                 .name("Cửa Hàng Bán Hàng Việt")
-                .taxCode("12345") // Sai quy định (không đủ 10 hoặc 13 số)
+                .taxCode("12345")
                 .address("123 Phố Huế")
                 .phoneNumber("0987654321")
                 .build();

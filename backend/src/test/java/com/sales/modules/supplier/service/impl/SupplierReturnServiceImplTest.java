@@ -50,7 +50,6 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 @SuppressWarnings("unchecked")
 class SupplierReturnServiceImplTest {
-
     @Mock
     private UserRepository userRepository;
 
@@ -159,7 +158,6 @@ class SupplierReturnServiceImplTest {
     @Test
     @DisplayName("TC-01: Lập phiếu trả hàng NCC thành công - Tồn giảm, nợ NCC giảm, tính lại giá vốn QTN-23")
     void createSupplierReturn_success_tc01() {
-        // Arrange
         when(userRepository.findByUsername("owner_test")).thenReturn(Optional.of(ownerUser));
         when(goodsReceiptRepository.findByIdAndHouseholdId("gr-001", "hh-001")).thenReturn(Optional.of(goodsReceipt));
         when(goodsReceiptDetailRepository.findByReceiptId("gr-001")).thenReturn(List.of(goodsReceiptDetail));
@@ -183,22 +181,18 @@ class SupplierReturnServiceImplTest {
                 ))
                 .build();
 
-        // Act
         SupplierReturnResponse response = supplierReturnService.createSupplierReturn("owner_test", request);
 
-        // Assert
         assertNotNull(response);
         assertEquals("gr-001", response.getReceiptId());
         assertEquals("NK-001", response.getReceiptNumber());
         assertEquals("Hàng hỏng", response.getReason());
         assertEquals(new BigDecimal("20000.00"), response.getTotalReturnAmount());
 
-        // Kiểm tra tồn kho giảm 2 chai: 24 - 2 = 22
         assertEquals(new BigDecimal("22.000"), product.getStockQuantity());
-        // Kiểm tra giá vốn: cũ 10k, trả 2 chai 10k -> giá vốn mới vẫn là 10k (240k - 20k) / 22 = 220k / 22 = 10,000
+
         assertEquals(new BigDecimal("10000.00"), product.getCostPrice());
 
-        // Kiểm tra gọi khấu trừ công nợ NCC
         verify(supplierDebtService, times(1)).recordSupplierReturnDebtReduction(
                 eq(household), eq(supplier), eq(goodsReceipt), eq(new BigDecimal("20000.00")), anyString(), eq(ownerUser)
         );
@@ -221,7 +215,7 @@ class SupplierReturnServiceImplTest {
                 .items(List.of(
                         CreateSupplierReturnItemRequest.builder()
                                 .receiptDetailId("grd-001")
-                                .quantity(new BigDecimal("25.000")) // Nhập 24 nhưng đòi trả 25
+                                .quantity(new BigDecimal("25.000"))
                                 .build()
                 ))
                 .build();
@@ -239,7 +233,7 @@ class SupplierReturnServiceImplTest {
         when(userRepository.findByUsername("owner_test")).thenReturn(Optional.of(ownerUser));
         when(goodsReceiptRepository.findByIdAndHouseholdId("gr-001", "hh-001")).thenReturn(Optional.of(goodsReceipt));
         when(goodsReceiptDetailRepository.findByReceiptId("gr-001")).thenReturn(List.of(goodsReceiptDetail));
-        // Đã trả 20 chai ở các phiếu trước
+
         SupplierReturnItemRepository.ReceiptDetailReturnedProjection prevReturnProj = mock(SupplierReturnItemRepository.ReceiptDetailReturnedProjection.class);
         when(prevReturnProj.getDetailId()).thenReturn("grd-001");
         when(prevReturnProj.getTotalReturned()).thenReturn(new BigDecimal("20.000"));
@@ -251,7 +245,7 @@ class SupplierReturnServiceImplTest {
                 .items(List.of(
                         CreateSupplierReturnItemRequest.builder()
                                 .receiptDetailId("grd-001")
-                                .quantity(new BigDecimal("5.000")) // Còn 4 chai nhưng đòi trả 5
+                                .quantity(new BigDecimal("5.000"))
                                 .build()
                 ))
                 .build();
@@ -266,7 +260,6 @@ class SupplierReturnServiceImplTest {
     @Test
     @DisplayName("TC-04: Chặn trả hàng khi số lượng trả vượt quá tồn kho thực tế hiện có (QTN-24)")
     void createSupplierReturn_exceededCurrentStock_throwsException() {
-        // Tồn kho thực tế chỉ còn 1 chai do đã bán bớt
         product.setStockQuantity(new BigDecimal("1.000"));
 
         when(userRepository.findByUsername("owner_test")).thenReturn(Optional.of(ownerUser));
@@ -280,7 +273,7 @@ class SupplierReturnServiceImplTest {
                 .items(List.of(
                         CreateSupplierReturnItemRequest.builder()
                                 .receiptDetailId("grd-001")
-                                .quantity(new BigDecimal("2.000")) // Còn 1 chai nhưng đòi trả 2
+                                .quantity(new BigDecimal("2.000"))
                                 .build()
                 ))
                 .build();
@@ -295,10 +288,6 @@ class SupplierReturnServiceImplTest {
     @Test
     @DisplayName("TC-05: Tính lại giá vốn bình quân di động chính xác theo QTN-23")
     void createSupplierReturn_recalculateWeightedAverageCost_QTN23() {
-        // Giả sử tồn kho là 10 chai, giá vốn hiện tại là 10,000đ (tổng giá trị kho = 100,000đ)
-        // Phiếu nhập này nhập giá 12,000đ/chai. Trả lại 2 chai của phiếu nhập này (giá trị trả = 24,000đ)
-        // Sau trả: Tồn kho còn 8 chai. Giá trị kho = 100k - 24k = 76,000đ
-        // Giá vốn bình quân mới = 76,000 / 8 = 9,500.00đ
         product.setStockQuantity(new BigDecimal("10.000"));
         product.setCostPrice(new BigDecimal("10000.00"));
         goodsReceiptDetail.setPurchasePrice(new BigDecimal("12000.00"));
@@ -323,9 +312,8 @@ class SupplierReturnServiceImplTest {
 
         supplierReturnService.createSupplierReturn("owner_test", request);
 
-        // Tồn kho mới = 8
         assertEquals(new BigDecimal("8.000"), product.getStockQuantity());
-        // Giá vốn mới = 9,500.00đ
+
         assertEquals(new BigDecimal("9500.00"), product.getCostPrice());
     }
 
@@ -354,7 +342,7 @@ class SupplierReturnServiceImplTest {
         assertEquals(new BigDecimal("4.000"), item.getPreviouslyReturnedQuantity());
         assertEquals(new BigDecimal("20.000"), item.getRemainingReturnableQuantity());
         assertEquals(new BigDecimal("24.000"), item.getCurrentStockQuantity());
-        // maxAllowed = min(20, 24) = 20
+
         assertEquals(new BigDecimal("20.000"), item.getMaxAllowedReturnQuantity());
     }
 
@@ -384,7 +372,7 @@ class SupplierReturnServiceImplTest {
 
         assertNotNull(response);
         assertNull(response.getSupplierId());
-        // Không gọi giảm nợ NCC vì không có supplier
+
         verify(supplierDebtService, never()).recordSupplierReturnDebtReduction(any(), any(), any(), any(), any(), any());
     }
 
@@ -492,7 +480,7 @@ class SupplierReturnServiceImplTest {
 
         SupplierReturnItemRepository.ReceiptDetailReturnedProjection proj = mock(SupplierReturnItemRepository.ReceiptDetailReturnedProjection.class);
         when(proj.getDetailId()).thenReturn("grd-001");
-        // Detail has 24, previous returned = 24 -> fully returned
+
         when(proj.getTotalReturned()).thenReturn(new BigDecimal("24.000"));
         when(supplierReturnItemRepository.sumQuantityReturnedByDetailIds(List.of("grd-001"))).thenReturn(List.of(proj));
 

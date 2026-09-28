@@ -16,7 +16,6 @@ import java.util.Optional;
 
 @Repository
 public interface CustomerDebtRepository extends JpaRepository<CustomerDebt, String> {
-
     List<CustomerDebt> findByCustomerIdAndHouseholdIdOrderByCreatedAtDesc(String customerId, String householdId);
 
     Optional<CustomerDebt> findFirstByOrderIdAndType(String orderId, String type);
@@ -146,7 +145,7 @@ public interface CustomerDebtRepository extends JpaRepository<CustomerDebt, Stri
     );
 
     @Query("""
-        SELECT 
+        SELECT
             COALESCE(SUM(d.amount), 0) AS totalCreated,
             COALESCE(SUM(d.amount - d.remainingAmount), 0) AS totalPaid,
             COALESCE(SUM(d.remainingAmount), 0) AS totalRemaining
@@ -168,4 +167,3 @@ public interface CustomerDebtRepository extends JpaRepository<CustomerDebt, Stri
             @Param("shiftId") String shiftId
     );
 }
-

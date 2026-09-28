@@ -16,7 +16,6 @@ import java.util.List;
 @AllArgsConstructor
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class PromotionReportResponse {
-
     private String promotionId;
     private String promotionName;
     private String description;

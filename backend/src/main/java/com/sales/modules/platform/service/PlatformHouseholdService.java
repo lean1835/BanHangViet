@@ -4,7 +4,6 @@ import com.sales.common.dto.PageResponse;
 import com.sales.modules.platform.dto.response.PlatformHouseholdSummaryResponse;
 
 public interface PlatformHouseholdService {
-
     PageResponse<PlatformHouseholdSummaryResponse> getHouseholds(String currentUsername, String search, String status, int page, int size);
 
     PlatformHouseholdSummaryResponse getHouseholdDetail(String currentUsername, String householdId);

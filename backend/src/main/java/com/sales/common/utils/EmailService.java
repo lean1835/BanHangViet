@@ -2,6 +2,7 @@ package com.sales.common.utils;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 public interface EmailService {
     void sendInvoiceEmailAsync(String deliveryLogId, String toEmail, String lookupUrl, String householdName, String lookupCode, BigDecimal finalAmount);
@@ -11,6 +12,5 @@ public interface EmailService {
     void sendOverdueDebtReminderEmailAsync(String debtId, String toEmail, String customerName, String householdName, BigDecimal debtAmount, LocalDateTime dueDate);
     void sendCustomDebtReminderEmail(String toEmail, String customerName, String householdName, BigDecimal totalDebt, String messageContent);
     void sendPasswordResetOtpEmail(String toEmail, String otpCode, String recipientName);
-    void sendAccountantInvitationEmailAsync(String toEmail, String accountantName, String householdName, String householdTaxCode, java.util.List<String> scopes, int durationDays, String username, String temporaryPassword, boolean isNewAccount, String invitationToken);
+    void sendAccountantInvitationEmailAsync(String toEmail, String accountantName, String householdName, String householdTaxCode, List<String> scopes, int durationDays, String username, String temporaryPassword, boolean isNewAccount, String invitationToken);
 }
-

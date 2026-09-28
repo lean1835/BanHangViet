@@ -35,7 +35,6 @@ import java.util.Map;
 @RequiredArgsConstructor
 @Slf4j
 public class PasswordResetServiceImpl implements PasswordResetService {
-
     private static final long OTP_EXPIRATION_MINUTES = 5;
     private static final int MAX_OTP_ATTEMPTS = 5;
     private static final long OTP_COOLDOWN_SECONDS = 60;
@@ -67,16 +66,13 @@ public class PasswordResetServiceImpl implements PasswordResetService {
     }
 
     private ForgotPasswordResponse sendResetOtpByEmail(String email) {
-        // 1. Tìm tài khoản theo email
         User user = userRepository.findByEmailAndDeletedAtIsNull(email)
                 .orElseThrow(() -> new AppException(ErrorCode.EMAIL_NOT_FOUND));
 
-        // 2. Kiểm tra tài khoản có bị khóa hay không (NCL-01-CN-005-TC-03)
         if (Boolean.FALSE.equals(user.getIsActive())) {
             throw new AppException(ErrorCode.USER_BLOCKED);
         }
 
-        // 3. Kiểm tra tần suất gửi OTP (Cooldown 60 giây chống spam)
         otpRepository.findTopByEmailAndTypeOrderByCreatedAtDesc(email, OTP_TYPE_PASSWORD_RESET)
                 .ifPresent(lastOtp -> {
                     if (lastOtp.getCreatedAt() != null &&
@@ -85,17 +81,14 @@ public class PasswordResetServiceImpl implements PasswordResetService {
                     }
                 });
 
-        // 4. Vô hiệu hóa toàn bộ các mã OTP chưa sử dụng trước đó của email này
         otpRepository.invalidateAllPendingOtpsForEmail(email, OTP_TYPE_PASSWORD_RESET);
 
-        // 5. Sinh mã OTP 6 chữ số ngẫu nhiên
         int codeInt = 100000 + secureRandom.nextInt(900000);
         String otpCode = String.valueOf(codeInt);
 
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime expiryTime = now.plusMinutes(OTP_EXPIRATION_MINUTES);
 
-        // 6. Lưu thông tin OTP vào cơ sở dữ liệu
         PasswordResetOtp otp = PasswordResetOtp.builder()
                 .user(user)
                 .email(email)
@@ -109,7 +102,6 @@ public class PasswordResetServiceImpl implements PasswordResetService {
 
         otpRepository.save(otp);
 
-        // 7. Gửi mã OTP qua Gmail
         try {
             emailService.sendPasswordResetOtpEmail(email, otpCode, user.getFullName());
         } catch (Exception e) {
@@ -118,7 +110,6 @@ public class PasswordResetServiceImpl implements PasswordResetService {
 
         log.info("Đã sinh mã OTP đặt lại mật khẩu cho email: {} (User: {})", email, user.getUsername());
 
-        // 8. Trả về kết quả an toàn (không rò rỉ mã OTP ra public API response)
         return ForgotPasswordResponse.builder()
                 .email(email)
                 .phoneNumber(user.getPhoneNumber())
@@ -128,16 +119,13 @@ public class PasswordResetServiceImpl implements PasswordResetService {
     }
 
     private ForgotPasswordResponse sendResetOtpByPhone(String phoneNumber) {
-        // 1. Tìm tài khoản theo số điện thoại
         User user = userRepository.findByPhoneNumberAndDeletedAtIsNull(phoneNumber)
                 .orElseThrow(() -> new AppException(ErrorCode.PHONE_NUMBER_NOT_FOUND));
 
-        // 2. Kiểm tra tài khoản có bị khóa hay không (NCL-01-CN-005-TC-03)
         if (Boolean.FALSE.equals(user.getIsActive())) {
             throw new AppException(ErrorCode.USER_BLOCKED);
         }
 
-        // 3. Kiểm tra tần suất gửi OTP (Cooldown 60 giây chống spam)
         otpRepository.findTopByPhoneNumberAndTypeOrderByCreatedAtDesc(phoneNumber, OTP_TYPE_PASSWORD_RESET)
                 .ifPresent(lastOtp -> {
                     if (lastOtp.getCreatedAt() != null &&
@@ -146,17 +134,14 @@ public class PasswordResetServiceImpl implements PasswordResetService {
                     }
                 });
 
-        // 4. Vô hiệu hóa toàn bộ các mã OTP chưa sử dụng trước đó của số điện thoại này
         otpRepository.invalidateAllPendingOtps(phoneNumber, OTP_TYPE_PASSWORD_RESET);
 
-        // 5. Sinh mã OTP 6 chữ số ngẫu nhiên
         int codeInt = 100000 + secureRandom.nextInt(900000);
         String otpCode = String.valueOf(codeInt);
 
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime expiryTime = now.plusMinutes(OTP_EXPIRATION_MINUTES);
 
-        // 6. Lưu thông tin OTP vào cơ sở dữ liệu
         PasswordResetOtp otp = PasswordResetOtp.builder()
                 .user(user)
                 .phoneNumber(phoneNumber)
@@ -171,7 +156,6 @@ public class PasswordResetServiceImpl implements PasswordResetService {
 
         log.info("Đã sinh mã OTP đặt lại mật khẩu cho số điện thoại: {} (User: {})", phoneNumber, user.getUsername());
 
-        // 7. Trả về kết quả an toàn (không rò rỉ mã OTP ra public API response)
         return ForgotPasswordResponse.builder()
                 .phoneNumber(phoneNumber)
                 .expiresInSeconds(OTP_EXPIRATION_MINUTES * 60)
@@ -186,7 +170,6 @@ public class PasswordResetServiceImpl implements PasswordResetService {
         String phoneNumber = request.getPhoneNumber() != null ? request.getPhoneNumber().trim() : null;
         String otpCode = request.getOtpCode().trim();
 
-        // 1. Tìm OTP mới nhất chưa sử dụng của email hoặc số điện thoại
         PasswordResetOtp otp;
         if (email != null && !email.isEmpty()) {
             otp = otpRepository.findTopByEmailAndTypeAndIsUsedFalseOrderByCreatedAtDesc(email, OTP_TYPE_PASSWORD_RESET)
@@ -198,21 +181,18 @@ public class PasswordResetServiceImpl implements PasswordResetService {
             throw new AppException(ErrorCode.OTP_EXPIRED);
         }
 
-        // 2. Kiểm tra thời hạn hiệu lực (NCL-01-CN-005-TC-02)
         if (LocalDateTime.now().isAfter(otp.getExpiryTime())) {
             otp.setIsUsed(true);
             otpRepository.save(otp);
             throw new AppException(ErrorCode.OTP_EXPIRED);
         }
 
-        // 3. Kiểm tra số lần nhập sai tối đa
         if (otp.getAttemptCount() >= MAX_OTP_ATTEMPTS) {
             otp.setIsUsed(true);
             otpRepository.save(otp);
             throw new AppException(ErrorCode.OTP_MAX_ATTEMPTS_EXCEEDED);
         }
 
-        // 4. Kiểm tra mã OTP
         if (!otp.getOtpCode().equals(otpCode)) {
             otp.setAttemptCount(otp.getAttemptCount() + 1);
             if (otp.getAttemptCount() >= MAX_OTP_ATTEMPTS) {
@@ -237,12 +217,10 @@ public class PasswordResetServiceImpl implements PasswordResetService {
         String newPassword = request.getNewPassword();
         String confirmPassword = request.getConfirmPassword();
 
-        // 1. Kiểm tra xác nhận mật khẩu
         if (!newPassword.equals(confirmPassword)) {
             throw new AppException(ErrorCode.PASSWORD_CONFIRMATION_MISMATCH);
         }
 
-        // 2. Tìm người dùng theo email hoặc số điện thoại
         User user;
         if (email != null && !email.isEmpty()) {
             user = userRepository.findByEmailAndDeletedAtIsNull(email)
@@ -254,12 +232,10 @@ public class PasswordResetServiceImpl implements PasswordResetService {
             throw new AppException(ErrorCode.EMAIL_NOT_FOUND);
         }
 
-        // 3. Kiểm tra trạng thái tài khoản (NCL-01-CN-005-TC-03)
         if (Boolean.FALSE.equals(user.getIsActive())) {
             throw new AppException(ErrorCode.USER_BLOCKED);
         }
 
-        // 4. Tìm và xác thực OTP mới nhất (NCL-01-CN-005-TC-02)
         PasswordResetOtp otp;
         if (email != null && !email.isEmpty()) {
             otp = otpRepository.findTopByEmailAndTypeAndIsUsedFalseOrderByCreatedAtDesc(email, OTP_TYPE_PASSWORD_RESET)
@@ -289,23 +265,19 @@ public class PasswordResetServiceImpl implements PasswordResetService {
             throw new AppException(ErrorCode.INVALID_OTP);
         }
 
-        // 5. Cập nhật mật khẩu mới và thời điểm đổi mật khẩu (NCL-01-CN-005-TC-01: kết thúc mọi phiên cũ)
         LocalDateTime now = LocalDateTime.now();
         user.setPasswordHash(passwordEncoder.encode(newPassword));
         user.setMustChangePassword(false);
         user.setPasswordChangedAt(now);
         userRepository.save(user);
 
-        // 6. Đánh dấu OTP đã sử dụng
         otp.setIsUsed(true);
         otpRepository.save(otp);
 
-        // 7. Xóa cache phiên người dùng
         if (cacheManager.getCache("users") != null) {
             cacheManager.getCache("users").evict(user.getUsername());
         }
 
-        // 8. Ghi nhật ký kiểm toán (Activity Log)
         logResetPasswordActivity(user.getHousehold(), user, "RESET_PASSWORD", user.getId());
     }
 

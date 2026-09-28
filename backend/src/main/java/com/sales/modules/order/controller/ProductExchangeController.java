@@ -16,12 +16,12 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.security.Principal;
+import java.util.Set;
 
 @RestController
 @RequestMapping("/api/v1/product-exchanges")
 @RequiredArgsConstructor
 public class ProductExchangeController {
-
     private final ProductExchangeService productExchangeService;
 
     @PostMapping("/check-eligibility")
@@ -66,7 +66,7 @@ public class ProductExchangeController {
         return ResponseEntity.ok(response);
     }
 
-    private static final java.util.Set<String> ALLOWED_SORT_FIELDS = java.util.Set.of(
+    private static final Set<String> ALLOWED_SORT_FIELDS = Set.of(
             "createdAt", "ticketNumber", "totalExchangeAmount", "totalReturnAmount", "differenceAmount", "status"
     );
 
@@ -80,7 +80,6 @@ public class ProductExchangeController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(defaultValue = "createdAt,desc") String sort) {
-
         String[] sortParts = sort.split(",");
         String sortProperty = sortParts[0].trim();
         if (!ALLOWED_SORT_FIELDS.contains(sortProperty)) {

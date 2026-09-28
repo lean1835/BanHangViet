@@ -11,7 +11,6 @@ import java.time.LocalDate;
 @NoArgsConstructor
 @AllArgsConstructor
 public class DebtReconciliationPreviewRequest {
-
     @NotBlank(message = "Mã khách hàng không được để trống")
     private String customerId;
 

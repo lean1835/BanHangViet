@@ -14,7 +14,6 @@ import org.springframework.http.ResponseEntity;
 import java.util.List;
 
 public interface TaxPeriodService {
-
     TaxPeriodResponse generateSalesRegister(String currentUsername, GenerateTaxRegisterRequest request);
 
     PageResponse<TaxSalesRegisterResponse> getSalesRegisterItems(String currentUsername, String periodId, int page, int size);
@@ -39,4 +38,3 @@ public interface TaxPeriodService {
 
     ResponseEntity<Resource> exportPurchaseRegister(String currentUsername, String periodId);
 }
-

@@ -30,7 +30,6 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Slf4j
 public class DiningTableServiceImpl implements DiningTableService {
-
     private final DiningTableRepository diningTableRepository;
     private final OrderRepository orderRepository;
     private final UserRepository userRepository;
@@ -48,7 +47,6 @@ public class DiningTableServiceImpl implements DiningTableService {
     }
 
     private User getAuthenticatedUser(String username) {
-
         return userRepository.findByUsername(username)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
     }
@@ -110,7 +108,6 @@ public class DiningTableServiceImpl implements DiningTableService {
             tables = diningTableRepository.findByHouseholdIdOrderBySortOrderAscNameAsc(householdId);
         }
 
-        // Tối ưu hóa N+1: Lấy toàn bộ đơn treo có bàn trong 1 câu query duy nhất
         List<Order> heldOrdersWithTable = orderRepository
                 .findByHouseholdIdAndStatusAndDiningTableIsNotNullAndDeletedAtIsNullOrderByCreatedAtDesc(householdId, "CREATING");
         Map<String, Order> tableOrderMap = new HashMap<>();
@@ -195,7 +192,6 @@ public class DiningTableServiceImpl implements DiningTableService {
             throw new AppException(ErrorCode.DINING_TABLE_NAME_DUPLICATED);
         }
 
-        // Nếu vô hiệu hóa bàn, kiểm tra bàn có đang phục vụ đơn dở dang không
         if (Boolean.FALSE.equals(request.getIsActive()) && Boolean.TRUE.equals(table.getIsActive())) {
             boolean inUse = orderRepository.existsByDiningTableIdAndStatusAndDeletedAtIsNull(id, "CREATING");
             if (inUse) {
@@ -239,7 +235,6 @@ public class DiningTableServiceImpl implements DiningTableService {
         DiningTable table = diningTableRepository.findByIdAndHouseholdId(id, household.getId())
                 .orElseThrow(() -> new AppException(ErrorCode.DINING_TABLE_NOT_FOUND));
 
-        // Không được xóa bàn nếu đang có đơn dở dang
         boolean inUse = orderRepository.existsByDiningTableIdAndStatusAndDeletedAtIsNull(id, "CREATING");
         if (inUse) {
             throw new AppException(ErrorCode.DINING_TABLE_IN_USE);

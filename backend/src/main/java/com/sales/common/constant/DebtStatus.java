@@ -6,6 +6,5 @@ public final class DebtStatus {
     public static final String OVERDUE = "OVERDUE";
 
     private DebtStatus() {
-        // Private constructor to prevent instantiation
     }
 }

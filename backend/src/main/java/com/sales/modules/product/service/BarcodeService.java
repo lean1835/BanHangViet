@@ -5,7 +5,6 @@ import com.sales.modules.product.dto.response.BarcodeResponse;
 import com.sales.modules.product.dto.response.BarcodeScanResponse;
 
 public interface BarcodeService {
-
     BarcodeScanResponse scanBarcode(String currentUsername, BarcodeScanRequest request);
 
     BarcodeResponse generateInternalBarcode(String currentUsername, String productId);

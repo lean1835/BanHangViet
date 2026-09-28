@@ -13,7 +13,6 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 public class TaxSalesRegisterResponse {
-
     private String id;
     private String periodId;
     private String invoiceId;

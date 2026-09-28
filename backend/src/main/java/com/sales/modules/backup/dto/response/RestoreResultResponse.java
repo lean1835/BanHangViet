@@ -12,7 +12,6 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 public class RestoreResultResponse {
-
     private String restoreHistoryId;
     private String backupHistoryId;
     private String backupFileName;

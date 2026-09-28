@@ -9,7 +9,6 @@ import java.util.Optional;
 
 @Repository
 public interface PlatformIncidentRepository extends JpaRepository<PlatformIncident, String> {
-
     Optional<PlatformIncident> findFirstByEventTypeAndStatusNot(String eventType, IncidentStatus status);
 
     List<PlatformIncident> findByStatusOrderByStartedAtDesc(IncidentStatus status);

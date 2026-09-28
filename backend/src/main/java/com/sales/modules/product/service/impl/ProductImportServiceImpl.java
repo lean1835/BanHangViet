@@ -29,8 +29,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Slf4j
 public class ProductImportServiceImpl implements ProductImportService {
-
-    private static final long MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+    private static final long MAX_FILE_SIZE = 10 * 1024 * 1024;
 
     private final ProductRepository productRepository;
     private final UserRepository userRepository;
@@ -45,7 +44,6 @@ public class ProductImportServiceImpl implements ProductImportService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public ImportProductResultResponse importProducts(String currentUsername, MultipartFile file) {
-        // 1. Validate file basic constraints
         if (file == null || file.isEmpty()) {
             throw new AppException(ErrorCode.EMPTY_IMPORT_FILE);
         }
@@ -53,7 +51,6 @@ public class ProductImportServiceImpl implements ProductImportService {
             throw new AppException(ErrorCode.FILE_SIZE_EXCEEDED);
         }
 
-        // 2. Validate user & role
         User currentUser = userRepository.findByUsername(currentUsername)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
 
@@ -67,7 +64,6 @@ public class ProductImportServiceImpl implements ProductImportService {
             throw new AppException(ErrorCode.HOUSEHOLD_NOT_FOUND);
         }
 
-        // 3. Pre-fetch tax rates, SKUs, and groups to eliminate N+1 queries
         List<TaxRate> activeTaxRates = taxRateRepository.findByHouseholdIdAndIsActiveTrueOrderByCreatedAtAsc(household.getId());
         TaxRate defaultTaxRate = activeTaxRates.isEmpty() ? null : activeTaxRates.get(0);
 
@@ -99,7 +95,7 @@ public class ProductImportServiceImpl implements ProductImportService {
                 }
 
                 totalRows++;
-                int actualRowNumber = rowIndex + 1; // 1-based line number for user feedback
+                int actualRowNumber = rowIndex + 1;
 
                 String sku;
                 String name;
@@ -123,12 +119,10 @@ public class ProductImportServiceImpl implements ProductImportService {
                     continue;
                 }
 
-                // Auto generate clean shorter SKU if empty
                 if (!StringUtils.hasText(sku)) {
                     sku = "SP" + String.format("%06d", System.currentTimeMillis() % 1000000L) + String.format("%03d", rowIndex);
                 }
 
-                // Row validations
                 if (!StringUtils.hasText(name)) {
                     errors.add(new ImportProductResultResponse.RowErrorDetail(actualRowNumber, name, "Tên hàng hóa không được để trống"));
                     continue;
@@ -150,7 +144,6 @@ public class ProductImportServiceImpl implements ProductImportService {
                     continue;
                 }
 
-                // Resolve TaxRate from cell 5 or fallback to default
                 TaxRate resolvedTaxRate = null;
                 if (StringUtils.hasText(taxRateStr)) {
                     try {
@@ -195,7 +188,6 @@ public class ProductImportServiceImpl implements ProductImportService {
                     continue;
                 }
 
-                // Match or auto-create ProductGroup from in-memory cache (case-insensitive)
                 ProductGroup group = null;
                 if (StringUtils.hasText(groupName)) {
                     String normalizedGroupName = groupName.trim().toLowerCase();
@@ -208,7 +200,6 @@ public class ProductImportServiceImpl implements ProductImportService {
                         existingGroupsMap.put(normalizedGroupName, group);
                     }
                 }
-
 
                 Product product = Product.builder()
                         .household(household)
@@ -227,7 +218,6 @@ public class ProductImportServiceImpl implements ProductImportService {
                 existingSkusInDb.add(sku);
                 successCount++;
 
-                // Batching 100 items per batch to optimize MySQL IO
                 if (productBatch.size() >= 100) {
                     productRepository.saveAll(productBatch);
                     productBatch.clear();
@@ -238,7 +228,6 @@ public class ProductImportServiceImpl implements ProductImportService {
                 productRepository.saveAll(productBatch);
                 productBatch.clear();
             }
-
         } catch (AppException e) {
             throw e;
         } catch (Exception e) {

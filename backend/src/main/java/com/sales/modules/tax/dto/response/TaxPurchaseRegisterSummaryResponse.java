@@ -22,23 +22,19 @@ public class TaxPurchaseRegisterSummaryResponse {
     private Integer periodNumber;
     private LocalDate startDate;
     private LocalDate endDate;
-    private String status; // DRAFT, GENERATED, LOCKED
+    private String status;
     private Boolean isLocked;
 
-    // Danh sách các nhóm NCC hợp lệ kèm chi tiết và Subtotal (TC-01)
     private List<SupplierPurchaseGroupResponse> validSuppliers;
 
-    // Nhóm gom riêng các phiếu thiếu thông tin NCC (TC-02)
     private SupplierPurchaseGroupResponse unidentifiedSuppliers;
 
-    // Cảnh báo chứng từ thiếu NCC
     private Boolean hasMissingSupplierReceipts;
     private Integer missingSupplierReceiptCount;
     private String warningMessage;
 
-    // Các chỉ số tổng toàn kỳ
     private BigDecimal grandTotalQuantity;
     private BigDecimal grandTotalAmount;
-    private BigDecimal eligibleForTaxDeductionAmount; // Tổng tiền hợp lệ đủ điều kiện kê khai
+    private BigDecimal eligibleForTaxDeductionAmount;
     private Integer totalReceiptCount;
 }

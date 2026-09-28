@@ -11,7 +11,6 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class TaxRateStatusRequest {
-
     @NotNull(message = "Trạng thái hiệu lực (isActive) không được để trống")
     private Boolean isActive;
 }

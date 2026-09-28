@@ -33,11 +33,11 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
+import org.springframework.http.HttpHeaders;
 
 @ExtendWith(MockitoExtension.class)
 @SuppressWarnings("unchecked")
 class BackupServiceImplTest {
-
     @Mock
     private UserRepository userRepository;
 
@@ -182,7 +182,7 @@ class BackupServiceImplTest {
         assertNotNull(response);
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertNotNull(response.getBody());
-        assertTrue(response.getHeaders().get(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION).get(0).contains("backup_products_all.xlsx"));
+        assertTrue(response.getHeaders().get(HttpHeaders.CONTENT_DISPOSITION).get(0).contains("backup_products_all.xlsx"));
     }
 
     @Test
@@ -234,7 +234,7 @@ class BackupServiceImplTest {
         assertNotNull(response);
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertNotNull(response.getBody());
-        assertTrue(response.getHeaders().get(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION).get(0).contains("backup_invoices_20260101_20260131.xlsx"));
+        assertTrue(response.getHeaders().get(HttpHeaders.CONTENT_DISPOSITION).get(0).contains("backup_invoices_20260101_20260131.xlsx"));
     }
 
     @Test
@@ -260,7 +260,7 @@ class BackupServiceImplTest {
         assertNotNull(response);
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertNotNull(response.getBody());
-        assertTrue(response.getHeaders().get(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION).get(0).contains("backup_orders_20260101_20260131.xlsx"));
+        assertTrue(response.getHeaders().get(HttpHeaders.CONTENT_DISPOSITION).get(0).contains("backup_orders_20260101_20260131.xlsx"));
     }
 
     @Test
@@ -281,6 +281,6 @@ class BackupServiceImplTest {
         assertNotNull(response);
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertNotNull(response.getBody());
-        assertTrue(response.getHeaders().get(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION).get(0).contains("backup_full_20260101_20260131.zip"));
+        assertTrue(response.getHeaders().get(HttpHeaders.CONTENT_DISPOSITION).get(0).contains("backup_full_20260101_20260131.zip"));
     }
 }

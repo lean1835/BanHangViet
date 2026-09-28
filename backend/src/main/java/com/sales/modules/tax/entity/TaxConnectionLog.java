@@ -17,7 +17,6 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class TaxConnectionLog {
-
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     @Column(length = 36, nullable = false)
@@ -30,7 +29,7 @@ public class TaxConnectionLog {
     private BusinessHousehold household;
 
     @Column(nullable = false, length = 20)
-    private String status; // ONLINE, SLOW, OFFLINE
+    private String status;
 
     @Column(name = "response_time_ms")
     private Integer responseTimeMs;

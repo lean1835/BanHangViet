@@ -38,12 +38,14 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import java.util.List;
+import org.hamcrest.Matchers;
+import org.junit.jupiter.api.AfterEach;
 
 @SpringBootTest
 @AutoConfigureMockMvc
 @SuppressWarnings("unused")
 public class BackupVerificationControllerTest {
-
     @Autowired
     private MockMvc mockMvc;
 
@@ -108,17 +110,16 @@ public class BackupVerificationControllerTest {
                 .isActive(true)
                 .build());
 
-        // Tạo tệp sao lưu snapshot JSON thật trên thư mục backups/{householdId}
         Path backupDir = Path.of("backups", household.getId());
         Files.createDirectories(backupDir);
         Path diskPath = backupDir.resolve("backup_full_test.json");
         Map<String, Object> snapshotData = Map.of(
                 "householdId", household.getId(),
                 "backupTime", LocalDateTime.now().toString(),
-                "products", java.util.List.of(Map.of("id", "p1", "name", "Bia")),
-                "customers", java.util.List.of(),
-                "suppliers", java.util.List.of(),
-                "users", java.util.List.of()
+                "products", List.of(Map.of("id", "p1", "name", "Bia")),
+                "customers", List.of(),
+                "suppliers", List.of(),
+                "users", List.of()
         );
         Files.writeString(diskPath, objectMapper.writeValueAsString(snapshotData), StandardCharsets.UTF_8);
 
@@ -144,7 +145,7 @@ public class BackupVerificationControllerTest {
                 .andExpect(jsonPath("$.code").value(1000))
                 .andExpect(jsonPath("$.result").exists())
                 .andExpect(jsonPath("$.result.maxAllowedDaysWithoutVerification").value(7))
-                .andExpect(jsonPath("$.result.isOverdue").value(true)) // ban đầu chưa kiểm chứng nên isOverdue = true
+                .andExpect(jsonPath("$.result.isOverdue").value(true))
                 .andExpect(jsonPath("$.result.overallHealthStatus").value("WARNING"));
     }
 
@@ -199,7 +200,7 @@ public class BackupVerificationControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(1000))
                 .andExpect(jsonPath("$.result.status").value("FAILED"))
-                .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.startsWith("Thử phục hồi bản sao lưu thất bại:")));
+                .andExpect(jsonPath("$.message").value(Matchers.startsWith("Thử phục hồi bản sao lưu thất bại:")));
     }
 
     @Test
@@ -231,7 +232,6 @@ public class BackupVerificationControllerTest {
     @WithMockUser(username = "owner_bvh_user", roles = "VT-01")
     @DisplayName("GET /histories: Chủ hộ tra cứu danh sách lịch sử thử phục hồi phân trang thành công")
     void testGetVerificationHistories_Owner_Success() throws Exception {
-        // Tạo sẵn một bản ghi lịch sử kiểm chứng
         verificationHistoryRepository.save(BackupVerificationHistory.builder()
                 .household(household)
                 .backupHistory(validBackup)
@@ -263,7 +263,7 @@ public class BackupVerificationControllerTest {
                 .andExpect(status().isForbidden());
     }
 
-    @org.junit.jupiter.api.AfterEach
+    @AfterEach
     void tearDown() {
         try {
             verificationHistoryRepository.deleteAll();

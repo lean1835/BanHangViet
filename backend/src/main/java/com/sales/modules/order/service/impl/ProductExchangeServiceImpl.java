@@ -48,12 +48,14 @@ import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.stream.Collectors;
+import com.sales.modules.invoice.service.InvoiceNumberRangeService;
+import lombok.Builder;
+import lombok.Data;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class ProductExchangeServiceImpl implements ProductExchangeService {
-
     @Value("${app.return-ticket.max-days:7}")
     private int maxReturnDays = 7;
 
@@ -67,7 +69,7 @@ public class ProductExchangeServiceImpl implements ProductExchangeService {
     private final InvoiceStatusLogRepository invoiceStatusLogRepository;
     private final ActivityLogHelper activityLogHelper;
     private final BusinessHouseholdSettingsRepository settingsRepository;
-    private final com.sales.modules.invoice.service.InvoiceNumberRangeService invoiceNumberRangeService;
+    private final InvoiceNumberRangeService invoiceNumberRangeService;
 
     private int resolveMaxReturnDays(String householdId) {
         if (householdId == null || settingsRepository == null) {
@@ -101,7 +103,6 @@ public class ProductExchangeServiceImpl implements ProductExchangeService {
                     .build();
         }
 
-        // Validate items and calculate amounts
         ExchangeCalculationResult calculation = calculateExchange(
                 invoice,
                 request.getReturnItems(),
@@ -174,17 +175,14 @@ public class ProductExchangeServiceImpl implements ProductExchangeService {
         EInvoice additionalInvoice = null;
 
         if (diff.compareTo(BigDecimal.ZERO) < 0) {
-            // NCL-11-CN-005-TC-03: Món đổi sang rẻ hơn -> Chuyển sang luồng trả hàng
             throw new AppException(ErrorCode.EXCHANGE_LOWER_VALUE_REDIRECT);
         } else if (diff.compareTo(BigDecimal.ZERO) > 0) {
-            // NCL-11-CN-005-TC-02: Món đổi sang đắt hơn -> Thu thêm phần chênh và lập hóa đơn mới
             exchangeType = "HIGHER_VALUE";
             if (request.getExtraPaymentMethod() == null || request.getExtraPaymentMethod().isBlank()) {
                 throw new AppException(ErrorCode.EXTRA_PAYMENT_REQUIRED);
             }
             additionalInvoice = createAdditionalInvoiceForDifference(invoice, diff, request.getExtraPaymentMethod(), user, calculation);
         } else {
-            // NCL-11-CN-005-TC-01: Ngang giá
             exchangeType = "EQUAL_VALUE";
         }
 
@@ -213,7 +211,6 @@ public class ProductExchangeServiceImpl implements ProductExchangeService {
         List<ProductExchangeItem> exchangeItemsList = new ArrayList<>();
         Map<String, Product> productsToUpdate = new HashMap<>();
 
-        // 1. Cập nhật các món trả lại (RETURN_ITEM) -> Hoàn lại tồn kho món cũ
         for (ExchangeCalculationResult.ReturnItemDetail retDetail : calculation.getReturnItemDetails()) {
             ProductExchangeItem item = ProductExchangeItem.builder()
                     .exchangeTicket(ticket)
@@ -230,13 +227,11 @@ public class ProductExchangeServiceImpl implements ProductExchangeService {
                     .build();
             exchangeItemsList.add(item);
 
-            // Hoàn tồn kho sản phẩm cũ
             Product p = retDetail.getProduct();
             p.setStockQuantity(p.getStockQuantity().add(retDetail.getQuantity()));
             productsToUpdate.put(p.getId(), p);
         }
 
-        // 2. Cập nhật các món đổi sang (EXCHANGE_ITEM) -> Trừ tồn kho món mới
         for (ExchangeCalculationResult.NewItemDetail newDetail : calculation.getNewItemDetails()) {
             ProductExchangeItem item = ProductExchangeItem.builder()
                     .exchangeTicket(ticket)
@@ -252,7 +247,6 @@ public class ProductExchangeServiceImpl implements ProductExchangeService {
                     .build();
             exchangeItemsList.add(item);
 
-            // Trừ tồn kho sản phẩm mới
             Product p = newDetail.getProduct();
             p.setStockQuantity(p.getStockQuantity().subtract(newDetail.getQuantity()));
             productsToUpdate.put(p.getId(), p);
@@ -265,7 +259,6 @@ public class ProductExchangeServiceImpl implements ProductExchangeService {
         ticket.setItems(exchangeItemsList);
         ProductExchangeTicket savedTicket = productExchangeTicketRepository.save(ticket);
 
-        // Ghi log trạng thái hóa đơn gốc
         if (invoiceStatusLogRepository != null) {
             invoiceStatusLogRepository.save(InvoiceStatusLog.builder()
                     .invoice(invoice)
@@ -276,7 +269,6 @@ public class ProductExchangeServiceImpl implements ProductExchangeService {
                     .build());
         }
 
-        // Ghi activity log
         if (activityLogHelper != null) {
             try {
                 activityLogHelper.logActivityInNewTransaction(
@@ -334,10 +326,6 @@ public class ProductExchangeServiceImpl implements ProductExchangeService {
         return productExchangeTicketRepository.findAll(spec, pageable).map(this::mapToResponse);
     }
 
-    // =========================================================================
-    // HELPER METHODS & VALIDATIONS
-    // =========================================================================
-
     private User getUserByUsername(String username) {
         return userRepository.findByUsername(username)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
@@ -361,14 +349,12 @@ public class ProductExchangeServiceImpl implements ProductExchangeService {
             throw new AppException(ErrorCode.INVOICE_NOT_ELIGIBLE_FOR_EXCHANGE);
         }
 
-        // 1. Không cho phép đổi trên hóa đơn con / bổ sung / điều chỉnh từ đổi trả
         if (invoice.getOriginalInvoice() != null || invoice.getReturnTicket() != null
                 || (invoice.getTitle() != null && (invoice.getTitle().toUpperCase().contains("ĐỔI HÀNG") || invoice.getTitle().toUpperCase().contains("ĐIỀU CHỈNH")))
                 || productExchangeTicketRepository.findByAdditionalInvoiceId(invoice.getId()).isPresent()) {
             throw new AppException(ErrorCode.INVOICE_ALREADY_EXCHANGED_OR_RETURNED);
         }
 
-        // 2. Không cho phép đổi nếu hóa đơn gốc đã từng thực hiện đổi hàng
         boolean alreadyExchanged = productExchangeTicketRepository.existsByOriginalInvoiceIdAndStatusIn(
                 invoice.getId(), List.of("COMPLETED", "PENDING")
         );
@@ -381,7 +367,6 @@ public class ProductExchangeServiceImpl implements ProductExchangeService {
             throw new AppException(ErrorCode.INVOICE_ALREADY_EXCHANGED_OR_RETURNED);
         }
 
-        // 3. Không cho phép đổi nếu hóa đơn gốc đã từng thực hiện trả hàng
         boolean alreadyReturned = returnTicketRepository.existsByOriginalInvoiceIdAndStatusIn(
                 invoice.getId(), List.of("PENDING", "APPROVED")
         );
@@ -409,8 +394,6 @@ public class ProductExchangeServiceImpl implements ProductExchangeService {
             List<ExchangeReturnItemRequest> returnItemRequests,
             List<ExchangeNewItemRequest> exchangeItemRequests,
             String householdId) {
-
-        // Validate duplicate products in return items (P1-3 / QTN-19)
         if (returnItemRequests != null) {
             Set<String> seenReturnProductIds = new HashSet<>();
             for (ExchangeReturnItemRequest req : returnItemRequests) {
@@ -420,7 +403,6 @@ public class ProductExchangeServiceImpl implements ProductExchangeService {
             }
         }
 
-        // Validate duplicate products in exchange new items
         if (exchangeItemRequests != null) {
             Set<String> seenExchangeProductIds = new HashSet<>();
             for (ExchangeNewItemRequest req : exchangeItemRequests) {
@@ -430,7 +412,6 @@ public class ProductExchangeServiceImpl implements ProductExchangeService {
             }
         }
 
-        // Batch pre-fetch products for return items (P1-2: Eliminate N+1 query)
         Set<String> returnProductIds = returnItemRequests != null
                 ? returnItemRequests.stream().map(ExchangeReturnItemRequest::getProductId).filter(Objects::nonNull).collect(Collectors.toSet())
                 : Collections.emptySet();
@@ -450,11 +431,9 @@ public class ProductExchangeServiceImpl implements ProductExchangeService {
             }
         }
 
-        // 1. Tính toán cho các món trả lại
         BigDecimal totalReturnAmount = BigDecimal.ZERO;
         List<ExchangeCalculationResult.ReturnItemDetail> returnDetails = new ArrayList<>();
 
-        // Map đã trả qua phiếu trả hàng
         List<ReturnedQuantityProjection> returnProjections = returnTicketItemRepository.findReturnedQuantitiesByInvoiceId(
                 invoice.getId(), List.of("PENDING", "APPROVED")
         );
@@ -465,7 +444,6 @@ public class ProductExchangeServiceImpl implements ProductExchangeService {
             }
         }
 
-        // Map đã đổi qua phiếu đổi hàng (Batch pre-fetch để loại bỏ N+1 query - P2-1)
         Map<String, BigDecimal> prevExchangedMap = new HashMap<>();
         try {
             List<Object[]> exchangedList = productExchangeItemRepository.sumReturnedQuantitiesByInvoiceGroupByProduct(invoice.getId());
@@ -486,7 +464,6 @@ public class ProductExchangeServiceImpl implements ProductExchangeService {
                 throw new AppException(ErrorCode.PRODUCT_NOT_FOUND);
             }
 
-            // Tìm dòng trong hóa đơn gốc
             EInvoiceItem matchingInvoiceItem = null;
             if (req.getInvoiceItemId() != null) {
                 matchingInvoiceItem = invoice.getItems().stream()
@@ -505,7 +482,6 @@ public class ProductExchangeServiceImpl implements ProductExchangeService {
                 throw new AppException(ErrorCode.INVOICE_NOT_ELIGIBLE_FOR_EXCHANGE);
             }
 
-            // P2-2: Tính tổng số lượng đã bán của sản phẩm trên toàn hóa đơn gốc để xử lý đúng trường hợp HĐ có nhiều dòng cùng 1 SP
             BigDecimal totalSoldQuantity = invoice.getItems().stream()
                     .filter(it -> it.getProduct() != null && product.getId().equals(it.getProduct().getId()))
                     .map(EInvoiceItem::getQuantity)
@@ -552,11 +528,9 @@ public class ProductExchangeServiceImpl implements ProductExchangeService {
                     .build());
         }
 
-        // 2. Tính toán cho các món nhận đổi sang
         BigDecimal totalExchangeAmount = BigDecimal.ZERO;
         List<ExchangeCalculationResult.NewItemDetail> newDetails = new ArrayList<>();
 
-        // Batch pre-fetch products for exchange items (P1-2: Eliminate N+1 query)
         Set<String> exchangeProductIds = exchangeItemRequests != null
                 ? exchangeItemRequests.stream().map(ExchangeNewItemRequest::getProductId).filter(Objects::nonNull).collect(Collectors.toSet())
                 : Collections.emptySet();
@@ -624,7 +598,6 @@ public class ProductExchangeServiceImpl implements ProductExchangeService {
             String paymentMethod,
             User user,
             ExchangeCalculationResult calculation) {
-
         String lookupCode;
         do {
             lookupCode = UUID.randomUUID().toString().replaceAll("-", "").substring(0, 10).toUpperCase();
@@ -837,9 +810,8 @@ public class ProductExchangeServiceImpl implements ProductExchangeService {
                 .build();
     }
 
-    // Inner calculation helper class
-    @lombok.Data
-    @lombok.Builder
+    @Data
+    @Builder
     private static class ExchangeCalculationResult {
         private BigDecimal totalReturnAmount;
         private BigDecimal totalExchangeAmount;
@@ -847,8 +819,8 @@ public class ProductExchangeServiceImpl implements ProductExchangeService {
         private List<ReturnItemDetail> returnItemDetails;
         private List<NewItemDetail> newItemDetails;
 
-        @lombok.Data
-        @lombok.Builder
+        @Data
+        @Builder
         static class ReturnItemDetail {
             private Product product;
             private String invoiceItemId;
@@ -861,8 +833,8 @@ public class ProductExchangeServiceImpl implements ProductExchangeService {
             private BigDecimal subtotal;
         }
 
-        @lombok.Data
-        @lombok.Builder
+        @Data
+        @Builder
         static class NewItemDetail {
             private Product product;
             private String productName;

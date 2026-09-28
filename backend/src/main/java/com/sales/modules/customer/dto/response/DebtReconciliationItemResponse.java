@@ -12,11 +12,11 @@ import java.time.LocalDateTime;
 public class DebtReconciliationItemResponse {
     private String id;
     private LocalDateTime transactionDate;
-    private String type; // DEBT_CREATED, DEBT_PAID
-    private String typeDescription; // "Mua hàng ghi nợ", "Khách trả nợ", "Giảm trừ trả hàng"
-    private String referenceCode; // orderNumber, invoiceNumber, receiptCode
+    private String type;
+    private String typeDescription;
+    private String referenceCode;
     private String debtId;
     private BigDecimal amount;
-    private BigDecimal runningBalance; // Số dư nợ sau giao dịch
+    private BigDecimal runningBalance;
     private String notes;
 }

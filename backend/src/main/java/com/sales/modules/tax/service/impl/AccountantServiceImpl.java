@@ -33,22 +33,29 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
+import com.sales.common.constant.HouseholdStatus;
+import com.sales.common.security.JwtService;
+import com.sales.common.utils.EmailService;
+import com.sales.modules.auth.entity.Role;
+import com.sales.modules.auth.repository.RoleRepository;
+import java.util.ArrayList;
+import java.util.Random;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class AccountantServiceImpl implements AccountantService {
-
     private final UserRepository userRepository;
     private final AccountantInvitationRepository invitationRepository;
     private final HouseholdAccountantAssignmentRepository assignmentRepository;
     private final UserSessionRepository userSessionRepository;
     private final ActivityLogHelper activityLogHelper;
     private final ObjectMapper objectMapper;
-    private final com.sales.common.security.JwtService jwtService;
-    private final com.sales.common.utils.EmailService emailService;
-    private final com.sales.modules.auth.repository.RoleRepository roleRepository;
-    private final org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
+    private final JwtService jwtService;
+    private final EmailService emailService;
+    private final RoleRepository roleRepository;
+    private final PasswordEncoder passwordEncoder;
 
     private User getAuthenticatedUser(String username) {
         return userRepository.findByUsername(username)
@@ -158,14 +165,13 @@ public class AccountantServiceImpl implements AccountantService {
         }
 
         String token = UUID.randomUUID().toString();
-        // Lời mời có hạn chấp nhận 72 giờ (3 ngày)
+
         LocalDateTime expiresAt = LocalDateTime.now().plusHours(72);
 
         String accName = (request.getAccountantName() != null && !request.getAccountantName().trim().isEmpty())
                 ? request.getAccountantName().trim()
                 : "Kế toán viên";
 
-        // Kiểm tra xem kế toán đã có tài khoản trên hệ thống chưa (theo SĐT hoặc Email)
         Optional<User> existingUserOpt = userRepository.findByPhoneNumberAndDeletedAtIsNull(request.getAccountantPhone());
         if (existingUserOpt.isEmpty() && request.getAccountantEmail() != null && !request.getAccountantEmail().trim().isEmpty()) {
             existingUserOpt = userRepository.findByEmailAndDeletedAtIsNull(request.getAccountantEmail().trim());
@@ -176,10 +182,8 @@ public class AccountantServiceImpl implements AccountantService {
         String temporaryPassword = null;
 
         if (existingUserOpt.isEmpty()) {
-            // Kế toán CHƯA CÓ tài khoản: Tự động khởi tạo tài khoản với vai trò VT-03 (Kế toán)
             isNewAccount = true;
 
-            // 1. Xác định username duy nhất
             String baseUsername = "ketoan_" + request.getAccountantPhone();
             if (request.getAccountantEmail() != null && request.getAccountantEmail().contains("@")) {
                 String prefix = request.getAccountantEmail().split("@")[0].toLowerCase().replaceAll("[^a-z0-9_]", "");
@@ -189,20 +193,18 @@ public class AccountantServiceImpl implements AccountantService {
             }
             provisionedUsername = baseUsername;
             if (userRepository.existsByUsername(provisionedUsername)) {
-                provisionedUsername = baseUsername + "_" + (1000 + new java.util.Random().nextInt(9000));
+                provisionedUsername = baseUsername + "_" + (1000 + new Random().nextInt(9000));
             }
 
-            // 2. Xác định mật khẩu (tự động sinh hoặc chủ hộ đặt)
             if ("MANUAL_PASSWORD".equalsIgnoreCase(request.getCreateAccountMode())
                     && request.getInitialPassword() != null
                     && !request.getInitialPassword().trim().isEmpty()) {
                 temporaryPassword = request.getInitialPassword().trim();
             } else {
-                temporaryPassword = "Kt@" + (100000 + new java.util.Random().nextInt(900000));
+                temporaryPassword = "Kt@" + (100000 + new Random().nextInt(900000));
             }
 
-            // 3. Lấy vai trò Kế toán (VT-03)
-            com.sales.modules.auth.entity.Role accountantRole = roleRepository.findByCode("VT-03")
+            Role accountantRole = roleRepository.findByCode("VT-03")
                     .orElseThrow(() -> new AppException(ErrorCode.ROLE_NOT_FOUND));
 
             User newAccountant = User.builder()
@@ -239,7 +241,6 @@ public class AccountantServiceImpl implements AccountantService {
         invitation = invitationRepository.save(invitation);
         logActivity(household, currentUser, "INVITE_ACCOUNTANT", invitation.getId(), null, invitation.getAccountantPhone());
 
-        // Gửi email thông báo bất đồng bộ kèm thông tin đăng nhập và liên kết kích hoạt
         if (request.getAccountantEmail() != null && !request.getAccountantEmail().trim().isEmpty()) {
             emailService.sendAccountantInvitationEmailAsync(
                     request.getAccountantEmail().trim(),
@@ -280,11 +281,10 @@ public class AccountantServiceImpl implements AccountantService {
         }
 
         BusinessHousehold targetHousehold = invitation.getHousehold();
-        if (targetHousehold != null && targetHousehold.getStatus() == com.sales.common.constant.HouseholdStatus.LOCKED) {
+        if (targetHousehold != null && targetHousehold.getStatus() == HouseholdStatus.LOCKED) {
             return null;
         }
 
-        // Cập nhật trạng thái lời mời
         invitation.setStatus(AccountantInvitationStatus.ACCEPTED);
         invitation.setAcceptedAt(LocalDateTime.now());
         invitation.setAcceptedByUser(accountant);
@@ -293,7 +293,6 @@ public class AccountantServiceImpl implements AccountantService {
         int durationDays = invitation.getAccessDurationDays() != null ? invitation.getAccessDurationDays() : 30;
         LocalDateTime accessExpiresAt = LocalDateTime.now().plusDays(durationDays);
 
-        // Tạo hoặc cập nhật phân công cho kế toán
         HouseholdAccountantAssignment assignment = assignmentRepository
                 .findByHouseholdIdAndAccountantUserId(targetHousehold.getId(), accountant.getId())
                 .orElse(HouseholdAccountantAssignment.builder()
@@ -311,7 +310,6 @@ public class AccountantServiceImpl implements AccountantService {
 
         assignment = assignmentRepository.save(assignment);
 
-        // Nếu kế toán chưa chọn hộ nào làm việc, tự động gán hộ này làm active context
         if (accountant.getHousehold() == null) {
             accountant.setHousehold(targetHousehold);
             userRepository.save(accountant);
@@ -345,7 +343,7 @@ public class AccountantServiceImpl implements AccountantService {
     public List<AccountantInvitationResponse> getMyPendingInvitations(String currentUsername) {
         User accountant = getAuthenticatedUser(currentUsername);
         LocalDateTime now = LocalDateTime.now();
-        List<AccountantInvitation> pending = new java.util.ArrayList<>();
+        List<AccountantInvitation> pending = new ArrayList<>();
 
         if (accountant.getPhoneNumber() != null && !accountant.getPhoneNumber().trim().isEmpty()) {
             pending.addAll(invitationRepository.findByAccountantPhoneAndStatus(accountant.getPhoneNumber().trim(), AccountantInvitationStatus.PENDING));
@@ -398,7 +396,7 @@ public class AccountantServiceImpl implements AccountantService {
         }
 
         BusinessHousehold targetHousehold = invitation.getHousehold();
-        if (targetHousehold != null && targetHousehold.getStatus() == com.sales.common.constant.HouseholdStatus.LOCKED) {
+        if (targetHousehold != null && targetHousehold.getStatus() == HouseholdStatus.LOCKED) {
             throw new AppException(ErrorCode.HOUSEHOLD_LOCKED);
         }
 
@@ -452,7 +450,6 @@ public class AccountantServiceImpl implements AccountantService {
             assignment.setRevokeReason(reason);
             assignmentRepository.save(assignment);
 
-            // QTN-10 & TC-03: Cắt phiên kế toán với hộ này ngay lập tức
             userSessionRepository.revokeAllActiveSessionsForUserAndHousehold(
                     assignment.getAccountantUser().getId(),
                     household.getId(),
@@ -460,7 +457,6 @@ public class AccountantServiceImpl implements AccountantService {
                     currentUser,
                     reason);
 
-            // Nếu kế toán đang chọn active context là hộ này, reset active context
             User accountantUser = assignment.getAccountantUser();
             if (accountantUser.getHousehold() != null && accountantUser.getHousehold().getId().equals(household.getId())) {
                 accountantUser.setHousehold(null);
@@ -471,7 +467,6 @@ public class AccountantServiceImpl implements AccountantService {
             return;
         }
 
-        // Nếu là lời mời đang chờ chấp nhận (AccountantInvitation), hủy lời mời
         Optional<AccountantInvitation> invitationOpt = invitationRepository.findById(assignmentId);
         if (invitationOpt.isPresent()) {
             AccountantInvitation inv = invitationOpt.get();
@@ -535,13 +530,12 @@ public class AccountantServiceImpl implements AccountantService {
         }
 
         BusinessHousehold targetHousehold = assignment.getHousehold();
-        if (targetHousehold != null && targetHousehold.getStatus() == com.sales.common.constant.HouseholdStatus.LOCKED) {
+        if (targetHousehold != null && targetHousehold.getStatus() == HouseholdStatus.LOCKED) {
             throw new AppException(ErrorCode.HOUSEHOLD_LOCKED);
         }
         accountant.setHousehold(targetHousehold);
         userRepository.save(accountant);
 
-        // Quản lý active context theo UserSession hiện tại để cách ly nhiều phiên/tab
         try {
             ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
             if (attributes != null && jwtService != null) {

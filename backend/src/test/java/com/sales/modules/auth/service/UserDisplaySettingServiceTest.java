@@ -34,7 +34,6 @@ import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class UserDisplaySettingServiceTest {
-
     @Mock
     private UserDisplaySettingRepository displaySettingRepository;
 

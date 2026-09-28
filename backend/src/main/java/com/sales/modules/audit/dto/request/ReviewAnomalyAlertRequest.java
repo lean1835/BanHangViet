@@ -11,7 +11,6 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ReviewAnomalyAlertRequest {
-
     @NotNull(message = "Trạng thái xử lý không được để trống")
     private AnomalyAlertStatus status;
 

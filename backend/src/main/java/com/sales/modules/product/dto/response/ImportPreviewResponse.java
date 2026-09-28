@@ -12,7 +12,6 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ImportPreviewResponse {
-
     private int totalRows;
     private int validCount;
     private int duplicateCount;
@@ -26,7 +25,7 @@ public class ImportPreviewResponse {
     @AllArgsConstructor
     public static class DuplicateDetail {
         private int rowNumber;
-        private String identifier; // phone or taxCode
+        private String identifier;
         private String name;
         private String existingName;
         private String message;

@@ -19,7 +19,6 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class BackupHistory {
-
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     @Column(length = 36, nullable = false)
@@ -58,7 +57,7 @@ public class BackupHistory {
 
     @Column(nullable = false, length = 20)
     @Builder.Default
-    private String status = "SUCCESS"; // SUCCESS, FAILED, PURGED
+    private String status = "SUCCESS";
 
     @Column(columnDefinition = "TEXT")
     private String notes;

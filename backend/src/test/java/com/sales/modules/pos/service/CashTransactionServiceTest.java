@@ -45,7 +45,6 @@ import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class CashTransactionServiceTest {
-
     @Mock
     private CashTransactionRepository transactionRepository;
 
@@ -398,7 +397,7 @@ class CashTransactionServiceTest {
         assertEquals(new BigDecimal("450000.00"), summary.getNetCashChange());
         assertEquals(new BigDecimal("500000.00"), summary.getTotalPendingExpense());
         assertEquals(1, summary.getPendingExpenseCount());
-        // Expected = 1.000.000 + 2.500.000 + 500.000 - 50.000 = 3.950.000
+
         assertEquals(new BigDecimal("3950000.00"), summary.getCurrentExpectedCash());
     }
 

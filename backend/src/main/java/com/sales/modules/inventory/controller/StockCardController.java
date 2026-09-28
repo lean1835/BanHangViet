@@ -22,7 +22,6 @@ import java.time.LocalDate;
 @RequiredArgsConstructor
 @Validated
 public class StockCardController {
-
     private final StockCardService stockCardService;
 
     @Operation(summary = "Xem thẻ kho biến động tồn theo mặt hàng", description = "Liệt kê chi tiết các biến động nhập, xuất, trả hàng, kiểm kê và số dư tồn lũy kế trong kỳ")

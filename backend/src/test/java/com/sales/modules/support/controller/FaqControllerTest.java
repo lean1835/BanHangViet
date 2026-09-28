@@ -36,7 +36,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Transactional
 @SuppressWarnings("unused")
 public class FaqControllerTest {
-
     @Autowired
     private MockMvc mockMvc;
 

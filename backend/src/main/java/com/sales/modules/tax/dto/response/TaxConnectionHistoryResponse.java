@@ -13,7 +13,6 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class TaxConnectionHistoryResponse {
-
     private String householdId;
     private Integer totalLogs;
     private List<TaxConnectionLogItem> historyLogs;

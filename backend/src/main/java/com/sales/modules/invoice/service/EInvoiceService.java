@@ -18,18 +18,16 @@ import com.sales.modules.invoice.dto.request.UpdateInvoiceRequest;
 
 import java.time.LocalDate;
 import java.util.List;
+import com.sales.modules.customer.dto.request.ResendCustomerDeliveryRequest;
 
 public interface EInvoiceService {
-    // Nghiệp vụ phát hành dồn hóa đơn sau khi có mạng
     BulkIssueInvoiceResponse bulkIssueInvoices(String currentUsername, BulkIssueInvoiceRequest request);
 
-    // Nghiệp vụ điều chỉnh hóa đơn & Lịch sử log
     InvoiceResponse createAdjustmentInvoice(String currentUsername, String originalInvoiceId,
             CreateAdjustmentInvoiceRequest request);
 
     List<InvoiceStatusLogResponse> getInvoiceLogs(String currentUsername, String id);
 
-    // Nghiệp vụ phát hành hóa đơn & Tra cứu
     InvoiceResponse createInvoiceDraft(String currentUsername, String orderId);
 
     InvoiceResponse submitToTax(String currentUsername, String invoiceId);
@@ -53,7 +51,6 @@ public interface EInvoiceService {
 
     CustomerTaxLookupResponse lookupBuyerInfoByTaxCode(String currentUsername, String taxCode);
 
-    // Cổng tiếp nhận dành cho Cơ quan Thuế mô phỏng (VT-05)
     PageResponse<InvoiceResponse> getWaitingInvoicesForTax(int page, int size);
     PageResponse<InvoiceResponse> getProcessedInvoicesForTax(int page, int size);
 
@@ -61,28 +58,22 @@ public interface EInvoiceService {
 
     InvoiceResponse rejectInvoiceByTax(String currentUsername, String invoiceId, String errorMessage);
 
-    // Nghiệp vụ giao hóa đơn cho khách
     InvoiceQrResponse getInvoiceQr(String currentUsername, String invoiceId);
     void deliverInvoiceViaEmail(String currentUsername, String invoiceId, String email);
     InvoicePrintResponse getInvoicePrintLayout(String currentUsername, String invoiceId, String pageSize);
 
     PageResponse<FailedCustomerDeliveryInvoiceResponse> getFailedCustomerDeliveries(String currentUsername, int page, int size);
-    InvoiceResponse resendCustomerDelivery(String currentUsername, String invoiceId, com.sales.modules.customer.dto.request.ResendCustomerDeliveryRequest request);
+    InvoiceResponse resendCustomerDelivery(String currentUsername, String invoiceId, ResendCustomerDeliveryRequest request);
     List<InvoiceDeliveryLogResponse> getInvoiceDeliveryHistory(String currentUsername, String invoiceId);
 
-    // Nghiệp vụ tra cứu & tải lại công khai dành cho khách hàng
     PublicInvoiceResponse lookupInvoicePublicly(String lookupCode);
     byte[] downloadInvoiceFilePublicly(String lookupCode, String format);
 
-    // Nghiệp vụ kiểm soát cuối ngày (NCL-04-CN-008)
     DailyInvoiceControlResponse getDailyInvoiceControl(String currentUsername, LocalDate date);
 
-    // NCL-05-CN-006: Xuất danh sách hóa đơn tra cứu ra tệp Excel
     byte[] exportInvoicesToExcel(String currentUsername, String status, LocalDate fromDate, LocalDate toDate, String search, String clientIp, String userAgent);
 
-    // NCL-05-CN-007: Xem và tải bản thể hiện hóa đơn
     InvoiceRepresentationResponse getInvoiceRepresentation(String currentUsername, String invoiceId);
     byte[] downloadInvoicePdf(String currentUsername, String invoiceId);
     byte[] downloadInvoiceRepresentation(String currentUsername, String invoiceId);
 }
-

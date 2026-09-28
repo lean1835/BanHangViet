@@ -19,7 +19,6 @@ import java.util.List;
 @RequiredArgsConstructor
 @PreAuthorize("hasRole('VT-04')")
 public class PlatformSystemLogController {
-
     private final PlatformSystemLogService platformSystemLogService;
 
     @GetMapping("/system-logs")
@@ -32,7 +31,6 @@ public class PlatformSystemLogController {
             @RequestParam(required = false) String eventType,
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "10") int size) {
-
         PageResponse<PlatformSystemLogResponse> result = platformSystemLogService.getPlatformLogs(
                 principal.getName(), severity, fromDate, toDate, householdId, eventType, page, size);
 
@@ -47,7 +45,6 @@ public class PlatformSystemLogController {
     public ResponseEntity<ApiResponse<PlatformSystemLogResponse>> getLogDetail(
             Principal principal,
             @PathVariable String id) {
-
         PlatformSystemLogResponse result = platformSystemLogService.getLogDetail(principal.getName(), id);
         return ResponseEntity.ok(ApiResponse.<PlatformSystemLogResponse>builder()
                 .code(1000)
@@ -70,7 +67,6 @@ public class PlatformSystemLogController {
     public ResponseEntity<ApiResponse<PlatformIncidentResponse>> resolveIncident(
             Principal principal,
             @PathVariable String id) {
-
         PlatformIncidentResponse result = platformSystemLogService.resolveIncident(principal.getName(), id);
         return ResponseEntity.ok(ApiResponse.<PlatformIncidentResponse>builder()
                 .code(1000)

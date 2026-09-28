@@ -6,9 +6,11 @@ import com.sales.common.dto.PageResponse;
 import com.sales.modules.order.dto.response.ReturnTicketResponse;
 
 import java.time.LocalDate;
+import com.sales.modules.order.dto.response.ReturnItemRankingResponse;
+import com.sales.modules.order.dto.response.ReturnTicketStatisticsResponse;
+import java.util.List;
 
 public interface ReturnTicketService {
-
     /**
      * NCL-11-CN-001: Kiểm tra khả năng và số lượng hàng hóa còn được phép trả của Hóa đơn gốc.
      */
@@ -54,7 +56,7 @@ public interface ReturnTicketService {
     /**
      * NCL-11-CN-004: Thống kê hàng trả lại và tiền đã hoàn theo khoảng thời gian.
      */
-    com.sales.modules.order.dto.response.ReturnTicketStatisticsResponse getReturnTicketStatistics(
+    ReturnTicketStatisticsResponse getReturnTicketStatistics(
             String currentUsername,
             LocalDate fromDate,
             LocalDate toDate,
@@ -63,10 +65,9 @@ public interface ReturnTicketService {
     /**
      * NCL-11-CN-004: Lấy danh sách xếp hạng mặt hàng bị trả nhiều nhất.
      */
-    java.util.List<com.sales.modules.order.dto.response.ReturnItemRankingResponse> getTopReturnedProducts(
+    List<ReturnItemRankingResponse> getTopReturnedProducts(
             String currentUsername,
             LocalDate fromDate,
             LocalDate toDate,
             Integer limit);
 }
-

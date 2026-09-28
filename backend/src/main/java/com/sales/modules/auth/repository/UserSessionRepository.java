@@ -11,10 +11,10 @@ import org.springframework.stereotype.Repository;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.Collection;
 
 @Repository
 public interface UserSessionRepository extends JpaRepository<UserSession, String>, JpaSpecificationExecutor<UserSession> {
-
     @Query("SELECT s FROM UserSession s LEFT JOIN FETCH s.household WHERE s.id = :sessionId")
     Optional<UserSession> findByIdWithHousehold(@Param("sessionId") String sessionId);
 
@@ -65,5 +65,5 @@ public interface UserSessionRepository extends JpaRepository<UserSession, String
     void updateLastActiveAt(@Param("sessionId") String sessionId, @Param("lastActiveAt") LocalDateTime lastActiveAt);
 
     @Query("SELECT s.household.id, MAX(s.lastActiveAt) FROM UserSession s WHERE s.household.id IN :householdIds AND s.isRevoked = false GROUP BY s.household.id")
-    List<Object[]> findLatestActiveAtByHouseholdIds(@Param("householdIds") java.util.Collection<String> householdIds);
+    List<Object[]> findLatestActiveAtByHouseholdIds(@Param("householdIds") Collection<String> householdIds);
 }

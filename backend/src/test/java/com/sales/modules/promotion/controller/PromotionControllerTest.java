@@ -35,7 +35,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureMockMvc
 @Transactional
 public class PromotionControllerTest {
-
     @Autowired
     private MockMvc mockMvc;
 

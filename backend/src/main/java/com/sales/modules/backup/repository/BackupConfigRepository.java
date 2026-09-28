@@ -11,7 +11,6 @@ import java.util.Optional;
 
 @Repository
 public interface BackupConfigRepository extends JpaRepository<BackupConfig, String> {
-
     Optional<BackupConfig> findByHouseholdId(String householdId);
 
     @Query("SELECT bc FROM BackupConfig bc JOIN FETCH bc.household h WHERE bc.isAutoBackupEnabled = true AND h.deletedAt IS NULL")

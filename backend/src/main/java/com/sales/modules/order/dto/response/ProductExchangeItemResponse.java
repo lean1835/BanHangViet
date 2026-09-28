@@ -12,9 +12,8 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ProductExchangeItemResponse {
-
     private String id;
-    private String itemType; // RETURN_ITEM, EXCHANGE_ITEM
+    private String itemType;
     private String productId;
     private String invoiceItemId;
     private String productName;

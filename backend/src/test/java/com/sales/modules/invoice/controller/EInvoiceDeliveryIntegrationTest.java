@@ -39,7 +39,6 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import com.sales.common.utils.EmailService;
 import org.mockito.Mockito;
 
-
 import static org.junit.jupiter.api.Assertions.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -47,12 +46,14 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 import com.sales.modules.customer.dto.request.ResendCustomerDeliveryRequest;
 import com.sales.modules.customer.dto.request.UpdateCustomerDeliveryChannelRequest;
+import org.hamcrest.Matchers;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.transaction.TestTransaction;
 
 @SpringBootTest
 @AutoConfigureMockMvc
 @Transactional
 public class EInvoiceDeliveryIntegrationTest {
-
     @MockBean
     private EmailService emailService;
 
@@ -87,7 +88,7 @@ public class EInvoiceDeliveryIntegrationTest {
     private CustomerRepository customerRepository;
 
     @Autowired
-    private org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
+    private JdbcTemplate jdbcTemplate;
 
     private BusinessHousehold testHousehold;
     private User testEmployee;
@@ -99,12 +100,10 @@ public class EInvoiceDeliveryIntegrationTest {
         try {
             jdbcTemplate.execute("ALTER TABLE invoice_delivery_logs DROP CHECK chk_delivery_status");
         } catch (Exception e) {
-            // Ignore if check doesn't exist
         }
         try {
             jdbcTemplate.execute("ALTER TABLE invoice_delivery_logs ADD CONSTRAINT chk_delivery_status CHECK (status IN ('SUCCESS', 'FAILED', 'PENDING'))");
         } catch (Exception e) {
-            // Ignore if constraint already added or altered
         }
 
         testHousehold = businessHouseholdRepository.findByTaxCode("9999999999").orElseGet(() -> {
@@ -232,9 +231,9 @@ public class EInvoiceDeliveryIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(1000));
 
-        if (org.springframework.test.context.transaction.TestTransaction.isActive()) {
-            org.springframework.test.context.transaction.TestTransaction.flagForCommit();
-            org.springframework.test.context.transaction.TestTransaction.end();
+        if (TestTransaction.isActive()) {
+            TestTransaction.flagForCommit();
+            TestTransaction.end();
         }
 
         Mockito.verify(emailService, Mockito.times(1)).sendInvoiceEmailAsync(
@@ -258,7 +257,7 @@ public class EInvoiceDeliveryIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(1000))
                 .andExpect(jsonPath("$.result.pageSize").value("K80"))
-                .andExpect(jsonPath("$.result.htmlContent").value(org.hamcrest.Matchers.containsString("Mã tra cứu:")));
+                .andExpect(jsonPath("$.result.htmlContent").value(Matchers.containsString("Mã tra cứu:")));
 
         List<InvoiceDeliveryLog> logs = invoiceDeliveryLogRepository.findByInvoiceIdOrderBySentAtDesc(inv.getId());
         assertFalse(logs.isEmpty());
@@ -286,7 +285,7 @@ public class EInvoiceDeliveryIntegrationTest {
         mockMvc.perform(get("/api/v1/public/invoices/lookup")
                         .param("code", inv.getLookupCode())
                         .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isNotFound()); // DRAFT status shouldn't be publicly visible
+                .andExpect(status().isNotFound());
     }
 
     @Test
@@ -298,7 +297,7 @@ public class EInvoiceDeliveryIntegrationTest {
                         .param("format", "xml")
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
-                .andExpect(header().string("Content-Disposition", org.hamcrest.Matchers.containsString("HoaDon_")))
+                .andExpect(header().string("Content-Disposition", Matchers.containsString("HoaDon_")))
                 .andExpect(content().contentType(MediaType.APPLICATION_XML));
     }
 
@@ -311,7 +310,7 @@ public class EInvoiceDeliveryIntegrationTest {
                         .param("format", "pdf")
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
-                .andExpect(header().string("Content-Disposition", org.hamcrest.Matchers.containsString("HoaDon_")))
+                .andExpect(header().string("Content-Disposition", Matchers.containsString("HoaDon_")))
                 .andExpect(content().contentType(MediaType.APPLICATION_PDF));
     }
 
@@ -332,9 +331,9 @@ public class EInvoiceDeliveryIntegrationTest {
                 .andExpect(jsonPath("$.code").value(1000))
                 .andExpect(jsonPath("$.result.customerDeliveryStatus").value("PENDING"));
 
-        if (org.springframework.test.context.transaction.TestTransaction.isActive()) {
-            org.springframework.test.context.transaction.TestTransaction.flagForCommit();
-            org.springframework.test.context.transaction.TestTransaction.end();
+        if (TestTransaction.isActive()) {
+            TestTransaction.flagForCommit();
+            TestTransaction.end();
         }
 
         Mockito.verify(emailService, Mockito.atLeastOnce()).sendInvoiceEmailAsync(

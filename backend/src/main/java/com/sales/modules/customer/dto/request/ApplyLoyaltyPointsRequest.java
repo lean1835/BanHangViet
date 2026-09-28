@@ -12,7 +12,6 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ApplyLoyaltyPointsRequest {
-
     @NotNull(message = "Số điểm muốn đổi không được để trống")
     @Min(value = 1, message = "Số điểm muốn đổi phải lớn hơn 0")
     private Integer pointsToRedeem;

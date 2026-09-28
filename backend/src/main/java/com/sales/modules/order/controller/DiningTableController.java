@@ -20,7 +20,6 @@ import java.util.List;
 @RequiredArgsConstructor
 @Tag(name = "Dining Table", description = "Quản lý danh mục Bàn ăn / Khu vực phục vụ tại chỗ (NCL-03-CN-010)")
 public class DiningTableController {
-
     private final DiningTableService diningTableService;
 
     @Operation(summary = "Lấy danh sách bàn ăn theo khu vực và trạng thái")

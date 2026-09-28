@@ -12,10 +12,12 @@ import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.Optional;
+import com.sales.modules.order.dto.response.DailyReturnProjection;
+import com.sales.modules.order.dto.response.TicketStatusCountProjection;
+import java.time.LocalDateTime;
 
 @Repository
 public interface ReturnTicketRepository extends JpaRepository<ReturnTicket, String>, JpaSpecificationExecutor<ReturnTicket> {
-
     @Override
     @EntityGraph(attributePaths = {"items", "items.product", "createdByUser", "approvedByUser", "household", "originalInvoice", "originalOrder", "customer"})
     Page<ReturnTicket> findAll(Specification<ReturnTicket> spec, Pageable pageable);
@@ -43,18 +45,18 @@ public interface ReturnTicketRepository extends JpaRepository<ReturnTicket, Stri
            "WHERE r.household.id = :householdId " +
            "AND (COALESCE(r.approvedAt, r.createdAt) BETWEEN :startDateTime AND :endDateTime) " +
            "GROUP BY r.status")
-    List<com.sales.modules.order.dto.response.TicketStatusCountProjection> countTicketsByStatus(
+    List<TicketStatusCountProjection> countTicketsByStatus(
             @Param("householdId") String householdId,
-            @Param("startDateTime") java.time.LocalDateTime startDateTime,
-            @Param("endDateTime") java.time.LocalDateTime endDateTime
+            @Param("startDateTime") LocalDateTime startDateTime,
+            @Param("endDateTime") LocalDateTime endDateTime
     );
 
     @EntityGraph(attributePaths = {"items", "items.product", "createdByUser", "approvedByUser", "household", "originalInvoice", "originalOrder", "customer"})
     @Query("SELECT r FROM ReturnTicket r WHERE r.household.id = :householdId AND r.createdAt >= :startDateTime AND r.createdAt <= :endDateTime ORDER BY r.createdAt DESC")
     List<ReturnTicket> findByHouseholdIdAndCreatedAtBetween(
             @Param("householdId") String householdId,
-            @Param("startDateTime") java.time.LocalDateTime startDateTime,
-            @Param("endDateTime") java.time.LocalDateTime endDateTime
+            @Param("startDateTime") LocalDateTime startDateTime,
+            @Param("endDateTime") LocalDateTime endDateTime
     );
 
     @EntityGraph(attributePaths = {"items", "items.product", "createdByUser", "approvedByUser", "household", "originalInvoice", "originalOrder", "customer"})
@@ -62,8 +64,8 @@ public interface ReturnTicketRepository extends JpaRepository<ReturnTicket, Stri
     List<ReturnTicket> findByHouseholdIdAndStatusAndPeriod(
             @Param("householdId") String householdId,
             @Param("status") String status,
-            @Param("startDateTime") java.time.LocalDateTime startDateTime,
-            @Param("endDateTime") java.time.LocalDateTime endDateTime
+            @Param("startDateTime") LocalDateTime startDateTime,
+            @Param("endDateTime") LocalDateTime endDateTime
     );
 
     @Query("SELECT CAST(COALESCE(r.approvedAt, r.createdAt) AS LocalDate) AS reportDate, " +
@@ -74,9 +76,9 @@ public interface ReturnTicketRepository extends JpaRepository<ReturnTicket, Stri
            "AND (COALESCE(r.approvedAt, r.createdAt) BETWEEN :startDateTime AND :endDateTime) " +
            "GROUP BY CAST(COALESCE(r.approvedAt, r.createdAt) AS LocalDate) " +
            "ORDER BY CAST(COALESCE(r.approvedAt, r.createdAt) AS LocalDate) ASC")
-    List<com.sales.modules.order.dto.response.DailyReturnProjection> findDailyReturnStatistics(
+    List<DailyReturnProjection> findDailyReturnStatistics(
             @Param("householdId") String householdId,
-            @Param("startDateTime") java.time.LocalDateTime startDateTime,
-            @Param("endDateTime") java.time.LocalDateTime endDateTime
+            @Param("startDateTime") LocalDateTime startDateTime,
+            @Param("endDateTime") LocalDateTime endDateTime
     );
 }

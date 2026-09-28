@@ -12,7 +12,6 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 public class HouseholdResponse {
-
     private String id;
     private String taxCode;
     private String name;

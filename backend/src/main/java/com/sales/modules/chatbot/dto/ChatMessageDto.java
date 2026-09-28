@@ -7,6 +7,6 @@ import lombok.*;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ChatMessageDto {
-    private String role; // "user" or "model" or "assistant"
+    private String role;
     private String text;
 }

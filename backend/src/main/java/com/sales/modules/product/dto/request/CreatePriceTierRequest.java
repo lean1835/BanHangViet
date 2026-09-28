@@ -16,7 +16,6 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 @AllArgsConstructor
 public class CreatePriceTierRequest {
-
     @NotBlank(message = "Tên bậc giá không được để trống")
     @Size(max = 100, message = "Tên bậc giá không vượt quá 100 ký tự")
     private String tierName;

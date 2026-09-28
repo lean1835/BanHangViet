@@ -20,7 +20,6 @@ import java.time.LocalDate;
 @RequestMapping("/api/v1/supplier-returns")
 @RequiredArgsConstructor
 public class SupplierReturnController {
-
     private final SupplierReturnService supplierReturnService;
 
     @GetMapping("/check-receipt/{receiptId}")

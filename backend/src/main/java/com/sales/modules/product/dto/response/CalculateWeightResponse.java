@@ -9,7 +9,6 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 @AllArgsConstructor
 public class CalculateWeightResponse {
-
     private String productId;
     private String productName;
     private BigDecimal buyAmount;

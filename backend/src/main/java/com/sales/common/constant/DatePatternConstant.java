@@ -1,9 +1,7 @@
 package com.sales.common.constant;
 
 public final class DatePatternConstant {
-
     private DatePatternConstant() {
-        // Utility class
     }
 
     public static final String YEAR_MONTH = "yyyy-MM";

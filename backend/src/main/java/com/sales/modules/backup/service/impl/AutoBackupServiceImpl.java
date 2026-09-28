@@ -47,7 +47,6 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Slf4j
 public class AutoBackupServiceImpl implements AutoBackupService {
-
     private static final DateTimeFormatter FILE_DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss");
 
     private final BackupConfigRepository backupConfigRepository;
@@ -87,7 +86,6 @@ public class AutoBackupServiceImpl implements AutoBackupService {
 
         BackupConfig savedConfig = backupConfigRepository.save(config);
 
-        // Ghi nhật ký kiểm toán
         logActivity(household, user, "UPDATE_BACKUP_CONFIG", savedConfig.getId(), savedConfig.getScheduledTime());
 
         return mapToConfigResponse(savedConfig);
@@ -177,11 +175,9 @@ public class AutoBackupServiceImpl implements AutoBackupService {
     private BackupHistory executeBackup(BusinessHousehold household, User user, BackupTriggerType triggerType) {
         BackupConfig config = getOrCreateDefaultConfig(household);
 
-        // NCL-14-CN-002-TC-02: Kiểm tra giới hạn số lượng bản sao lưu retention_count
         List<BackupHistory> activeBackups = backupHistoryRepository.findActiveSuccessfulBackupsOrderByTimeAsc(household.getId());
         int retentionCount = config.getRetentionCount() != null ? config.getRetentionCount() : 7;
 
-        // Nếu số bản thành công đã đạt/vượt quá retentionCount -> Dọn dẹp các bản cũ nhất
         if (activeBackups.size() >= retentionCount) {
             int itemsToPurge = activeBackups.size() - retentionCount + 1;
             for (int i = 0; i < itemsToPurge; i++) {
@@ -193,7 +189,6 @@ public class AutoBackupServiceImpl implements AutoBackupService {
             }
         }
 
-        // Tạo bản sao lưu mới
         String timestampStr = LocalDateTime.now().format(FILE_DATE_FORMATTER);
         BackupType type = config.getBackupType() != null ? config.getBackupType() : BackupType.FULL;
         String ext = type == BackupType.FULL ? ".zip" : ".xlsx";
@@ -203,7 +198,6 @@ public class AutoBackupServiceImpl implements AutoBackupService {
                 timestampStr,
                 ext);
 
-        // Lấy dữ liệu snapshot của Hộ kinh doanh
         Map<String, Object> snapshotData = new HashMap<>();
         snapshotData.put("householdId", household.getId());
         snapshotData.put("backupTime", LocalDateTime.now().toString());
@@ -306,7 +300,6 @@ public class AutoBackupServiceImpl implements AutoBackupService {
 
         BackupHistory savedHistory = backupHistoryRepository.save(history);
 
-        // Ghi log kiểm toán
         logActivity(household, user, "AUTO_BACKUP_EXECUTE", savedHistory.getId(), fileName);
 
         return savedHistory;

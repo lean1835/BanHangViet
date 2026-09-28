@@ -28,12 +28,12 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import com.sales.modules.customer.dto.request.UpdateCustomerDeliveryChannelRequest;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class CustomerServiceImpl implements CustomerService {
-
     private final UserRepository userRepository;
     private final CustomerRepository customerRepository;
     private final CustomerDebtRepository customerDebtRepository;
@@ -122,7 +122,6 @@ public class CustomerServiceImpl implements CustomerService {
             throw new AppException(ErrorCode.FORBIDDEN);
         }
 
-        // Kiểm tra trùng SĐT trong cùng Hộ kinh doanh
         if (customerRepository.findByPhoneNumberAndHouseholdIdAndDeletedAtIsNull(request.getPhoneNumber(), household.getId()).isPresent()) {
             throw new AppException(ErrorCode.CUSTOMER_PHONE_EXISTS);
         }
@@ -183,7 +182,6 @@ public class CustomerServiceImpl implements CustomerService {
         Customer customer = customerRepository.findByIdAndHouseholdIdAndDeletedAtIsNull(customerId, household.getId())
                 .orElseThrow(() -> new AppException(ErrorCode.CUSTOMER_NOT_FOUND));
 
-        // Kiểm tra trùng SĐT nếu thay đổi số điện thoại
         if (!customer.getPhoneNumber().equals(request.getPhoneNumber())) {
             if (customerRepository.findByPhoneNumberAndHouseholdIdAndDeletedAtIsNull(request.getPhoneNumber(), household.getId()).isPresent()) {
                 throw new AppException(ErrorCode.CUSTOMER_PHONE_EXISTS);
@@ -280,7 +278,7 @@ public class CustomerServiceImpl implements CustomerService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public CustomerResponse updateDefaultDeliveryChannel(String currentUsername, String customerId, com.sales.modules.customer.dto.request.UpdateCustomerDeliveryChannelRequest request) {
+    public CustomerResponse updateDefaultDeliveryChannel(String currentUsername, String customerId, UpdateCustomerDeliveryChannelRequest request) {
         User currentUser = getAuthenticatedUser(currentUsername);
         BusinessHousehold household = currentUser.getHousehold();
         if (household == null) {

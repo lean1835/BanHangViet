@@ -35,11 +35,14 @@ import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
+import com.sales.common.constant.CashTransactionStatus;
+import com.sales.common.constant.CashTransactionType;
+import com.sales.modules.pos.repository.CashTransactionRepository;
+import org.springframework.beans.factory.annotation.Autowired;
 
 @Service
 @Slf4j
 public class ShiftHandoverServiceImpl implements ShiftHandoverService {
-
     private final ShiftRepository shiftRepository;
     private final ShiftHandoverRepository shiftHandoverRepository;
     private final UserRepository userRepository;
@@ -47,9 +50,9 @@ public class ShiftHandoverServiceImpl implements ShiftHandoverService {
     private final PasswordEncoder passwordEncoder;
     private final ActivityLogHelper activityLogHelper;
     private final ObjectMapper objectMapper;
-    private final com.sales.modules.pos.repository.CashTransactionRepository cashTransactionRepository;
+    private final CashTransactionRepository cashTransactionRepository;
 
-    @org.springframework.beans.factory.annotation.Autowired
+    @Autowired
     public ShiftHandoverServiceImpl(ShiftRepository shiftRepository,
                                    ShiftHandoverRepository shiftHandoverRepository,
                                    UserRepository userRepository,
@@ -57,7 +60,7 @@ public class ShiftHandoverServiceImpl implements ShiftHandoverService {
                                    PasswordEncoder passwordEncoder,
                                    ActivityLogHelper activityLogHelper,
                                    ObjectMapper objectMapper,
-                                   com.sales.modules.pos.repository.CashTransactionRepository cashTransactionRepository) {
+                                   CashTransactionRepository cashTransactionRepository) {
         this.shiftRepository = shiftRepository;
         this.shiftHandoverRepository = shiftHandoverRepository;
         this.userRepository = userRepository;
@@ -150,15 +153,15 @@ public class ShiftHandoverServiceImpl implements ShiftHandoverService {
         BigDecimal totalPendingExpense = BigDecimal.ZERO;
         if (cashTransactionRepository != null) {
             BigDecimal inc = cashTransactionRepository.sumAmountByShiftIdAndTypeAndStatusAndTimeRange(
-                    shift.getId(), com.sales.common.constant.CashTransactionType.INCOME, com.sales.common.constant.CashTransactionStatus.APPROVED, stageStartTime, now);
+                    shift.getId(), CashTransactionType.INCOME, CashTransactionStatus.APPROVED, stageStartTime, now);
             stageIncome = inc != null ? inc : BigDecimal.ZERO;
             BigDecimal exp = cashTransactionRepository.sumAmountByShiftIdAndTypeAndStatusAndTimeRange(
-                    shift.getId(), com.sales.common.constant.CashTransactionType.EXPENSE, com.sales.common.constant.CashTransactionStatus.APPROVED, stageStartTime, now);
+                    shift.getId(), CashTransactionType.EXPENSE, CashTransactionStatus.APPROVED, stageStartTime, now);
             stageExpense = exp != null ? exp : BigDecimal.ZERO;
             pendingExpenseCount = (int) cashTransactionRepository.countByShiftIdAndStatus(
-                    shift.getId(), com.sales.common.constant.CashTransactionStatus.PENDING_APPROVAL);
+                    shift.getId(), CashTransactionStatus.PENDING_APPROVAL);
             totalPendingExpense = cashTransactionRepository.sumAmountByShiftIdAndTypeAndStatus(
-                    shift.getId(), com.sales.common.constant.CashTransactionType.EXPENSE, com.sales.common.constant.CashTransactionStatus.PENDING_APPROVAL);
+                    shift.getId(), CashTransactionType.EXPENSE, CashTransactionStatus.PENDING_APPROVAL);
             if (totalPendingExpense == null) {
                 totalPendingExpense = BigDecimal.ZERO;
             }
@@ -300,10 +303,9 @@ public class ShiftHandoverServiceImpl implements ShiftHandoverService {
             throw new AppException(ErrorCode.INVALID_HANDOVER_CASH);
         }
 
-        // NCL-03-CN-014: Kiểm tra còn khoản chi nào PENDING_APPROVAL không? Nếu còn -> chặn bàn giao ca
         if (cashTransactionRepository != null) {
             long pendingExpenses = cashTransactionRepository.countByShiftIdAndStatus(
-                    shift.getId(), com.sales.common.constant.CashTransactionStatus.PENDING_APPROVAL);
+                    shift.getId(), CashTransactionStatus.PENDING_APPROVAL);
             if (pendingExpenses > 0) {
                 log.warn("Cannot handover shift ID: {} because it has {} pending approval expense(s).", shift.getId(), pendingExpenses);
                 throw new AppException(ErrorCode.SHIFT_HAS_PENDING_EXPENSES);
@@ -345,10 +347,10 @@ public class ShiftHandoverServiceImpl implements ShiftHandoverService {
         BigDecimal stageExpense = BigDecimal.ZERO;
         if (cashTransactionRepository != null) {
             BigDecimal inc = cashTransactionRepository.sumAmountByShiftIdAndTypeAndStatusAndTimeRange(
-                    shift.getId(), com.sales.common.constant.CashTransactionType.INCOME, com.sales.common.constant.CashTransactionStatus.APPROVED, stageStartTime, now);
+                    shift.getId(), CashTransactionType.INCOME, CashTransactionStatus.APPROVED, stageStartTime, now);
             stageIncome = inc != null ? inc : BigDecimal.ZERO;
             BigDecimal exp = cashTransactionRepository.sumAmountByShiftIdAndTypeAndStatusAndTimeRange(
-                    shift.getId(), com.sales.common.constant.CashTransactionType.EXPENSE, com.sales.common.constant.CashTransactionStatus.APPROVED, stageStartTime, now);
+                    shift.getId(), CashTransactionType.EXPENSE, CashTransactionStatus.APPROVED, stageStartTime, now);
             stageExpense = exp != null ? exp : BigDecimal.ZERO;
         }
 
@@ -536,12 +538,12 @@ public class ShiftHandoverServiceImpl implements ShiftHandoverService {
             BigDecimal finalExpense = BigDecimal.ZERO;
             if (cashTransactionRepository != null) {
                 BigDecimal inc = cashTransactionRepository.sumAmountByShiftIdAndTypeAndStatusAndTimeRange(
-                        shift.getId(), com.sales.common.constant.CashTransactionType.INCOME, com.sales.common.constant.CashTransactionStatus.APPROVED, prevEndTime, shift.getClosedAt());
+                        shift.getId(), CashTransactionType.INCOME, CashTransactionStatus.APPROVED, prevEndTime, shift.getClosedAt());
                 if (inc != null) {
                     finalIncome = inc;
                 }
                 BigDecimal exp = cashTransactionRepository.sumAmountByShiftIdAndTypeAndStatusAndTimeRange(
-                        shift.getId(), com.sales.common.constant.CashTransactionType.EXPENSE, com.sales.common.constant.CashTransactionStatus.APPROVED, prevEndTime, shift.getClosedAt());
+                        shift.getId(), CashTransactionType.EXPENSE, CashTransactionStatus.APPROVED, prevEndTime, shift.getClosedAt());
                 if (exp != null) {
                     finalExpense = exp;
                 }
@@ -594,12 +596,12 @@ public class ShiftHandoverServiceImpl implements ShiftHandoverService {
             BigDecimal currentExpense = BigDecimal.ZERO;
             if (cashTransactionRepository != null) {
                 BigDecimal inc = cashTransactionRepository.sumAmountByShiftIdAndTypeAndStatusAndTimeRange(
-                        shift.getId(), com.sales.common.constant.CashTransactionType.INCOME, com.sales.common.constant.CashTransactionStatus.APPROVED, prevEndTime, now);
+                        shift.getId(), CashTransactionType.INCOME, CashTransactionStatus.APPROVED, prevEndTime, now);
                 if (inc != null) {
                     currentIncome = inc;
                 }
                 BigDecimal exp = cashTransactionRepository.sumAmountByShiftIdAndTypeAndStatusAndTimeRange(
-                        shift.getId(), com.sales.common.constant.CashTransactionType.EXPENSE, com.sales.common.constant.CashTransactionStatus.APPROVED, prevEndTime, now);
+                        shift.getId(), CashTransactionType.EXPENSE, CashTransactionStatus.APPROVED, prevEndTime, now);
                 if (exp != null) {
                     currentExpense = exp;
                 }

@@ -12,7 +12,6 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 public class AuditIntegrityResponse {
-
     private boolean isValid;
     private long totalRecordsChecked;
     private Long corruptedSequenceNumber;

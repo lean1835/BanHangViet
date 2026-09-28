@@ -12,7 +12,6 @@ import java.util.TimeZone;
 @EnableCaching
 @EnableScheduling
 public class SalesApplication {
-
     static {
         TimeZone.setDefault(TimeZone.getTimeZone("Asia/Ho_Chi_Minh"));
         System.setProperty("user.timezone", "Asia/Ho_Chi_Minh");

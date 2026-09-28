@@ -25,13 +25,15 @@ import org.springframework.transaction.annotation.Transactional;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import com.sales.modules.audit.repository.ActivityLogRepository;
+import java.time.LocalDateTime;
+import org.hamcrest.Matchers;
 
 @SpringBootTest
 @AutoConfigureMockMvc
 @Transactional
 @SuppressWarnings("unused")
 public class PlatformHouseholdLockIntegrationTest {
-
     @Autowired
     private MockMvc mockMvc;
 
@@ -51,7 +53,7 @@ public class PlatformHouseholdLockIntegrationTest {
     private PasswordEncoder passwordEncoder;
 
     @Autowired
-    private com.sales.modules.audit.repository.ActivityLogRepository activityLogRepository;
+    private ActivityLogRepository activityLogRepository;
 
     private BusinessHousehold testHousehold;
     private User platformAdmin;
@@ -125,7 +127,7 @@ public class PlatformHouseholdLockIntegrationTest {
         assertEquals(platformAdmin.getId(), updated.getLockedByUserId());
 
         assertTrue(activityLogRepository.existsByHouseholdIdAndActionAndCreatedAtBetween(
-                testHousehold.getId(), "LOCK_HOUSEHOLD", java.time.LocalDateTime.now().minusMinutes(1), java.time.LocalDateTime.now().plusMinutes(1)));
+                testHousehold.getId(), "LOCK_HOUSEHOLD", LocalDateTime.now().minusMinutes(1), LocalDateTime.now().plusMinutes(1)));
     }
 
     @Test
@@ -161,7 +163,7 @@ public class PlatformHouseholdLockIntegrationTest {
         assertNull(updated.getLockReason());
 
         assertTrue(activityLogRepository.existsByHouseholdIdAndActionAndCreatedAtBetween(
-                testHousehold.getId(), "UNLOCK_HOUSEHOLD", java.time.LocalDateTime.now().minusMinutes(1), java.time.LocalDateTime.now().plusMinutes(1)));
+                testHousehold.getId(), "UNLOCK_HOUSEHOLD", LocalDateTime.now().minusMinutes(1), LocalDateTime.now().plusMinutes(1)));
     }
 
     @Test
@@ -209,7 +211,6 @@ public class PlatformHouseholdLockIntegrationTest {
     @WithMockUser(username = "admin_sys", roles = {"VT-04"})
     @DisplayName("ISSUE-01 (P1): Tìm kiếm theo từ khóa và trạng thái LOCKED không bị trả về hộ ACTIVE")
     public void searchHouseholds_FilterByStatusAndKeyword_CorrectPrecedence() throws Exception {
-        // Tạo hộ ACTIVE có tên chứa "Tạp hóa"
         businessHouseholdRepository.save(BusinessHousehold.builder()
                 .taxCode("9999999991")
                 .name("Tạp hóa Miền Nam")
@@ -218,7 +219,6 @@ public class PlatformHouseholdLockIntegrationTest {
                 .status(HouseholdStatus.ACTIVE)
                 .build());
 
-        // Tạo hộ LOCKED có tên chứa "Tạp hóa"
         businessHouseholdRepository.save(BusinessHousehold.builder()
                 .taxCode("9999999992")
                 .name("Tạp hóa Miền Bắc")
@@ -228,14 +228,13 @@ public class PlatformHouseholdLockIntegrationTest {
                 .lockReason("Vi phạm")
                 .build());
 
-        // Lọc keyword="Tạp hóa" và status=LOCKED
         mockMvc.perform(get("/api/v1/platform/households")
                         .param("search", "Tạp hóa")
                         .param("status", "LOCKED"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(1000))
                 .andExpect(jsonPath("$.result.content").isArray())
-                // Tất cả kết quả trả về bắt buộc phải có status = LOCKED
-                .andExpect(jsonPath("$.result.content[*].status").value(org.hamcrest.Matchers.everyItem(org.hamcrest.Matchers.is("LOCKED"))));
+
+                .andExpect(jsonPath("$.result.content[*].status").value(Matchers.everyItem(Matchers.is("LOCKED"))));
     }
 }

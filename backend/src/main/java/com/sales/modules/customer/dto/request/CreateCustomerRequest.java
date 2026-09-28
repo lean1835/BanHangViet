@@ -10,7 +10,6 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 @AllArgsConstructor
 public class CreateCustomerRequest {
-
     @NotBlank(message = "Tên khách hàng không được để trống")
     @Size(max = 100, message = "Tên khách hàng không vượt quá 100 ký tự")
     private String name;

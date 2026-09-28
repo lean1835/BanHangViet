@@ -7,7 +7,6 @@ import java.util.List;
 
 @Repository
 public interface InvoiceErrorNoticeItemRepository extends JpaRepository<InvoiceErrorNoticeItem, String> {
-
     List<InvoiceErrorNoticeItem> findByNoticeId(String noticeId);
 
     List<InvoiceErrorNoticeItem> findByInvoiceId(String invoiceId);

@@ -58,4 +58,3 @@ public class OrderResponse {
     private List<OrderPaymentResponse> payments;
     private Boolean isBankTransferConfirmed;
 }
-

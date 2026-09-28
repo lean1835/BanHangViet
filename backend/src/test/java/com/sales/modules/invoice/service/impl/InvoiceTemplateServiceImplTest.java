@@ -23,10 +23,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
+import com.sales.modules.invoice.entity.InvoiceNumberRange;
+import com.sales.modules.invoice.repository.InvoiceNumberRangeRepository;
+import java.util.Collections;
+import org.mockito.ArgumentCaptor;
 
 @ExtendWith(MockitoExtension.class)
 class InvoiceTemplateServiceImplTest {
-
     @Mock
     private InvoiceTemplateRepository invoiceTemplateRepository;
 
@@ -34,7 +37,7 @@ class InvoiceTemplateServiceImplTest {
     private UserRepository userRepository;
 
     @Mock
-    private com.sales.modules.invoice.repository.InvoiceNumberRangeRepository invoiceNumberRangeRepository;
+    private InvoiceNumberRangeRepository invoiceNumberRangeRepository;
 
     @InjectMocks
     private InvoiceTemplateServiceImpl invoiceTemplateService;
@@ -141,7 +144,7 @@ class InvoiceTemplateServiceImplTest {
         when(invoiceTemplateRepository.findByHouseholdId("house-001")).thenReturn(Optional.of(existingTemplate));
         when(invoiceTemplateRepository.save(any(InvoiceTemplate.class))).thenAnswer(inv -> inv.getArgument(0));
         when(invoiceNumberRangeRepository.findOverlappingRanges("house-001", "1C26TDD", "CHIM06"))
-                .thenReturn(java.util.Collections.emptyList());
+                .thenReturn(Collections.emptyList());
 
         InvoiceTemplateRequest request = InvoiceTemplateRequest.builder()
                 .invoicePattern("1C26TDD")
@@ -155,12 +158,11 @@ class InvoiceTemplateServiceImplTest {
         assertThat(response.getInvoicePattern()).isEqualTo("1C26TDD");
         assertThat(response.getInvoiceSymbol()).isEqualTo("CHIM06");
 
-        // Verify that a new InvoiceNumberRange was saved with currentNumber = 0 and status ACTIVE
-        org.mockito.ArgumentCaptor<com.sales.modules.invoice.entity.InvoiceNumberRange> rangeCaptor =
-                org.mockito.ArgumentCaptor.forClass(com.sales.modules.invoice.entity.InvoiceNumberRange.class);
+        ArgumentCaptor<InvoiceNumberRange> rangeCaptor =
+                ArgumentCaptor.forClass(InvoiceNumberRange.class);
         verify(invoiceNumberRangeRepository, times(1)).save(rangeCaptor.capture());
 
-        com.sales.modules.invoice.entity.InvoiceNumberRange savedRange = rangeCaptor.getValue();
+        InvoiceNumberRange savedRange = rangeCaptor.getValue();
         assertThat(savedRange.getInvoicePattern()).isEqualTo("1C26TDD");
         assertThat(savedRange.getInvoiceSymbol()).isEqualTo("CHIM06");
         assertThat(savedRange.getStartNumber()).isEqualTo(1);

@@ -13,7 +13,6 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 public class FailedInvoiceSummaryResponse {
-
     private String invoiceId;
     private String invoiceNumber;
     private String orderNumber;
@@ -21,7 +20,7 @@ public class FailedInvoiceSummaryResponse {
     private String createdByUsername;
     private String createdByFullName;
     private BigDecimal finalAmount;
-    private String status; // SEND_ERROR, MANUAL_PROCESSING
+    private String status;
     private String taxAuthorityResponse;
     private String errorCategory;
     private Integer retryCount;

@@ -12,7 +12,6 @@ import org.springframework.data.domain.Pageable;
 import java.time.LocalDate;
 
 public interface CustomerDebtReconciliationService {
-
     DebtReconciliationResponse previewReconciliation(String currentUsername, DebtReconciliationPreviewRequest request);
 
     DebtReconciliationResponse createReconciliation(String currentUsername, CreateDebtReconciliationRequest request);

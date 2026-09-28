@@ -14,7 +14,6 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 @AllArgsConstructor
 public class UpdateExpenseThresholdRequest {
-
     @NotNull(message = "Hạn mức duyệt chi không được để trống")
     @DecimalMin(value = "0.00", message = "Hạn mức duyệt chi phải lớn hơn hoặc bằng 0")
     private BigDecimal expenseApprovalThreshold;

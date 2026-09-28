@@ -14,9 +14,8 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class GenerateTaxRegisterRequest {
-
     @NotBlank(message = "Loại kỳ kê khai không được để trống (MONTHLY hoặc QUARTERLY)")
-    private String periodType; // MONTHLY, QUARTERLY
+    private String periodType;
 
     @NotNull(message = "Năm kê khai không được để trống")
     @Min(value = 2000, message = "Năm không hợp lệ")

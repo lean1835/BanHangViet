@@ -6,6 +6,5 @@ import org.springframework.http.ResponseEntity;
 import java.time.LocalDate;
 
 public interface BackupService {
-
     ResponseEntity<Resource> exportBackupData(String currentUsername, BackupType type, LocalDate fromDate, LocalDate toDate);
 }

@@ -45,7 +45,6 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 @SuppressWarnings("unchecked")
 public class AppNotificationServiceImplTest {
-
     @Mock
     private AppNotificationRepository notificationRepository;
 
@@ -107,9 +106,6 @@ public class AppNotificationServiceImplTest {
                 .build();
     }
 
-    // =========================================================================
-    // TC-01: Luồng thành công - Liệt kê hóa đơn lỗi và công nợ đến hạn (GAP 42)
-    // =========================================================================
     @Test
     @DisplayName("TC-01: Chủ hộ mở trung tâm thông báo thấy cả hóa đơn lỗi và công nợ đến hạn kèm actionUrl")
     void getNotifications_AsOwner_Success_PassesTC01() {
@@ -168,9 +164,6 @@ public class AppNotificationServiceImplTest {
         assertEquals("/debts?customerId=cust-1", item2.getActionUrl());
     }
 
-    // =========================================================================
-    // TC-02: Tự động đóng thông báo khi hóa đơn lỗi được cấp mã
-    // =========================================================================
     @Test
     @DisplayName("TC-02: Khi hóa đơn được cấp mã, hệ thống tự động đóng thông báo liên kết (isClosed = true, read = true)")
     void closeNotificationsByTarget_PassesTC02() {
@@ -236,15 +229,11 @@ public class AppNotificationServiceImplTest {
         assertTrue(savedList.stream().allMatch(n -> n.getIsClosed() && n.getIsRead() && n.getClosedAt() != null));
     }
 
-    // =========================================================================
-    // TC-03: Ràng buộc phân quyền vai trò QTN-10 đối với nhân viên bán hàng
-    // =========================================================================
     @Test
     @DisplayName("TC-03: Nhân viên bán hàng (VT-02) chỉ thấy thông báo tác nghiệp, bị từ chối nếu truy cập cảnh báo tài chính")
     void getNotifications_AsCashier_HidesFinancialAndRejectsForbiddenType_PassesTC03() {
         when(userRepository.findByUsername("cashier_user")).thenReturn(Optional.of(cashierUser));
 
-        // 1. Thử request loại tài chính trực tiếp -> Phải ném ngoại lệ FORBIDDEN (QTN-10)
         NotificationFilterRequest financialFilter = NotificationFilterRequest.builder()
                 .notificationType(NotificationTypeConstant.REVENUE_THRESHOLD_WARNING)
                 .build();
@@ -253,7 +242,6 @@ public class AppNotificationServiceImplTest {
                 notificationService.getNotifications("cashier_user", financialFilter, 0, 10));
         assertEquals(ErrorCode.NOTIFICATION_ACCESS_DENIED, ex.getErrorCode());
 
-        // 2. Request thông thường -> Chỉ trả về thông báo tác nghiệp
         AppNotification cashierNotif = AppNotification.builder()
                 .id("notif-cashier-1")
                 .household(mockHousehold)
@@ -276,9 +264,6 @@ public class AppNotificationServiceImplTest {
         assertEquals(NotificationTypeConstant.LOW_STOCK_WARNING, response.getContent().get(0).getNotificationType());
     }
 
-    // =========================================================================
-    // TC-04: Đếm Badge Count trên Header Bar
-    // =========================================================================
     @Test
     @DisplayName("TC-04: Lấy Badge Count chính xác cho Chủ hộ kinh doanh")
     void getBadgeCount_AsOwner_Success() {
@@ -324,9 +309,6 @@ public class AppNotificationServiceImplTest {
         assertEquals(1L, badge.getWarningCount());
     }
 
-    // =========================================================================
-    // TC-05 & TC-06: Đánh dấu đã đọc đơn lẻ và tất cả
-    // =========================================================================
     @Test
     @DisplayName("TC-05: Đánh dấu đã đọc thành công một thông báo")
     void markNotificationAsRead_Success() {
@@ -367,9 +349,6 @@ public class AppNotificationServiceImplTest {
         verify(notificationRepository, times(1)).saveAll(anyList());
     }
 
-    // =========================================================================
-    // TC-08 & TC-09: Cài đặt Bật/Tắt nhận thông báo & Chặn tắt loại bắt buộc
-    // =========================================================================
     @Test
     @DisplayName("TC-08: Chủ hộ xem và cập nhật bật/tắt nhận thông báo thành công")
     void updateNotificationSetting_Success() {
@@ -408,9 +387,6 @@ public class AppNotificationServiceImplTest {
         verify(settingRepository, never()).save(any());
     }
 
-    // =========================================================================
-    // TC-10: Dọn dẹp dữ liệu cũ quá 30 ngày (Data Retention Policy)
-    // =========================================================================
     @Test
     @DisplayName("TC-10: Scheduled cron job dọn dẹp các thông báo cũ hơn 30 ngày")
     void cleanupExpiredNotificationsJob_Success() {
@@ -421,15 +397,11 @@ public class AppNotificationServiceImplTest {
         verify(notificationRepository, times(1)).deleteByCreatedAtBefore(any(LocalDateTime.class));
     }
 
-    // =========================================================================
-    // TC-11: Quét và làm tươi cảnh báo hệ thống (syncReminders) - Batching không N+1
-    // =========================================================================
     @Test
     @DisplayName("TC-11: Quét đồng bộ hóa đơn gửi lỗi và công nợ đến hạn tạo thông báo tương ứng theo batch")
     void syncReminders_CreatesNotificationsForFailedInvoicesAndDueDebts() {
         when(userRepository.findByUsername("owner_user")).thenReturn(Optional.of(ownerUser));
 
-        // Mock 1 hóa đơn SEND_ERROR
         EInvoice errorInv = EInvoice.builder()
                 .id("inv-err-1")
                 .household(mockHousehold)
@@ -443,7 +415,6 @@ public class AppNotificationServiceImplTest {
         when(notificationRepository.findByHouseholdIdAndTargetTypeAndIsClosedFalse("house-uuid-1", "INVOICE"))
                 .thenReturn(Collections.emptyList());
 
-        // Mock 1 khoản công nợ đến hạn
         Customer customer = Customer.builder()
                 .id("cust-1")
                 .name("Nguyễn Văn An")
@@ -476,11 +447,10 @@ public class AppNotificationServiceImplTest {
     void getNotifications_AsCashier_IncludesStoreWideGeneralNotifications() {
         when(userRepository.findByUsername("cashier_user")).thenReturn(Optional.of(cashierUser));
 
-        // Thông báo chung quầy: user = null (ví dụ: cảnh báo kho hàng quầy)
         AppNotification generalStoreNotif = AppNotification.builder()
                 .id("notif-general-1")
                 .household(mockHousehold)
-                .user(null) // chung toàn quầy
+                .user(null)
                 .notificationType(NotificationTypeConstant.LOW_STOCK_WARNING)
                 .severity("WARNING")
                 .title("Cảnh báo tồn kho quầy")
@@ -489,7 +459,6 @@ public class AppNotificationServiceImplTest {
                 .isClosed(false)
                 .build();
 
-        // Thông báo đích danh cho cashierUser
         AppNotification directNotif = AppNotification.builder()
                 .id("notif-direct-1")
                 .household(mockHousehold)

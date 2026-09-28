@@ -66,12 +66,16 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.text.NumberFormat;
+import java.util.Locale;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import org.springframework.http.ContentDisposition;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class TaxPeriodServiceImpl implements TaxPeriodService {
-
     private final TaxDeclarationPeriodRepository taxPeriodRepository;
     private final TaxSalesRegisterRepository salesRegisterRepository;
     private final TaxPurchaseRegisterRepository purchaseRegisterRepository;
@@ -82,8 +86,8 @@ public class TaxPeriodServiceImpl implements TaxPeriodService {
     private final ActivityLogHelper activityLogHelper;
     private final TaxReminderService taxReminderService;
 
-    private static final java.util.regex.Pattern SUPPLIER_INVOICE_PATTERN =
-            java.util.regex.Pattern.compile("(?i)(?:HĐ|HD|Hóa đơn|Hoa don)\\s*[:#-]?\\s*([A-Za-z0-9/_-]+)");
+    private static final Pattern SUPPLIER_INVOICE_PATTERN =
+            Pattern.compile("(?i)(?:HĐ|HD|Hóa đơn|Hoa don)\\s*[:#-]?\\s*([A-Za-z0-9/_-]+)");
 
     private void validateTaxPeriodAccessRole(User user) {
         String roleCode = user.getRole() != null ? user.getRole().getCode() : null;
@@ -103,7 +107,6 @@ public class TaxPeriodServiceImpl implements TaxPeriodService {
             throw new AppException(ErrorCode.HOUSEHOLD_NOT_FOUND);
         }
 
-        // Verify role: sales staff cannot access tax period generation (TC-04)
         if (currentUser.getRole() != null && "VT-02".equalsIgnoreCase(currentUser.getRole().getCode())) {
             throw new AppException(ErrorCode.FORBIDDEN);
         }
@@ -140,17 +143,14 @@ public class TaxPeriodServiceImpl implements TaxPeriodService {
         LocalDateTime startDateTime = startDate.atStartOfDay();
         LocalDateTime endDateTime = endDate.atTime(LocalTime.MAX);
 
-        // Fetch valid e-invoices for household in period directly from DB (Optimized query)
         List<EInvoice> validInvoices = invoiceRepository.findValidInvoicesForTaxPeriod(
                 household.getId(), startDateTime, endDateTime
         );
 
-        // TC-03 & QTN-22: If period has no valid invoices, throw exception and do NOT create empty register
         if (validInvoices.isEmpty()) {
             throw new AppException(ErrorCode.NO_VALID_INVOICES_IN_PERIOD);
         }
 
-        // Check existing period record
         TaxDeclarationPeriod period = taxPeriodRepository
                 .findByHouseholdIdAndPeriodTypeAndYearAndPeriodNumber(household.getId(), periodType, year, periodNumber)
                 .orElse(null);
@@ -159,7 +159,7 @@ public class TaxPeriodServiceImpl implements TaxPeriodService {
             if ("LOCKED".equalsIgnoreCase(period.getStatus())) {
                 throw new AppException(ErrorCode.TAX_PERIOD_ALREADY_LOCKED);
             }
-            // Clear existing register details before re-generating
+
             salesRegisterRepository.deleteByPeriodId(period.getId());
         } else {
             period = TaxDeclarationPeriod.builder()
@@ -206,7 +206,7 @@ public class TaxPeriodServiceImpl implements TaxPeriodService {
 
             BigDecimal taxRatePercentage = BigDecimal.ZERO;
             if (beforeTax.compareTo(BigDecimal.ZERO) != 0) {
-                taxRatePercentage = taxAmt.divide(beforeTax, 4, java.math.RoundingMode.HALF_UP).multiply(BigDecimal.valueOf(100));
+                taxRatePercentage = taxAmt.divide(beforeTax, 4, RoundingMode.HALF_UP).multiply(BigDecimal.valueOf(100));
             }
 
             TaxSalesRegister item = TaxSalesRegister.builder()
@@ -348,7 +348,6 @@ public class TaxPeriodServiceImpl implements TaxPeriodService {
             throw new AppException(ErrorCode.HOUSEHOLD_NOT_FOUND);
         }
 
-        // TC-03: Sales staff (VT-02) cannot access tax revenue summary
         if (currentUser.getRole() != null && "VT-02".equalsIgnoreCase(currentUser.getRole().getCode())) {
             throw new AppException(ErrorCode.FORBIDDEN);
         }
@@ -358,7 +357,6 @@ public class TaxPeriodServiceImpl implements TaxPeriodService {
 
         List<TaxSalesRegister> registerItems = salesRegisterRepository.findByPeriodId(period.getId());
 
-        // Check if household tax rates contain any rate assigned to items in this period that is INACTIVE (TC-02)
         List<TaxRate> allHouseholdTaxRates = taxRateRepository.findByHouseholdIdOrderByCreatedAtDesc(household.getId());
 
         Set<BigDecimal> usedPercentages = registerItems.stream()
@@ -374,7 +372,7 @@ public class TaxPeriodServiceImpl implements TaxPeriodService {
 
         Map<BigDecimal, List<TaxSalesRegister>> groupedByRate = registerItems.stream()
                 .collect(Collectors.groupingBy(item -> item.getTaxRatePercentage() != null ?
-                        item.getTaxRatePercentage().setScale(2, java.math.RoundingMode.HALF_UP) : BigDecimal.ZERO.setScale(2)));
+                        item.getTaxRatePercentage().setScale(2, RoundingMode.HALF_UP) : BigDecimal.ZERO.setScale(2)));
 
         List<TaxRateRevenueSummaryItem> summaryItems = new ArrayList<>();
         BigDecimal grandTotalRevenue = BigDecimal.ZERO;
@@ -448,12 +446,10 @@ public class TaxPeriodServiceImpl implements TaxPeriodService {
             throw new AppException(ErrorCode.HOUSEHOLD_NOT_FOUND);
         }
 
-        // TC-03: Role check - Sales staff (VT-02) cannot export tax declaration
         if (currentUser.getRole() != null && "VT-02".equalsIgnoreCase(currentUser.getRole().getCode())) {
             throw new AppException(ErrorCode.FORBIDDEN);
         }
 
-        // TC-02: Validate household tax code and representative name with specific error messages
         if (household.getTaxCode() == null || household.getTaxCode().trim().isEmpty()) {
             throw new AppException(ErrorCode.HOUSEHOLD_TAX_CODE_MISSING);
         }
@@ -473,7 +469,6 @@ public class TaxPeriodServiceImpl implements TaxPeriodService {
 
         byte[] excelContent = generateTaxDeclarationWorkbook(household, period, registerItems, allHouseholdTaxRates);
 
-        // TC-04: Log audit activity
         activityLogHelper.logActivityInNewTransaction(
                 household, currentUser, "EXPORT_TAX_DECLARATION", "tax_declaration_periods",
                 period.getId(), null,
@@ -481,7 +476,6 @@ public class TaxPeriodServiceImpl implements TaxPeriodService {
                 null, null
         );
 
-        // NCL-12-CN-007: Cập nhật cờ đã xuất tờ khai thuế cho kỳ và đồng bộ metadata thông báo
         period.setDeclarationExported(true);
         period.setDeclarationExportedAt(LocalDateTime.now());
         taxPeriodRepository.save(period);
@@ -494,7 +488,7 @@ public class TaxPeriodServiceImpl implements TaxPeriodService {
         String fileName = String.format("To_khai_thue_%s_%s_%d.xlsx",
                 period.getPeriodType(), period.getYear(), period.getPeriodNumber());
 
-        org.springframework.http.ContentDisposition contentDisposition = org.springframework.http.ContentDisposition
+        ContentDisposition contentDisposition = ContentDisposition
                 .builder("attachment")
                 .filename(fileName)
                 .build();
@@ -519,7 +513,6 @@ public class TaxPeriodServiceImpl implements TaxPeriodService {
             throw new AppException(ErrorCode.HOUSEHOLD_NOT_FOUND);
         }
 
-        // TC-03: Chỉ chủ hộ kinh doanh (VT-01) mới có quyền chốt kỳ kê khai thuế
         if (currentUser.getRole() == null || !"VT-01".equalsIgnoreCase(currentUser.getRole().getCode())) {
             throw new AppException(ErrorCode.FORBIDDEN);
         }
@@ -527,7 +520,6 @@ public class TaxPeriodServiceImpl implements TaxPeriodService {
         TaxDeclarationPeriod period = taxPeriodRepository.findByIdAndHouseholdId(periodId, household.getId())
                 .orElseThrow(() -> new AppException(ErrorCode.TAX_PERIOD_NOT_FOUND));
 
-        // TC-02: Kiểm tra nếu kỳ đã bị khóa trước đó
         if ("LOCKED".equalsIgnoreCase(period.getStatus())) {
             throw new AppException(ErrorCode.TAX_PERIOD_ALREADY_LOCKED);
         }
@@ -538,14 +530,12 @@ public class TaxPeriodServiceImpl implements TaxPeriodService {
 
         period = taxPeriodRepository.save(period);
 
-        // NCL-12-CN-007 (AC-02 & QTN-21): Tự động đóng các nhắc việc nộp tờ khai của kỳ này khi kỳ đã được chốt
         try {
             taxReminderService.closeRemindersForPeriod(household, period.getId());
         } catch (Exception e) {
             log.error("Lỗi khi tự động đóng thông báo nhắc kỳ nộp thuế: {}", e.getMessage());
         }
 
-        // TC-04: Lưu nhật ký hoạt động (Audit log)
         activityLogHelper.logActivityInNewTransaction(
                 household, currentUser, "LOCK_TAX_PERIOD", "tax_declaration_periods",
                 period.getId(), null,
@@ -567,7 +557,6 @@ public class TaxPeriodServiceImpl implements TaxPeriodService {
             throw new AppException(ErrorCode.HOUSEHOLD_NOT_FOUND);
         }
 
-        // Chỉ chủ hộ kinh doanh (VT-01) mới có quyền mở lại kỳ kê khai thuế
         if (currentUser.getRole() == null || !"VT-01".equalsIgnoreCase(currentUser.getRole().getCode())) {
             throw new AppException(ErrorCode.FORBIDDEN);
         }
@@ -575,7 +564,6 @@ public class TaxPeriodServiceImpl implements TaxPeriodService {
         TaxDeclarationPeriod period = taxPeriodRepository.findByIdAndHouseholdId(periodId, household.getId())
                 .orElseThrow(() -> new AppException(ErrorCode.TAX_PERIOD_NOT_FOUND));
 
-        // Kiểm tra nếu kỳ chưa bị khóa
         if (!"LOCKED".equalsIgnoreCase(period.getStatus())) {
             throw new AppException(ErrorCode.TAX_PERIOD_NOT_LOCKED);
         }
@@ -590,7 +578,6 @@ public class TaxPeriodServiceImpl implements TaxPeriodService {
 
         period = taxPeriodRepository.save(period);
 
-        // TC-04: Lưu nhật ký hoạt động (Audit log) kèm lý do mở lại
         activityLogHelper.logActivityInNewTransaction(
                 household, currentUser, "UNLOCK_TAX_PERIOD", "tax_declaration_periods",
                 period.getId(), null,
@@ -608,10 +595,8 @@ public class TaxPeriodServiceImpl implements TaxPeriodService {
             List<TaxRate> allHouseholdTaxRates) {
         try (Workbook workbook = new XSSFWorkbook();
              ByteArrayOutputStream out = new ByteArrayOutputStream()) {
-
             DataFormat dataFormat = workbook.createDataFormat();
 
-            // Fonts
             Font boldFont = workbook.createFont();
             boldFont.setBold(true);
 
@@ -626,7 +611,6 @@ public class TaxPeriodServiceImpl implements TaxPeriodService {
             headerFont.setBold(true);
             headerFont.setColor(IndexedColors.WHITE.getIndex());
 
-            // Cell Styles
             CellStyle nationalHeaderStyle = workbook.createCellStyle();
             nationalHeaderStyle.setFont(boldFont);
             nationalHeaderStyle.setAlignment(HorizontalAlignment.CENTER);
@@ -698,9 +682,6 @@ public class TaxPeriodServiceImpl implements TaxPeriodService {
             borderTotalNumber.setAlignment(HorizontalAlignment.RIGHT);
             borderTotalNumber.setDataFormat(dataFormat.getFormat("#,##0"));
 
-            // ----------------------------------------------------
-            // Sheet 1: To_Khai_Thue_01_CNKD
-            // ----------------------------------------------------
             Sheet sheet1 = workbook.createSheet("To_Khai_Thue_01_CNKD");
             sheet1.setDisplayGridlines(true);
 
@@ -723,7 +704,7 @@ public class TaxPeriodServiceImpl implements TaxPeriodService {
             cSep.setCellStyle(subTitleStyle);
             sheet1.addMergedRegion(new CellRangeAddress(2, 2, 0, 4));
 
-            r1++; // blank line
+            r1++;
 
             Row rowT1 = sheet1.createRow(r1++);
             Cell cT1 = rowT1.createCell(0);
@@ -743,9 +724,8 @@ public class TaxPeriodServiceImpl implements TaxPeriodService {
             cSub2.setCellStyle(subTitleStyle);
             sheet1.addMergedRegion(new CellRangeAddress(6, 6, 0, 4));
 
-            r1++; // blank line
+            r1++;
 
-            // Info rows
             createLabelValueRow(sheet1, r1++, "[01] Kỳ tính thuế:", String.format("%s (Từ ngày %s đến ngày %s)",
                     period.getPeriodName(), period.getStartDate().format(DATE_FORMATTER), period.getEndDate().format(DATE_FORMATTER)), boldFont);
             createLabelValueRow(sheet1, r1++, "[02] Tên người nộp thuế / Hộ KD:", household.getName(), null);
@@ -754,7 +734,7 @@ public class TaxPeriodServiceImpl implements TaxPeriodService {
             createLabelValueRow(sheet1, r1++, "[05] Địa chỉ kinh doanh:", household.getAddress() != null ? household.getAddress() : "", null);
             createLabelValueRow(sheet1, r1++, "[06] Số điện thoại liên hệ:", household.getPhoneNumber() != null ? household.getPhoneNumber() : "", null);
 
-            r1++; // blank line
+            r1++;
 
             Row rowTblTitle1 = sheet1.createRow(r1++);
             Cell cTblTitle1 = rowTblTitle1.createCell(0);
@@ -763,7 +743,6 @@ public class TaxPeriodServiceImpl implements TaxPeriodService {
             tblTitleStyle.setFont(boldFont);
             cTblTitle1.setCellStyle(tblTitleStyle);
 
-            // Table Header 1
             Row hRow1 = sheet1.createRow(r1++);
             hRow1.setHeightInPoints(26);
             String[] s1Headers = {"STT", "Chỉ tiêu / Nhóm ngành nghề tính thuế", "Doanh thu tính thuế (VNĐ)", "Thuế suất", "Tiền thuế phải nộp (VNĐ)"};
@@ -773,10 +752,9 @@ public class TaxPeriodServiceImpl implements TaxPeriodService {
                 cell.setCellStyle(tableHeaderStyle);
             }
 
-            // Summary grouped by tax rate
             Map<BigDecimal, List<TaxSalesRegister>> groupedByRate = registerItems.stream()
                     .collect(Collectors.groupingBy(item -> item.getTaxRatePercentage() != null ?
-                            item.getTaxRatePercentage().setScale(2, java.math.RoundingMode.HALF_UP) : BigDecimal.ZERO.setScale(2)));
+                            item.getTaxRatePercentage().setScale(2, RoundingMode.HALF_UP) : BigDecimal.ZERO.setScale(2)));
 
             List<BigDecimal> sortedRates = new ArrayList<>(groupedByRate.keySet());
             sortedRates.sort(BigDecimal::compareTo);
@@ -800,7 +778,7 @@ public class TaxPeriodServiceImpl implements TaxPeriodService {
                 Cell c0 = dRow.createCell(0); c0.setCellValue(stt1++); c0.setCellStyle(borderCenter);
                 Cell c1 = dRow.createCell(1); c1.setCellValue(rateName); c1.setCellStyle(borderLeft);
                 Cell c2 = dRow.createCell(2); c2.setCellValue(groupRevenue.doubleValue()); c2.setCellStyle(borderNumber);
-                double rateVal = ratePct != null ? ratePct.divide(BigDecimal.valueOf(100), 4, java.math.RoundingMode.HALF_UP).doubleValue() : 0.0;
+                double rateVal = ratePct != null ? ratePct.divide(BigDecimal.valueOf(100), 4, RoundingMode.HALF_UP).doubleValue() : 0.0;
                 Cell c3 = dRow.createCell(3); c3.setCellValue(rateVal); c3.setCellStyle(borderPercent);
                 Cell c4 = dRow.createCell(4); c4.setCellValue(groupTax.doubleValue()); c4.setCellStyle(borderNumber);
 
@@ -808,7 +786,6 @@ public class TaxPeriodServiceImpl implements TaxPeriodService {
                 s1TotalTax = s1TotalTax.add(groupTax);
             }
 
-            // Total row sheet 1
             Row totRow1 = sheet1.createRow(r1++);
             totRow1.setHeightInPoints(22);
             Cell t0 = totRow1.createCell(0); t0.setCellValue("TỔNG CỘNG"); t0.setCellStyle(borderTotalLabel);
@@ -819,14 +796,14 @@ public class TaxPeriodServiceImpl implements TaxPeriodService {
             Cell t3 = totRow1.createCell(3); t3.setCellValue("---"); t3.setCellStyle(borderCenter);
             Cell t4 = totRow1.createCell(4); t4.setCellValue(s1TotalTax.doubleValue()); t4.setCellStyle(borderTotalNumber);
 
-            r1++; // blank line
+            r1++;
             Row pledgeRow = sheet1.createRow(r1++);
             Cell pledgeCell = pledgeRow.createCell(0);
             pledgeCell.setCellValue("Tôi cam đoan số liệu khai trên là đúng sự thật và chịu trách nhiệm trước pháp luật về những số liệu đã khai.");
             pledgeCell.setCellStyle(subTitleStyle);
             sheet1.addMergedRegion(new CellRangeAddress(r1 - 1, r1 - 1, 0, 4));
 
-            r1++; // blank line
+            r1++;
             LocalDate now = LocalDate.now();
             Row dateRow = sheet1.createRow(r1++);
             Cell dateCell = dateRow.createCell(3);
@@ -846,23 +823,19 @@ public class TaxPeriodServiceImpl implements TaxPeriodService {
             signSubCell.setCellStyle(subTitleStyle);
             sheet1.addMergedRegion(new CellRangeAddress(r1 - 1, r1 - 1, 3, 4));
 
-            r1 += 3; // spacing for signature
+            r1 += 3;
             Row nameRow = sheet1.createRow(r1++);
             Cell nameCell = nameRow.createCell(3);
             nameCell.setCellValue(household.getRepresentativeName());
             nameCell.setCellStyle(nationalHeaderStyle);
             sheet1.addMergedRegion(new CellRangeAddress(r1 - 1, r1 - 1, 3, 4));
 
-            // Auto-size columns for sheet 1
             for (int i = 0; i < 5; i++) {
                 sheet1.autoSizeColumn(i);
                 int currentWidth = sheet1.getColumnWidth(i);
                 sheet1.setColumnWidth(i, Math.max(currentWidth + 1000, 4000));
             }
 
-            // ----------------------------------------------------
-            // Sheet 2: Bang_Ke_Ban_Ra_01_2_BK
-            // ----------------------------------------------------
             Sheet sheet2 = workbook.createSheet("Bang_Ke_Ban_Ra_01_2_BK");
             sheet2.setDisplayGridlines(true);
 
@@ -886,9 +859,8 @@ public class TaxPeriodServiceImpl implements TaxPeriodService {
             cS2Info.setCellStyle(nationalHeaderStyle);
             sheet2.addMergedRegion(new CellRangeAddress(2, 2, 0, 11));
 
-            r2++; // blank line
+            r2++;
 
-            // Table Header 2
             Row hRow2 = sheet2.createRow(r2++);
             hRow2.setHeightInPoints(28);
             String[] s2Headers = {
@@ -919,7 +891,7 @@ public class TaxPeriodServiceImpl implements TaxPeriodService {
                 Cell c6 = dRow.createCell(6); c6.setCellValue(item.getBuyerTaxCode() != null ? item.getBuyerTaxCode() : ""); c6.setCellStyle(borderCenter);
                 Cell c7 = dRow.createCell(7); c7.setCellValue(item.getRevenueAmount() != null ? item.getRevenueAmount().doubleValue() : 0.0); c7.setCellStyle(borderNumber);
                 Cell c8 = dRow.createCell(8);
-                BigDecimal rate = item.getTaxRatePercentage() != null ? item.getTaxRatePercentage().divide(BigDecimal.valueOf(100), 4, java.math.RoundingMode.HALF_UP) : BigDecimal.ZERO;
+                BigDecimal rate = item.getTaxRatePercentage() != null ? item.getTaxRatePercentage().divide(BigDecimal.valueOf(100), 4, RoundingMode.HALF_UP) : BigDecimal.ZERO;
                 c8.setCellValue(rate.doubleValue()); c8.setCellStyle(borderPercent);
                 Cell c9 = dRow.createCell(9); c9.setCellValue(item.getTaxAmount() != null ? item.getTaxAmount().doubleValue() : 0.0); c9.setCellStyle(borderNumber);
 
@@ -936,7 +908,6 @@ public class TaxPeriodServiceImpl implements TaxPeriodService {
                 if (item.getTaxAmount() != null) s2TotalTax = s2TotalTax.add(item.getTaxAmount());
             }
 
-            // Total row sheet 2
             Row totRow2 = sheet2.createRow(r2++);
             totRow2.setHeightInPoints(22);
             Cell t2_0 = totRow2.createCell(0); t2_0.setCellValue("TỔNG CỘNG"); t2_0.setCellStyle(borderTotalLabel);
@@ -951,7 +922,6 @@ public class TaxPeriodServiceImpl implements TaxPeriodService {
             Cell t2_10 = totRow2.createCell(10); t2_10.setCellStyle(borderCenter);
             Cell t2_11 = totRow2.createCell(11); t2_11.setCellStyle(borderCenter);
 
-            // Auto-size columns for sheet 2
             for (int i = 0; i < s2Headers.length; i++) {
                 sheet2.autoSizeColumn(i);
                 int currentWidth = sheet2.getColumnWidth(i);
@@ -979,10 +949,6 @@ public class TaxPeriodServiceImpl implements TaxPeriodService {
         cValue.setCellValue(value != null ? value : "");
         sheet.addMergedRegion(new CellRangeAddress(rowIndex, rowIndex, 1, 4));
     }
-
-    // =========================================================================
-    // NCL-12-CN-006: Bảng kê hàng hóa mua vào theo kỳ
-    // =========================================================================
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -1029,7 +995,6 @@ public class TaxPeriodServiceImpl implements TaxPeriodService {
         LocalDateTime startDateTime = startDate.atStartOfDay();
         LocalDateTime endDateTime = endDate.atTime(LocalTime.MAX);
 
-        // Lọc các dòng phiếu nhập kho trong kỳ
         List<GoodsReceiptDetail> receiptDetails = goodsReceiptDetailRepository.findReceiptDetailsForTaxPeriod(
                 household.getId(), startDateTime, endDateTime
         );
@@ -1038,7 +1003,6 @@ public class TaxPeriodServiceImpl implements TaxPeriodService {
             throw new AppException(ErrorCode.NO_GOODS_RECEIPTS_IN_PERIOD);
         }
 
-        // Kiểm tra kỳ kê khai trong DB
         TaxDeclarationPeriod period = taxPeriodRepository
                 .findByHouseholdIdAndPeriodTypeAndYearAndPeriodNumber(household.getId(), periodType, year, periodNumber)
                 .orElse(null);
@@ -1063,7 +1027,6 @@ public class TaxPeriodServiceImpl implements TaxPeriodService {
             period = taxPeriodRepository.save(period);
         }
 
-        // Xử lý chuẩn hóa và lưu trữ
         List<TaxPurchaseRegister> entitiesToSave = new ArrayList<>();
         List<TaxPurchaseRegisterItemResponse> allItemDtos = new ArrayList<>();
         Map<String, SupplierPurchaseGroupResponse> validSupplierMap = new LinkedHashMap<>();
@@ -1161,13 +1124,11 @@ public class TaxPeriodServiceImpl implements TaxPeriodService {
             }
         }
 
-        // Đếm số lượng phiếu nhập cho từng nhóm NCC
         for (SupplierPurchaseGroupResponse group : validSupplierMap.values()) {
             long rCount = group.getItems().stream().map(TaxPurchaseRegisterItemResponse::getReceiptId).distinct().count();
             group.setReceiptCount((int) rCount);
         }
 
-        // Nhóm phiếu thiếu NCC (TC-02)
         SupplierPurchaseGroupResponse unidentifiedGroup = null;
         boolean hasMissing = !missingSupplierItems.isEmpty();
         String warningMsg = null;
@@ -1193,18 +1154,15 @@ public class TaxPeriodServiceImpl implements TaxPeriodService {
                     missingSupplierReceiptIds.size(), formatMoney(missingAmt));
         }
 
-        // Lưu danh sách chi tiết
         for (TaxPurchaseRegister entity : entitiesToSave) {
             entity.setPeriod(period);
         }
         List<TaxPurchaseRegister> savedEntities = purchaseRegisterRepository.saveAll(entitiesToSave);
 
-        // Cập nhật ID được sinh ra từ savedEntities vào DTO theo thứ tự O(N)
         for (int i = 0; i < savedEntities.size(); i++) {
             allItemDtos.get(i).setId(savedEntities.get(i).getId());
         }
 
-        // Cập nhật giá trị vào period
         period.setTotalPurchaseAmount(grandTotalAmount);
         period.setTotalPurchaseReceipts(totalReceiptIds.size());
         if ("DRAFT".equalsIgnoreCase(period.getStatus())) {
@@ -1335,7 +1293,7 @@ public class TaxPeriodServiceImpl implements TaxPeriodService {
                 "MONTHLY".equals(period.getPeriodType()) ? "T" + period.getPeriodNumber() : "Q" + period.getPeriodNumber(),
                 period.getYear());
 
-        org.springframework.http.ContentDisposition contentDisposition = org.springframework.http.ContentDisposition
+        ContentDisposition contentDisposition = ContentDisposition
                 .builder("attachment")
                 .filename(fileName)
                 .build();
@@ -1468,8 +1426,8 @@ public class TaxPeriodServiceImpl implements TaxPeriodService {
         if (notes == null || notes.trim().isEmpty()) {
             return null;
         }
-        // Tìm kiếm nếu trong ghi chú có định dạng "HĐ: XYZ" hoặc "HD: XYZ" hoặc "Số HĐ: XYZ"
-        java.util.regex.Matcher matcher = SUPPLIER_INVOICE_PATTERN.matcher(notes);
+
+        Matcher matcher = SUPPLIER_INVOICE_PATTERN.matcher(notes);
         if (matcher.find()) {
             return matcher.group(1).trim();
         }
@@ -1478,7 +1436,7 @@ public class TaxPeriodServiceImpl implements TaxPeriodService {
 
     private String formatMoney(BigDecimal amount) {
         if (amount == null) return "0";
-        return java.text.NumberFormat.getNumberInstance(new java.util.Locale("vi", "VN")).format(amount);
+        return NumberFormat.getNumberInstance(new Locale("vi", "VN")).format(amount);
     }
 
     private byte[] generatePurchaseRegisterWorkbook(
@@ -1487,13 +1445,11 @@ public class TaxPeriodServiceImpl implements TaxPeriodService {
             TaxPurchaseRegisterSummaryResponse summary) {
         try (Workbook workbook = new XSSFWorkbook();
              ByteArrayOutputStream out = new ByteArrayOutputStream()) {
-
             Sheet sheet = workbook.createSheet("Bang_Ke_Mua_Vao");
             sheet.setDisplayGridlines(true);
 
             DataFormat dataFormat = workbook.createDataFormat();
 
-            // Fonts
             Font boldFont = workbook.createFont();
             boldFont.setBold(true);
 
@@ -1512,7 +1468,6 @@ public class TaxPeriodServiceImpl implements TaxPeriodService {
             warningFont.setBold(true);
             warningFont.setColor(IndexedColors.RED.getIndex());
 
-            // Styles
             CellStyle titleStyle = workbook.createCellStyle();
             titleStyle.setFont(titleFont);
             titleStyle.setAlignment(HorizontalAlignment.CENTER);
@@ -1596,7 +1551,6 @@ public class TaxPeriodServiceImpl implements TaxPeriodService {
 
             int r = 0;
 
-            // 1. Thông tin Hộ kinh doanh
             Row rH1 = sheet.createRow(r++);
             Cell cH1 = rH1.createCell(0);
             cH1.setCellValue("Tên Hộ kinh doanh: " + (household != null ? household.getName() : ""));
@@ -1611,7 +1565,6 @@ public class TaxPeriodServiceImpl implements TaxPeriodService {
             cH3.setCellValue("Địa chỉ: " + (household != null ? household.getAddress() : ""));
             r++;
 
-            // 2. Tiêu đề chính
             Row rTitle = sheet.createRow(r++);
             Cell cTitle = rTitle.createCell(0);
             cTitle.setCellValue("BẢNG KÊ HÀNG HÓA, DỊCH VỤ MUA VÀO");
@@ -1625,7 +1578,6 @@ public class TaxPeriodServiceImpl implements TaxPeriodService {
             sheet.addMergedRegion(new CellRangeAddress(r - 1, r - 1, 0, 10));
             r++;
 
-            // 3. Header bảng
             String[] headers = {
                     "STT", "Ngày phiếu", "Số phiếu nhập", "Nhà cung cấp", "MST NCC",
                     "Số HĐ NCC", "Mặt hàng", "ĐVT", "Số lượng", "Đơn giá nhập (đ)", "Thành tiền (đ)"
@@ -1641,10 +1593,8 @@ public class TaxPeriodServiceImpl implements TaxPeriodService {
 
             int stt = 1;
 
-            // 4. Nhóm Nhà cung cấp hợp lệ
             if (summary.getValidSuppliers() != null) {
                 for (SupplierPurchaseGroupResponse group : summary.getValidSuppliers()) {
-                    // Dòng nhóm NCC
                     Row suppRow = sheet.createRow(r++);
                     Cell suppCell = suppRow.createCell(0);
                     suppCell.setCellValue("Nhà cung cấp: " + group.getSupplierName() + (group.getSupplierTaxCode() != null ? " - MST: " + group.getSupplierTaxCode() : ""));
@@ -1655,7 +1605,6 @@ public class TaxPeriodServiceImpl implements TaxPeriodService {
                     }
                     sheet.addMergedRegion(new CellRangeAddress(r - 1, r - 1, 0, headers.length - 1));
 
-                    // Dòng chi tiết
                     for (TaxPurchaseRegisterItemResponse item : group.getItems()) {
                         Row itemRow = sheet.createRow(r++);
                         Cell c0 = itemRow.createCell(0); c0.setCellValue(stt++); c0.setCellStyle(borderCenter);
@@ -1671,7 +1620,6 @@ public class TaxPeriodServiceImpl implements TaxPeriodService {
                         Cell c10 = itemRow.createCell(10); c10.setCellValue(item.getTotalAmount() != null ? item.getTotalAmount().doubleValue() : 0.0); c10.setCellStyle(borderNumber);
                     }
 
-                    // Dòng tổng phụ NCC
                     Row subRow = sheet.createRow(r++);
                     Cell subLabel = subRow.createCell(0);
                     subLabel.setCellValue("Cộng nhóm NCC [" + group.getSupplierName() + "]:");
@@ -1696,7 +1644,6 @@ public class TaxPeriodServiceImpl implements TaxPeriodService {
                 }
             }
 
-            // 5. Dòng TỔNG CỘNG TOÀN KỲ
             Row grandRow = sheet.createRow(r++);
             Cell grandLabel = grandRow.createCell(0);
             grandLabel.setCellValue("TỔNG CỘNG HÀNG HÓA MUA VÀO TOÀN KỲ:");
@@ -1720,7 +1667,6 @@ public class TaxPeriodServiceImpl implements TaxPeriodService {
             grandAmt.setCellStyle(grandTotalNumber);
             r++;
 
-            // 6. Nhóm cảnh báo thiếu NCC (TC-02)
             if (summary.getUnidentifiedSuppliers() != null && summary.getUnidentifiedSuppliers().getItems() != null && !summary.getUnidentifiedSuppliers().getItems().isEmpty()) {
                 Row warnTitleRow = sheet.createRow(r++);
                 Cell warnTitle = warnTitleRow.createCell(0);
@@ -1754,7 +1700,6 @@ public class TaxPeriodServiceImpl implements TaxPeriodService {
                 r++;
             }
 
-            // 7. Chân trang chữ ký
             r += 2;
             Row signRow1 = sheet.createRow(r++);
             Cell signDate = signRow1.createCell(7);
@@ -1775,7 +1720,6 @@ public class TaxPeriodServiceImpl implements TaxPeriodService {
             s2.getCellStyle().setAlignment(HorizontalAlignment.CENTER);
             sheet.addMergedRegion(new CellRangeAddress(r - 1, r - 1, 7, 10));
 
-            // Auto-size columns
             for (int i = 0; i < headers.length; i++) {
                 sheet.autoSizeColumn(i);
                 int currentWidth = sheet.getColumnWidth(i);

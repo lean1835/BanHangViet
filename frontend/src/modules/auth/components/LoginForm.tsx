@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState } from "react";
 import { Link, useOutletContext, useSearchParams } from "react-router-dom";
 import { Form, Input, Alert } from "antd";
 import type { AuthOutletContext } from "@/pages/AuthPage";
@@ -13,7 +13,6 @@ import {
 } from "@/constants/auth";
 import { APP_ROUTES } from "@/constants/routes";
 import { z } from "zod";
-import { DemoAccountsPanel } from "./DemoAccountsPanel";
 import { getApiErrorMessage } from "@/utils/getApiErrorMessage";
 import { recordFailedLoginAttempt } from "@/modules/anomaly_alert/utils/anomalyStorage";
 
@@ -43,70 +42,8 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
   const [form] = Form.useForm();
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [rememberMe, setRememberMe] = useState(false);
-  const [isDemoExpanded, setIsDemoExpanded] = useState(false);
-  const cardRef = useRef<HTMLDivElement>(null);
-  const collapseTimerRef = useRef<NodeJS.Timeout | null>(null);
   const [login, { isLoading }] = useLoginMutation();
   const dispatch = useAppDispatch();
-
-  const handleDemoExpandedChange = (expanded: boolean) => {
-    setIsDemoExpanded(expanded);
-    const el = cardRef.current?.parentElement;
-    if (!el) return;
-
-    if (collapseTimerRef.current) {
-      clearTimeout(collapseTimerRef.current);
-      collapseTimerRef.current = null;
-    }
-
-    if (expanded) {
-      // Cố định vị trí top hiện tại để khi mở danh sách demo, form chỉ mở rộng trượt êm ái xuống dưới
-      el.style.marginTop = `${el.offsetTop}px`;
-      el.style.marginBottom = "auto";
-    } else {
-      // Đợi animation đóng 300ms hoàn tất rồi mới khôi phục căn giữa tự nhiên, tránh bị giật khung
-      collapseTimerRef.current = setTimeout(() => {
-        if (el) {
-          el.style.marginTop = "";
-          el.style.marginBottom = "";
-        }
-      }, 310);
-    }
-  };
-
-  useEffect(() => {
-    const el = cardRef.current?.parentElement;
-    return () => {
-      if (collapseTimerRef.current) {
-        clearTimeout(collapseTimerRef.current);
-      }
-      if (el) {
-        el.style.marginTop = "";
-        el.style.marginBottom = "";
-      }
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!isDemoExpanded) return;
-
-    const handleResize = () => {
-      const el = cardRef.current?.parentElement;
-      if (el) {
-        el.style.marginTop = "";
-        el.style.marginBottom = "";
-        requestAnimationFrame(() => {
-          if (el) {
-            el.style.marginTop = `${el.offsetTop}px`;
-            el.style.marginBottom = "auto";
-          }
-        });
-      }
-    };
-
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, [isDemoExpanded]);
 
   const handleFinish = async (formValues: unknown) => {
     setErrorMsg(null);
@@ -147,25 +84,14 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
     }
   };
 
-  const handleDemoSelect = (username: string, password: string) => {
-    form.setFieldsValue({
-      [AUTH_FORM_FIELDS.USERNAME]: username,
-      [AUTH_FORM_FIELDS.PASSWORD]: password,
-    });
-    form.submit();
-  };
-
   return (
-    <div
-      ref={cardRef}
-      className="w-full max-w-[540px] flex flex-col bg-white rounded-3xl shadow-[0_20px_60px_rgba(15,23,42,0.06),0_1px_3px_rgba(15,23,42,0.03)] border border-slate-100 p-8 sm:p-10 transition-[box-shadow,border-color] duration-300"
-    >
+    <div className="w-full max-w-[580px] flex flex-col bg-white rounded-[32px] shadow-[0_20px_60px_rgba(15,23,42,0.07),0_1px_3px_rgba(15,23,42,0.03)] border border-slate-100 p-8 sm:p-12 md:p-14 transition-[box-shadow,border-color] duration-300">
       {/* Greeting Header */}
-      <div className="text-center mb-6">
-        <h2 className="text-2xl sm:text-[27px] font-bold text-slate-800 tracking-tight">
+      <div className="text-center mb-8">
+        <h2 className="text-2xl sm:text-[30px] font-extrabold text-slate-800 tracking-tight">
           Chào mừng trở lại!
         </h2>
-        <p className="text-sm text-slate-400 mt-2 font-normal">
+        <p className="text-sm sm:text-[15px] text-slate-400 mt-2.5 font-normal">
           Nhập thông tin đăng nhập của bạn để tiếp tục
         </p>
       </div>
@@ -175,7 +101,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
           message={errorMsg}
           type="error"
           showIcon
-          className="mb-4 rounded-xl border-red-200 bg-red-50/70 text-xs"
+          className="mb-5 rounded-xl border-red-200 bg-red-50/70 text-xs sm:text-sm"
         />
       )}
 
@@ -185,7 +111,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
           description="Hệ thống sẽ tự động kích hoạt quyền kế toán cho hộ kinh doanh khi bạn đăng nhập."
           type="info"
           showIcon
-          className="mb-4 rounded-xl border-blue-200 bg-blue-50/80 text-xs text-blue-900"
+          className="mb-5 rounded-xl border-blue-200 bg-blue-50/80 text-xs sm:text-sm text-blue-900"
         />
       )}
 
@@ -197,8 +123,8 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
         className="flex flex-col"
       >
         {/* Username / Email Input */}
-        <div className="mb-4">
-          <label className="block text-sm font-semibold text-slate-700 mb-2">
+        <div className="mb-5">
+          <label className="block text-sm sm:text-[15px] font-semibold text-slate-700 mb-2.5">
             Email hoặc Tên đăng nhập
           </label>
           <Form.Item
@@ -213,14 +139,14 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
           >
             <Input
               placeholder="yannxlu123@email.com / admin"
-              className="h-12 rounded-xl bg-slate-50/60 border-slate-200 hover:border-blue-400 focus:border-[#0F56E8] focus:bg-white text-base text-slate-800 px-4 transition-all"
+              className="h-[52px] rounded-2xl bg-slate-50/60 border-slate-200 hover:border-blue-400 focus:border-[#0F56E8] focus:bg-white text-base text-slate-800 px-4 transition-all shadow-xs"
             />
           </Form.Item>
         </div>
 
         {/* Password Input */}
-        <div className="mb-3">
-          <label className="block text-sm font-semibold text-slate-700 mb-2">
+        <div className="mb-4">
+          <label className="block text-sm sm:text-[15px] font-semibold text-slate-700 mb-2.5">
             Mật khẩu
           </label>
           <Form.Item
@@ -235,14 +161,14 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
           >
             <Input.Password
               placeholder="••••••••••••"
-              className="h-12 rounded-xl bg-slate-50/60 border-slate-200 hover:border-blue-400 focus:border-[#0F56E8] focus:bg-white text-base text-slate-800 px-4 transition-all"
+              className="h-[52px] rounded-2xl bg-slate-50/60 border-slate-200 hover:border-blue-400 focus:border-[#0F56E8] focus:bg-white text-base text-slate-800 px-4 transition-all shadow-xs"
             />
           </Form.Item>
         </div>
 
         {/* Remember Me & Forgot Password Row */}
-        <div className="flex items-center justify-between mt-2.5 mb-7 select-none">
-          <label className="flex items-center gap-2 cursor-pointer text-sm text-slate-600 hover:text-slate-800">
+        <div className="flex items-center justify-between mt-3 mb-8 select-none">
+          <label className="flex items-center gap-2.5 cursor-pointer text-sm sm:text-[15px] text-slate-600 hover:text-slate-800 font-medium">
             <input
               type="checkbox"
               checked={rememberMe}
@@ -254,7 +180,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
 
           <Link
             to={APP_ROUTES.FORGOT_PASSWORD}
-            className="text-sm font-medium text-[#0F56E8] hover:text-blue-700 hover:underline transition-colors"
+            className="text-sm sm:text-[15px] font-semibold text-[#0F56E8] hover:text-blue-700 hover:underline transition-colors"
           >
             Quên mật khẩu?
           </Link>
@@ -264,10 +190,10 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
         <button
           type="submit"
           disabled={isLoading}
-          className="w-full h-12 rounded-xl bg-[#0F56E8] hover:bg-[#0D4DCE] active:bg-[#0A3EB8] text-white font-semibold text-base shadow-md shadow-blue-500/20 hover:shadow-lg hover:shadow-blue-500/30 transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed transform active:scale-[0.99]"
+          className="w-full h-[52px] rounded-2xl bg-[#0F56E8] hover:bg-[#0D4DCE] active:bg-[#0A3EB8] text-white font-bold text-base sm:text-[17px] shadow-lg shadow-blue-500/25 hover:shadow-xl hover:shadow-blue-500/35 transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed transform active:scale-[0.99]"
         >
           {isLoading ? (
-            <span className="inline-flex items-center gap-2 text-sm">
+            <span className="inline-flex items-center gap-2 text-sm sm:text-base">
               <svg className="animate-spin h-5 w-5 text-white" viewBox="0 0 24 24">
                 <circle
                   className="opacity-25"
@@ -292,7 +218,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
         </button>
 
         {/* Footer: Register link */}
-        <div className="text-center text-sm text-slate-500 mt-6">
+        <div className="text-center text-sm sm:text-[15px] text-slate-500 mt-8">
           Chưa có tài khoản?{" "}
           <Link
             to={APP_ROUTES.REGISTER}
@@ -302,14 +228,6 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
           </Link>
         </div>
       </Form>
-
-      {/* Demo Accounts Panel (Tài khoản thử nghiệm nhanh) */}
-      <div className="mt-4 pt-4 border-t border-slate-100">
-        <DemoAccountsPanel
-          onSelect={handleDemoSelect}
-          onExpandedChange={handleDemoExpandedChange}
-        />
-      </div>
     </div>
   );
 };

@@ -16,12 +16,16 @@ import org.springframework.transaction.annotation.Transactional;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import com.sales.modules.auth.dto.request.ForgotPasswordRequest;
+import com.sales.modules.auth.dto.request.ResetPasswordRequest;
+import com.sales.modules.auth.dto.request.VerifyOtpRequest;
+import com.sales.modules.auth.repository.PasswordResetOtpRepository;
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 
 @SpringBootTest
 @AutoConfigureMockMvc
 @Transactional
 public class AuthControllerTest {
-
     @Autowired
     private MockMvc mockMvc;
 
@@ -32,7 +36,7 @@ public class AuthControllerTest {
     private UserRepository userRepository;
 
     @Autowired
-    private com.sales.modules.auth.repository.PasswordResetOtpRepository otpRepository;
+    private PasswordResetOtpRepository otpRepository;
 
     @Test
     public void register_success() throws Exception {
@@ -70,16 +74,14 @@ public class AuthControllerTest {
                 .fullName("Họ và Tên A")
                 .build();
 
-        // Register first time
         mockMvc.perform(post("/api/v1/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request1)))
                 .andExpect(status().isOk());
 
-        // Register second time with same tax code but different username
         RegisterRequest request2 = RegisterRequest.builder()
                 .householdName("Cửa Hàng B")
-                .taxCode("1112223334") // Same tax code
+                .taxCode("1112223334")
                 .householdAddress("Địa chỉ B")
                 .householdPhone("0987654321")
                 .username("username_b")
@@ -91,7 +93,7 @@ public class AuthControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request2)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value(2003)) // TAX_CODE_ALREADY_EXISTS code
+                .andExpect(jsonPath("$.code").value(2003))
                 .andExpect(jsonPath("$.message").value("Mã số thuế đã tồn tại trên hệ thống"));
     }
 
@@ -107,19 +109,17 @@ public class AuthControllerTest {
                 .fullName("Họ và Tên C")
                 .build();
 
-        // Register first time
         mockMvc.perform(post("/api/v1/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request1)))
                 .andExpect(status().isOk());
 
-        // Register second time with same username but different tax code
         RegisterRequest request2 = RegisterRequest.builder()
                 .householdName("Cửa Hàng D")
-                .taxCode("2223334446") // Different tax code
+                .taxCode("2223334446")
                 .householdAddress("Địa chỉ D")
                 .householdPhone("0987654321")
-                .username("username_c") // Same username
+                .username("username_c")
                 .password("password123")
                 .fullName("Họ và Tên D")
                 .build();
@@ -128,13 +128,12 @@ public class AuthControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request2)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value(2004)) // USERNAME_ALREADY_EXISTS code
+                .andExpect(jsonPath("$.code").value(2004))
                 .andExpect(jsonPath("$.message").value("Tên đăng nhập đã tồn tại trên hệ thống"));
     }
 
     @Test
     public void login_success() throws Exception {
-        // Register a user first
         RegisterRequest registerReq = RegisterRequest.builder()
                 .householdName("Hộ Kinh Doanh Login")
                 .taxCode("1212121212")
@@ -150,7 +149,6 @@ public class AuthControllerTest {
                         .content(objectMapper.writeValueAsString(registerReq)))
                 .andExpect(status().isOk());
 
-        // Perform login
         LoginRequest loginReq = LoginRequest.builder()
                 .username("username_login_success")
                 .password("secret123")
@@ -169,7 +167,6 @@ public class AuthControllerTest {
 
     @Test
     public void login_wrongPassword_fails() throws Exception {
-        // Register a user first
         RegisterRequest registerReq = RegisterRequest.builder()
                 .householdName("Hộ Kinh Doanh Password Fail")
                 .taxCode("1313131313")
@@ -185,7 +182,6 @@ public class AuthControllerTest {
                         .content(objectMapper.writeValueAsString(registerReq)))
                 .andExpect(status().isOk());
 
-        // Perform login with wrong password
         LoginRequest loginReq = LoginRequest.builder()
                 .username("username_pw_fail")
                 .password("wrong_password")
@@ -216,7 +212,6 @@ public class AuthControllerTest {
 
     @Test
     public void login_userBlocked_fails() throws Exception {
-        // Register a user first
         RegisterRequest registerReq = RegisterRequest.builder()
                 .householdName("Hộ Kinh Doanh Blocked")
                 .taxCode("1414141414")
@@ -232,13 +227,11 @@ public class AuthControllerTest {
                         .content(objectMapper.writeValueAsString(registerReq)))
                 .andExpect(status().isOk());
 
-        // Block the user in database
         User user = userRepository.findByUsername("username_blocked")
                 .orElseThrow(() -> new AssertionError("User should have been created"));
         user.setIsActive(false);
         userRepository.saveAndFlush(user);
 
-        // Perform login
         LoginRequest loginReq = LoginRequest.builder()
                 .username("username_blocked")
                 .password("secret123")
@@ -254,7 +247,6 @@ public class AuthControllerTest {
 
     @Test
     public void forgotPassword_and_resetPassword_flow_success() throws Exception {
-        // 1. Đăng ký tài khoản
         RegisterRequest registerReq = RegisterRequest.builder()
                 .householdName("Hộ Kinh Doanh Reset Test")
                 .taxCode("9876543210")
@@ -271,7 +263,6 @@ public class AuthControllerTest {
                         .content(objectMapper.writeValueAsString(registerReq)))
                 .andExpect(status().isOk());
 
-        // Đăng nhập trước khi đổi mật khẩu để lấy oldToken
         LoginRequest loginInitialReq = LoginRequest.builder()
                 .username("user_reset_test")
                 .password("oldPassword123")
@@ -285,13 +276,11 @@ public class AuthControllerTest {
 
         String oldToken = objectMapper.readTree(loginInitialResp).path("result").path("token").asText();
 
-        // Kiểm tra oldToken hoạt động bình thường
-        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/api/v1/employees")
+        mockMvc.perform(MockMvcRequestBuilders.get("/api/v1/employees")
                         .header("Authorization", "Bearer " + oldToken))
                 .andExpect(status().isOk());
 
-        // 2. Gửi yêu cầu quên mật khẩu
-        com.sales.modules.auth.dto.request.ForgotPasswordRequest forgotReq = com.sales.modules.auth.dto.request.ForgotPasswordRequest.builder()
+        ForgotPasswordRequest forgotReq = ForgotPasswordRequest.builder()
                 .phoneNumber("0912345679")
                 .build();
 
@@ -303,13 +292,11 @@ public class AuthControllerTest {
                 .andExpect(jsonPath("$.result.phoneNumber").value("0912345679"))
                 .andExpect(jsonPath("$.result.otpCode").doesNotExist());
 
-        // Lấy OTP từ cơ sở dữ liệu (mô phỏng người dùng nhận qua tin nhắn SMS)
         String otpCode = otpRepository.findTopByPhoneNumberAndIsUsedFalseOrderByCreatedAtDesc("0912345679")
                 .orElseThrow(() -> new AssertionError("OTP record should exist in database"))
                 .getOtpCode();
 
-        // 3. Xác thực OTP
-        com.sales.modules.auth.dto.request.VerifyOtpRequest verifyReq = com.sales.modules.auth.dto.request.VerifyOtpRequest.builder()
+        VerifyOtpRequest verifyReq = VerifyOtpRequest.builder()
                 .phoneNumber("0912345679")
                 .otpCode(otpCode)
                 .build();
@@ -321,8 +308,7 @@ public class AuthControllerTest {
                 .andExpect(jsonPath("$.code").value(1000))
                 .andExpect(jsonPath("$.result.valid").value(true));
 
-        // 4. Đặt lại mật khẩu mới
-        com.sales.modules.auth.dto.request.ResetPasswordRequest resetReq = com.sales.modules.auth.dto.request.ResetPasswordRequest.builder()
+        ResetPasswordRequest resetReq = ResetPasswordRequest.builder()
                 .phoneNumber("0912345679")
                 .otpCode(otpCode)
                 .newPassword("newPassword456")
@@ -335,12 +321,10 @@ public class AuthControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(1000));
 
-        // 5. Kiểm tra NCL-01-CN-005-TC-01: oldToken phải bị vô hiệu hóa ngay lập tức
-        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/api/v1/employees")
+        mockMvc.perform(MockMvcRequestBuilders.get("/api/v1/employees")
                         .header("Authorization", "Bearer " + oldToken))
                 .andExpect(status().isUnauthorized());
 
-        // 6. Đăng nhập bằng mật khẩu mới thành công
         LoginRequest loginNewReq = LoginRequest.builder()
                 .username("user_reset_test")
                 .password("newPassword456")
@@ -353,7 +337,6 @@ public class AuthControllerTest {
                 .andExpect(jsonPath("$.code").value(1000))
                 .andExpect(jsonPath("$.result.token").isNotEmpty());
 
-        // 7. Đăng nhập bằng mật khẩu cũ thất bại
         LoginRequest loginOldReq = LoginRequest.builder()
                 .username("user_reset_test")
                 .password("oldPassword123")
@@ -389,8 +372,7 @@ public class AuthControllerTest {
         user.setEmail("test.reset@gmail.com");
         userRepository.save(user);
 
-        // 2. Gửi yêu cầu quên mật khẩu qua Gmail
-        com.sales.modules.auth.dto.request.ForgotPasswordRequest forgotReq = com.sales.modules.auth.dto.request.ForgotPasswordRequest.builder()
+        ForgotPasswordRequest forgotReq = ForgotPasswordRequest.builder()
                 .email("test.reset@gmail.com")
                 .build();
 
@@ -402,13 +384,11 @@ public class AuthControllerTest {
                 .andExpect(jsonPath("$.result.email").value("test.reset@gmail.com"))
                 .andExpect(jsonPath("$.result.otpCode").doesNotExist());
 
-        // Lấy OTP từ cơ sở dữ liệu (mô phỏng người dùng nhận qua Gmail)
         String otpCode = otpRepository.findTopByEmailAndTypeAndIsUsedFalseOrderByCreatedAtDesc("test.reset@gmail.com", "PASSWORD_RESET")
                 .orElseThrow(() -> new AssertionError("OTP record for email should exist in database"))
                 .getOtpCode();
 
-        // 3. Xác thực OTP
-        com.sales.modules.auth.dto.request.VerifyOtpRequest verifyReq = com.sales.modules.auth.dto.request.VerifyOtpRequest.builder()
+        VerifyOtpRequest verifyReq = VerifyOtpRequest.builder()
                 .email("test.reset@gmail.com")
                 .otpCode(otpCode)
                 .build();
@@ -420,8 +400,7 @@ public class AuthControllerTest {
                 .andExpect(jsonPath("$.code").value(1000))
                 .andExpect(jsonPath("$.result.valid").value(true));
 
-        // 4. Đặt lại mật khẩu mới
-        com.sales.modules.auth.dto.request.ResetPasswordRequest resetReq = com.sales.modules.auth.dto.request.ResetPasswordRequest.builder()
+        ResetPasswordRequest resetReq = ResetPasswordRequest.builder()
                 .email("test.reset@gmail.com")
                 .otpCode(otpCode)
                 .newPassword("newPassword789")

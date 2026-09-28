@@ -12,7 +12,6 @@ import java.util.Optional;
 
 @Repository
 public interface BackupHistoryRepository extends JpaRepository<BackupHistory, String> {
-
     Page<BackupHistory> findByHouseholdIdOrderByBackupTimeDesc(String householdId, Pageable pageable);
 
     Optional<BackupHistory> findByIdAndHouseholdId(String id, String householdId);

@@ -12,7 +12,6 @@ import java.util.Optional;
 
 @Repository
 public interface SupplierDebtRepository extends JpaRepository<SupplierDebt, String> {
-
     @EntityGraph(attributePaths = {"supplier", "goodsReceipt", "createdByUser", "household"})
     List<SupplierDebt> findBySupplierIdAndHouseholdIdOrderByCreatedAtDesc(String supplierId, String householdId);
 

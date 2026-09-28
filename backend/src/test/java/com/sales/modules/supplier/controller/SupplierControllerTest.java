@@ -31,7 +31,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Transactional
 @SuppressWarnings("unused")
 public class SupplierControllerTest {
-
     @Autowired
     private MockMvc mockMvc;
 
@@ -139,7 +138,7 @@ public class SupplierControllerTest {
     void createSupplier_phoneDuplicate_badRequest() throws Exception {
         CreateSupplierRequest request = CreateSupplierRequest.builder()
                 .name("Nhà Cung Cấp Trùng Số")
-                .phoneNumber("0912345678") // Đã tồn tại trong setUp
+                .phoneNumber("0912345678")
                 .build();
 
         mockMvc.perform(post("/api/v1/suppliers")

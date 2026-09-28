@@ -21,7 +21,6 @@ import java.time.LocalDate;
 @RequiredArgsConstructor
 @PreAuthorize("hasRole('VT-01') or (hasRole('VT-03') and @accountantSecurityService.hasScope(authentication, 'REPORT'))")
 public class InventoryValuationReportController {
-
     private final InventoryValuationReportService inventoryValuationReportService;
 
     @Operation(summary = "Xem báo cáo giá trị tồn kho theo giá vốn",

@@ -18,7 +18,6 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class ProductExchangeItem {
-
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     @Column(length = 36, nullable = false)
@@ -31,7 +30,7 @@ public class ProductExchangeItem {
     private ProductExchangeTicket exchangeTicket;
 
     @Column(name = "item_type", nullable = false, length = 20)
-    private String itemType; // RETURN_ITEM, EXCHANGE_ITEM
+    private String itemType;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "product_id", nullable = false)

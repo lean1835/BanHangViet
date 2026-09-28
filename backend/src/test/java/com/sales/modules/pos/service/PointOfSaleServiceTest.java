@@ -37,7 +37,6 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 @SuppressWarnings("unchecked")
 class PointOfSaleServiceTest {
-
     @Mock
     private PointOfSaleRepository pointOfSaleRepository;
 
@@ -276,7 +275,7 @@ class PointOfSaleServiceTest {
         PointOfSaleRequest request = PointOfSaleRequest.builder()
                 .name("Quầy chính")
                 .address("123 Lê Lợi")
-                .isActive(false) // Cố tình tắt hoạt động
+                .isActive(false)
                 .build();
 
         AppException ex = assertThrows(AppException.class, () ->

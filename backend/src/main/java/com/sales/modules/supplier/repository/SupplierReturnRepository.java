@@ -15,7 +15,6 @@ import java.util.Optional;
 
 @Repository
 public interface SupplierReturnRepository extends JpaRepository<SupplierReturn, String>, JpaSpecificationExecutor<SupplierReturn> {
-
     boolean existsByReturnNumber(String returnNumber);
 
     @EntityGraph(attributePaths = {"items", "items.product", "createdByUser", "household", "receipt", "supplier"})

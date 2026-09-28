@@ -14,7 +14,6 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class InventoryAuditDetailInfoResponse {
-
     private String id;
     private String auditNumber;
     private LocalDateTime auditDate;

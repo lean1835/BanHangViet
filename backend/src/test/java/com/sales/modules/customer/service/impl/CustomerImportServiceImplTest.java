@@ -37,7 +37,6 @@ import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class CustomerImportServiceImplTest {
-
     @Mock
     private CustomerRepository customerRepository;
     @Mock
@@ -166,7 +165,7 @@ class CustomerImportServiceImplTest {
         when(customerRepository.findAllByHouseholdIdAndDeletedAtIsNull("hh-1")).thenReturn(Collections.emptyList());
 
         List<String[]> rows = Collections.singletonList(
-                new String[]{"Trần Thị B", "12345", "", "", "", "0", "0", "QR"} // SĐT sai định dạng
+                new String[]{"Trần Thị B", "12345", "", "", "", "0", "0", "QR"}
         );
         MockMultipartFile file = createExcelFile(rows);
 
@@ -196,7 +195,7 @@ class CustomerImportServiceImplTest {
             }
             Row row = sheet.createRow(1);
             row.createCell(0).setCellValue("Khách Hàng Numeric");
-            row.createCell(1).setCellValue(912345678.0); // Numeric trong Excel!
+            row.createCell(1).setCellValue(912345678.0);
 
             ByteArrayOutputStream out = new ByteArrayOutputStream();
             workbook.write(out);

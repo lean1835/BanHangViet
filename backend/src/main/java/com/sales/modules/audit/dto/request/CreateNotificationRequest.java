@@ -9,8 +9,7 @@ import lombok.*;
 @NoArgsConstructor
 @AllArgsConstructor
 public class CreateNotificationRequest {
-
-    private String targetUserId;     // null = toàn bộ hộ
+    private String targetUserId;
 
     @NotBlank(message = "Loại thông báo không được để trống")
     private String notificationType;

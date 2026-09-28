@@ -36,7 +36,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Transactional
 @SuppressWarnings("unused")
 public class ProductControllerTest {
-
     @Autowired
     private MockMvc mockMvc;
 
@@ -71,7 +70,6 @@ public class ProductControllerTest {
 
     @BeforeEach
     public void setUp() {
-        // 1. Tạo hoặc lấy hộ kinh doanh test
         testHousehold = businessHouseholdRepository.findAll().stream().findFirst().orElseGet(() -> {
             BusinessHousehold household = BusinessHousehold.builder()
                     .taxCode("9999999999")
@@ -82,7 +80,6 @@ public class ProductControllerTest {
             return businessHouseholdRepository.save(household);
         });
 
-        // 2. Lấy hoặc tạo vai trò
         ownerRole = roleRepository.findByCode("VT-01").orElseGet(() -> {
             Role r = Role.builder().code("VT-01").name("Chủ hộ").build();
             return roleRepository.save(r);
@@ -93,7 +90,6 @@ public class ProductControllerTest {
             return roleRepository.save(r);
         });
 
-        // 3. Tạo hoặc lấy người dùng test
         testOwner = userRepository.findByUsername("test_owner_product").orElseGet(() -> {
             User u = User.builder()
                     .username("test_owner_product")
@@ -118,7 +114,6 @@ public class ProductControllerTest {
             return userRepository.save(u);
         });
 
-        // 4. Tạo thuế suất test
         testTaxRate = taxRateRepository.findAll().stream()
                 .filter(t -> t.getHousehold().getId().equals(testHousehold.getId()) && t.getIsActive())
                 .findFirst().orElseGet(() -> {
@@ -131,7 +126,6 @@ public class ProductControllerTest {
                     return taxRateRepository.save(t);
                 });
 
-        // 5. Tạo nhóm sản phẩm test
         testGroup = productGroupRepository.findAll().stream()
                 .filter(g -> g.getHousehold().getId().equals(testHousehold.getId()) && g.getDeletedAt() == null)
                 .findFirst().orElseGet(() -> {
@@ -191,7 +185,6 @@ public class ProductControllerTest {
     @Test
     @WithMockUser(username = "test_owner_product", roles = {"VT-01"})
     public void createProduct_duplicateSku_fails() throws Exception {
-        // Tạo sản phẩm trước
         Product p = Product.builder()
                 .household(testHousehold)
                 .group(testGroup)
@@ -205,7 +198,6 @@ public class ProductControllerTest {
                 .build();
         productRepository.saveAndFlush(p);
 
-        // Thử tạo sản phẩm trùng SKU
         CreateProductRequest request = CreateProductRequest.builder()
                 .sku("SKU-DUPLICATE")
                 .name("Sản phẩm trùng SKU")
@@ -231,7 +223,7 @@ public class ProductControllerTest {
                 .sku("SKU-TEST-003")
                 .name("Sản phẩm giá âm")
                 .unit("Cái")
-                .price(new BigDecimal("-1000.00")) // Giá âm
+                .price(new BigDecimal("-1000.00"))
                 .stockQuantity(new BigDecimal("100.000"))
                 .status("ACTIVE")
                 .taxRateId(testTaxRate.getId())
@@ -246,7 +238,6 @@ public class ProductControllerTest {
     @Test
     @WithMockUser(username = "test_owner_product", roles = {"VT-01"})
     public void updateProduct_success() throws Exception {
-        // Tạo sản phẩm trước
         Product p = Product.builder()
                 .household(testHousehold)
                 .group(testGroup)
@@ -325,7 +316,6 @@ public class ProductControllerTest {
     @Test
     @WithMockUser(username = "test_employee_product", roles = {"VT-02"})
     public void getProducts_success() throws Exception {
-        // Tạo một số sản phẩm test
         Product p1 = Product.builder()
                 .household(testHousehold)
                 .taxRate(testTaxRate)
@@ -364,7 +354,6 @@ public class ProductControllerTest {
     @Test
     @WithMockUser(username = "test_employee_product", roles = {"VT-02"})
     public void getProducts_excludeInactiveTrue_success() throws Exception {
-        // Tạo sản phẩm active
         Product pActive = Product.builder()
                 .household(testHousehold)
                 .taxRate(testTaxRate)
@@ -377,7 +366,6 @@ public class ProductControllerTest {
                 .build();
         productRepository.save(pActive);
 
-        // Tạo sản phẩm inactive
         Product pInactive = Product.builder()
                 .household(testHousehold)
                 .taxRate(testTaxRate)
@@ -391,7 +379,6 @@ public class ProductControllerTest {
         productRepository.save(pInactive);
         productRepository.flush();
 
-        // Tìm kiếm sữa tươi, lọc bỏ hàng ngừng bán (excludeInactive = true)
         mockMvc.perform(get("/api/v1/products")
                         .param("search", "True")
                         .param("excludeInactive", "true")
@@ -407,7 +394,6 @@ public class ProductControllerTest {
     @Test
     @WithMockUser(username = "test_employee_product", roles = {"VT-02"})
     public void getProducts_excludeInactiveFalse_success() throws Exception {
-        // Tạo sản phẩm active
         Product pActive = Product.builder()
                 .household(testHousehold)
                 .taxRate(testTaxRate)
@@ -420,7 +406,6 @@ public class ProductControllerTest {
                 .build();
         productRepository.save(pActive);
 
-        // Tạo sản phẩm inactive
         Product pInactive = Product.builder()
                 .household(testHousehold)
                 .taxRate(testTaxRate)
@@ -434,7 +419,6 @@ public class ProductControllerTest {
         productRepository.save(pInactive);
         productRepository.flush();
 
-        // Tìm kiếm sữa tươi, không lọc bỏ hàng ngừng bán (excludeInactive = false)
         mockMvc.perform(get("/api/v1/products")
                         .param("search", "False")
                         .param("excludeInactive", "false")
@@ -449,7 +433,6 @@ public class ProductControllerTest {
     @Test
     @WithMockUser(username = "test_owner_product", roles = {"VT-01"})
     public void deleteProduct_success() throws Exception {
-        // Tạo sản phẩm trước
         Product p = Product.builder()
                 .household(testHousehold)
                 .taxRate(testTaxRate)
@@ -467,7 +450,6 @@ public class ProductControllerTest {
                 .andExpect(jsonPath("$.code").value(1000))
                 .andExpect(jsonPath("$.message").value("Xóa hàng hóa thành công"));
 
-        // Lấy lại phải báo không tồn tại (do đã bị soft-deleted)
         mockMvc.perform(get("/api/v1/products/" + p.getId()))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value(3001));

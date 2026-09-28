@@ -29,7 +29,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureMockMvc
 @Transactional
 public class ReportControllerTest {
-
     @Autowired
     private MockMvc mockMvc;
 
@@ -267,7 +266,6 @@ public class ReportControllerTest {
                 .andExpect(status().isBadRequest());
     }
 
-    // --- Tests for NCL-07-CN-008: Báo cáo lãi gộp ---
     @Test
     @WithMockUser(username = "test_owner_report", roles = {"VT-01"})
     public void getGrossProfitReport_asOwner_success() throws Exception {
@@ -303,7 +301,6 @@ public class ReportControllerTest {
                 .andExpect(status().isForbidden());
     }
 
-    // --- Tests for NCL-07-CN-011: Báo cáo hình thức thanh toán ---
     @Test
     @WithMockUser(username = "test_owner_report", roles = {"VT-01"})
     public void getPaymentMethodReport_asOwner_success() throws Exception {
@@ -326,7 +323,6 @@ public class ReportControllerTest {
                 .andExpect(status().isForbidden());
     }
 
-    // --- Tests for NCL-07-CN-012: Báo cáo theo nhóm hàng ---
     @Test
     @WithMockUser(username = "test_owner_report", roles = {"VT-01"})
     public void getProductGroupReport_asOwner_success() throws Exception {
@@ -351,7 +347,6 @@ public class ReportControllerTest {
                 .andExpect(jsonPath("$.result.groupId").value("UNASSIGNED"));
     }
 
-    // --- Tests for NCL-07-CN-010: Báo cáo nhân viên và ca ---
     @Test
     @WithMockUser(username = "test_owner_report", roles = {"VT-01"})
     public void getEmployeeShiftReport_asOwner_success() throws Exception {
@@ -374,7 +369,6 @@ public class ReportControllerTest {
                 .andExpect(status().isForbidden());
     }
 
-    // --- Tests for NCL-07-CN-009: Xuất báo cáo Excel ---
     @Test
     @WithMockUser(username = "test_owner_report", roles = {"VT-01"})
     public void exportReport_asOwner_noData_badRequest() throws Exception {

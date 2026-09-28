@@ -36,7 +36,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureMockMvc
 @Transactional
 public class BarcodeControllerTest {
-
     @Autowired
     private MockMvc mockMvc;
 

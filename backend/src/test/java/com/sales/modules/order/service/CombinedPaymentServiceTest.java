@@ -57,10 +57,10 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
+import jakarta.servlet.http.HttpServletRequest;
 
 @ExtendWith(MockitoExtension.class)
 class CombinedPaymentServiceTest {
-
     @Mock
     private OrderRepository orderRepository;
     @Mock
@@ -102,7 +102,7 @@ class CombinedPaymentServiceTest {
     private OrderServiceImpl orderService;
 
     @Mock
-    private jakarta.servlet.http.HttpServletRequest httpServletRequest;
+    private HttpServletRequest httpServletRequest;
 
     private OrderPaymentServiceImpl orderPaymentService;
 
@@ -201,7 +201,6 @@ class CombinedPaymentServiceTest {
     @Test
     @DisplayName("TC-01: Thanh toán kết hợp Tiền mặt (100k, đưa 150k, thối 50k) + Chuyển khoản (250k) cho đơn 350k")
     void testCompleteOrder_CombinedCashAndBankTransfer_Success() {
-        // Arrange
         BigDecimal finalAmount = new BigDecimal("350000.00");
         Order order = createMockCreatingOrder(finalAmount, null);
 
@@ -239,10 +238,8 @@ class CombinedPaymentServiceTest {
                 ))
                 .build();
 
-        // Act
         OrderResponse response = orderService.completeOrder("thungan01", "order-101", request);
 
-        // Assert
         assertNotNull(response);
         assertEquals("COMPLETED", response.getStatus());
         assertEquals("COMBINED", response.getPaymentMethod());
@@ -259,7 +256,6 @@ class CombinedPaymentServiceTest {
     @Test
     @DisplayName("TC-02: Thanh toán kết hợp Chuyển khoản (500k) + Ghi nợ (300k) cho đơn 800k (QTN-13)")
     void testCompleteOrder_CombinedBankTransferAndDebt_Success() {
-        // Arrange
         BigDecimal finalAmount = new BigDecimal("800000.00");
         Order order = createMockCreatingOrder(finalAmount, vipCustomer);
 
@@ -299,10 +295,8 @@ class CombinedPaymentServiceTest {
                 ))
                 .build();
 
-        // Act
         OrderResponse response = orderService.completeOrder("thungan01", "order-101", request);
 
-        // Assert
         assertNotNull(response);
         assertEquals("COMPLETED", response.getStatus());
         assertEquals("COMBINED", response.getPaymentMethod());
@@ -318,7 +312,6 @@ class CombinedPaymentServiceTest {
     @Test
     @DisplayName("TC-03: Dòng BANK_TRANSFER chưa xác nhận (isConfirmed = false) -> Bị chặn")
     void testCompleteOrder_BankTransferNotConfirmed_ThrowsException() {
-        // Arrange
         BigDecimal finalAmount = new BigDecimal("200000.00");
         Order order = createMockCreatingOrder(finalAmount, null);
 
@@ -335,7 +328,6 @@ class CombinedPaymentServiceTest {
                 ))
                 .build();
 
-        // Act & Assert
         AppException ex = assertThrows(AppException.class, () ->
                 orderService.completeOrder("thungan01", "order-101", request));
         assertEquals(ErrorCode.BANK_TRANSFER_NOT_CONFIRMED, ex.getErrorCode());
@@ -344,7 +336,6 @@ class CombinedPaymentServiceTest {
     @Test
     @DisplayName("TC-04: Lệch tổng tiền (thiếu tiền): 200k + 200k cho đơn 500k -> Bị chặn QTN-03")
     void testCompleteOrder_TotalPaymentMismatch_Insufficient_ThrowsException() {
-        // Arrange
         BigDecimal finalAmount = new BigDecimal("500000.00");
         Order order = createMockCreatingOrder(finalAmount, null);
 
@@ -365,7 +356,6 @@ class CombinedPaymentServiceTest {
                 ))
                 .build();
 
-        // Act & Assert
         AppException ex = assertThrows(AppException.class, () ->
                 orderService.completeOrder("thungan01", "order-101", request));
         assertEquals(ErrorCode.PAYMENT_TOTAL_MISMATCH, ex.getErrorCode());
@@ -374,7 +364,6 @@ class CombinedPaymentServiceTest {
     @Test
     @DisplayName("TC-05: Lệch tổng tiền (thừa tiền): 300k + 300k cho đơn 500k -> Bị chặn QTN-03")
     void testCompleteOrder_TotalPaymentMismatch_Excessive_ThrowsException() {
-        // Arrange
         BigDecimal finalAmount = new BigDecimal("500000.00");
         Order order = createMockCreatingOrder(finalAmount, null);
 
@@ -395,7 +384,6 @@ class CombinedPaymentServiceTest {
                 ))
                 .build();
 
-        // Act & Assert
         AppException ex = assertThrows(AppException.class, () ->
                 orderService.completeOrder("thungan01", "order-101", request));
         assertEquals(ErrorCode.PAYMENT_TOTAL_MISMATCH, ex.getErrorCode());
@@ -404,9 +392,8 @@ class CombinedPaymentServiceTest {
     @Test
     @DisplayName("TC-06: Khách lẻ thanh toán có nợ (customer == null) -> Bị chặn QTN-13")
     void testCompleteOrder_DebtWithoutCustomer_ThrowsException() {
-        // Arrange
         BigDecimal finalAmount = new BigDecimal("300000.00");
-        Order order = createMockCreatingOrder(finalAmount, null); // Khách lẻ
+        Order order = createMockCreatingOrder(finalAmount, null);
 
         when(userRepository.findByUsername("thungan01")).thenReturn(Optional.of(cashierUser));
         when(orderRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("order-101", "household-01")).thenReturn(Optional.of(order));
@@ -424,7 +411,6 @@ class CombinedPaymentServiceTest {
                 ))
                 .build();
 
-        // Act & Assert
         AppException ex = assertThrows(AppException.class, () ->
                 orderService.completeOrder("thungan01", "order-101", request));
         assertEquals(ErrorCode.CUSTOMER_REQUIRED_FOR_DEBT, ex.getErrorCode());
@@ -433,8 +419,7 @@ class CombinedPaymentServiceTest {
     @Test
     @DisplayName("TC-07: Khách nợ vượt hạn mức tín dụng cho phép -> Bị chặn QTN-13")
     void testCompleteOrder_CreditLimitExceeded_ThrowsException() {
-        // Arrange
-        vipCustomer.setCurrentDebt(new BigDecimal("1900000.00")); // Hạn mức 2tr, đã nợ 1.9tr
+        vipCustomer.setCurrentDebt(new BigDecimal("1900000.00"));
         BigDecimal finalAmount = new BigDecimal("300000.00");
         Order order = createMockCreatingOrder(finalAmount, vipCustomer);
 
@@ -447,12 +432,11 @@ class CombinedPaymentServiceTest {
                 .payments(Collections.singletonList(
                         OrderPaymentRequest.builder()
                                 .paymentMethod(PaymentMethodConstant.DEBT)
-                                .amount(new BigDecimal("300000.00")) // 1.9tr + 300k = 2.2tr > 2tr
+                                .amount(new BigDecimal("300000.00"))
                                 .build()
                 ))
                 .build();
 
-        // Act & Assert
         AppException ex = assertThrows(AppException.class, () ->
                 orderService.completeOrder("thungan01", "order-101", request));
         assertEquals(ErrorCode.CREDIT_LIMIT_EXCEEDED, ex.getErrorCode());
@@ -461,7 +445,6 @@ class CombinedPaymentServiceTest {
     @Test
     @DisplayName("TC-08: Tiền mặt khách đưa nhỏ hơn số tiền thanh toán (amountGiven < amount) -> Bị chặn")
     void testCompleteOrder_CashGivenLessThanAmount_ThrowsException() {
-        // Arrange
         BigDecimal finalAmount = new BigDecimal("100000.00");
         Order order = createMockCreatingOrder(finalAmount, null);
 
@@ -473,12 +456,11 @@ class CombinedPaymentServiceTest {
                         OrderPaymentRequest.builder()
                                 .paymentMethod(PaymentMethodConstant.CASH)
                                 .amount(new BigDecimal("100000.00"))
-                                .amountGiven(new BigDecimal("80000.00")) // Đưa thiếu
+                                .amountGiven(new BigDecimal("80000.00"))
                                 .build()
                 ))
                 .build();
 
-        // Act & Assert
         AppException ex = assertThrows(AppException.class, () ->
                 orderService.completeOrder("thungan01", "order-101", request));
         assertEquals(ErrorCode.CASH_GIVEN_LESS_THAN_AMOUNT, ex.getErrorCode());
@@ -487,7 +469,6 @@ class CombinedPaymentServiceTest {
     @Test
     @DisplayName("TC-09: Trùng lặp hình thức thanh toán trong đơn -> Bị chặn")
     void testCompleteOrder_DuplicatePaymentMethod_ThrowsException() {
-        // Arrange
         BigDecimal finalAmount = new BigDecimal("200000.00");
         Order order = createMockCreatingOrder(finalAmount, null);
 
@@ -507,7 +488,6 @@ class CombinedPaymentServiceTest {
                 ))
                 .build();
 
-        // Act & Assert
         AppException ex = assertThrows(AppException.class, () ->
                 orderService.completeOrder("thungan01", "order-101", request));
         assertEquals(ErrorCode.DUPLICATE_PAYMENT_METHOD, ex.getErrorCode());
@@ -516,7 +496,6 @@ class CombinedPaymentServiceTest {
     @Test
     @DisplayName("TC-10: Hình thức thanh toán không hợp lệ -> Bị chặn")
     void testCompleteOrder_InvalidPaymentMethod_ThrowsException() {
-        // Arrange
         BigDecimal finalAmount = new BigDecimal("100000.00");
         Order order = createMockCreatingOrder(finalAmount, null);
 
@@ -532,7 +511,6 @@ class CombinedPaymentServiceTest {
                 ))
                 .build();
 
-        // Act & Assert
         AppException ex = assertThrows(AppException.class, () ->
                 orderService.completeOrder("thungan01", "order-101", request));
         assertEquals(ErrorCode.INVALID_PAYMENT_METHOD, ex.getErrorCode());
@@ -541,7 +519,6 @@ class CombinedPaymentServiceTest {
     @Test
     @DisplayName("TC-11: Danh sách payments rỗng -> Bị chặn")
     void testCompleteOrder_EmptyPaymentsList_ThrowsException() {
-        // Arrange
         BigDecimal finalAmount = new BigDecimal("100000.00");
         Order order = createMockCreatingOrder(finalAmount, null);
 
@@ -552,7 +529,6 @@ class CombinedPaymentServiceTest {
                 .payments(Collections.emptyList())
                 .build();
 
-        // Act & Assert
         AppException ex = assertThrows(AppException.class, () ->
                 orderService.completeOrder("thungan01", "order-101", request));
         assertEquals(ErrorCode.PAYMENTS_EMPTY, ex.getErrorCode());
@@ -561,7 +537,6 @@ class CombinedPaymentServiceTest {
     @Test
     @DisplayName("TC-12: Dòng thanh toán có amount <= 0 -> Bị chặn")
     void testCompleteOrder_ZeroOrNegativeAmount_ThrowsException() {
-        // Arrange
         BigDecimal finalAmount = new BigDecimal("100000.00");
         Order order = createMockCreatingOrder(finalAmount, null);
 
@@ -577,7 +552,6 @@ class CombinedPaymentServiceTest {
                 ))
                 .build();
 
-        // Act & Assert
         AppException ex = assertThrows(AppException.class, () ->
                 orderService.completeOrder("thungan01", "order-101", request));
         assertEquals(ErrorCode.PAYMENT_AMOUNT_INVALID, ex.getErrorCode());
@@ -586,7 +560,6 @@ class CombinedPaymentServiceTest {
     @Test
     @DisplayName("TC-13: Xác nhận chuyển khoản ngân hàng NCL-03-CN-012 thành công")
     void testConfirmBankTransfer_Success() {
-        // Arrange
         Order order = createMockCreatingOrder(new BigDecimal("250000.00"), null);
         OrderPayment payment = OrderPayment.builder()
                 .id("pay-transfer-01")
@@ -608,10 +581,8 @@ class CombinedPaymentServiceTest {
                 .notes("Đã đối soát tin nhắn SMS")
                 .build();
 
-        // Act
         OrderPaymentResponse response = orderPaymentService.confirmBankTransfer("thungan01", "order-101", "pay-transfer-01", request);
 
-        // Assert
         assertNotNull(response);
         assertTrue(response.getIsConfirmed());
         assertEquals("VCB.999888", response.getTransactionCode());
@@ -624,7 +595,6 @@ class CombinedPaymentServiceTest {
     @Test
     @DisplayName("TC-14: Xác nhận chuyển khoản cho dòng tiền mặt -> Bị chặn NOT_BANK_TRANSFER_PAYMENT")
     void testConfirmBankTransfer_NotBankTransfer_ThrowsException() {
-        // Arrange
         Order order = createMockCreatingOrder(new BigDecimal("100000.00"), null);
         OrderPayment payment = OrderPayment.builder()
                 .id("pay-cash-01")
@@ -640,7 +610,6 @@ class CombinedPaymentServiceTest {
         when(orderPaymentRepository.findByIdAndOrderIdAndHouseholdId("pay-cash-01", "order-101", "household-01"))
                 .thenReturn(Optional.of(payment));
 
-        // Act & Assert
         AppException ex = assertThrows(AppException.class, () ->
                 orderPaymentService.confirmBankTransfer("thungan01", "order-101", "pay-cash-01", null));
         assertEquals(ErrorCode.NOT_BANK_TRANSFER_PAYMENT, ex.getErrorCode());
@@ -649,7 +618,6 @@ class CombinedPaymentServiceTest {
     @Test
     @DisplayName("TC-17: Tương thích ngược (Legacy request không truyền payments) -> Tự động tạo 1 OrderPayment")
     void testCompleteOrder_LegacySingleCash_Success() {
-        // Arrange
         BigDecimal finalAmount = new BigDecimal("100000.00");
         Order order = createMockCreatingOrder(finalAmount, null);
         order.setPaymentMethod("CASH");
@@ -660,12 +628,10 @@ class CombinedPaymentServiceTest {
 
         CompleteOrderRequest request = CompleteOrderRequest.builder()
                 .amountGiven(new BigDecimal("120000.00"))
-                .build(); // Không truyền payments
+                .build();
 
-        // Act
         OrderResponse response = orderService.completeOrder("thungan01", "order-101", request);
 
-        // Assert
         assertNotNull(response);
         assertEquals("COMPLETED", response.getStatus());
         assertEquals("CASH", response.getPaymentMethod());
@@ -678,13 +644,12 @@ class CombinedPaymentServiceTest {
     @Test
     @DisplayName("TC-18: P1-02 Chặn bypass xác nhận chuyển khoản: Client gửi isConfirmed=true nhưng DB chưa có bản ghi xác thực")
     void testCompleteOrder_BypassBankTransferConfirmation_ThrowsException() {
-        // Arrange
         BigDecimal finalAmount = new BigDecimal("350000.00");
         Order order = createMockCreatingOrder(finalAmount, null);
 
         when(userRepository.findByUsername("thungan01")).thenReturn(Optional.of(cashierUser));
         when(orderRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("order-101", "household-01")).thenReturn(Optional.of(order));
-        // DB trả về Optional.empty (chưa hề gọi endpoint confirm-bank-transfer)
+
         when(orderPaymentRepository.findFirstByOrderIdAndHouseholdIdAndPaymentMethod("order-101", "household-01", PaymentMethodConstant.BANK_TRANSFER))
                 .thenReturn(Optional.empty());
 
@@ -698,12 +663,11 @@ class CombinedPaymentServiceTest {
                                 .paymentMethod(PaymentMethodConstant.BANK_TRANSFER)
                                 .amount(new BigDecimal("250000.00"))
                                 .transactionCode("FAKE_VCB_123")
-                                .isConfirmed(true) // Giả mạo xác nhận từ client
+                                .isConfirmed(true)
                                 .build()
                 ))
                 .build();
 
-        // Act & Assert
         AppException ex = assertThrows(AppException.class, () ->
                 orderService.completeOrder("thungan01", "order-101", request));
         assertEquals(ErrorCode.BANK_TRANSFER_NOT_CONFIRMED, ex.getErrorCode(),
@@ -713,7 +677,6 @@ class CombinedPaymentServiceTest {
     @Test
     @DisplayName("TC-19: P1-02 Chặn hoàn tất đơn khi chuyển khoản trong DB có isConfirmed = false")
     void testCompleteOrder_BankTransferInDbNotConfirmed_ThrowsException() {
-        // Arrange
         BigDecimal finalAmount = new BigDecimal("350000.00");
         Order order = createMockCreatingOrder(finalAmount, null);
 
@@ -746,7 +709,6 @@ class CombinedPaymentServiceTest {
                 ))
                 .build();
 
-        // Act & Assert
         AppException ex = assertThrows(AppException.class, () ->
                 orderService.completeOrder("thungan01", "order-101", request));
         assertEquals(ErrorCode.BANK_TRANSFER_NOT_CONFIRMED, ex.getErrorCode());

@@ -10,12 +10,12 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.security.Principal;
+import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/api/v1/backup-verification")
 @RequiredArgsConstructor
 public class BackupVerificationController {
-
     private final BackupVerificationService backupVerificationService;
 
     @GetMapping("/status")
@@ -47,7 +47,7 @@ public class BackupVerificationController {
     @PreAuthorize("hasAnyRole('VT-01', 'OWNER')")
     public ApiResponse<BackupVerificationHistoryResponse> triggerVerification(
             Principal principal,
-            @jakarta.validation.Valid @RequestBody(required = false) TriggerVerificationRequest request) {
+            @Valid @RequestBody(required = false) TriggerVerificationRequest request) {
         BackupVerificationHistoryResponse response = backupVerificationService.triggerVerification(principal.getName(), request);
         boolean passed = "PASSED".equalsIgnoreCase(response.getStatus());
         String responseMessage = passed

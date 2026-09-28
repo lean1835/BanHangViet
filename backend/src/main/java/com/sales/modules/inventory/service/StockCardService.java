@@ -4,7 +4,6 @@ import com.sales.modules.inventory.dto.response.StockCardResponse;
 import java.time.LocalDate;
 
 public interface StockCardService {
-
     StockCardResponse getStockCard(
             String username,
             String productId,

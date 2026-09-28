@@ -38,7 +38,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Transactional
 @SuppressWarnings("unused")
 public class RestoreControllerTest {
-
     @Autowired
     private MockMvc mockMvc;
 
@@ -237,7 +236,6 @@ public class RestoreControllerTest {
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isForbidden());
     }
-
 
     @Test
     @WithMockUser(username = "owner_restore_user", roles = "VT-01")

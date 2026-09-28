@@ -12,7 +12,6 @@ import java.util.Optional;
 
 @Repository
 public interface InvoiceErrorNoticeRepository extends JpaRepository<InvoiceErrorNotice, String> {
-
     Optional<InvoiceErrorNotice> findByIdAndHouseholdId(String id, String householdId);
 
     boolean existsByNoticeCode(String noticeCode);

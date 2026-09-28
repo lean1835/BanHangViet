@@ -33,10 +33,11 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
+import com.sales.common.utils.EmailService;
+import org.mockito.ArgumentCaptor;
 
 @ExtendWith(MockitoExtension.class)
 class PasswordResetServiceImplTest {
-
     @Mock
     private UserRepository userRepository;
 
@@ -59,7 +60,7 @@ class PasswordResetServiceImplTest {
     private Cache userCache;
 
     @Mock
-    private com.sales.common.utils.EmailService emailService;
+    private EmailService emailService;
 
     @InjectMocks
     private PasswordResetServiceImpl passwordResetService;
@@ -123,7 +124,7 @@ class PasswordResetServiceImplTest {
         assertEquals("0912345678", response.getPhoneNumber());
         assertEquals(300L, response.getExpiresInSeconds());
 
-        org.mockito.ArgumentCaptor<PasswordResetOtp> captor = org.mockito.ArgumentCaptor.forClass(PasswordResetOtp.class);
+        ArgumentCaptor<PasswordResetOtp> captor = ArgumentCaptor.forClass(PasswordResetOtp.class);
         verify(otpRepository, times(1)).save(captor.capture());
         assertEquals("0912345678", captor.getValue().getPhoneNumber());
         assertEquals("PASSWORD_RESET", captor.getValue().getType());

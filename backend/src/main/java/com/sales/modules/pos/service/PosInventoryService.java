@@ -7,9 +7,9 @@ import org.springframework.data.domain.Pageable;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 
 public interface PosInventoryService {
-
     Page<PosInventoryResponse> getInventoriesByPos(
             String currentUsername, String posId, String keyword, String groupId, Boolean lowStockOnly, Pageable pageable);
 
@@ -25,7 +25,7 @@ public interface PosInventoryService {
 
     void checkAndDeductPosStock(String householdId, String posId, String productId, BigDecimal quantity);
 
-    void batchDeductPosStock(String householdId, String posId, java.util.Map<String, BigDecimal> productQuantities);
+    void batchDeductPosStock(String householdId, String posId, Map<String, BigDecimal> productQuantities);
 
     void restorePosStock(String householdId, String posId, String productId, BigDecimal quantity);
 }

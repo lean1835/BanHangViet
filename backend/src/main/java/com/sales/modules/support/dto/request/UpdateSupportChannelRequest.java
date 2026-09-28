@@ -11,7 +11,6 @@ import lombok.*;
 @NoArgsConstructor
 @AllArgsConstructor
 public class UpdateSupportChannelRequest {
-
     @NotNull(message = "Loại kênh hỗ trợ không được để trống")
     private SupportChannelType channelType;
 

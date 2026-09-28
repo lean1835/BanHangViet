@@ -13,7 +13,6 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ShiftHandoverRequest {
-
     private String shiftId;
 
     @NotBlank(message = "Người nhận bàn giao không được để trống")

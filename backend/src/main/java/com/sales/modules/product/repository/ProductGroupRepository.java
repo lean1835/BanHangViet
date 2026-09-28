@@ -11,7 +11,7 @@ import java.util.Optional;
 @Repository
 public interface ProductGroupRepository extends JpaRepository<ProductGroup, String> {
     Optional<ProductGroup> findByIdAndHouseholdIdAndDeletedAtIsNull(String id, String householdId);
-    
+
     @EntityGraph(attributePaths = {"household"})
     List<ProductGroup> findByHouseholdIdAndDeletedAtIsNull(String householdId);
 

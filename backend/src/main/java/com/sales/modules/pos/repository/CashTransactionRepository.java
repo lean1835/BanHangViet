@@ -17,7 +17,6 @@ import java.util.Optional;
 
 @Repository
 public interface CashTransactionRepository extends JpaRepository<CashTransaction, String> {
-
     @EntityGraph(attributePaths = {"createdByUser", "approvedByUser", "category", "shift"})
     List<CashTransaction> findByShiftIdOrderByCreatedAtDesc(String shiftId);
 

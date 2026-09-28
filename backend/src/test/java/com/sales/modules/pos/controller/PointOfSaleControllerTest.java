@@ -31,7 +31,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Transactional
 @SuppressWarnings("unused")
 public class PointOfSaleControllerTest {
-
     @Autowired
     private MockMvc mockMvc;
 
@@ -194,7 +193,7 @@ public class PointOfSaleControllerTest {
         PointOfSaleRequest request = PointOfSaleRequest.builder()
                 .name("Quầy Mới Trùng Symbol")
                 .address("123 Test")
-                .invoiceSymbol("C26POS1") // Trùng với pos1
+                .invoiceSymbol("C26POS1")
                 .build();
 
         mockMvc.perform(post("/api/v1/points-of-sale")

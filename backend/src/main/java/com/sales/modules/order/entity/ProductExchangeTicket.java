@@ -27,7 +27,6 @@ import java.util.List;
 @AllArgsConstructor
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class ProductExchangeTicket {
-
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     @Column(length = 36, nullable = false)
@@ -64,7 +63,7 @@ public class ProductExchangeTicket {
 
     @Column(name = "exchange_type", nullable = false, length = 20)
     @Builder.Default
-    private String exchangeType = "EQUAL_VALUE"; // EQUAL_VALUE, HIGHER_VALUE, LOWER_VALUE
+    private String exchangeType = "EQUAL_VALUE";
 
     @Column(name = "total_return_amount", nullable = false, precision = 15, scale = 2)
     @Builder.Default
@@ -79,7 +78,7 @@ public class ProductExchangeTicket {
     private BigDecimal differenceAmount = BigDecimal.ZERO;
 
     @Column(name = "extra_payment_method", length = 20)
-    private String extraPaymentMethod; // CASH, BANK_TRANSFER, QR_TRANSFER, DEBT, NONE
+    private String extraPaymentMethod;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "additional_invoice_id")
@@ -88,7 +87,7 @@ public class ProductExchangeTicket {
 
     @Column(nullable = false, length = 30)
     @Builder.Default
-    private String status = "COMPLETED"; // COMPLETED, REDIRECTED_TO_RETURN, CANCELED
+    private String status = "COMPLETED";
 
     @Column(columnDefinition = "TEXT")
     private String reason;

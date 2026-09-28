@@ -7,7 +7,6 @@ import java.util.List;
 
 @Repository
 public interface SupportChannelRepository extends JpaRepository<SupportChannel, String> {
-
     List<SupportChannel> findAllByIsActiveTrueOrderByDisplayOrderAsc();
 
     List<SupportChannel> findAllByOrderByDisplayOrderAsc();

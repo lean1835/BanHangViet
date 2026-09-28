@@ -23,7 +23,6 @@ import java.util.List;
 @RequiredArgsConstructor
 @Tag(name = "Cash Transactions", description = "Ghi thu chi tiền mặt ngoài bán hàng trong ca (NCL-03-CN-014)")
 public class CashTransactionController {
-
     private final CashTransactionService cashTransactionService;
 
     @PostMapping

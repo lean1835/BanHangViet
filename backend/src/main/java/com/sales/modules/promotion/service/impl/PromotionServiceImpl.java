@@ -45,12 +45,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.time.Duration;
+import java.util.function.Function;
+import lombok.Value;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class PromotionServiceImpl implements PromotionService {
-
     private final PromotionRepository promotionRepository;
     private final UserRepository userRepository;
     private final ProductRepository productRepository;
@@ -118,7 +120,6 @@ public class PromotionServiceImpl implements PromotionService {
             promotion.setStatus(request.getStatus());
         }
 
-        // Clear existing mappings (handled cleanly via JPA orphanRemoval)
         promotion.getPromotionProducts().clear();
         promotion.getPromotionProductGroups().clear();
 
@@ -242,7 +243,7 @@ public class PromotionServiceImpl implements PromotionService {
         LocalDateTime promoEnd = promotion.getEndDate();
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime effectiveEnd = promoEnd.isAfter(now) ? now : promoEnd;
-        long durationInSeconds = java.time.Duration.between(promoStart, effectiveEnd).getSeconds();
+        long durationInSeconds = Duration.between(promoStart, effectiveEnd).getSeconds();
         if (durationInSeconds <= 0) {
             durationInSeconds = 86400;
         }
@@ -360,7 +361,7 @@ public class PromotionServiceImpl implements PromotionService {
                 ? Collections.emptyMap()
                 : productRepository.findAllByIdInAndHouseholdIdAndDeletedAtIsNull(productIds, householdId)
                         .stream()
-                        .collect(Collectors.toMap(Product::getId, java.util.function.Function.identity(), (p1, p2) -> p1));
+                        .collect(Collectors.toMap(Product::getId, Function.identity(), (p1, p2) -> p1));
 
         List<PromotionItemResultResponse> itemResults = new ArrayList<>();
         BigDecimal totalOriginalAmount = BigDecimal.ZERO;
@@ -434,14 +435,12 @@ public class PromotionServiceImpl implements PromotionService {
             Boolean bypassPromotion,
             List<Promotion> activePromotions
     ) {
-
         BigDecimal effectiveUnitPrice = requestedUnitPrice != null && requestedUnitPrice.compareTo(BigDecimal.ZERO) >= 0
                 ? requestedUnitPrice
                 : product.getPrice();
 
         BigDecimal originalSubtotal = effectiveUnitPrice.multiply(quantity).setScale(2, RoundingMode.HALF_UP);
 
-        // Kiểm tra kịch bản TC-04: Nhân viên muốn bỏ khuyến mại -> Chặn và báo lỗi
         if (Boolean.TRUE.equals(bypassPromotion)) {
             if (!isStoreOwner(user)) {
                 log.warn("User {} with role {} attempted to bypass promotion without store owner permission",
@@ -463,7 +462,6 @@ public class PromotionServiceImpl implements PromotionService {
                     .build();
         }
 
-        // Lọc danh sách các đợt khuyến mại thỏa mãn scope với sản phẩm
         List<PromotionCandidate> candidates = new ArrayList<>();
 
         for (Promotion promo : activePromotions) {
@@ -473,7 +471,6 @@ public class PromotionServiceImpl implements PromotionService {
             }
         }
 
-        // TC-02: Nếu không có đợt khuyến mại nào thỏa mãn/đang hiệu lực -> bán giá gốc
         if (candidates.isEmpty()) {
             return PromotionItemResultResponse.builder()
                     .productId(product.getId())
@@ -490,7 +487,6 @@ public class PromotionServiceImpl implements PromotionService {
                     .build();
         }
 
-        // TC-03 & QTN-26: Áp dụng đúng 1 chương trình có lợi nhất cho khách (mức giảm tiền cao nhất)
         candidates.sort(Comparator
                 .comparing(PromotionCandidate::getLineDiscount).reversed()
                 .thenComparing(c -> c.getPromotion().getEndDate()));
@@ -661,7 +657,7 @@ public class PromotionServiceImpl implements PromotionService {
         }
     }
 
-    @lombok.Value
+    @Value
     private static class PromotionCandidate {
         Promotion promotion;
         BigDecimal lineDiscount;

@@ -23,12 +23,12 @@ import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 
 import java.util.Optional;
+import java.util.UUID;
 
 @Component
 @RequiredArgsConstructor
 @Slf4j
 public class OrderSyncedEventListener {
-
     private final EInvoiceService eInvoiceService;
     private final EInvoiceRepository eInvoiceRepository;
     private final OrderRepository orderRepository;
@@ -84,7 +84,7 @@ public class OrderSyncedEventListener {
                     if (order != null && user != null) {
                         String lookupCode;
                         do {
-                            lookupCode = java.util.UUID.randomUUID().toString().replaceAll("-", "").substring(0, 10).toUpperCase();
+                            lookupCode = UUID.randomUUID().toString().replaceAll("-", "").substring(0, 10).toUpperCase();
                         } while (eInvoiceRepository.existsByLookupCodeAndDeletedAtIsNull(lookupCode));
 
                         String pattern = "1";
@@ -133,4 +133,3 @@ public class OrderSyncedEventListener {
         }
     }
 }
-

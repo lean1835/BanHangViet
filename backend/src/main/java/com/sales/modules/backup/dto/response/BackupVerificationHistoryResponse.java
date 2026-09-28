@@ -9,13 +9,12 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 public class BackupVerificationHistoryResponse {
-
     private String id;
     private String backupHistoryId;
     private String backupFileName;
     private LocalDateTime backupTime;
     private Long fileSize;
-    private String status; // PASSED, FAILED
+    private String status;
     private Long executionDurationMs;
     private LocalDateTime verifiedAt;
     private Boolean checkedFileReadable;

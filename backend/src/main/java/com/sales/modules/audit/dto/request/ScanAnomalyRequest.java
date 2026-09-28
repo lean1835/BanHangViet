@@ -13,7 +13,6 @@ import java.time.LocalDate;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ScanAnomalyRequest {
-
     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
     private LocalDate scanDate;
 }

@@ -46,7 +46,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureMockMvc
 @Transactional
 public class SalesAnalyticsControllerTest {
-
     @Autowired
     private MockMvc mockMvc;
 
@@ -93,7 +92,6 @@ public class SalesAnalyticsControllerTest {
     private PointOfSale testPos;
     private TaxRate testTaxRate;
     private Supplier testSupplier;
-
 
     @BeforeEach
     public void setUp() {
@@ -197,7 +195,6 @@ public class SalesAnalyticsControllerTest {
                         .build()));
     }
 
-
     @Test
     @WithMockUser(username = "test_owner_analytics", roles = {"VT-01"})
     public void getPeakAnalysis_asOwner_success() throws Exception {
@@ -295,10 +292,6 @@ public class SalesAnalyticsControllerTest {
                 .andExpect(jsonPath("$.result.heatmap[0].hourOfDay").value(0));
     }
 
-    // ==========================================
-    // NCL-18-CN-002: DỰ BÁO LƯỢNG HÀNG CẦN NHẬP
-    // ==========================================
-
     @Test
     @WithMockUser(username = "test_owner_analytics", roles = {"VT-01"})
     public void getPurchaseForecast_owner_success() throws Exception {
@@ -354,7 +347,6 @@ public class SalesAnalyticsControllerTest {
                 .subtotal(new BigDecimal("3200000.00"))
                 .build());
 
-        // Test with both /purchase-forecast and /purchase-suggestions endpoints
         mockMvc.perform(get("/api/v1/sales-analytics/purchase-forecast?periodDays=28"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(1000))
@@ -389,7 +381,7 @@ public class SalesAnalyticsControllerTest {
                 .createdByUser(userRepository.findByUsername("test_owner_analytics").orElseThrow())
                 .orderNumber("ORD-FORECAST-PROMO")
                 .totalAmount(new BigDecimal("3800000.00"))
-                .discountAmount(new BigDecimal("380000.00")) // Đợt khuyến mại giảm 10%
+                .discountAmount(new BigDecimal("380000.00"))
                 .promotionDiscountAmount(new BigDecimal("380000.00"))
                 .finalAmount(new BigDecimal("3420000.00"))
                 .paymentMethod("CASH")
@@ -563,15 +555,14 @@ public class SalesAnalyticsControllerTest {
                 .status("ACTIVE")
                 .build());
 
-        // Đơn hàng chỉ có chiết khấu VIP của khách hàng, không có khuyến mại
         Order vipOrder = orderRepository.save(Order.builder()
                 .household(testHousehold)
                 .createdByUser(userRepository.findByUsername("test_owner_analytics").orElseThrow())
                 .orderNumber("ORD-FORECAST-VIP-ONLY")
                 .totalAmount(new BigDecimal("1680000.00"))
-                .discountAmount(new BigDecimal("84000.00")) // Tổng chiết khấu
-                .customerDiscountAmount(new BigDecimal("84000.00")) // 100% là chiết khấu VIP
-                .promotionDiscountAmount(BigDecimal.ZERO) // 0đ khuyến mại
+                .discountAmount(new BigDecimal("84000.00"))
+                .customerDiscountAmount(new BigDecimal("84000.00"))
+                .promotionDiscountAmount(BigDecimal.ZERO)
                 .finalAmount(new BigDecimal("1596000.00"))
                 .paymentMethod("CASH")
                 .paymentStatus("PAID")
@@ -597,10 +588,6 @@ public class SalesAnalyticsControllerTest {
                 .andExpect(jsonPath("$.result.content[?(@.productId == '" + p.getId() + "')].promotionWarning").value(contains((Object) null)));
     }
 
-    // =========================================================================
-    // TESTS FOR NCL-18-CN-003: CẢNH BÁO MẶT HÀNG BÁN CHẬM VÀ TỒN LÂU
-    // =========================================================================
-
     @Test
     @WithMockUser(username = "test_owner_analytics", roles = {"VT-01"})
     public void testNCL18CN003_TC01_OwnerGetSlowMovingProductsSuccess() throws Exception {
@@ -609,7 +596,6 @@ public class SalesAnalyticsControllerTest {
                 .name("Nhóm Bán Chậm TC01 " + System.currentTimeMillis())
                 .build());
 
-        // Tạo 7 mặt hàng tồn lâu với đơn hàng hoàn tất cách đây > 60 ngày (70-90 ngày)
         for (int i = 1; i <= 7; i++) {
             Product p = productRepository.save(Product.builder()
                     .household(testHousehold)
@@ -659,14 +645,14 @@ public class SalesAnalyticsControllerTest {
                 .andExpect(jsonPath("$.result.summary.thresholdDays").value(60))
                 .andExpect(jsonPath("$.result.summary.totalStagnantProducts").value(7))
                 .andExpect(jsonPath("$.result.summary.totalStagnantStockQuantity").value(84.0))
-                .andExpect(jsonPath("$.result.summary.totalStagnantCapital").value(1680000.0)) // 84 * 20000
+                .andExpect(jsonPath("$.result.summary.totalStagnantCapital").value(1680000.0))
                 .andExpect(jsonPath("$.result.pageData.totalElements").value(7))
                 .andExpect(jsonPath("$.result.pageData.content", hasSize(7)))
                 .andExpect(jsonPath("$.result.pageData.content[0].stockQuantity").value(12.0))
                 .andExpect(jsonPath("$.result.pageData.content[0].costPrice").value(20000.0))
                 .andExpect(jsonPath("$.result.pageData.content[0].price").value(25000.0))
-                .andExpect(jsonPath("$.result.pageData.content[0].stagnantCapital").value(240000.0)) // 12 * 20000
-                .andExpect(jsonPath("$.result.pageData.content[0].retailInventoryValue").value(300000.0)) // 12 * 25000
+                .andExpect(jsonPath("$.result.pageData.content[0].stagnantCapital").value(240000.0))
+                .andExpect(jsonPath("$.result.pageData.content[0].retailInventoryValue").value(300000.0))
                 .andExpect(jsonPath("$.result.pageData.content[0].daysWithoutSale", greaterThanOrEqualTo(65)));
     }
 
@@ -755,7 +741,6 @@ public class SalesAnalyticsControllerTest {
                 .name("Nhóm Threshold TC05 " + System.currentTimeMillis())
                 .build());
 
-        // Sản phẩm A bán cách đây 45 ngày
         Product pA = productRepository.save(Product.builder()
                 .household(testHousehold)
                 .group(group)
@@ -793,7 +778,6 @@ public class SalesAnalyticsControllerTest {
                 .createdAt(orderA.getCreatedAt())
                 .build());
 
-        // Với thresholdDays = 30 -> pA bán chậm vì 45 > 30
         mockMvc.perform(get("/api/v1/sales-analytics/slow-moving-products")
                         .param("thresholdDays", "30")
                         .param("groupId", group.getId()))
@@ -801,7 +785,6 @@ public class SalesAnalyticsControllerTest {
                 .andExpect(jsonPath("$.code").value(1000))
                 .andExpect(jsonPath("$.result.summary.totalStagnantProducts").value(1));
 
-        // Với thresholdDays = 60 -> pA KHÔNG bán chậm vì 45 < 60
         mockMvc.perform(get("/api/v1/sales-analytics/slow-moving-products")
                         .param("thresholdDays", "60")
                         .param("groupId", group.getId()))
@@ -860,7 +843,6 @@ public class SalesAnalyticsControllerTest {
                 .createdAt(order1.getCreatedAt())
                 .build());
 
-        // Lọc theo group1 và search "Nam Ngư" -> Tìm thấy
         mockMvc.perform(get("/api/v1/sales-analytics/slow-moving-products")
                         .param("thresholdDays", "60")
                         .param("groupId", group1.getId())
@@ -870,7 +852,6 @@ public class SalesAnalyticsControllerTest {
                 .andExpect(jsonPath("$.result.pageData.totalElements").value(1))
                 .andExpect(jsonPath("$.result.pageData.content[0].productId").value(p1.getId()));
 
-        // Lọc theo group2 -> Không tìm thấy
         mockMvc.perform(get("/api/v1/sales-analytics/slow-moving-products")
                         .param("thresholdDays", "60")
                         .param("groupId", group2.getId())
@@ -902,5 +883,3 @@ public class SalesAnalyticsControllerTest {
                 .andExpect(jsonPath("$.message").value("Lấy danh sách cảnh báo hàng bán chậm và tồn lâu thành công"));
     }
 }
-
-

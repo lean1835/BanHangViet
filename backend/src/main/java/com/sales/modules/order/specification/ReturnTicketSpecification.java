@@ -11,7 +11,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class ReturnTicketSpecification {
-
     public static Specification<ReturnTicket> filterTickets(
             String householdId,
             String createdByUserId,

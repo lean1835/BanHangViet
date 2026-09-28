@@ -8,7 +8,6 @@ import com.sales.modules.auth.dto.response.UpdatePhoneSendOtpResponse;
 import com.sales.modules.auth.dto.response.UserProfileResponse;
 
 public interface ProfileService {
-
     UserProfileResponse getProfile(String username);
 
     UserProfileResponse updateProfile(String username, UpdateProfileRequest request);

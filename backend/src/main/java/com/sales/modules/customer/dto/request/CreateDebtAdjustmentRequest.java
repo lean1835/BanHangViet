@@ -14,13 +14,12 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 @AllArgsConstructor
 public class CreateDebtAdjustmentRequest {
-
     @NotBlank(message = "Mã khách hàng không được để trống")
     private String customerId;
 
     @NotBlank(message = "Loại điều chỉnh không được để trống (DEBT_INCREASE hoặc DEBT_DECREASE)")
     @Pattern(regexp = "^(DEBT_INCREASE|DEBT_DECREASE)$", message = "Loại điều chỉnh chỉ được là DEBT_INCREASE hoặc DEBT_DECREASE")
-    private String adjustmentType; // DEBT_INCREASE (tăng nợ), DEBT_DECREASE (giảm nợ)
+    private String adjustmentType;
 
     @NotNull(message = "Số tiền điều chỉnh không được để trống")
     @DecimalMin(value = "0.01", message = "Số tiền điều chỉnh phải lớn hơn 0")

@@ -38,11 +38,14 @@ import java.util.*;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.jpa.domain.Specification;
 
 @ExtendWith(MockitoExtension.class)
 @SuppressWarnings("unchecked")
 public class ScreenGuideServiceImplTest {
-
     @Mock
     private ScreenGuideRepository screenGuideRepository;
 
@@ -415,13 +418,13 @@ public class ScreenGuideServiceImplTest {
     @Test
     @DisplayName("Lấy danh sách hướng dẫn gom batch đếm số bước (không N+1)")
     void testGetAllGuides_OptimizedBatchStepCount() {
-        org.springframework.data.domain.Page<ScreenGuide> mockPage = new org.springframework.data.domain.PageImpl<>(
+        Page<ScreenGuide> mockPage = new PageImpl<>(
                 Collections.singletonList(posGuide),
-                org.springframework.data.domain.PageRequest.of(0, 20),
+                PageRequest.of(0, 20),
                 1
         );
 
-        when(screenGuideRepository.findAll(any(org.springframework.data.jpa.domain.Specification.class), any(Pageable.class)))
+        when(screenGuideRepository.findAll(any(Specification.class), any(Pageable.class)))
                 .thenReturn(mockPage);
 
         GuideStepCountProjection mockCount = mock(GuideStepCountProjection.class);

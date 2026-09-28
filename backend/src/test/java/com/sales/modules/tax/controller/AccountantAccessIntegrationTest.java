@@ -38,13 +38,14 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import com.sales.common.constant.HouseholdStatus;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 @SpringBootTest
 @AutoConfigureMockMvc
 @Transactional
 @SuppressWarnings("unused")
 public class AccountantAccessIntegrationTest {
-
     @Autowired
     private MockMvc mockMvc;
 
@@ -73,7 +74,7 @@ public class AccountantAccessIntegrationTest {
     private AccountantService accountantService;
 
     @Autowired
-    private org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
+    private PasswordEncoder passwordEncoder;
 
     private BusinessHousehold householdA;
     private BusinessHousehold householdB;
@@ -304,7 +305,7 @@ public class AccountantAccessIntegrationTest {
     @WithMockUser(username = "accountant_test", roles = {"VT-03"})
     @DisplayName("Kế toán không thể chấp nhận lời mời hoặc chuyển vào hộ bị KHÓA")
     public void accountant_CannotAccessLockedHousehold() {
-        householdA.setStatus(com.sales.common.constant.HouseholdStatus.LOCKED);
+        householdA.setStatus(HouseholdStatus.LOCKED);
         householdA.setLockReason("Hộ bị đóng băng");
         businessHouseholdRepository.save(householdA);
 
@@ -319,7 +320,6 @@ public class AccountantAccessIntegrationTest {
                 .invitationExpiresAt(LocalDateTime.now().plusDays(7))
                 .build());
 
-        // Accepting invitation for locked household must throw HOUSEHOLD_LOCKED
         AppException exception = assertThrows(AppException.class, () ->
                 accountantService.acceptInvitation("accountant_test", "token-locked-test", null));
         assertEquals(ErrorCode.HOUSEHOLD_LOCKED, exception.getErrorCode());
@@ -377,12 +377,10 @@ public class AccountantAccessIntegrationTest {
                 .status(AccountantAssignmentStatus.ACTIVE)
                 .build());
 
-        // Gọi với context hộ B (có quyền REPORT) -> 200 OK
         mockMvc.perform(get("/api/v1/reports/daily")
                         .header("X-Household-Context", householdB.getId()))
                 .andExpect(status().isOk());
 
-        // Gọi với context hộ A (chỉ có quyền INVOICE) -> 403 Forbidden
         mockMvc.perform(get("/api/v1/reports/daily")
                         .header("X-Household-Context", householdA.getId()))
                 .andExpect(status().isForbidden());
@@ -451,7 +449,6 @@ public class AccountantAccessIntegrationTest {
     @Test
     @DisplayName("Kế toán đăng nhập kèm invitationToken -> Kích hoạt lời mời PENDING sang ACCEPTED và tạo phân công ACTIVE")
     public void accountantLogin_WithInvitationToken_AcceptsInvitation_Success() throws Exception {
-        // 1. Tạo lời mời cho accountant_test
         AccountantInvitation invitation = invitationRepository.save(AccountantInvitation.builder()
                 .household(householdA)
                 .invitedByUser(ownerA)
@@ -464,11 +461,9 @@ public class AccountantAccessIntegrationTest {
                 .accessDurationDays(30)
                 .build());
 
-        // Cập nhật mật khẩu để đăng nhập thành công
         accountant.setPasswordHash(passwordEncoder.encode("Pass@123456"));
         userRepository.save(accountant);
 
-        // 2. Kế toán thực hiện đăng nhập kèm invitationToken
         LoginRequest loginRequest = LoginRequest.builder()
                 .username("accountant_test")
                 .password("Pass@123456")
@@ -482,12 +477,10 @@ public class AccountantAccessIntegrationTest {
                 .andExpect(jsonPath("$.code").value(1000))
                 .andExpect(jsonPath("$.result.token").isNotEmpty());
 
-        // 3. Kiểm tra trạng thái lời mời đã chuyển sang ACCEPTED
         AccountantInvitation updatedInv = invitationRepository.findById(invitation.getId()).orElseThrow();
         assertEquals(AccountantInvitationStatus.ACCEPTED, updatedInv.getStatus());
         assertNotNull(updatedInv.getAcceptedAt());
 
-        // 4. Kiểm tra phân công đã được tự động tạo và ACTIVE
         HouseholdAccountantAssignment assignment = assignmentRepository
                 .findByHouseholdIdAndAccountantUserId(householdA.getId(), accountant.getId())
                 .orElseThrow();
@@ -497,7 +490,6 @@ public class AccountantAccessIntegrationTest {
     @Test
     @DisplayName("Kế toán đăng nhập KHÔNG kèm token -> Lời mời vẫn giữ nguyên trạng thái PENDING để kế toán tự quyết")
     public void accountantLogin_WithoutToken_DoesNotAutoAcceptInvitation() throws Exception {
-        // 1. Tạo lời mời cho accountant_test
         AccountantInvitation invitation = invitationRepository.save(AccountantInvitation.builder()
                 .household(householdA)
                 .invitedByUser(ownerA)
@@ -513,7 +505,6 @@ public class AccountantAccessIntegrationTest {
         accountant.setPasswordHash(passwordEncoder.encode("Pass@123456"));
         userRepository.save(accountant);
 
-        // 2. Kế toán đăng nhập bình thường không truyền token
         LoginRequest loginRequest = LoginRequest.builder()
                 .username("accountant_test")
                 .password("Pass@123456")
@@ -525,7 +516,6 @@ public class AccountantAccessIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(1000));
 
-        // 3. Lời mời vẫn ở trạng thái PENDING
         AccountantInvitation updatedInv = invitationRepository.findById(invitation.getId()).orElseThrow();
         assertEquals(AccountantInvitationStatus.PENDING, updatedInv.getStatus());
         assertNull(updatedInv.getAcceptedAt());
@@ -535,7 +525,6 @@ public class AccountantAccessIntegrationTest {
     @WithMockUser(username = "accountant_test", roles = {"VT-03"})
     @DisplayName("Kế toán lấy danh sách lời mời đang chờ gửi cho mình -> Trả về đúng lời mời PENDING")
     public void accountantGetMyPendingInvitations_Success() throws Exception {
-        // 1. Tạo lời mời PENDING cho accountant_test
         invitationRepository.save(AccountantInvitation.builder()
                 .household(householdA)
                 .invitedByUser(ownerA)
@@ -548,7 +537,6 @@ public class AccountantAccessIntegrationTest {
                 .accessDurationDays(30)
                 .build());
 
-        // 2. Gọi API getMyPendingInvitations
         mockMvc.perform(get("/api/v1/accountant/my-pending-invitations"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(1000))
@@ -560,7 +548,6 @@ public class AccountantAccessIntegrationTest {
     @WithMockUser(username = "owner_a", roles = {"VT-01"})
     @DisplayName("Chủ hộ xem danh sách kế toán -> Không gây side-effect tự động accept lời mời")
     public void ownerGetInvitations_DoesNotSideEffectStatus() throws Exception {
-        // 1. Tạo lời mời PENDING cho accountant_test
         AccountantInvitation invitation = invitationRepository.save(AccountantInvitation.builder()
                 .household(householdA)
                 .invitedByUser(ownerA)
@@ -573,13 +560,11 @@ public class AccountantAccessIntegrationTest {
                 .accessDurationDays(15)
                 .build());
 
-        // 2. Chủ hộ gọi API lấy danh sách lời mời
         mockMvc.perform(get("/api/v1/accountant/invitations"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(1000))
                 .andExpect(jsonPath("$.result[?(@.invitationToken == 'token-cqs-test-555')].status").value("PENDING"));
 
-        // 3. Lời mời trong CSDL vẫn là PENDING
         AccountantInvitation updatedInv = invitationRepository.findById(invitation.getId()).orElseThrow();
         assertEquals(AccountantInvitationStatus.PENDING, updatedInv.getStatus());
     }

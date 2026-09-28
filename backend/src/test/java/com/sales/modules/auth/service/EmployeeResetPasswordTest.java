@@ -29,7 +29,6 @@ import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class EmployeeResetPasswordTest {
-
     @Mock
     private UserRepository userRepository;
 

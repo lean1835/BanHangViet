@@ -32,7 +32,6 @@ import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class TaxRateServiceImplTest {
-
     @Mock
     private TaxRateRepository taxRateRepository;
 
@@ -245,7 +244,7 @@ class TaxRateServiceImplTest {
 
         TaxRateRequest request = TaxRateRequest.builder()
                 .name("VAT 10%")
-                .ratePercentage(new BigDecimal("5.00")) // Đổi từ 10% xuống 5%
+                .ratePercentage(new BigDecimal("5.00"))
                 .isActive(true)
                 .build();
 

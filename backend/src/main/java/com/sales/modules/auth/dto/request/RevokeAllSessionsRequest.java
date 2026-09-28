@@ -11,7 +11,6 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class RevokeAllSessionsRequest {
-
     @Size(max = 255, message = "Lý do đăng xuất không được vượt quá 255 ký tự")
     private String reason;
 }

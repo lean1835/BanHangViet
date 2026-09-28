@@ -37,13 +37,13 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors;
 
 @SpringBootTest
 @AutoConfigureMockMvc
 @Transactional
 @SuppressWarnings("unused")
 public class PriceAdjustmentControllerTest {
-
     @Autowired
     private MockMvc mockMvc;
 
@@ -155,7 +155,7 @@ public class PriceAdjustmentControllerTest {
                 .build();
 
         mockMvc.perform(post("/api/v1/price-adjustments/preview")
-                        .with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user(ownerUser.getUsername()).roles("VT-01"))
+                        .with(SecurityMockMvcRequestPostProcessors.user(ownerUser.getUsername()).roles("VT-01"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
@@ -177,7 +177,7 @@ public class PriceAdjustmentControllerTest {
                 .build();
 
         mockMvc.perform(post("/api/v1/price-adjustments/apply")
-                        .with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user(ownerUser.getUsername()).roles("VT-01"))
+                        .with(SecurityMockMvcRequestPostProcessors.user(ownerUser.getUsername()).roles("VT-01"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
@@ -191,7 +191,6 @@ public class PriceAdjustmentControllerTest {
     @Test
     @DisplayName("POST /api/v1/price-adjustments/{batchId}/revert - Hoàn tác thành công trong 24h")
     void revertPriceAdjustment_asOwner_success() throws Exception {
-        // 1. Áp dụng trước
         ApplyPriceAdjustmentRequest applyRequest = ApplyPriceAdjustmentRequest.builder()
                 .name("Đợt đổi giá sắp bị hoàn tác")
                 .targetGroupId(group.getId())
@@ -201,7 +200,7 @@ public class PriceAdjustmentControllerTest {
                 .build();
 
         String applyResponseStr = mockMvc.perform(post("/api/v1/price-adjustments/apply")
-                        .with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user(ownerUser.getUsername()).roles("VT-01"))
+                        .with(SecurityMockMvcRequestPostProcessors.user(ownerUser.getUsername()).roles("VT-01"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(applyRequest)))
                 .andExpect(status().isOk())
@@ -209,13 +208,12 @@ public class PriceAdjustmentControllerTest {
 
         String batchId = objectMapper.readTree(applyResponseStr).path("result").path("id").asText();
 
-        // 2. Gọi hoàn tác
         RevertPriceAdjustmentRequest revertRequest = RevertPriceAdjustmentRequest.builder()
                 .revertReason("Hủy đợt tăng giá do NCC chưa điều chỉnh")
                 .build();
 
         mockMvc.perform(post("/api/v1/price-adjustments/" + batchId + "/revert")
-                        .with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user(ownerUser.getUsername()).roles("VT-01"))
+                        .with(SecurityMockMvcRequestPostProcessors.user(ownerUser.getUsername()).roles("VT-01"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(revertRequest)))
                 .andExpect(status().isOk())
@@ -229,7 +227,7 @@ public class PriceAdjustmentControllerTest {
     @DisplayName("GET /api/v1/price-adjustments - Lấy danh sách lịch sử phân trang")
     void getBatches_asOwner_success() throws Exception {
         mockMvc.perform(get("/api/v1/price-adjustments")
-                        .with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user(ownerUser.getUsername()).roles("VT-01")))
+                        .with(SecurityMockMvcRequestPostProcessors.user(ownerUser.getUsername()).roles("VT-01")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(1000))
                 .andExpect(jsonPath("$.result.content").isArray());
@@ -245,7 +243,7 @@ public class PriceAdjustmentControllerTest {
                 .build();
 
         mockMvc.perform(post("/api/v1/price-adjustments/preview")
-                        .with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user(staffUser.getUsername()).roles("VT-02"))
+                        .with(SecurityMockMvcRequestPostProcessors.user(staffUser.getUsername()).roles("VT-02"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isForbidden());

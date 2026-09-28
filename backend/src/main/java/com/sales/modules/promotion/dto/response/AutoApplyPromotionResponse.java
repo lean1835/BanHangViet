@@ -13,7 +13,6 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class AutoApplyPromotionResponse {
-
     private List<PromotionItemResultResponse> items;
     private BigDecimal totalOriginalAmount;
     private BigDecimal totalDiscountAmount;

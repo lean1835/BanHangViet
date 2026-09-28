@@ -12,7 +12,6 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class OnboardingStatusResponse {
-
     private boolean isCompleted;
     private boolean isSkipped;
     private boolean isReadyForInvoicing;
@@ -24,7 +23,7 @@ public class OnboardingStatusResponse {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class OnboardingStepDetail {
-        private String stepCode;      // HOUSEHOLD_INFO, INVOICE_TEMPLATE, TAX_RATE, PRODUCT, STAFF
+        private String stepCode;
         private String stepName;
         private boolean isRequired;
         private boolean isCompleted;

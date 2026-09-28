@@ -42,12 +42,13 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
+import com.sales.modules.pos.dto.response.PosStockBreakdownResponse;
+import com.sales.modules.product.dto.response.ProductUnitConversionResponse;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class ProductServiceImpl implements ProductService {
-
     private final UserRepository userRepository;
     private final ProductRepository productRepository;
     private final ProductGroupRepository productGroupRepository;
@@ -139,7 +140,7 @@ public class ProductServiceImpl implements ProductService {
             List<PosInventory> posInvs,
             BigDecimal inTransit,
             User currentUser,
-            List<com.sales.modules.product.dto.response.ProductUnitConversionResponse> prefetchedConversions
+            List<ProductUnitConversionResponse> prefetchedConversions
     ) {
         BigDecimal totalStock = product.getStockQuantity() != null ? product.getStockQuantity() : BigDecimal.ZERO;
         BigDecimal allocatedStock = posInvs != null
@@ -151,9 +152,9 @@ public class ProductServiceImpl implements ProductService {
         BigDecimal safeInTransit = inTransit != null ? inTransit : BigDecimal.ZERO;
         BigDecimal warehouseStock = totalStock.subtract(allocatedStock).subtract(safeInTransit).max(BigDecimal.ZERO);
 
-        List<com.sales.modules.pos.dto.response.PosStockBreakdownResponse> posStocks = posInvs != null
+        List<PosStockBreakdownResponse> posStocks = posInvs != null
                 ? posInvs.stream()
-                        .map(pi -> com.sales.modules.pos.dto.response.PosStockBreakdownResponse.builder()
+                        .map(pi -> PosStockBreakdownResponse.builder()
                                 .posId(pi.getPointOfSale() != null ? pi.getPointOfSale().getId() : null)
                                 .posCode(pi.getPointOfSale() != null ? pi.getPointOfSale().getPosCode() : null)
                                 .posName(pi.getPointOfSale() != null ? pi.getPointOfSale().getName() : null)
@@ -175,7 +176,7 @@ public class ProductServiceImpl implements ProductService {
                     : BigDecimal.ZERO;
         }
 
-        List<com.sales.modules.product.dto.response.ProductUnitConversionResponse> unitConversions = prefetchedConversions;
+        List<ProductUnitConversionResponse> unitConversions = prefetchedConversions;
         if (unitConversions == null && productUnitConversionRepository != null && product.getId() != null) {
             unitConversions = productUnitConversionRepository.findByProductId(product.getId()).stream()
                     .map(c -> mapConversionToResponse(c, product))
@@ -211,8 +212,8 @@ public class ProductServiceImpl implements ProductService {
                 .build();
     }
 
-    private com.sales.modules.product.dto.response.ProductUnitConversionResponse mapConversionToResponse(ProductUnitConversion c, Product product) {
-        return com.sales.modules.product.dto.response.ProductUnitConversionResponse.builder()
+    private ProductUnitConversionResponse mapConversionToResponse(ProductUnitConversion c, Product product) {
+        return ProductUnitConversionResponse.builder()
                 .id(c.getId())
                 .productId(product.getId())
                 .productName(product.getName())
@@ -237,7 +238,6 @@ public class ProductServiceImpl implements ProductService {
             throw new AppException(ErrorCode.FORBIDDEN);
         }
 
-        // Kiểm tra trùng lặp SKU trong cùng hộ kinh doanh
         if (productRepository.existsBySkuAndHouseholdIdAndDeletedAtIsNull(request.getSku(), household.getId())) {
             throw new AppException(ErrorCode.PRODUCT_SKU_EXISTS);
         }
@@ -250,11 +250,9 @@ public class ProductServiceImpl implements ProductService {
             }
         }
 
-        // Xác thực thuế suất đang hoạt động thuộc hộ kinh doanh
         TaxRate taxRate = taxRateRepository.findByIdAndHouseholdIdAndIsActiveTrue(request.getTaxRateId(), household.getId())
                 .orElseThrow(() -> new AppException(ErrorCode.TAX_RATE_NOT_FOUND));
 
-        // Xác thực nhóm sản phẩm thuộc hộ kinh doanh nếu được cung cấp
         ProductGroup group = null;
         if (StringUtils.hasText(request.getGroupId())) {
             group = productGroupRepository.findByIdAndHouseholdIdAndDeletedAtIsNull(request.getGroupId(), household.getId())
@@ -278,8 +276,8 @@ public class ProductServiceImpl implements ProductService {
                 .unit(request.getUnit())
                 .price(request.getPrice())
                 .stockQuantity(request.getStockQuantity())
-                .initialStockQuantity(request.getStockQuantity() != null ? request.getStockQuantity() : java.math.BigDecimal.ZERO)
-                .minStockQuantity(request.getMinStockQuantity() != null ? request.getMinStockQuantity() : java.math.BigDecimal.ZERO)
+                .initialStockQuantity(request.getStockQuantity() != null ? request.getStockQuantity() : BigDecimal.ZERO)
+                .minStockQuantity(request.getMinStockQuantity() != null ? request.getMinStockQuantity() : BigDecimal.ZERO)
                 .isSoldByWeight(isSoldByWeight)
                 .decimalPlaces(decimalPlaces)
                 .minWeightStep(minWeightStep)
@@ -305,7 +303,6 @@ public class ProductServiceImpl implements ProductService {
         Product product = productRepository.findByIdAndHouseholdIdAndDeletedAtIsNull(productId, household.getId())
                 .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_NOT_FOUND));
 
-        // Kiểm tra SKU trùng lặp (ngoại trừ sản phẩm đang sửa)
         if (productRepository.existsBySkuAndHouseholdIdAndIdNotAndDeletedAtIsNull(request.getSku(), household.getId(), productId)) {
             throw new AppException(ErrorCode.PRODUCT_SKU_EXISTS);
         }
@@ -318,11 +315,9 @@ public class ProductServiceImpl implements ProductService {
             }
         }
 
-        // Xác thực thuế suất đang hoạt động thuộc hộ kinh doanh
         TaxRate taxRate = taxRateRepository.findByIdAndHouseholdIdAndIsActiveTrue(request.getTaxRateId(), household.getId())
                 .orElseThrow(() -> new AppException(ErrorCode.TAX_RATE_NOT_FOUND));
 
-        // Xác thực nhóm sản phẩm thuộc hộ kinh doanh nếu được cung cấp
         ProductGroup group = null;
         if (StringUtils.hasText(request.getGroupId())) {
             group = productGroupRepository.findByIdAndHouseholdIdAndDeletedAtIsNull(request.getGroupId(), household.getId())
@@ -381,9 +376,8 @@ public class ProductServiceImpl implements ProductService {
 
         Map<String, Object> oldValue = buildProductLogMap(product);
 
-        // Soft delete
         product.setDeletedAt(LocalDateTime.now());
-        product.setStatus("INACTIVE"); // Cập nhật trạng thái ngừng bán khi bị xóa
+        product.setStatus("INACTIVE");
         productRepository.save(product);
 
         logActivity(household, currentUser, "DELETE_PRODUCT", product.getId(), oldValue, buildProductLogMap(product));
@@ -431,7 +425,7 @@ public class ProductServiceImpl implements ProductService {
         Map<String, List<PosInventory>> posInvsByProduct = new HashMap<>();
         Map<String, BigDecimal> inTransitByProduct = new HashMap<>();
 
-        Map<String, List<com.sales.modules.product.dto.response.ProductUnitConversionResponse>> conversionsByProduct = new HashMap<>();
+        Map<String, List<ProductUnitConversionResponse>> conversionsByProduct = new HashMap<>();
         if (!productIds.isEmpty()) {
             List<PosInventory> allPosInvs = posInventoryRepository.findByHouseholdIdAndProductIdIn(household.getId(), productIds);
             for (PosInventory pi : allPosInvs) {
@@ -489,7 +483,7 @@ public class ProductServiceImpl implements ProductService {
         List<String> productIds = products.stream().map(Product::getId).collect(Collectors.toList());
         Map<String, List<PosInventory>> posInvsByProduct = new HashMap<>();
         Map<String, BigDecimal> inTransitByProduct = new HashMap<>();
-        Map<String, List<com.sales.modules.product.dto.response.ProductUnitConversionResponse>> conversionsByProduct = new HashMap<>();
+        Map<String, List<ProductUnitConversionResponse>> conversionsByProduct = new HashMap<>();
 
         if (!productIds.isEmpty()) {
             List<PosInventory> allPosInvs = posInventoryRepository.findByHouseholdIdAndProductIdIn(household.getId(), productIds);

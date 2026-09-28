@@ -43,7 +43,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Transactional
 @SuppressWarnings("unused")
 public class InventoryAuditControllerTest {
-
     @Autowired
     private MockMvc mockMvc;
 
@@ -150,7 +149,6 @@ public class InventoryAuditControllerTest {
                 .andExpect(jsonPath("$.result.totalItems").value(1))
                 .andExpect(jsonPath("$.result.totalDifferenceQty").value(-3.0));
 
-        // Kiểm tra trong DB: tồn kho sản phẩm phải được cập nhật về 12.000
         Product updatedProduct = productRepository.findById(testProduct.getId()).orElseThrow();
         assertEquals(0, new BigDecimal("12.000").compareTo(updatedProduct.getStockQuantity()));
     }
@@ -162,7 +160,7 @@ public class InventoryAuditControllerTest {
         CreateInventoryAuditDetailRequest detail = CreateInventoryAuditDetailRequest.builder()
                 .productId(testProduct.getId())
                 .actualQuantity(new BigDecimal("10.000"))
-                .reason("") // Để trống lý do khi chênh lệch = -5
+                .reason("")
                 .build();
 
         CreateInventoryAuditRequest request = CreateInventoryAuditRequest.builder()

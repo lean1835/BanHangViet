@@ -38,12 +38,12 @@ import java.time.LocalTime;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.stream.Collectors;
+import java.sql.Timestamp;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class InventoryValuationReportServiceImpl implements InventoryValuationReportService {
-
     private final UserRepository userRepository;
     private final ProductRepository productRepository;
     private final GoodsReceiptDetailRepository goodsReceiptDetailRepository;
@@ -64,7 +64,6 @@ public class InventoryValuationReportServiceImpl implements InventoryValuationRe
     }
 
     private void validateRolePermission(User user) {
-        // QTN-10 & TC-03: Chỉ chủ hộ (VT-01) hoặc kế toán (VT-03) được phép truy cập
         if (user.getRole() == null) {
             throw new AppException(ErrorCode.FORBIDDEN);
         }
@@ -88,7 +87,6 @@ public class InventoryValuationReportServiceImpl implements InventoryValuationRe
         validateRolePermission(currentUser);
         BusinessHousehold household = currentUser.getHousehold();
 
-        // Kiểm tra hợp lệ ngày chốt
         if (asOfDate != null && asOfDate.isAfter(LocalDate.now())) {
             throw new AppException(ErrorCode.FUTURE_DATE_NOT_ALLOWED);
         }
@@ -99,18 +97,14 @@ public class InventoryValuationReportServiceImpl implements InventoryValuationRe
         log.info("Lập báo cáo giá trị tồn kho theo giá vốn cho hộ {}, asOfDate={}, isHistorical={}",
                 household.getName(), targetDate, isHistorical);
 
-        // 1. Lấy danh sách sản phẩm còn hoạt động của hộ kinh doanh (lọc trực tiếp dưới Database theo groupId và search)
         String cleanGroupId = StringUtils.hasText(groupId) ? groupId.trim() : null;
         String cleanSearch = StringUtils.hasText(search) ? search.trim() : null;
         List<Product> products = productRepository.findProductsForValuationReport(household.getId(), cleanGroupId, cleanSearch);
 
-        // 2. Tính số lượng tồn kho cho từng sản phẩm (thời gian thực hoặc tái dựng lịch sử)
         Map<String, BigDecimal> stockMap = calculateStockQuantities(household, products, targetDate, isHistorical);
 
-        // 3. Lấy thời điểm nhập hàng gần nhất của từng sản phẩm để tính số ngày tồn kho
         Map<String, LocalDate> lastReceiptDateMap = fetchLatestReceiptDates(household, targetDate, isHistorical);
 
-        // 4. Phân loại sản phẩm: Đã có giá vốn vs Chưa có giá vốn (TC-02)
         List<InventoryValuationItemResponse> valuedItems = new ArrayList<>();
         List<MissingCostProductResponse> missingCostItems = new ArrayList<>();
 
@@ -121,7 +115,6 @@ public class InventoryValuationReportServiceImpl implements InventoryValuationRe
             String pGroupId = p.getGroup() != null ? p.getGroup().getId() : null;
             String pGroupName = p.getGroup() != null ? p.getGroup().getName() : "Chưa phân nhóm";
 
-            // TC-02: Nếu chưa có giá vốn hoặc giá vốn <= 0 -> đưa vào danh sách cảnh báo riêng
             if (costPrice == null || costPrice.compareTo(BigDecimal.ZERO) <= 0) {
                 missingCostItems.add(MissingCostProductResponse.builder()
                         .productId(p.getId())
@@ -138,9 +131,6 @@ public class InventoryValuationReportServiceImpl implements InventoryValuationRe
                 boolean isNegative = stock.compareTo(BigDecimal.ZERO) < 0;
                 BigDecimal retailPrice = p.getPrice() != null ? p.getPrice() : BigDecimal.ZERO;
 
-                // Quy tắc nghiệp vụ kho: Hàng bị bán âm kho (stock < 0) thực tế trên kệ không còn hàng (tồn thực = 0).
-                // Không thể có "vốn đọng âm" làm méo mó tổng vốn toàn kho.
-                // Do đó: Khi stock < 0 -> inventoryValue = 0, retailValue = 0, daysInStock = 0.
                 BigDecimal inventoryValue = BigDecimal.ZERO;
                 BigDecimal retailValue = BigDecimal.ZERO;
                 Long daysInStock = 0L;
@@ -171,7 +161,6 @@ public class InventoryValuationReportServiceImpl implements InventoryValuationRe
             }
         }
 
-        // 5. Tổng hợp chỉ số toàn kho (Summary)
         BigDecimal totalStock = valuedItems.stream()
                 .map(InventoryValuationItemResponse::getStockQuantity)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
@@ -212,10 +201,8 @@ public class InventoryValuationReportServiceImpl implements InventoryValuationRe
                 .averageDaysInStock(averageDaysInStock)
                 .build();
 
-        // 6. Tổng hợp cơ cấu theo nhóm hàng (Group Breakdown)
         List<ProductGroupValuationResponse> groupValuations = calculateGroupBreakdown(valuedItems, totalValuation);
 
-        // 7. Sắp xếp danh sách mặt hàng có giá vốn (Mặc định inventoryValue DESC)
         sortValuedItems(valuedItems, sortBy, sortDir);
 
         return InventoryValuationReportResponse.builder()
@@ -238,11 +225,9 @@ public class InventoryValuationReportServiceImpl implements InventoryValuationRe
         validateRolePermission(currentUser);
         BusinessHousehold household = currentUser.getHousehold();
 
-        // Lấy dữ liệu báo cáo
         InventoryValuationReportResponse report = getInventoryValuationReport(
                 currentUsername, asOfDate, groupId, search, "inventoryValue", "desc");
 
-        // Kiểm tra nếu không có sản phẩm nào
         if (report.getSummary() == null || report.getSummary().getTotalProducts() == 0) {
             throw new AppException(ErrorCode.NO_DATA_TO_EXPORT);
         }
@@ -250,7 +235,6 @@ public class InventoryValuationReportServiceImpl implements InventoryValuationRe
         try {
             byte[] excelBytes = InventoryValuationExcelBuilder.buildExcelWorkbook(household, report, currentUser.getFullName());
 
-            // Ghi nhận nhật ký kiểm toán (ActivityLog)
             logExportActivity(household, currentUser, asOfDate, report.getSummary().getTotalInventoryValue());
 
             return excelBytes;
@@ -289,11 +273,9 @@ public class InventoryValuationReportServiceImpl implements InventoryValuationRe
 
     private Map<String, BigDecimal> calculateStockQuantities(
             BusinessHousehold household, List<Product> products, LocalDate targetDate, boolean isHistorical) {
-
         Map<String, BigDecimal> stockMap = new HashMap<>();
 
         if (!isHistorical) {
-            // Thời gian thực: Lấy trực tiếp từ product.stockQuantity
             for (Product p : products) {
                 BigDecimal qty = p.getStockQuantity() != null ? p.getStockQuantity() : BigDecimal.ZERO;
                 stockMap.put(p.getId(), qty);
@@ -301,7 +283,6 @@ public class InventoryValuationReportServiceImpl implements InventoryValuationRe
             return stockMap;
         }
 
-        // Tái dựng số dư tồn kho lịch sử tại cuối ngày targetDate (23:59:59)
         LocalDateTime endDateTime = targetDate.atTime(LocalTime.MAX);
         String householdId = household.getId();
 
@@ -339,7 +320,6 @@ public class InventoryValuationReportServiceImpl implements InventoryValuationRe
 
     private Map<String, LocalDate> fetchLatestReceiptDates(
             BusinessHousehold household, LocalDate targetDate, boolean isHistorical) {
-
         List<Object[]> rawList;
         if (!isHistorical) {
             rawList = goodsReceiptDetailRepository.findLatestReceiptDatesByHousehold(household.getId());
@@ -354,8 +334,8 @@ public class InventoryValuationReportServiceImpl implements InventoryValuationRe
                     String pId = row[0].toString();
                     if (row[1] instanceof LocalDateTime) {
                         map.put(pId, ((LocalDateTime) row[1]).toLocalDate());
-                    } else if (row[1] instanceof java.sql.Timestamp) {
-                        map.put(pId, ((java.sql.Timestamp) row[1]).toLocalDateTime().toLocalDate());
+                    } else if (row[1] instanceof Timestamp) {
+                        map.put(pId, ((Timestamp) row[1]).toLocalDateTime().toLocalDate());
                     }
                 }
             }
@@ -395,7 +375,6 @@ public class InventoryValuationReportServiceImpl implements InventoryValuationRe
 
     private List<ProductGroupValuationResponse> calculateGroupBreakdown(
             List<InventoryValuationItemResponse> items, BigDecimal totalWarehouseValuation) {
-
         if (items == null || items.isEmpty()) {
             return Collections.emptyList();
         }
@@ -403,7 +382,6 @@ public class InventoryValuationReportServiceImpl implements InventoryValuationRe
         Map<String, List<InventoryValuationItemResponse>> groupMap = items.stream()
                 .collect(Collectors.groupingBy(item -> item.getGroupId() != null ? item.getGroupId() : "UNGROUPED"));
 
-        // Tính tổng vốn các nhóm dương để tính tỷ trọng vốn chính xác kể cả khi có nhóm bị âm kho
         BigDecimal totalPositiveValuation = groupMap.values().stream()
                 .map(grpItems -> grpItems.stream()
                         .map(InventoryValuationItemResponse::getInventoryValue)
@@ -454,7 +432,6 @@ public class InventoryValuationReportServiceImpl implements InventoryValuationRe
                     .build());
         }
 
-        // Sắp xếp nhóm hàng theo giá trị vốn giảm dần
         result.sort(Comparator.comparing(ProductGroupValuationResponse::getTotalInventoryValue).reversed());
         return result;
     }

@@ -16,7 +16,6 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 @Tag(name = "Household Onboarding Controller", description = "Quản lý tiến độ trình hướng dẫn thiết lập lần đầu cho hộ kinh doanh (NCL-09-CN-007)")
 public class HouseholdOnboardingController {
-
     private final HouseholdOnboardingService onboardingService;
 
     @GetMapping("/status")

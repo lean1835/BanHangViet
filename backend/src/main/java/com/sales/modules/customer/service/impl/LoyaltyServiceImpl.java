@@ -46,12 +46,12 @@ import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.*;
 import java.util.stream.Collectors;
+import org.springframework.beans.factory.ObjectProvider;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class LoyaltyServiceImpl implements LoyaltyService {
-
     private final UserRepository userRepository;
     private final CustomerRepository customerRepository;
     private final LoyaltyProgramConfigRepository configRepository;
@@ -60,7 +60,7 @@ public class LoyaltyServiceImpl implements LoyaltyService {
     private final ReturnTicketRepository returnTicketRepository;
     private final ActivityLogHelper activityLogHelper;
     private final ObjectMapper objectMapper;
-    private final org.springframework.beans.factory.ObjectProvider<OrderService> orderServiceProvider;
+    private final ObjectProvider<OrderService> orderServiceProvider;
 
     private User getAuthenticatedUser(String username) {
         return userRepository.findByUsername(username)
@@ -307,11 +307,9 @@ public class LoyaltyServiceImpl implements LoyaltyService {
 
         OrderService orderService = orderServiceProvider.getObject();
 
-        // Tính tiền quy đổi
         BigDecimal pointValue = config.getPointValue() != null ? config.getPointValue() : BigDecimal.ZERO;
         BigDecimal pointDiscount = pointValue.multiply(BigDecimal.valueOf(pointsToRedeem)).setScale(0, RoundingMode.HALF_UP).setScale(2);
 
-        // Tính tổng tiền đơn hàng phải trả trước khi giảm trừ đổi điểm (đã gồm thuế và các khoản giảm khác chuẩn QTN-07)
         order.setPointDiscountAmount(BigDecimal.ZERO);
         orderService.recalculateOrderTotals(order);
         BigDecimal payableBeforePoints = order.getFinalAmount() != null ? order.getFinalAmount() : BigDecimal.ZERO;
@@ -419,8 +417,6 @@ public class LoyaltyServiceImpl implements LoyaltyService {
             return;
         }
 
-        // Bóc tách thanh toán: Chỉ tính trên phần tiền thực trả (CASH, BANK_TRANSFER đã xác nhận).
-        // TUYỆT ĐỐI KHÔNG TÍNH phần ghi nợ (DEBT).
         BigDecimal actualPaidAmount = BigDecimal.ZERO;
         if (order.getPayments() != null && !order.getPayments().isEmpty()) {
             for (OrderPayment payment : order.getPayments()) {
@@ -509,7 +505,6 @@ public class LoyaltyServiceImpl implements LoyaltyService {
             return;
         }
 
-        // Tỷ lệ thu hồi điểm (đảm bảo không thu hồi vượt quá số điểm gốc đã tích lũy khi có nhiều phiếu trả hàng)
         Integer alreadyDeducted = transactionRepository.sumPointsDeductedByOrderId(originalOrder.getId());
         int totalEarned = originalOrder.getPointsEarned();
         int maxCanDeduct = Math.max(0, totalEarned - (alreadyDeducted != null ? alreadyDeducted : 0));

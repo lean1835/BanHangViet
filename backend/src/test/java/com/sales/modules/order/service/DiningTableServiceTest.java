@@ -36,7 +36,6 @@ import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class DiningTableServiceTest {
-
     @Mock
     private DiningTableRepository diningTableRepository;
 
@@ -99,7 +98,6 @@ class DiningTableServiceTest {
         when(diningTableRepository.findByHouseholdIdOrderBySortOrderAscNameAsc("household-001"))
                 .thenReturn(List.of(sampleTable));
 
-        // Bàn 1 đang có đơn tạo dở cách đây 5 tiếng (quá 4 giờ)
         Order heldOrder = Order.builder()
                 .id("order-001")
                 .orderLabel("Khách bàn 1")

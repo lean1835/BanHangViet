@@ -11,7 +11,6 @@ import java.util.Set;
 
 @Repository
 public interface UserNotificationSettingRepository extends JpaRepository<UserNotificationSetting, String> {
-
     List<UserNotificationSetting> findByUserId(String userId);
 
     Optional<UserNotificationSetting> findByUserIdAndNotificationType(String userId, String notificationType);

@@ -12,13 +12,12 @@ import org.springframework.web.bind.annotation.*;
 
 import java.security.Principal;
 import java.util.List;
-
+import com.sales.modules.order.dto.response.BankTransferReconciliationResponse;
 
 @RestController
 @RequestMapping("/api/v1/shifts")
 @RequiredArgsConstructor
 public class ShiftController {
-
     private final ShiftService shiftService;
 
     @PostMapping("/open")
@@ -76,11 +75,11 @@ public class ShiftController {
 
     @GetMapping("/{id}/bank-transfer-reconciliation")
     @PreAuthorize("hasAnyRole('VT-01', 'VT-02', 'VT-03')")
-    public ResponseEntity<ApiResponse<com.sales.modules.order.dto.response.BankTransferReconciliationResponse>> getBankTransferReconciliation(
+    public ResponseEntity<ApiResponse<BankTransferReconciliationResponse>> getBankTransferReconciliation(
             Principal principal,
             @PathVariable("id") String id) {
-        com.sales.modules.order.dto.response.BankTransferReconciliationResponse result = shiftService.getBankTransferReconciliation(principal.getName(), id);
-        ApiResponse<com.sales.modules.order.dto.response.BankTransferReconciliationResponse> response = ApiResponse.<com.sales.modules.order.dto.response.BankTransferReconciliationResponse>builder()
+        BankTransferReconciliationResponse result = shiftService.getBankTransferReconciliation(principal.getName(), id);
+        ApiResponse<BankTransferReconciliationResponse> response = ApiResponse.<BankTransferReconciliationResponse>builder()
                 .code(1000)
                 .message("Lấy thông tin đối soát chuyển khoản ngân hàng thành công")
                 .result(result)
@@ -88,4 +87,3 @@ public class ShiftController {
         return ResponseEntity.ok(response);
     }
 }
-

@@ -13,4 +13,3 @@ public interface CustomerDebtService {
     DebtSummaryResponse getDebtSummary(String currentUsername);
     void remindCustomerDebt(String currentUsername, RemindDebtRequest request);
 }
-

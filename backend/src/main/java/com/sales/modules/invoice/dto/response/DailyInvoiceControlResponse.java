@@ -8,20 +8,20 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.math.BigDecimal;
 
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class DailyInvoiceControlResponse {
-
     private LocalDate controlDate;
     private Boolean isCleanDay;
     private Integer totalUninvoicedOrders;
     private Integer totalPendingInvoices;
     private Integer totalFailedInvoices;
-    private java.math.BigDecimal totalTaxableRevenue;
-    private java.math.BigDecimal totalTaxAmount;
+    private BigDecimal totalTaxableRevenue;
+    private BigDecimal totalTaxAmount;
     private Integer validInvoicesCount;
     private List<UninvoicedOrderSummaryResponse> uninvoicedOrders;
     private List<PendingTaxInvoiceSummaryResponse> pendingInvoices;

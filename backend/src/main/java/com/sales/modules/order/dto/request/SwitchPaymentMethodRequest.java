@@ -11,13 +11,12 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 @AllArgsConstructor
 public class SwitchPaymentMethodRequest {
-
     @NotBlank(message = "Phương thức thanh toán mới không được để trống")
-    private String newPaymentMethod; // CASH, BANK_TRANSFER, DEBT
+    private String newPaymentMethod;
 
-    private BigDecimal amountGiven; // Áp dụng khi chuyển sang CASH
+    private BigDecimal amountGiven;
 
-    private String customerId; // Áp dụng khi chuyển sang DEBT
+    private String customerId;
 
     @Size(max = 500, message = "Ghi chú không được vượt quá 500 ký tự")
     private String notes;

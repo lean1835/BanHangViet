@@ -16,12 +16,14 @@ import org.springframework.web.bind.annotation.*;
 
 import java.security.Principal;
 import java.util.List;
+import com.sales.modules.tax.dto.request.GenerateTaxPurchaseRegisterRequest;
+import com.sales.modules.tax.dto.response.TaxPurchaseRegisterItemResponse;
+import org.springframework.core.io.Resource;
 
 @RestController
 @RequestMapping("/api/v1/tax-periods")
 @RequiredArgsConstructor
 public class TaxPeriodController {
-
     private final TaxPeriodService taxPeriodService;
 
     @PostMapping("/generate-sales-register")
@@ -96,7 +98,7 @@ public class TaxPeriodController {
 
     @GetMapping("/{periodId}/export-declaration")
     @PreAuthorize("hasRole('VT-01') or (hasRole('VT-03') and @accountantSecurityService.hasScope(authentication, 'TAX_DECLARATION'))")
-    public ResponseEntity<org.springframework.core.io.Resource> exportTaxDeclaration(
+    public ResponseEntity<Resource> exportTaxDeclaration(
             Principal principal,
             @PathVariable String periodId) {
         return taxPeriodService.exportTaxDeclaration(principal.getName(), periodId);
@@ -131,15 +133,11 @@ public class TaxPeriodController {
         return ResponseEntity.ok(response);
     }
 
-    // =========================================================================
-    // NCL-12-CN-006: Bảng kê hàng hóa mua vào theo kỳ
-    // =========================================================================
-
     @PostMapping("/generate-purchase-register")
     @PreAuthorize("hasRole('VT-01') or (hasRole('VT-03') and @accountantSecurityService.hasScope(authentication, 'TAX_DECLARATION'))")
     public ResponseEntity<ApiResponse<TaxPurchaseRegisterSummaryResponse>> generatePurchaseRegister(
             Principal principal,
-            @Valid @RequestBody com.sales.modules.tax.dto.request.GenerateTaxPurchaseRegisterRequest request) {
+            @Valid @RequestBody GenerateTaxPurchaseRegisterRequest request) {
         TaxPurchaseRegisterSummaryResponse result = taxPeriodService.generatePurchaseRegister(principal.getName(), request);
         ApiResponse<TaxPurchaseRegisterSummaryResponse> response = ApiResponse.<TaxPurchaseRegisterSummaryResponse>builder()
                 .code(1000)
@@ -165,16 +163,16 @@ public class TaxPeriodController {
 
     @GetMapping("/{periodId}/purchase-register/items")
     @PreAuthorize("hasRole('VT-01') or (hasRole('VT-03') and @accountantSecurityService.hasScope(authentication, 'TAX_DECLARATION'))")
-    public ResponseEntity<ApiResponse<PageResponse<com.sales.modules.tax.dto.response.TaxPurchaseRegisterItemResponse>>> getPurchaseRegisterItems(
+    public ResponseEntity<ApiResponse<PageResponse<TaxPurchaseRegisterItemResponse>>> getPurchaseRegisterItems(
             Principal principal,
             @PathVariable String periodId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(required = false) Boolean missingSupplierOnly) {
-        PageResponse<com.sales.modules.tax.dto.response.TaxPurchaseRegisterItemResponse> result =
+        PageResponse<TaxPurchaseRegisterItemResponse> result =
                 taxPeriodService.getPurchaseRegisterItems(principal.getName(), periodId, page, size, missingSupplierOnly);
-        ApiResponse<PageResponse<com.sales.modules.tax.dto.response.TaxPurchaseRegisterItemResponse>> response =
-                ApiResponse.<PageResponse<com.sales.modules.tax.dto.response.TaxPurchaseRegisterItemResponse>>builder()
+        ApiResponse<PageResponse<TaxPurchaseRegisterItemResponse>> response =
+                ApiResponse.<PageResponse<TaxPurchaseRegisterItemResponse>>builder()
                         .code(1000)
                         .message("Lấy danh sách dòng chi tiết bảng kê mua vào thành công")
                         .result(result)
@@ -184,10 +182,9 @@ public class TaxPeriodController {
 
     @GetMapping("/{periodId}/export-purchase-register")
     @PreAuthorize("hasRole('VT-01') or (hasRole('VT-03') and @accountantSecurityService.hasScope(authentication, 'TAX_DECLARATION'))")
-    public ResponseEntity<org.springframework.core.io.Resource> exportPurchaseRegister(
+    public ResponseEntity<Resource> exportPurchaseRegister(
             Principal principal,
             @PathVariable String periodId) {
         return taxPeriodService.exportPurchaseRegister(principal.getName(), periodId);
     }
 }
-

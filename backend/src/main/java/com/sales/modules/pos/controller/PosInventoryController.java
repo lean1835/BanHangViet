@@ -21,7 +21,6 @@ import java.util.List;
 @RequestMapping("/api/v1/points-of-sale/{posId}/inventories")
 @RequiredArgsConstructor
 public class PosInventoryController {
-
     private final PosInventoryService posInventoryService;
 
     @GetMapping
@@ -36,7 +35,6 @@ public class PosInventoryController {
             @RequestParam(defaultValue = "8") int size,
             @RequestParam(defaultValue = "createdAt") String sortBy,
             @RequestParam(defaultValue = "desc") String sortDir) {
-
         Sort sort = "desc".equalsIgnoreCase(sortDir)
                 ? Sort.by(sortBy).descending()
                 : Sort.by(sortBy).ascending();
@@ -59,7 +57,6 @@ public class PosInventoryController {
             Principal principal,
             @PathVariable String posId,
             @PathVariable String productId) {
-
         PosInventoryResponse result = posInventoryService.getInventoryByPosAndProduct(
                 principal.getName(), posId, productId);
 
@@ -76,7 +73,6 @@ public class PosInventoryController {
     public ResponseEntity<ApiResponse<List<PosInventoryResponse>>> getLowStockWarningsByPos(
             Principal principal,
             @PathVariable String posId) {
-
         List<PosInventoryResponse> result = posInventoryService.getLowStockWarningsByPos(
                 principal.getName(), posId);
 
@@ -94,7 +90,6 @@ public class PosInventoryController {
             Principal principal,
             @PathVariable String posId,
             @Valid @RequestBody InitPosInventoryRequest request) {
-
         List<PosInventoryResponse> result = posInventoryService.initOrUpdatePosInventories(
                 principal.getName(), posId, request);
 
@@ -113,7 +108,6 @@ public class PosInventoryController {
             @PathVariable String posId,
             @PathVariable String productId,
             @Valid @RequestBody UpdatePosInventoryRequest request) {
-
         PosInventoryResponse result = posInventoryService.updatePosInventory(
                 principal.getName(), posId, productId, request);
 

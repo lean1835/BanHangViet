@@ -54,7 +54,6 @@ import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class OrderHoldingServiceTest {
-
     @Mock
     private OrderRepository orderRepository;
     @Mock
@@ -332,7 +331,6 @@ class OrderHoldingServiceTest {
     @Test
     @DisplayName("TC-05: Lấy danh sách đơn treo hiển thị cờ cảnh báo quá hạn khi vượt quá số giờ cấu hình")
     void getHeldOrders_overdue_flag_true() {
-        // Đơn tạo 5 tiếng trước (cấu hình 4 tiếng)
         order.setCreatedAt(LocalDateTime.now().minusHours(5));
         order.setOrderLabel("Khách lâu không thanh toán");
         order.setDiningTable(table1);

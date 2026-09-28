@@ -14,7 +14,6 @@ import java.util.Optional;
 
 @Repository
 public interface PromotionRepository extends JpaRepository<Promotion, String>, JpaSpecificationExecutor<Promotion> {
-
     Optional<Promotion> findByIdAndHouseholdIdAndDeletedAtIsNull(String id, String householdId);
 
     @EntityGraph(attributePaths = {"promotionProducts", "promotionProducts.product", "promotionProductGroups", "promotionProductGroups.productGroup"})

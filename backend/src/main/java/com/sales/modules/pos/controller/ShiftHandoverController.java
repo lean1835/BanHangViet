@@ -18,7 +18,6 @@ import java.util.List;
 @RequestMapping("/api/v1/shifts")
 @RequiredArgsConstructor
 public class ShiftHandoverController {
-
     private final ShiftHandoverService shiftHandoverService;
 
     @GetMapping("/handover/summary")

@@ -12,7 +12,6 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 @AllArgsConstructor
 public class CloseShiftRequest {
-
     @NotNull(message = "Số tiền thực tế kiểm đếm không được để trống")
     @DecimalMin(value = "0.0", message = "Số tiền mặt thực tế không được phép nhỏ hơn 0")
     private BigDecimal closingCashActual;

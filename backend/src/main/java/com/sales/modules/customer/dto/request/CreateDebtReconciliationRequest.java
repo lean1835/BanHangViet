@@ -12,7 +12,6 @@ import java.time.LocalDate;
 @NoArgsConstructor
 @AllArgsConstructor
 public class CreateDebtReconciliationRequest {
-
     @NotBlank(message = "Mã khách hàng không được để trống")
     private String customerId;
 
@@ -26,5 +25,5 @@ public class CreateDebtReconciliationRequest {
     private String notes;
 
     @Builder.Default
-    private Boolean confirmNow = false; // true: Chốt khóa sổ ngay; false: Lưu bản nháp (DRAFT)
+    private Boolean confirmNow = false;
 }

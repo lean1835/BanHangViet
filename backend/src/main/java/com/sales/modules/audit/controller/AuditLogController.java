@@ -21,7 +21,6 @@ import java.security.Principal;
 @RequestMapping("/api/v1/audit-logs")
 @RequiredArgsConstructor
 public class AuditLogController {
-
     private final AuditLogService auditLogService;
 
     @GetMapping

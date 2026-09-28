@@ -50,7 +50,6 @@ import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 public class BackupVerificationServiceImplTest {
-
     @Mock
     private BackupVerificationHistoryRepository verificationHistoryRepository;
 
@@ -118,7 +117,6 @@ public class BackupVerificationServiceImplTest {
                 .isActive(true)
                 .build();
 
-        // Tạo tệp sao lưu snapshot JSON hợp lệ trên đĩa tạm
         Map<String, Object> snapshotData = new HashMap<>();
         snapshotData.put("householdId", household.getId());
         snapshotData.put("backupTime", LocalDateTime.now().toString());
@@ -188,7 +186,6 @@ public class BackupVerificationServiceImplTest {
         assertNull(response.getFailureReason());
         assertTrue(response.getExecutionDurationMs() >= 0);
 
-        // Không gửi cảnh báo DANGER khi thành công
         verify(appNotificationRepository, never()).save(any(AppNotification.class));
     }
 
@@ -246,7 +243,6 @@ public class BackupVerificationServiceImplTest {
         assertNotNull(response.getFailureReason());
         assertTrue(response.getFailureReason().contains("Không tìm thấy tệp"));
 
-        // Phải gửi thông báo khẩn cấp DANGER cho chủ hộ
         ArgumentCaptor<AppNotification> notifCaptor = ArgumentCaptor.forClass(AppNotification.class);
         verify(appNotificationRepository, times(1)).save(notifCaptor.capture());
         assertEquals("DANGER", notifCaptor.getValue().getSeverity());
@@ -363,7 +359,6 @@ public class BackupVerificationServiceImplTest {
         when(backupHistoryRepository.findFirstByHouseholdIdAndStatusOrderByBackupTimeDesc(household.getId(), "SUCCESS"))
                 .thenReturn(Optional.of(validBackup));
 
-        // Giả lập chuỗi kiểm toán bị đứt gãy tại sequence 12
         when(auditLogService.verifyIntegrityForHousehold(household.getId()))
                 .thenReturn(AuditIntegrityResponse.builder()
                         .isValid(false)
@@ -611,7 +606,7 @@ public class BackupVerificationServiceImplTest {
         Map<String, Object> partialSnapshot = Map.of(
                 "householdId", household.getId(),
                 "users", List.of()
-                // thiếu products, customers, suppliers
+
         );
         Path partialFilePath = tempDir.resolve("partial_backup.json");
         Files.writeString(partialFilePath, objectMapper.writeValueAsString(partialSnapshot), StandardCharsets.UTF_8);

@@ -15,5 +15,3 @@ public interface SalesAnalyticsService {
     SlowMovingProductListResponse getSlowMovingProducts(
             String currentUsername, Integer thresholdDays, String groupId, String search, int page, int size);
 }
-
-

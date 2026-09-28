@@ -17,7 +17,6 @@ import java.security.Principal;
 @RequestMapping("/api/v1/auto-backup")
 @RequiredArgsConstructor
 public class AutoBackupController {
-
     private final AutoBackupService autoBackupService;
 
     @GetMapping("/config")

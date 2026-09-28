@@ -12,14 +12,13 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ImportCustomerResultResponse {
-
     private int totalRows;
     private int successCount;
     private int updatedCount;
     private int skippedCount;
     private int errorCount;
     private List<RowErrorDetail> errors;
-    private String errorFileBase64; // Tùy chọn xuất file lỗi để người dùng sửa lại
+    private String errorFileBase64;
 
     @Data
     @Builder

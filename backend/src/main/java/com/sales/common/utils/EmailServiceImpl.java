@@ -13,16 +13,21 @@ import org.springframework.web.util.HtmlUtils;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import com.sales.modules.invoice.entity.EInvoice;
+import com.sales.modules.invoice.repository.EInvoiceRepository;
+import java.util.List;
+import lombok.Builder;
+import lombok.Getter;
+import org.springframework.transaction.support.TransactionTemplate;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class EmailServiceImpl implements EmailService {
-
     private final JavaMailSender mailSender;
     private final InvoiceDeliveryLogRepository invoiceDeliveryLogRepository;
-    private final com.sales.modules.invoice.repository.EInvoiceRepository eInvoiceRepository;
-    private final org.springframework.transaction.support.TransactionTemplate transactionTemplate;
+    private final EInvoiceRepository eInvoiceRepository;
+    private final TransactionTemplate transactionTemplate;
 
     @Override
     @Async("taskExecutor")
@@ -33,9 +38,9 @@ public class EmailServiceImpl implements EmailService {
 
             helper.setTo(toEmail);
             helper.setSubject("Hóa đơn điện tử từ " + householdName);
-            
+
             String formattedAmount = finalAmount != null ? String.format("%,.0f", finalAmount.doubleValue()) : "0";
-            
+
             String bodyContent = "    <p style=\"margin-top: 0; font-size: 16px;\">Kính gửi <strong>Quý khách hàng</strong>,</p>"
                     + "    <p>Chúng tôi xin gửi thông tin hóa đơn điện tử cho giao dịch mua sắm của Quý khách tại đơn vị <strong>" + householdName + "</strong>:</p>"
                     + "    <div style=\"background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 16px; margin: 20px 0;\">"
@@ -62,7 +67,7 @@ public class EmailServiceImpl implements EmailService {
                     + "    <p style=\"font-size: 13px; color: #64748b; margin: 0;\">Nếu nút trên không hoạt động, Quý khách có thể sao chép liên kết sau và dán vào trình duyệt:</p>"
                     + "    <p style=\"font-size: 13px; color: #2563eb; word-break: break-all; margin: 5px 0 0 0;\"><a href=\"" + lookupUrl + "\" style=\"color: #2563eb; text-decoration: none;\">" + lookupUrl + "</a></p>";
             String htmlContent = buildHtmlEmail("HÓA ĐƠN ĐIỆN TỬ", "Cung cấp bởi BanHangViet", "linear-gradient(135deg, #1e3c72 0%, #2a5298 100%)", bodyContent);
-            
+
             helper.setText(htmlContent, true);
 
             mailSender.send(message);
@@ -83,7 +88,7 @@ public class EmailServiceImpl implements EmailService {
                     invoiceDeliveryLogRepository.save(logRecord);
 
                     if (logRecord.getInvoice() != null) {
-                        com.sales.modules.invoice.entity.EInvoice invoice = logRecord.getInvoice();
+                        EInvoice invoice = logRecord.getInvoice();
                         if ("SUCCESS".equalsIgnoreCase(status)) {
                             invoice.setCustomerDeliveryStatus("SUCCESS");
                         } else if ("FAILED".equalsIgnoreCase(status)) {
@@ -152,7 +157,6 @@ public class EmailServiceImpl implements EmailService {
         try {
             sendDebtReminderEmail(debtId, toEmail, customerName, householdName, debtAmount, dueDate);
         } catch (Exception e) {
-            // Async wrapper logs error without propagating
         }
     }
 
@@ -210,7 +214,6 @@ public class EmailServiceImpl implements EmailService {
         try {
             sendOverdueDebtReminderEmail(debtId, toEmail, customerName, householdName, debtAmount, dueDate);
         } catch (Exception e) {
-            // Async wrapper logs error without propagating
         }
     }
 
@@ -288,7 +291,7 @@ public class EmailServiceImpl implements EmailService {
             String accountantName,
             String householdName,
             String householdTaxCode,
-            java.util.List<String> scopes,
+            List<String> scopes,
             int durationDays,
             String username,
             String temporaryPassword,
@@ -364,7 +367,6 @@ public class EmailServiceImpl implements EmailService {
         }
     }
 
-
     private String buildDebtReminderBody(DebtReminderEmailContext context) {
         return "    <p style=\"margin-top: 0; font-size: 16px;\">Kính gửi Ông/Bà <strong>" + context.getSafeCustomerName() + "</strong>,</p>"
                 + "    <p>" + context.getIntroText() + " <strong>" + context.getSafeHouseholdName() + "</strong>:</p>"
@@ -407,8 +409,8 @@ public class EmailServiceImpl implements EmailService {
                 + "</div>";
     }
 
-    @lombok.Getter
-    @lombok.Builder
+    @Getter
+    @Builder
     private static class DebtReminderEmailContext {
         private final String safeCustomerName;
         private final String safeHouseholdName;
@@ -422,5 +424,4 @@ public class EmailServiceImpl implements EmailService {
         private final String dueDateColor;
         private final String closingText;
     }
-
 }

@@ -13,7 +13,6 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ReceiveSupplierRefundRequest {
-
     @NotBlank(message = "Nhà cung cấp không được để trống")
     @Size(max = 36, message = "Mã nhà cung cấp không vượt quá 36 ký tự")
     private String supplierId;
@@ -23,7 +22,7 @@ public class ReceiveSupplierRefundRequest {
     private BigDecimal amount;
 
     @Size(max = 20, message = "Hình thức nhận tiền không vượt quá 20 ký tự")
-    private String paymentMethod; // CASH, BANK_TRANSFER
+    private String paymentMethod;
 
     @Size(max = 1000, message = "Ghi chú không được vượt quá 1000 ký tự")
     private String notes;

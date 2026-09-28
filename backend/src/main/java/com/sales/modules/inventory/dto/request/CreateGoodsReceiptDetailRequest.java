@@ -12,7 +12,6 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 @AllArgsConstructor
 public class CreateGoodsReceiptDetailRequest {
-
     @NotBlank(message = "Mã hàng hóa không được để trống")
     private String productId;
 

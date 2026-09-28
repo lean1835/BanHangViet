@@ -12,9 +12,8 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ExchangeEligibilityResponse {
-
     private boolean isEligible;
-    private String exchangeType; // EQUAL_VALUE, HIGHER_VALUE, LOWER_VALUE
+    private String exchangeType;
     private BigDecimal totalReturnAmount;
     private BigDecimal totalExchangeAmount;
     private BigDecimal differenceAmount;

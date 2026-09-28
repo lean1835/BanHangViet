@@ -11,7 +11,6 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class UnlockTaxPeriodRequest {
-
     @NotBlank(message = "Lý do mở lại kỳ kê khai không được để trống")
     private String reason;
 }

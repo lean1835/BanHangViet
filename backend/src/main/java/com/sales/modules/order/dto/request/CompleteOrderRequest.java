@@ -5,6 +5,8 @@ import lombok.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import jakarta.validation.Valid;
+import java.util.List;
 
 @Data
 @Builder
@@ -16,6 +18,6 @@ public class CompleteOrderRequest {
 
     private LocalDateTime dueDate;
 
-    @jakarta.validation.Valid
-    private java.util.List<OrderPaymentRequest> payments;
+    @Valid
+    private List<OrderPaymentRequest> payments;
 }

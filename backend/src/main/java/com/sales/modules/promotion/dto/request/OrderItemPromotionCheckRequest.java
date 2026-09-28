@@ -15,7 +15,6 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 @AllArgsConstructor
 public class OrderItemPromotionCheckRequest {
-
     @NotBlank(message = "Product ID cannot be blank")
     private String productId;
 

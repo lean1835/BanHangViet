@@ -39,7 +39,6 @@ import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 public class ProductPriceTierServiceTest {
-
     @Mock
     private ProductPriceTierRepository productPriceTierRepository;
 
@@ -132,12 +131,11 @@ public class ProductPriceTierServiceTest {
     void testCreatePriceTier_BelowCost_ThrowsWarning() {
         when(userRepository.findByUsername("owner")).thenReturn(Optional.of(ownerUser));
         when(productRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("prod-1", "household-1")).thenReturn(Optional.of(product));
-        // Giá vốn bình quân 9.500đ
+
         when(goodsReceiptDetailRepository.calculateWeightedAverageCostPrice("prod-1", "household-1")).thenReturn(new BigDecimal("9500.00"));
         when(productPriceTierRepository.findByProductIdAndHouseholdIdOrderByMinQuantityAsc("prod-1", "household-1"))
                 .thenReturn(Collections.emptyList());
 
-        // Khai báo giá bậc 9.000đ < 9.500đ
         CreatePriceTierRequest request = CreatePriceTierRequest.builder()
                 .tierName("Giá bán lỗ xả kho")
                 .minQuantity(new BigDecimal("10.000"))
@@ -187,7 +185,6 @@ public class ProductPriceTierServiceTest {
         when(userRepository.findByUsername("owner")).thenReturn(Optional.of(ownerUser));
         when(productRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("prod-1", "household-1")).thenReturn(Optional.of(product));
 
-        // Đã có bậc [10, 49]
         ProductPriceTier existingTier = ProductPriceTier.builder()
                 .id("tier-1")
                 .minQuantity(new BigDecimal("10.000"))
@@ -199,7 +196,6 @@ public class ProductPriceTierServiceTest {
         when(productPriceTierRepository.findByProductIdAndHouseholdIdOrderByMinQuantityAsc("prod-1", "household-1"))
                 .thenReturn(List.of(existingTier));
 
-        // Thử thêm bậc [30, 100] -> trùng lặp trong khoảng [30, 49]
         CreatePriceTierRequest request = CreatePriceTierRequest.builder()
                 .tierName("Bậc chồng lấn")
                 .minQuantity(new BigDecimal("30.000"))
@@ -219,7 +215,6 @@ public class ProductPriceTierServiceTest {
         when(userRepository.findByUsername("owner")).thenReturn(Optional.of(ownerUser));
         when(productRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("prod-1", "household-1")).thenReturn(Optional.of(product));
 
-        // Case min <= 0
         CreatePriceTierRequest req1 = CreatePriceTierRequest.builder()
                 .tierName("Lỗi min")
                 .minQuantity(BigDecimal.ZERO)
@@ -230,7 +225,6 @@ public class ProductPriceTierServiceTest {
                 productPriceTierService.createPriceTier("owner", "prod-1", req1));
         assertEquals(ErrorCode.PRICE_TIER_MIN_QUANTITY_INVALID, ex1.getErrorCode());
 
-        // Case max < min
         CreatePriceTierRequest req2 = CreatePriceTierRequest.builder()
                 .tierName("Lỗi range")
                 .minQuantity(new BigDecimal("20.000"))
@@ -267,14 +261,12 @@ public class ProductPriceTierServiceTest {
         when(productPriceTierRepository.findByProductIdAndHouseholdIdAndIsActiveTrueOrderByMinQuantityAsc("prod-1", "household-1"))
                 .thenReturn(List.of(tierRetail, tierWholesale));
 
-        // Mua số lượng 12 -> khớp tierWholesale (AC-01)
         ProductPriceTier matched = productPriceTierService.matchPriceTier("household-1", product, new BigDecimal("12.000"), null);
         assertNotNull(matched);
         assertEquals("tier-wholesale", matched.getId());
         assertEquals("Giá sỉ (≥ 10)", matched.getTierName());
         assertEquals(new BigDecimal("10500.00"), matched.getPrice());
 
-        // Giảm số lượng xuống 5 -> khớp tierRetail (AC-02)
         ProductPriceTier matched5 = productPriceTierService.matchPriceTier("household-1", product, new BigDecimal("5.000"), null);
         assertNotNull(matched5);
         assertEquals("tier-retail", matched5.getId());
@@ -287,14 +279,12 @@ public class ProductPriceTierServiceTest {
         BigDecimal regularPrice = new BigDecimal("20000.00");
         BigDecimal quantity = new BigDecimal("12.000");
 
-        // Bậc sỉ 16.000đ -> giảm 4.000đ/cái = 48.000đ
         ProductPriceTier matchedTier = ProductPriceTier.builder()
                 .id("tier-sỉ")
                 .tierName("Giá sỉ thùng")
                 .price(new BigDecimal("16000.00"))
                 .build();
 
-        // Khuyến mại chỉ giảm 20.000đ
         PromotionItemResultResponse promoResult = PromotionItemResultResponse.builder()
                 .promotionId("promo-1")
                 .promotionName("Giảm giá 20k")
@@ -320,14 +310,12 @@ public class ProductPriceTierServiceTest {
         BigDecimal regularPrice = new BigDecimal("20000.00");
         BigDecimal quantity = new BigDecimal("12.000");
 
-        // Bậc sỉ 19.000đ -> giảm 1.000đ/cái = 12.000đ
         ProductPriceTier matchedTier = ProductPriceTier.builder()
                 .id("tier-sỉ")
                 .tierName("Giá sỉ nhỏ")
                 .price(new BigDecimal("19000.00"))
                 .build();
 
-        // Khuyến mại giảm tới 30.000đ
         PromotionItemResultResponse promoResult = PromotionItemResultResponse.builder()
                 .promotionId("promo-big")
                 .promotionName("Giảm xả hàng 30k")
@@ -341,7 +329,6 @@ public class ProductPriceTierServiceTest {
                 quantity
         );
 
-        // Giữ giá bán lẻ gốc 20.000đ và áp dụng giảm giá khuyến mại 30.000đ
         assertEquals(new BigDecimal("20000.00"), decision.getUnitPrice());
         assertEquals(new BigDecimal("30000.00"), decision.getDiscountAmount());
         assertNull(decision.getPriceTierName());
@@ -374,7 +361,7 @@ public class ProductPriceTierServiceTest {
         assertEquals(new BigDecimal("10500.00"), resp.getAppliedUnitPrice());
         assertEquals("Giá sỉ (≥ 10)", resp.getMatchedTierName());
         assertEquals(new BigDecimal("1500.00"), resp.getSavingAmountPerUnit());
-        assertEquals(new BigDecimal("18000.00"), resp.getTotalSavingAmount()); // 1500 * 12
+        assertEquals(new BigDecimal("18000.00"), resp.getTotalSavingAmount());
     }
 
     @Test
@@ -383,7 +370,6 @@ public class ProductPriceTierServiceTest {
         BigDecimal regularPrice = new BigDecimal("12000.00");
         BigDecimal quantity = new BigDecimal("5.000");
 
-        // Bậc giá lẻ có giá bằng giá niêm yết
         ProductPriceTier retailTier = ProductPriceTier.builder()
                 .id("tier-retail")
                 .tierName("Giá bán lẻ")

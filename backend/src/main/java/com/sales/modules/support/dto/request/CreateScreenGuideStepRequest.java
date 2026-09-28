@@ -8,7 +8,6 @@ import lombok.*;
 @NoArgsConstructor
 @AllArgsConstructor
 public class CreateScreenGuideStepRequest {
-
     @NotNull(message = "Thứ tự bước không được để trống")
     @Min(value = 1, message = "Thứ tự bước phải từ 1")
     @Max(value = 5, message = "Thứ tự bước tối đa là 5")

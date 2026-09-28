@@ -31,18 +31,16 @@ import org.springframework.web.bind.annotation.*;
 import java.security.Principal;
 import java.time.LocalDateTime;
 import java.util.List;
-
+import com.sales.modules.order.service.OrderPaymentService;
 
 @RestController
 @RequestMapping("/api/v1/orders")
 @RequiredArgsConstructor
 public class OrderController {
-
     private final OrderService orderService;
-    private final com.sales.modules.order.service.OrderPaymentService orderPaymentService;
+    private final OrderPaymentService orderPaymentService;
 
     @PostMapping
-
     @PreAuthorize("hasAnyRole('VT-01', 'VT-02', 'VT-03')")
     public ResponseEntity<ApiResponse<OrderResponse>> createOrder(
             Principal principal,
@@ -325,4 +323,3 @@ public class OrderController {
                 .build());
     }
 }
-

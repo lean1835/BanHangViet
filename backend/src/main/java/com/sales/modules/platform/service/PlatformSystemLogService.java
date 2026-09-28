@@ -9,7 +9,6 @@ import java.time.LocalDate;
 import java.util.List;
 
 public interface PlatformSystemLogService {
-
     PlatformSystemLog logSystemEvent(
             String eventType,
             PlatformLogSeverity severity,

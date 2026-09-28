@@ -42,7 +42,6 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 @SuppressWarnings({"unchecked", "unused"})
 public class FaqServiceImplTest {
-
     @Mock
     private FaqItemRepository faqItemRepository;
 
@@ -126,9 +125,6 @@ public class FaqServiceImplTest {
                 .build();
     }
 
-    // =========================================================================
-    // TC-01: Tìm kiếm câu hỏi thành công có kết quả kèm action_url
-    // =========================================================================
     @Test
     @DisplayName("TC-01: Tra cứu câu hỏi theo từ khóa 'hóa đơn treo' trả về kết quả kèm liên kết màn hình xử lý")
     void testGetFaqs_KeywordSearch_ReturnsMatchingResults() {
@@ -148,9 +144,6 @@ public class FaqServiceImplTest {
         verify(faqItemRepository, times(1)).findAll(any(Specification.class), any(Pageable.class));
     }
 
-    // =========================================================================
-    // TC-02: Tìm kiếm không có kết quả khớp
-    // =========================================================================
     @Test
     @DisplayName("TC-02: Tra cứu từ khóa không khớp trả về danh sách rỗng để UI hiển thị kênh hỗ trợ")
     void testGetFaqs_KeywordSearch_ReturnsEmptyWhenNoMatch() {
@@ -164,9 +157,6 @@ public class FaqServiceImplTest {
         assertEquals(0, result.getTotalElements());
     }
 
-    // =========================================================================
-    // TC-03: Lấy thông tin hỗ trợ kỹ thuật và định danh hộ kinh doanh
-    // =========================================================================
     @Test
     @DisplayName("TC-03: Người dùng chủ hộ mở màn thông tin hỗ trợ trả về phiên bản hệ thống, mã hộ, MST và kênh hỗ trợ")
     void testGetSupportInfo_StoreOwner_ReturnsFullDetails() {
@@ -205,9 +195,6 @@ public class FaqServiceImplTest {
         assertTrue(response.getHouseholdName().contains("Quản trị nền tảng"));
     }
 
-    // =========================================================================
-    // TC-05: Xem chi tiết câu hỏi và tự động tăng lượt xem (viewCount)
-    // =========================================================================
     @Test
     @DisplayName("TC-05: Xem chi tiết câu hỏi tự động tăng viewCount từ 10 lên 11")
     void testGetFaqDetailAndIncrementView_Success() {
@@ -270,9 +257,6 @@ public class FaqServiceImplTest {
         verify(faqItemRepository, times(1)).incrementViewCount("faq-hidden-001");
     }
 
-    // =========================================================================
-    // TC-06: Gom nhóm câu hỏi theo 4 Category chuẩn
-    // =========================================================================
     @Test
     @DisplayName("TC-06: Lấy danh mục câu hỏi phân nhóm trả về đúng 4 Category chuẩn")
     void testGetFaqsGroupedByCategory_ReturnsFourCategories() {
@@ -300,9 +284,6 @@ public class FaqServiceImplTest {
         assertEquals(0, groups.get(3).getTotalQuestions());
     }
 
-    // =========================================================================
-    // TC-07 & TC-08: Phân quyền Quản trị nền tảng (VT-04) khi tạo câu hỏi mới
-    // =========================================================================
     @Test
     @DisplayName("TC-07: Người dùng thường (VT-01, VT-02) tạo câu hỏi bị chặn với mã lỗi ONLY_ADMIN_CAN_MANAGE_FAQS")
     void testCreateFaq_NonAdmin_ThrowsForbidden() {
@@ -381,9 +362,6 @@ public class FaqServiceImplTest {
         verify(faqItemRepository, times(1)).delete(sampleFaqInvoice);
     }
 
-    // =========================================================================
-    // TC-11 & TC-12: Quản lý kênh hỗ trợ kỹ thuật
-    // =========================================================================
     @Test
     @DisplayName("TC-11: Quản trị nền tảng tạo kênh hỗ trợ mới thành công")
     void testCreateSupportChannel_Admin_Success() {

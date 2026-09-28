@@ -39,7 +39,6 @@ import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class ProfileServiceImplTest {
-
     @Mock
     private UserRepository userRepository;
 
@@ -100,10 +99,6 @@ class ProfileServiceImplTest {
                 .build();
     }
 
-    // ==========================================
-    // 1. Xem thông tin hồ sơ (getProfile)
-    // ==========================================
-
     @Test
     @DisplayName("Lấy thông tin hồ sơ cá nhân thành công")
     void testGetProfile_Success() {
@@ -138,10 +133,6 @@ class ProfileServiceImplTest {
         AppException ex = assertThrows(AppException.class, () -> profileService.getProfile("nhanvien1"));
         assertEquals(ErrorCode.USER_BLOCKED, ex.getErrorCode());
     }
-
-    // ==========================================
-    // 2. Cập nhật họ tên hồ sơ (updateProfile)
-    // ==========================================
 
     @Test
     @DisplayName("Cập nhật họ tên hồ sơ cá nhân thành công")
@@ -195,10 +186,6 @@ class ProfileServiceImplTest {
         assertEquals(ErrorCode.USER_BLOCKED, ex.getErrorCode());
         verify(userRepository, never()).save(any());
     }
-
-    // ==========================================
-    // 3. Đổi mật khẩu cá nhân (changePassword)
-    // ==========================================
 
     @Test
     @DisplayName("NCL-01-CN-006-TC-01: Đổi mật khẩu thành công và vô hiệu hóa các phiên khác")
@@ -278,10 +265,6 @@ class ProfileServiceImplTest {
         assertEquals(ErrorCode.WRONG_PASSWORD, ex.getErrorCode());
         verify(userRepository, never()).save(any());
     }
-
-    // ==========================================
-    // 4. Gửi mã OTP đổi số điện thoại (sendUpdatePhoneOtp)
-    // ==========================================
 
     @Test
     @DisplayName("NCL-01-CN-006-TC-03: Gửi OTP đổi số điện thoại thành công")
@@ -380,10 +363,6 @@ class ProfileServiceImplTest {
         assertEquals(ErrorCode.OTP_COOLDOWN_ACTIVE, ex.getErrorCode());
         verify(otpRepository, never()).save(any());
     }
-
-    // ==========================================
-    // 5. Xác thực OTP & Cập nhật số điện thoại (verifyAndUpdatePhone)
-    // ==========================================
 
     @Test
     @DisplayName("NCL-01-CN-006-TC-03: Xác thực OTP và cập nhật số điện thoại mới thành công")

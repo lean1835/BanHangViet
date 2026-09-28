@@ -13,7 +13,6 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 @AllArgsConstructor
 public class CreateAdjustmentInvoiceItemRequest {
-
     @Size(max = 36, message = "Mã hàng hóa không vượt quá 36 ký tự")
     private String productId;
 

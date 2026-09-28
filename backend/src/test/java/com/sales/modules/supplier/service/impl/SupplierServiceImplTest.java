@@ -31,7 +31,6 @@ import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class SupplierServiceImplTest {
-
     @Mock
     private UserRepository userRepository;
 

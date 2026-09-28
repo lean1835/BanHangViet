@@ -22,7 +22,6 @@ import java.util.Optional;
 @RequiredArgsConstructor
 @Slf4j
 public class AccountantSecurityService {
-
     private final UserRepository userRepository;
     private final HouseholdAccountantAssignmentRepository assignmentRepository;
     private final ObjectMapper objectMapper;
@@ -48,12 +47,10 @@ public class AccountantSecurityService {
             return false;
         }
 
-        // Nếu không phải là vai trò kế toán (VT-03), không có scope của kế toán
         if (!"VT-03".equals(user.getRole().getCode())) {
             return false;
         }
 
-        // Xác định hộ kinh doanh active context (ưu tiên ThreadLocal header context, fallback về user.household)
         BusinessHousehold currentHousehold = HouseholdContextHolder.getHousehold();
         if (currentHousehold == null) {
             currentHousehold = user.getHousehold();
@@ -71,7 +68,6 @@ public class AccountantSecurityService {
                         AccountantAssignmentStatus.ACTIVE);
 
         if (assignmentOpt.isEmpty()) {
-            // Trường hợp kế toán viên nội bộ trực tiếp thuộc hộ (không qua cơ chế phân quyền kế toán dịch vụ thuê ngoài)
             boolean hasAssignmentForThisHousehold = assignmentRepository
                     .findByHouseholdIdAndAccountantUserId(currentHousehold.getId(), user.getId())
                     .isPresent();

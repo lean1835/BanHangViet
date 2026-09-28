@@ -44,12 +44,12 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import org.hamcrest.Matchers;
 
 @SpringBootTest
 @AutoConfigureMockMvc
 @Transactional
 public class SyncControllerTest {
-
     @Autowired
     private MockMvc mockMvc;
 
@@ -231,7 +231,6 @@ public class SyncControllerTest {
     @Test
     @WithMockUser(username = "chuho_viet", roles = {"VT-01"})
     public void testResolveConflict_KeepServer() throws Exception {
-        // Create an existing order first
         Order existing = Order.builder()
                 .household(testHousehold)
                 .createdByUser(testOwner)
@@ -268,13 +267,12 @@ public class SyncControllerTest {
                         .content(objectMapper.writeValueAsString(Collections.emptyList())))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value(2006))
-                .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("Danh sách đơn hàng đồng bộ không được trống")));
+                .andExpect(jsonPath("$.message").value(Matchers.containsString("Danh sách đơn hàng đồng bộ không được trống")));
     }
 
     @Test
     @WithMockUser(username = "chuho_viet", roles = {"VT-01"})
     public void testResolveConflict_OverwriteServer_UpdatesCustomerAndShift() throws Exception {
-        // Create an existing order first
         Order existing = Order.builder()
                 .household(testHousehold)
                 .createdByUser(testOwner)
@@ -290,13 +288,11 @@ public class SyncControllerTest {
                 .build();
         existing = orderRepository.save(existing);
 
-        // Close any existing open shift for testOwner to satisfy QTN-15 DB trigger constraint
         shiftRepository.findByUserIdAndStatus(testOwner.getId(), ShiftStatus.OPEN).ifPresent(s -> {
             s.setStatus(ShiftStatus.CLOSED);
             shiftRepository.save(s);
         });
 
-        // Create test shift
         Shift newShift = Shift.builder()
                 .household(testHousehold)
                 .user(testOwner)
@@ -306,7 +302,6 @@ public class SyncControllerTest {
                 .build();
         newShift = shiftRepository.save(newShift);
 
-        // Create test customer
         Customer newCustomer = Customer.builder()
                 .household(testHousehold)
                 .name("Khách Hàng Mới")

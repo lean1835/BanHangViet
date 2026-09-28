@@ -46,7 +46,6 @@ import java.util.*;
 @RequiredArgsConstructor
 @Slf4j
 public class AppNotificationServiceImpl implements AppNotificationService {
-
     private final AppNotificationRepository notificationRepository;
     private final UserNotificationSettingRepository settingRepository;
     private final UserRepository userRepository;
@@ -58,7 +57,6 @@ public class AppNotificationServiceImpl implements AppNotificationService {
     @Transactional(readOnly = true)
     public PageResponse<AppNotificationResponse> getNotifications(
             String currentUsername, NotificationFilterRequest filter, int page, int size) {
-
         User currentUser = validateAndGetUser(currentUsername);
         BusinessHousehold household = currentUser.getHousehold();
         if (household == null) {
@@ -69,7 +67,6 @@ public class AppNotificationServiceImpl implements AppNotificationService {
         String roleCode = currentUser.getRole() != null ? currentUser.getRole().getCode() : "";
         boolean isCashier = "VT-02".equalsIgnoreCase(roleCode);
 
-        // QTN-10: Nhân viên bán hàng chỉ được xem loại tác nghiệp cho phép
         if (isCashier && effectiveFilter.getNotificationType() != null) {
             if (NotificationTypeConstant.FINANCIAL_AND_ADMIN_TYPES.contains(effectiveFilter.getNotificationType())) {
                 throw new AppException(ErrorCode.NOTIFICATION_ACCESS_DENIED);
@@ -165,7 +162,6 @@ public class AppNotificationServiceImpl implements AppNotificationService {
         AppNotification notif = notificationRepository.findByIdAndHouseholdId(notificationId, household.getId())
                 .orElseThrow(() -> new AppException(ErrorCode.NOTIFICATION_NOT_FOUND));
 
-        // Kiểm tra phân quyền xem cho NV bán hàng (QTN-10)
         String roleCode = currentUser.getRole() != null ? currentUser.getRole().getCode() : "";
         if ("VT-02".equalsIgnoreCase(roleCode)) {
             if (NotificationTypeConstant.FINANCIAL_AND_ADMIN_TYPES.contains(notif.getNotificationType())) {
@@ -202,7 +198,6 @@ public class AppNotificationServiceImpl implements AppNotificationService {
 
         for (AppNotification notif : unreadList) {
             if (isCashier) {
-                // Chỉ mark as read những thông báo cashier được phép xem
                 if (NotificationTypeConstant.CASHIER_ALLOWED_TYPES.contains(notif.getNotificationType())) {
                     if (notif.getUser() == null || notif.getUser().getId().equals(currentUser.getId())) {
                         notif.setIsRead(true);
@@ -254,13 +249,11 @@ public class AppNotificationServiceImpl implements AppNotificationService {
 
         User currentUser = validateAndGetUser(currentUsername);
 
-        // Không cho phép tắt loại thông báo bắt buộc
         if (Boolean.FALSE.equals(request.getIsEnabled()) &&
                 NotificationTypeConstant.MANDATORY_NOTIFICATION_TYPES.contains(request.getNotificationType())) {
             throw new AppException(ErrorCode.CANNOT_DISABLE_MANDATORY_NOTIFICATION);
         }
 
-        // Kiểm tra loại thông báo có được hỗ trợ
         boolean isSupported = PREDEFINED_SETTINGS.stream()
                 .anyMatch(item -> item.type.equalsIgnoreCase(request.getNotificationType()));
         if (!isSupported) {
@@ -402,7 +395,6 @@ public class AppNotificationServiceImpl implements AppNotificationService {
 
         List<AppNotification> newNotifications = new ArrayList<>();
 
-        // 1. Quét hóa đơn SEND_ERROR chưa có thông báo đang mở (TC-01) - Tối ưu batching không gọi N+1
         List<EInvoice> errorInvoices = invoiceRepository
                 .findByHouseholdIdAndStatusAndDeletedAtIsNull(household.getId(), "SEND_ERROR");
 
@@ -439,7 +431,6 @@ public class AppNotificationServiceImpl implements AppNotificationService {
             }
         }
 
-        // 2. Quét công nợ đến hạn & quá hạn (QTN-14 & TC-01) - Tối ưu batching không gọi N+1
         LocalDateTime today = LocalDateTime.now();
         List<CustomerDebt> debts = customerDebtRepository.findByHouseholdIdAndStatusInAndTypeOrderByDueDateAscWithRelations(
                 household.getId(), List.of("PENDING", "OVERDUE"), "DEBT_CREATED");
@@ -457,7 +448,6 @@ public class AppNotificationServiceImpl implements AppNotificationService {
             Set<String> debtIdsToClose = new HashSet<>();
 
             for (CustomerDebt debt : debts) {
-                // Kiểm tra nếu khách hàng đã hết nợ (currentDebt <= 0) hoặc khoản nợ đã thanh toán xong (remainingAmount <= 0)
                 boolean isCustomerDebtZero = debt.getCustomer() != null && debt.getCustomer().getCurrentDebt() != null
                         && debt.getCustomer().getCurrentDebt().compareTo(BigDecimal.ZERO) <= 0;
                 boolean isDebtAmountZero = debt.getRemainingAmount() != null
@@ -513,7 +503,7 @@ public class AppNotificationServiceImpl implements AppNotificationService {
     }
 
     @Override
-    @Scheduled(cron = "0 0 2 * * ?") // 02:00 AM hàng ngày
+    @Scheduled(cron = "0 0 2 * * ?")
     @Transactional(rollbackFor = Exception.class)
     public void cleanupExpiredNotificationsJob() {
         LocalDateTime cutoffDate = LocalDateTime.now().minusDays(30);
@@ -522,65 +512,48 @@ public class AppNotificationServiceImpl implements AppNotificationService {
         log.info("Hoàn tất dọn dẹp thông báo. Đã xóa {} bản ghi cũ.", deleted);
     }
 
-    // =========================================================================
-    // Helper Methods & Specifications
-    // =========================================================================
-
     private Specification<AppNotification> buildSpecification(
             User currentUser, NotificationFilterRequest filter, Set<String> disabledTypes) {
-
         return (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
 
-            // 1. Ràng buộc Multi-tenancy: Bắt buộc cùng household_id
             predicates.add(cb.equal(root.get("household").get("id"), currentUser.getHousehold().getId()));
 
-            // 2. Ràng buộc 30 ngày lưu trữ (Data Retention Policy)
             LocalDateTime threshold30Days = LocalDateTime.now().minusDays(30);
             predicates.add(cb.greaterThanOrEqualTo(root.get("createdAt"), threshold30Days));
 
-            // 3. Ràng buộc QTN-10 & Phân quyền theo vai trò (TC-03)
             String roleCode = currentUser.getRole() != null ? currentUser.getRole().getCode() : "";
             if ("VT-02".equalsIgnoreCase(roleCode)) {
-                // Nhân viên bán hàng: CHỈ ĐƯỢC XEM tác nghiệp bán hàng
                 predicates.add(root.get("notificationType").in(NotificationTypeConstant.CASHIER_ALLOWED_TYPES));
 
-                // Dùng LEFT JOIN tường minh để không vô tình loại bỏ các bản ghi thông báo quầy chung (user_id IS NULL)
                 Join<AppNotification, User> userJoin = root.join("user", JoinType.LEFT);
                 Predicate forMe = cb.equal(userJoin.get("id"), currentUser.getId());
                 Predicate forAll = cb.isNull(root.get("user"));
                 predicates.add(cb.or(forMe, forAll));
             } else {
-                // Chủ hộ (VT-01) hoặc Kế toán (VT-03):
-                // Loại trừ các loại thông báo mà chủ hộ đã chủ động TẮT trong Settings
                 if (disabledTypes != null && !disabledTypes.isEmpty()) {
                     predicates.add(cb.not(root.get("notificationType").in(disabledTypes)));
                 }
             }
 
-            // 4. Lọc theo severity
             if (filter.getSeverity() != null && !filter.getSeverity().isBlank()) {
                 predicates.add(cb.equal(root.get("severity"), filter.getSeverity().trim().toUpperCase()));
             }
 
-            // 5. Lọc theo loại thông báo cụ thể
             if (filter.getNotificationType() != null && !filter.getNotificationType().isBlank()) {
                 predicates.add(cb.equal(root.get("notificationType"), filter.getNotificationType().trim()));
             }
 
-            // 6. Lọc theo trạng thái đã đọc
             if (filter.getIsRead() != null) {
                 predicates.add(cb.equal(root.get("isRead"), filter.getIsRead()));
             }
 
-            // 7. Lọc theo trạng thái đóng (mặc định nếu null thì chỉ lấy việc chưa đóng)
             if (filter.getIsClosed() != null) {
                 predicates.add(cb.equal(root.get("isClosed"), filter.getIsClosed()));
             } else {
                 predicates.add(cb.isFalse(root.get("isClosed")));
             }
 
-            // 8. Tìm kiếm từ khóa tiêu đề hoặc nội dung
             if (filter.getSearch() != null && !filter.getSearch().isBlank()) {
                 String pattern = "%" + filter.getSearch().trim().toLowerCase() + "%";
                 Predicate titleLike = cb.like(cb.lower(root.get("title")), pattern);
@@ -635,10 +608,6 @@ public class AppNotificationServiceImpl implements AppNotificationService {
         NumberFormat nf = NumberFormat.getInstance(Locale.forLanguageTag("vi-VN"));
         return nf.format(amount);
     }
-
-    // =========================================================================
-    // Predefined Settings Metadata
-    // =========================================================================
 
     private record NotificationConfigItem(
             String type,

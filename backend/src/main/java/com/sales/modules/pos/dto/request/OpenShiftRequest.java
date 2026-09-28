@@ -11,7 +11,6 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 @AllArgsConstructor
 public class OpenShiftRequest {
-
     @NotNull(message = "Tiền đầu ca không được để trống")
     @DecimalMin(value = "0.0", message = "Tiền đầu ca không được âm")
     private BigDecimal openingCash;

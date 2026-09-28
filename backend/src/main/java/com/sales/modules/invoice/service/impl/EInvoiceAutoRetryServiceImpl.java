@@ -34,19 +34,19 @@ import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import org.springframework.beans.factory.annotation.Autowired;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class EInvoiceAutoRetryServiceImpl implements EInvoiceAutoRetryService {
-
     private final UserRepository userRepository;
     private final EInvoiceRepository eInvoiceRepository;
     private final InvoiceStatusLogRepository invoiceStatusLogRepository;
     private final BusinessHouseholdSettingsRepository settingsRepository;
     private final EInvoiceService eInvoiceService;
     private final TransactionTemplate transactionTemplate;
-    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    @Autowired(required = false)
     private TaxConnectionService taxConnectionService;
 
     private static final int BATCH_SIZE = 100;
@@ -182,7 +182,6 @@ public class EInvoiceAutoRetryServiceImpl implements EInvoiceAutoRetryService {
      * 3. Pha hoàn tất hoặc xử lý lỗi sau khi gọi thuế trong transaction con độc lập.
      */
     private RetryExecutionResult executeInvoiceRetry(String invoiceId, LocalDateTime now) {
-        // Pha 1: Chuẩn bị trong transaction Tx1
         PrepareResult prep = transactionTemplate.execute(status -> prepareInvoiceForRetry(invoiceId, now));
         if (prep == null || (!prep.proceed && !prep.movedToManual)) {
             return RetryExecutionResult.SKIPPED;
@@ -191,7 +190,6 @@ public class EInvoiceAutoRetryServiceImpl implements EInvoiceAutoRetryService {
             return RetryExecutionResult.MANUAL_PROCESSING;
         }
 
-        // Pha 2: Gọi dịch vụ thuế
         boolean isSuccess = false;
         String errorMessage = null;
         String mockTaxCode = "CQT-AUTO-" + UUID.randomUUID().toString().substring(0, 10).toUpperCase();
@@ -204,7 +202,6 @@ public class EInvoiceAutoRetryServiceImpl implements EInvoiceAutoRetryService {
             log.info("Lần thử {} cho HĐĐT ID={} không thành công: {}", prep.currentRetryCount, invoiceId, errorMessage);
         }
 
-        // Pha 3: Cập nhật kết quả trong transaction Tx2 độc lập
         final boolean success = isSuccess;
         final String err = errorMessage;
         return transactionTemplate.execute(status -> handleRetryResult(invoiceId, now, prep, success, err));
@@ -228,7 +225,6 @@ public class EInvoiceAutoRetryServiceImpl implements EInvoiceAutoRetryService {
 
         String oldStatus = invoice.getStatus();
 
-        // Kiểm tra lỗi không thể thử lại (TC-02: không tăng retryCount khi gặp lỗi này)
         if (isNonRetryableError(invoice.getTaxAuthorityResponse())) {
             invoice.setStatus("MANUAL_PROCESSING");
             invoice.setErrorCategory("NON_RETRYABLE");
@@ -247,8 +243,6 @@ public class EInvoiceAutoRetryServiceImpl implements EInvoiceAutoRetryService {
             return PrepareResult.manual();
         }
 
-        // Kiểm tra hạn chót thời gian hoặc số lần thử tối đa (TC-03)
-        // Mốc thời gian bắt đầu chu kỳ thử lại căn cứ vào sentToTaxAt (lần gửi thuế gần nhất) hoặc createdAt
         LocalDateTime cycleStart = invoice.getSentToTaxAt() != null ? invoice.getSentToTaxAt() : invoice.getCreatedAt();
         boolean deadlineExceeded = cycleStart != null && cycleStart.plusHours(deadlineHours).isBefore(now);
         boolean maxAttemptsReached = invoice.getRetryCount() >= maxAttempts;
@@ -274,7 +268,6 @@ public class EInvoiceAutoRetryServiceImpl implements EInvoiceAutoRetryService {
             return PrepareResult.manual();
         }
 
-        // Đủ điều kiện thử lại: Tăng số lần thử, đưa trạng thái về WAITING_TAX_CODE để chuẩn bị gửi thuế
         int nextCount = invoice.getRetryCount() + 1;
         invoice.setRetryCount(nextCount);
         invoice.setLastRetryAt(now);
@@ -301,13 +294,11 @@ public class EInvoiceAutoRetryServiceImpl implements EInvoiceAutoRetryService {
             PrepareResult prep,
             boolean isSuccess,
             String errorMessage) {
-
         EInvoice invoice = eInvoiceRepository.findById(invoiceId).orElse(null);
         if (invoice == null) {
             return RetryExecutionResult.SKIPPED;
         }
 
-        // P0 Race condition protection: Nếu hóa đơn đã được cấp mã ISSUED từ luồng khác, không được đè về trạng thái lỗi
         if ("ISSUED".equals(invoice.getStatus())) {
             log.warn("HĐĐT ID={} đã ở trạng thái ISSUED, bỏ qua cập nhật lỗi từ tiến trình thử lại.", invoiceId);
             return RetryExecutionResult.SUCCESS;
@@ -375,7 +366,6 @@ public class EInvoiceAutoRetryServiceImpl implements EInvoiceAutoRetryService {
             throw new AppException(ErrorCode.FORBIDDEN);
         }
 
-        // Phân quyền cho nhân viên bán hàng (VT-02): chỉ được gửi lại hóa đơn do chính mình tạo
         if (currentUser.getRole() != null && "VT-02".equals(currentUser.getRole().getCode())) {
             if (invoice.getCreatedByUser() != null && !currentUser.getId().equals(invoice.getCreatedByUser().getId())) {
                 throw new AppException(ErrorCode.FORBIDDEN);
@@ -420,7 +410,6 @@ public class EInvoiceAutoRetryServiceImpl implements EInvoiceAutoRetryService {
             predicates.add(cb.equal(root.get("status"), "MANUAL_PROCESSING"));
             predicates.add(cb.isNull(root.get("deletedAt")));
 
-            // Phân quyền cho nhân viên bán hàng (VT-02): chỉ xem hóa đơn do chính mình tạo
             if (currentUser.getRole() != null && "VT-02".equals(currentUser.getRole().getCode())) {
                 predicates.add(cb.equal(root.get("createdByUser").get("id"), currentUser.getId()));
             }
@@ -431,7 +420,6 @@ public class EInvoiceAutoRetryServiceImpl implements EInvoiceAutoRetryService {
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "updatedAt"));
         Page<EInvoice> pageData = eInvoiceRepository.findAll(spec, pageable);
 
-        // Map trực tiếp từ Entity sang DTO, triệt tiêu N+1 Query và tránh ném 403 từ getInvoice
         List<InvoiceResponse> content = pageData.getContent().stream()
                 .map(this::mapToInvoiceResponse)
                 .collect(Collectors.toList());

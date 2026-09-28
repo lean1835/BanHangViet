@@ -8,7 +8,6 @@ import lombok.*;
 @NoArgsConstructor
 @AllArgsConstructor
 public class TrackScreenGuideViewRequest {
-
     @Min(value = 0, message = "Thời gian xem không được âm")
     @Builder.Default
     private Integer durationSeconds = 0;

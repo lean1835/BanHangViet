@@ -27,7 +27,6 @@ import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 public class OrderSyncedEventListenerTest {
-
     @Mock
     private EInvoiceService eInvoiceService;
 
@@ -92,10 +91,8 @@ public class OrderSyncedEventListenerTest {
     @Test
     @DisplayName("NCL-04-CN-006: Khắc phục lỗi bỏ sót buyerTaxCode khi fallback tạo hóa đơn SEND_ERROR từ sự kiện POS")
     void testHandleOrderSyncedEvent_FallbackPreservesBuyerTaxCode() {
-        // Arrange
         OrderSyncedEvent event = new OrderSyncedEvent("seller1", "order-101", true);
 
-        // Giả lập createInvoiceDraft ném lỗi (ví dụ lỗi mạng CQT)
         when(eInvoiceService.createInvoiceDraft("seller1", "order-101"))
                 .thenThrow(new RuntimeException("Kết nối Cổng Tổng Cục Thuế thất bại"));
 
@@ -105,10 +102,8 @@ public class OrderSyncedEventListenerTest {
         when(invoiceTemplateRepository.findByHouseholdId("hh-100")).thenReturn(Optional.empty());
         when(eInvoiceRepository.existsByLookupCodeAndDeletedAtIsNull(any())).thenReturn(false);
 
-        // Act
         eventListener.handleOrderSyncedEvent(event);
 
-        // Assert
         ArgumentCaptor<EInvoice> captor = ArgumentCaptor.forClass(EInvoice.class);
         verify(eInvoiceRepository, times(1)).save(captor.capture());
 

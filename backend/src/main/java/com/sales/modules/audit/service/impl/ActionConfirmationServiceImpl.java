@@ -23,7 +23,6 @@ import java.util.List;
 @RequiredArgsConstructor
 @Slf4j
 public class ActionConfirmationServiceImpl implements ActionConfirmationService {
-
     private final UserRepository userRepository;
     private final OrderRepository orderRepository;
     private final EInvoiceRepository invoiceRepository;
@@ -105,7 +104,6 @@ public class ActionConfirmationServiceImpl implements ActionConfirmationService 
             throw new AppException(ErrorCode.FORBIDDEN);
         }
 
-        // QTN & RBAC: Chỉ Chủ hộ (VT-01) và Kế toán (VT-03) mới có quyền hủy hóa đơn
         String role = user.getRole() != null ? user.getRole().getCode() : null;
         if (!"VT-01".equals(role) && !"VT-03".equals(role)) {
             throw new AppException(ErrorCode.FORBIDDEN);

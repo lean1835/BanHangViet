@@ -15,7 +15,7 @@ public class DiningTableResponse {
     private Integer seatCapacity;
     private Integer sortOrder;
     private Boolean isActive;
-    // Trạng thái phục vụ hiện tại (POS theo dõi bàn trống / bàn có khách)
+
     private Boolean isOccupied;
     private String currentOrderId;
     private String currentOrderLabel;

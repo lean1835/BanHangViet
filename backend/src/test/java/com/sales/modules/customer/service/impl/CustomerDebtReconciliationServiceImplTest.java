@@ -50,7 +50,6 @@ import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class CustomerDebtReconciliationServiceImplTest {
-
     @Mock
     private UserRepository userRepository;
 
@@ -130,7 +129,6 @@ class CustomerDebtReconciliationServiceImplTest {
         when(customerRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("cust-001", "house-001"))
                 .thenReturn(Optional.of(customer));
 
-        // Số dư đầu kỳ: 1.500.000đ (incurred 5tr - paid 3.5tr)
         when(customerDebtRepository.sumAmountByCustomerAndTypeBefore(
                 eq("cust-001"), eq("house-001"), eq(DebtType.DEBT_CREATED), any(LocalDateTime.class)))
                 .thenReturn(new BigDecimal("5000000.00"));
@@ -138,7 +136,6 @@ class CustomerDebtReconciliationServiceImplTest {
                 eq("cust-001"), eq("house-001"), eq(DebtType.DEBT_PAID), any(LocalDateTime.class)))
                 .thenReturn(new BigDecimal("3500000.00"));
 
-        // Giao dịch trong kỳ: 1 đơn nợ 500k, 1 lần trả nợ 400k, 1 đơn nợ 300k
         Order order1 = Order.builder().id("order-1").orderNumber("HD-001").build();
         Order order2 = Order.builder().id("order-2").orderNumber("HD-002").build();
 
@@ -189,10 +186,9 @@ class CustomerDebtReconciliationServiceImplTest {
         assertEquals("Một triệu chín trăm nghìn đồng", response.getClosingDebtInWords());
         assertEquals(3, response.getItems().size());
 
-        // Kiểm tra số dư lũy kế từng dòng
-        assertEquals(new BigDecimal("2000000.00"), response.getItems().get(0).getRunningBalance()); // 1.5tr + 500k
-        assertEquals(new BigDecimal("1600000.00"), response.getItems().get(1).getRunningBalance()); // 2.0tr - 400k
-        assertEquals(new BigDecimal("1900000.00"), response.getItems().get(2).getRunningBalance()); // 1.6tr + 300k
+        assertEquals(new BigDecimal("2000000.00"), response.getItems().get(0).getRunningBalance());
+        assertEquals(new BigDecimal("1600000.00"), response.getItems().get(1).getRunningBalance());
+        assertEquals(new BigDecimal("1900000.00"), response.getItems().get(2).getRunningBalance());
     }
 
     @Test
@@ -340,7 +336,6 @@ class CustomerDebtReconciliationServiceImplTest {
         assertNotNull(response.getConfirmedAt());
         assertEquals(endDate, response.getReconciledToDate());
 
-        // Kiểm tra các khoản nợ cũ đã bị khóa
         assertTrue(oldDebt1.isLocked());
         assertTrue(oldDebt2.isLocked());
         verify(customerDebtRepository).saveAll(any());
@@ -375,7 +370,7 @@ class CustomerDebtReconciliationServiceImplTest {
 
         CreateDebtReconciliationRequest request = CreateDebtReconciliationRequest.builder()
                 .customerId("cust-001")
-                .startDate(LocalDate.now().minusDays(7)) // Nằm trước lastReconciledDate (-5)
+                .startDate(LocalDate.now().minusDays(7))
                 .endDate(LocalDate.now().minusDays(1))
                 .build();
 
@@ -522,7 +517,7 @@ class CustomerDebtReconciliationServiceImplTest {
         assertNotNull(response);
         assertEquals(new BigDecimal("50000.00"), response.getAmount());
         assertEquals(DebtType.DEBT_CREATED, response.getType());
-        assertEquals(new BigDecimal("1950000.00"), customer.getCurrentDebt()); // 1.9tr + 50k
+        assertEquals(new BigDecimal("1950000.00"), customer.getCurrentDebt());
         verify(customerRepository).save(customer);
         verify(customerDebtRepository).save(any(CustomerDebt.class));
     }
@@ -536,7 +531,7 @@ class CustomerDebtReconciliationServiceImplTest {
                 .customerId("cust-001")
                 .adjustmentType("DEBT_DECREASE")
                 .amount(new BigDecimal("50000.00"))
-                .reason("") // Rỗng
+                .reason("")
                 .build();
 
         AppException ex = assertThrows(AppException.class, () ->
@@ -586,14 +581,12 @@ class CustomerDebtReconciliationServiceImplTest {
         assertNotNull(response);
         assertEquals(DebtType.DEBT_PAID, response.getType());
         assertEquals(DebtStatus.PAID, response.getStatus());
-        // 1.9tr - 50k = 1.85tr
+
         assertEquals(new BigDecimal("1850000.00"), customer.getCurrentDebt());
 
-        // openDebt1 bị trừ hết 30k -> remaining = 0, status = PAID
         assertEquals(BigDecimal.ZERO, openDebt1.getRemainingAmount());
         assertEquals(DebtStatus.PAID, openDebt1.getStatus());
 
-        // openDebt2 bị trừ tiếp 20k -> remaining = 30k, status = PENDING
         assertEquals(new BigDecimal("30000.00"), openDebt2.getRemainingAmount());
         assertEquals(DebtStatus.PENDING, openDebt2.getStatus());
 

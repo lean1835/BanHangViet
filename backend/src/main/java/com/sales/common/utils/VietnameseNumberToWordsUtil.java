@@ -6,13 +6,11 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class VietnameseNumberToWordsUtil {
-
     private static final String[] DIGITS = {
             "không", "một", "hai", "ba", "bốn", "năm", "sáu", "bảy", "tám", "chín"
     };
 
     private VietnameseNumberToWordsUtil() {
-        // utility class
     }
 
     /**
@@ -42,7 +40,6 @@ public class VietnameseNumberToWordsUtil {
         boolean isNegative = amount.signum() < 0;
         BigInteger positiveAmount = amount.abs();
 
-        // Split into groups of 3 digits (chunks of thousands)
         List<Integer> groups = new ArrayList<>();
         BigInteger thousand = BigInteger.valueOf(1000);
         BigInteger temp = positiveAmount;
@@ -71,8 +68,6 @@ public class VietnameseNumberToWordsUtil {
                 }
             }
 
-            // At the boundary of every billion block (group 3, 6, 9...), append "tỷ"
-            // if any group in this block or any higher block is non-zero
             if (i % 3 == 0 && i > 0 && isAnyHigherOrCurrentNonZero(groups, i)) {
                 parts.add("tỷ");
             }
@@ -84,7 +79,7 @@ public class VietnameseNumberToWordsUtil {
         }
 
         result = (isNegative ? "Âm " : "") + result + " đồng";
-        // Capitalize the first letter
+
         return Character.toUpperCase(result.charAt(0)) + result.substring(1);
     }
 
@@ -132,7 +127,6 @@ public class VietnameseNumberToWordsUtil {
                 words.add(DIGITS[units]);
             }
         } else {
-            // tens == 0
             if (units > 0) {
                 if (hundreds > 0 || !isHighestGroup) {
                     words.add("lẻ");

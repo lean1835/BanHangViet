@@ -24,7 +24,7 @@ public class SyncSessionResponse {
     private Integer totalDuplicated;
     private Integer totalConflicted;
     private Integer totalFailed;
-    private String status; // MATCHED, DISCREPANCY
+    private String status;
     private LocalDateTime syncedAt;
     private LocalDateTime createdAt;
     private List<SyncSessionDetailResponse> details;

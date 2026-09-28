@@ -11,7 +11,6 @@ import java.util.List;
 
 @Repository
 public interface ScreenGuideViewLogRepository extends JpaRepository<ScreenGuideViewLog, String> {
-
     Long countByScreenCode(String screenCode);
 
     Long countByScreenCodeAndCompletedTrue(String screenCode);

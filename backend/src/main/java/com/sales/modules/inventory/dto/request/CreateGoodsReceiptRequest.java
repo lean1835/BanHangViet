@@ -14,7 +14,6 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class CreateGoodsReceiptRequest {
-
     @Size(max = 36, message = "Mã nhà cung cấp không vượt quá 36 ký tự")
     private String supplierId;
 

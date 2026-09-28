@@ -13,7 +13,6 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 public class PlatformIncidentResponse {
-
     private String id;
     private String title;
     private String eventType;

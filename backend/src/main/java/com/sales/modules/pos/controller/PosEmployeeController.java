@@ -16,7 +16,6 @@ import java.util.List;
 @RequestMapping("/api/v1/points-of-sale/{posId}/employees")
 @RequiredArgsConstructor
 public class PosEmployeeController {
-
     private final PosEmployeeService posEmployeeService;
 
     @GetMapping
@@ -24,7 +23,6 @@ public class PosEmployeeController {
     public ResponseEntity<ApiResponse<List<PosEmployeeResponse>>> getEmployeesByPos(
             Principal principal,
             @PathVariable String posId) {
-
         List<PosEmployeeResponse> result = posEmployeeService.getEmployeesByPos(principal.getName(), posId);
         ApiResponse<List<PosEmployeeResponse>> response = ApiResponse.<List<PosEmployeeResponse>>builder()
                 .code(1000)
@@ -40,7 +38,6 @@ public class PosEmployeeController {
             Principal principal,
             @PathVariable String posId,
             @Valid @RequestBody AssignPosEmployeeRequest request) {
-
         List<PosEmployeeResponse> result = posEmployeeService.assignEmployeesToPos(principal.getName(), posId, request);
         ApiResponse<List<PosEmployeeResponse>> response = ApiResponse.<List<PosEmployeeResponse>>builder()
                 .code(1000)
@@ -56,7 +53,6 @@ public class PosEmployeeController {
             Principal principal,
             @PathVariable String posId,
             @PathVariable String userId) {
-
         posEmployeeService.unassignEmployeeFromPos(principal.getName(), posId, userId);
         ApiResponse<Void> response = ApiResponse.<Void>builder()
                 .code(1000)

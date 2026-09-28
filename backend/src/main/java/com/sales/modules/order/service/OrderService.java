@@ -13,7 +13,12 @@ import com.sales.modules.order.dto.request.UpdateOrderLabelRequest;
 import com.sales.modules.product.dto.request.CalculateWeightRequest;
 import com.sales.modules.order.dto.response.OrderResponse;
 import java.util.List;
-
+import com.sales.modules.order.dto.response.CanceledOrderStatisticsResponse;
+import com.sales.modules.order.dto.response.HeldOrderSummaryResponse;
+import com.sales.modules.order.dto.response.OrderCancelReasonDto;
+import com.sales.modules.order.entity.Order;
+import com.sales.modules.product.dto.response.CalculateWeightResponse;
+import java.time.LocalDateTime;
 
 public interface OrderService {
     OrderResponse createOrder(String currentUsername, CreateOrderRequest request);
@@ -25,27 +30,22 @@ public interface OrderService {
     OrderResponse completeOrder(String currentUsername, String orderId, CompleteOrderRequest request);
     OrderResponse getOrder(String currentUsername, String orderId);
     List<OrderResponse> getOrdersHistory(String currentUsername);
-    com.sales.modules.product.dto.response.CalculateWeightResponse calculateWeight(String currentUsername, CalculateWeightRequest request);
+    CalculateWeightResponse calculateWeight(String currentUsername, CalculateWeightRequest request);
     OrderResponse cancelOrder(String currentUsername, String orderId, CancelOrderRequest request);
-    List<com.sales.modules.order.dto.response.OrderCancelReasonDto> getCancelReasons();
-    com.sales.modules.order.dto.response.CanceledOrderStatisticsResponse getCanceledOrderStatistics(
+    List<OrderCancelReasonDto> getCancelReasons();
+    CanceledOrderStatisticsResponse getCanceledOrderStatistics(
             String currentUsername,
             String shiftId,
-            java.time.LocalDateTime fromDate,
-            java.time.LocalDateTime toDate
+            LocalDateTime fromDate,
+            LocalDateTime toDate
     );
 
-    // NCL-03-CN-010 Đặt tên nhận diện và treo nhiều đơn theo bàn hoặc khách
     OrderResponse holdOrder(String currentUsername, String orderId, HoldOrderRequest request);
     OrderResponse updateOrderLabel(String currentUsername, String orderId, UpdateOrderLabelRequest request);
     OrderResponse switchDiningTable(String currentUsername, String orderId, SwitchDiningTableRequest request);
-    List<com.sales.modules.order.dto.response.HeldOrderSummaryResponse> getHeldOrders(String currentUsername);
+    List<HeldOrderSummaryResponse> getHeldOrders(String currentUsername);
 
-    // NCL-03-CN-012 Đổi phương thức thanh toán linh hoạt
     OrderResponse switchPaymentMethod(String currentUsername, String orderId, SwitchPaymentMethodRequest request);
 
-    // QTN-07 Tính toán lại tổng tiền, giảm giá, thuế và tiền thanh toán cuối cùng
-    void recalculateOrderTotals(com.sales.modules.order.entity.Order order);
+    void recalculateOrderTotals(Order order);
 }
-
-

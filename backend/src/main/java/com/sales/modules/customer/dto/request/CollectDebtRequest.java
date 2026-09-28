@@ -10,7 +10,6 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 @AllArgsConstructor
 public class CollectDebtRequest {
-
     @NotBlank(message = "Mã khách hàng không được để trống")
     private String customerId;
 

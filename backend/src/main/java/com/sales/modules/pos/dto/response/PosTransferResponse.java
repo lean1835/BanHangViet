@@ -14,7 +14,6 @@ import java.util.List;
 @AllArgsConstructor
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class PosTransferResponse {
-
     private String id;
     private String transferNumber;
 

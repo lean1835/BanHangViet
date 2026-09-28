@@ -16,7 +16,6 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class InvoiceDeliveryLog {
-
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     @Column(length = 36, nullable = false)
@@ -29,13 +28,13 @@ public class InvoiceDeliveryLog {
     private EInvoice invoice;
 
     @Column(nullable = false, length = 20)
-    private String channel; // QR, EMAIL, ZALO, PRINT
+    private String channel;
 
     @Column(name = "recipient_address", nullable = false, length = 255)
     private String recipientAddress;
 
     @Column(nullable = false, length = 20)
-    private String status; // SUCCESS, FAILED
+    private String status;
 
     @Column(name = "error_message", columnDefinition = "TEXT")
     private String errorMessage;

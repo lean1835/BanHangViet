@@ -18,8 +18,8 @@ public class SupplierDebtResponse {
     private String receiptNumber;
     private BigDecimal amount;
     private BigDecimal remainingAmount;
-    private String type; // DEBT_CREATED, DEBT_PAID
-    private String status; // PENDING, PAID, OVERDUE
+    private String type;
+    private String status;
     private LocalDateTime dueDate;
     private String paymentMethod;
     private String notes;

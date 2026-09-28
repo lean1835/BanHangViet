@@ -12,7 +12,6 @@ import java.time.LocalDate;
 import java.util.List;
 
 public interface AnomalyDetectionService {
-
     PageResponse<AnomalyAlertResponse> getAnomalyAlerts(String currentUsername, AnomalyAlertFilterRequest filter, String clientIp, String userAgent);
 
     AnomalyAlertSummaryResponse getSummary(String currentUsername, LocalDate evaluatedDate);

@@ -8,7 +8,6 @@ import lombok.*;
 @NoArgsConstructor
 @AllArgsConstructor
 public class HoldOrderRequest {
-
     @Size(max = 100, message = "Tên nhận diện đơn hàng không vượt quá 100 ký tự")
     private String orderLabel;
 

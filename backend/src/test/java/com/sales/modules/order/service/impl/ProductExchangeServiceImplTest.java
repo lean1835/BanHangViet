@@ -42,10 +42,10 @@ import java.util.*;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
+import com.sales.modules.invoice.service.InvoiceNumberRangeService;
 
 @ExtendWith(MockitoExtension.class)
 class ProductExchangeServiceImplTest {
-
     @Mock
     private ProductExchangeTicketRepository productExchangeTicketRepository;
 
@@ -77,7 +77,7 @@ class ProductExchangeServiceImplTest {
     private BusinessHouseholdSettingsRepository settingsRepository;
 
     @Mock
-    private com.sales.modules.invoice.service.InvoiceNumberRangeService invoiceNumberRangeService;
+    private InvoiceNumberRangeService invoiceNumberRangeService;
 
     @InjectMocks
     private ProductExchangeServiceImpl productExchangeService;
@@ -88,10 +88,10 @@ class ProductExchangeServiceImplTest {
     private User staffUser;
     private EInvoice originalInvoice;
     private EInvoiceItem invoiceItem1;
-    private Product product1; // original product: price 50,000
-    private Product product2; // equal price product: price 50,000
-    private Product productExpensive; // expensive product: price 70,000
-    private Product productCheap; // cheaper product: price 30,000
+    private Product product1;
+    private Product product2;
+    private Product productExpensive;
+    private Product productCheap;
 
     @BeforeEach
     void setUp() {
@@ -173,10 +173,6 @@ class ProductExchangeServiceImplTest {
                 .items(new ArrayList<>(List.of(invoiceItem1)))
                 .build();
     }
-
-    // =========================================================================
-    // TESTS FOR CHECK ELIGIBILITY
-    // =========================================================================
 
     @Test
     @DisplayName("CheckEligibility - NCL-11-CN-005-TC-01: Ngang giá trả về isEligible = true, EQUAL_VALUE, diff = 0")
@@ -294,10 +290,6 @@ class ProductExchangeServiceImplTest {
         assertEquals(0, new BigDecimal("20000.00").compareTo(response.getSuggestedRefundAmount()));
     }
 
-    // =========================================================================
-    // TESTS FOR CREATE PRODUCT EXCHANGE
-    // =========================================================================
-
     @Test
     @DisplayName("NCL-11-CN-005-TC-01: Đổi hàng ngang giá thành công, kho cập nhật 2 chiều, không sinh HĐ mới")
     void createProductExchange_EqualValue_Success() {
@@ -345,9 +337,8 @@ class ProductExchangeServiceImplTest {
         assertEquals("dx-ticket-1", response.getId());
         assertEquals("EQUAL_VALUE", response.getExchangeType());
         assertEquals(0, BigDecimal.ZERO.compareTo(response.getDifferenceAmount()));
-        assertNull(response.getAdditionalInvoiceId()); // Không sinh hóa đơn mới
+        assertNull(response.getAdditionalInvoiceId());
 
-        // Kiểm tra tồn kho hai chiều: Món cũ tăng 1, món mới giảm 1
         assertEquals(oldStockP1.add(new BigDecimal("1.000")), product1.getStockQuantity());
         assertEquals(oldStockP2.subtract(new BigDecimal("1.000")), product2.getStockQuantity());
         verify(productRepository).saveAll(anyCollection());
@@ -408,7 +399,6 @@ class ProductExchangeServiceImplTest {
         assertEquals("inv-additional-1", response.getAdditionalInvoiceId());
         assertEquals("CASH", response.getExtraPaymentMethod());
 
-        // Kiểm tra HĐ bổ sung được lưu với số tiền đúng bằng phần chênh lệch, số HĐ từ range service, và có items
         verify(invoiceNumberRangeService).allocateNextInvoiceNumber(eq("hh-1"), anyString(), anyString());
         verify(eInvoiceRepository).save(argThat(inv ->
                 inv.getFinalAmount().compareTo(new BigDecimal("20000.00")) == 0 &&
@@ -446,7 +436,7 @@ class ProductExchangeServiceImplTest {
                         .productId("p-3")
                         .quantity(new BigDecimal("1.000"))
                         .build()))
-                .extraPaymentMethod(null) // Thiếu phương thức thanh toán bù
+                .extraPaymentMethod(null)
                 .build();
 
         AppException ex = assertThrows(AppException.class, () ->
@@ -490,7 +480,7 @@ class ProductExchangeServiceImplTest {
     @Test
     @DisplayName("NCL-11-CN-005-TC-04: Hóa đơn quá thời hạn đổi trả (QTN-18) -> Ném EXCHANGE_PERIOD_EXPIRED")
     void createProductExchange_ExpiredInvoice_ThrowsException() {
-        originalInvoice.setCreatedAt(LocalDateTime.now().minusDays(10)); // 10 ngày trước, quá hạn 7 ngày
+        originalInvoice.setCreatedAt(LocalDateTime.now().minusDays(10));
 
         when(userRepository.findByUsername("nhanvien1")).thenReturn(Optional.of(staffUser));
         when(eInvoiceRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("inv-1", "hh-1"))
@@ -524,14 +514,14 @@ class ProductExchangeServiceImplTest {
         when(returnTicketItemRepository.findReturnedQuantitiesByInvoiceId(eq("inv-1"), anyList()))
                 .thenReturn(Collections.emptyList());
         when(productExchangeItemRepository.sumReturnedQuantityByInvoiceAndProduct("inv-1", "p-1"))
-                .thenReturn(new BigDecimal("1.000")); // Đã trả/đổi 1 món, trong HĐ mua 2 món -> chỉ còn 1 món
+                .thenReturn(new BigDecimal("1.000"));
 
         CreateProductExchangeRequest request = CreateProductExchangeRequest.builder()
                 .originalInvoiceId("inv-1")
                 .returnItems(List.of(ExchangeReturnItemRequest.builder()
                         .invoiceItemId("inv-item-1")
                         .productId("p-1")
-                        .quantity(new BigDecimal("2.000")) // Yêu cầu trả 2 món -> Vượt hạn mức 1
+                        .quantity(new BigDecimal("2.000"))
                         .build()))
                 .exchangeItems(List.of(ExchangeNewItemRequest.builder()
                         .productId("p-2")
@@ -547,7 +537,7 @@ class ProductExchangeServiceImplTest {
     @Test
     @DisplayName("NCL-11-CN-005-TC-06: Sản phẩm đổi sang không đủ tồn kho -> Ném INSUFFICIENT_STOCK_FOR_EXCHANGE")
     void createProductExchange_InsufficientStock_ThrowsException() {
-        product2.setStockQuantity(new BigDecimal("0.500")); // Tồn kho chỉ còn 0.5
+        product2.setStockQuantity(new BigDecimal("0.500"));
 
         when(userRepository.findByUsername("nhanvien1")).thenReturn(Optional.of(staffUser));
         when(eInvoiceRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("inv-1", "hh-1"))
@@ -570,7 +560,7 @@ class ProductExchangeServiceImplTest {
                         .build()))
                 .exchangeItems(List.of(ExchangeNewItemRequest.builder()
                         .productId("p-2")
-                        .quantity(new BigDecimal("1.000")) // Muốn đổi 1 nhưng tồn chỉ có 0.5
+                        .quantity(new BigDecimal("1.000"))
                         .build()))
                 .build();
 
@@ -626,7 +616,6 @@ class ProductExchangeServiceImplTest {
     @Test
     @DisplayName("P2-2 (NCL-09-CN-008): Thời hạn đổi trả động từ BusinessHouseholdSettings (14 ngày thay vì 7 ngày)")
     void createProductExchange_DynamicReturnDaysLimit_AllowsExtendedPeriod() {
-        // Hóa đơn tạo cách đây 10 ngày (vượt quá 7 ngày mặc định, nhưng nằm trong hạn 14 ngày)
         EInvoice oldInvoice = EInvoice.builder()
                 .id("inv-old")
                 .household(household)
@@ -740,10 +729,6 @@ class ProductExchangeServiceImplTest {
         when(productExchangeTicketRepository.save(any(ProductExchangeTicket.class)))
                 .thenAnswer(inv -> inv.getArgument(0));
 
-        // Mua p-1 giá 50.000đ, đổi sang p-tax giá 100.000đ (thuế 10% = 10.000đ)
-        // Chênh lệch trước thuế: 100.000 - 50.000 = 50.000đ
-        // Thuế phát sinh: 10.000đ
-        // Tổng thanh toán: 50.000 + 10.000 = 60.000đ
         CreateProductExchangeRequest request = CreateProductExchangeRequest.builder()
                 .originalInvoiceId("inv-1")
                 .returnItems(List.of(ExchangeReturnItemRequest.builder()
@@ -764,8 +749,6 @@ class ProductExchangeServiceImplTest {
         assertEquals("HIGHER_VALUE", response.getExchangeType());
         assertEquals(0, new BigDecimal("50000.00").compareTo(response.getDifferenceAmount()));
 
-        // Kiểm tra HĐ bổ sung: totalAmountBeforeTax = 50.000, taxAmount = 10.000, finalAmount = 60.000
-        // Và danh sách items có 2 dòng: dòng món mới (100.000đ) và dòng khấu trừ (-50.000đ)
         verify(eInvoiceRepository).save(argThat(inv ->
                 inv.getTotalAmountBeforeTax().compareTo(new BigDecimal("50000.00")) == 0 &&
                 inv.getTaxAmount().compareTo(new BigDecimal("10000.00")) == 0 &&
@@ -867,11 +850,6 @@ class ProductExchangeServiceImplTest {
         assertEquals("HIGHER_VALUE", response.getExchangeType());
         assertEquals(0, new BigDecimal("1478000.00").compareTo(response.getDifferenceAmount()));
 
-        // Chênh lệch trước thuế: 21.478.000 - 20.000.000 = 1.478.000
-        // Thuế hàng mới (10%): 2.147.800
-        // Thuế khấu trừ hàng trả (10%): -2.000.000
-        // Thuế GTGT thuần: 147.800
-        // Tổng thanh toán: 1.478.000 + 147.800 = 1.625.800
         verify(eInvoiceRepository).save(argThat(inv ->
                 inv.getTotalAmountBeforeTax().compareTo(new BigDecimal("1478000.00")) == 0 &&
                 inv.getTaxAmount().compareTo(new BigDecimal("147800.00")) == 0 &&
@@ -889,7 +867,6 @@ class ProductExchangeServiceImplTest {
     @Test
     @DisplayName("P2-2 (QTN-19 Edge-case): Hóa đơn có nhiều dòng cùng 1 sản phẩm -> Tính đúng tổng số lượng đã bán")
     void createProductExchange_MultiLineSameProduct_ComputesTotalSoldQuantity() {
-        // HĐ có 2 dòng p-1: dòng 1 có 2 cái, dòng 2 có 3 cái -> Tổng bán 5 cái
         EInvoiceItem line1 = EInvoiceItem.builder()
                 .id("item-multi-1")
                 .product(product1)
@@ -932,7 +909,6 @@ class ProductExchangeServiceImplTest {
         when(productExchangeTicketRepository.save(any(ProductExchangeTicket.class)))
                 .thenAnswer(inv -> inv.getArgument(0));
 
-        // Đổi 4 cái p-1 sang p-2 (4 <= 5 nên thành công, nếu chỉ tính theo 1 dòng 2 cái sẽ bị chặn oan)
         CreateProductExchangeRequest request = CreateProductExchangeRequest.builder()
                 .originalInvoiceId("inv-multi")
                 .returnItems(List.of(ExchangeReturnItemRequest.builder()

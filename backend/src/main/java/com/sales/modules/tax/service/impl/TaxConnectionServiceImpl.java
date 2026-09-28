@@ -22,17 +22,18 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import com.sales.common.constant.PlatformLogSeverity;
+import com.sales.modules.platform.service.PlatformSystemLogService;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class TaxConnectionServiceImpl implements TaxConnectionService {
-
     private final TaxConnectionLogRepository logRepository;
     private final UserRepository userRepository;
     private final EInvoiceRepository eInvoiceRepository;
     private final BusinessHouseholdRepository householdRepository;
-    private final com.sales.modules.platform.service.PlatformSystemLogService platformSystemLogService;
+    private final PlatformSystemLogService platformSystemLogService;
 
     private User getAuthenticatedUser(String username) {
         return userRepository.findByUsername(username)
@@ -52,7 +53,7 @@ public class TaxConnectionServiceImpl implements TaxConnectionService {
 
         String status = latest != null ? latest.getStatus() : "ONLINE";
         Integer responseTimeMs = (latest != null && latest.getResponseTimeMs() != null) ? latest.getResponseTimeMs() : 0;
-        
+
         LocalDateTime lastSuccessfulAt = null;
         if (latest != null && latest.getLastSuccessfulResponseAt() != null) {
             lastSuccessfulAt = latest.getLastSuccessfulResponseAt();
@@ -64,7 +65,6 @@ public class TaxConnectionServiceImpl implements TaxConnectionService {
             }
         }
 
-        // Count pending invoices waiting in queue (status = WAITING_TAX_CODE)
         long pendingCount = householdId != null
                 ? eInvoiceRepository.countByHouseholdIdAndStatusAndDeletedAtIsNullAndCreatedAtBetween(
                         householdId, "WAITING_TAX_CODE", LocalDateTime.now().minusDays(30), LocalDateTime.now())
@@ -129,7 +129,6 @@ public class TaxConnectionServiceImpl implements TaxConnectionService {
         LocalDateTime now = LocalDateTime.now();
         String resolvedStatus = status != null ? status : "ONLINE";
 
-        // Tự động chuyển sang OFFLINE khi phát hiện 3 lần lỗi liên tiếp (NCL-04-CN-010-TC-02 / F-06)
         if (!"ONLINE".equalsIgnoreCase(resolvedStatus) && householdId != null) {
             List<TaxConnectionLog> recentLogs = logRepository.findTop2ByHouseholdIdOrderByCreatedAtDesc(householdId);
             boolean recentAllFailed = recentLogs.size() >= 2 && recentLogs.stream()
@@ -166,12 +165,11 @@ public class TaxConnectionServiceImpl implements TaxConnectionService {
         log.info("Đã ghi nhận nhật ký kết nối cơ quan thuế: status={}, resolvedStatus={}, householdId={}",
                 status, resolvedStatus, householdId);
 
-        // NCL-01-CN-011: Tự động ghi nhật ký hệ thống toàn nền tảng và nhận diện sự cố diện rộng khi CQT mất kết nối
         if ("OFFLINE".equalsIgnoreCase(resolvedStatus) && platformSystemLogService != null) {
             try {
                 platformSystemLogService.logSystemEventAsync(
                         "TAX_SERVICE_OFFLINE",
-                        com.sales.common.constant.PlatformLogSeverity.CRITICAL,
+                        PlatformLogSeverity.CRITICAL,
                         householdId,
                         "TAX_OFFLINE",
                         "Kết nối Cơ quan Thuế không phản hồi hoặc chuyển sang OFFLINE",
@@ -214,4 +212,3 @@ public class TaxConnectionServiceImpl implements TaxConnectionService {
         return getTaxConnectionStatus(currentUsername);
     }
 }
-

@@ -16,7 +16,6 @@ import java.security.Principal;
 @RequestMapping("/api/v1/invoice-ranges")
 @RequiredArgsConstructor
 public class InvoiceNumberRangeController {
-
     private final InvoiceNumberRangeService rangeService;
 
     @PostMapping

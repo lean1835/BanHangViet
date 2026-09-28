@@ -15,7 +15,6 @@ import java.util.Optional;
 
 @Repository
 public interface ProductExchangeTicketRepository extends JpaRepository<ProductExchangeTicket, String>, JpaSpecificationExecutor<ProductExchangeTicket> {
-
     @Override
     @EntityGraph(attributePaths = {"items", "items.product", "createdByUser", "household", "originalInvoice", "originalOrder", "customer", "additionalInvoice"})
     Page<ProductExchangeTicket> findAll(Specification<ProductExchangeTicket> spec, Pageable pageable);

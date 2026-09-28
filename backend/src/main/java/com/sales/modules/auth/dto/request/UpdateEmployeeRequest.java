@@ -4,13 +4,13 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.*;
+import jakarta.validation.constraints.Email;
 
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class UpdateEmployeeRequest {
-
     @NotBlank(message = "Họ tên không được để trống")
     @Size(max = 100, message = "Họ tên không được quá 100 ký tự")
     private String fullName;
@@ -18,7 +18,7 @@ public class UpdateEmployeeRequest {
     @Size(max = 20, message = "Số điện thoại không được quá 20 ký tự")
     private String phoneNumber;
 
-    @jakarta.validation.constraints.Email(message = "Địa chỉ email không đúng định dạng")
+    @Email(message = "Địa chỉ email không đúng định dạng")
     @Size(max = 100, message = "Email không được quá 100 ký tự")
     private String email;
 

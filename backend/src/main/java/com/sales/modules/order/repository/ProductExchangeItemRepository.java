@@ -11,7 +11,6 @@ import java.util.List;
 
 @Repository
 public interface ProductExchangeItemRepository extends JpaRepository<ProductExchangeItem, String> {
-
     List<ProductExchangeItem> findByExchangeTicketId(String exchangeTicketId);
 
     @Query("SELECT COALESCE(SUM(i.quantity), 0) FROM ProductExchangeItem i " +

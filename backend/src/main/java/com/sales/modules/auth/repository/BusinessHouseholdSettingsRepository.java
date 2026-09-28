@@ -10,7 +10,6 @@ import java.util.Optional;
 
 @Repository
 public interface BusinessHouseholdSettingsRepository extends JpaRepository<BusinessHouseholdSettings, String> {
-
     Optional<BusinessHouseholdSettings> findByHouseholdId(String householdId);
 
     @EntityGraph(attributePaths = {"household"})
@@ -19,4 +18,3 @@ public interface BusinessHouseholdSettingsRepository extends JpaRepository<Busin
     @Query("SELECT MAX(s.debtReminderDaysBefore) FROM BusinessHouseholdSettings s")
     Integer findMaxDebtReminderDaysBefore();
 }
-

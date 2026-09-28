@@ -42,13 +42,13 @@ import static org.hamcrest.Matchers.hasSize;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import jakarta.persistence.EntityManager;
 
 @SpringBootTest
 @AutoConfigureMockMvc
 @Transactional
 @SuppressWarnings("unused")
 public class PosTransferControllerTest {
-
     @Autowired
     private MockMvc mockMvc;
 
@@ -83,7 +83,7 @@ public class PosTransferControllerTest {
     private PosTransferItemRepository posTransferItemRepository;
 
     @Autowired
-    private jakarta.persistence.EntityManager entityManager;
+    private EntityManager entityManager;
 
     private BusinessHousehold testHousehold;
     private User testOwner;
@@ -270,7 +270,6 @@ public class PosTransferControllerTest {
     @WithMockUser(username = "test_owner_transfer", roles = {"VT-01"})
     @DisplayName("NCL-17-CN-003-TC-04: Lấy danh sách phân trang phiếu chuyển hàng -> 200 OK")
     public void getTransfers_Owner_Success() throws Exception {
-        // Tạo sẵn 1 phiếu chuyển
         PosTransfer transfer = PosTransfer.builder()
                 .household(testHousehold)
                 .transferNumber("CK-20260825-9991")

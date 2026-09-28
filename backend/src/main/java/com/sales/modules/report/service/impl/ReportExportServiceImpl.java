@@ -31,12 +31,12 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.math.RoundingMode;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class ReportExportServiceImpl implements ReportExportService {
-
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("dd/MM/yyyy");
     private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss");
 
@@ -57,7 +57,6 @@ public class ReportExportServiceImpl implements ReportExportService {
         String normType = reportType != null ? reportType.trim().toUpperCase() : "DAILY";
 
         try (Workbook workbook = new XSSFWorkbook(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
-            // Chuẩn bị CellStyles
             CellStyle titleStyle = createTitleStyle(workbook);
             CellStyle metadataLabelStyle = createBoldStyle(workbook);
             CellStyle headerStyle = createHeaderStyle(workbook);
@@ -69,7 +68,6 @@ public class ReportExportServiceImpl implements ReportExportService {
             CellStyle totalCurrencyStyle = createTotalCurrencyStyle(workbook);
             CellStyle alertHeaderStyle = createAlertHeaderStyle(workbook);
 
-            // Export theo từng loại
             String reportTitle;
             boolean hasData;
 
@@ -124,14 +122,12 @@ public class ReportExportServiceImpl implements ReportExportService {
                 throw new AppException(ErrorCode.NO_DATA_TO_EXPORT);
             }
 
-            // Tạo Sheet 1: Metadata (Đặt làm sheet đầu tiên)
             Sheet metaSheet = workbook.createSheet("Thong_Tin_Bao_Cao");
             workbook.setSheetOrder("Thong_Tin_Bao_Cao", 0);
             createMetadataSheet(metaSheet, household, currentUser, reportTitle, fromDate, toDate, titleStyle, metadataLabelStyle);
 
             workbook.write(out);
 
-            // QTN-25: Ghi nhật ký kiểm toán xuất báo cáo
             recordAuditLog(household, currentUser, normType, fromDate, toDate);
 
             return out.toByteArray();
@@ -190,7 +186,6 @@ public class ReportExportServiceImpl implements ReportExportService {
         Sheet sheet = workbook.createSheet("Du_Lieu_Lai_Gop");
         int rIdx = 0;
 
-        // 1. Khối tổng hợp (Summary)
         Row sumHeaderRow = sheet.createRow(rIdx++);
         Cell sumHCell = sumHeaderRow.createCell(0);
         sumHCell.setCellValue("1. TỔNG HỢP HIỆU QUẢ KINH DOANH");
@@ -226,9 +221,8 @@ public class ReportExportServiceImpl implements ReportExportService {
         c4.setCellValue(report.getSummary().getGrossProfitMarginPercentage() != null ? report.getSummary().getGrossProfitMarginPercentage().doubleValue() / 100.0 : 0.0);
         c4.setCellStyle(pctStyle);
 
-        rIdx++; // Dòng trống
+        rIdx++;
 
-        // 2. Chi tiết theo mặt hàng
         Row prodHeaderRow = sheet.createRow(rIdx++);
         Cell prodHCell = prodHeaderRow.createCell(0);
         prodHCell.setCellValue("2. CHI TIẾT LÃI GỘP THEO MẶT HÀNG");
@@ -292,7 +286,6 @@ public class ReportExportServiceImpl implements ReportExportService {
             if (p.getGrossProfit() != null) totalProfit = totalProfit.add(p.getGrossProfit());
         }
 
-        // Dòng tổng cộng
         Row totRow = sheet.createRow(rIdx++);
         Cell totLabel = totRow.createCell(0);
         totLabel.setCellValue("TỔNG CỘNG");
@@ -322,12 +315,11 @@ public class ReportExportServiceImpl implements ReportExportService {
 
         Cell totPctCell = totRow.createCell(8);
         double overallPct = totalRev.compareTo(BigDecimal.ZERO) > 0
-                ? totalProfit.divide(totalRev, 4, java.math.RoundingMode.HALF_UP).doubleValue()
+                ? totalProfit.divide(totalRev, 4, RoundingMode.HALF_UP).doubleValue()
                 : 0.0;
         totPctCell.setCellValue(overallPct);
         totPctCell.setCellStyle(pctStyle);
 
-        // 3. Cảnh báo mặt hàng thiếu giá vốn (nếu có)
         if (!report.getMissingCostPriceItems().isEmpty()) {
             rIdx += 2;
             Row warnHeaderRow = sheet.createRow(rIdx++);
@@ -438,7 +430,6 @@ public class ReportExportServiceImpl implements ReportExportService {
             if (item.getTotalAmount() != null) totalRev = totalRev.add(item.getTotalAmount());
         }
 
-        // Tổng cộng
         Row totRow = sheet.createRow(rIdx++);
         Cell totLabel = totRow.createCell(0);
         totLabel.setCellValue("TỔNG CỘNG");
@@ -458,7 +449,6 @@ public class ReportExportServiceImpl implements ReportExportService {
         totPct.setCellValue(1.0);
         totPct.setCellStyle(pctStyle);
 
-        // Khối công nợ (Debt Summary)
         if (report.getDebtDetails() != null) {
             rIdx += 2;
             Row debtTitleRow = sheet.createRow(rIdx++);
@@ -475,7 +465,6 @@ public class ReportExportServiceImpl implements ReportExportService {
                 c.setCellStyle(headerStyle);
             }
 
-            // Ghi nợ mới
             Row dr1 = sheet.createRow(rIdx++);
             dr1.createCell(0).setCellValue("Doanh số bán ghi nợ mới");
             dr1.getCell(0).setCellStyle(textStyle);
@@ -484,7 +473,6 @@ public class ReportExportServiceImpl implements ReportExportService {
             dr1.createCell(2).setCellValue("Khoản nợ khách mua hàng chưa thanh toán trong kỳ");
             dr1.getCell(2).setCellStyle(textStyle);
 
-            // Thu nợ cũ
             Row dr2 = sheet.createRow(rIdx++);
             dr2.createCell(0).setCellValue("Tiền thu nợ khách hàng trong kỳ");
             dr2.getCell(0).setCellStyle(textStyle);
@@ -604,7 +592,6 @@ public class ReportExportServiceImpl implements ReportExportService {
             if (unassigned.getPreviousPeriodRevenue() != null) totalPrevRev = totalPrevRev.add(unassigned.getPreviousPeriodRevenue());
         }
 
-        // Tổng cộng
         Row totRow = sheet.createRow(rIdx++);
         Cell totLabel = totRow.createCell(0);
         totLabel.setCellValue("TỔNG CỘNG");
@@ -633,7 +620,7 @@ public class ReportExportServiceImpl implements ReportExportService {
 
         Cell totGrowth = totRow.createCell(7);
         double overallGrowth = totalPrevRev.compareTo(BigDecimal.ZERO) > 0
-                ? totalRev.subtract(totalPrevRev).divide(totalPrevRev, 4, java.math.RoundingMode.HALF_UP).doubleValue()
+                ? totalRev.subtract(totalPrevRev).divide(totalPrevRev, 4, RoundingMode.HALF_UP).doubleValue()
                 : (totalRev.compareTo(BigDecimal.ZERO) > 0 ? 1.0 : 0.0);
         totGrowth.setCellValue(overallGrowth);
         totGrowth.setCellStyle(pctStyle);
@@ -656,7 +643,6 @@ public class ReportExportServiceImpl implements ReportExportService {
         Sheet sheet = workbook.createSheet("Du_Lieu_Ca_Nhan_Vien");
         int rIdx = 0;
 
-        // Bảng 1: Chi tiết ca
         Row titleRow = sheet.createRow(rIdx++);
         Cell titleCell = titleRow.createCell(0);
         titleCell.setCellValue("CHI TIẾT DOANH THU THEO CA LÀM VIỆC");
@@ -705,7 +691,6 @@ public class ReportExportServiceImpl implements ReportExportService {
             if (s.getDifferenceAmount() != null) totalDiff = totalDiff.add(s.getDifferenceAmount());
         }
 
-        // Dòng tổng
         Row totRow = sheet.createRow(rIdx++);
         Cell totLabel = totRow.createCell(0);
         totLabel.setCellValue("TỔNG CỘNG");
@@ -897,7 +882,6 @@ public class ReportExportServiceImpl implements ReportExportService {
         }
     }
 
-    // Các helper styles
     private CellStyle createTitleStyle(Workbook wb) {
         CellStyle style = wb.createCellStyle();
         Font font = wb.createFont();

@@ -21,7 +21,6 @@ import java.security.Principal;
 @RequiredArgsConstructor
 @Validated
 public class BarcodeController {
-
     private final BarcodeService barcodeService;
 
     @PostMapping("/scan")
@@ -83,4 +82,3 @@ public class BarcodeController {
         return ResponseEntity.ok(response);
     }
 }
-

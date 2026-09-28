@@ -23,7 +23,6 @@ import java.time.LocalDate;
 @RequestMapping("/api/v1/pos-transfers")
 @RequiredArgsConstructor
 public class PosTransferController {
-
     private final PosTransferService posTransferService;
 
     @PostMapping
@@ -31,7 +30,6 @@ public class PosTransferController {
     public ResponseEntity<ApiResponse<PosTransferResponse>> createTransfer(
             Principal principal,
             @Valid @RequestBody CreatePosTransferRequest request) {
-
         PosTransferResponse result = posTransferService.createTransfer(principal.getName(), request);
         ApiResponse<PosTransferResponse> response = ApiResponse.<PosTransferResponse>builder()
                 .code(1000)
@@ -55,7 +53,6 @@ public class PosTransferController {
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(defaultValue = "transferredAt") String sortBy,
             @RequestParam(defaultValue = "desc") String sortDir) {
-
         Sort sort = "desc".equalsIgnoreCase(sortDir)
                 ? Sort.by(sortBy).descending()
                 : Sort.by(sortBy).ascending();
@@ -77,7 +74,6 @@ public class PosTransferController {
     public ResponseEntity<ApiResponse<PosTransferResponse>> getTransferById(
             Principal principal,
             @PathVariable String id) {
-
         PosTransferResponse result = posTransferService.getTransferById(principal.getName(), id);
         ApiResponse<PosTransferResponse> response = ApiResponse.<PosTransferResponse>builder()
                 .code(1000)
@@ -92,7 +88,6 @@ public class PosTransferController {
     public ResponseEntity<ApiResponse<PosTransferResponse>> receiveTransfer(
             Principal principal,
             @PathVariable String id) {
-
         PosTransferResponse result = posTransferService.receiveTransfer(principal.getName(), id);
         ApiResponse<PosTransferResponse> response = ApiResponse.<PosTransferResponse>builder()
                 .code(1000)
@@ -108,7 +103,6 @@ public class PosTransferController {
             Principal principal,
             @PathVariable String id,
             @Valid @RequestBody CancelPosTransferRequest request) {
-
         PosTransferResponse result = posTransferService.cancelTransfer(principal.getName(), id, request);
         ApiResponse<PosTransferResponse> response = ApiResponse.<PosTransferResponse>builder()
                 .code(1000)

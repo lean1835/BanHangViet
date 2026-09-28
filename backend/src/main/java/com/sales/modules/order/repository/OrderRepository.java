@@ -28,7 +28,6 @@ import java.util.Optional;
 
 @Repository
 public interface OrderRepository extends JpaRepository<Order, String> {
-
     @EntityGraph(attributePaths = {"items", "items.product", "items.priceTier", "customer", "shift", "createdByUser", "household", "diningTable"})
     Optional<Order> findByIdAndHouseholdIdAndDeletedAtIsNull(String id, String householdId);
 
@@ -45,7 +44,6 @@ public interface OrderRepository extends JpaRepository<Order, String> {
 
     List<Order> findByShiftIdAndDeletedAtIsNull(String shiftId);
 
-    // NCL-03-CN-010 Đặt tên nhận diện và treo nhiều đơn theo bàn hoặc khách
     boolean existsByDiningTableIdAndStatusAndDeletedAtIsNull(String diningTableId, String status);
 
     boolean existsByDiningTableIdAndStatusAndIdNotAndDeletedAtIsNull(String diningTableId, String status, String id);
@@ -65,7 +63,6 @@ public interface OrderRepository extends JpaRepository<Order, String> {
     List<Order> findByHouseholdIdAndCreatedAtBetween(@Param("householdId") String householdId,
                                                      @Param("start") LocalDateTime start,
                                                      @Param("end") LocalDateTime end);
-
 
     @Query("SELECT o FROM Order o LEFT JOIN FETCH o.createdByUser " +
            "WHERE o.household.id = :householdId AND o.status = 'COMPLETED' " +

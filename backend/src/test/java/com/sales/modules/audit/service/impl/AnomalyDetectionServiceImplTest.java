@@ -61,7 +61,6 @@ import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 public class AnomalyDetectionServiceImplTest {
-
     @Mock
     private AnomalyAlertRepository anomalyAlertRepository;
 
@@ -280,7 +279,7 @@ public class AnomalyDetectionServiceImplTest {
                 .orderNumber("ORD-999")
                 .status("COMPLETED")
                 .totalAmount(BigDecimal.valueOf(1000000))
-                .discountAmount(BigDecimal.valueOf(450000)) // 45% discount
+                .discountAmount(BigDecimal.valueOf(450000))
                 .createdByUser(staffUser)
                 .createdAt(targetDate.atTime(14, 0))
                 .household(household)

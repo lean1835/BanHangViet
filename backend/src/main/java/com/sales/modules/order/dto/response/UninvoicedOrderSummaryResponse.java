@@ -13,7 +13,6 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 public class UninvoicedOrderSummaryResponse {
-
     private String orderId;
     private String orderNumber;
     private LocalDateTime createdAt;

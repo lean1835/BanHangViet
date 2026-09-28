@@ -43,12 +43,13 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import com.sales.modules.auth.dto.request.AdminResetEmployeePasswordRequest;
+import com.sales.modules.platform.service.ServicePackageService;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class EmployeeServiceImpl implements EmployeeService {
-
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
     private final ActivityLogHelper activityLogHelper;
@@ -60,14 +61,13 @@ public class EmployeeServiceImpl implements EmployeeService {
     private final PointOfSaleRepository pointOfSaleRepository;
     private final CashTransactionRepository cashTransactionRepository;
     private final ShiftHandoverRepository shiftHandoverRepository;
-    private final com.sales.modules.platform.service.ServicePackageService servicePackageService;
+    private final ServicePackageService servicePackageService;
 
     private void closeActiveShiftOfUser(User employee) {
         Optional<Shift> activeShiftOpt = shiftRepository.findByUserIdAndStatus(employee.getId(), ShiftStatus.OPEN);
         if (activeShiftOpt.isPresent()) {
             Shift shift = activeShiftOpt.get();
-            
-            // 1. Cancel any pending orders in this shift
+
             List<Order> pendingOrders = orderRepository.findByShiftIdAndDeletedAtIsNull(shift.getId());
             for (Order order : pendingOrders) {
                 if ("CREATING".equals(order.getStatus())) {
@@ -75,8 +75,7 @@ public class EmployeeServiceImpl implements EmployeeService {
                     orderRepository.save(order);
                 }
             }
-            
-            // 2. Calculate expected cash (unifying cash sales, combined orders, cash transactions, and handovers)
+
             BigDecimal cashSales = orderRepository.sumCashSalesAmountByShiftId(shift.getId());
             BigDecimal totalIncome = BigDecimal.ZERO;
             BigDecimal totalExpense = BigDecimal.ZERO;
@@ -101,8 +100,7 @@ public class EmployeeServiceImpl implements EmployeeService {
                     expectedCash = expectedCash.add(totalHandoverDiff);
                 }
             }
-            
-            // 3. Close the shift automatically
+
             shift.setClosedAt(LocalDateTime.now());
             shift.setClosingCashExpected(expectedCash);
             shift.setClosingCashActual(expectedCash);
@@ -110,7 +108,7 @@ public class EmployeeServiceImpl implements EmployeeService {
             shift.setDifferenceReason("Hệ thống tự động đóng ca do khóa/xóa tài khoản nhân viên.");
             shift.setStatus(ShiftStatus.CLOSED);
             shiftRepository.save(shift);
-            
+
             Map<String, Object> logMap = new HashMap<>();
             logMap.put("id", shift.getId());
             logMap.put("status", "CLOSED");
@@ -185,7 +183,6 @@ public class EmployeeServiceImpl implements EmployeeService {
             throw new AppException(ErrorCode.UNAUTHORIZED);
         }
 
-        // List all users in the same household who have not been soft deleted, excluding the owner themselves
         List<User> employees = userRepository.findByHouseholdIdAndDeletedAtIsNull(household.getId()).stream()
                 .filter(u -> !u.getId().equals(currentUser.getId()))
                 .collect(Collectors.toList());
@@ -202,14 +199,12 @@ public class EmployeeServiceImpl implements EmployeeService {
             throw new AppException(ErrorCode.UNAUTHORIZED);
         }
 
-        // NCL-01-CN-010 TC-02: Kiểm tra hạn mức người dùng của gói dịch vụ
         servicePackageService.validateUserQuota(household.getId());
 
         if (userRepository.existsByUsername(request.getUsername())) {
             throw new AppException(ErrorCode.USERNAME_ALREADY_EXISTS);
         }
 
-        // Prevent role escalation (Lỗi 1)
         if (!request.getRoleCode().equals("VT-02") && !request.getRoleCode().equals("VT-03")) {
             throw new AppException(ErrorCode.INVALID_INPUT);
         }
@@ -255,17 +250,14 @@ public class EmployeeServiceImpl implements EmployeeService {
                 .filter(u -> u.getDeletedAt() == null)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
 
-        // Check cross-household security
         if (employee.getHousehold() == null || !employee.getHousehold().getId().equals(household.getId())) {
             throw new AppException(ErrorCode.UNAUTHORIZED);
         }
 
-        // Prevent self-lock/self-update (Lỗi 2)
         if (employeeId.equals(currentUser.getId())) {
             throw new AppException(ErrorCode.FORBIDDEN);
         }
 
-        // Prevent role escalation (Lỗi 1)
         if (!request.getRoleCode().equals("VT-02") && !request.getRoleCode().equals("VT-03")) {
             throw new AppException(ErrorCode.INVALID_INPUT);
         }
@@ -295,14 +287,12 @@ public class EmployeeServiceImpl implements EmployeeService {
         employee.setRole(role);
         employee.setIsActive(request.getIsActive());
 
-        // If employee is being locked (deactivated), close their active shift
         if (oldActive && !request.getIsActive()) {
             closeActiveShiftOfUser(employee);
         }
 
         employee = userRepository.save(employee);
 
-        // Evict from cache
         if (cacheManager.getCache("users") != null) {
             cacheManager.getCache("users").evict(employee.getUsername());
         }
@@ -330,27 +320,22 @@ public class EmployeeServiceImpl implements EmployeeService {
                 .filter(u -> u.getDeletedAt() == null)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
 
-        // Check cross-household security
         if (employee.getHousehold() == null || !employee.getHousehold().getId().equals(household.getId())) {
             throw new AppException(ErrorCode.UNAUTHORIZED);
         }
 
-        // Prevent self-delete (Lỗi 2)
         if (employeeId.equals(currentUser.getId())) {
             throw new AppException(ErrorCode.FORBIDDEN);
         }
 
         Map<String, Object> oldValueMap = buildUserLogMap(employee);
 
-        // If employee has an active shift, close it
         closeActiveShiftOfUser(employee);
 
-        // Soft delete
         employee.setDeletedAt(LocalDateTime.now());
-        employee.setIsActive(false); // also deactivate upon deletion
+        employee.setIsActive(false);
         userRepository.save(employee);
 
-        // Evict from cache
         if (cacheManager.getCache("users") != null) {
             cacheManager.getCache("users").evict(employee.getUsername());
         }
@@ -360,14 +345,13 @@ public class EmployeeServiceImpl implements EmployeeService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public void resetEmployeePassword(String currentUsername, String employeeId, com.sales.modules.auth.dto.request.AdminResetEmployeePasswordRequest request) {
+    public void resetEmployeePassword(String currentUsername, String employeeId, AdminResetEmployeePasswordRequest request) {
         User currentUser = getAuthenticatedUser(currentUsername);
         BusinessHousehold household = currentUser.getHousehold();
         if (household == null) {
             throw new AppException(ErrorCode.UNAUTHORIZED);
         }
 
-        // Kiểm tra quyền chủ hộ (VT-01)
         if (currentUser.getRole() == null || !"VT-01".equals(currentUser.getRole().getCode())) {
             throw new AppException(ErrorCode.FORBIDDEN);
         }
@@ -376,24 +360,20 @@ public class EmployeeServiceImpl implements EmployeeService {
                 .filter(u -> u.getDeletedAt() == null)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
 
-        // Kiểm tra bảo mật đa hộ
         if (employee.getHousehold() == null || !employee.getHousehold().getId().equals(household.getId())) {
             throw new AppException(ErrorCode.UNAUTHORIZED);
         }
 
-        // Cập nhật mật khẩu mới cho nhân viên và kích hoạt cờ buộc đổi mật khẩu lần đầu
         LocalDateTime now = LocalDateTime.now();
         employee.setPasswordHash(passwordEncoder.encode(request.getNewPassword()));
         employee.setMustChangePassword(true);
         employee.setPasswordChangedAt(now);
         userRepository.save(employee);
 
-        // Xóa cache phiên đăng nhập của nhân viên
         if (cacheManager.getCache("users") != null) {
             cacheManager.getCache("users").evict(employee.getUsername());
         }
 
-        // Ghi nhật ký hoạt động
         Map<String, Object> logDetail = new HashMap<>();
         logDetail.put("employeeId", employee.getId());
         logDetail.put("employeeUsername", employee.getUsername());

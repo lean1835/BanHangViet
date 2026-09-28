@@ -26,12 +26,13 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
+import com.sales.common.constant.HouseholdStatus;
+import org.springframework.cache.CacheManager;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class AuthServiceImpl implements AuthService {
-
     private final BusinessHouseholdRepository householdRepository;
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
@@ -40,26 +41,22 @@ public class AuthServiceImpl implements AuthService {
     private final UserSessionService userSessionService;
     @Lazy
     private final AccountantService accountantService;
-    private final org.springframework.cache.CacheManager cacheManager;
+    private final CacheManager cacheManager;
 
     @Override
     @Transactional
     public RegisterResponse register(RegisterRequest request) {
-        // 1. Kiểm tra mã số thuế trùng lặp
         if (householdRepository.existsByTaxCode(request.getTaxCode())) {
             throw new AppException(ErrorCode.TAX_CODE_ALREADY_EXISTS);
         }
 
-        // 2. Kiểm tra tên đăng nhập trùng lặp
         if (userRepository.existsByUsername(request.getUsername())) {
             throw new AppException(ErrorCode.USERNAME_ALREADY_EXISTS);
         }
 
-        // 3. Tìm vai trò "Chủ hộ kinh doanh" (VT-01)
         Role ownerRole = roleRepository.findByCode(RoleCode.VT_01.getCode())
                 .orElseThrow(() -> new AppException(ErrorCode.ROLE_NOT_FOUND));
 
-        // 4. Lưu thông tin hộ kinh doanh
         BusinessHousehold household = BusinessHousehold.builder()
                 .name(request.getHouseholdName())
                 .taxCode(request.getTaxCode())
@@ -68,10 +65,9 @@ public class AuthServiceImpl implements AuthService {
                 .representativeName(request.getFullName())
                 .revenueThresholdEnabled(false)
                 .build();
-        
+
         household = householdRepository.save(household);
 
-        // 5. Lưu thông tin tài khoản admin của hộ
         User ownerUser = User.builder()
                 .household(household)
                 .role(ownerRole)
@@ -84,7 +80,6 @@ public class AuthServiceImpl implements AuthService {
 
         ownerUser = userRepository.save(ownerUser);
 
-        // 6. Trả về thông tin đăng ký thành công
         return RegisterResponse.builder()
                 .householdId(household.getId())
                 .taxCode(household.getTaxCode())
@@ -101,26 +96,21 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public LoginResponse login(LoginRequest request) {
-        // 1. Tìm người dùng theo username
         User user = userRepository.findByUsername(request.getUsername())
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
 
-        // 2. Kiểm tra tài khoản có đang hoạt động hay không (NCL-01-CN-002-TC-03)
         if (Boolean.FALSE.equals(user.getIsActive())) {
             throw new AppException(ErrorCode.USER_BLOCKED);
         }
 
-        // NCL-01-CN-009 TC-01: Chặn đăng nhập nếu hộ kinh doanh đang bị khóa bởi Quản trị nền tảng
-        if (user.getHousehold() != null && user.getHousehold().getStatus() == com.sales.common.constant.HouseholdStatus.LOCKED) {
+        if (user.getHousehold() != null && user.getHousehold().getStatus() == HouseholdStatus.LOCKED) {
             throw new AppException(ErrorCode.HOUSEHOLD_LOCKED);
         }
 
-        // 3. Kiểm tra mật khẩu (NCL-01-CN-002-TC-02)
         if (!passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
             throw new AppException(ErrorCode.WRONG_PASSWORD);
         }
 
-        // 4. Khởi tạo phiên đăng nhập mới (NCL-01-CN-007)
         String clientIp = null;
         String userAgent = null;
         try {
@@ -140,12 +130,10 @@ public class AuthServiceImpl implements AuthService {
 
         UserSession session = userSessionService.createSession(user, clientIp, userAgent);
 
-        // Xóa cache user cũ để đảm bảo thông tin phiên và thời điểm đổi mật khẩu luôn tươi mới
         if (cacheManager != null && cacheManager.getCache("users") != null) {
             cacheManager.getCache("users").evict(user.getUsername());
         }
 
-        // Kích hoạt lời mời kế toán nếu có invitationToken cụ thể gửi kèm khi đăng nhập
         if (request.getInvitationToken() != null && !request.getInvitationToken().isBlank()) {
             try {
                 accountantService.acceptInvitationWithToken(user, request.getInvitationToken().trim());
@@ -154,10 +142,8 @@ public class AuthServiceImpl implements AuthService {
             }
         }
 
-        // 5. Tạo JWT token chứa sessionId
         String token = jwtService.generateToken(user, session.getId());
 
-        // 6. Trả về LoginResponse
         return LoginResponse.builder()
                 .token(token)
                 .userId(user.getId())

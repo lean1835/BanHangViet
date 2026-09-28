@@ -11,7 +11,6 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class InvoiceErrorNoticeItemRequest {
-
     @NotBlank(message = "Mã hóa đơn không được để trống")
     private String invoiceId;
 

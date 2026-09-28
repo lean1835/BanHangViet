@@ -18,7 +18,6 @@ import java.security.Principal;
 @RequestMapping("/api/v1/inventory-audits")
 @RequiredArgsConstructor
 public class InventoryAuditController {
-
     private final InventoryAuditService inventoryAuditService;
 
     @PostMapping

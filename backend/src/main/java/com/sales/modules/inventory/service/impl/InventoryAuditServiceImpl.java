@@ -42,7 +42,6 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Slf4j
 public class InventoryAuditServiceImpl implements InventoryAuditService {
-
     private final InventoryAuditRepository inventoryAuditRepository;
     private final InventoryAuditDetailRepository inventoryAuditDetailRepository;
     private final UserRepository userRepository;
@@ -57,7 +56,6 @@ public class InventoryAuditServiceImpl implements InventoryAuditService {
         User user = userRepository.findByUsername(currentUsername)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
 
-        // Phân quyền: Chỉ chủ hộ kinh doanh (VT-01) mới được phép kiểm kê và điều chỉnh tồn kho
         if (user.getRole() == null || !"VT-01".equals(user.getRole().getCode())) {
             throw new AppException(ErrorCode.ONLY_STORE_OWNER_CAN_AUDIT);
         }
@@ -71,7 +69,6 @@ public class InventoryAuditServiceImpl implements InventoryAuditService {
             throw new AppException(ErrorCode.EMPTY_AUDIT_DETAILS);
         }
 
-        // Kiểm tra trùng lặp mặt hàng trong cùng 1 phiếu kiểm kê
         Set<String> processedProductIds = new HashSet<>();
         for (CreateInventoryAuditDetailRequest detailReq : request.getDetails()) {
             if (!processedProductIds.add(detailReq.getProductId())) {
@@ -79,7 +76,6 @@ public class InventoryAuditServiceImpl implements InventoryAuditService {
             }
         }
 
-        // Sinh mã phiếu kiểm kê độc nhất
         String auditNumber = generateAuditNumber(household.getId());
 
         BigDecimal totalDiffQty = BigDecimal.ZERO;
@@ -93,14 +89,12 @@ public class InventoryAuditServiceImpl implements InventoryAuditService {
             BigDecimal actualQty = detailReq.getActualQuantity() != null ? detailReq.getActualQuantity() : BigDecimal.ZERO;
             BigDecimal diffQty = actualQty.subtract(systemQty);
 
-            // QTN-24: Bắt buộc nhập lý do khi có chênh lệch tồn kho (difference != 0)
             if (diffQty.compareTo(BigDecimal.ZERO) != 0) {
                 if (detailReq.getReason() == null || detailReq.getReason().trim().isEmpty()) {
                     throw new AppException(ErrorCode.DISCREPANCY_REASON_REQUIRED);
                 }
             }
 
-            // Cập nhật số lượng tồn kho sản phẩm về số lượng thực tế đếm được
             product.setStockQuantity(actualQty);
             productRepository.save(product);
 
@@ -135,7 +129,6 @@ public class InventoryAuditServiceImpl implements InventoryAuditService {
             inventoryAuditDetailRepository.save(detail);
         }
 
-        // Ghi nhật ký kiểm toán (Activity Log)
         String newValueJson = null;
         try {
             Map<String, Object> logMap = new HashMap<>();

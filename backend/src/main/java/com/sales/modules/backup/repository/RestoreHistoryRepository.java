@@ -10,7 +10,6 @@ import java.util.Optional;
 
 @Repository
 public interface RestoreHistoryRepository extends JpaRepository<RestoreHistory, String> {
-
     @EntityGraph(attributePaths = {"backupHistory", "restoredByUser"})
     Page<RestoreHistory> findByHouseholdIdOrderByRestoredAtDesc(String householdId, Pageable pageable);
 
@@ -18,4 +17,3 @@ public interface RestoreHistoryRepository extends JpaRepository<RestoreHistory, 
 
     long countByHouseholdId(String householdId);
 }
-

@@ -13,7 +13,6 @@ import java.util.List;
 @AllArgsConstructor
 @Builder
 public class PreviewPriceAdjustmentRequest {
-
     private String targetGroupId;
     private List<String> productIds;
 

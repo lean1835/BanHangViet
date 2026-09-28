@@ -22,7 +22,6 @@ import java.util.List;
 @RequiredArgsConstructor
 @Slf4j
 public class InvoiceTemplateServiceImpl implements InvoiceTemplateService {
-
     private final InvoiceTemplateRepository invoiceTemplateRepository;
     private final UserRepository userRepository;
     private final InvoiceNumberRangeRepository invoiceNumberRangeRepository;
@@ -61,8 +60,6 @@ public class InvoiceTemplateServiceImpl implements InvoiceTemplateService {
     public InvoiceTemplateResponse updateTemplate(String currentUsername, InvoiceTemplateRequest request) {
         User currentUser = getAuthenticatedUser(currentUsername);
 
-        // Chỉ vai trò VT-01 (Chủ hộ) hoặc VT-03 (Kế toán) được phép cập nhật cấu hình
-        // mẫu
         String roleCode = currentUser.getRole().getCode();
         if (!"VT-01".equals(roleCode) && !"VT-03".equals(roleCode)) {
             throw new AppException(ErrorCode.FORBIDDEN);
@@ -87,7 +84,6 @@ public class InvoiceTemplateServiceImpl implements InvoiceTemplateService {
         log.info("Cấu hình mẫu hóa đơn được cập nhật bởi user {}: Pattern={}, Symbol={}",
                 currentUsername, saved.getInvoicePattern(), saved.getInvoiceSymbol());
 
-        // Tự động đảm bảo có dải số trong lịch sử dải số đã khai báo với số hiện tại bắt đầu từ 0 và trạng thái Đang sử dụng (ACTIVE)
         ensureRangeExistsForConfiguredTemplate(household, saved.getInvoicePattern(), saved.getInvoiceSymbol());
 
         return mapToResponse(saved);
@@ -118,7 +114,6 @@ public class InvoiceTemplateServiceImpl implements InvoiceTemplateService {
             log.info("Tự động khởi tạo dải số mới khi cấu hình mẫu hóa đơn {}: Pattern={}, Symbol={}, Start=1, End=100000, Current=0",
                     household.getId(), cleanPattern, cleanSymbol);
         } else {
-            // Nếu đã có dải số cho mẫu này, kích hoạt lại nếu chưa hết số
             for (InvoiceNumberRange r : existingRanges) {
                 if (!"EXHAUSTED".equals(r.getStatus()) && r.getCurrentNumber() < r.getEndNumber()) {
                     r.setStatus("ACTIVE");
