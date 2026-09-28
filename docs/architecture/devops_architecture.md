@@ -9,7 +9,7 @@
 
 Hệ thống **Bán Hàng Việt** được xây dựng theo mô hình Monorepo kết hợp kiến trúc Container hóa khép kín trên nền tảng máy chủ đám mây Ubuntu Linux VPS. Toàn bộ quy trình từ kiểm thử, đóng gói Docker Image đến đưa lên máy chủ sản xuất được tự động hóa 100% qua GitHub Actions.
 
-![Hình 1: Sơ đồ kiến trúc DevOps & Hạ tầng triển khai tổng thể](devops_system_architecture.png)
+> *(Sơ đồ kiến trúc độ phân giải cao được nhúng sẵn trong tệp [devops_architecture.docx](devops_architecture.docx))*
 
 ### Phân vùng trách nhiệm hạ tầng:
 - **Phân vùng Phát triển (Developer Workspace)**: Lập trình viên làm việc trên mã nguồn cục bộ, chạy kiểm thử tự động, tuân thủ Clean Code và đẩy commit lên GitHub.
@@ -115,7 +115,7 @@ networks:
 
 Chuỗi tự động hóa CI/CD được thiết lập qua tệp `.github/workflows/deploy.yml` với triết lý: 100% minh bạch, kiểm thử toàn diện mọi nhánh và chỉ cho phép đưa code lên Production khi toàn bộ kiểm thử đạt chuẩn tuyệt đối.
 
-![Hình 2: Sơ đồ luồng quyết định 3 giai đoạn và các cổng kiểm soát chất lượng](devops_cicd_flow.png)
+> *(Sơ đồ luồng quyết định CI/CD được nhúng sẵn trong tệp [devops_architecture.docx](devops_architecture.docx))*
 
 ### 3 Giai đoạn thực thi trong CI/CD Pipeline:
 - **Giai đoạn 1: Verify Song Song (Mọi nhánh & Pull Request)**:
@@ -136,7 +136,7 @@ Chuỗi tự động hóa CI/CD được thiết lập qua tệp `.github/workfl
 
 Tính năng ấn tượng nhất của hạ tầng DevOps Bán Hàng Việt là khả năng triển khai ứng dụng mà không gây gián đoạn dịch vụ (Zero-Downtime) thông qua kịch bản điều phối tự động `scripts/deploy.sh` trên VPS.
 
-![Hình 3: Quy trình triển khai Rolling Zero-Downtime & Vòng lặp Healthcheck Polling trên VPS](devops_zero_downtime_deploy.png)
+> *(Sơ đồ triển khai Zero-Downtime được nhúng sẵn trong tệp [devops_architecture.docx](devops_architecture.docx))*
 
 ### 5.1. Quy trình 5 bước thực thi trong `scripts/deploy.sh`:
 1. **Bước 1: Tải Docker Images với cơ chế Thử lại (Retry)**: Script gọi `docker pull` cho cả BE và FE với hàm bọc retry tối đa 3 lần, delay 5 giây giữa các lần nhằm chống lỗi rớt mạng.

@@ -7,7 +7,7 @@
 
 ## Sơ Đồ Toàn Cảnh Quy Trình Tự Động Hóa (deploy.yml)
 
-![Sơ đồ luồng bám sát deploy.yml](deploy_workflow_diagram.png)
+> *(Sơ đồ trực quan độ phân giải cao được nhúng sẵn trong tệp [deploy_workflow_explained.docx](deploy_workflow_explained.docx))*
 
 ```text
 +-----------------------+     +-----------------------+     +-----------------------+     +-----------------------+

@@ -7,7 +7,7 @@
 
 ## Sơ Đồ Toàn Cảnh Bộ Ba Hạ Tầng
 
-![Sơ đồ bộ ba hạ tầng](devops_components_diagram.png)
+> *(Sơ đồ trực quan độ phân giải cao được nhúng sẵn trong tệp [devops_files_explained.docx](devops_files_explained.docx))*
 
 ---
 
