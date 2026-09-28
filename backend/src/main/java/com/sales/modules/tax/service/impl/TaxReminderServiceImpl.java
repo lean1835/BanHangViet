@@ -31,12 +31,14 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
+import com.fasterxml.jackson.core.type.TypeReference;
+import java.util.stream.Collectors;
+import org.springframework.transaction.annotation.Propagation;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class TaxReminderServiceImpl implements TaxReminderService {
-
     private final UserRepository userRepository;
     private final BusinessHouseholdSettingsRepository settingsRepository;
     private final TaxDeclarationPeriodRepository taxPeriodRepository;
@@ -94,7 +96,6 @@ public class TaxReminderServiceImpl implements TaxReminderService {
     public TaxReminderSettingsResponse updateReminderSettings(String currentUsername, UpdateTaxReminderSettingsRequest request) {
         User user = getAuthenticatedUser(currentUsername);
 
-        // RBAC: Chỉ chủ hộ kinh doanh (VT-01) mới có quyền cập nhật cấu hình nhắc nộp tờ khai
         if (user.getRole() == null || !"VT-01".equalsIgnoreCase(user.getRole().getCode())) {
             throw new AppException(ErrorCode.FORBIDDEN);
         }
@@ -169,7 +170,6 @@ public class TaxReminderServiceImpl implements TaxReminderService {
             return Collections.emptyList();
         }
 
-        // Tiền đề: Hộ đã có ít nhất một hóa đơn bán hàng trong hệ thống
         if (!eInvoiceRepository.existsByHouseholdIdAndDeletedAtIsNull(household.getId())) {
             return Collections.emptyList();
         }
@@ -177,7 +177,6 @@ public class TaxReminderServiceImpl implements TaxReminderService {
         int reminderDays = settings.getTaxReminderDaysBefore() != null ? settings.getTaxReminderDaysBefore() : 5;
         LocalDate today = LocalDate.now();
 
-        // Lấy tất cả kỳ chưa chốt
         List<TaxDeclarationPeriod> openPeriods = taxPeriodRepository.findByHouseholdIdAndStatusNot(household.getId(), "LOCKED");
 
         List<TaxPeriodReminderResponse> reminders = new ArrayList<>();
@@ -186,7 +185,6 @@ public class TaxReminderServiceImpl implements TaxReminderService {
             reminders.add(reminder);
         }
 
-        // Sắp xếp theo mức độ ưu tiên: DANGER (quá hạn) trước, rồi WARNING (sắp đến hạn), theo hạn nộp tăng dần
         reminders.sort((r1, r2) -> {
             if ("DANGER".equals(r1.getSeverity()) && !"DANGER".equals(r2.getSeverity())) return -1;
             if (!"DANGER".equals(r1.getSeverity()) && "DANGER".equals(r2.getSeverity())) return 1;
@@ -228,7 +226,7 @@ public class TaxReminderServiceImpl implements TaxReminderService {
     @Override
     public void scanAndGenerateTaxReminders(LocalDate today) {
         log.info("Bắt đầu job quét nhắc lịch nộp tờ khai thuế ngày {}", today);
-        // Tải trước household cùng settings qua @EntityGraph để tránh N+1 queries
+
         List<BusinessHouseholdSettings> allSettings = settingsRepository.findByTaxReminderEnabledTrue();
 
         int totalCreated = 0;
@@ -239,7 +237,6 @@ public class TaxReminderServiceImpl implements TaxReminderService {
             if (household == null) continue;
 
             try {
-                // Tách transaction theo từng hộ để tránh lỗi một hộ làm rollback cả batch job
                 totalCreated += processRemindersForHousehold(household, today, settings);
                 totalHouseholds++;
             } catch (Exception e) {
@@ -252,9 +249,8 @@ public class TaxReminderServiceImpl implements TaxReminderService {
     }
 
     @Override
-    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW, rollbackFor = Exception.class)
+    @Transactional(propagation = Propagation.REQUIRES_NEW, rollbackFor = Exception.class)
     public int processRemindersForHousehold(BusinessHousehold household, LocalDate today, BusinessHouseholdSettings settings) {
-        // Tiền đề: Hộ đã phát sinh hóa đơn trong hệ thống
         if (!eInvoiceRepository.existsByHouseholdIdAndDeletedAtIsNull(household.getId())) {
             return 0;
         }
@@ -268,17 +264,14 @@ public class TaxReminderServiceImpl implements TaxReminderService {
 
         int reminderDays = settings.getTaxReminderDaysBefore() != null ? settings.getTaxReminderDaysBefore() : 5;
 
-        // Tối ưu N+1: Truy vấn tất cả kỳ của hộ 1 lần duy nhất
         List<TaxDeclarationPeriod> allPeriods = taxPeriodRepository.findByHouseholdIdOrderByYearDescPeriodNumberDesc(household.getId());
 
-        // Tối ưu N+1: Tải trước toàn bộ thông báo TAX_PERIOD chưa đóng của hộ
         List<AppNotification> unclosedNotifs = notificationRepository
                 .findByHouseholdIdAndTargetTypeAndIsClosedFalse(household.getId(), "TAX_PERIOD");
         Map<String, List<AppNotification>> notifsByTargetId = unclosedNotifs.stream()
                 .filter(n -> n.getTargetId() != null)
-                .collect(java.util.stream.Collectors.groupingBy(AppNotification::getTargetId));
+                .collect(Collectors.groupingBy(AppNotification::getTargetId));
 
-        // 1. Tự động đóng nhắc việc cho các kỳ đã chốt (AC-02) theo lô (batch update)
         LocalDateTime now = LocalDateTime.now();
         List<AppNotification> toClose = new ArrayList<>();
         for (TaxDeclarationPeriod period : allPeriods) {
@@ -301,12 +294,10 @@ public class TaxReminderServiceImpl implements TaxReminderService {
             log.info("Đã tự động đóng {} thông báo nhắc nộp tờ khai của các kỳ đã chốt cho hộ {}", toClose.size(), household.getId());
         }
 
-        // 2. Kiểm tra các kỳ chưa chốt để sinh/cập nhật nhắc việc (AC-01 & AC-03)
         List<TaxDeclarationPeriod> openPeriods = new ArrayList<>(allPeriods.stream()
                 .filter(p -> !"LOCKED".equalsIgnoreCase(p.getStatus()))
                 .toList());
 
-        // 3. Tự động phát hiện kỳ vừa kết thúc nhưng chưa từng được bấm "Lập bảng kê" (missing period detection)
         detectAndAddCompletedPeriodIfMissing(household, settings.getTaxPeriodType(), today, allPeriods, openPeriods);
 
         int count = 0;
@@ -318,11 +309,9 @@ public class TaxReminderServiceImpl implements TaxReminderService {
             boolean isApproaching = daysRemaining >= 0 && daysRemaining <= reminderDays;
 
             if (isOverdue) {
-                // AC-03: Quá hạn nộp mà chưa chốt -> Mức độ DANGER, giữ trong danh sách
                 createOrUpdateOverdueNotification(household, period, deadline, Math.abs(daysRemaining));
                 count++;
             } else if (isApproaching) {
-                // AC-01: Đến mốc nhắc trước hạn -> Mức độ WARNING
                 createOrUpdateReminderNotification(household, period, deadline, daysRemaining);
                 count++;
             }
@@ -337,7 +326,6 @@ public class TaxReminderServiceImpl implements TaxReminderService {
             LocalDate today,
             List<TaxDeclarationPeriod> allPeriods,
             List<TaxDeclarationPeriod> openPeriods) {
-
         if (periodType == null) periodType = "QUARTERLY";
         int targetYear = today.getYear();
         int targetPeriodNumber;
@@ -348,30 +336,25 @@ public class TaxReminderServiceImpl implements TaxReminderService {
         if ("QUARTERLY".equalsIgnoreCase(periodType)) {
             int currentMonth = today.getMonthValue();
             if (currentMonth <= 3) {
-                // Đang ở Quý 1 -> Kỳ vừa xong là Quý 4 năm trước
                 targetYear = today.getYear() - 1;
                 targetPeriodNumber = 4;
                 startDate = LocalDate.of(targetYear, 10, 1);
                 endDate = LocalDate.of(targetYear, 12, 31);
             } else if (currentMonth <= 6) {
-                // Đang ở Quý 2 -> Kỳ vừa xong là Quý 1
                 targetPeriodNumber = 1;
                 startDate = LocalDate.of(targetYear, 1, 1);
                 endDate = LocalDate.of(targetYear, 3, 31);
             } else if (currentMonth <= 9) {
-                // Đang ở Quý 3 -> Kỳ vừa xong là Quý 2
                 targetPeriodNumber = 2;
                 startDate = LocalDate.of(targetYear, 4, 1);
                 endDate = LocalDate.of(targetYear, 6, 30);
             } else {
-                // Đang ở Quý 4 -> Kỳ vừa xong là Quý 3
                 targetPeriodNumber = 3;
                 startDate = LocalDate.of(targetYear, 7, 1);
                 endDate = LocalDate.of(targetYear, 9, 30);
             }
             periodName = String.format("Bảng kê hóa đơn bán ra Quý %d năm %d", targetPeriodNumber, targetYear);
         } else {
-            // MONTHLY
             int prevMonth = today.getMonthValue() - 1;
             if (prevMonth < 1) {
                 prevMonth = 12;
@@ -394,7 +377,6 @@ public class TaxReminderServiceImpl implements TaxReminderService {
         );
 
         if (!alreadyExists) {
-            // Tạo kỳ ảo biểu diễn kỳ vừa xong nhưng chưa từng bấm tạo bảng kê
             TaxDeclarationPeriod virtualPeriod = TaxDeclarationPeriod.builder()
                     .id("PENDING_" + finalPeriodType + "_" + finalTargetYear + "_" + finalTargetPeriodNumber)
                     .household(household)
@@ -418,7 +400,6 @@ public class TaxReminderServiceImpl implements TaxReminderService {
             TaxDeclarationPeriod period,
             LocalDate deadline,
             long daysRemaining) {
-
         String notifType = TaxNotificationType.TAX_DECLARATION_REMINDER;
         String deadlineStr = deadline.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"));
 
@@ -478,7 +459,6 @@ public class TaxReminderServiceImpl implements TaxReminderService {
             TaxDeclarationPeriod period,
             LocalDate deadline,
             long overdueDays) {
-
         String notifType = TaxNotificationType.TAX_DECLARATION_OVERDUE;
         String deadlineStr = deadline.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"));
 
@@ -517,7 +497,6 @@ public class TaxReminderServiceImpl implements TaxReminderService {
             notif.setMetadata(metadataJson);
             notificationRepository.save(notif);
         } else {
-            // Đóng thông báo nhắc trước hạn nếu còn mở, để thay bằng thông báo quá hạn
             closePreDueRemindersForPeriod(household, period.getId());
 
             AppNotification newNotif = AppNotification.builder()
@@ -600,7 +579,6 @@ public class TaxReminderServiceImpl implements TaxReminderService {
         taxPeriodRepository.save(period);
         log.info("Đã đánh dấu xuất tờ khai cho kỳ ID={}", periodId);
 
-        // Cập nhật ngay metadata của thông báo nhắc nhở đang mở (nếu có)
         if (period.getHousehold() != null) {
             List<AppNotification> notifs = notificationRepository
                     .findByHouseholdIdAndTargetTypeAndTargetIdAndIsClosedFalse(
@@ -611,7 +589,7 @@ public class TaxReminderServiceImpl implements TaxReminderService {
                     try {
                         Map<String, Object> metaMap;
                         if (notif.getMetadata() != null && !notif.getMetadata().isEmpty()) {
-                            metaMap = objectMapper.readValue(notif.getMetadata(), new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {});
+                            metaMap = objectMapper.readValue(notif.getMetadata(), new TypeReference<Map<String, Object>>() {});
                         } else {
                             metaMap = new HashMap<>();
                         }
@@ -675,7 +653,6 @@ public class TaxReminderServiceImpl implements TaxReminderService {
             TaxDeclarationPeriod period,
             int reminderDaysBefore,
             LocalDate today) {
-
         LocalDate deadline = calculateTaxFilingDeadline(period.getPeriodType(), period.getYear(), period.getPeriodNumber());
         long daysRemaining = ChronoUnit.DAYS.between(today, deadline);
         boolean isOverdue = daysRemaining < 0;

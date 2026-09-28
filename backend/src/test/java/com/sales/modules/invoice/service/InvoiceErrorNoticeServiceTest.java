@@ -36,7 +36,6 @@ import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class InvoiceErrorNoticeServiceTest {
-
     @Mock
     private InvoiceErrorNoticeRepository noticeRepository;
 
@@ -231,18 +230,15 @@ class InvoiceErrorNoticeServiceTest {
         when(noticeRepository.findByIdAndHouseholdId("notice-1", "hh-1")).thenReturn(Optional.of(notice));
         when(noticeRepository.save(any(InvoiceErrorNotice.class))).thenAnswer(i -> i.getArgument(0));
 
-        // Step 1: CQT từ chối
         InvoiceErrorNoticeResponse rejectedResponse = noticeService.rejectNoticeByTaxAuthority("ketoan01", "notice-1", "Sai sót hình thức xử lý");
         assertNotNull(rejectedResponse);
         assertEquals("REJECTED", rejectedResponse.getStatus());
         assertEquals("Sai sót hình thức xử lý", rejectedResponse.getTaxAuthorityResponse());
 
-        // Step 2: Kế toán đưa thông báo về nháp
         InvoiceErrorNoticeResponse reopenedResponse = noticeService.reopenNoticeToDraft("ketoan01", "notice-1");
         assertNotNull(reopenedResponse);
         assertEquals("DRAFT", reopenedResponse.getStatus());
 
-        // Step 3: Kế toán sửa thông tin / lý do
         when(invoiceRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("inv-canceled", "hh-1"))
                 .thenReturn(Optional.of(canceledInvoice));
         when(noticeRepository.isInvoiceInAcceptedNotice("inv-canceled")).thenReturn(false);
@@ -262,7 +258,6 @@ class InvoiceErrorNoticeServiceTest {
         assertEquals("DRAFT", updatedResponse.getStatus());
         assertEquals("Hủy do khách hàng đổi ý", updatedResponse.getItems().get(0).getReason());
 
-        // Step 4: Gửi lại thông báo sau khi sửa -> Thành công ACCEPTED
         InvoiceErrorNoticeResponse resentResponse = noticeService.sendNoticeToTaxAuthority("ketoan01", "notice-1");
         assertEquals("ACCEPTED", resentResponse.getStatus());
         assertTrue(canceledInvoice.getIsErrorNotified());

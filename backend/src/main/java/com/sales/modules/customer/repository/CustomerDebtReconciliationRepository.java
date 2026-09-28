@@ -13,7 +13,6 @@ import java.util.Optional;
 
 @Repository
 public interface CustomerDebtReconciliationRepository extends JpaRepository<CustomerDebtReconciliation, String> {
-
     Optional<CustomerDebtReconciliation> findByIdAndHouseholdId(String id, String householdId);
 
     @EntityGraph(attributePaths = {"customer", "household", "confirmedByUser", "createdByUser", "items", "items.customerDebt"})

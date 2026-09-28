@@ -12,32 +12,37 @@ import org.springframework.web.bind.annotation.*;
 
 import java.security.Principal;
 import java.util.List;
+import com.sales.modules.customer.dto.request.UpdateCustomerDeliveryChannelRequest;
+import com.sales.modules.customer.dto.response.ImportCustomerResultResponse;
+import com.sales.modules.customer.service.CustomerImportService;
+import com.sales.modules.product.dto.response.ImportPreviewResponse;
+import org.springframework.http.HttpHeaders;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/api/v1/customers")
 @RequiredArgsConstructor
 public class CustomerController {
-
     private final CustomerService customerService;
-    private final com.sales.modules.customer.service.CustomerImportService customerImportService;
+    private final CustomerImportService customerImportService;
 
     @GetMapping("/import-template")
     @PreAuthorize("hasRole('VT-01')")
     public ResponseEntity<byte[]> getImportTemplate() {
         byte[] data = customerImportService.getImportTemplate();
         return ResponseEntity.ok()
-                .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=mau_nhap_khach_hang.xlsx")
-                .header(org.springframework.http.HttpHeaders.CONTENT_TYPE, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=mau_nhap_khach_hang.xlsx")
+                .header(HttpHeaders.CONTENT_TYPE, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
                 .body(data);
     }
 
     @PostMapping("/import-preview")
     @PreAuthorize("hasRole('VT-01')")
-    public ResponseEntity<ApiResponse<com.sales.modules.product.dto.response.ImportPreviewResponse>> previewImport(
+    public ResponseEntity<ApiResponse<ImportPreviewResponse>> previewImport(
             Principal principal,
-            @RequestParam("file") org.springframework.web.multipart.MultipartFile file) {
-        com.sales.modules.product.dto.response.ImportPreviewResponse preview = customerImportService.previewImport(principal.getName(), file);
-        return ResponseEntity.ok(ApiResponse.<com.sales.modules.product.dto.response.ImportPreviewResponse>builder()
+            @RequestParam("file") MultipartFile file) {
+        ImportPreviewResponse preview = customerImportService.previewImport(principal.getName(), file);
+        return ResponseEntity.ok(ApiResponse.<ImportPreviewResponse>builder()
                 .code(1000)
                 .message("Phân tích tệp dữ liệu khách hàng thành công")
                 .result(preview)
@@ -46,12 +51,12 @@ public class CustomerController {
 
     @PostMapping("/import")
     @PreAuthorize("hasRole('VT-01')")
-    public ResponseEntity<ApiResponse<com.sales.modules.customer.dto.response.ImportCustomerResultResponse>> importCustomers(
+    public ResponseEntity<ApiResponse<ImportCustomerResultResponse>> importCustomers(
             Principal principal,
-            @RequestParam("file") org.springframework.web.multipart.MultipartFile file,
+            @RequestParam("file") MultipartFile file,
             @RequestParam(value = "duplicateAction", defaultValue = "SKIP") String duplicateAction) {
-        com.sales.modules.customer.dto.response.ImportCustomerResultResponse result = customerImportService.importCustomers(principal.getName(), file, duplicateAction);
-        return ResponseEntity.ok(ApiResponse.<com.sales.modules.customer.dto.response.ImportCustomerResultResponse>builder()
+        ImportCustomerResultResponse result = customerImportService.importCustomers(principal.getName(), file, duplicateAction);
+        return ResponseEntity.ok(ApiResponse.<ImportCustomerResultResponse>builder()
                 .code(1000)
                 .message("Nhập danh mục khách hàng từ tệp thành công")
                 .result(result)
@@ -132,7 +137,7 @@ public class CustomerController {
     public ResponseEntity<ApiResponse<CustomerResponse>> updateCustomerDeliveryChannel(
             Principal principal,
             @PathVariable String id,
-            @Valid @RequestBody com.sales.modules.customer.dto.request.UpdateCustomerDeliveryChannelRequest request) {
+            @Valid @RequestBody UpdateCustomerDeliveryChannelRequest request) {
         CustomerResponse result = customerService.updateDefaultDeliveryChannel(principal.getName(), id, request);
         ApiResponse<CustomerResponse> response = ApiResponse.<CustomerResponse>builder()
                 .code(1000)

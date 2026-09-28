@@ -39,12 +39,14 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class PlatformHouseholdServiceImpl implements PlatformHouseholdService {
-
     private final BusinessHouseholdRepository householdRepository;
     private final UserRepository userRepository;
     private final UserSessionRepository userSessionRepository;
@@ -113,7 +115,6 @@ public class PlatformHouseholdServiceImpl implements PlatformHouseholdService {
     @Transactional(readOnly = true)
     public PageResponse<PlatformHouseholdSummaryResponse> getHouseholds(
             String currentUsername, String search, String statusStr, int page, int size) {
-
         Pageable pageable = PageRequest.of(Math.max(0, page - 1), size, Sort.by(Sort.Direction.DESC, "createdAt"));
         HouseholdStatus statusFilter = null;
         if (statusStr != null && !statusStr.trim().isEmpty() && !"ALL".equalsIgnoreCase(statusStr)) {
@@ -124,7 +125,6 @@ public class PlatformHouseholdServiceImpl implements PlatformHouseholdService {
 
         String keyword = (search != null && !search.trim().isEmpty()) ? search.trim().toLowerCase() : null;
 
-        // Custom specification or simple query
         Page<BusinessHousehold> householdPage;
         if (keyword != null && statusFilter != null) {
             householdPage = householdRepository.searchByNameOrTaxCodeAndStatus(keyword, statusFilter, pageable);
@@ -140,26 +140,23 @@ public class PlatformHouseholdServiceImpl implements PlatformHouseholdService {
         List<PlatformHouseholdSummaryResponse> items;
 
         if (households.isEmpty()) {
-            items = java.util.Collections.emptyList();
+            items = Collections.emptyList();
         } else {
             List<String> householdIds = households.stream().map(BusinessHousehold::getId).collect(Collectors.toList());
 
-            // 1. Batch count users
-            java.util.Map<String, Long> userCountMap = new java.util.HashMap<>();
+            Map<String, Long> userCountMap = new HashMap<>();
             List<Object[]> userCounts = userRepository.countUsersByHouseholdIds(householdIds);
             for (Object[] row : userCounts) {
                 userCountMap.put((String) row[0], ((Number) row[1]).longValue());
             }
 
-            // 2. Batch fetch last active
-            java.util.Map<String, LocalDateTime> lastActiveMap = new java.util.HashMap<>();
+            Map<String, LocalDateTime> lastActiveMap = new HashMap<>();
             List<Object[]> lastActives = userSessionRepository.findLatestActiveAtByHouseholdIds(householdIds);
             for (Object[] row : lastActives) {
                 lastActiveMap.put((String) row[0], (LocalDateTime) row[1]);
             }
 
-            // 3. Batch fetch active subscriptions
-            java.util.Map<String, HouseholdSubscription> subMap = new java.util.HashMap<>();
+            Map<String, HouseholdSubscription> subMap = new HashMap<>();
             List<HouseholdSubscription> subscriptions = subscriptionRepository
                     .findByHouseholdIdInAndStatusOrderByCreatedAtDesc(householdIds, SubscriptionStatus.ACTIVE);
             for (HouseholdSubscription sub : subscriptions) {
@@ -168,9 +165,8 @@ public class PlatformHouseholdServiceImpl implements PlatformHouseholdService {
                 }
             }
 
-            // 4. Batch fetch usage stats for current month
             String currentMonth = YearMonth.now().format(DateTimeFormatter.ofPattern(DatePatternConstant.YEAR_MONTH));
-            java.util.Map<String, Integer> invoiceCountMap = new java.util.HashMap<>();
+            Map<String, Integer> invoiceCountMap = new HashMap<>();
             List<HouseholdUsageStats> statsList = usageStatsRepository.findByHouseholdIdInAndMonthYear(householdIds, currentMonth);
             for (HouseholdUsageStats stats : statsList) {
                 if (stats.getHousehold() != null) {
@@ -251,7 +247,6 @@ public class PlatformHouseholdServiceImpl implements PlatformHouseholdService {
 
         household = householdRepository.save(household);
 
-        // QTN-25 & TC-01: Chặn đăng nhập và thu hồi tất cả active sessions của hộ ngay lập tức
         userSessionRepository.revokeAllActiveSessionsForHousehold(
                 household.getId(),
                 LocalDateTime.now(),

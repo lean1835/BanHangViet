@@ -46,7 +46,6 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Slf4j
 public class CashTransactionServiceImpl implements CashTransactionService {
-
     private final CashTransactionRepository transactionRepository;
     private final CashTransactionCategoryRepository categoryRepository;
     private final ShiftRepository shiftRepository;
@@ -121,7 +120,6 @@ public class CashTransactionServiceImpl implements CashTransactionService {
             return userShift.get();
         }
 
-        // If current user is owner (VT-01), check if there is an active shift in the household
         if (currentUser.getRole() != null && "VT-01".equals(currentUser.getRole().getCode())) {
             List<Shift> openShifts = shiftRepository.findByHouseholdIdOrderByOpenedAtDesc(household.getId())
                     .stream()
@@ -159,7 +157,6 @@ public class CashTransactionServiceImpl implements CashTransactionService {
             }
         }
 
-        // Determine approval status
         CashTransactionStatus status = CashTransactionStatus.APPROVED;
         if (request.getType() == CashTransactionType.EXPENSE) {
             boolean isOwner = currentUser.getRole() != null && "VT-01".equals(currentUser.getRole().getCode());

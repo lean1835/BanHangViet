@@ -34,7 +34,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Transactional
 @SuppressWarnings("unused")
 public class WeightBasedSellingControllerTest {
-
     @Autowired
     private MockMvc mockMvc;
 
@@ -128,7 +127,7 @@ public class WeightBasedSellingControllerTest {
     void calculateWeight_success_returns200() throws Exception {
         CalculateWeightRequest req = CalculateWeightRequest.builder()
                 .productId(weightProduct.getId())
-                .buyAmount(new BigDecimal("50000")) // 50,000 / 250,000 = 0.200 kg
+                .buyAmount(new BigDecimal("50000"))
                 .build();
 
         mockMvc.perform(post("/api/v1/orders/calculate-weight")

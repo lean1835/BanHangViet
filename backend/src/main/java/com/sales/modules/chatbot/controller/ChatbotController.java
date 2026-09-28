@@ -17,7 +17,6 @@ import java.util.List;
 @RequestMapping("/api/v1/chatbot")
 @RequiredArgsConstructor
 public class ChatbotController {
-
     private final ChatbotService chatbotService;
 
     @PostMapping("/message")

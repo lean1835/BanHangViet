@@ -9,7 +9,6 @@ import org.springframework.data.domain.Pageable;
 import java.time.LocalDate;
 
 public interface PosTransferService {
-
     PosTransferResponse createTransfer(String currentUsername, CreatePosTransferRequest request);
 
     Page<PosTransferResponse> getTransfers(

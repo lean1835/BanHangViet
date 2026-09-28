@@ -19,7 +19,6 @@ import java.util.List;
 @RequiredArgsConstructor
 @Tag(name = "Order Payments", description = "Quản lý chi tiết thanh toán và xác nhận chuyển khoản ngân hàng (NCL-03-CN-011 & NCL-03-CN-012)")
 public class OrderPaymentController {
-
     private final OrderPaymentService orderPaymentService;
 
     @GetMapping
@@ -70,4 +69,3 @@ public class OrderPaymentController {
         return ResponseEntity.ok(response);
     }
 }
-

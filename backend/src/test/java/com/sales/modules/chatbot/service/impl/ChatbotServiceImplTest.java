@@ -56,10 +56,16 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
+import com.sales.modules.pos.entity.PointOfSale;
+import com.sales.modules.report.dto.response.PeakHoursAndDaysResponse;
+import com.sales.modules.report.dto.response.PeakSalesInsight;
+import com.sales.modules.report.service.SalesAnalyticsService;
+import java.time.LocalDateTime;
+import org.springframework.web.client.ResourceAccessException;
+import org.springframework.web.client.RestClient;
 
 @ExtendWith(MockitoExtension.class)
 public class ChatbotServiceImplTest {
-
     @Mock
     private UserRepository userRepository;
 
@@ -106,7 +112,7 @@ public class ChatbotServiceImplTest {
     private FaqService faqService;
 
     @Mock
-    private com.sales.modules.report.service.SalesAnalyticsService salesAnalyticsService;
+    private SalesAnalyticsService salesAnalyticsService;
 
     @Spy
     private ObjectMapper objectMapper = new ObjectMapper();
@@ -131,7 +137,6 @@ public class ChatbotServiceImplTest {
                 .household(mockHousehold)
                 .build();
 
-        // Không set API key để test Smart Local Fallback
         ReflectionTestUtils.setField(chatbotService, "geminiApiKey", "");
         ReflectionTestUtils.setField(chatbotService, "geminiModel", "gemini-3.5-flash-lite");
         ReflectionTestUtils.setField(chatbotService, "geminiApiUrl", "https://generativelanguage.googleapis.com/v1beta/models");
@@ -266,7 +271,7 @@ public class ChatbotServiceImplTest {
     void testProcessMessage_PeakHoursIntent() {
         when(userRepository.findByUsername("owner_anbinh")).thenReturn(Optional.of(mockUser));
 
-        com.sales.modules.report.dto.response.PeakSalesInsight insights = com.sales.modules.report.dto.response.PeakSalesInsight.builder()
+        PeakSalesInsight insights = PeakSalesInsight.builder()
                 .peakHourLabel("09:00 - 10:00")
                 .peakHourRevenue(new BigDecimal("267706082"))
                 .peakHourOrderCount(16L)
@@ -278,7 +283,7 @@ public class ChatbotServiceImplTest {
                 .recommendations(List.of("Khung giờ cao điểm nhất là 09:00 - 10:00 với doanh thu 267.706.082 đ"))
                 .build();
 
-        com.sales.modules.report.dto.response.PeakHoursAndDaysResponse peakResponse = com.sales.modules.report.dto.response.PeakHoursAndDaysResponse.builder()
+        PeakHoursAndDaysResponse peakResponse = PeakHoursAndDaysResponse.builder()
                 .insights(insights)
                 .build();
 
@@ -307,7 +312,7 @@ public class ChatbotServiceImplTest {
 
         assertNotNull(suggestions);
         assertFalse(suggestions.isEmpty());
-        // Kiểm tra có danh mục Bán hàng & Thu ngân
+
         boolean hasPosCategory = suggestions.stream()
                 .anyMatch(s -> s.getCategory().contains("Bán hàng") || s.getCategory().contains("Thu ngân"));
         assertTrue(hasPosCategory);
@@ -437,7 +442,7 @@ public class ChatbotServiceImplTest {
     @Test
     @DisplayName("RBAC: Nhân viên bán hàng (VT-02) hỏi công nợ NCC bị từ chối bảo mật")
     void testProcessMessage_CashierAccessDenied_SupplierDebt() {
-        com.sales.modules.auth.entity.Role cashierRole = com.sales.modules.auth.entity.Role.builder().code("VT-02").name("Nhân viên").build();
+        Role cashierRole = Role.builder().code("VT-02").name("Nhân viên").build();
         User cashierUser = User.builder()
                 .id("USR-002")
                 .username("cashier_user")
@@ -456,14 +461,14 @@ public class ChatbotServiceImplTest {
         assertNotNull(response);
         assertTrue(response.getReply().contains("Thông Báo Phân Quyền Bảo Mật"));
         assertTrue(response.getReply().contains("Nhân viên bán hàng / Thu ngân"));
-        // Đảm bảo không gọi tới supplierDebtService
+
         verify(supplierDebtService, never()).getSupplierDebtSummary(anyString());
     }
 
     @Test
     @DisplayName("RBAC: Kế toán (VT-03) có toàn quyền tra cứu lợi nhuận gộp")
     void testProcessMessage_AccountantAccess_GrossProfit() {
-        com.sales.modules.auth.entity.Role accountantRole = com.sales.modules.auth.entity.Role.builder().code("VT-03").name("Kế toán").build();
+        Role accountantRole = Role.builder().code("VT-03").name("Kế toán").build();
         User accountantUser = User.builder()
                 .id("USR-003")
                 .username("accountant_user")
@@ -519,15 +524,12 @@ public class ChatbotServiceImplTest {
     void testModelCooldown_Behavior() {
         String testModel = "gemini-3.5-flash-lite";
 
-        // Ban đầu model chưa bị cooldown
         Boolean beforeCooldown = ReflectionTestUtils.invokeMethod(chatbotService, "isModelCoolingDown", testModel);
         assertNotNull(beforeCooldown);
         assertFalse(beforeCooldown);
 
-        // Đánh dấu hạ nhiệt 60s
         ReflectionTestUtils.invokeMethod(chatbotService, "markModelCooldown", testModel);
 
-        // Kiểm tra model đã chuyển sang trạng thái cooldown
         Boolean duringCooldown = ReflectionTestUtils.invokeMethod(chatbotService, "isModelCoolingDown", testModel);
         assertNotNull(duringCooldown);
         assertTrue(duringCooldown);
@@ -550,7 +552,7 @@ public class ChatbotServiceImplTest {
     @Test
     @DisplayName("RBAC Chặt Chẽ: Thu ngân (VT-02) hỏi cảnh báo hàng sắp hết kho bị chặn bảo mật")
     void testProcessMessage_CashierAccessDenied_LowStockWarning() {
-        com.sales.modules.auth.entity.Role cashierRole = com.sales.modules.auth.entity.Role.builder().code("VT-02").name("Nhân viên").build();
+        Role cashierRole = Role.builder().code("VT-02").name("Nhân viên").build();
         User cashierUser = User.builder()
                 .id("USR-002")
                 .username("cashier_user")
@@ -576,7 +578,7 @@ public class ChatbotServiceImplTest {
     @Test
     @DisplayName("RBAC Chặt Chẽ: Thu ngân (VT-02) hỏi số lượng tồn kho sản phẩm bị chặn bảo mật")
     void testProcessMessage_CashierAccessDenied_ProductStockQuantity() {
-        com.sales.modules.auth.entity.Role cashierRole = com.sales.modules.auth.entity.Role.builder().code("VT-02").name("Nhân viên").build();
+        Role cashierRole = Role.builder().code("VT-02").name("Nhân viên").build();
         User cashierUser = User.builder()
                 .id("USR-002")
                 .username("cashier_user")
@@ -601,7 +603,7 @@ public class ChatbotServiceImplTest {
     @Test
     @DisplayName("RBAC Chặt Chẽ: Thu ngân (VT-02) hỏi doanh thu toàn cửa hàng bị chặn bảo mật")
     void testProcessMessage_CashierAccessDenied_StoreRevenue() {
-        com.sales.modules.auth.entity.Role cashierRole = com.sales.modules.auth.entity.Role.builder().code("VT-02").name("Nhân viên").build();
+        Role cashierRole = Role.builder().code("VT-02").name("Nhân viên").build();
         User cashierUser = User.builder()
                 .id("USR-002")
                 .username("cashier_user")
@@ -627,7 +629,7 @@ public class ChatbotServiceImplTest {
     @Test
     @DisplayName("RBAC Chặt Chẽ: Kế toán (VT-03) có toàn quyền tra cứu cảnh báo tồn kho")
     void testProcessMessage_AccountantAccess_LowStockWarning() {
-        com.sales.modules.auth.entity.Role accountantRole = com.sales.modules.auth.entity.Role.builder().code("VT-03").name("Kế toán").build();
+        Role accountantRole = Role.builder().code("VT-03").name("Kế toán").build();
         User accountantUser = User.builder()
                 .id("USR-003")
                 .username("accountant_user")
@@ -692,7 +694,6 @@ public class ChatbotServiceImplTest {
         assertNull(response.getActionUrl());
         assertTrue(response.getReply().contains("Thông Báo Phân Quyền Bảo Mật") || response.getReply().contains("thẩm quyền"));
 
-        // Gợi ý câu hỏi phải tuyệt đối không chứa kho, nợ NCC, lợi nhuận gộp, thuế
         assertNotNull(response.getSuggestedQuestions());
         for (String q : response.getSuggestedQuestions()) {
             assertFalse(q.contains("lợi nhuận"), "Gợi ý của thu ngân không được chứa 'lợi nhuận'");
@@ -720,7 +721,7 @@ public class ChatbotServiceImplTest {
 
         assertNotNull(categories);
         assertFalse(categories.isEmpty());
-        // Tất cả phân mục không được liên quan đến kho, tài chính, thuế
+
         for (ChatbotSuggestionResponse cat : categories) {
             assertFalse(cat.getCategory().contains("Kho hàng"));
             assertFalse(cat.getCategory().contains("Tài chính"));
@@ -848,8 +849,8 @@ public class ChatbotServiceImplTest {
         Shift myShift = Shift.builder()
                 .id("shift-1")
                 .user(cashierUser)
-                .pointOfSale(com.sales.modules.pos.entity.PointOfSale.builder().name("Quầy 1 - Cơ sở chính").build())
-                .openedAt(java.time.LocalDateTime.now())
+                .pointOfSale(PointOfSale.builder().name("Quầy 1 - Cơ sở chính").build())
+                .openedAt(LocalDateTime.now())
                 .openingCash(new BigDecimal("1000000"))
                 .closingCashExpected(new BigDecimal("1374000"))
                 .status(ShiftStatus.OPEN)
@@ -937,8 +938,8 @@ public class ChatbotServiceImplTest {
         Shift shift1 = Shift.builder()
                 .id("s1")
                 .user(cashier1)
-                .pointOfSale(com.sales.modules.pos.entity.PointOfSale.builder().name("Cơ sở 1").build())
-                .openedAt(java.time.LocalDateTime.now())
+                .pointOfSale(PointOfSale.builder().name("Cơ sở 1").build())
+                .openedAt(LocalDateTime.now())
                 .openingCash(new BigDecimal("1000000"))
                 .closingCashExpected(new BigDecimal("2000000"))
                 .status(ShiftStatus.OPEN)
@@ -947,8 +948,8 @@ public class ChatbotServiceImplTest {
         Shift shift2 = Shift.builder()
                 .id("s2")
                 .user(cashier2)
-                .pointOfSale(com.sales.modules.pos.entity.PointOfSale.builder().name("Cơ sở 2").build())
-                .openedAt(java.time.LocalDateTime.now().minusDays(1))
+                .pointOfSale(PointOfSale.builder().name("Cơ sở 2").build())
+                .openedAt(LocalDateTime.now().minusDays(1))
                 .openingCash(new BigDecimal("500000"))
                 .closingCashExpected(new BigDecimal("800000"))
                 .status(ShiftStatus.OPEN)
@@ -1058,14 +1059,12 @@ public class ChatbotServiceImplTest {
         when(reportService.getDailyRevenue(eq("owner_anbinh"), any(LocalDate.class), any(LocalDate.class)))
                 .thenReturn(List.of(projection));
 
-        // Cấu hình API key và danh sách gồm 5 candidate models
         ReflectionTestUtils.setField(chatbotService, "geminiApiKey", "dummy-api-key");
         ReflectionTestUtils.setField(chatbotService, "geminiModel", "gemini-model-1");
         ReflectionTestUtils.setField(chatbotService, "geminiFallbackModels", "model-2,model-3,model-4,model-5");
 
-        // Mock restClient ném ResourceAccessException (mô phỏng socket timeout / network error)
-        org.springframework.web.client.RestClient mockRestClient = mock(org.springframework.web.client.RestClient.class);
-        when(mockRestClient.post()).thenThrow(new org.springframework.web.client.ResourceAccessException("Connect timed out"));
+        RestClient mockRestClient = mock(RestClient.class);
+        when(mockRestClient.post()).thenThrow(new ResourceAccessException("Connect timed out"));
         ReflectionTestUtils.setField(chatbotService, "restClient", mockRestClient);
 
         ChatbotMessageRequest request = ChatbotMessageRequest.builder()
@@ -1075,9 +1074,9 @@ public class ChatbotServiceImplTest {
         ChatbotMessageResponse response = chatbotService.processMessage("owner_anbinh", request);
 
         assertNotNull(response);
-        // Kiểm chứng: Fast-fail dừng ngay sau đúng 2 lần thử, KHÔNG thử hết cả 5 models
+
         verify(mockRestClient, times(2)).post();
-        // Kiểm chứng: Phản hồi tự động chuyển sang Smart Local Fallback
+
         assertEquals("local-rules-engine", response.getActiveModel());
         assertTrue(response.getReply().contains("15.500.000"));
     }

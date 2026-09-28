@@ -10,7 +10,6 @@ import com.sales.modules.auth.entity.User;
 import java.util.List;
 
 public interface AccountantService {
-
     AccountantInvitationResponse inviteAccountant(String currentUsername, InviteAccountantRequest request);
 
     List<AccountantInvitationResponse> getInvitations(String currentUsername);

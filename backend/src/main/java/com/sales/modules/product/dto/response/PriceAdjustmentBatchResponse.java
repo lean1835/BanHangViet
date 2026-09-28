@@ -14,7 +14,6 @@ import java.util.List;
 @AllArgsConstructor
 @Builder
 public class PriceAdjustmentBatchResponse {
-
     private String id;
     private String batchCode;
     private String name;

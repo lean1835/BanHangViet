@@ -16,7 +16,6 @@ import java.util.List;
 
 @Repository
 public interface GoodsReceiptDetailRepository extends JpaRepository<GoodsReceiptDetail, String> {
-
     @EntityGraph(attributePaths = {"product"})
     List<GoodsReceiptDetail> findByReceiptId(String receiptId);
 
@@ -157,4 +156,3 @@ public interface GoodsReceiptDetailRepository extends JpaRepository<GoodsReceipt
             @Param("endDateTime") LocalDateTime endDateTime
     );
 }
-

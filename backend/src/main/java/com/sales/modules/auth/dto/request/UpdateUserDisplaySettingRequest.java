@@ -9,7 +9,6 @@ import lombok.*;
 @NoArgsConstructor
 @AllArgsConstructor
 public class UpdateUserDisplaySettingRequest {
-
     @NotNull(message = "Trạng thái chế độ đơn giản không được để trống")
     private Boolean simpleModeEnabled;
 

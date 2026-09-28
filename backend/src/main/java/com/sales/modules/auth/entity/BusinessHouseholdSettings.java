@@ -6,6 +6,7 @@ import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
+import java.math.BigDecimal;
 
 @Entity
 @Table(name = "business_household_settings")
@@ -17,7 +18,6 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class BusinessHouseholdSettings {
-
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     @Column(length = 36, nullable = false)
@@ -55,15 +55,15 @@ public class BusinessHouseholdSettings {
 
     @Column(name = "expense_approval_threshold", nullable = false, precision = 15, scale = 2)
     @Builder.Default
-    private java.math.BigDecimal expenseApprovalThreshold = new java.math.BigDecimal("500000.00");
+    private BigDecimal expenseApprovalThreshold = new BigDecimal("500000.00");
 
     @Column(name = "revenue_warning_threshold_percentage", nullable = false, precision = 5, scale = 2)
     @Builder.Default
-    private java.math.BigDecimal revenueWarningThresholdPercentage = new java.math.BigDecimal("80.00");
+    private BigDecimal revenueWarningThresholdPercentage = new BigDecimal("80.00");
 
     @Column(name = "tax_period_type", nullable = false, length = 20)
     @Builder.Default
-    private String taxPeriodType = "QUARTERLY"; // MONTHLY, QUARTERLY
+    private String taxPeriodType = "QUARTERLY";
 
     @Column(name = "tax_reminder_days_before", nullable = false)
     @Builder.Default
@@ -75,7 +75,7 @@ public class BusinessHouseholdSettings {
 
     @Column(name = "shift_difference_threshold", nullable = false, precision = 15, scale = 2)
     @Builder.Default
-    private java.math.BigDecimal shiftDifferenceThreshold = java.math.BigDecimal.ZERO;
+    private BigDecimal shiftDifferenceThreshold = BigDecimal.ZERO;
 
     @Column(name = "is_onboarding_completed", nullable = false)
     @Builder.Default

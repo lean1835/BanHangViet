@@ -36,7 +36,6 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Slf4j
 public class ProductGroupServiceImpl implements ProductGroupService {
-
     private final UserRepository userRepository;
     private final ProductGroupRepository productGroupRepository;
     private final ProductRepository productRepository;
@@ -112,7 +111,6 @@ public class ProductGroupServiceImpl implements ProductGroupService {
             throw new AppException(ErrorCode.FORBIDDEN);
         }
 
-        // Kiểm tra trùng tên nhóm hàng trong cùng một hộ kinh doanh
         if (productGroupRepository.existsByHouseholdIdAndNameAndDeletedAtIsNull(household.getId(), request.getName())) {
             throw new AppException(ErrorCode.PRODUCT_GROUP_ALREADY_EXISTS);
         }
@@ -128,11 +126,11 @@ public class ProductGroupServiceImpl implements ProductGroupService {
         if (request.getProductIds() != null && !request.getProductIds().isEmpty()) {
             List<String> distinctProductIds = request.getProductIds().stream().distinct().collect(Collectors.toList());
             List<Product> products = productRepository.findAllByIdInAndHouseholdIdAndDeletedAtIsNull(distinctProductIds, household.getId());
-            
+
             if (products.size() != distinctProductIds.size()) {
                 throw new AppException(ErrorCode.PRODUCT_NOT_FOUND);
             }
-            
+
             for (Product prod : products) {
                 prod.setGroup(group);
                 associatedProductIds.add(prod.getId());
@@ -157,7 +155,6 @@ public class ProductGroupServiceImpl implements ProductGroupService {
         ProductGroup group = productGroupRepository.findByIdAndHouseholdIdAndDeletedAtIsNull(id, household.getId())
                 .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_GROUP_NOT_FOUND));
 
-        // Kiểm tra trùng tên với các nhóm hàng khác của cùng hộ
         if (productGroupRepository.existsByHouseholdIdAndNameAndIdNotAndDeletedAtIsNull(household.getId(), request.getName(), id)) {
             throw new AppException(ErrorCode.PRODUCT_GROUP_ALREADY_EXISTS);
         }
@@ -168,8 +165,8 @@ public class ProductGroupServiceImpl implements ProductGroupService {
         group.setName(request.getName());
         group = productGroupRepository.saveAndFlush(group);
 
-        List<String> newProductIds = request.getProductIds() != null 
-                ? request.getProductIds().stream().distinct().collect(Collectors.toList()) 
+        List<String> newProductIds = request.getProductIds() != null
+                ? request.getProductIds().stream().distinct().collect(Collectors.toList())
                 : oldProductIds;
 
         List<String> productIdsToRemove = oldProductIds.stream()
@@ -182,12 +179,10 @@ public class ProductGroupServiceImpl implements ProductGroupService {
 
         LocalDateTime now = LocalDateTime.now();
 
-        // Gỡ liên kết các sản phẩm không còn nằm trong danh sách mới
         if (!productIdsToRemove.isEmpty()) {
             productRepository.clearGroupIdForProducts(productIdsToRemove, household.getId(), now);
         }
 
-        // Gán nhóm cho các sản phẩm mới
         if (!productIdsToAdd.isEmpty()) {
             int updatedCount = productRepository.updateGroupIdForProducts(group, productIdsToAdd, household.getId(), now);
             if (updatedCount != productIdsToAdd.size()) {
@@ -215,10 +210,8 @@ public class ProductGroupServiceImpl implements ProductGroupService {
         List<String> oldProductIds = productRepository.findProductIdsByGroupIdAndDeletedAtIsNull(id);
         Map<String, Object> oldLogMap = buildProductGroupLogMap(group, oldProductIds);
 
-        // Gỡ liên kết tất cả các sản phẩm đang thuộc nhóm này bằng Modifying query trực tiếp
         productRepository.clearGroupId(id, LocalDateTime.now());
 
-        // Thực hiện xóa mềm nhóm hàng
         group.setDeletedAt(LocalDateTime.now());
         productGroupRepository.save(group);
 

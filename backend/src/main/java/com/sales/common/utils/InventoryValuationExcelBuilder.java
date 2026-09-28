@@ -17,7 +17,6 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 public class InventoryValuationExcelBuilder {
-
     private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
@@ -25,7 +24,6 @@ public class InventoryValuationExcelBuilder {
         try (Workbook workbook = new XSSFWorkbook(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
             DataFormat dataFormat = workbook.createDataFormat();
 
-            // Font & Styles
             Font fontBold = workbook.createFont();
             fontBold.setBold(true);
 
@@ -39,16 +37,13 @@ public class InventoryValuationExcelBuilder {
             fontSection.setFontHeightInPoints((short) 12);
             fontSection.setColor(IndexedColors.DARK_BLUE.getIndex());
 
-            // Title Style
             CellStyle titleStyle = workbook.createCellStyle();
             titleStyle.setFont(fontTitle);
             titleStyle.setAlignment(HorizontalAlignment.CENTER);
 
-            // Subtitle / Meta Style
             CellStyle metaStyle = workbook.createCellStyle();
             metaStyle.setFont(fontBold);
 
-            // Table Header Style
             CellStyle headerStyle = workbook.createCellStyle();
             headerStyle.setFont(fontBold);
             headerStyle.setFillForegroundColor(IndexedColors.GREY_25_PERCENT.getIndex());
@@ -60,7 +55,6 @@ public class InventoryValuationExcelBuilder {
             headerStyle.setAlignment(HorizontalAlignment.CENTER);
             headerStyle.setVerticalAlignment(VerticalAlignment.CENTER);
 
-            // Text Cell Style
             CellStyle textStyle = workbook.createCellStyle();
             textStyle.setBorderTop(BorderStyle.THIN);
             textStyle.setBorderBottom(BorderStyle.THIN);
@@ -68,30 +62,25 @@ public class InventoryValuationExcelBuilder {
             textStyle.setBorderRight(BorderStyle.THIN);
             textStyle.setVerticalAlignment(VerticalAlignment.CENTER);
 
-            // Text Center Cell Style
             CellStyle centerStyle = workbook.createCellStyle();
             centerStyle.cloneStyleFrom(textStyle);
             centerStyle.setAlignment(HorizontalAlignment.CENTER);
 
-            // Number Cell Style (Integer/Qty)
             CellStyle qtyStyle = workbook.createCellStyle();
             qtyStyle.cloneStyleFrom(textStyle);
             qtyStyle.setDataFormat(dataFormat.getFormat("#,##0.000"));
             qtyStyle.setAlignment(HorizontalAlignment.RIGHT);
 
-            // Currency Cell Style
             CellStyle currencyStyle = workbook.createCellStyle();
             currencyStyle.cloneStyleFrom(textStyle);
             currencyStyle.setDataFormat(dataFormat.getFormat("#,##0"));
             currencyStyle.setAlignment(HorizontalAlignment.RIGHT);
 
-            // Percent Cell Style
             CellStyle percentStyle = workbook.createCellStyle();
             percentStyle.cloneStyleFrom(textStyle);
             percentStyle.setDataFormat(dataFormat.getFormat("0.00%"));
             percentStyle.setAlignment(HorizontalAlignment.RIGHT);
 
-            // Summary / Total Styles (Độc lập từng style, tránh bug đột biến shared mutable state trong POI)
             CellStyle totalCurrencyStyle = workbook.createCellStyle();
             totalCurrencyStyle.cloneStyleFrom(currencyStyle);
             totalCurrencyStyle.setFont(fontBold);
@@ -117,7 +106,6 @@ public class InventoryValuationExcelBuilder {
             totalText.setFillForegroundColor(IndexedColors.LIGHT_TURQUOISE.getIndex());
             totalText.setFillPattern(FillPatternType.SOLID_FOREGROUND);
 
-            // Warning Header & Data Style
             CellStyle warningHeaderStyle = workbook.createCellStyle();
             warningHeaderStyle.cloneStyleFrom(headerStyle);
             warningHeaderStyle.setFillForegroundColor(IndexedColors.LIGHT_ORANGE.getIndex());
@@ -127,15 +115,11 @@ public class InventoryValuationExcelBuilder {
             warningTextStyle.setFillForegroundColor(IndexedColors.LEMON_CHIFFON.getIndex());
             warningTextStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
 
-            // ==========================================
-            // SHEET 1: BÁO CÁO GIÁ TRỊ TỒN KHO
-            // ==========================================
             Sheet sheet1 = workbook.createSheet("Giá Trị Tồn Kho");
             sheet1.setDisplayGridlines(true);
 
             int rowIdx = 0;
 
-            // Header thông tin hộ kinh doanh
             Row r0 = sheet1.createRow(rowIdx++);
             String hhName = (household != null && household.getName() != null) ? household.getName().toUpperCase() : "";
             r0.createCell(0).setCellValue("HỘ KINH DOANH: " + sanitizeCellValue(hhName));
@@ -149,16 +133,14 @@ public class InventoryValuationExcelBuilder {
             String creatorName = (actorFullName != null) ? actorFullName : "Chủ hộ";
             r2.createCell(0).setCellValue("Thời điểm xuất: " + LocalDateTime.now().format(DATE_TIME_FORMATTER) + " | Người lập: " + sanitizeCellValue(creatorName));
 
-            rowIdx++; // Dòng trống
+            rowIdx++;
 
-            // Tiêu đề báo cáo
             Row titleRow = sheet1.createRow(rowIdx++);
             Cell titleCell = titleRow.createCell(0);
             titleCell.setCellValue("BÁO CÁO GIÁ TRỊ TỒN KHO THEO GIÁ VỐN");
             titleCell.setCellStyle(titleStyle);
             sheet1.addMergedRegion(new CellRangeAddress(rowIdx - 1, rowIdx - 1, 0, 10));
 
-            // Ngày chốt báo cáo
             InventoryValuationSummaryResponse summary = report.getSummary();
             Row asOfRow = sheet1.createRow(rowIdx++);
             Cell asOfCell = asOfRow.createCell(0);
@@ -172,11 +154,8 @@ public class InventoryValuationExcelBuilder {
             asOfCell.setCellStyle(centerMeta);
             sheet1.addMergedRegion(new CellRangeAddress(rowIdx - 1, rowIdx - 1, 0, 10));
 
-            rowIdx++; // Dòng trống
+            rowIdx++;
 
-            // ==========================================
-            // KHỐI TỔNG QUAN TOÀN KHO (KPI CARDS)
-            // ==========================================
             Row sec1Row = sheet1.createRow(rowIdx++);
             Cell sec1Cell = sec1Row.createCell(0);
             sec1Cell.setCellValue("I. TỔNG QUAN TÀI CHÍNH KHO HÀNG");
@@ -216,11 +195,8 @@ public class InventoryValuationExcelBuilder {
             kpi4.createCell(4).setCellValue("Số ngày tồn kho trung bình toàn kho:");
             kpi4.createCell(6).setCellValue((summary != null && summary.getAverageDaysInStock() != null ? summary.getAverageDaysInStock() : 0) + " ngày");
 
-            rowIdx++; // Dòng trống
+            rowIdx++;
 
-            // ==========================================
-            // BẢNG 1: CƠ CẤU GIÁ TRỊ TỒN KHO THEO NHÓM HÀNG
-            // ==========================================
             Row sec2Row = sheet1.createRow(rowIdx++);
             Cell sec2Cell = sec2Row.createCell(0);
             sec2Cell.setCellValue("II. CƠ CẤU GIÁ TRỊ TỒN KHO THEO NHÓM HÀNG");
@@ -278,7 +254,6 @@ public class InventoryValuationExcelBuilder {
                 }
             }
 
-            // Dòng tổng cộng nhóm hàng
             Row grpTotalRow = sheet1.createRow(rowIdx++);
             grpTotalRow.createCell(0).setCellValue("TỔNG");
             grpTotalRow.getCell(0).setCellStyle(totalText);
@@ -307,11 +282,8 @@ public class InventoryValuationExcelBuilder {
             grpTotalRow.createCell(7).setCellValue("");
             grpTotalRow.getCell(7).setCellStyle(totalText);
 
-            rowIdx++; // Dòng trống
+            rowIdx++;
 
-            // ==========================================
-            // BẢNG 2: CHI TIẾT GIÁ TRỊ TỒN KHO THEO MẶT HÀNG
-            // ==========================================
             Row sec3Row = sheet1.createRow(rowIdx++);
             Cell sec3Cell = sec3Row.createCell(0);
             sec3Cell.setCellValue("III. CHI TIẾT TỪNG MẶT HÀNG (SẮP XẾP THEO GIÁ TRỊ TỒN GIẢM DẦN)");
@@ -378,7 +350,6 @@ public class InventoryValuationExcelBuilder {
                 }
             }
 
-            // Dòng tổng cộng chi tiết
             Row itemTotalRow = sheet1.createRow(rowIdx++);
             itemTotalRow.createCell(0).setCellValue("TỔNG CỘNG TOÀN KHO");
             itemTotalRow.getCell(0).setCellStyle(totalText);
@@ -409,15 +380,11 @@ public class InventoryValuationExcelBuilder {
             itemTotalRow.createCell(10).setCellValue("");
             itemTotalRow.getCell(10).setCellStyle(totalText);
 
-            // Auto-size các cột Sheet 1
             for (int i = 0; i < 11; i++) {
                 sheet1.setColumnWidth(i, Math.max(15 * 256, sheet1.getColumnWidth(i)));
             }
-            sheet1.setColumnWidth(2, 35 * 256); // Tên hàng rộng rãi
+            sheet1.setColumnWidth(2, 35 * 256);
 
-            // ==========================================
-            // SHEET 2: CẢNH BÁO MẶT HÀNG THIẾU GIÁ VỐN (TC-02)
-            // ==========================================
             List<MissingCostProductResponse> missingItems = report.getMissingCostItems();
             if (missingItems != null && !missingItems.isEmpty()) {
                 Sheet sheet2 = workbook.createSheet("Cảnh Báo Thiếu Giá Vốn");
@@ -440,7 +407,7 @@ public class InventoryValuationExcelBuilder {
                 warnDesc.setCellStyle(descStyle);
                 sheet2.addMergedRegion(new CellRangeAddress(1, 1, 0, 7));
 
-                rIdx2++; // Dòng trống
+                rIdx2++;
 
                 Row warnHeader = sheet2.createRow(rIdx2++);
                 String[] warnCols = {"STT", "Mã SKU", "Tên mặt hàng", "ĐVT", "Nhóm hàng", "Số tồn kho", "Giá bán niêm yết", "Ghi chú cảnh báo"};

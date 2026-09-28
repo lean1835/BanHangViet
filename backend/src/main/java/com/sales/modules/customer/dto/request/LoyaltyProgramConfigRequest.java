@@ -16,7 +16,6 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 @AllArgsConstructor
 public class LoyaltyProgramConfigRequest {
-
     @NotNull(message = "Trạng thái kích hoạt không được để trống")
     private Boolean isEnabled;
 

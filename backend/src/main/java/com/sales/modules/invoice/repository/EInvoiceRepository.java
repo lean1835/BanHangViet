@@ -13,10 +13,10 @@ import org.springframework.stereotype.Repository;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import com.sales.modules.invoice.dto.response.PosInvoiceCountProjection;
 
 @Repository
 public interface EInvoiceRepository extends JpaRepository<EInvoice, String>, JpaSpecificationExecutor<EInvoice> {
-
     @Override
     @EntityGraph(attributePaths = {"items", "items.product", "createdByUser", "canceledByUser", "household", "order", "originalInvoice"})
     Page<EInvoice> findAll(Specification<EInvoice> spec, Pageable pageable);
@@ -113,7 +113,7 @@ public interface EInvoiceRepository extends JpaRepository<EInvoice, String>, Jpa
             "AND e.created_at >= :startDateTime AND e.created_at <= :endDateTime " +
             "AND (:posId IS NULL OR :posId = '' OR o.point_of_sale_id = :posId) " +
             "GROUP BY o.point_of_sale_id", nativeQuery = true)
-    List<com.sales.modules.invoice.dto.response.PosInvoiceCountProjection> getPosInvoiceCounts(
+    List<PosInvoiceCountProjection> getPosInvoiceCounts(
             @Param("householdId") String householdId,
             @Param("startDateTime") LocalDateTime startDateTime,
             @Param("endDateTime") LocalDateTime endDateTime,

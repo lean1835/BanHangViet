@@ -8,7 +8,6 @@ import lombok.*;
 @NoArgsConstructor
 @AllArgsConstructor
 public class SwitchDiningTableRequest {
-
     @NotBlank(message = "Mã bàn chuyển đến không được để trống")
     private String newDiningTableId;
 }

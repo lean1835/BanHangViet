@@ -29,10 +29,11 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
+import com.sales.modules.tax.entity.TaxRate;
+import java.math.BigDecimal;
 
 @ExtendWith(MockitoExtension.class)
 class ProductImportServiceImplTest {
-
     @Mock
     private ProductRepository productRepository;
 
@@ -83,10 +84,10 @@ class ProductImportServiceImplTest {
     @Test
     @DisplayName("NCL-09-CN-005-TC-01: Tệp đúng mẫu và dữ liệu hợp lệ -> Nhập sản phẩm thành công")
     void importProducts_ValidExcel_Success() throws Exception {
-        com.sales.modules.tax.entity.TaxRate sampleTax = com.sales.modules.tax.entity.TaxRate.builder()
+        TaxRate sampleTax = TaxRate.builder()
                 .id("tax-001")
                 .name("Thuế 1%")
-                .ratePercentage(new java.math.BigDecimal("1.00"))
+                .ratePercentage(new BigDecimal("1.00"))
                 .isActive(true)
                 .build();
 
@@ -130,10 +131,10 @@ class ProductImportServiceImplTest {
     @Test
     @DisplayName("NCL-09-CN-005-TC-02 & TC-03: Trùng SKU hoặc dữ liệu lỗi -> Bỏ qua dòng lỗi và ghi chi tiết")
     void importProducts_WithErrors_RecordsRowDetails() throws Exception {
-        com.sales.modules.tax.entity.TaxRate sampleTax = com.sales.modules.tax.entity.TaxRate.builder()
+        TaxRate sampleTax = TaxRate.builder()
                 .id("tax-001")
                 .name("Thuế 1%")
-                .ratePercentage(new java.math.BigDecimal("1.00"))
+                .ratePercentage(new BigDecimal("1.00"))
                 .isActive(true)
                 .build();
 
@@ -151,24 +152,21 @@ class ProductImportServiceImplTest {
             header.createCell(2).setCellValue("Đơn vị tính");
             header.createCell(3).setCellValue("Giá bán");
 
-            // Row 1: Valid
             Row r1 = sheet.createRow(1);
             r1.createCell(0).setCellValue("SP001");
             r1.createCell(1).setCellValue("Trà Chanh");
             r1.createCell(2).setCellValue("Ly");
             r1.createCell(3).setCellValue(20000);
 
-            // Row 2: Duplicate SKU in DB
             Row r2 = sheet.createRow(2);
             r2.createCell(0).setCellValue("SP_EXISTING");
             r2.createCell(1).setCellValue("Cà phê Đen");
             r2.createCell(2).setCellValue("Ly");
             r2.createCell(3).setCellValue(25000);
 
-            // Row 3: Missing Name
             Row r3 = sheet.createRow(3);
             r3.createCell(0).setCellValue("SP003");
-            r3.createCell(1).setCellValue(""); // Missing name
+            r3.createCell(1).setCellValue("");
             r3.createCell(2).setCellValue("Cái");
             r3.createCell(3).setCellValue(50000);
 
@@ -190,10 +188,10 @@ class ProductImportServiceImplTest {
     @Test
     @DisplayName("NCL-09-CN-005-TC-05: Giá bán âm -> Báo lỗi dòng chi tiết")
     void importProducts_NegativePrice_RecordsError() throws Exception {
-        com.sales.modules.tax.entity.TaxRate sampleTax = com.sales.modules.tax.entity.TaxRate.builder()
+        TaxRate sampleTax = TaxRate.builder()
                 .id("tax-001")
                 .name("Thuế 1%")
-                .ratePercentage(new java.math.BigDecimal("1.00"))
+                .ratePercentage(new BigDecimal("1.00"))
                 .isActive(true)
                 .build();
 
@@ -215,7 +213,7 @@ class ProductImportServiceImplTest {
             r1.createCell(0).setCellValue("SP001");
             r1.createCell(1).setCellValue("Trà Chanh");
             r1.createCell(2).setCellValue("Ly");
-            r1.createCell(3).setCellValue(-5000); // Negative price
+            r1.createCell(3).setCellValue(-5000);
 
             workbook.write(out);
             excelBytes = out.toByteArray();
@@ -235,10 +233,10 @@ class ProductImportServiceImplTest {
     @Test
     @DisplayName("NCL-09-FIX-P1-01: Thuế suất dạng % thập phân (0.08) -> Khớp đúng mức thuế 8.00%")
     void importProducts_PercentageFormattedTaxRate_Success() throws Exception {
-        com.sales.modules.tax.entity.TaxRate sampleTax8Percent = com.sales.modules.tax.entity.TaxRate.builder()
+        TaxRate sampleTax8Percent = TaxRate.builder()
                 .id("tax-008")
                 .name("Thuế 8%")
-                .ratePercentage(new java.math.BigDecimal("8.00"))
+                .ratePercentage(new BigDecimal("8.00"))
                 .isActive(true)
                 .build();
 
@@ -262,7 +260,7 @@ class ProductImportServiceImplTest {
             dataRow.createCell(1).setCellValue("Bánh ngọt 8%");
             dataRow.createCell(2).setCellValue("Cái");
             dataRow.createCell(3).setCellValue(50000);
-            dataRow.createCell(4).setCellValue("0.08"); // POI percentage read value
+            dataRow.createCell(4).setCellValue("0.08");
 
             workbook.write(out);
             excelBytes = out.toByteArray();
@@ -281,10 +279,10 @@ class ProductImportServiceImplTest {
     @Test
     @DisplayName("NCL-09-FIX-P1-04: Thuế suất nhập trực tiếp chuỗi chứa '%' có giá trị < 1 ('0.5%') -> Giữ nguyên 0.5% không nhân 100")
     void importProducts_ExplicitPercentSymbolUnderOnePercent_Success() throws Exception {
-        com.sales.modules.tax.entity.TaxRate sampleTaxHalfPercent = com.sales.modules.tax.entity.TaxRate.builder()
+        TaxRate sampleTaxHalfPercent = TaxRate.builder()
                 .id("tax-005")
                 .name("Thuế 0.5%")
-                .ratePercentage(new java.math.BigDecimal("0.50"))
+                .ratePercentage(new BigDecimal("0.50"))
                 .isActive(true)
                 .build();
 
@@ -308,7 +306,7 @@ class ProductImportServiceImplTest {
             dataRow.createCell(1).setCellValue("Sản phẩm 0.5%");
             dataRow.createCell(2).setCellValue("Cái");
             dataRow.createCell(3).setCellValue(50000);
-            dataRow.createCell(4).setCellValue("0.5%"); // Explicit string with % symbol
+            dataRow.createCell(4).setCellValue("0.5%");
 
             workbook.write(out);
             excelBytes = out.toByteArray();
@@ -327,10 +325,10 @@ class ProductImportServiceImplTest {
     @Test
     @DisplayName("NCL-09-FIX-P1-02: Dòng rỗng chỉ có style (getFirstCellNum == -1) -> Bỏ qua không văng ngoại lệ")
     void importProducts_EmptyStyledRow_SkippedWithoutCrash() throws Exception {
-        com.sales.modules.tax.entity.TaxRate sampleTax = com.sales.modules.tax.entity.TaxRate.builder()
+        TaxRate sampleTax = TaxRate.builder()
                 .id("tax-001")
                 .name("Thuế 1%")
-                .ratePercentage(new java.math.BigDecimal("1.00"))
+                .ratePercentage(new BigDecimal("1.00"))
                 .isActive(true)
                 .build();
 
@@ -354,7 +352,6 @@ class ProductImportServiceImplTest {
             validRow.createCell(2).setCellValue("Hộp");
             validRow.createCell(3).setCellValue(10000);
 
-            // Empty row (no cells created at all)
             sheet.createRow(2);
 
             workbook.write(out);
@@ -396,10 +393,10 @@ class ProductImportServiceImplTest {
     @Test
     @DisplayName("NCL-09-FIX-P1-05: Thuế suất nhập '0.5' (không ký hiệu %) -> Khớp đúng mức thuế 0.5% không bị nhân 50%")
     void importProducts_TaxRateWithoutPercentSymbol_Success() throws Exception {
-        com.sales.modules.tax.entity.TaxRate sampleTaxHalfPercent = com.sales.modules.tax.entity.TaxRate.builder()
+        TaxRate sampleTaxHalfPercent = TaxRate.builder()
                 .id("tax-005")
                 .name("Thuế 0.5%")
-                .ratePercentage(new java.math.BigDecimal("0.50"))
+                .ratePercentage(new BigDecimal("0.50"))
                 .isActive(true)
                 .build();
 
@@ -423,7 +420,7 @@ class ProductImportServiceImplTest {
             dataRow.createCell(1).setCellValue("Sản phẩm 0.5 không %");
             dataRow.createCell(2).setCellValue("Cái");
             dataRow.createCell(3).setCellValue(50000);
-            dataRow.createCell(4).setCellValue("0.5"); // String "0.5" without % symbol
+            dataRow.createCell(4).setCellValue("0.5");
 
             workbook.write(out);
             excelBytes = out.toByteArray();
@@ -442,10 +439,10 @@ class ProductImportServiceImplTest {
     @Test
     @DisplayName("NCL-09-FIX-P1-06: Thuế suất nhập dấu phẩy tiếng Việt ('8,5%') -> Khớp đúng mức thuế 8.5%")
     void importProducts_TaxRateVietnameseComma_Success() throws Exception {
-        com.sales.modules.tax.entity.TaxRate sampleTax8Point5 = com.sales.modules.tax.entity.TaxRate.builder()
+        TaxRate sampleTax8Point5 = TaxRate.builder()
                 .id("tax-085")
                 .name("Thuế 8.5%")
-                .ratePercentage(new java.math.BigDecimal("8.50"))
+                .ratePercentage(new BigDecimal("8.50"))
                 .isActive(true)
                 .build();
 
@@ -469,7 +466,7 @@ class ProductImportServiceImplTest {
             dataRow.createCell(1).setCellValue("Sản phẩm 8.5%");
             dataRow.createCell(2).setCellValue("Cái");
             dataRow.createCell(3).setCellValue(50000);
-            dataRow.createCell(4).setCellValue("8,5%"); // Vietnamese comma "8,5%"
+            dataRow.createCell(4).setCellValue("8,5%");
 
             workbook.write(out);
             excelBytes = out.toByteArray();
@@ -488,10 +485,10 @@ class ProductImportServiceImplTest {
     @Test
     @DisplayName("NCL-09-FIX-P1-07: Chuỗi rác trong ô số ('chuỗi rác') -> Ghi nhận lỗi dòng chi tiết, không nuốt lỗi")
     void importProducts_GarbageNumberInExcel_RecordsRowError() throws Exception {
-        com.sales.modules.tax.entity.TaxRate sampleTax = com.sales.modules.tax.entity.TaxRate.builder()
+        TaxRate sampleTax = TaxRate.builder()
                 .id("tax-001")
                 .name("Thuế 1%")
-                .ratePercentage(new java.math.BigDecimal("1.00"))
+                .ratePercentage(new BigDecimal("1.00"))
                 .isActive(true)
                 .build();
 
@@ -513,7 +510,7 @@ class ProductImportServiceImplTest {
             dataRow.createCell(0).setCellValue("SP999");
             dataRow.createCell(1).setCellValue("Sản phẩm giá rác");
             dataRow.createCell(2).setCellValue("Cái");
-            dataRow.createCell(3).setCellValue("chuỗi rác"); // Garbage string in price cell
+            dataRow.createCell(3).setCellValue("chuỗi rác");
 
             workbook.write(out);
             excelBytes = out.toByteArray();
@@ -530,5 +527,3 @@ class ProductImportServiceImplTest {
         assertEquals("Dữ liệu số không đúng định dạng", response.getErrors().get(0).getErrorMessage());
     }
 }
-
-

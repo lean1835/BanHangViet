@@ -7,7 +7,6 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
 public interface ProductExchangeService {
-
     /**
      * NCL-11-CN-005: Kiểm tra tính hợp lệ và tính toán chênh lệch giá trị đổi hàng
      */

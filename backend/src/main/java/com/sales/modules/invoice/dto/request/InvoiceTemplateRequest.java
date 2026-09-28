@@ -9,7 +9,6 @@ import lombok.*;
 @NoArgsConstructor
 @AllArgsConstructor
 public class InvoiceTemplateRequest {
-
     @NotBlank(message = "Mẫu số hóa đơn không được để trống")
     @Size(max = 10, message = "Mẫu số hóa đơn không vượt quá 10 ký tự")
     private String invoicePattern;

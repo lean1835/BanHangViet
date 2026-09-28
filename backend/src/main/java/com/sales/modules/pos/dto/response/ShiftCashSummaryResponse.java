@@ -19,7 +19,7 @@ public class ShiftCashSummaryResponse {
     private BigDecimal totalSales;
     private BigDecimal totalApprovedIncome;
     private BigDecimal totalApprovedExpense;
-    private BigDecimal netCashChange; // totalApprovedIncome - totalApprovedExpense
+    private BigDecimal netCashChange;
     private BigDecimal totalPendingExpense;
     private int pendingExpenseCount;
     private BigDecimal handoverDifference;

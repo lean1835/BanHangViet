@@ -20,7 +20,6 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class UserSession {
-
     @Id
     @Column(length = 36, nullable = false)
     @EqualsAndHashCode.Include

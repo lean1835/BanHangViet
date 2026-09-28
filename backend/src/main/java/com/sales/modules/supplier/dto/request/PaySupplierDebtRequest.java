@@ -14,7 +14,6 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 public class PaySupplierDebtRequest {
-
     @NotBlank(message = "Nhà cung cấp không được để trống")
     @Size(max = 36, message = "Mã nhà cung cấp không vượt quá 36 ký tự")
     private String supplierId;
@@ -24,7 +23,7 @@ public class PaySupplierDebtRequest {
     private BigDecimal amount;
 
     @Size(max = 20, message = "Hình thức thanh toán không vượt quá 20 ký tự")
-    private String paymentMethod; // CASH, BANK_TRANSFER
+    private String paymentMethod;
 
     private LocalDateTime dueDate;
 

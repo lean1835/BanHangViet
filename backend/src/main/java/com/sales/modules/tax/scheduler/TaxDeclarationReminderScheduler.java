@@ -9,7 +9,6 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 @Slf4j
 public class TaxDeclarationReminderScheduler {
-
     private final TaxReminderService taxReminderService;
 
     /**

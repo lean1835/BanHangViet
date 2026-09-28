@@ -15,5 +15,5 @@ public class CompareRevenueResponse {
     private BigDecimal period1Revenue;
     private BigDecimal period2Revenue;
     private BigDecimal differenceAmount;
-    private BigDecimal differencePercentage; // e.g. 15.5 meaning 15.5%
+    private BigDecimal differencePercentage;
 }

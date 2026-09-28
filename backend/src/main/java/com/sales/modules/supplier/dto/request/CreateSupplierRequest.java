@@ -10,7 +10,6 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 @AllArgsConstructor
 public class CreateSupplierRequest {
-
     @NotBlank(message = "Tên nhà cung cấp không được để trống")
     @Size(max = 100, message = "Tên nhà cung cấp không vượt quá 100 ký tự")
     private String name;

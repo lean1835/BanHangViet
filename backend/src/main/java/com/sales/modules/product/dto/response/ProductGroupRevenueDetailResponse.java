@@ -14,7 +14,6 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ProductGroupRevenueDetailResponse {
-
     private String groupId;
     private String groupName;
 

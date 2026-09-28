@@ -40,7 +40,6 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Slf4j
 public class PosInventoryServiceImpl implements PosInventoryService {
-
     private final PosInventoryRepository posInventoryRepository;
     private final PointOfSaleRepository pointOfSaleRepository;
     private final ProductRepository productRepository;
@@ -87,7 +86,6 @@ public class PosInventoryServiceImpl implements PosInventoryService {
             PosInventory inventory,
             Map<String, List<PosInventory>> allPosInvsByProduct,
             Map<String, BigDecimal> inTransitByProduct) {
-
         Product p = inventory.getProduct();
         PointOfSale pos = inventory.getPointOfSale();
 
@@ -187,12 +185,10 @@ public class PosInventoryServiceImpl implements PosInventoryService {
     @Transactional(readOnly = true)
     public Page<PosInventoryResponse> getInventoriesByPos(
             String currentUsername, String posId, String keyword, String groupId, Boolean lowStockOnly, Pageable pageable) {
-
         User currentUser = getAuthenticatedUser(currentUsername);
         checkViewPermission(currentUser);
         BusinessHousehold household = getValidHousehold(currentUser);
 
-        // Đảm bảo điểm bán thuộc hộ
         getValidPointOfSale(posId, household.getId());
 
         Specification<PosInventory> spec = (root, query, cb) -> {
@@ -272,7 +268,6 @@ public class PosInventoryServiceImpl implements PosInventoryService {
     @Transactional(rollbackFor = Exception.class)
     public List<PosInventoryResponse> initOrUpdatePosInventories(
             String currentUsername, String posId, InitPosInventoryRequest request) {
-
         User currentUser = getAuthenticatedUser(currentUsername);
         checkOwnerRole(currentUser);
         BusinessHousehold household = getValidHousehold(currentUser);
@@ -294,7 +289,6 @@ public class PosInventoryServiceImpl implements PosInventoryService {
         Map<String, PosInventory> existingInvMap = existingInventories.stream()
                 .collect(Collectors.toMap(inv -> inv.getProduct().getId(), inv -> inv, (i1, i2) -> i1));
 
-        // Group other POS stocks
         List<PosInventory> otherPosInventories = posInventoryRepository.findByHouseholdIdAndProductIdInAndPointOfSaleIdNot(
                 household.getId(), productIds, pos.getId());
         Map<String, BigDecimal> otherPosStockMap = new HashMap<>();
@@ -383,7 +377,6 @@ public class PosInventoryServiceImpl implements PosInventoryService {
     @Transactional(rollbackFor = Exception.class)
     public PosInventoryResponse updatePosInventory(
             String currentUsername, String posId, String productId, UpdatePosInventoryRequest request) {
-
         User currentUser = getAuthenticatedUser(currentUsername);
         checkOwnerRole(currentUser);
         BusinessHousehold household = getValidHousehold(currentUser);

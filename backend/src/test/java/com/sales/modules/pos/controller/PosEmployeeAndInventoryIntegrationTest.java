@@ -37,13 +37,13 @@ import static org.hamcrest.Matchers.hasSize;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import com.sales.modules.pos.dto.request.OpenShiftRequest;
 
 @SpringBootTest
 @AutoConfigureMockMvc
 @Transactional
 @SuppressWarnings("unused")
 public class PosEmployeeAndInventoryIntegrationTest {
-
     @Autowired
     private MockMvc mockMvc;
 
@@ -253,7 +253,7 @@ public class PosEmployeeAndInventoryIntegrationTest {
     @DisplayName("API: Nhân viên chưa gán điểm bán mở ca bị chặn (POS_EMPLOYEE_NOT_ASSIGNED)")
     @WithMockUser(username = "test_staff_pos", roles = {"VT-02"})
     public void testOpenShift_WithoutPos_ThrowsForbidden() throws Exception {
-        com.sales.modules.pos.dto.request.OpenShiftRequest request = com.sales.modules.pos.dto.request.OpenShiftRequest.builder()
+        OpenShiftRequest request = OpenShiftRequest.builder()
                 .openingCash(BigDecimal.valueOf(500000))
                 .build();
 

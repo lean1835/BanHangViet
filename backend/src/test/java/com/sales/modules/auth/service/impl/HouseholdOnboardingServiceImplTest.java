@@ -31,7 +31,6 @@ import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class HouseholdOnboardingServiceImplTest {
-
     @Mock
     private UserRepository userRepository;
     @Mock
@@ -85,17 +84,13 @@ class HouseholdOnboardingServiceImplTest {
         when(userRepository.findByUsername("owner1")).thenReturn(Optional.of(ownerUser));
         when(settingsRepository.findByHouseholdId("hh-1")).thenReturn(Optional.of(settings));
 
-        // Invoice range trống
         when(invoiceNumberRangeRepository.findActiveRangesByHouseholdId("hh-1")).thenReturn(Collections.emptyList());
         when(invoiceTemplateRepository.findByHouseholdId("hh-1")).thenReturn(Optional.empty());
 
-        // Chưa có thuế suất
         when(taxRateRepository.existsByHouseholdIdAndIsActiveTrue("hh-1")).thenReturn(false);
 
-        // Chưa có sản phẩm
         when(productRepository.countByHouseholdIdAndDeletedAtIsNull("hh-1")).thenReturn(0L);
 
-        // Chưa có nhân viên
         when(userRepository.existsByHouseholdIdAndRole_CodeAndDeletedAtIsNull("hh-1", "VT-02")).thenReturn(false);
 
         OnboardingStatusResponse response = onboardingService.getOnboardingStatus("owner1");
@@ -103,7 +98,7 @@ class HouseholdOnboardingServiceImplTest {
         assertNotNull(response);
         assertFalse(response.isReadyForInvoicing());
         assertFalse(response.isCompleted());
-        assertEquals(3, response.getRemainingRequiredSteps()); // Thông tin hộ đã có tên + MST, thiếu range, thuế, sp
+        assertEquals(3, response.getRemainingRequiredSteps());
         assertEquals(5, response.getSteps().size());
     }
 
@@ -113,17 +108,13 @@ class HouseholdOnboardingServiceImplTest {
         when(userRepository.findByUsername("owner1")).thenReturn(Optional.of(ownerUser));
         when(settingsRepository.findByHouseholdId("hh-1")).thenReturn(Optional.of(settings));
 
-        // Range đã có
         when(invoiceNumberRangeRepository.findActiveRangesByHouseholdId("hh-1"))
                 .thenReturn(List.of(InvoiceNumberRange.builder().id("range-1").build()));
 
-        // Thuế suất đã có
         when(taxRateRepository.existsByHouseholdIdAndIsActiveTrue("hh-1")).thenReturn(true);
 
-        // Sản phẩm đã có
         when(productRepository.countByHouseholdIdAndDeletedAtIsNull("hh-1")).thenReturn(5L);
 
-        // Nhân viên đã có
         when(userRepository.existsByHouseholdIdAndRole_CodeAndDeletedAtIsNull("hh-1", "VT-02")).thenReturn(true);
 
         OnboardingStatusResponse response = onboardingService.getOnboardingStatus("owner1");
@@ -174,7 +165,6 @@ class HouseholdOnboardingServiceImplTest {
         when(userRepository.findByUsername("owner1")).thenReturn(Optional.of(ownerUser));
         when(settingsRepository.findByHouseholdId("hh-1")).thenReturn(Optional.of(settings));
 
-        // Thiếu range, thuế, sản phẩm
         when(invoiceNumberRangeRepository.findActiveRangesByHouseholdId("hh-1")).thenReturn(Collections.emptyList());
         when(invoiceTemplateRepository.findByHouseholdId("hh-1")).thenReturn(Optional.empty());
         when(taxRateRepository.existsByHouseholdIdAndIsActiveTrue("hh-1")).thenReturn(false);

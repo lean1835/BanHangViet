@@ -32,12 +32,12 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.util.Map;
+import com.sales.modules.auth.service.UserDisplaySettingService;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class ProfileServiceImpl implements ProfileService {
-
     private static final long OTP_EXPIRATION_MINUTES = 5;
     private static final int MAX_OTP_ATTEMPTS = 5;
     private static final long OTP_COOLDOWN_SECONDS = 60;
@@ -51,7 +51,7 @@ public class ProfileServiceImpl implements ProfileService {
     private final CacheManager cacheManager;
     private final JwtService jwtService;
     private final UserSessionService userSessionService;
-    private final com.sales.modules.auth.service.UserDisplaySettingService userDisplaySettingService;
+    private final UserDisplaySettingService userDisplaySettingService;
 
     private final SecureRandom secureRandom = new SecureRandom();
 
@@ -94,22 +94,18 @@ public class ProfileServiceImpl implements ProfileService {
         String newPassword = request.getNewPassword();
         String confirmPassword = request.getConfirmPassword();
 
-        // 1. Kiểm tra xác nhận mật khẩu
         if (!newPassword.equals(confirmPassword)) {
             throw new AppException(ErrorCode.PASSWORD_CONFIRMATION_MISMATCH);
         }
 
-        // 2. Kiểm tra mật khẩu hiện tại
         if (!passwordEncoder.matches(currentPassword, user.getPasswordHash())) {
             throw new AppException(ErrorCode.WRONG_PASSWORD);
         }
 
-        // 3. Kiểm tra mật khẩu mới không trùng mật khẩu cũ
         if (passwordEncoder.matches(newPassword, user.getPasswordHash())) {
             throw new AppException(ErrorCode.NEW_PASSWORD_SAME_AS_CURRENT);
         }
 
-        // 4. Cập nhật mật khẩu mới và thời điểm đổi mật khẩu để vô hiệu hóa toàn bộ phiên cũ
         LocalDateTime now = LocalDateTime.now();
         user.setPasswordHash(passwordEncoder.encode(newPassword));
         user.setPasswordChangedAt(now);
@@ -118,7 +114,6 @@ public class ProfileServiceImpl implements ProfileService {
 
         evictUserCache(username);
 
-        // 5. Thu hồi tất cả các phiên khác ngoại trừ phiên hiện tại
         String currentSessionId = null;
         try {
             ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
@@ -133,7 +128,6 @@ public class ProfileServiceImpl implements ProfileService {
         }
         userSessionService.revokeAllSessionsExcept(user.getId(), currentSessionId, "Vô hiệu hóa phiên do đổi mật khẩu", user);
 
-        // 6. Sinh token JWT mới cho phiên hiện tại (chứa pwdAt mới)
         String newToken = currentSessionId != null
                 ? jwtService.generateToken(user, currentSessionId)
                 : jwtService.generateToken(user);
@@ -156,12 +150,10 @@ public class ProfileServiceImpl implements ProfileService {
 
         String newPhoneNumber = request.getNewPhoneNumber().trim();
 
-        // 1. Kiểm tra số điện thoại mới có trùng với số hiện tại
         if (newPhoneNumber.equals(user.getPhoneNumber())) {
             throw new AppException(ErrorCode.PHONE_NUMBER_UNCHANGED);
         }
 
-        // 2. Kiểm tra số điện thoại mới đã được tài khoản khác sử dụng chưa
         userRepository.findByPhoneNumberAndDeletedAtIsNull(newPhoneNumber)
                 .ifPresent(existingUser -> {
                     if (!existingUser.getId().equals(user.getId())) {
@@ -169,7 +161,6 @@ public class ProfileServiceImpl implements ProfileService {
                     }
                 });
 
-        // 3. Kiểm tra Cooldown 60s chống spam OTP (theo user và theo số điện thoại mới)
         otpRepository.findTopByUserIdAndTypeOrderByCreatedAtDesc(user.getId(), OTP_TYPE_UPDATE_PHONE)
                 .ifPresent(lastOtp -> {
                     if (lastOtp.getCreatedAt() != null &&
@@ -186,11 +177,9 @@ public class ProfileServiceImpl implements ProfileService {
                     }
                 });
 
-        // 4. Vô hiệu hóa các OTP trước đó của user và của số điện thoại này
         otpRepository.invalidateAllPendingOtpsForUser(user.getId(), OTP_TYPE_UPDATE_PHONE);
         otpRepository.invalidateAllPendingOtps(newPhoneNumber, OTP_TYPE_UPDATE_PHONE);
 
-        // 5. Sinh mã OTP 6 số ngẫu nhiên
         int codeInt = 100000 + secureRandom.nextInt(900000);
         String otpCode = String.valueOf(codeInt);
 
@@ -227,7 +216,6 @@ public class ProfileServiceImpl implements ProfileService {
         String newPhoneNumber = request.getNewPhoneNumber().trim();
         String otpCode = request.getOtpCode().trim();
 
-        // 1. Kiểm tra số điện thoại mới đã được tài khoản khác sử dụng chưa
         userRepository.findByPhoneNumberAndDeletedAtIsNull(newPhoneNumber)
                 .ifPresent(existingUser -> {
                     if (!existingUser.getId().equals(user.getId())) {
@@ -235,25 +223,21 @@ public class ProfileServiceImpl implements ProfileService {
                     }
                 });
 
-        // 2. Tìm OTP mới nhất gắn với user và số điện thoại mới (loại bỏ fallback không an toàn)
         PasswordResetOtp otp = otpRepository.findTopByUserIdAndPhoneNumberAndTypeAndIsUsedFalseOrderByCreatedAtDesc(user.getId(), newPhoneNumber, OTP_TYPE_UPDATE_PHONE)
                 .orElseThrow(() -> new AppException(ErrorCode.OTP_EXPIRED));
 
-        // 3. Kiểm tra hạn OTP
         if (LocalDateTime.now().isAfter(otp.getExpiryTime())) {
             otp.setIsUsed(true);
             otpRepository.save(otp);
             throw new AppException(ErrorCode.OTP_EXPIRED);
         }
 
-        // 4. Kiểm tra số lần thử tối đa
         if (otp.getAttemptCount() >= MAX_OTP_ATTEMPTS) {
             otp.setIsUsed(true);
             otpRepository.save(otp);
             throw new AppException(ErrorCode.OTP_MAX_ATTEMPTS_EXCEEDED);
         }
 
-        // 5. Kiểm tra mã OTP
         if (!otp.getOtpCode().equals(otpCode)) {
             otp.setAttemptCount(otp.getAttemptCount() + 1);
             if (otp.getAttemptCount() >= MAX_OTP_ATTEMPTS) {
@@ -263,11 +247,9 @@ public class ProfileServiceImpl implements ProfileService {
             throw new AppException(ErrorCode.INVALID_OTP);
         }
 
-        // 6. Đánh dấu OTP đã sử dụng
         otp.setIsUsed(true);
         otpRepository.save(otp);
 
-        // 7. Cập nhật số điện thoại mới cho người dùng
         String oldPhoneNumber = user.getPhoneNumber();
         user.setPhoneNumber(newPhoneNumber);
         User updatedUser = userRepository.save(user);

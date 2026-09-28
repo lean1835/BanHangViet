@@ -11,18 +11,18 @@ import java.time.LocalDateTime;
 public class TaxPeriodReminderResponse {
     private String periodId;
     private String periodName;
-    private String periodType; // MONTHLY, QUARTERLY
+    private String periodType;
     private Integer year;
     private Integer periodNumber;
     private LocalDate startDate;
     private LocalDate endDate;
-    private LocalDate filingDeadline;     // Hạn nộp tờ khai theo luật thuế
-    private long daysRemaining;          // Số ngày còn lại (dương: còn hạn; âm: quá hạn)
-    private boolean isOverdue;            // true nếu đã quá hạn
-    private String severity;              // INFO, WARNING, DANGER
-    private String status;                // DRAFT, GENERATED, SUBMITTED, LOCKED
-    private boolean isClosed;             // true nếu nhắc việc đã tự đóng
-    private String notificationId;        // ID thông báo liên kết nếu có
+    private LocalDate filingDeadline;
+    private long daysRemaining;
+    private boolean isOverdue;
+    private String severity;
+    private String status;
+    private boolean isClosed;
+    private String notificationId;
     private TaxPeriodChecklistResponse checklist;
     private String title;
     private String message;

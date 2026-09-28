@@ -30,17 +30,17 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import com.sales.modules.platform.service.ServicePackageService;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class PointOfSaleServiceImpl implements PointOfSaleService {
-
     private final PointOfSaleRepository pointOfSaleRepository;
     private final UserRepository userRepository;
     private final ActivityLogHelper activityLogHelper;
     private final ObjectMapper objectMapper;
-    private final com.sales.modules.platform.service.ServicePackageService servicePackageService;
+    private final ServicePackageService servicePackageService;
 
     private User getAuthenticatedUser(String username) {
         return userRepository.findByUsername(username)
@@ -78,7 +78,6 @@ public class PointOfSaleServiceImpl implements PointOfSaleService {
         checkOwnerRole(currentUser);
         BusinessHousehold household = getValidHousehold(currentUser);
 
-        // NCL-01-CN-010: Kiểm tra hạn mức điểm bán của gói dịch vụ
         if (servicePackageService != null) {
             servicePackageService.validatePosQuota(household.getId());
         }
@@ -88,17 +87,15 @@ public class PointOfSaleServiceImpl implements PointOfSaleService {
             throw new AppException(ErrorCode.INVALID_INPUT);
         }
 
-        // Kiểm tra trùng tên điểm bán trong hộ
         if (pointOfSaleRepository.existsByHouseholdIdAndNameIgnoreCaseAndDeletedAtIsNull(household.getId(), trimmedName)) {
             throw new AppException(ErrorCode.POS_NAME_ALREADY_EXISTS);
         }
 
-        // Tạo hoặc kiểm tra mã điểm bán
         String posCode = request.getPosCode() != null ? request.getPosCode().trim() : "";
         if (!StringUtils.hasText(posCode)) {
             long currentCount = pointOfSaleRepository.countByHouseholdIdAndDeletedAtIsNull(household.getId());
             posCode = String.format("POS-%02d", currentCount + 1);
-            // Đảm bảo không trùng posCode tự sinh
+
             int suffix = 1;
             while (pointOfSaleRepository.existsByHouseholdIdAndPosCodeIgnoreCaseAndDeletedAtIsNull(household.getId(), posCode)) {
                 posCode = String.format("POS-%02d", currentCount + 1 + suffix++);
@@ -109,7 +106,6 @@ public class PointOfSaleServiceImpl implements PointOfSaleService {
             }
         }
 
-        // Kiểm tra ký hiệu hóa đơn riêng (nếu có)
         String invoiceSymbol = request.getInvoiceSymbol() != null ? request.getInvoiceSymbol().trim() : null;
         if (StringUtils.hasText(invoiceSymbol)) {
             if (pointOfSaleRepository.existsByHouseholdIdAndInvoiceSymbolIgnoreCaseAndDeletedAtIsNull(household.getId(), invoiceSymbol)) {
@@ -119,7 +115,6 @@ public class PointOfSaleServiceImpl implements PointOfSaleService {
             invoiceSymbol = null;
         }
 
-        // Xử lý cờ mặc định
         long totalPosCount = pointOfSaleRepository.countByHouseholdIdAndDeletedAtIsNull(household.getId());
         boolean isDefault = (totalPosCount == 0) || Boolean.TRUE.equals(request.getIsDefault());
 
@@ -163,7 +158,6 @@ public class PointOfSaleServiceImpl implements PointOfSaleService {
         PointOfSale pos = pointOfSaleRepository.findByIdAndHouseholdIdAndDeletedAtIsNull(posId, household.getId())
                 .orElseThrow(() -> new AppException(ErrorCode.POS_NOT_FOUND));
 
-        // Lưu giá trị cũ trước khi thay đổi entity
         Map<String, Object> oldValue = buildPosLogMap(pos);
 
         String trimmedName = request.getName() != null ? request.getName().trim() : "";
@@ -176,12 +170,10 @@ public class PointOfSaleServiceImpl implements PointOfSaleService {
             throw new AppException(ErrorCode.INVALID_INPUT);
         }
 
-        // Kiểm tra trùng tên với điểm bán khác của hộ
         if (pointOfSaleRepository.existsByHouseholdIdAndNameIgnoreCaseAndIdNotAndDeletedAtIsNull(household.getId(), trimmedName, pos.getId())) {
             throw new AppException(ErrorCode.POS_NAME_ALREADY_EXISTS);
         }
 
-        // Kiểm tra mã điểm bán nếu sửa
         String posCode = request.getPosCode() != null ? request.getPosCode().trim() : pos.getPosCode();
         if (StringUtils.hasText(posCode)) {
             if (pointOfSaleRepository.existsByHouseholdIdAndPosCodeIgnoreCaseAndIdNotAndDeletedAtIsNull(household.getId(), posCode, pos.getId())) {
@@ -190,7 +182,6 @@ public class PointOfSaleServiceImpl implements PointOfSaleService {
             pos.setPosCode(posCode);
         }
 
-        // Kiểm tra ký hiệu hóa đơn riêng nếu sửa
         String invoiceSymbol = request.getInvoiceSymbol() != null ? request.getInvoiceSymbol().trim() : null;
         if (StringUtils.hasText(invoiceSymbol)) {
             if (pointOfSaleRepository.existsByHouseholdIdAndInvoiceSymbolIgnoreCaseAndIdNotAndDeletedAtIsNull(household.getId(), invoiceSymbol, pos.getId())) {
@@ -201,7 +192,6 @@ public class PointOfSaleServiceImpl implements PointOfSaleService {
             pos.setInvoiceSymbol(null);
         }
 
-        // Ràng buộc điểm mặc định & trạng thái hoạt động
         boolean requestedDefault = Boolean.TRUE.equals(request.getIsDefault());
         boolean requestedActive = request.getIsActive() != null ? request.getIsActive() : pos.getIsActive();
 
@@ -214,7 +204,6 @@ public class PointOfSaleServiceImpl implements PointOfSaleService {
                 throw new AppException(ErrorCode.CANNOT_DEACTIVATE_DEFAULT_POS);
             }
             if (!requestedDefault) {
-                // Không cho tự tắt cờ default của điểm bán mặc định
                 throw new AppException(ErrorCode.CANNOT_DEACTIVATE_DEFAULT_POS);
             }
         } else {

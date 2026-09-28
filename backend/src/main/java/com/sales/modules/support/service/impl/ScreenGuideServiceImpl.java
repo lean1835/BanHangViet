@@ -42,7 +42,6 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Slf4j
 public class ScreenGuideServiceImpl implements ScreenGuideService {
-
     private final ScreenGuideRepository screenGuideRepository;
     private final ScreenGuideStepRepository screenGuideStepRepository;
     private final ScreenGuideViewLogRepository screenGuideViewLogRepository;

@@ -28,10 +28,10 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import org.mockito.ArgumentCaptor;
 
 @ExtendWith(MockitoExtension.class)
 class TaxConnectionServiceTest {
-
     @Mock
     private TaxConnectionLogRepository logRepository;
 
@@ -151,7 +151,7 @@ class TaxConnectionServiceTest {
 
         taxConnectionService.recordConnectionEvent("house-001", "SLOW", 500, "Lỗi lần 3");
 
-        org.mockito.ArgumentCaptor<TaxConnectionLog> captor = org.mockito.ArgumentCaptor.forClass(TaxConnectionLog.class);
+        ArgumentCaptor<TaxConnectionLog> captor = ArgumentCaptor.forClass(TaxConnectionLog.class);
         verify(logRepository).save(captor.capture());
 
         TaxConnectionLog savedLog = captor.getValue();
@@ -197,4 +197,3 @@ class TaxConnectionServiceTest {
         verify(logRepository).save(any(TaxConnectionLog.class));
     }
 }
-

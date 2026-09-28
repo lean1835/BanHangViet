@@ -31,7 +31,6 @@ import java.util.function.Function;
 @RequiredArgsConstructor
 @Slf4j
 public class DebtScheduler {
-
     private static final int DEFAULT_PAGE_SIZE = 100;
     private static final int DEFAULT_REMINDER_DAYS = 3;
 
@@ -57,7 +56,7 @@ public class DebtScheduler {
                     debt.setStatus(DebtStatus.OVERDUE);
                 }
             }
-            // Batch saving in chunks of 500 to avoid locking the database table
+
             final int batchSize = 500;
             for (int i = 0; i < expiredDebts.size(); i += batchSize) {
                 List<CustomerDebt> batch = expiredDebts.subList(i, Math.min(i + batchSize, expiredDebts.size()));
@@ -184,7 +183,7 @@ public class DebtScheduler {
             List<CustomerDebt> toSave = new ArrayList<>();
 
             for (CustomerDebt debt : pendingDebts) {
-                lastId = debt.getId(); // Update lastId for keyset pagination
+                lastId = debt.getId();
                 try {
                     Customer customer = debt.getCustomer();
                     if (customer == null || debt.getDueDate() == null) {
@@ -193,7 +192,7 @@ public class DebtScheduler {
 
                     if (eligibilityChecker.test(customer, debt)) {
                         String email = customer.getEmail();
-                        // Defensive check: Dù query SQL đã lọc email null/rỗng, vẫn kiểm tra lại ở tầng Application để đảm bảo an toàn tuyệt đối
+
                         if (StringUtils.hasText(email)) {
                             emailSender.accept(debt, email.trim());
                             toSave.add(debt);

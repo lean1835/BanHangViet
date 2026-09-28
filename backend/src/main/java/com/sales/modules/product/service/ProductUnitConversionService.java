@@ -6,7 +6,6 @@ import com.sales.modules.product.dto.response.ProductUnitConversionResponse;
 import java.util.List;
 
 public interface ProductUnitConversionService {
-
     List<ProductUnitConversionResponse> getUnitConversions(String currentUsername, String productId);
 
     ProductUnitConversionResponse createUnitConversion(String currentUsername, String productId, CreateProductUnitConversionRequest request);

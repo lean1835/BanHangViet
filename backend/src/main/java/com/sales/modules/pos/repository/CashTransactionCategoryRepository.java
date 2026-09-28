@@ -9,7 +9,6 @@ import java.util.Optional;
 
 @Repository
 public interface CashTransactionCategoryRepository extends JpaRepository<CashTransactionCategory, String> {
-
     List<CashTransactionCategory> findByHouseholdIdAndDeletedAtIsNullOrderByNameAsc(String householdId);
 
     List<CashTransactionCategory> findByHouseholdIdAndDeletedAtIsNullAndIsActiveTrueOrderByNameAsc(String householdId);

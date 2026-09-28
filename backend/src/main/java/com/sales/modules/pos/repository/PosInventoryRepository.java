@@ -13,10 +13,10 @@ import org.springframework.stereotype.Repository;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
+import java.util.Collection;
 
 @Repository
 public interface PosInventoryRepository extends JpaRepository<PosInventory, String>, JpaSpecificationExecutor<PosInventory> {
-
     @EntityGraph(attributePaths = {"product", "pointOfSale", "product.group", "product.taxRate"})
     Optional<PosInventory> findByPointOfSaleIdAndProductId(String pointOfSaleId, String productId);
 
@@ -27,7 +27,7 @@ public interface PosInventoryRepository extends JpaRepository<PosInventory, Stri
     List<PosInventory> findByHouseholdIdAndPointOfSaleId(String householdId, String pointOfSaleId);
 
     @EntityGraph(attributePaths = {"product", "pointOfSale", "product.group", "product.taxRate"})
-    List<PosInventory> findByHouseholdIdAndPointOfSaleIdAndProductIdIn(String householdId, String pointOfSaleId, java.util.Collection<String> productIds);
+    List<PosInventory> findByHouseholdIdAndPointOfSaleIdAndProductIdIn(String householdId, String pointOfSaleId, Collection<String> productIds);
 
     @EntityGraph(attributePaths = {"product", "pointOfSale", "product.group", "product.taxRate"})
     Page<PosInventory> findAll(Specification<PosInventory> spec, Pageable pageable);
@@ -46,13 +46,13 @@ public interface PosInventoryRepository extends JpaRepository<PosInventory, Stri
     List<PosInventory> findByHouseholdIdAndProductId(String householdId, String productId);
 
     @EntityGraph(attributePaths = {"product", "pointOfSale", "product.group", "product.taxRate"})
-    List<PosInventory> findByHouseholdIdAndProductIdIn(String householdId, java.util.Collection<String> productIds);
+    List<PosInventory> findByHouseholdIdAndProductIdIn(String householdId, Collection<String> productIds);
 
     @EntityGraph(attributePaths = {"product", "pointOfSale", "product.group", "product.taxRate"})
     List<PosInventory> findByHouseholdIdAndProductIdAndPointOfSaleIdNot(String householdId, String productId, String excludePosId);
 
     @EntityGraph(attributePaths = {"product", "pointOfSale", "product.group", "product.taxRate"})
-    List<PosInventory> findByHouseholdIdAndProductIdInAndPointOfSaleIdNot(String householdId, java.util.Collection<String> productIds, String excludePosId);
+    List<PosInventory> findByHouseholdIdAndProductIdInAndPointOfSaleIdNot(String householdId, Collection<String> productIds, String excludePosId);
 
     @Query("SELECT COALESCE(SUM(pi.stockQuantity), 0) FROM PosInventory pi WHERE pi.pointOfSale.id = :posId")
     BigDecimal sumTotalStockByPosId(@Param("posId") String posId);

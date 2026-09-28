@@ -32,7 +32,6 @@ import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class AuditLogServiceImplTest {
-
     @Mock
     private ActivityLogRepository activityLogRepository;
 
@@ -162,7 +161,6 @@ class AuditLogServiceImplTest {
                 .createdAt(LocalDateTime.now())
                 .build();
 
-        // Bản ghi 2 bị ai đó sửa dữ liệu newValue thành TAMPERED_VALUE nhưng giữ nguyên hash
         String realHash2 = AuditLogServiceImpl.calculateHash(hash1, "hh-001", "u-owner", "CANCEL_INVOICE", "e_invoices", "inv-1", "\"val3\"", "\"val4\"");
         ActivityLog tamperedLog2 = ActivityLog.builder()
                 .id("log-2")
@@ -173,7 +171,7 @@ class AuditLogServiceImplTest {
                 .targetTable("e_invoices")
                 .targetId("inv-1")
                 .oldValue("\"val3\"")
-                .newValue("\"TAMPERED_VALUE\"") // TAMPERED!
+                .newValue("\"TAMPERED_VALUE\"")
                 .previousHash(hash1)
                 .hash(realHash2)
                 .createdAt(LocalDateTime.now())
@@ -202,7 +200,7 @@ class AuditLogServiceImplTest {
         PageResponse<ActivityLogResponse> response = auditLogService.getAuditLogs("owner1", filter, "127.0.0.1", "Mozilla/5.0");
 
         assertNotNull(response);
-        // Verify self auditing record was triggered
+
         verify(activityLogRepository, atLeastOnce()).saveAndFlush(any(ActivityLog.class));
     }
 

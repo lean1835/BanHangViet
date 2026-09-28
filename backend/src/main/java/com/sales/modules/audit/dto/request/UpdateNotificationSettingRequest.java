@@ -9,7 +9,6 @@ import lombok.*;
 @NoArgsConstructor
 @AllArgsConstructor
 public class UpdateNotificationSettingRequest {
-
     @NotBlank(message = "Mã loại thông báo không được để trống")
     private String notificationType;
 

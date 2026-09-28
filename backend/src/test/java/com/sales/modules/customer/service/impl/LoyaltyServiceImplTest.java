@@ -50,10 +50,10 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
+import org.springframework.beans.factory.ObjectProvider;
 
 @ExtendWith(MockitoExtension.class)
 class LoyaltyServiceImplTest {
-
     @Mock
     private UserRepository userRepository;
 
@@ -79,7 +79,7 @@ class LoyaltyServiceImplTest {
     private ObjectMapper objectMapper;
 
     @Mock
-    private org.springframework.beans.factory.ObjectProvider<OrderService> orderServiceProvider;
+    private ObjectProvider<OrderService> orderServiceProvider;
 
     @Mock
     private OrderService orderService;
@@ -358,7 +358,7 @@ class LoyaltyServiceImplTest {
         when(configRepository.findByHouseholdId("house-001")).thenReturn(Optional.of(testConfig));
 
         ApplyLoyaltyPointsRequest request = ApplyLoyaltyPointsRequest.builder()
-                .pointsToRedeem(30) // min is 50
+                .pointsToRedeem(30)
                 .build();
 
         AppException ex = assertThrows(AppException.class,
@@ -372,7 +372,7 @@ class LoyaltyServiceImplTest {
         Order order = Order.builder()
                 .id("ord-001")
                 .household(household)
-                .customer(testCustomer) // has 100 points
+                .customer(testCustomer)
                 .status("CREATING")
                 .totalAmount(new BigDecimal("200000.00"))
                 .build();
@@ -385,7 +385,7 @@ class LoyaltyServiceImplTest {
         when(configRepository.findByHouseholdId("house-001")).thenReturn(Optional.of(testConfig));
 
         ApplyLoyaltyPointsRequest request = ApplyLoyaltyPointsRequest.builder()
-                .pointsToRedeem(150) // customer only has 100
+                .pointsToRedeem(150)
                 .build();
 
         AppException ex = assertThrows(AppException.class,
@@ -445,7 +445,7 @@ class LoyaltyServiceImplTest {
 
         loyaltyService.processPointsRedeemed(order, salesUser);
 
-        assertEquals(50, testCustomer.getLoyaltyPoints()); // 100 - 50 = 50
+        assertEquals(50, testCustomer.getLoyaltyPoints());
         verify(customerRepository).save(testCustomer);
         verify(transactionRepository).save(argThat(tx ->
                 tx.getType().equals(PointTransactionType.REDEEM) &&
@@ -473,7 +473,7 @@ class LoyaltyServiceImplTest {
                 .id("ord-001")
                 .orderNumber("ORD-001")
                 .household(household)
-                .customer(testCustomer) // currently 100 points
+                .customer(testCustomer)
                 .payments(payments)
                 .finalAmount(new BigDecimal("250000.00"))
                 .build();
@@ -484,7 +484,6 @@ class LoyaltyServiceImplTest {
 
         loyaltyService.earnPointsForCompletedOrder(order, salesUser);
 
-        // 100,000 CASH / 10,000 spend_amount_per_point = 10 points (DEBT 150k is ignored!)
         assertEquals(10, order.getPointsEarned());
         assertEquals(110, testCustomer.getLoyaltyPoints());
         verify(customerRepository).save(testCustomer);
@@ -511,9 +510,9 @@ class LoyaltyServiceImplTest {
                 .id("rt-001")
                 .ticketNumber("RT-001")
                 .household(household)
-                .customer(testCustomer) // has 100 points
+                .customer(testCustomer)
                 .originalOrder(originalOrder)
-                .totalReturnAmount(new BigDecimal("100000.00")) // 50% return
+                .totalReturnAmount(new BigDecimal("100000.00"))
                 .build();
 
         when(customerRepository.findByIdAndHouseholdIdAndDeletedAtIsNullForUpdate("cust-001", "house-001"))
@@ -521,9 +520,8 @@ class LoyaltyServiceImplTest {
 
         loyaltyService.deductPointsForReturnTicket(ticket, ownerUser);
 
-        // 50% of 20 points = 10 points deducted
         assertEquals(10, ticket.getPointsDeducted());
-        assertEquals(90, testCustomer.getLoyaltyPoints()); // 100 - 10 = 90
+        assertEquals(90, testCustomer.getLoyaltyPoints());
         verify(customerRepository).save(testCustomer);
         verify(transactionRepository).save(argThat(tx ->
                 tx.getType().equals(PointTransactionType.RETURN_DEDUCTION) &&
@@ -552,7 +550,7 @@ class LoyaltyServiceImplTest {
         PointTransactionResponse response = loyaltyService.adjustPointsManually("chuho", "cust-001", request);
 
         assertNotNull(response);
-        assertEquals(115, testCustomer.getLoyaltyPoints()); // 100 + 15 = 115
+        assertEquals(115, testCustomer.getLoyaltyPoints());
         assertEquals(15, response.getPointsChange());
         assertEquals(115, response.getBalanceAfter());
         assertEquals("ADJUST", response.getType());
@@ -564,7 +562,7 @@ class LoyaltyServiceImplTest {
         Order originalOrder = Order.builder()
                 .id("ord-multi")
                 .orderNumber("ORD-MULTI")
-                .pointsEarned(50) // Gốc tích 50 điểm
+                .pointsEarned(50)
                 .finalAmount(new BigDecimal("500000.00"))
                 .build();
 
@@ -574,17 +572,15 @@ class LoyaltyServiceImplTest {
                 .household(household)
                 .customer(testCustomer)
                 .originalOrder(originalOrder)
-                .totalReturnAmount(new BigDecimal("300000.00")) // Tính ra 30 điểm
+                .totalReturnAmount(new BigDecimal("300000.00"))
                 .build();
 
-        // Đã thu hồi 40 điểm ở phiếu trước
         when(transactionRepository.sumPointsDeductedByOrderId("ord-multi")).thenReturn(40);
         when(customerRepository.findByIdAndHouseholdIdAndDeletedAtIsNullForUpdate("cust-001", "house-001"))
                 .thenReturn(Optional.of(testCustomer));
 
         loyaltyService.deductPointsForReturnTicket(ticket2, ownerUser);
 
-        // maxCanDeduct = 50 - 40 = 10, dù 300k/500k = 30 điểm thì cũng chỉ thu hồi tối đa 10 điểm còn lại
         assertEquals(10, ticket2.getPointsDeducted());
         verify(returnTicketRepository).save(ticket2);
     }

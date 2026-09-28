@@ -18,7 +18,6 @@ import java.util.List;
 @RequestMapping("/api/v1/tax-periods")
 @RequiredArgsConstructor
 public class TaxPeriodReminderController {
-
     private final TaxReminderService taxReminderService;
 
     @GetMapping("/reminder-settings")

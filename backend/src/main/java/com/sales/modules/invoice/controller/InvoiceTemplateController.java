@@ -15,7 +15,6 @@ import java.security.Principal;
 @RequestMapping("/api/v1/invoice-templates")
 @RequiredArgsConstructor
 public class InvoiceTemplateController {
-
     private final InvoiceTemplateService invoiceTemplateService;
 
     @GetMapping

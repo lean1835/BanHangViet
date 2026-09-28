@@ -11,7 +11,6 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class BatchUpdateNotificationSettingsRequest {
-
     @NotEmpty(message = "Danh sách cài đặt thông báo không được rỗng")
     @Valid
     private List<UpdateNotificationSettingRequest> settings;

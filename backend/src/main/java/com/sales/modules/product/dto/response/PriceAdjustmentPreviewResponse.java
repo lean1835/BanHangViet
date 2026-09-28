@@ -12,7 +12,6 @@ import java.util.List;
 @AllArgsConstructor
 @Builder
 public class PriceAdjustmentPreviewResponse {
-
     private AdjustmentType adjustmentType;
     private BigDecimal adjustmentValue;
     private PriceRoundingMethod roundingMethod;

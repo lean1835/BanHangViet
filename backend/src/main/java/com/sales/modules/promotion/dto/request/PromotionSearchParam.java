@@ -11,7 +11,6 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 public class PromotionSearchParam {
-
     private String keyword;
 
     private PromotionStatus status;

@@ -13,10 +13,10 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Function;
+import java.time.LocalDateTime;
 
 @Service
 public class JwtServiceImpl implements JwtService {
-
     @Value("${app.jwt.secret}")
     private String secret;
 
@@ -84,8 +84,8 @@ public class JwtServiceImpl implements JwtService {
             return false;
         }
 
-        if (userDetails instanceof com.sales.common.security.CustomUserDetails customUserDetails) {
-            java.time.LocalDateTime passwordChangedAt = customUserDetails.getPasswordChangedAt();
+        if (userDetails instanceof CustomUserDetails customUserDetails) {
+            LocalDateTime passwordChangedAt = customUserDetails.getPasswordChangedAt();
             String userPwdAt = passwordChangedAt != null ? passwordChangedAt.toString() : "";
             String tokenPwdAt = extractClaim(token, claims -> claims.get("pwdAt", String.class));
             if (tokenPwdAt == null) {

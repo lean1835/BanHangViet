@@ -18,7 +18,6 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class RestoreHistory {
-
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     @Column(length = 36, nullable = false)
@@ -50,7 +49,7 @@ public class RestoreHistory {
 
     @Column(nullable = false, length = 20)
     @Builder.Default
-    private String status = "SUCCESS"; // SUCCESS, FAILED
+    private String status = "SUCCESS";
 
     @Column(columnDefinition = "TEXT")
     private String notes;

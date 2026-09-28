@@ -14,7 +14,6 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ScanAnomalyResultResponse {
-
     private LocalDate scannedDate;
     private int newAlertsDetected;
     private boolean isCleanDay;

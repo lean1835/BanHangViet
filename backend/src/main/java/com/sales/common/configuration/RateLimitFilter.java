@@ -21,7 +21,6 @@ import java.util.concurrent.TimeUnit;
 @Component
 @RequiredArgsConstructor
 public class RateLimitFilter extends OncePerRequestFilter {
-
     private static class RequestCount {
         private int count = 0;
         private long resetTime = 0;
@@ -45,12 +44,11 @@ public class RateLimitFilter extends OncePerRequestFilter {
             .build();
 
     private static final int MAX_REQUESTS = 10;
-    private static final long TIME_LIMIT_MS = 60000; // 1 minute
+    private static final long TIME_LIMIT_MS = 60000;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
-
         String path = request.getRequestURI();
         if (path.startsWith("/api/v1/public/invoices/")) {
             String ip = getClientIp(request);
@@ -94,9 +92,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
             remoteAddr = "unknown";
         }
 
-        // Only inspect proxy headers if connection comes from a trusted reverse proxy
         if (isTrustedProxy(remoteAddr)) {
-            // 1. Check X-Forwarded-For with Right-to-Left (reverse) loop to extract true client IP
             String xff = request.getHeader("X-Forwarded-For");
             if (xff != null && !xff.trim().isEmpty()) {
                 String[] ips = xff.split(",");
@@ -108,7 +104,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
                             fallbackClientIp = candidate;
                         }
                         if (!isTrustedProxy(candidate)) {
-                            return candidate; // Rightmost non-trusted IP added by proxy infrastructure
+                            return candidate;
                         }
                     }
                 }
@@ -117,7 +113,6 @@ public class RateLimitFilter extends OncePerRequestFilter {
                 }
             }
 
-            // 2. Fallback to X-Real-IP header if present
             String xRealIp = request.getHeader("X-Real-IP");
             if (xRealIp != null && !xRealIp.trim().isEmpty() && !"unknown".equalsIgnoreCase(xRealIp)) {
                 return xRealIp.trim();
@@ -135,7 +130,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
         if ("127.0.0.1".equals(cleanIp) || "0:0:0:0:0:0:0:1".equals(cleanIp) || "::1".equals(cleanIp) || "localhost".equalsIgnoreCase(cleanIp)) {
             return true;
         }
-        // Check local private IP ranges: 10.x.x.x, 192.168.x.x, 172.16-31.x.x
+
         if (cleanIp.startsWith("10.") || cleanIp.startsWith("192.168.")) {
             return true;
         }
@@ -150,7 +145,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
                 }
             } catch (NumberFormatException ignored) {}
         }
-        // Check IPv6 link-local and unique local private ranges (fe80::, fc00::, fd00::)
+
         String lowerIp = cleanIp.toLowerCase();
         if (lowerIp.startsWith("fe80:") || lowerIp.startsWith("fc00:") || lowerIp.startsWith("fd00:")) {
             return true;

@@ -11,7 +11,6 @@ import org.springframework.stereotype.Component;
 @Slf4j
 @ConditionalOnProperty(name = "app.scheduler.anomaly-scan.enabled", havingValue = "true", matchIfMissing = true)
 public class AnomalyScanScheduler {
-
     private final AnomalyDetectionService anomalyDetectionService;
 
     /**

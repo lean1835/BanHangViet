@@ -15,7 +15,6 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ExchangeReturnItemRequest {
-
     private String invoiceItemId;
 
     @NotBlank(message = "ID sản phẩm trả lại không được để trống")

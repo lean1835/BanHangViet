@@ -14,7 +14,6 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 public class AnomalyRuleConfigResponse {
-
     private String id;
     private String householdId;
     private AnomalyAlertType ruleType;

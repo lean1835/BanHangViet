@@ -12,12 +12,12 @@ import org.springframework.web.bind.annotation.*;
 
 import java.security.Principal;
 import java.util.List;
+import com.sales.modules.supplier.dto.request.ReceiveSupplierRefundRequest;
 
 @RestController
 @RequestMapping("/api/v1/supplier-debts")
 @RequiredArgsConstructor
 public class SupplierDebtController {
-
     private final SupplierDebtService supplierDebtService;
 
     @PostMapping("/pay")
@@ -38,7 +38,7 @@ public class SupplierDebtController {
     @PreAuthorize("hasAnyRole('VT-01', 'VT-03')")
     public ResponseEntity<ApiResponse<SupplierDebtResponse>> receiveSupplierRefund(
             Principal principal,
-            @Valid @RequestBody com.sales.modules.supplier.dto.request.ReceiveSupplierRefundRequest request) {
+            @Valid @RequestBody ReceiveSupplierRefundRequest request) {
         SupplierDebtResponse result = supplierDebtService.receiveSupplierRefund(principal.getName(), request);
         ApiResponse<SupplierDebtResponse> response = ApiResponse.<SupplierDebtResponse>builder()
                 .code(1000)

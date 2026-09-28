@@ -8,7 +8,6 @@ import java.math.BigDecimal;
 import java.util.List;
 
 public interface CashTransactionService {
-
     CashTransactionResponse createTransaction(String currentUsername, CreateCashTransactionRequest request);
 
     List<CashTransactionResponse> getCurrentShiftTransactions(String currentUsername);

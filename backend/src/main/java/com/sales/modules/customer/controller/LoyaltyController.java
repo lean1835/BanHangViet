@@ -21,7 +21,6 @@ import java.security.Principal;
 @RequestMapping("/api/v1")
 @RequiredArgsConstructor
 public class LoyaltyController {
-
     private final LoyaltyService loyaltyService;
 
     @GetMapping("/loyalty-program/config")

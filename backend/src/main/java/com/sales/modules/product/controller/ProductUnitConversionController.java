@@ -21,7 +21,6 @@ import java.util.List;
 @RequestMapping("/api/v1/products/{productId}/unit-conversions")
 @RequiredArgsConstructor
 public class ProductUnitConversionController {
-
     private final ProductUnitConversionService productUnitConversionService;
 
     @Operation(summary = "Lấy danh sách đơn vị quy đổi của sản phẩm")

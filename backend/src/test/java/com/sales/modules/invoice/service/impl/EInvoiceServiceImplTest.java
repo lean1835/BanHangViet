@@ -42,10 +42,18 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
+import com.sales.modules.customer.dto.request.ResendCustomerDeliveryRequest;
+import com.sales.modules.invoice.service.InvoiceNumberRangeService;
+import com.sales.modules.order.entity.Order;
+import com.sales.modules.order.entity.OrderItem;
+import com.sales.modules.tax.service.TaxConnectionService;
+import org.mockito.ArgumentCaptor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 
 @ExtendWith(MockitoExtension.class)
 class EInvoiceServiceImplTest {
-
     @Mock
     private UserRepository userRepository;
 
@@ -89,10 +97,10 @@ class EInvoiceServiceImplTest {
     private TransactionTemplate transactionTemplate;
 
     @Mock
-    private com.sales.modules.invoice.service.InvoiceNumberRangeService invoiceNumberRangeService;
+    private InvoiceNumberRangeService invoiceNumberRangeService;
 
     @Mock
-    private com.sales.modules.tax.service.TaxConnectionService taxConnectionService;
+    private TaxConnectionService taxConnectionService;
 
     @InjectMocks
     private EInvoiceServiceImpl eInvoiceService;
@@ -152,7 +160,6 @@ class EInvoiceServiceImplTest {
     @Test
     @DisplayName("NCL-04-CN-006-TC-01: Luồng thành công - Nhập thông tin người mua có MST hợp lệ 10 chữ số")
     void testUpdateInvoice_Success_CorporateBuyer_10Digits() {
-        // Arrange
         when(userRepository.findByUsername("seller1")).thenReturn(Optional.of(currentUser));
         when(eInvoiceRepository.findById("inv-draft-1")).thenReturn(Optional.of(draftInvoice));
         when(customerRepository.findFirstByHouseholdIdAndTaxCodeAndDeletedAtIsNullOrderByCreatedAtDesc("hh-100", "0101234567"))
@@ -167,24 +174,20 @@ class EInvoiceServiceImplTest {
                 .buyerPhone("02439998888")
                 .build();
 
-        // Act
         InvoiceResponse response = eInvoiceService.updateInvoice("seller1", "inv-draft-1", request);
 
-        // Assert
         assertNotNull(response);
         assertEquals("0101234567", response.getBuyerTaxCode());
         assertEquals("Công ty TNHH Giải pháp Công nghệ", response.getBuyerName());
         assertEquals("456 Nguyễn Trãi, Thanh Xuân, Hà Nội", response.getBuyerAddress());
         assertEquals("contact@techsol.vn", response.getBuyerEmail());
 
-        // Verify Customer profile was created/saved
         verify(customerRepository, times(1)).save(any(Customer.class));
     }
 
     @Test
     @DisplayName("NCL-04-CN-006-TC-01: Luồng thành công - Nhập thông tin người mua có MST hợp lệ 13 chữ số")
     void testUpdateInvoice_Success_CorporateBuyer_13Digits() {
-        // Arrange
         when(userRepository.findByUsername("seller1")).thenReturn(Optional.of(currentUser));
         when(eInvoiceRepository.findById("inv-draft-1")).thenReturn(Optional.of(draftInvoice));
         when(customerRepository.findFirstByHouseholdIdAndTaxCodeAndDeletedAtIsNullOrderByCreatedAtDesc("hh-100", "0101234567-001"))
@@ -197,10 +200,8 @@ class EInvoiceServiceImplTest {
                 .buyerAddress("789 Cầu Giấy, Hà Nội")
                 .build();
 
-        // Act
         InvoiceResponse response = eInvoiceService.updateInvoice("seller1", "inv-draft-1", request);
 
-        // Assert
         assertNotNull(response);
         assertEquals("0101234567-001", response.getBuyerTaxCode());
         assertEquals("Chi nhánh Công ty ABC", response.getBuyerName());
@@ -210,16 +211,14 @@ class EInvoiceServiceImplTest {
     @Test
     @DisplayName("NCL-04-CN-006-TC-02: Dữ liệu không hợp lệ - Thất bại khi MST sai số lượng chữ số")
     void testUpdateInvoice_InvalidTaxCode_ThrowsException() {
-        // Arrange
         when(userRepository.findByUsername("seller1")).thenReturn(Optional.of(currentUser));
         when(eInvoiceRepository.findById("inv-draft-1")).thenReturn(Optional.of(draftInvoice));
 
         UpdateInvoiceRequest request = UpdateInvoiceRequest.builder()
                 .buyerName("Công ty Sai MST")
-                .buyerTaxCode("12345") // Chỉ có 5 chữ số
+                .buyerTaxCode("12345")
                 .build();
 
-        // Act & Assert
         AppException exception = assertThrows(AppException.class, () ->
                 eInvoiceService.updateInvoice("seller1", "inv-draft-1", request));
 
@@ -230,7 +229,6 @@ class EInvoiceServiceImplTest {
     @Test
     @DisplayName("NCL-04-CN-006-TC-03: Sai trạng thái - Chặn sửa trực tiếp thông tin người mua khi hóa đơn đã ISSUED")
     void testUpdateInvoice_IssuedStatus_ThrowsException() {
-        // Arrange
         when(userRepository.findByUsername("seller1")).thenReturn(Optional.of(currentUser));
         when(eInvoiceRepository.findById("inv-issued-1")).thenReturn(Optional.of(issuedInvoice));
 
@@ -239,7 +237,6 @@ class EInvoiceServiceImplTest {
                 .buyerTaxCode("0101234567")
                 .build();
 
-        // Act & Assert
         AppException exception = assertThrows(AppException.class, () ->
                 eInvoiceService.updateInvoice("seller1", "inv-issued-1", request));
 
@@ -250,7 +247,6 @@ class EInvoiceServiceImplTest {
     @Test
     @DisplayName("NCL-04-CN-006: Auto-fill từ hồ sơ khách hàng sẵn có khi nhập MST")
     void testUpdateInvoice_AutoFillFromExistingCustomer() {
-        // Arrange
         Customer existingCust = Customer.builder()
                 .id("cust-1")
                 .household(household)
@@ -267,15 +263,12 @@ class EInvoiceServiceImplTest {
                 .thenReturn(Optional.of(existingCust));
         when(eInvoiceRepository.save(any(EInvoice.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        // Request chỉ gửi MST, tên và địa chỉ để trống
         UpdateInvoiceRequest request = UpdateInvoiceRequest.builder()
                 .buyerTaxCode("0101234567")
                 .build();
 
-        // Act
         InvoiceResponse response = eInvoiceService.updateInvoice("seller1", "inv-draft-1", request);
 
-        // Assert
         assertNotNull(response);
         assertEquals("0101234567", response.getBuyerTaxCode());
         assertEquals("Công ty Đã Có Trong DB", response.getBuyerName());
@@ -287,7 +280,6 @@ class EInvoiceServiceImplTest {
     @Test
     @DisplayName("NCL-04-CN-006: Mặc định tên người mua là Khách lẻ khi không nhập MST và tên")
     void testUpdateInvoice_DefaultRetailCustomer() {
-        // Arrange
         when(userRepository.findByUsername("seller1")).thenReturn(Optional.of(currentUser));
         when(eInvoiceRepository.findById("inv-draft-1")).thenReturn(Optional.of(draftInvoice));
         when(eInvoiceRepository.save(any(EInvoice.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -297,10 +289,8 @@ class EInvoiceServiceImplTest {
                 .buyerName("")
                 .build();
 
-        // Act
         InvoiceResponse response = eInvoiceService.updateInvoice("seller1", "inv-draft-1", request);
 
-        // Assert
         assertNotNull(response);
         assertEquals("Khách lẻ", response.getBuyerName());
         assertNull(response.getBuyerTaxCode());
@@ -309,7 +299,6 @@ class EInvoiceServiceImplTest {
     @Test
     @DisplayName("NCL-04-CN-006: Tra cứu thông tin người mua thành công theo MST")
     void testLookupBuyerInfoByTaxCode_Success() {
-        // Arrange
         Customer existingCust = Customer.builder()
                 .id("cust-1")
                 .household(household)
@@ -324,10 +313,8 @@ class EInvoiceServiceImplTest {
         when(customerRepository.findFirstByHouseholdIdAndTaxCodeAndDeletedAtIsNullOrderByCreatedAtDesc("hh-100", "0101234567"))
                 .thenReturn(Optional.of(existingCust));
 
-        // Act
         CustomerTaxLookupResponse lookup = eInvoiceService.lookupBuyerInfoByTaxCode("seller1", "0101234567");
 
-        // Assert
         assertNotNull(lookup);
         assertEquals("0101234567", lookup.getBuyerTaxCode());
         assertEquals("Công ty Tra Cứu", lookup.getBuyerName());
@@ -340,7 +327,7 @@ class EInvoiceServiceImplTest {
     @DisplayName("NCL-02-CN-007: Xuất hóa đơn từ đơn hàng có đơn vị quy đổi (Thùng) -> Hóa đơn mang đúng tên đơn vị quy đổi và giá bán")
     void testCreateInvoiceFromOrder_WithUnitConversion() {
         household.setRevenueThresholdEnabled(true);
-        com.sales.modules.order.entity.Order order = com.sales.modules.order.entity.Order.builder()
+        Order order = Order.builder()
                 .id("ord-conv-1")
                 .household(household)
                 .createdByUser(currentUser)
@@ -351,7 +338,7 @@ class EInvoiceServiceImplTest {
                 .items(new ArrayList<>())
                 .build();
 
-        com.sales.modules.order.entity.OrderItem item = com.sales.modules.order.entity.OrderItem.builder()
+        OrderItem item = OrderItem.builder()
                 .id("item-1")
                 .order(order)
                 .productName("Bia Heineken")
@@ -392,7 +379,6 @@ class EInvoiceServiceImplTest {
     @Test
     @DisplayName("NCL-04-CN-006: Đồng bộ hồ sơ khách hàng - Cập nhật tên thực tế khi tên cũ là mặc định và làm sạch SĐT")
     void testUpdateInvoice_SyncCustomerProfile_UpdatesNameAndCleansPhone() {
-        // Arrange
         Customer existingCust = Customer.builder()
                 .id("cust-default")
                 .household(household)
@@ -415,10 +401,8 @@ class EInvoiceServiceImplTest {
                 .buyerPhone("024-3888-9999")
                 .build();
 
-        // Act
         InvoiceResponse response = eInvoiceService.updateInvoice("seller1", "inv-draft-1", request);
 
-        // Assert
         assertNotNull(response);
         assertEquals("Công ty TNHH Phần Mềm Mới", existingCust.getName());
         assertEquals("456 Cầu Giấy", existingCust.getAddress());
@@ -429,7 +413,6 @@ class EInvoiceServiceImplTest {
     @Test
     @DisplayName("NCL-04-CN-006 [P0]: MST mới nhưng SĐT đã thuộc về khách hàng khác -> Cập nhật khách hàng hiện có, không tạo duplicate SĐT gây sập POS")
     void testUpdateInvoice_SyncCustomerProfile_PhoneAlreadyExists_UpdatesExistingCustomerInsteadOfDuplicate() {
-        // Arrange
         Customer existingPhoneCust = Customer.builder()
                 .id("cust-phone-1")
                 .household(household)
@@ -443,10 +426,9 @@ class EInvoiceServiceImplTest {
         when(eInvoiceRepository.findById("inv-draft-1")).thenReturn(Optional.of(draftInvoice));
         when(eInvoiceRepository.save(any(EInvoice.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        // MST chưa có trong CRM
         when(customerRepository.findFirstByHouseholdIdAndTaxCodeAndDeletedAtIsNullOrderByCreatedAtDesc("hh-100", "0109998888"))
                 .thenReturn(Optional.empty());
-        // Nhưng SĐT đã tồn tại
+
         when(customerRepository.findFirstByPhoneNumberAndHouseholdIdAndDeletedAtIsNullOrderByCreatedAtDesc("0988889999", "hh-100"))
                 .thenReturn(Optional.of(existingPhoneCust));
 
@@ -458,10 +440,8 @@ class EInvoiceServiceImplTest {
                 .buyerEmail("ketoan@achau.vn")
                 .build();
 
-        // Act
         InvoiceResponse response = eInvoiceService.updateInvoice("seller1", "inv-draft-1", request);
 
-        // Assert
         assertNotNull(response);
         assertEquals("0109998888", existingPhoneCust.getTaxCode());
         assertEquals("Công ty TNHH Xây Dựng Á Châu", existingPhoneCust.getName());
@@ -475,7 +455,6 @@ class EInvoiceServiceImplTest {
     @Test
     @DisplayName("NCL-04-CN-006 [P1]: Khắc phục Freeze Sync - Cho phép ghi đè địa chỉ và email mới khi khách hàng đã có dữ liệu cũ trong CRM")
     void testUpdateInvoice_SyncCustomerProfile_FreezeSyncFixed_OverwritesNewAddressAndEmail() {
-        // Arrange
         Customer existingCust = Customer.builder()
                 .id("cust-corp-1")
                 .household(household)
@@ -500,10 +479,8 @@ class EInvoiceServiceImplTest {
                 .buyerPhone("0911223344")
                 .build();
 
-        // Act
         InvoiceResponse response = eInvoiceService.updateInvoice("seller1", "inv-draft-1", request);
 
-        // Assert
         assertNotNull(response);
         assertEquals("Công ty TNHH Đổi Tên", existingCust.getName());
         assertEquals("Địa chỉ Trụ Sở Mới 999 Kim Mã", existingCust.getAddress());
@@ -514,7 +491,6 @@ class EInvoiceServiceImplTest {
     @Test
     @DisplayName("NCL-04-CN-006: Tạo mới Customer an toàn khi cả MST lẫn SĐT đều chưa có trong hệ thống")
     void testUpdateInvoice_SyncCustomerProfile_NewCustomer_CreatesNewCustomerWhenPhoneNotExists() {
-        // Arrange
         when(userRepository.findByUsername("seller1")).thenReturn(Optional.of(currentUser));
         when(eInvoiceRepository.findById("inv-draft-1")).thenReturn(Optional.of(draftInvoice));
         when(customerRepository.findFirstByHouseholdIdAndTaxCodeAndDeletedAtIsNullOrderByCreatedAtDesc("hh-100", "0108889999"))
@@ -531,12 +507,10 @@ class EInvoiceServiceImplTest {
                 .buyerPhone("0933334444")
                 .build();
 
-        // Act
         InvoiceResponse response = eInvoiceService.updateInvoice("seller1", "inv-draft-1", request);
 
-        // Assert
         assertNotNull(response);
-        org.mockito.ArgumentCaptor<Customer> captor = org.mockito.ArgumentCaptor.forClass(Customer.class);
+        ArgumentCaptor<Customer> captor = ArgumentCaptor.forClass(Customer.class);
         verify(customerRepository, atLeastOnce()).save(captor.capture());
         Customer createdCust = captor.getValue();
         assertEquals("0108889999", createdCust.getTaxCode());
@@ -552,10 +526,10 @@ class EInvoiceServiceImplTest {
         when(userRepository.findByUsername("seller1")).thenReturn(Optional.of(currentUser));
         when(eInvoiceRepository.findById("inv-issued-1")).thenReturn(Optional.of(issuedInvoice));
         when(eInvoiceRepository.save(any(EInvoice.class))).thenAnswer(invocation -> invocation.getArgument(0));
-        when(invoiceDeliveryLogRepository.save(any(com.sales.modules.invoice.entity.InvoiceDeliveryLog.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(invoiceDeliveryLogRepository.save(any(InvoiceDeliveryLog.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        com.sales.modules.customer.dto.request.ResendCustomerDeliveryRequest request =
-                com.sales.modules.customer.dto.request.ResendCustomerDeliveryRequest.builder()
+        ResendCustomerDeliveryRequest request =
+                ResendCustomerDeliveryRequest.builder()
                         .channel("EMAIL")
                         .recipientAddress("test.customer@gmail.com")
                         .updateCustomerDefaultChannel(false)
@@ -586,8 +560,8 @@ class EInvoiceServiceImplTest {
         when(eInvoiceRepository.save(any(EInvoice.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(customerRepository.save(any(Customer.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        com.sales.modules.customer.dto.request.ResendCustomerDeliveryRequest request =
-                com.sales.modules.customer.dto.request.ResendCustomerDeliveryRequest.builder()
+        ResendCustomerDeliveryRequest request =
+                ResendCustomerDeliveryRequest.builder()
                         .channel("ZALO")
                         .recipientAddress("0912345678")
                         .updateCustomerDefaultChannel(true)
@@ -607,8 +581,8 @@ class EInvoiceServiceImplTest {
         when(userRepository.findByUsername("seller1")).thenReturn(Optional.of(currentUser));
         when(eInvoiceRepository.findById("inv-draft-1")).thenReturn(Optional.of(draftInvoice));
 
-        com.sales.modules.customer.dto.request.ResendCustomerDeliveryRequest request =
-                com.sales.modules.customer.dto.request.ResendCustomerDeliveryRequest.builder()
+        ResendCustomerDeliveryRequest request =
+                ResendCustomerDeliveryRequest.builder()
                         .channel("EMAIL")
                         .recipientAddress("test.customer@gmail.com")
                         .build();
@@ -626,10 +600,10 @@ class EInvoiceServiceImplTest {
         when(userRepository.findByUsername("seller1")).thenReturn(Optional.of(currentUser));
         when(eInvoiceRepository.findById("inv-issued-1")).thenReturn(Optional.of(issuedInvoice));
         when(eInvoiceRepository.save(any(EInvoice.class))).thenAnswer(invocation -> invocation.getArgument(0));
-        when(invoiceDeliveryLogRepository.save(any(com.sales.modules.invoice.entity.InvoiceDeliveryLog.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(invoiceDeliveryLogRepository.save(any(InvoiceDeliveryLog.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        com.sales.modules.customer.dto.request.ResendCustomerDeliveryRequest request =
-                com.sales.modules.customer.dto.request.ResendCustomerDeliveryRequest.builder()
+        ResendCustomerDeliveryRequest request =
+                ResendCustomerDeliveryRequest.builder()
                         .channel("QR")
                         .build();
 
@@ -658,8 +632,8 @@ class EInvoiceServiceImplTest {
         when(userRepository.findByUsername("seller1")).thenReturn(Optional.of(currentUser));
         when(eInvoiceRepository.findById("inv-issued-1")).thenReturn(Optional.of(issuedInvoice));
 
-        com.sales.modules.customer.dto.request.ResendCustomerDeliveryRequest request =
-                com.sales.modules.customer.dto.request.ResendCustomerDeliveryRequest.builder()
+        ResendCustomerDeliveryRequest request =
+                ResendCustomerDeliveryRequest.builder()
                         .channel("EMAIL")
                         .recipientAddress("invalid-email-string")
                         .build();
@@ -682,8 +656,8 @@ class EInvoiceServiceImplTest {
         when(eInvoiceRepository.save(any(EInvoice.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(invoiceDeliveryLogRepository.save(any(InvoiceDeliveryLog.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        com.sales.modules.customer.dto.request.ResendCustomerDeliveryRequest request =
-                com.sales.modules.customer.dto.request.ResendCustomerDeliveryRequest.builder()
+        ResendCustomerDeliveryRequest request =
+                ResendCustomerDeliveryRequest.builder()
                         .channel("ZALO")
                         .recipientAddress("0912abc")
                         .updateCustomerDefaultChannel(true)
@@ -716,8 +690,8 @@ class EInvoiceServiceImplTest {
         when(customerRepository.save(any(Customer.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(invoiceDeliveryLogRepository.save(any(InvoiceDeliveryLog.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        com.sales.modules.customer.dto.request.ResendCustomerDeliveryRequest request =
-                com.sales.modules.customer.dto.request.ResendCustomerDeliveryRequest.builder()
+        ResendCustomerDeliveryRequest request =
+                ResendCustomerDeliveryRequest.builder()
                         .channel("QR")
                         .updateCustomerDefaultChannel(true)
                         .build();
@@ -739,8 +713,8 @@ class EInvoiceServiceImplTest {
         EInvoice inv1 = EInvoice.builder().id("inv-1").household(household).customerDeliveryStatus("FAILED").createdAt(LocalDateTime.now()).build();
         EInvoice inv2 = EInvoice.builder().id("inv-2").household(household).customerDeliveryStatus("FAILED").createdAt(LocalDateTime.now()).build();
 
-        org.springframework.data.domain.Page<EInvoice> page = new org.springframework.data.domain.PageImpl<>(
-                List.of(inv1, inv2), org.springframework.data.domain.PageRequest.of(0, 20), 2);
+        Page<EInvoice> page = new PageImpl<>(
+                List.of(inv1, inv2), PageRequest.of(0, 20), 2);
 
         when(eInvoiceRepository.findByHouseholdIdAndCustomerDeliveryStatusAndDeletedAtIsNull(eq("hh-100"), eq("FAILED"), any()))
                 .thenReturn(page);
@@ -769,8 +743,8 @@ class EInvoiceServiceImplTest {
         when(userRepository.findByUsername("seller1")).thenReturn(Optional.of(currentUser));
         when(eInvoiceRepository.findById("inv-issued-1")).thenReturn(Optional.of(issuedInvoice));
 
-        com.sales.modules.customer.dto.request.ResendCustomerDeliveryRequest request =
-                com.sales.modules.customer.dto.request.ResendCustomerDeliveryRequest.builder()
+        ResendCustomerDeliveryRequest request =
+                ResendCustomerDeliveryRequest.builder()
                         .channel("UNKNOWN_CHANNEL")
                         .recipientAddress("some-address")
                         .build();
@@ -799,7 +773,7 @@ class EInvoiceServiceImplTest {
     @DisplayName("NCL-11: Tạo hóa đơn khi đơn hàng không dùng điểm tích lũy -> Điểm thưởng phải bằng 0, không suy luận sai")
     void testCreateInvoiceDraft_withoutPointRedemption_returnsZeroPointsAndCorrectTax() {
         household.setRevenueThresholdEnabled(true);
-        com.sales.modules.order.entity.Order order = com.sales.modules.order.entity.Order.builder()
+        Order order = Order.builder()
                 .id("ord-no-points")
                 .household(household)
                 .createdByUser(currentUser)
@@ -815,7 +789,7 @@ class EInvoiceServiceImplTest {
                 .items(new ArrayList<>())
                 .build();
 
-        com.sales.modules.order.entity.OrderItem item = com.sales.modules.order.entity.OrderItem.builder()
+        OrderItem item = OrderItem.builder()
                 .id("item-1")
                 .order(order)
                 .productName("Rau")
@@ -854,4 +828,3 @@ class EInvoiceServiceImplTest {
         assertEquals(new BigDecimal("77000.00"), response.getFinalAmount());
     }
 }
-

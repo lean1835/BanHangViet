@@ -15,7 +15,6 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class UpdateHouseholdRequest {
-
     @NotBlank(message = "Tên hộ kinh doanh không được để trống")
     @Size(max = 255, message = "Tên hộ kinh doanh không được vượt quá 255 ký tự")
     private String name;

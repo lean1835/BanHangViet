@@ -36,7 +36,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureMockMvc
 @Transactional
 public class ShiftControllerTest {
-
     @Autowired
     private MockMvc mockMvc;
 
@@ -67,7 +66,6 @@ public class ShiftControllerTest {
 
     @BeforeEach
     public void setUp() {
-        // 1. Hộ kinh doanh
         testHousehold = businessHouseholdRepository.findByTaxCode("9999999999").orElseGet(() -> {
             BusinessHousehold household = BusinessHousehold.builder()
                     .taxCode("9999999999")
@@ -78,7 +76,6 @@ public class ShiftControllerTest {
             return businessHouseholdRepository.save(household);
         });
 
-        // 2. Vai trò
         ownerRole = roleRepository.findByCode("VT-01").orElseGet(() -> {
             Role r = Role.builder().code("VT-01").name("Chủ hộ").build();
             return roleRepository.save(r);
@@ -89,7 +86,6 @@ public class ShiftControllerTest {
             return roleRepository.save(r);
         });
 
-        // 3. Người dùng
         testOwner = userRepository.findByUsername("test_owner_shift").orElseGet(() -> {
             User u = User.builder()
                     .username("test_owner_shift")
@@ -126,10 +122,9 @@ public class ShiftControllerTest {
             return userRepository.save(u);
         });
 
-        // Đóng toàn bộ ca OPEN cũ của các user này trước khi chạy test
         shiftRepository.findAll().stream()
-                .filter(s -> (s.getUser().getId().equals(testOwner.getId()) || 
-                              s.getUser().getId().equals(testEmployee.getId()) || 
+                .filter(s -> (s.getUser().getId().equals(testOwner.getId()) ||
+                              s.getUser().getId().equals(testEmployee.getId()) ||
                               s.getUser().getId().equals(testOtherEmployee.getId()))
                         && s.getStatus() == ShiftStatus.OPEN)
                 .forEach(s -> {
@@ -149,8 +144,6 @@ public class ShiftControllerTest {
                 .build();
         return shiftRepository.save(shift);
     }
-
-    // --- TESTS CHO OPEN SHIFT ---
 
     @Test
     @WithMockUser(username = "test_employee_shift", roles = {"VT-02"})
@@ -182,7 +175,7 @@ public class ShiftControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value(3005)); // SHIFT_ALREADY_OPEN
+                .andExpect(jsonPath("$.code").value(3005));
     }
 
     @Test
@@ -196,10 +189,8 @@ public class ShiftControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value(2006)); // INVALID_INPUT
+                .andExpect(jsonPath("$.code").value(2006));
     }
-
-    // --- TESTS CHO GET ACTIVE SHIFT ---
 
     @Test
     @WithMockUser(username = "test_employee_shift", roles = {"VT-02"})
@@ -218,17 +209,14 @@ public class ShiftControllerTest {
     public void getActiveShift_notFound_fails() throws Exception {
         mockMvc.perform(get("/api/v1/shifts/active"))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.code").value(3006)); // ACTIVE_SHIFT_NOT_FOUND
+                .andExpect(jsonPath("$.code").value(3006));
     }
-
-    // --- TESTS CHO CLOSE SHIFT ---
 
     @Test
     @WithMockUser(username = "test_employee_shift", roles = {"VT-02"})
     public void closeShift_success_noDifference() throws Exception {
         Shift shift = openShiftForUser(testEmployee, new BigDecimal("100000.00"));
 
-        // Tạo đơn hàng CASH trị giá 50k đã chốt
         Order order = Order.builder()
                 .household(testHousehold)
                 .shift(shift)
@@ -243,7 +231,6 @@ public class ShiftControllerTest {
                 .build();
         orderRepository.save(order);
 
-        // expectedCash = 100k + 50k = 150k. Đóng ca với actualCash = 150k.
         CloseShiftRequest request = CloseShiftRequest.builder()
                 .closingCashActual(new BigDecimal("150000.00"))
                 .differenceReason("")
@@ -264,7 +251,6 @@ public class ShiftControllerTest {
     public void closeShift_success_withDifferenceAndReason() throws Exception {
         Shift shift = openShiftForUser(testEmployee, new BigDecimal("100000.00"));
 
-        // expectedCash = 100k. Đóng ca thực tế đếm 120k (lệch +20k) có giải trình lý do.
         CloseShiftRequest request = CloseShiftRequest.builder()
                 .closingCashActual(new BigDecimal("120000.00"))
                 .differenceReason("Khách đơn lẻ tặng tiền thừa")
@@ -285,9 +271,8 @@ public class ShiftControllerTest {
     public void closeShift_fail_differenceNoReason() throws Exception {
         Shift shift = openShiftForUser(testEmployee, new BigDecimal("100000.00"));
 
-        // Lệch két nhưng bỏ trống lý do
         CloseShiftRequest request = CloseShiftRequest.builder()
-                .closingCashActual(new BigDecimal("80000.00")) // Hụt 20k
+                .closingCashActual(new BigDecimal("80000.00"))
                 .differenceReason("")
                 .build();
 
@@ -295,7 +280,7 @@ public class ShiftControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value(3025)); // INVALID_ACTUAL_CASH
+                .andExpect(jsonPath("$.code").value(3025));
     }
 
     @Test
@@ -303,7 +288,6 @@ public class ShiftControllerTest {
     public void closeShift_fail_pendingOrder() throws Exception {
         Shift shift = openShiftForUser(testEmployee, new BigDecimal("100000.00"));
 
-        // Tạo đơn hàng chưa hoàn thành (CREATING) trong ca
         Order pendingOrder = Order.builder()
                 .household(testHousehold)
                 .shift(shift)
@@ -324,16 +308,14 @@ public class ShiftControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value(3023)); // SHIFT_HAS_PENDING_ORDER
+                .andExpect(jsonPath("$.code").value(3023));
     }
 
     @Test
     @WithMockUser(username = "test_other_shift", roles = {"VT-02"})
     public void closeShift_fail_permissionDenied() throws Exception {
-        // Ca của testEmployee
         Shift shift = openShiftForUser(testEmployee, new BigDecimal("100000.00"));
 
-        // testOtherEmployee cố đóng ca của testEmployee
         CloseShiftRequest request = CloseShiftRequest.builder()
                 .closingCashActual(new BigDecimal("100000.00"))
                 .build();
@@ -342,16 +324,14 @@ public class ShiftControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.code").value(3024)); // SHIFT_PERMISSION_DENIED
+                .andExpect(jsonPath("$.code").value(3024));
     }
 
     @Test
     @WithMockUser(username = "test_owner_shift", roles = {"VT-01"})
     public void closeShift_byOwner_success() throws Exception {
-        // Ca của testEmployee
         Shift shift = openShiftForUser(testEmployee, new BigDecimal("100000.00"));
 
-        // Chủ hộ (testOwner) đóng hộ ca cho nhân viên
         CloseShiftRequest request = CloseShiftRequest.builder()
                 .closingCashActual(new BigDecimal("100000.00"))
                 .build();

@@ -20,7 +20,6 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class SyncSession {
-
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     @Column(length = 36, nullable = false)
@@ -61,7 +60,7 @@ public class SyncSession {
     private Integer totalFailed = 0;
 
     @Column(nullable = false, length = 30)
-    private String status; // MATCHED, DISCREPANCY
+    private String status;
 
     @Column(name = "synced_at", nullable = false)
     private LocalDateTime syncedAt;

@@ -41,7 +41,6 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Slf4j
 public class ServicePackageServiceImpl implements ServicePackageService {
-
     private final ServicePackageRepository packageRepository;
     private final HouseholdSubscriptionRepository subscriptionRepository;
     private final HouseholdUsageStatsRepository usageStatsRepository;
@@ -170,7 +169,6 @@ public class ServicePackageServiceImpl implements ServicePackageService {
                 .orElseThrow(() -> new AppException(ErrorCode.SERVICE_PACKAGE_NOT_FOUND));
 
         if (subscriptionRepository.existsByServicePackageId(id)) {
-            // Nếu đã có hộ kinh doanh sử dụng gói này, ngưng kích hoạt gói để bảo toàn toàn vẹn dữ liệu
             pkg.setIsActive(false);
             packageRepository.save(pkg);
         } else {
@@ -182,7 +180,6 @@ public class ServicePackageServiceImpl implements ServicePackageService {
     @Transactional(rollbackFor = Exception.class)
     public HouseholdSubscriptionResponse assignSubscription(
             String currentUsername, String householdId, AssignSubscriptionRequest request) {
-
         if (request.getEndDate().isBefore(request.getStartDate())) {
             throw new AppException(ErrorCode.INVALID_DATE_RANGE);
         }
@@ -198,7 +195,6 @@ public class ServicePackageServiceImpl implements ServicePackageService {
             throw new AppException(ErrorCode.SERVICE_PACKAGE_INACTIVE);
         }
 
-        // Nếu hộ đã có subscription đang ACTIVE, expire nó
         Optional<HouseholdSubscription> currentSubOpt = subscriptionRepository
                 .findFirstByHouseholdIdAndStatusOrderByCreatedAtDesc(householdId, SubscriptionStatus.ACTIVE);
         currentSubOpt.ifPresent(sub -> {
@@ -310,7 +306,6 @@ public class ServicePackageServiceImpl implements ServicePackageService {
             int maxUsers = subOpt.get().getServicePackage().getMaxUsers();
             long currentUsers = userRepository.countByHouseholdIdAndDeletedAtIsNull(householdId);
             if (currentUsers >= maxUsers) {
-                // TC-02: Chặn thêm người dùng mới và gợi ý nâng gói
                 throw new AppException(ErrorCode.PACKAGE_USER_LIMIT_EXCEEDED);
             }
         }
@@ -334,7 +329,6 @@ public class ServicePackageServiceImpl implements ServicePackageService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void recordInvoiceIssued(String householdId) {
-        // RÀNG BUỘC PHÁP LÝ GAP 48 & QTN-01 (TC-03): TUYỆT ĐỐI KHÔNG CHẶN PHÁT HÀNH HÓA ĐƠN!
         try {
             BusinessHousehold household = householdRepository.findById(householdId).orElse(null);
             if (household == null) return;

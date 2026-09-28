@@ -65,12 +65,19 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
+import java.net.ConnectException;
+import java.net.SocketTimeoutException;
+import java.net.UnknownHostException;
+import java.time.Duration;
+import java.util.concurrent.ConcurrentHashMap;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
+import org.springframework.web.client.HttpStatusCodeException;
+import org.springframework.web.client.ResourceAccessException;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class ChatbotServiceImpl implements ChatbotService {
-
     private final UserRepository userRepository;
     private final ReportService reportService;
     private final InventoryWarningService inventoryWarningService;
@@ -99,8 +106,8 @@ public class ChatbotServiceImpl implements ChatbotService {
     @Value("${app.chatbot.gemini.api-url:https://generativelanguage.googleapis.com/v1beta/models}")
     private String geminiApiUrl;
 
-    private final Map<String, Long> modelCooldownMap = new java.util.concurrent.ConcurrentHashMap<>();
-    private static final long COOLDOWN_DURATION_MS = 60_000L; // 60 giây hạ nhiệt khi model chạm trần 429 Rate Limit
+    private final Map<String, Long> modelCooldownMap = new ConcurrentHashMap<>();
+    private static final long COOLDOWN_DURATION_MS = 60_000L;
 
     @Value("${app.chatbot.gemini.connect-timeout-ms:5000}")
     private int geminiConnectTimeoutMs = 5000;
@@ -115,10 +122,10 @@ public class ChatbotServiceImpl implements ChatbotService {
         if (restClient == null) {
             synchronized (this) {
                 if (restClient == null) {
-                    org.springframework.http.client.SimpleClientHttpRequestFactory factory =
-                            new org.springframework.http.client.SimpleClientHttpRequestFactory();
-                    factory.setConnectTimeout(java.time.Duration.ofMillis(geminiConnectTimeoutMs > 0 ? geminiConnectTimeoutMs : 5000));
-                    factory.setReadTimeout(java.time.Duration.ofMillis(geminiReadTimeoutMs > 0 ? geminiReadTimeoutMs : 15000));
+                    SimpleClientHttpRequestFactory factory =
+                            new SimpleClientHttpRequestFactory();
+                    factory.setConnectTimeout(Duration.ofMillis(geminiConnectTimeoutMs > 0 ? geminiConnectTimeoutMs : 5000));
+                    factory.setReadTimeout(Duration.ofMillis(geminiReadTimeoutMs > 0 ? geminiReadTimeoutMs : 15000));
                     restClient = RestClient.builder().requestFactory(factory).build();
                 }
             }
@@ -179,8 +186,8 @@ public class ChatbotServiceImpl implements ChatbotService {
                 || msg.contains("rate limit") || msg.contains("too many requests") || msg.contains("exceeded")) {
             return true;
         }
-        if (t instanceof org.springframework.web.client.HttpStatusCodeException) {
-            int code = ((org.springframework.web.client.HttpStatusCodeException) t).getStatusCode().value();
+        if (t instanceof HttpStatusCodeException) {
+            int code = ((HttpStatusCodeException) t).getStatusCode().value();
             return code == 429;
         }
         if (t.getCause() != null) {
@@ -194,10 +201,10 @@ public class ChatbotServiceImpl implements ChatbotService {
      */
     private boolean isNetworkOrTimeoutException(Throwable t) {
         if (t == null) return false;
-        if (t instanceof java.net.SocketTimeoutException
-                || t instanceof java.net.ConnectException
-                || t instanceof java.net.UnknownHostException
-                || t instanceof org.springframework.web.client.ResourceAccessException) {
+        if (t instanceof SocketTimeoutException
+                || t instanceof ConnectException
+                || t instanceof UnknownHostException
+                || t instanceof ResourceAccessException) {
             return true;
         }
         if (t.getCause() != null) {
@@ -218,7 +225,6 @@ public class ChatbotServiceImpl implements ChatbotService {
         return userRepository.findByUsername(username)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
     }
-
 
     private boolean isAccountant(User user) {
         if (user == null || user.getRole() == null) return false;
@@ -246,11 +252,9 @@ public class ChatbotServiceImpl implements ChatbotService {
 
         String userMessage = request.getMessage() != null ? request.getMessage().trim() : "";
 
-        // 1. Nếu có Gemini API Key hợp lệ, xử lý qua chuỗi Failover Models siêu tốc (gemini-3-flash-preview)
         if (StringUtils.hasText(geminiApiKey)) {
             List<String> candidates = getCandidateModels();
 
-            // Nếu tất cả candidate đều đang trong thời gian cooldown, giải phóng cooldown để thử lại lượt mới
             boolean allCoolingDown = candidates.stream().allMatch(this::isModelCoolingDown);
             if (allCoolingDown && !candidates.isEmpty()) {
                 log.info("Tất cả candidate models đều đang bị cooldown, tiến hành reset cooldown map để thử lại lượt mới.");
@@ -291,7 +295,6 @@ public class ChatbotServiceImpl implements ChatbotService {
             log.warn("Toàn bộ chuỗi Gemini Models đã cạn hạn mức hoặc không phản hồi. Tự động chuyển sang Smart Local Fallback.");
         }
 
-        // 2. Chế độ Fallback thông minh: Tự động phân tích ý định và lấy dữ liệu nội bộ
         ChatbotMessageResponse localResponse = processLocalIntent(user, household, userMessage, request.getCurrentScreen());
         if (localResponse != null && !StringUtils.hasText(localResponse.getActiveModel())) {
             localResponse.setActiveModel("local-rules-engine");
@@ -305,7 +308,6 @@ public class ChatbotServiceImpl implements ChatbotService {
         List<ChatbotSuggestionResponse> categories = new ArrayList<>();
 
         if (isCashier(user)) {
-            // Role VT-02: Phân mục gợi ý chuyên biệt cho Nhân viên bán hàng / Thu ngân
             categories.add(ChatbotSuggestionResponse.builder()
                     .category("Thao tác quầy bán hàng (POS)")
                     .suggestions(List.of(
@@ -336,7 +338,6 @@ public class ChatbotServiceImpl implements ChatbotService {
                     ))
                     .build());
         } else if (isAccountant(user)) {
-            // Role VT-03: Phân mục gợi ý chuyên biệt cho Kế toán viên
             categories.add(ChatbotSuggestionResponse.builder()
                     .category("Thuế & Sổ sách kế toán (TT88)")
                     .suggestions(List.of(
@@ -367,7 +368,6 @@ public class ChatbotServiceImpl implements ChatbotService {
                     ))
                     .build());
         } else {
-            // Role VT-01 (Chủ hộ kinh doanh) & Quản trị viên
             categories.add(ChatbotSuggestionResponse.builder()
                     .category("Bán hàng & Doanh thu")
                     .suggestions(List.of(
@@ -417,12 +417,10 @@ public class ChatbotServiceImpl implements ChatbotService {
 
         ObjectNode rootNode = objectMapper.createObjectNode();
 
-        // 0. Cấu hình GenerationConfig tối ưu tốc độ sinh token và giảm độ trễ
         ObjectNode genConfig = rootNode.putObject("generationConfig");
         genConfig.put("maxOutputTokens", 512);
         genConfig.put("temperature", 0.3);
 
-        // 1. System instruction theo vai trò người dùng (RBAC)
         ObjectNode systemInstruction = objectMapper.createObjectNode();
         ArrayNode systemParts = systemInstruction.putArray("parts");
 
@@ -485,12 +483,10 @@ public class ChatbotServiceImpl implements ChatbotService {
         systemParts.addObject().put("text", systemPrompt);
         rootNode.set("systemInstruction", systemInstruction);
 
-        // 2. Function Declarations (Tools) theo phân quyền vai trò
         ArrayNode toolsArray = rootNode.putArray("tools");
         ObjectNode functionDeclarations = toolsArray.addObject();
         ArrayNode declList = functionDeclarations.putArray("functionDeclarations");
 
-        // Tool: query_customers (Cho phép CẢ 3 VAI TRÒ: Chủ hộ, Kế toán và Thu ngân - Epic NCL-10)
         ObjectNode toolCustomers = declList.addObject();
         toolCustomers.put("name", "query_customers");
         toolCustomers.put("description", "Tra cứu danh sách khách hàng thân thiết của cửa hàng, tổng số lượng khách quen, danh sách khách hàng VIP, tỷ lệ chiết khấu, hạn mức công nợ và dư nợ hiện tại để phục vụ bán hàng và chăm sóc khách hàng");
@@ -500,12 +496,10 @@ public class ChatbotServiceImpl implements ChatbotService {
         custProps.putObject("keyword").put("type", "STRING").put("description", "Tên hoặc số điện thoại khách hàng cần tra cứu");
         custProps.putObject("vipOnly").put("type", "BOOLEAN").put("description", "Nếu true, chỉ lọc danh sách khách hàng thân thiết / VIP có chiết khấu");
 
-        // Tool: query_customer_debt (Cho phép CẢ 3 VAI TRÒ: Chủ hộ, Kế toán và Thu ngân - Epic NCL-10 & QTN-13)
         ObjectNode toolCustomerDebt = declList.addObject();
         toolCustomerDebt.put("name", "query_customer_debt");
         toolCustomerDebt.put("description", "Tra cứu tổng công nợ khách hàng hiện tại cần thu hồi, nợ quá hạn và danh sách chi tiết tên từng khách hàng đang nợ cùng số tiền nợ cụ thể để phục vụ quản lý nợ và bán hàng ghi nợ theo hạn mức");
 
-        // Tool: query_daily_revenue (Chỉ Chủ hộ và Kế toán - QTN-10)
         if (!cashier) {
             ObjectNode toolRevenue = declList.addObject();
             toolRevenue.put("name", "query_daily_revenue");
@@ -517,7 +511,6 @@ public class ChatbotServiceImpl implements ChatbotService {
             revProps.putObject("days").put("type", "INTEGER").put("description", "Số ngày cần xem, mặc định 1 là hôm nay");
         }
 
-        // Tool: query_payment_methods (Chỉ Chủ hộ và Kế toán - NCL-07-CN-011)
         if (!cashier) {
             ObjectNode toolPayment = declList.addObject();
             toolPayment.put("name", "query_payment_methods");
@@ -528,7 +521,6 @@ public class ChatbotServiceImpl implements ChatbotService {
             paymentProps.putObject("period").put("type", "STRING").put("description", "Khoảng thời gian: 'today' (hôm nay), 'yesterday' (hôm qua), 'week' (7 ngày qua), 'month' (tháng này), mặc định 'today'");
         }
 
-        // Tool: query_gross_profit (Chỉ Chủ hộ và Kế toán)
         if (!cashier) {
             ObjectNode toolProfit = declList.addObject();
             toolProfit.put("name", "query_gross_profit");
@@ -539,21 +531,18 @@ public class ChatbotServiceImpl implements ChatbotService {
             profitProps.putObject("period").put("type", "STRING").put("description", "Khoảng thời gian: 'today' (hôm nay) hoặc 'month' (tháng này), mặc định 'today'");
         }
 
-        // Tool: query_supplier_debt (Chỉ Chủ hộ và Kế toán - NCL-13)
         if (!cashier) {
             ObjectNode toolSupplierDebt = declList.addObject();
             toolSupplierDebt.put("name", "query_supplier_debt");
             toolSupplierDebt.put("description", "Tra cứu tổng công nợ nhà cung cấp phải trả hiện tại, nợ quá hạn và danh sách chi tiết tên từng nhà cung cấp đang có công nợ cùng số tiền nợ cụ thể");
         }
 
-        // Tool: query_low_stock_products (Chỉ Chủ hộ và Kế toán)
         if (!cashier) {
             ObjectNode toolStock = declList.addObject();
             toolStock.put("name", "query_low_stock_products");
             toolStock.put("description", "Tra cứu danh sách các mặt hàng đang tồn dưới mức tối thiểu an toàn cần nhập thêm");
         }
 
-        // Tool: query_product_stock (Chỉ Chủ hộ và Kế toán)
         if (!cashier) {
             ObjectNode toolProdStock = declList.addObject();
             toolProdStock.put("name", "query_product_stock");
@@ -564,14 +553,12 @@ public class ChatbotServiceImpl implements ChatbotService {
             prodStockProps.putObject("keyword").put("type", "STRING").put("description", "Tên hoặc mã vạch barcode sản phẩm cần tra cứu");
         }
 
-        // Tool: query_inventory_valuation (Chỉ Chủ hộ và Kế toán)
         if (!cashier) {
             ObjectNode toolValuation = declList.addObject();
             toolValuation.put("name", "query_inventory_valuation");
             toolValuation.put("description", "Tra cứu tổng định giá toàn bộ kho hàng theo giá vốn, tổng giá trị theo giá bán lẻ, lãi gộp tiềm năng và tổng số mặt hàng trong kho");
         }
 
-        // Tool: query_active_shift (Cho phép Nhân viên Thu ngân, Kế toán và Chủ hộ)
         ObjectNode toolShift = declList.addObject();
         toolShift.put("name", "query_active_shift");
         if (cashier) {
@@ -580,7 +567,6 @@ public class ChatbotServiceImpl implements ChatbotService {
             toolShift.put("description", "Tra cứu tất cả các ca bán hàng hiện tại đang mở của toàn bộ các quầy/chi nhánh của cửa hàng, tổng số ca đang mở (totalOpenShifts), danh sách chi tiết từng nhân viên trực ca (openShifts), quầy bán/chi nhánh, thời gian mở ca, tiền mặt đầu ca, tiền mặt dự kiến trong két và doanh thu từng ca");
         }
 
-        // Tool: query_annual_revenue (Chỉ Chủ hộ và Kế toán)
         if (!cashier) {
             ObjectNode toolAnnual = declList.addObject();
             toolAnnual.put("name", "query_annual_revenue");
@@ -591,28 +577,24 @@ public class ChatbotServiceImpl implements ChatbotService {
             annualProps.putObject("year").put("type", "INTEGER").put("description", "Năm cần tra cứu, ví dụ 2026");
         }
 
-        // Tool: query_einvoice_status (Chỉ Chủ hộ và Kế toán)
         if (!cashier) {
             ObjectNode toolInvoices = declList.addObject();
             toolInvoices.put("name", "query_einvoice_status");
             toolInvoices.put("description", "Tra cứu toàn diện tình trạng hóa đơn điện tử của cửa hàng: số lượng hóa đơn bản nháp (DRAFT), số hóa đơn đã cấp mã thuế (ISSUED), số hóa đơn chờ cấp mã (WAITING_TAX_CODE), số hóa đơn lỗi truyền nhận thuế (SEND_ERROR), số hóa đơn đã hủy (CANCELED), tổng số hóa đơn và danh sách chi tiết các hóa đơn nháp hoặc lỗi mới nhất");
         }
 
-        // Tool: query_tax_reminders (Chỉ Chủ hộ và Kế toán)
         if (!cashier) {
             ObjectNode toolTax = declList.addObject();
             toolTax.put("name", "query_tax_reminders");
             toolTax.put("description", "Tra cứu các thông báo nhắc nộp thuế, kỳ tính thuế (tháng/quý) sắp đến hạn hoặc quá hạn nộp tờ khai theo Thông tư 88");
         }
 
-        // Tool: query_top_selling_products (Chỉ Chủ hộ và Kế toán)
         if (!cashier) {
             ObjectNode toolTop = declList.addObject();
             toolTop.put("name", "query_top_selling_products");
             toolTop.put("description", "Tra cứu danh sách các mặt hàng bán chạy nhất (Top selling) của cửa hàng theo doanh thu và số lượng bán");
         }
 
-        // Tool: query_peak_hours (Chỉ Chủ hộ và Kế toán)
         if (!cashier) {
             ObjectNode toolPeak = declList.addObject();
             toolPeak.put("name", "query_peak_hours");
@@ -623,7 +605,6 @@ public class ChatbotServiceImpl implements ChatbotService {
             peakProps.putObject("period").put("type", "STRING").put("description", "Khoảng thời gian phân tích: 'today' (hôm nay), 'week' (7 ngày qua), 'month' (tháng này/30 ngày qua), mặc định 'month'");
         }
 
-        // 3. Contents (History + User prompt)
         ArrayNode contentsArray = rootNode.putArray("contents");
 
         if (request.getHistory() != null) {
@@ -640,7 +621,6 @@ public class ChatbotServiceImpl implements ChatbotService {
         userMsgNode.put("role", "user");
         userMsgNode.putArray("parts").addObject().put("text", request.getMessage());
 
-        // Gửi request lần 1 tới Gemini
         String responseBody = getRestClient().post()
                 .uri(endpoint)
                 .contentType(MediaType.APPLICATION_JSON)
@@ -668,11 +648,9 @@ public class ChatbotServiceImpl implements ChatbotService {
             }
         }
 
-        // Nếu LLM yêu cầu Function Call: thực thi tool và gửi kết quả lại cho Gemini
         if (functionName != null) {
             Map<String, Object> toolResult = executeTool(user, household, functionName, functionArgs);
 
-            // Gửi Turn 2: giữ nguyên toàn bộ parts của model từ Turn 1 (bao gồm thoughtSignature, id)
             ObjectNode modelFunctionCallMsg = contentsArray.addObject();
             modelFunctionCallMsg.put("role", "model");
             ArrayNode modelParts = modelFunctionCallMsg.putArray("parts");
@@ -680,7 +658,6 @@ public class ChatbotServiceImpl implements ChatbotService {
                 modelParts.add(part);
             }
 
-            // Tạo phản hồi kết quả Tool (functionResponse) theo chuẩn Google Gemini API
             ObjectNode userFunctionResponseMsg = contentsArray.addObject();
             userFunctionResponseMsg.put("role", "user");
             ObjectNode funcResponsePart = userFunctionResponseMsg.putArray("parts").addObject().putObject("functionResponse");
@@ -689,7 +666,6 @@ public class ChatbotServiceImpl implements ChatbotService {
             responseContainer.put("name", functionName);
             responseContainer.set("content", objectMapper.valueToTree(toolResult));
 
-            // Gọi lượt 2 tới Gemini để tổng hợp câu trả lời
             String turn2ResponseBody = getRestClient().post()
                     .uri(endpoint)
                     .contentType(MediaType.APPLICATION_JSON)
@@ -727,7 +703,6 @@ public class ChatbotServiceImpl implements ChatbotService {
                     .build();
         }
 
-        // Nếu trả lời văn bản trực tiếp
         String textReply = "";
         for (JsonNode part : contentParts) {
             if (part.has("text") && StringUtils.hasText(part.path("text").asText())) {
@@ -758,7 +733,6 @@ public class ChatbotServiceImpl implements ChatbotService {
         String username = user.getUsername();
         Map<String, Object> result = new HashMap<>();
 
-        // Chốt chặn bảo mật RBAC: Nhân viên bán hàng (VT-02) được phép tra cứu ca trực, khách hàng thân thiết và công nợ bán lẻ theo Epic NCL-10 & QTN-13
         if (isCashier(user)) {
             boolean allowedForCashier = "query_active_shift".equals(toolName)
                     || "query_customers".equals(toolName)
@@ -1072,7 +1046,6 @@ public class ChatbotServiceImpl implements ChatbotService {
                 boolean cashier = isCashier(user);
                 List<Shift> openShifts;
                 if (cashier) {
-                    // Thu ngân (VT-02) chỉ có quyền tra cứu ca trực của chính mình tại quầy được phân công
                     openShifts = shiftRepository.findByUserIdAndStatus(user.getId(), ShiftStatus.OPEN)
                             .map(List::of)
                             .orElseGet(Collections::emptyList);
@@ -1127,7 +1100,6 @@ public class ChatbotServiceImpl implements ChatbotService {
                     }
                     result.put("openShifts", shiftList);
 
-                    // Tương thích ngược với các trường đơn lẻ của ca mới nhất
                     Shift latestShift = openShifts.get(0);
                     result.put("cashierName", latestShift.getUser() != null ? latestShift.getUser().getFullName() : "Nhân viên");
                     result.put("posName", latestShift.getPointOfSale() != null ? latestShift.getPointOfSale().getName() : "Quầy chính");
@@ -1332,7 +1304,6 @@ public class ChatbotServiceImpl implements ChatbotService {
     private ChatbotMessageResponse processLocalIntent(User user, BusinessHousehold household, String userMessage, String currentScreen) {
         String lower = userMessage.toLowerCase();
 
-        // 1. Ý định Công nợ Nhà cung cấp (Ưu tiên xử lý khi nhắc tới ncc/nhà cung cấp/phải trả/nợ nhập/gồm những ai)
         boolean isSupplierDebtQuery = lower.contains("nhà cung cấp") || lower.contains("ncc") || lower.contains("nợ nhập")
                 || lower.contains("phải trả") || lower.contains("trả nợ ncc") || lower.contains("nợ nhà cc")
                 || ((lower.contains("gồm") || lower.contains("những ai") || lower.contains("danh sách") || lower.contains("nợ ai")) && !lower.contains("khách"));
@@ -1389,7 +1360,6 @@ public class ChatbotServiceImpl implements ChatbotService {
                     .build();
         }
 
-        // 2. Ý định Lợi nhuận gộp & Giá vốn
         if (lower.contains("lợi nhuận") || lower.contains("lãi gộp") || lower.contains("giá vốn") || lower.contains("tiền lãi") || lower.contains("tỷ suất lợi nhuận") || lower.contains("lãi bao nhiêu")) {
             if (isCashier(user)) {
                 return ChatbotMessageResponse.builder()
@@ -1437,7 +1407,6 @@ public class ChatbotServiceImpl implements ChatbotService {
                     .build();
         }
 
-        // 3. Ý định Báo cáo Định giá kho toàn bộ
         if (lower.contains("giá trị kho") || lower.contains("định giá kho") || lower.contains("tiền hàng trong kho") || lower.contains("kho còn bao nhiêu tiền") || lower.contains("giá trị tồn kho")) {
             if (isCashier(user)) {
                 return ChatbotMessageResponse.builder()
@@ -1489,7 +1458,6 @@ public class ChatbotServiceImpl implements ChatbotService {
                     .build();
         }
 
-        // 3.9. Ý định thắc mắc phân quyền xem cơ sở / ca trực của Thu ngân
         if (lower.contains("sao là thu ngân") || lower.contains("sao thu ngân") || (lower.contains("thu ngân") && (lower.contains("tất cả các cơ sở") || lower.contains("tất cả cơ sở") || lower.contains("cơ sở khác") || lower.contains("các cơ sở"))) || lower.contains("thu ngân xem được gì")) {
             return ChatbotMessageResponse.builder()
                     .reply("🔒 **Quy Định Phân Quyền Bảo Mật Dành Cho Thu Ngân (VT-02)**\n\n" +
@@ -1509,10 +1477,8 @@ public class ChatbotServiceImpl implements ChatbotService {
                     .build();
         }
 
-        // 4. Ý định Ca làm việc & Tiền trong két / Dòng tiền ca
         if (lower.contains("ca làm việc") || lower.contains("tiền két") || lower.contains("tiền trong két") || lower.contains("ai đang trực") || lower.contains("ca bán hàng") || lower.contains("két tiền") || lower.contains("ca trực") || lower.contains("ca hiện tại") || lower.contains("mấy ca") || lower.contains("3 ca") || lower.contains("bao nhiêu ca") || lower.contains("còn mấy ca")) {
             if (isCashier(user)) {
-                // Nếu thu ngân cố tình hỏi về cơ sở khác hoặc tất cả cơ sở
                 boolean askingOtherBranches = lower.contains("cơ sở khác") || lower.contains("chi nhánh khác") || lower.contains("tất cả cơ sở") || lower.contains("các cơ sở") || lower.contains("mấy ca") || lower.contains("3 ca") || lower.contains("bao nhiêu ca") || lower.contains("ai đang trực");
                 if (askingOtherBranches) {
                     return ChatbotMessageResponse.builder()
@@ -1527,7 +1493,6 @@ public class ChatbotServiceImpl implements ChatbotService {
                             .build();
                 }
 
-                // Thu ngân hỏi về ca của chính mình
                 Optional<Shift> myShiftOpt = shiftRepository.findByUserIdAndStatus(user.getId(), ShiftStatus.OPEN);
                 if (myShiftOpt.isPresent()) {
                     Shift s = myShiftOpt.get();
@@ -1589,7 +1554,6 @@ public class ChatbotServiceImpl implements ChatbotService {
                 }
             }
 
-            // Đoạn dưới dành cho Chủ hộ / Kế toán (giữ nguyên logic xem tất cả các ca đang mở)
             List<Shift> allShifts = shiftRepository.findByHouseholdIdOrderByOpenedAtDesc(household.getId());
             List<Shift> openShifts = allShifts.stream()
                     .filter(s -> s.getStatus() == ShiftStatus.OPEN)
@@ -1659,7 +1623,6 @@ public class ChatbotServiceImpl implements ChatbotService {
                     .build();
         }
 
-        // 4.1. Ý định Doanh thu cả năm & Giám sát ngưỡng thuế 1 tỷ
         if (lower.contains("doanh thu năm") || lower.contains("ngưỡng 1 tỷ") || lower.contains("ngưỡng thuế") || lower.contains("lũy kế năm") || lower.contains("năm nay bán được")) {
             if (isCashier(user)) {
                 return ChatbotMessageResponse.builder()
@@ -1710,7 +1673,6 @@ public class ChatbotServiceImpl implements ChatbotService {
                     .build();
         }
 
-        // 5. Ý định Hạn nộp thuế & Tờ khai theo Thông tư 88
         if (lower.contains("hạn nộp thuế") || lower.contains("tờ khai thuế") || lower.contains("nhắc thuế") || lower.contains("thuế quý") || lower.contains("thuế tháng") || lower.contains("thông tư 88") || lower.contains("sổ sách kế toán")) {
             if (isCashier(user)) {
                 return ChatbotMessageResponse.builder()
@@ -1756,7 +1718,6 @@ public class ChatbotServiceImpl implements ChatbotService {
                     .build();
         }
 
-        // 5.9. Ý định Doanh thu theo Hình thức / Phương thức thanh toán (Tiền mặt, Chuyển khoản, Ghi nợ)
         boolean isPaymentMethodQuery = lower.contains("phương thức") || lower.contains("hình thức thanh toán")
                 || lower.contains("tiền khoản")
                 || (lower.contains("tiền mặt") && (lower.contains("chuyển khoản") || lower.contains("khoản") || lower.contains("ghi nợ") || lower.contains("nợ") || lower.contains("bao nhiêu")))
@@ -1854,7 +1815,6 @@ public class ChatbotServiceImpl implements ChatbotService {
                     .build();
         }
 
-        // 6. Ý định Doanh thu linh hoạt (Hôm nay / Hôm qua / Tuần này / Tháng này)
         if (lower.contains("doanh thu") || lower.contains("bán được") || lower.contains("tiền bán") || lower.contains("doanh số")) {
             if (isCashier(user)) {
                 return ChatbotMessageResponse.builder()
@@ -1922,7 +1882,6 @@ public class ChatbotServiceImpl implements ChatbotService {
                     .build();
         }
 
-        // 6.1. Ý định Tra cứu tồn kho sản phẩm cụ thể
         if (lower.contains("còn bao nhiêu") || lower.contains("tìm hàng") || lower.contains("tìm sản phẩm") || lower.contains("tra cứu hàng") || lower.contains("tồn kho của") || lower.contains("kiểm tra hàng")) {
             if (isCashier(user)) {
                 return ChatbotMessageResponse.builder()
@@ -1998,7 +1957,6 @@ public class ChatbotServiceImpl implements ChatbotService {
                     .build();
         }
 
-        // 7. Ý định Cảnh báo Tồn kho & Mặt hàng cần nhập
         if (lower.contains("tồn kho") || lower.contains("hết hàng") || lower.contains("sắp hết") || lower.contains("cảnh báo kho") || lower.contains("nhập hàng") || lower.contains("cần nhập") || lower.contains("bán chạy")) {
             if (isCashier(user)) {
                 return ChatbotMessageResponse.builder()
@@ -2047,7 +2005,6 @@ public class ChatbotServiceImpl implements ChatbotService {
                     .build();
         }
 
-        // 8. Ý định Hóa đơn điện tử & Lỗi thuế
         if (lower.contains("hóa đơn") || lower.contains("thuế") || lower.contains("lỗi") || lower.contains("tt78") || lower.contains("thay thế") || lower.contains("hủy")) {
             if (isCashier(user)) {
                 return ChatbotMessageResponse.builder()
@@ -2126,7 +2083,6 @@ public class ChatbotServiceImpl implements ChatbotService {
                     .build();
         }
 
-        // 8.6. Ý định Giờ cao điểm / Phân tích thời gian bán chạy
         if (lower.contains("giờ cao điểm") || lower.contains("khung giờ") || lower.contains("giờ nào") || lower.contains("đông khách") || lower.contains("vắng khách") || lower.contains("ngày bán chạy")) {
             if (isCashier(user)) {
                 return ChatbotMessageResponse.builder()
@@ -2177,7 +2133,6 @@ public class ChatbotServiceImpl implements ChatbotService {
                     .build();
         }
 
-        // 8.5. Ý định Khách hàng thân thiết / Tra cứu khách quen (Epic NCL-10 - Cho phép CẢ 3 VAI TRÒ)
         boolean isCustomerLoyaltyQuery = (lower.contains("thân thiết") || lower.contains("khách quen") || lower.contains("khách vip")
                 || lower.contains("mấy khách") || lower.contains("bao nhiêu khách") || lower.contains("danh sách khách")
                 || lower.contains("tìm khách") || lower.contains("hồ sơ khách") || lower.contains("thông tin khách")
@@ -2248,7 +2203,6 @@ public class ChatbotServiceImpl implements ChatbotService {
                     .build();
         }
 
-        // 9. Ý định Công nợ Khách hàng (Epic NCL-10 & QTN-13)
         if (lower.contains("công nợ") || lower.contains("nợ") || lower.contains("khách nợ") || lower.contains("quá hạn")) {
             DebtSummaryResponse debtSummary = customerDebtService.getDebtSummary(user.getUsername());
             List<Customer> customers = customerRepository.findAllByHouseholdIdAndDeletedAtIsNull(household.getId());
@@ -2303,7 +2257,6 @@ public class ChatbotServiceImpl implements ChatbotService {
                     .build();
         }
 
-        // 10. Mặc định: Chào hỏi & Giới thiệu theo vai trò
         String tipText = StringUtils.hasText(geminiApiKey)
                 ? "*(💡 Bạn có thể hỏi em tự nhiên bằng ngôn ngữ thông thường hoặc bấm Micro để nói)*"
                 : "*(💡 Mẹo: Bạn có thể cấu hình Gemini API Key trong cài đặt để em trả lời thông minh và đàm thoại tự nhiên hơn nữa!)*";
@@ -2672,7 +2625,7 @@ public class ChatbotServiceImpl implements ChatbotService {
                     return List.of("Tổng nợ phải trả nhà cung cấp?", "Báo cáo lợi nhuận gộp hôm nay", "Doanh thu năm nay và tiến độ ngưỡng thuế 1 tỷ");
             }
         }
-        // Chủ hộ (VT-01)
+
         switch (functionName) {
             case "query_peak_hours":
                 return List.of("Báo cáo doanh thu hôm nay", "Mặt hàng nào bán chạy nhất?", "Kiểm tra ca trực & tiền két");
@@ -2698,4 +2651,3 @@ public class ChatbotServiceImpl implements ChatbotService {
         }
     }
 }
-

@@ -16,10 +16,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
 import static org.junit.jupiter.api.Assertions.*;
+import com.sales.modules.audit.dto.response.AuditIntegrityResponse;
+import com.sales.modules.audit.entity.ActivityLog;
 
 @SpringBootTest
 public class AuditLogIntegrationTest {
-
     @Autowired
     private AuditLogService auditLogService;
 
@@ -84,8 +85,7 @@ public class AuditLogIntegrationTest {
     @Test
     @DisplayName("Test repairLegacyHashChain handles legacy unhashed records and restores full integrity")
     void testRepairLegacyHashChain() {
-        // Insert legacy unindexed / unhashed log records
-        com.sales.modules.audit.entity.ActivityLog legacy1 = com.sales.modules.audit.entity.ActivityLog.builder()
+        ActivityLog legacy1 = ActivityLog.builder()
                 .household(owner.getHousehold())
                 .user(owner)
                 .action("LEGACY_ACTION_1")
@@ -98,7 +98,7 @@ public class AuditLogIntegrationTest {
                 .hash(null)
                 .build();
 
-        com.sales.modules.audit.entity.ActivityLog legacy2 = com.sales.modules.audit.entity.ActivityLog.builder()
+        ActivityLog legacy2 = ActivityLog.builder()
                 .household(owner.getHousehold())
                 .user(owner)
                 .action("LEGACY_ACTION_2")
@@ -114,11 +114,9 @@ public class AuditLogIntegrationTest {
         activityLogRepository.saveAndFlush(legacy1);
         activityLogRepository.saveAndFlush(legacy2);
 
-        // Run repair
         auditLogService.repairLegacyHashChain();
 
-        // Verify integrity
-        com.sales.modules.audit.dto.response.AuditIntegrityResponse integrity = auditLogService.verifyIntegrity(owner.getUsername());
+        AuditIntegrityResponse integrity = auditLogService.verifyIntegrity(owner.getUsername());
         assertNotNull(integrity);
         assertTrue(integrity.isValid(), "Chuỗi Hash Chain phải hợp lệ sau khi chuẩn hóa migration");
         assertTrue(integrity.getTotalRecordsChecked() >= 2);

@@ -12,7 +12,6 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 @AllArgsConstructor
 public class UpdateWarningThresholdRequest {
-
     @NotNull(message = "Tỷ lệ phần trăm cảnh báo không được để trống")
     @DecimalMin(value = "50.00", message = "Tỷ lệ cảnh báo tối thiểu là 50.00%")
     @DecimalMax(value = "99.00", message = "Tỷ lệ cảnh báo tối đa là 99.00%")

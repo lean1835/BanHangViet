@@ -12,13 +12,13 @@ import org.springframework.web.bind.annotation.*;
 
 import java.security.Principal;
 import java.util.List;
+import com.sales.modules.auth.dto.request.AdminResetEmployeePasswordRequest;
 
 @RestController
 @RequestMapping("/api/v1/employees")
 @RequiredArgsConstructor
 @PreAuthorize("hasRole('VT-01')")
 public class EmployeeController {
-
     private final EmployeeService employeeService;
 
     @GetMapping
@@ -75,7 +75,7 @@ public class EmployeeController {
     public ResponseEntity<ApiResponse<Void>> resetEmployeePassword(
             Principal principal,
             @PathVariable String id,
-            @Valid @RequestBody com.sales.modules.auth.dto.request.AdminResetEmployeePasswordRequest request) {
+            @Valid @RequestBody AdminResetEmployeePasswordRequest request) {
         employeeService.resetEmployeePassword(principal.getName(), id, request);
         ApiResponse<Void> response = ApiResponse.<Void>builder()
                 .code(1000)

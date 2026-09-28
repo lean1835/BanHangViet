@@ -22,7 +22,6 @@ import java.security.Principal;
 @RequiredArgsConstructor
 @Tag(name = "Tax Authority", description = "API dành cho Cơ quan thuế mô phỏng và Giám sát kết nối thuế (NCL-04-CN-010)")
 public class TaxAuthorityController {
-
     private final EInvoiceService eInvoiceService;
     private final TaxConnectionService taxConnectionService;
 

@@ -40,12 +40,12 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import java.time.LocalDateTime;
 
 @SpringBootTest
 @AutoConfigureMockMvc
 @Transactional
 public class GoodsReceiptControllerTest {
-
     @Autowired
     private MockMvc mockMvc;
 
@@ -192,8 +192,6 @@ public class GoodsReceiptControllerTest {
                 .andExpect(jsonPath("$.result.supplierName").value("Nhà Cung Cấp Sữa Vinamilk"))
                 .andExpect(jsonPath("$.result.totalAmount").value(180000.00));
 
-        // Verify stock added (10 + 20 = 30) and costPrice recalculated:
-        // (10 * 6000 + 20 * 9000) / 30 = (60000 + 180000) / 30 = 240000 / 30 = 8000.00
         Product updatedProduct = productRepository.findById(product1.getId()).orElseThrow();
         assertEquals(new BigDecimal("30.000"), updatedProduct.getStockQuantity());
         assertEquals(new BigDecimal("8000.00"), updatedProduct.getCostPrice());
@@ -227,12 +225,11 @@ public class GoodsReceiptControllerTest {
     @Test
     @WithMockUser(username = "owner_test_inv", roles = "VT-01")
     public void createGoodsReceipt_duplicateNumber_fails() throws Exception {
-        // Save an existing receipt
         GoodsReceipt existing = GoodsReceipt.builder()
                 .household(household)
                 .createdByUser(ownerUser)
                 .receiptNumber("GR-DUP")
-                .receivedAt(java.time.LocalDateTime.now())
+                .receivedAt(LocalDateTime.now())
                 .build();
         goodsReceiptRepository.save(existing);
 
@@ -260,7 +257,7 @@ public class GoodsReceiptControllerTest {
     public void createGoodsReceipt_invalidQuantity_fails() throws Exception {
         CreateGoodsReceiptDetailRequest detail = CreateGoodsReceiptDetailRequest.builder()
                 .productId(product1.getId())
-                .quantity(new BigDecimal("-2.000")) // negative
+                .quantity(new BigDecimal("-2.000"))
                 .purchasePrice(new BigDecimal("8000.00"))
                 .build();
 
@@ -286,7 +283,7 @@ public class GoodsReceiptControllerTest {
 
         CreateGoodsReceiptRequest request = CreateGoodsReceiptRequest.builder()
                 .receiptNumber("GR-FUTURE")
-                .receivedAt(java.time.LocalDateTime.now().plusDays(1)) // future date
+                .receivedAt(LocalDateTime.now().plusDays(1))
                 .details(Collections.singletonList(detail))
                 .build();
 
@@ -317,7 +314,7 @@ public class GoodsReceiptControllerTest {
                 .household(household)
                 .createdByUser(ownerUser)
                 .receiptNumber("GR-LIST")
-                .receivedAt(java.time.LocalDateTime.now())
+                .receivedAt(LocalDateTime.now())
                 .build();
         goodsReceiptRepository.save(existing);
 
@@ -354,7 +351,7 @@ public class GoodsReceiptControllerTest {
                 .household(household)
                 .createdByUser(ownerUser)
                 .receiptNumber("GR-ACCT")
-                .receivedAt(java.time.LocalDateTime.now())
+                .receivedAt(LocalDateTime.now())
                 .build();
         goodsReceiptRepository.save(existing);
 
@@ -387,7 +384,6 @@ public class GoodsReceiptControllerTest {
     @Test
     @WithMockUser(username = "owner_test_inv", roles = "VT-01")
     public void createGoodsReceipt_negativeInitialStock_success() throws Exception {
-        // Set stock to negative (-10)
         product1.setStockQuantity(new BigDecimal("-10.000"));
         productRepository.save(product1);
 
@@ -421,7 +417,7 @@ public class GoodsReceiptControllerTest {
                 .supplier(supplier)
                 .createdByUser(ownerUser)
                 .receiptNumber("GR-WITH-SUP")
-                .receivedAt(java.time.LocalDateTime.now())
+                .receivedAt(LocalDateTime.now())
                 .build();
         goodsReceiptRepository.save(existing);
 
@@ -484,7 +480,6 @@ public class GoodsReceiptControllerTest {
     @Test
     @WithMockUser(username = "owner_test_inv", roles = "VT-01")
     public void createGoodsReceipt_sellingBelowCost_withoutConfirmation_fails() throws Exception {
-        // product1 price is 10000.00, purchase price is 12000.00 (selling below cost)
         CreateGoodsReceiptDetailRequest detail = CreateGoodsReceiptDetailRequest.builder()
                 .productId(product1.getId())
                 .quantity(new BigDecimal("5.000"))

@@ -10,6 +10,5 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class AcceptInvitationRequest {
-    // Optional additional notes or password if creating account on acceptance
     private String notes;
 }

@@ -9,7 +9,6 @@ import java.util.Optional;
 
 @Repository
 public interface ProductPriceTierRepository extends JpaRepository<ProductPriceTier, String> {
-
     @EntityGraph(attributePaths = {"unitConversion", "product"})
     List<ProductPriceTier> findByProductIdAndHouseholdIdOrderByMinQuantityAsc(String productId, String householdId);
 

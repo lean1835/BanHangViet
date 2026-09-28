@@ -16,7 +16,7 @@ public interface CustomerRepository extends JpaRepository<Customer, String> {
     Optional<Customer> findByIdAndHouseholdIdAndDeletedAtIsNull(String id, String householdId);
 
     List<Customer> findAllByIdInAndHouseholdIdAndDeletedAtIsNull(Collection<String> ids, String householdId);
-    
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT c FROM Customer c WHERE c.id = :id AND c.household.id = :householdId AND c.deletedAt IS NULL")
     Optional<Customer> findByIdAndHouseholdIdAndDeletedAtIsNullForUpdate(@Param("id") String id, @Param("householdId") String householdId);

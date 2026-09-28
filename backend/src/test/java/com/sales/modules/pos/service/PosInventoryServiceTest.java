@@ -41,7 +41,6 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 @SuppressWarnings("unused")
 class PosInventoryServiceTest {
-
     @Mock
     private PosInventoryRepository posInventoryRepository;
 
@@ -279,7 +278,7 @@ class PosInventoryServiceTest {
                 .items(List.of(
                         PosInventoryItemRequest.builder()
                                 .productId("prod-cam")
-                                .stockQuantity(BigDecimal.valueOf(8)) // 8 > (10 - 3 = 7)
+                                .stockQuantity(BigDecimal.valueOf(8))
                                 .build()
                 ))
                 .build();

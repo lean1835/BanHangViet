@@ -8,7 +8,6 @@ import java.math.BigDecimal;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class VietnameseNumberToWordsUtilTest {
-
     @Test
     @DisplayName("Test 0 đồng")
     void testZero() {

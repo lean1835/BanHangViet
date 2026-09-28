@@ -14,7 +14,6 @@ import java.util.Optional;
 
 @Repository
 public interface InvoiceNumberRangeRepository extends JpaRepository<InvoiceNumberRange, String> {
-
     @Query("SELECT r FROM InvoiceNumberRange r WHERE r.household.id = :householdId AND r.deletedAt IS NULL AND r.status IN ('ACTIVE', 'WARNING_LOW') ORDER BY r.createdAt DESC")
     List<InvoiceNumberRange> findActiveRangesByHouseholdId(@Param("householdId") String householdId);
 

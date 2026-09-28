@@ -4,7 +4,6 @@ import com.sales.modules.invoice.dto.response.InvoiceResponse;
 import com.sales.common.dto.PageResponse;
 
 public interface EInvoiceAutoRetryService {
-
     InvoiceAutoRetrySummaryResponse processScheduledAutoRetry();
 
     InvoiceAutoRetrySummaryResponse processManualAutoRetryForUser(String currentUsername);

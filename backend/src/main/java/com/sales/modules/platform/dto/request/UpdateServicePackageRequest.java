@@ -15,7 +15,6 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 @AllArgsConstructor
 public class UpdateServicePackageRequest {
-
     @NotBlank(message = "Tên gói dịch vụ không được để trống")
     private String name;
 

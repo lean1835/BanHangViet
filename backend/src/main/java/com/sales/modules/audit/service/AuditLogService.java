@@ -7,7 +7,6 @@ import com.sales.modules.auth.entity.BusinessHousehold;
 import com.sales.modules.auth.entity.User;
 
 public interface AuditLogService {
-
     PageResponse<ActivityLogResponse> getAuditLogs(String currentUsername, ActivityLogFilterRequest filter, String clientIp, String userAgent);
 
     AuditIntegrityResponse verifyIntegrity(String currentUsername);
@@ -17,6 +16,6 @@ public interface AuditLogService {
     byte[] exportAuditLogsToExcel(String currentUsername, ActivityLogFilterRequest filter, String clientIp, String userAgent);
 
     void recordLog(BusinessHousehold household, User actor, String action, String targetTable, String targetId, String oldValue, String newValue, String clientIp, String userAgent);
- 
+
     void repairLegacyHashChain();
 }

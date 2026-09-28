@@ -11,7 +11,6 @@ import java.util.List;
 
 @Repository
 public interface SupplierReturnItemRepository extends JpaRepository<SupplierReturnItem, String> {
-
     @Query("SELECT COALESCE(SUM(sri.quantity), 0) FROM SupplierReturnItem sri " +
            "WHERE sri.receiptDetail.id = :receiptDetailId AND sri.supplierReturn.deletedAt IS NULL")
     BigDecimal sumQuantityReturnedByReceiptDetailId(@Param("receiptDetailId") String receiptDetailId);

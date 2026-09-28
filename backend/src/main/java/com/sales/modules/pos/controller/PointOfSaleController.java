@@ -24,7 +24,6 @@ import java.util.List;
 @RequestMapping("/api/v1/points-of-sale")
 @RequiredArgsConstructor
 public class PointOfSaleController {
-
     private final PointOfSaleService pointOfSaleService;
     private final ReportService reportService;
 
@@ -52,7 +51,6 @@ public class PointOfSaleController {
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(defaultValue = "createdAt") String sortBy,
             @RequestParam(defaultValue = "desc") String sortDir) {
-
         Sort sort = "desc".equalsIgnoreCase(sortDir)
                 ? Sort.by(sortBy).descending()
                 : Sort.by(sortBy).ascending();

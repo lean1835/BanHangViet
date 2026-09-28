@@ -32,13 +32,11 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Slf4j
 public class InvoiceNumberRangeServiceImpl implements InvoiceNumberRangeService {
-
     private final InvoiceNumberRangeRepository rangeRepository;
     private final UserRepository userRepository;
     private final EInvoiceRepository eInvoiceRepository;
     private final BusinessHouseholdRepository householdRepository;
     private final InvoiceTemplateRepository invoiceTemplateRepository;
-
 
     private User getAuthenticatedUser(String username) {
         return userRepository.findByUsername(username)
@@ -70,7 +68,6 @@ public class InvoiceNumberRangeServiceImpl implements InvoiceNumberRangeService 
             throw new AppException(ErrorCode.INVOICE_RANGE_INVALID);
         }
 
-        // Validate overlapping ranges with same pattern and symbol (F-05)
         List<InvoiceNumberRange> overlapping = rangeRepository.findOverlappingRanges(
                 household.getId(), request.getInvoicePattern(), request.getInvoiceSymbol());
         for (InvoiceNumberRange existing : overlapping) {
@@ -118,7 +115,6 @@ public class InvoiceNumberRangeServiceImpl implements InvoiceNumberRangeService 
                 return mapToResponse(configuredRanges.get(0), configuredPattern, configuredSymbol);
             }
 
-            // Tự động khởi tạo dải số mới cho mẫu hóa đơn cấu hình nếu chưa có
             InvoiceNumberRange autoRange = InvoiceNumberRange.builder()
                     .household(household)
                     .invoicePattern(configuredPattern)
@@ -137,7 +133,6 @@ public class InvoiceNumberRangeServiceImpl implements InvoiceNumberRangeService 
 
         List<InvoiceNumberRange> ranges = rangeRepository.findActiveRangesByHouseholdId(household.getId());
         if (ranges.isEmpty()) {
-            // Check if there are any ranges at all
             List<String> statuses = List.of("ACTIVE", "WARNING_LOW", "EXHAUSTED");
             InvoiceNumberRange range = rangeRepository
                     .findFirstByHouseholdIdAndStatusInAndDeletedAtIsNullOrderByCreatedAtDesc(household.getId(), statuses)
@@ -161,7 +156,6 @@ public class InvoiceNumberRangeServiceImpl implements InvoiceNumberRangeService 
         String configuredPattern = templateOpt.map(InvoiceTemplate::getInvoicePattern).map(String::trim).orElse(null);
         String configuredSymbol = templateOpt.map(InvoiceTemplate::getInvoiceSymbol).map(String::trim).orElse(null);
 
-        // Đảm bảo mẫu cấu hình luôn có dải số trong lịch sử dải số đã khai báo bắt đầu từ 0 và có trạng thái Đang sử dụng
         if (configuredPattern != null && configuredSymbol != null && !configuredPattern.isEmpty() && !configuredSymbol.isEmpty()) {
             List<InvoiceNumberRange> existingConfigured = rangeRepository.findOverlappingRanges(
                     household.getId(), configuredPattern, configuredSymbol);
@@ -203,7 +197,6 @@ public class InvoiceNumberRangeServiceImpl implements InvoiceNumberRangeService 
                 .build();
     }
 
-
     @Override
     @Transactional(rollbackFor = Exception.class)
     public String allocateNextInvoiceNumber(String householdId, String pattern, String symbol) {
@@ -215,18 +208,14 @@ public class InvoiceNumberRangeServiceImpl implements InvoiceNumberRangeService 
         }
 
         if (ranges == null || ranges.isEmpty()) {
-            // Check if any range has EVER been declared for this household and pattern/symbol
             List<InvoiceNumberRange> allRanges = (pattern != null && symbol != null)
                     ? rangeRepository.findOverlappingRanges(householdId, pattern, symbol)
                     : rangeRepository.findActiveRangesByHouseholdId(householdId);
 
             if (allRanges != null && !allRanges.isEmpty()) {
-                // Ranges existed but all are exhausted/inactive -> Genuinely exhausted (TC-03)
                 throw new AppException(ErrorCode.INVOICE_RANGE_EXHAUSTED);
             }
 
-            // If no range has ever existed at all (legacy data or initial bootstrap),
-            // auto-provision initial default active range so invoice issuance/approval is never blocked
             String effectivePattern = pattern != null ? pattern : "1";
             String effectiveSymbol = symbol != null ? symbol : "C26TAA";
 
@@ -236,7 +225,6 @@ public class InvoiceNumberRangeServiceImpl implements InvoiceNumberRangeService 
                 try {
                     currentMax = Integer.parseInt(maxNumOpt.get());
                 } catch (NumberFormatException ex) {
-                    // Ignore
                 }
             }
 
@@ -315,7 +303,6 @@ public class InvoiceNumberRangeServiceImpl implements InvoiceNumberRangeService 
         int remaining = Math.max(0, range.getEndNumber() - range.getCurrentNumber());
         String status = range.getStatus();
 
-        // Chỉ dải số trùng với mẫu hóa đơn cấu hình đang áp dụng mới có trạng thái Đang sử dụng (ACTIVE) hoặc Sắp hết số (WARNING_LOW)
         String rangePattern = range.getInvoicePattern() != null ? range.getInvoicePattern().trim() : "";
         String rangeSymbol = range.getInvoiceSymbol() != null ? range.getInvoiceSymbol().trim() : "";
         boolean isConfiguredTemplate = configuredPattern == null || configuredSymbol == null ||
@@ -325,7 +312,7 @@ public class InvoiceNumberRangeServiceImpl implements InvoiceNumberRangeService 
         if (remaining == 0) {
             status = "EXHAUSTED";
         } else if (!isConfiguredTemplate) {
-            status = "INACTIVE"; // Không sử dụng (thuộc mẫu hóa đơn khác với mẫu đang cấu hình)
+            status = "INACTIVE";
         } else if (remaining <= range.getWarningThreshold()) {
             status = "WARNING_LOW";
         } else {
@@ -357,4 +344,3 @@ public class InvoiceNumberRangeServiceImpl implements InvoiceNumberRangeService 
                 .build();
     }
 }
-

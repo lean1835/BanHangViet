@@ -16,7 +16,6 @@ import java.security.Principal;
 @RequestMapping("/api/v1/goods-receipts")
 @RequiredArgsConstructor
 public class GoodsReceiptController {
-
     private final GoodsReceiptService goodsReceiptService;
 
     @PostMapping

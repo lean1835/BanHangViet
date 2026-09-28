@@ -39,7 +39,6 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Slf4j
 public class ProductPriceTierServiceImpl implements ProductPriceTierService {
-
     private final ProductPriceTierRepository productPriceTierRepository;
     private final ProductRepository productRepository;
     private final ProductUnitConversionRepository productUnitConversionRepository;
@@ -82,14 +81,11 @@ public class ProductPriceTierServiceImpl implements ProductPriceTierService {
 
         BigDecimal costPrice = resolveEffectiveCostPrice(product, conversion, household.getId());
 
-        // Validate basic ranges
         validateTierRanges(request.getMinQuantity(), request.getMaxQuantity(), request.getPrice());
 
-        // Validate overlapping with existing active tiers for the same unit
         List<ProductPriceTier> existingTiers = getExistingTiersForUnit(product.getId(), household.getId(), conversion);
         validateNoOverlap(existingTiers, null, request.getMinQuantity(), request.getMaxQuantity(), request.getIsActive());
 
-        // Validate below cost warning (AC-03 & QTN-23)
         checkBelowCostWarning(request.getPrice(), costPrice, request.getConfirmBelowCost());
 
         ProductPriceTier tier = ProductPriceTier.builder()
@@ -134,14 +130,11 @@ public class ProductPriceTierServiceImpl implements ProductPriceTierService {
 
         BigDecimal costPrice = resolveEffectiveCostPrice(product, conversion, household.getId());
 
-        // Validate basic ranges
         validateTierRanges(request.getMinQuantity(), request.getMaxQuantity(), request.getPrice());
 
-        // Validate overlapping
         List<ProductPriceTier> existingTiers = getExistingTiersForUnit(product.getId(), household.getId(), conversion);
         validateNoOverlap(existingTiers, tier.getId(), request.getMinQuantity(), request.getMaxQuantity(), request.getIsActive());
 
-        // Validate below cost warning (AC-03 & QTN-23)
         checkBelowCostWarning(request.getPrice(), costPrice, request.getConfirmBelowCost());
 
         Map<String, Object> oldLogMap = buildTierLogMap(tier, costPrice, costPrice.compareTo(BigDecimal.ZERO) > 0 && tier.getPrice().compareTo(costPrice) < 0);
@@ -203,14 +196,12 @@ public class ProductPriceTierServiceImpl implements ProductPriceTierService {
             throw new AppException(ErrorCode.INVALID_INPUT);
         }
 
-        // Cache conversions for product
         List<ProductUnitConversion> conversions = productUnitConversionRepository.findByProductId(product.getId());
         Map<String, ProductUnitConversion> conversionMap = conversions.stream()
                 .collect(Collectors.toMap(ProductUnitConversion::getId, c -> c));
 
         BigDecimal baseCostPrice = resolveCostPrice(product, household.getId());
 
-        // 1. Validate each tier and cross-validate overlapping within the batch
         Map<String, List<CreatePriceTierRequest>> groupedByUnit = new HashMap<>();
         for (CreatePriceTierRequest tr : tierRequests) {
             validateTierRanges(tr.getMinQuantity(), tr.getMaxQuantity(), tr.getPrice());
@@ -230,7 +221,6 @@ public class ProductPriceTierServiceImpl implements ProductPriceTierService {
             groupedByUnit.computeIfAbsent(unitKey, k -> new ArrayList<>()).add(tr);
         }
 
-        // Validate overlap inside each unit group
         for (List<CreatePriceTierRequest> groupList : groupedByUnit.values()) {
             List<CreatePriceTierRequest> activeInGroup = groupList.stream()
                     .filter(t -> t.getIsActive() == null || Boolean.TRUE.equals(t.getIsActive()))
@@ -247,7 +237,6 @@ public class ProductPriceTierServiceImpl implements ProductPriceTierService {
             }
         }
 
-        // 2. Fetch existing tiers for this product to preserve foreign keys
         List<ProductPriceTier> existingTiers = productPriceTierRepository
                 .findByProductIdAndHouseholdIdOrderByMinQuantityAsc(product.getId(), household.getId());
 
@@ -259,7 +248,6 @@ public class ProductPriceTierServiceImpl implements ProductPriceTierService {
                     ? conversionMap.get(tr.getUnitConversionId())
                     : null;
 
-            // Try to match an existing tier with same conversion and minQuantity
             ProductPriceTier matchedTier = existingTiers.stream()
                     .filter(et -> !matchedExistingTierIds.contains(et.getId()))
                     .filter(et -> {
@@ -294,7 +282,6 @@ public class ProductPriceTierServiceImpl implements ProductPriceTierService {
             }
         }
 
-        // Soft-deactivate existing tiers that are omitted in the new request to prevent fk breaking
         for (ProductPriceTier et : existingTiers) {
             if (!matchedExistingTierIds.contains(et.getId())) {
                 et.setIsActive(false);
@@ -375,7 +362,6 @@ public class ProductPriceTierServiceImpl implements ProductPriceTierService {
             return null;
         }
 
-        // Filter for matching unit
         List<ProductPriceTier> filteredTiers = activeTiers.stream()
                 .filter(t -> {
                     if (StringUtils.hasText(unitConversionId)) {
@@ -386,8 +372,6 @@ public class ProductPriceTierServiceImpl implements ProductPriceTierService {
                 })
                 .collect(Collectors.toList());
 
-        // Find tier with minQuantity <= quantity && (maxQuantity == null || quantity <= maxQuantity)
-        // With highest minQuantity
         return filteredTiers.stream()
                 .filter(t -> quantity.compareTo(t.getMinQuantity()) >= 0)
                 .filter(t -> t.getMaxQuantity() == null || quantity.compareTo(t.getMaxQuantity()) <= 0)
@@ -415,9 +399,7 @@ public class ProductPriceTierServiceImpl implements ProductPriceTierService {
                 ? promoResult.getDiscountAmount().setScale(2, RoundingMode.HALF_UP)
                 : BigDecimal.ZERO;
 
-        // QTN-26: Best deal for customer
         if (promoDiscount.compareTo(BigDecimal.ZERO) > 0 && promoDiscount.compareTo(tierSaving) > 0) {
-            // Promotion NCL-15 gives a strictly better benefit than price tier
             Promotion promoEntity = null;
             return PricingDecision.builder()
                     .unitPrice(regularUnitPrice)
@@ -428,7 +410,6 @@ public class ProductPriceTierServiceImpl implements ProductPriceTierService {
                     .promotionName(promoResult != null ? promoResult.getPromotionName() : null)
                     .build();
         } else if (matchedTier != null) {
-            // Price tier applies (better than or equal to promotion, or standard retail tier AC TC-02)
             return PricingDecision.builder()
                     .unitPrice(tierUnitPrice)
                     .discountAmount(BigDecimal.ZERO)
@@ -438,7 +419,6 @@ public class ProductPriceTierServiceImpl implements ProductPriceTierService {
                     .promotionName(null)
                     .build();
         } else {
-            // Regular retail price without tier or promotion
             return PricingDecision.builder()
                     .unitPrice(regularUnitPrice)
                     .discountAmount(BigDecimal.ZERO)
@@ -449,10 +429,6 @@ public class ProductPriceTierServiceImpl implements ProductPriceTierService {
                     .build();
         }
     }
-
-    // ==========================================
-    // HELPER METHODS
-    // ==========================================
 
     private User getAuthenticatedUser(String username) {
         return userRepository.findByUsername(username)

@@ -28,4 +28,3 @@ public class OrderPaymentResponse {
     private Boolean isTransferOverdue;
     private LocalDateTime createdAt;
 }
-

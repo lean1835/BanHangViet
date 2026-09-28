@@ -13,16 +13,15 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class CreateSupplierReturnRequest {
-
     @NotBlank(message = "Mã phiếu nhập kho gốc không được để trống")
     private String receiptId;
 
-    private String returnNumber; // Tùy chọn, tự động sinh nếu để trống (TH-NCC-...)
+    private String returnNumber;
 
-    private LocalDateTime returnDate; // Mặc định thời điểm hiện tại nếu null
+    private LocalDateTime returnDate;
 
     @NotBlank(message = "Vui lòng chọn hoặc nhập lý do trả hàng")
-    private String reason; // Hàng hỏng, Cận hạn, Sai quy cách, Giao thừa, Khác
+    private String reason;
 
     private String notes;
 

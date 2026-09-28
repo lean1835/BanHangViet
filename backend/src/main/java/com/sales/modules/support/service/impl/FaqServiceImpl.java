@@ -39,7 +39,6 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Slf4j
 public class FaqServiceImpl implements FaqService {
-
     private final FaqItemRepository faqItemRepository;
     private final SupportChannelRepository supportChannelRepository;
     private final UserRepository userRepository;

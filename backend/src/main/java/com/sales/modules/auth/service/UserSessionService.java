@@ -8,7 +8,6 @@ import com.sales.modules.auth.entity.UserSession;
 import java.util.List;
 
 public interface UserSessionService {
-
     UserSession createSession(User user, String clientIp, String userAgent);
 
     boolean validateSession(String sessionId);

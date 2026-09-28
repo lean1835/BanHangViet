@@ -12,7 +12,6 @@ import java.util.Optional;
 
 @Repository
 public interface TaxConnectionLogRepository extends JpaRepository<TaxConnectionLog, String> {
-
     @Query("SELECT l FROM TaxConnectionLog l WHERE " +
            "((:householdId IS NOT NULL AND l.household.id = :householdId) OR " +
            "(:householdId IS NULL AND l.household IS NULL)) " +

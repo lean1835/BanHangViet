@@ -26,7 +26,6 @@ import java.util.List;
 @RequestMapping("/api/v1/anomaly-alerts")
 @RequiredArgsConstructor
 public class AnomalyAlertController {
-
     private final AnomalyDetectionService anomalyDetectionService;
 
     @GetMapping

@@ -12,7 +12,6 @@ import java.math.BigDecimal;
 @AllArgsConstructor
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class BarcodeScanResponse {
-
     private Boolean found;
     private String barcode;
     private String suggestedBarcode;
@@ -32,5 +31,5 @@ public class BarcodeScanResponse {
     private String promotionId;
     private String promotionName;
 
-    private OrderResponse order; // Populated nếu request có truyền orderId và đã thêm/cộng dồn hàng vào đơn thành công
+    private OrderResponse order;
 }

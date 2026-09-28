@@ -38,7 +38,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureMockMvc
 @Transactional
 public class InventoryValuationReportControllerTest {
-
     @Autowired
     private MockMvc mockMvc;
 
@@ -188,8 +187,8 @@ public class InventoryValuationReportControllerTest {
                 .andExpect(jsonPath("$.result.summary.valuedProductsCount").value(1))
                 .andExpect(jsonPath("$.result.summary.missingCostProductsCount").value(1))
                 .andExpect(jsonPath("$.result.summary.totalStockQuantity").value(50.0))
-                .andExpect(jsonPath("$.result.summary.totalInventoryValue").value(450000.0)) // 50 * 9000
-                .andExpect(jsonPath("$.result.summary.totalRetailValue").value(600000.0))    // 50 * 12000
+                .andExpect(jsonPath("$.result.summary.totalInventoryValue").value(450000.0))
+                .andExpect(jsonPath("$.result.summary.totalRetailValue").value(600000.0))
                 .andExpect(jsonPath("$.result.summary.potentialGrossProfit").value(150000.0))
                 .andExpect(jsonPath("$.result.items[0].sku").value("VAL-SKU-01"))
                 .andExpect(jsonPath("$.result.missingCostItems[0].sku").value("VAL-SKU-02"));

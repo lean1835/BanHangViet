@@ -26,11 +26,12 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import com.sales.common.security.AccountantSecurityService;
+import org.springframework.test.web.servlet.ResultMatcher;
 
 @SpringBootTest
 @AutoConfigureMockMvc
 public class TaxPeriodReminderControllerTest {
-
     @Autowired
     private MockMvc mockMvc;
 
@@ -41,7 +42,7 @@ public class TaxPeriodReminderControllerTest {
     private TaxReminderService taxReminderService;
 
     @MockBean
-    private com.sales.common.security.AccountantSecurityService accountantSecurityService;
+    private AccountantSecurityService accountantSecurityService;
 
     @Test
     @DisplayName("GET /reminder-settings: Chủ hộ (VT-01) xem cấu hình thành công")
@@ -268,7 +269,7 @@ public class TaxPeriodReminderControllerTest {
         verify(taxReminderService, never()).markDeclarationAsExported(any(), any());
     }
 
-    private org.springframework.test.web.servlet.ResultMatcher jsonExpect(int code, String message) {
+    private ResultMatcher jsonExpect(int code, String message) {
         return result -> {
             jsonPath("$.code").value(code).match(result);
             jsonPath("$.message").value(message).match(result);

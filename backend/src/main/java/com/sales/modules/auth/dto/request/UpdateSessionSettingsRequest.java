@@ -13,7 +13,6 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class UpdateSessionSettingsRequest {
-
     @NotNull(message = "Thời gian tự hết hạn phiên không được để trống")
     @Min(value = 5, message = "Thời gian tự hết hạn phiên tối thiểu là 5 phút")
     @Max(value = 1440, message = "Thời gian tự hết hạn phiên tối đa là 1440 phút (24 giờ)")

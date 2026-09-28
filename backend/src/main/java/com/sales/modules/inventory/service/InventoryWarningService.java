@@ -7,7 +7,6 @@ import com.sales.modules.inventory.dto.response.PurchaseSuggestionResponse;
 import com.sales.modules.product.dto.response.SlowMovingProductListResponse;
 
 public interface InventoryWarningService {
-
     ProductResponse updateMinStock(String username, String productId, UpdateMinStockRequest request);
 
     LowStockWarningListResponse getLowStockWarnings(String username, String search, String groupId, int page, int size);

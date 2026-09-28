@@ -18,7 +18,6 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class InvoiceNumberRange {
-
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     @Column(length = 36, nullable = false)
@@ -54,7 +53,7 @@ public class InvoiceNumberRange {
 
     @Column(nullable = false, length = 20)
     @Builder.Default
-    private String status = "ACTIVE"; // ACTIVE, WARNING_LOW, EXHAUSTED, INACTIVE
+    private String status = "ACTIVE";
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)

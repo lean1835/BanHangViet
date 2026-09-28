@@ -4,7 +4,6 @@ import com.sales.modules.product.dto.response.ImportPreviewResponse;
 import org.springframework.web.multipart.MultipartFile;
 
 public interface CustomerImportService {
-
     byte[] getImportTemplate();
 
     ImportPreviewResponse previewImport(String currentUsername, MultipartFile file);

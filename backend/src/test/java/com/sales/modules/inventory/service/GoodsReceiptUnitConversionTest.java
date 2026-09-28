@@ -36,10 +36,13 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
+import com.sales.common.dto.PageResponse;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 
 @ExtendWith(MockitoExtension.class)
 class GoodsReceiptUnitConversionTest {
-
     @Mock
     private UserRepository userRepository;
 
@@ -94,7 +97,6 @@ class GoodsReceiptUnitConversionTest {
                 .household(testHousehold)
                 .build();
 
-        // Ban đầu: tồn kho = 0 lon, giá vốn = 0
         testProduct = Product.builder()
                 .id("prod-1")
                 .household(testHousehold)
@@ -106,7 +108,6 @@ class GoodsReceiptUnitConversionTest {
                 .stockQuantity(BigDecimal.ZERO)
                 .build();
 
-        // Đơn vị quy đổi: 1 Thùng = 24 Lon
         testConversion = ProductUnitConversion.builder()
                 .id("conv-1")
                 .product(testProduct)
@@ -119,7 +120,6 @@ class GoodsReceiptUnitConversionTest {
     @Test
     @DisplayName("TC-01: Nhập kho theo đơn vị quy đổi (1 Thùng = 24 Lon, giá 240,000 VND) -> Tồn kho cơ bản tăng 24 lon, giá vốn tính theo đơn vị cơ bản là 10,000 VND/lon (QTN-23)")
     void createGoodsReceipt_withUnitConversion_tc01_success() {
-        // Request: Nhập 1 Thùng với đơn giá 240,000 VND
         CreateGoodsReceiptDetailRequest detailReq = CreateGoodsReceiptDetailRequest.builder()
                 .productId("prod-1")
                 .quantity(new BigDecimal("1"))
@@ -148,14 +148,10 @@ class GoodsReceiptUnitConversionTest {
         assertNotNull(response);
         assertEquals(new BigDecimal("240000.00"), response.getTotalAmount());
 
-        // Kiểm tra biến động tồn kho và giá vốn (TC-01):
-        // Tồn kho cơ bản: 0 + 1 * 24 = 24 lon
         assertEquals(new BigDecimal("24"), testProduct.getStockQuantity());
 
-        // Giá vốn bình quân (QTN-23): 240,000 / 24 = 10,000 VND / lon
         assertEquals(new BigDecimal("10000.00"), testProduct.getCostPrice());
 
-        // Verify batch save details
         verify(goodsReceiptDetailRepository, times(1)).saveAll(argThat(details -> {
             List<GoodsReceiptDetail> list = (List<GoodsReceiptDetail>) details;
             assertEquals(1, list.size());
@@ -201,10 +197,9 @@ class GoodsReceiptUnitConversionTest {
         GoodsReceiptResponse response = goodsReceiptService.createGoodsReceipt("owner", request);
 
         assertNotNull(response);
-        // Tồn kho: 10 + 24 = 34
+
         assertEquals(new BigDecimal("34.000"), testProduct.getStockQuantity());
 
-        // Giá vốn: (10 * 8000 + 240000) / 34 = 320000 / 34 = 9411.76
         assertEquals(new BigDecimal("9411.76"), testProduct.getCostPrice());
     }
 
@@ -237,15 +232,12 @@ class GoodsReceiptUnitConversionTest {
                 .totalAmount(new BigDecimal("500000.00"))
                 .build();
 
-        org.springframework.data.domain.Page<GoodsReceipt> receiptPage =
-                new org.springframework.data.domain.PageImpl<>(List.of(gr1, gr2, gr3));
+        Page<GoodsReceipt> receiptPage =
+                new PageImpl<>(List.of(gr1, gr2, gr3));
 
-        when(goodsReceiptRepository.findByHouseholdId(eq("hh-1"), any(org.springframework.data.domain.Pageable.class)))
+        when(goodsReceiptRepository.findByHouseholdId(eq("hh-1"), any(Pageable.class)))
                 .thenReturn(receiptPage);
 
-        // gr-1: chưa trả (0)
-        // gr-2: trả một phần (500k)
-        // gr-3: trả toàn bộ (500k)
         List<Object[]> returnTotals = List.of(
                 new Object[]{"gr-2", new BigDecimal("500000.00")},
                 new Object[]{"gr-3", new BigDecimal("500000.00")}
@@ -253,7 +245,7 @@ class GoodsReceiptUnitConversionTest {
         when(supplierReturnRepository.sumTotalReturnAmountByReceiptIds(eq(List.of("gr-1", "gr-2", "gr-3")), eq("hh-1")))
                 .thenReturn(returnTotals);
 
-        com.sales.common.dto.PageResponse<GoodsReceiptResponse> result =
+        PageResponse<GoodsReceiptResponse> result =
                 goodsReceiptService.getGoodsReceipts("owner", 0, 10);
 
         assertNotNull(result);

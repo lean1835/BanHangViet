@@ -13,7 +13,6 @@ import java.util.Optional;
 
 @Repository
 public interface ScreenGuideRepository extends JpaRepository<ScreenGuide, String>, JpaSpecificationExecutor<ScreenGuide> {
-
     Optional<ScreenGuide> findByScreenCode(String screenCode);
 
     Optional<ScreenGuide> findByScreenCodeAndIsActiveTrue(String screenCode);

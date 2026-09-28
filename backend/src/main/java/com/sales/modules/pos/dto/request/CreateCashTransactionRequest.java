@@ -16,7 +16,6 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 @AllArgsConstructor
 public class CreateCashTransactionRequest {
-
     @NotNull(message = "Loại giao dịch (INCOME/EXPENSE) không được để trống")
     private CashTransactionType type;
 

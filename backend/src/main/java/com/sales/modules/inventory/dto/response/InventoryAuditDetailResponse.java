@@ -12,7 +12,6 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 @AllArgsConstructor
 public class InventoryAuditDetailResponse {
-
     private String id;
     private String productId;
     private String productSku;

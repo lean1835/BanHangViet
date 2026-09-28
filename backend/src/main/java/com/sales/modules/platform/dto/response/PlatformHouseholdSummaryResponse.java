@@ -6,13 +6,13 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.time.LocalDate;
 
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class PlatformHouseholdSummaryResponse {
-
     private String id;
     private String taxCode;
     private String name;
@@ -26,7 +26,7 @@ public class PlatformHouseholdSummaryResponse {
     private LocalDateTime lastActiveAt;
     private String currentPackageCode;
     private String currentPackageName;
-    private java.time.LocalDate packageEndDate;
+    private LocalDate packageEndDate;
     private Integer maxUsers;
     private Integer maxInvoicesMonth;
     private Integer invoiceCountMonth;

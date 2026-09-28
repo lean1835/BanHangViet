@@ -30,7 +30,6 @@ import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class BusinessHouseholdSettingsServiceImplTest {
-
     @Mock
     private UserRepository userRepository;
     @Mock

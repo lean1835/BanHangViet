@@ -9,7 +9,6 @@ import lombok.*;
 @NoArgsConstructor
 @AllArgsConstructor
 public class CancelInvoiceRequest {
-
     @NotBlank(message = "Lý do hủy không được để trống")
     @Size(min = 10, message = "Lý do hủy phải từ 10 ký tự trở lên")
     private String cancelReason;

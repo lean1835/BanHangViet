@@ -15,7 +15,6 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class CheckExchangeEligibilityRequest {
-
     @NotBlank(message = "ID hóa đơn gốc không được để trống")
     private String originalInvoiceId;
 

@@ -9,10 +9,10 @@ import java.math.BigDecimal;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+import java.time.LocalDateTime;
 
 @Repository
 public interface OrderPaymentRepository extends JpaRepository<OrderPayment, String> {
-
     List<OrderPayment> findByOrderId(String orderId);
 
     List<OrderPayment> findByOrderIdAndHouseholdId(String orderId, String householdId);
@@ -59,7 +59,7 @@ public interface OrderPaymentRepository extends JpaRepository<OrderPayment, Stri
     }
 
     @Query("""
-        SELECT 
+        SELECT
             op.paymentMethod as paymentMethod,
             COALESCE(SUM(op.amount), 0) as totalAmount,
             COUNT(op.id) as count
@@ -76,8 +76,8 @@ public interface OrderPaymentRepository extends JpaRepository<OrderPayment, Stri
     """)
     List<PaymentMethodRevenueProjection> getRevenueByPaymentMethod(
             @Param("householdId") String householdId,
-            @Param("startDate") java.time.LocalDateTime startDate,
-            @Param("endDate") java.time.LocalDateTime endDate,
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate,
             @Param("userId") String userId,
             @Param("shiftId") String shiftId
     );
@@ -96,10 +96,9 @@ public interface OrderPaymentRepository extends JpaRepository<OrderPayment, Stri
     """)
     List<OrderPayment> findPaymentsInPeriod(
             @Param("householdId") String householdId,
-            @Param("startDate") java.time.LocalDateTime startDate,
-            @Param("endDate") java.time.LocalDateTime endDate,
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate,
             @Param("userId") String userId,
             @Param("shiftId") String shiftId
     );
 }
-

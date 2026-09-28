@@ -15,7 +15,6 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class CreateProductExchangeRequest {
-
     @NotBlank(message = "ID hóa đơn gốc không được để trống")
     private String originalInvoiceId;
 
@@ -27,7 +26,7 @@ public class CreateProductExchangeRequest {
     @Valid
     private List<ExchangeNewItemRequest> exchangeItems;
 
-    private String extraPaymentMethod; // CASH, BANK_TRANSFER, QR_TRANSFER, DEBT
+    private String extraPaymentMethod;
 
     private String reason;
 

@@ -36,7 +36,6 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Slf4j
 public class SupplierDebtServiceImpl implements SupplierDebtService {
-
     private final UserRepository userRepository;
     private final SupplierRepository supplierRepository;
     private final SupplierDebtRepository supplierDebtRepository;
@@ -231,7 +230,6 @@ public class SupplierDebtServiceImpl implements SupplierDebtService {
             throw new AppException(ErrorCode.REFUND_AMOUNT_EXCEEDS_DEBT);
         }
 
-        // Tăng currentDebt lên (từ số âm về 0 hoặc giảm bớt khoản NCC đang nợ)
         BigDecimal newDebt = currentDebt.add(request.getAmount());
         if (newDebt.compareTo(BigDecimal.ZERO) > 0) {
             newDebt = BigDecimal.ZERO;
@@ -326,13 +324,11 @@ public class SupplierDebtServiceImpl implements SupplierDebtService {
             return;
         }
 
-        // 1. Giảm nợ lũy kế của nhà cung cấp (cho phép âm thể hiện dư có / NCC nợ hộ kinh doanh)
         BigDecimal currentDebt = supplier.getCurrentDebt() != null ? supplier.getCurrentDebt() : BigDecimal.ZERO;
         BigDecimal newDebt = currentDebt.subtract(totalReturnAmount);
         supplier.setCurrentDebt(newDebt);
         supplierRepository.save(supplier);
 
-        // 2. Tìm khoản nợ gốc DEBT_CREATED liên kết với phiếu nhập này
         List<SupplierDebt> receiptDebts = receipt != null
                 ? supplierDebtRepository.findByGoodsReceiptIdAndHouseholdIdAndType(receipt.getId(), household.getId(), DebtType.DEBT_CREATED)
                 : Collections.emptyList();
@@ -356,7 +352,6 @@ public class SupplierDebtServiceImpl implements SupplierDebtService {
             }
         }
 
-        // Nếu số tiền trả lớn hơn nợ còn lại của phiếu gốc, cấn trừ tiếp vào các khoản nợ PENDING/OVERDUE khác của cùng NCC
         if (remainingToDeduct.compareTo(BigDecimal.ZERO) > 0) {
             List<SupplierDebt> otherDebts = supplierDebtRepository
                     .findBySupplierIdAndHouseholdIdAndStatusInAndTypeOrderByCreatedAtAsc(
@@ -366,7 +361,7 @@ public class SupplierDebtServiceImpl implements SupplierDebtService {
             for (SupplierDebt debt : otherDebts) {
                 if (remainingToDeduct.compareTo(BigDecimal.ZERO) <= 0) break;
                 if (receipt != null && debt.getGoodsReceipt() != null && debt.getGoodsReceipt().getId().equals(receipt.getId())) {
-                    continue; // Đã xử lý ở trên
+                    continue;
                 }
                 BigDecimal debtRemaining = debt.getRemainingAmount() != null ? debt.getRemainingAmount() : BigDecimal.ZERO;
                 if (debtRemaining.compareTo(BigDecimal.ZERO) > 0) {
@@ -383,7 +378,6 @@ public class SupplierDebtServiceImpl implements SupplierDebtService {
             }
         }
 
-        // 3. Ghi nhận bản ghi SupplierDebt loại DEBT_PAID đối ứng
         String notes = "Giảm trừ công nợ do trả hàng lại nhà cung cấp theo phiếu: " + returnNumber;
         if (remainingToDeduct.compareTo(BigDecimal.ZERO) > 0) {
             notes += String.format(" (Khoản tiền NCC cần hoàn lại / dư có: %s đ)", remainingToDeduct.stripTrailingZeros().toPlainString());

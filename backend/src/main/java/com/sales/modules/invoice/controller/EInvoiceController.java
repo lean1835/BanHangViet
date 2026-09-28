@@ -25,17 +25,19 @@ import org.springframework.web.bind.annotation.*;
 import java.security.Principal;
 import java.time.LocalDate;
 import java.util.List;
+import com.sales.modules.customer.dto.request.ResendCustomerDeliveryRequest;
+import com.sales.modules.invoice.dto.response.FailedCustomerDeliveryInvoiceResponse;
+import com.sales.modules.invoice.dto.response.InvoiceDeliveryLogResponse;
+import com.sales.modules.invoice.dto.response.InvoiceRepresentationResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 
 @RestController
 @RequestMapping("/api/v1/invoices")
 @RequiredArgsConstructor
 public class EInvoiceController {
-
     private final EInvoiceService eInvoiceService;
-
-    // ==========================================
-    // NGHIỆP VỤ ĐIỀU CHỈNH HÓA ĐƠN
-    // ==========================================
 
     @PostMapping("/{id}/adjust")
     @PreAuthorize("hasRole('VT-01') or (hasRole('VT-03') and @accountantSecurityService.hasScope(authentication, 'INVOICE'))")
@@ -65,10 +67,6 @@ public class EInvoiceController {
                 .build();
         return ResponseEntity.ok(response);
     }
-
-    // ============================================
-    // NGHIỆP VỤ PHÁT HÀNH HÓA ĐƠN GỐC & TRA CỨU CHUNG
-    // ============================================
 
     @PostMapping("/bulk-issue")
     @PreAuthorize("hasAnyRole('VT-01', 'VT-02')")
@@ -256,7 +254,7 @@ public class EInvoiceController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate,
             @RequestParam(required = false) String search,
-            jakarta.servlet.http.HttpServletRequest httpRequest) {
+            HttpServletRequest httpRequest) {
         String clientIp = httpRequest != null ? httpRequest.getRemoteAddr() : null;
         String userAgent = httpRequest != null ? httpRequest.getHeader("User-Agent") : null;
 
@@ -264,19 +262,19 @@ public class EInvoiceController {
                 principal.getName(), status, fromDate, toDate, search, clientIp, userAgent);
 
         return ResponseEntity.ok()
-                .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"Danh_sach_hoa_don.xlsx\"")
-                .contentType(org.springframework.http.MediaType.APPLICATION_OCTET_STREAM)
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"Danh_sach_hoa_don.xlsx\"")
+                .contentType(MediaType.APPLICATION_OCTET_STREAM)
                 .body(excelBytes);
     }
 
     @GetMapping("/{id}/representation")
     @PreAuthorize("hasAnyRole('VT-01', 'VT-02') or (hasRole('VT-03') and @accountantSecurityService.hasScope(authentication, 'INVOICE'))")
     @Operation(summary = "Xem bản thể hiện hóa đơn điện tử (NCL-05-CN-007)")
-    public ResponseEntity<ApiResponse<com.sales.modules.invoice.dto.response.InvoiceRepresentationResponse>> getInvoiceRepresentation(
+    public ResponseEntity<ApiResponse<InvoiceRepresentationResponse>> getInvoiceRepresentation(
             Principal principal,
             @PathVariable String id) {
-        com.sales.modules.invoice.dto.response.InvoiceRepresentationResponse result = eInvoiceService.getInvoiceRepresentation(principal.getName(), id);
-        ApiResponse<com.sales.modules.invoice.dto.response.InvoiceRepresentationResponse> response = ApiResponse.<com.sales.modules.invoice.dto.response.InvoiceRepresentationResponse>builder()
+        InvoiceRepresentationResponse result = eInvoiceService.getInvoiceRepresentation(principal.getName(), id);
+        ApiResponse<InvoiceRepresentationResponse> response = ApiResponse.<InvoiceRepresentationResponse>builder()
                 .code(1000)
                 .message("Lấy bản thể hiện hóa đơn thành công")
                 .result(result)
@@ -292,8 +290,8 @@ public class EInvoiceController {
             @PathVariable String id) {
         byte[] fileBytes = eInvoiceService.downloadInvoiceRepresentation(principal.getName(), id);
         return ResponseEntity.ok()
-                .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"Hoa_don_" + id + ".html\"")
-                .contentType(org.springframework.http.MediaType.TEXT_HTML)
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"Hoa_don_" + id + ".html\"")
+                .contentType(MediaType.TEXT_HTML)
                 .body(fileBytes);
     }
 
@@ -315,14 +313,14 @@ public class EInvoiceController {
     @GetMapping("/failed-customer-deliveries")
     @PreAuthorize("hasAnyRole('VT-01', 'VT-02') or (hasRole('VT-03') and @accountantSecurityService.hasScope(authentication, 'INVOICE'))")
     @Operation(summary = "Lấy danh sách hóa đơn giao cho khách không thành công (NCL-06-CN-005)")
-    public ResponseEntity<ApiResponse<PageResponse<com.sales.modules.invoice.dto.response.FailedCustomerDeliveryInvoiceResponse>>> getFailedCustomerDeliveries(
+    public ResponseEntity<ApiResponse<PageResponse<FailedCustomerDeliveryInvoiceResponse>>> getFailedCustomerDeliveries(
             Principal principal,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
-        PageResponse<com.sales.modules.invoice.dto.response.FailedCustomerDeliveryInvoiceResponse> result =
+        PageResponse<FailedCustomerDeliveryInvoiceResponse> result =
                 eInvoiceService.getFailedCustomerDeliveries(principal.getName(), page, size);
-        ApiResponse<PageResponse<com.sales.modules.invoice.dto.response.FailedCustomerDeliveryInvoiceResponse>> response =
-                ApiResponse.<PageResponse<com.sales.modules.invoice.dto.response.FailedCustomerDeliveryInvoiceResponse>>builder()
+        ApiResponse<PageResponse<FailedCustomerDeliveryInvoiceResponse>> response =
+                ApiResponse.<PageResponse<FailedCustomerDeliveryInvoiceResponse>>builder()
                         .code(1000)
                         .message("Lấy danh sách hóa đơn giao cho khách không thành công thành công")
                         .result(result)
@@ -336,7 +334,7 @@ public class EInvoiceController {
     public ResponseEntity<ApiResponse<InvoiceResponse>> resendCustomerDelivery(
             Principal principal,
             @PathVariable String invoiceId,
-            @Valid @RequestBody com.sales.modules.customer.dto.request.ResendCustomerDeliveryRequest request) {
+            @Valid @RequestBody ResendCustomerDeliveryRequest request) {
         InvoiceResponse result = eInvoiceService.resendCustomerDelivery(principal.getName(), invoiceId, request);
         ApiResponse<InvoiceResponse> response = ApiResponse.<InvoiceResponse>builder()
                 .code(1000)
@@ -349,11 +347,11 @@ public class EInvoiceController {
     @GetMapping("/{invoiceId}/delivery-history")
     @PreAuthorize("hasAnyRole('VT-01', 'VT-02') or (hasRole('VT-03') and @accountantSecurityService.hasScope(authentication, 'INVOICE'))")
     @Operation(summary = "Xem lịch sử các lần giao hóa đơn cho khách hàng (NCL-06-CN-005)")
-    public ResponseEntity<ApiResponse<List<com.sales.modules.invoice.dto.response.InvoiceDeliveryLogResponse>>> getInvoiceDeliveryHistory(
+    public ResponseEntity<ApiResponse<List<InvoiceDeliveryLogResponse>>> getInvoiceDeliveryHistory(
             Principal principal,
             @PathVariable String invoiceId) {
-        List<com.sales.modules.invoice.dto.response.InvoiceDeliveryLogResponse> result = eInvoiceService.getInvoiceDeliveryHistory(principal.getName(), invoiceId);
-        ApiResponse<List<com.sales.modules.invoice.dto.response.InvoiceDeliveryLogResponse>> response = ApiResponse.<List<com.sales.modules.invoice.dto.response.InvoiceDeliveryLogResponse>>builder()
+        List<InvoiceDeliveryLogResponse> result = eInvoiceService.getInvoiceDeliveryHistory(principal.getName(), invoiceId);
+        ApiResponse<List<InvoiceDeliveryLogResponse>> response = ApiResponse.<List<InvoiceDeliveryLogResponse>>builder()
                 .code(1000)
                 .message("Lấy lịch sử giao hóa đơn cho khách hàng thành công")
                 .result(result)
@@ -361,4 +359,3 @@ public class EInvoiceController {
         return ResponseEntity.ok(response);
     }
 }
-

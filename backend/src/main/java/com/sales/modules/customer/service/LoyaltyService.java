@@ -12,7 +12,6 @@ import com.sales.modules.order.entity.ReturnTicket;
 import com.sales.modules.auth.entity.User;
 
 public interface LoyaltyService {
-
     LoyaltyProgramConfigResponse getProgramConfig(String currentUsername);
 
     LoyaltyProgramConfigResponse updateProgramConfig(String currentUsername, LoyaltyProgramConfigRequest request);

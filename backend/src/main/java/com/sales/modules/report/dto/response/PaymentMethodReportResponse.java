@@ -15,7 +15,6 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class PaymentMethodReportResponse {
-
     @Builder.Default
     private BigDecimal totalRevenue = BigDecimal.ZERO;
 

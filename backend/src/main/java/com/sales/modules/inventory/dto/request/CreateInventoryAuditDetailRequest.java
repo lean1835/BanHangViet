@@ -16,7 +16,6 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 @AllArgsConstructor
 public class CreateInventoryAuditDetailRequest {
-
     @NotBlank(message = "Mã sản phẩm không được để trống")
     private String productId;
 

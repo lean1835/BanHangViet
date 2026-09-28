@@ -41,10 +41,11 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
+import com.sales.common.constant.StockMovementType;
+import com.sales.modules.supplier.repository.SupplierReturnItemRepository;
 
 @ExtendWith(MockitoExtension.class)
 class StockCardServiceImplTest {
-
     @Mock
     private UserRepository userRepository;
 
@@ -64,7 +65,7 @@ class StockCardServiceImplTest {
     private InventoryAuditDetailRepository inventoryAuditDetailRepository;
 
     @Mock
-    private com.sales.modules.supplier.repository.SupplierReturnItemRepository supplierReturnItemRepository;
+    private SupplierReturnItemRepository supplierReturnItemRepository;
 
     @Mock
     private ProductExchangeItemRepository productExchangeItemRepository;
@@ -107,7 +108,6 @@ class StockCardServiceImplTest {
         when(productRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("prod-1", "hh-1"))
                 .thenReturn(Optional.of(testProduct));
 
-        // 1. Goods receipt: +100 at 2026-09-02
         GoodsReceipt receipt = GoodsReceipt.builder()
                 .id("gr-1")
                 .receiptNumber("PN001")
@@ -123,7 +123,6 @@ class StockCardServiceImplTest {
                 .createdAt(LocalDateTime.of(2026, 9, 2, 8, 0))
                 .build();
 
-        // 2. Sale order: -20 at 2026-09-05
         Order order = Order.builder()
                 .id("ord-1")
                 .orderNumber("HD001")
@@ -139,7 +138,6 @@ class StockCardServiceImplTest {
                 .createdAt(LocalDateTime.of(2026, 9, 5, 10, 30))
                 .build();
 
-        // 3. Customer return: +5 at 2026-09-08
         ReturnTicket returnTicket = ReturnTicket.builder()
                 .id("rt-1")
                 .ticketNumber("PTH001")
@@ -156,7 +154,6 @@ class StockCardServiceImplTest {
                 .createdAt(LocalDateTime.of(2026, 9, 8, 14, 0))
                 .build();
 
-        // 4. Inventory audit: diff +45 at 2026-09-15
         InventoryAudit audit = InventoryAudit.builder()
                 .id("aud-1")
                 .auditNumber("KK001")
@@ -193,12 +190,10 @@ class StockCardServiceImplTest {
         when(inventoryAuditDetailRepository.sumDifferenceAllTime("prod-1", "hh-1"))
                 .thenReturn(new BigDecimal("45.000"));
 
-        // Execute service call
         LocalDate fromDate = LocalDate.of(2026, 9, 1);
         LocalDate toDate = LocalDate.of(2026, 9, 30);
         StockCardResponse response = stockCardService.getStockCard("owner", "prod-1", fromDate, toDate, 0, 20);
 
-        // Verify summary
         assertNotNull(response);
         assertEquals("prod-1", response.getProductId());
         assertEquals("SP001", response.getProductSku());
@@ -210,26 +205,21 @@ class StockCardServiceImplTest {
         assertFalse(response.getIsDiscrepancy());
         assertNull(response.getWarning());
 
-        // Verify movements (newest first)
         List<StockMovementResponse> movements = response.getMovements().getContent();
         assertEquals(4, movements.size());
 
-        // Movement 1 (Newest): Inventory Audit
         assertEquals("INVENTORY_AUDIT", movements.get(0).getDocumentType());
         assertEquals(0, new BigDecimal("45.000").compareTo(movements.get(0).getQuantityIn()));
         assertEquals(0, new BigDecimal("130.000").compareTo(movements.get(0).getBalanceAfter()));
 
-        // Movement 2: Return
         assertEquals("CUSTOMER_RETURN", movements.get(1).getDocumentType());
         assertEquals(0, new BigDecimal("5.000").compareTo(movements.get(1).getQuantityIn()));
         assertEquals(0, new BigDecimal("85.000").compareTo(movements.get(1).getBalanceAfter()));
 
-        // Movement 3: Order
         assertEquals("SALE_ORDER", movements.get(2).getDocumentType());
         assertEquals(0, new BigDecimal("20.000").compareTo(movements.get(2).getQuantityOut()));
         assertEquals(0, new BigDecimal("80.000").compareTo(movements.get(2).getBalanceAfter()));
 
-        // Movement 4 (Oldest): Goods Receipt
         assertEquals("GOODS_RECEIPT", movements.get(3).getDocumentType());
         assertEquals(0, new BigDecimal("100.000").compareTo(movements.get(3).getQuantityIn()));
         assertEquals(0, new BigDecimal("100.000").compareTo(movements.get(3).getBalanceAfter()));
@@ -276,7 +266,6 @@ class StockCardServiceImplTest {
     @Test
     @DisplayName("TC-03: Cảnh báo bất thường khi tồn cuối kỳ không khớp với tồn thực tế trong database")
     void testTC03_DiscrepancyDetected_TamperedStock() {
-        // Database stock tampered to 999 while movement history totals 100
         testProduct.setStockQuantity(new BigDecimal("999.000"));
 
         when(userRepository.findByUsername("owner")).thenReturn(Optional.of(testUser));
@@ -319,7 +308,6 @@ class StockCardServiceImplTest {
         when(productRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("prod-1", "hh-1"))
                 .thenReturn(Optional.of(testProduct));
 
-        // In-period movement (September 2026): -20
         Order order = Order.builder()
                 .id("ord-1")
                 .orderNumber("HD001")
@@ -514,7 +502,6 @@ class StockCardServiceImplTest {
         List<StockMovementResponse> movements = response.getMovements().getContent();
         assertEquals(2, movements.size());
 
-        // Reversing list places SALE_ORDER (OUT) first and GOODS_RECEIPT (IN) second
         assertEquals("SALE_ORDER", movements.get(0).getDocumentType());
         assertEquals("OUT", movements.get(0).getChangeType());
         assertEquals(0, new BigDecimal("80.000").compareTo(movements.get(0).getBalanceAfter()));
@@ -541,10 +528,10 @@ class StockCardServiceImplTest {
                 .id("grd-1")
                 .receipt(gr)
                 .product(testProduct)
-                .quantity(new BigDecimal("1")) // 1 Thùng
+                .quantity(new BigDecimal("1"))
                 .unitName("Thùng")
                 .conversionFactor(new BigDecimal("24"))
-                .baseQuantity(new BigDecimal("24")) // = 24 Lon
+                .baseQuantity(new BigDecimal("24"))
                 .createdAt(t1)
                 .build();
 
@@ -559,10 +546,10 @@ class StockCardServiceImplTest {
                 .id("oi-1")
                 .order(order)
                 .product(testProduct)
-                .quantity(new BigDecimal("1")) // Bán 1 Thùng
+                .quantity(new BigDecimal("1"))
                 .unitName("Thùng")
                 .conversionFactor(new BigDecimal("24"))
-                .baseQuantity(new BigDecimal("24")) // = 24 Lon
+                .baseQuantity(new BigDecimal("24"))
                 .createdAt(t2)
                 .build();
 
@@ -584,12 +571,10 @@ class StockCardServiceImplTest {
         List<StockMovementResponse> movements = response.getMovements().getContent();
         assertEquals(2, movements.size());
 
-        // Bán 1 thùng (2026-09-06, mới hơn) -> index 0
         assertEquals(new BigDecimal("24"), movements.get(0).getQuantityOut());
         assertEquals(new BigDecimal("0"), movements.get(0).getBalanceAfter());
         assertTrue(movements.get(0).getNotes().contains("[Quy đổi: 1 Thùng x 24]"));
 
-        // Nhập 1 thùng (2026-09-05, cũ hơn) -> index 1
         assertEquals(new BigDecimal("24"), movements.get(1).getQuantityIn());
         assertEquals(new BigDecimal("24"), movements.get(1).getBalanceAfter());
         assertTrue(movements.get(1).getNotes().contains("[Quy đổi: 1 Thùng x 24]"));
@@ -644,7 +629,6 @@ class StockCardServiceImplTest {
         when(productRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("prod-1", "hh-1"))
                 .thenReturn(Optional.of(testProduct));
 
-        // Phiếu đổi hàng 1: Khách trả lại 2 món SP001 (RETURN_ITEM -> IN +2)
         ProductExchangeTicket ticket1 = ProductExchangeTicket.builder()
                 .id("dx-1")
                 .ticketNumber("DX-20260905-0001")
@@ -664,7 +648,6 @@ class StockCardServiceImplTest {
                 .quantity(new BigDecimal("2.000"))
                 .build();
 
-        // Phiếu đổi hàng 2: Khách lấy 1 món SP001 (EXCHANGE_ITEM -> OUT -1)
         ProductExchangeTicket ticket2 = ProductExchangeTicket.builder()
                 .id("dx-2")
                 .ticketNumber("DX-20260906-0001")
@@ -695,8 +678,7 @@ class StockCardServiceImplTest {
         assertEquals(0, new BigDecimal("1.000").compareTo(response.getTotalQuantityOut()));
         assertEquals(2, response.getMovements().getTotalElements());
 
-        // Kiểm tra đúng loại chứng từ PRODUCT_EXCHANGE
-        assertEquals(com.sales.common.constant.StockMovementType.PRODUCT_EXCHANGE, response.getMovements().getContent().get(0).getDocumentType());
-        assertEquals(com.sales.common.constant.StockMovementType.PRODUCT_EXCHANGE, response.getMovements().getContent().get(1).getDocumentType());
+        assertEquals(StockMovementType.PRODUCT_EXCHANGE, response.getMovements().getContent().get(0).getDocumentType());
+        assertEquals(StockMovementType.PRODUCT_EXCHANGE, response.getMovements().getContent().get(1).getDocumentType());
     }
 }

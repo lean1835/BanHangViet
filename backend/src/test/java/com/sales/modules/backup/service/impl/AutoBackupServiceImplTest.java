@@ -34,10 +34,12 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
+import com.sales.modules.customer.repository.CustomerRepository;
+import com.sales.modules.product.repository.ProductRepository;
+import com.sales.modules.supplier.repository.SupplierRepository;
 
 @ExtendWith(MockitoExtension.class)
 public class AutoBackupServiceImplTest {
-
     @Mock
     private BackupConfigRepository backupConfigRepository;
 
@@ -48,13 +50,13 @@ public class AutoBackupServiceImplTest {
     private UserRepository userRepository;
 
     @Mock
-    private com.sales.modules.customer.repository.CustomerRepository customerRepository;
+    private CustomerRepository customerRepository;
 
     @Mock
-    private com.sales.modules.product.repository.ProductRepository productRepository;
+    private ProductRepository productRepository;
 
     @Mock
-    private com.sales.modules.supplier.repository.SupplierRepository supplierRepository;
+    private SupplierRepository supplierRepository;
 
     @Mock
     private ActivityLogHelper activityLogHelper;
@@ -138,7 +140,7 @@ public class AutoBackupServiceImplTest {
         UpdateBackupConfigRequest request = UpdateBackupConfigRequest.builder()
                 .isAutoBackupEnabled(true)
                 .scheduledTime("02:00")
-                .retentionCount(0) // Giá trị không hợp lệ
+                .retentionCount(0)
                 .backupType(BackupType.FULL)
                 .build();
 
@@ -171,9 +173,8 @@ public class AutoBackupServiceImplTest {
     @DisplayName("TC-02: Tự động dọn dẹp (PURGED) bản sao lưu cũ nhất khi vượt quá giới hạn retention_count")
     void testAutoBackup_RetentionLimit_PurgesOldest() {
         when(userRepository.findByUsername("owner_test")).thenReturn(Optional.of(ownerUser));
-        when(backupConfigRepository.findByHouseholdId("hh-test-1")).thenReturn(Optional.of(defaultConfig)); // retentionCount = 7
+        when(backupConfigRepository.findByHouseholdId("hh-test-1")).thenReturn(Optional.of(defaultConfig));
 
-        // Tạo 7 bản sao lưu thành công hiện có trong DB
         List<BackupHistory> activeList = new ArrayList<>();
         for (int i = 1; i <= 7; i++) {
             activeList.add(BackupHistory.builder()
@@ -187,10 +188,8 @@ public class AutoBackupServiceImplTest {
         when(backupHistoryRepository.findActiveSuccessfulBackupsOrderByTimeAsc("hh-test-1")).thenReturn(activeList);
         when(backupHistoryRepository.save(any(BackupHistory.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        // Thực thi tạo bản mới
         autoBackupService.triggerManualBackup("owner_test");
 
-        // Đảm bảo bản cũ nhất (hist-old-1) bị đổi status sang PURGED (TC-02)
         assertEquals("PURGED", activeList.get(0).getStatus());
         assertTrue(activeList.get(0).getNotes().contains("Tự động dọn dẹp"));
     }

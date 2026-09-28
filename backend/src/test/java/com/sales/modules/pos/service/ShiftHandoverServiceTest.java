@@ -35,10 +35,11 @@ import java.util.*;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
+import com.sales.common.constant.CashTransactionStatus;
+import com.sales.modules.pos.repository.CashTransactionRepository;
 
 @ExtendWith(MockitoExtension.class)
 public class ShiftHandoverServiceTest {
-
     @Mock
     private ShiftRepository shiftRepository;
 
@@ -61,7 +62,7 @@ public class ShiftHandoverServiceTest {
     private ObjectMapper objectMapper;
 
     @Mock
-    private com.sales.modules.pos.repository.CashTransactionRepository cashTransactionRepository;
+    private CashTransactionRepository cashTransactionRepository;
 
     @InjectMocks
     private ShiftHandoverServiceImpl shiftHandoverService;
@@ -142,7 +143,7 @@ public class ShiftHandoverServiceTest {
         ShiftHandoverRequest request = ShiftHandoverRequest.builder()
                 .recipientUserId(receiver.getId())
                 .recipientPassword("raw_pwd")
-                .actualCash(new BigDecimal("1500000.00")) // 1000k + 500k = 1500k
+                .actualCash(new BigDecimal("1500000.00"))
                 .differenceReason(null)
                 .notes("Bàn giao bình thường")
                 .build();
@@ -157,7 +158,7 @@ public class ShiftHandoverServiceTest {
         assertEquals(new BigDecimal("1500000.00"), response.getExpectedCash());
         assertEquals(new BigDecimal("1500000.00"), response.getActualCash());
         assertEquals(BigDecimal.ZERO.setScale(2), response.getDifferenceAmount());
-        assertEquals(receiver.getId(), activeShift.getUser().getId()); // Ca đã đổi sang cho receiver
+        assertEquals(receiver.getId(), activeShift.getUser().getId());
     }
 
     @Test
@@ -192,13 +193,13 @@ public class ShiftHandoverServiceTest {
         when(shiftHandoverRepository.findTopByShiftIdOrderByStageNumberDesc(activeShift.getId())).thenReturn(Optional.empty());
 
         when(orderRepository.sumCashSalesAmountByShiftIdAndTimeRange(eq(activeShift.getId()), any(), any()))
-                .thenReturn(new BigDecimal("500000.00")); // Quỹ dự kiến 1500k
+                .thenReturn(new BigDecimal("500000.00"));
 
         ShiftHandoverRequest request = ShiftHandoverRequest.builder()
                 .recipientUserId(receiver.getId())
                 .recipientPassword("raw_pwd")
-                .actualCash(new BigDecimal("1450000.00")) // Thiếu 50k
-                .differenceReason(null) // Không có lý do
+                .actualCash(new BigDecimal("1450000.00"))
+                .differenceReason(null)
                 .build();
 
         AppException ex = assertThrows(AppException.class, () ->
@@ -233,7 +234,7 @@ public class ShiftHandoverServiceTest {
         ShiftHandoverRequest request = ShiftHandoverRequest.builder()
                 .recipientUserId(receiver.getId())
                 .recipientPassword("raw_pwd")
-                .actualCash(new BigDecimal("1450000.00")) // Thiếu 50k
+                .actualCash(new BigDecimal("1450000.00"))
                 .differenceReason("Làm rơi mất tiền thối 50k")
                 .notes("Đã ghi nhận")
                 .build();
@@ -275,7 +276,7 @@ public class ShiftHandoverServiceTest {
         when(shiftRepository.findByUserIdAndStatus(sender.getId(), ShiftStatus.OPEN)).thenReturn(Optional.of(activeShift));
 
         ShiftHandoverRequest request = ShiftHandoverRequest.builder()
-                .recipientUserId(sender.getId()) // Chính mình
+                .recipientUserId(sender.getId())
                 .recipientPassword("pwd")
                 .actualCash(new BigDecimal("1000000.00"))
                 .build();
@@ -393,7 +394,7 @@ public class ShiftHandoverServiceTest {
         when(userRepository.findById(receiver.getId())).thenReturn(Optional.of(receiver));
         when(shiftRepository.existsByUserIdAndStatus(receiver.getId(), ShiftStatus.OPEN)).thenReturn(false);
         when(passwordEncoder.matches("Pass@123", receiver.getPasswordHash())).thenReturn(true);
-        when(cashTransactionRepository.countByShiftIdAndStatus("shift-1", com.sales.common.constant.CashTransactionStatus.PENDING_APPROVAL))
+        when(cashTransactionRepository.countByShiftIdAndStatus("shift-1", CashTransactionStatus.PENDING_APPROVAL))
                 .thenReturn(2L);
 
         AppException ex = assertThrows(AppException.class, () ->

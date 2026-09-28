@@ -42,12 +42,12 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
+import java.math.BigDecimal;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class RestoreServiceImpl implements RestoreService {
-
     private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss");
 
     private final UserRepository userRepository;
@@ -126,22 +126,18 @@ public class RestoreServiceImpl implements RestoreService {
         BackupHistory backup = backupHistoryRepository.findByIdAndHouseholdId(request.getBackupHistoryId(), household.getId())
                 .orElseThrow(() -> new AppException(ErrorCode.BACKUP_FILE_NOT_FOUND));
 
-        // NCL-14-CN-003-TC-02: Kiểm tra bản sao lưu có bị dọn dẹp hoặc lỗi không
         if ("PURGED".equalsIgnoreCase(backup.getStatus()) || "FAILED".equalsIgnoreCase(backup.getStatus())) {
             log.warn("Từ chối phục hồi do bản sao lưu id={} có trạng thái không hợp lệ: {}", backup.getId(), backup.getStatus());
             throw new AppException(ErrorCode.BACKUP_NOT_ELIGIBLE_FOR_RESTORE);
         }
 
-        // NCL-14-CN-003-TC-02: Kiểm tra tính toàn vẹn bản sao lưu (Pre-validation)
         if (backup.getFileName() == null || backup.getFileName().isBlank() || backup.getFileSize() == null || backup.getFileSize() <= 0) {
             log.error("Bản sao lưu id={} bị lỗi cấu trúc hoặc dung lượng không hợp lệ", backup.getId());
             throw new AppException(ErrorCode.BACKUP_CORRUPTED_OR_INVALID);
         }
 
-        // Thực hiện phục hồi dữ liệu
         RestoreHistory restoreHistory;
         try {
-            // Khôi phục thực thể CSDL (Khách hàng, Hàng hóa, Nhà cung cấp...) về trạng thái bản sao lưu
             restoreHouseholdEntities(household, backup);
 
             restoreHistory = RestoreHistory.builder()
@@ -158,13 +154,11 @@ public class RestoreServiceImpl implements RestoreService {
             restoreHistory = restoreHistoryRepository.save(restoreHistory);
             log.info("Phục hồi dữ liệu thành công cho hộ id={} từ bản sao lưu id={} bởi user={}",
                     household.getId(), backup.getId(), user.getUsername());
-
         } catch (Exception e) {
             log.error("Lỗi khi thực hiện lưu vết phục hồi dữ liệu", e);
             throw new AppException(ErrorCode.RESTORE_EXECUTION_FAILED);
         }
 
-        // NCL-14-CN-003-TC-04: Ghi nhật ký kiểm toán với SHA-256 Hash Chain bất biến
         logAudit(household, user, "RESTORE_EXECUTE", restoreHistory.getId(), backup.getFileName(), clientIp, userAgent);
 
         return RestoreResultResponse.builder()
@@ -282,7 +276,6 @@ public class RestoreServiceImpl implements RestoreService {
         try {
             Map<String, Object> snapshotData = null;
 
-            // 1. Thử đọc file JSON snapshot từ đĩa
             if (backup.getFilePath() != null && !backup.getFilePath().isBlank()) {
                 Path path = Paths.get(backup.getFilePath());
                 if (Files.exists(path)) {
@@ -297,9 +290,7 @@ public class RestoreServiceImpl implements RestoreService {
                 }
             }
 
-            // 2. Nếu tìm thấy dữ liệu snapshot trong file JSON -> Khôi phục chính xác từng thực thể
             if (snapshotData != null) {
-                // Khôi phục Khách hàng (Customers)
                 if (customerRepository != null && snapshotData.containsKey("customers")) {
                     List<Map<String, Object>> customerMaps = (List<Map<String, Object>>) snapshotData.get("customers");
                     Set<String> snapshotCustIds = new HashSet<>();
@@ -320,10 +311,10 @@ public class RestoreServiceImpl implements RestoreService {
                         cust.setEmail((String) cMap.get("email"));
                         cust.setAddress((String) cMap.get("address"));
                         if (cMap.get("creditLimit") != null) {
-                            cust.setCreditLimit(new java.math.BigDecimal(cMap.get("creditLimit").toString()));
+                            cust.setCreditLimit(new BigDecimal(cMap.get("creditLimit").toString()));
                         }
                         if (cMap.get("currentDebt") != null) {
-                            cust.setCurrentDebt(new java.math.BigDecimal(cMap.get("currentDebt").toString()));
+                            cust.setCurrentDebt(new BigDecimal(cMap.get("currentDebt").toString()));
                         }
                         if (cMap.get("reminderDaysBefore") != null) {
                             cust.setReminderDaysBefore(Integer.parseInt(cMap.get("reminderDaysBefore").toString()));
@@ -331,11 +322,10 @@ public class RestoreServiceImpl implements RestoreService {
                         if (cMap.get("reminderDaysAfter") != null) {
                             cust.setReminderDaysAfter(Integer.parseInt(cMap.get("reminderDaysAfter").toString()));
                         }
-                        cust.setDeletedAt(null); // Bỏ đánh dấu xóa -> Khôi phục hoạt động!
+                        cust.setDeletedAt(null);
                         customerRepository.save(cust);
                     }
 
-                    // Những khách hàng tạo SAU thời điểm snapshot -> Ẩn đi
                     List<Customer> currentCustomers = customerRepository.findAllByHouseholdId(household.getId());
                     for (Customer c : currentCustomers) {
                         if (!snapshotCustIds.contains(c.getId()) && c.getDeletedAt() == null) {
@@ -345,7 +335,6 @@ public class RestoreServiceImpl implements RestoreService {
                     }
                 }
 
-                // Khôi phục Hàng hóa (Products)
                 if (productRepository != null && snapshotData.containsKey("products")) {
                     List<Map<String, Object>> productMaps = (List<Map<String, Object>>) snapshotData.get("products");
                     Set<String> snapshotProdIds = new HashSet<>();
@@ -368,16 +357,16 @@ public class RestoreServiceImpl implements RestoreService {
                         prod.setName((String) pMap.get("name"));
                         prod.setUnit((String) pMap.get("unit"));
                         if (pMap.get("costPrice") != null) {
-                            prod.setCostPrice(new java.math.BigDecimal(pMap.get("costPrice").toString()));
+                            prod.setCostPrice(new BigDecimal(pMap.get("costPrice").toString()));
                         }
                         if (pMap.get("price") != null) {
-                            prod.setPrice(new java.math.BigDecimal(pMap.get("price").toString()));
+                            prod.setPrice(new BigDecimal(pMap.get("price").toString()));
                         }
                         if (pMap.get("stockQuantity") != null) {
-                            prod.setStockQuantity(new java.math.BigDecimal(pMap.get("stockQuantity").toString()));
+                            prod.setStockQuantity(new BigDecimal(pMap.get("stockQuantity").toString()));
                         }
                         if (pMap.get("minStockQuantity") != null) {
-                            prod.setMinStockQuantity(new java.math.BigDecimal(pMap.get("minStockQuantity").toString()));
+                            prod.setMinStockQuantity(new BigDecimal(pMap.get("minStockQuantity").toString()));
                         }
                         if (pMap.get("status") != null) {
                             prod.setStatus((String) pMap.get("status"));
@@ -395,7 +384,6 @@ public class RestoreServiceImpl implements RestoreService {
                     }
                 }
 
-                // Khôi phục Nhà cung cấp (Suppliers)
                 if (supplierRepository != null && snapshotData.containsKey("suppliers")) {
                     List<Map<String, Object>> supplierMaps = (List<Map<String, Object>>) snapshotData.get("suppliers");
                     Set<String> snapshotSupIds = new HashSet<>();
@@ -419,7 +407,7 @@ public class RestoreServiceImpl implements RestoreService {
                         sup.setAddress((String) sMap.get("address"));
                         sup.setTaxCode((String) sMap.get("taxCode"));
                         if (sMap.get("currentDebt") != null) {
-                            sup.setCurrentDebt(new java.math.BigDecimal(sMap.get("currentDebt").toString()));
+                            sup.setCurrentDebt(new BigDecimal(sMap.get("currentDebt").toString()));
                         }
                         sup.setDeletedAt(null);
                         supplierRepository.save(sup);
@@ -434,7 +422,6 @@ public class RestoreServiceImpl implements RestoreService {
                     }
                 }
 
-                // Khôi phục Nhân viên (Users / Staff)
                 if (userRepository != null && snapshotData.containsKey("users")) {
                     List<Map<String, Object>> userMaps = (List<Map<String, Object>>) snapshotData.get("users");
                     Set<String> snapshotUserIds = new HashSet<>();
@@ -450,7 +437,7 @@ public class RestoreServiceImpl implements RestoreService {
                             if (uMap.get("isActive") != null) {
                                 u.setIsActive(Boolean.parseBoolean(uMap.get("isActive").toString()));
                             }
-                            u.setDeletedAt(null); // Khôi phục nhân viên bị xóa: deletedAt -> null!
+                            u.setDeletedAt(null);
                             userRepository.save(u);
                         }
                     }
@@ -464,9 +451,7 @@ public class RestoreServiceImpl implements RestoreService {
                         }
                     }
                 }
-
             } else {
-                // 3. Fallback: Nếu không có file snapshot, khôi phục dựa theo timestamp backupTime
                 LocalDateTime backupTime = backup.getBackupTime() != null ? backup.getBackupTime() : LocalDateTime.now();
 
                 if (customerRepository != null) {
@@ -512,7 +497,7 @@ public class RestoreServiceImpl implements RestoreService {
                     List<User> currentUsers = userRepository.findByHouseholdId(household.getId());
                     for (User u : currentUsers) {
                         if (u.getDeletedAt() != null && u.getDeletedAt().isAfter(backupTime.minusMinutes(1))) {
-                            u.setDeletedAt(null); // Khôi phục nhân viên bị xóa: deletedAt -> null!
+                            u.setDeletedAt(null);
                             userRepository.save(u);
                         } else if (u.getCreatedAt() != null && u.getCreatedAt().isAfter(backupTime) && u.getDeletedAt() == null
                                 && (u.getRole() == null || !"VT-01".equals(u.getRole().getCode()))) {
@@ -522,7 +507,6 @@ public class RestoreServiceImpl implements RestoreService {
                     }
                 }
             }
-
         } catch (Exception e) {
             log.warn("Cảnh báo trong quá trình đồng bộ phục hồi thực thể CSDL: {}", e.getMessage());
         }

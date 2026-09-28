@@ -53,7 +53,6 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Slf4j
 public class BackupVerificationServiceImpl implements BackupVerificationService {
-
     @Autowired
     @Lazy
     private BackupVerificationService self;
@@ -238,7 +237,6 @@ public class BackupVerificationServiceImpl implements BackupVerificationService 
 
             BackupHistory latestBackup = latestBackupOpt.get();
 
-            // Kiểm tra xem bản sao lưu này đã được kiểm chứng thành công gần đây chưa
             Optional<BackupVerificationHistory> lastVerificationOpt = verificationHistoryRepository
                     .findFirstByHouseholdIdOrderByVerifiedAtDesc(household.getId());
 
@@ -248,13 +246,11 @@ public class BackupVerificationServiceImpl implements BackupVerificationService 
                         && lastVer.getBackupHistory().getId().equals(latestBackup.getId())
                         && "PASSED".equalsIgnoreCase(lastVer.getStatus())
                         && lastVer.getVerifiedAt().isAfter(LocalDateTime.now().minusHours(23))) {
-                    // Đã kiểm chứng đạt bản này trong 24h qua, bỏ qua
                     return;
                 }
             }
 
             getSelf().executeSandboxVerification(household, latestBackup, "AUTOMATIC", "Tự động kiểm thử phục hồi theo lịch hệ thống", null);
-
         } catch (Exception e) {
             log.error("Lỗi khi chạy thử phục hồi định kỳ bất đồng bộ cho hộ id={}", household.getId(), e);
         }
@@ -268,7 +264,6 @@ public class BackupVerificationServiceImpl implements BackupVerificationService 
             String triggerType,
             String notes,
             User actor) {
-
         long startTime = System.currentTimeMillis();
         boolean fileReadable = false;
         boolean recordCountsMatched = false;
@@ -282,9 +277,6 @@ public class BackupVerificationServiceImpl implements BackupVerificationService 
         String status = "PASSED";
 
         try {
-            // ==========================================
-            // PILLAR 1: Kiểm tra khả năng đọc tệp (Sandbox)
-            // ==========================================
             Path targetDiskPath = resolveBackupFilePath(household.getId(), backup);
             if (targetDiskPath == null || !Files.exists(targetDiskPath)) {
                 status = "FAILED";
@@ -306,15 +298,11 @@ public class BackupVerificationServiceImpl implements BackupVerificationService 
                     if (snapshotData != null) {
                         fileReadable = true;
 
-                        // Kiểm tra tính toàn vẹn đa người thuê (Multi-tenancy): householdId trong tệp phải khớp
                         Object snapHId = snapshotData.get("householdId");
                         if (snapHId == null || !household.getId().equals(snapHId.toString())) {
                             status = "FAILED";
                             failureReason = "Dữ liệu bản sao lưu không có hoặc không khớp với định danh hộ kinh doanh hiện tại";
                         } else {
-                            // ==========================================
-                            // PILLAR 2: Đối soát số lượng bản ghi chính
-                            // ==========================================
                             boolean hasProducts = snapshotData.get("products") instanceof List;
                             boolean hasUsers = snapshotData.get("users") instanceof List;
                             boolean hasCustomers = snapshotData.get("customers") instanceof List;
@@ -345,9 +333,6 @@ public class BackupVerificationServiceImpl implements BackupVerificationService 
                                 failureReason = (failureReason == null) ? pillar2Reason : failureReason + "; " + pillar2Reason;
                             }
 
-                            // ==========================================
-                            // PILLAR 3: Thẩm định chuỗi kiểm toán SHA-256 (QTN-25)
-                            // ==========================================
                             AuditIntegrityResponse integrityRes = auditLogService.verifyIntegrityForHousehold(household.getId());
                             auditCount = (int) integrityRes.getTotalRecordsChecked();
                             auditChainIntact = integrityRes.isValid();
@@ -362,7 +347,6 @@ public class BackupVerificationServiceImpl implements BackupVerificationService 
                     }
                 }
             }
-
         } catch (Exception e) {
             log.error("Ngoại lệ khi thực hiện thử phục hồi trong sandbox cho backup id={}", backup.getId(), e);
             status = "FAILED";
@@ -395,12 +379,10 @@ public class BackupVerificationServiceImpl implements BackupVerificationService 
 
         BackupVerificationHistory savedHistory = verificationHistoryRepository.save(history);
 
-        // NCL-14-CN-005-TC-02: Bắn AppNotification cảnh báo khi FAILED
         if ("FAILED".equalsIgnoreCase(status)) {
             dispatchFailureNotification(household, savedHistory);
         }
 
-        // Ghi vết nhật ký kiểm toán
         logActivity(household, actor, "FAILED".equalsIgnoreCase(status) ? "BACKUP_VERIFY_FAILED" : "BACKUP_VERIFY_SUCCESS",
                 savedHistory.getId(), backup.getFileName(), status, failureReason);
 

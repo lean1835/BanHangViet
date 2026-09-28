@@ -38,10 +38,14 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
+import com.sales.modules.promotion.dto.request.AutoApplyPromotionRequest;
+import com.sales.modules.promotion.dto.request.OrderItemPromotionCheckRequest;
+import com.sales.modules.promotion.dto.response.AutoApplyPromotionResponse;
+import com.sales.modules.promotion.dto.response.PromotionItemResultResponse;
+import com.sales.modules.promotion.dto.response.PromotionReportResponse;
 
 @ExtendWith(MockitoExtension.class)
 class PromotionServiceImplTest {
-
     @Mock
     private PromotionRepository promotionRepository;
 
@@ -135,7 +139,7 @@ class PromotionServiceImplTest {
                 .discountValue(BigDecimal.valueOf(10))
                 .applyScope(PromotionApplyScope.ALL)
                 .startDate(LocalDateTime.now().plusDays(5))
-                .endDate(LocalDateTime.now().plusDays(1)) // End date before start date
+                .endDate(LocalDateTime.now().plusDays(1))
                 .build();
 
         when(userRepository.findByUsername("owner")).thenReturn(Optional.of(mockUser));
@@ -441,10 +445,6 @@ class PromotionServiceImplTest {
         verify(promotionRepository, times(1)).save(existingPromo);
     }
 
-    // ==========================================
-    // AUTO APPLY PROMOTION TESTS (NCL-15-CN-002)
-    // ==========================================
-
     @Test
     @DisplayName("NCL-15-CN-002-TC-01: Luồng thành công - Áp dụng tự động đợt khuyến mại đang hiệu lực")
     void testTC01_AutoApplySingleActivePromotion_Success() {
@@ -459,18 +459,18 @@ class PromotionServiceImplTest {
         when(productRepository.findAllByIdInAndHouseholdIdAndDeletedAtIsNull(any(), eq("household-123")))
                 .thenReturn(List.of(product));
 
-        com.sales.modules.promotion.dto.request.AutoApplyPromotionRequest request = com.sales.modules.promotion.dto.request.AutoApplyPromotionRequest.builder()
-                .items(List.of(com.sales.modules.promotion.dto.request.OrderItemPromotionCheckRequest.builder()
+        AutoApplyPromotionRequest request = AutoApplyPromotionRequest.builder()
+                .items(List.of(OrderItemPromotionCheckRequest.builder()
                         .productId("prod-1")
                         .quantity(new BigDecimal("5"))
                         .build()))
                 .build();
 
-        com.sales.modules.promotion.dto.response.AutoApplyPromotionResponse response = promotionService.autoApplyPromotions("nhanvien", request);
+        AutoApplyPromotionResponse response = promotionService.autoApplyPromotions("nhanvien", request);
 
         assertNotNull(response);
         assertEquals(1, response.getItems().size());
-        com.sales.modules.promotion.dto.response.PromotionItemResultResponse itemResult = response.getItems().get(0);
+        PromotionItemResultResponse itemResult = response.getItems().get(0);
 
         assertTrue(itemResult.isHasPromotion());
         assertEquals("promo-10", itemResult.getPromotionId());
@@ -493,17 +493,17 @@ class PromotionServiceImplTest {
         when(productRepository.findAllByIdInAndHouseholdIdAndDeletedAtIsNull(any(), eq("household-123")))
                 .thenReturn(List.of(product));
 
-        com.sales.modules.promotion.dto.request.AutoApplyPromotionRequest request = com.sales.modules.promotion.dto.request.AutoApplyPromotionRequest.builder()
-                .items(List.of(com.sales.modules.promotion.dto.request.OrderItemPromotionCheckRequest.builder()
+        AutoApplyPromotionRequest request = AutoApplyPromotionRequest.builder()
+                .items(List.of(OrderItemPromotionCheckRequest.builder()
                         .productId("prod-1")
                         .quantity(new BigDecimal("2"))
                         .build()))
                 .build();
 
-        com.sales.modules.promotion.dto.response.AutoApplyPromotionResponse response = promotionService.autoApplyPromotions("nhanvien", request);
+        AutoApplyPromotionResponse response = promotionService.autoApplyPromotions("nhanvien", request);
 
         assertNotNull(response);
-        com.sales.modules.promotion.dto.response.PromotionItemResultResponse itemResult = response.getItems().get(0);
+        PromotionItemResultResponse itemResult = response.getItems().get(0);
 
         assertFalse(itemResult.isHasPromotion());
         assertNull(itemResult.getPromotionId());
@@ -526,17 +526,17 @@ class PromotionServiceImplTest {
         when(productRepository.findAllByIdInAndHouseholdIdAndDeletedAtIsNull(any(), eq("household-123")))
                 .thenReturn(List.of(product));
 
-        com.sales.modules.promotion.dto.request.AutoApplyPromotionRequest request = com.sales.modules.promotion.dto.request.AutoApplyPromotionRequest.builder()
-                .items(List.of(com.sales.modules.promotion.dto.request.OrderItemPromotionCheckRequest.builder()
+        AutoApplyPromotionRequest request = AutoApplyPromotionRequest.builder()
+                .items(List.of(OrderItemPromotionCheckRequest.builder()
                         .productId("prod-1")
                         .quantity(new BigDecimal("10"))
                         .build()))
                 .build();
 
-        com.sales.modules.promotion.dto.response.AutoApplyPromotionResponse response = promotionService.autoApplyPromotions("nhanvien", request);
+        AutoApplyPromotionResponse response = promotionService.autoApplyPromotions("nhanvien", request);
 
         assertNotNull(response);
-        com.sales.modules.promotion.dto.response.PromotionItemResultResponse itemResult = response.getItems().get(0);
+        PromotionItemResultResponse itemResult = response.getItems().get(0);
 
         assertTrue(itemResult.isHasPromotion());
         assertEquals("promo-20", itemResult.getPromotionId());
@@ -559,8 +559,8 @@ class PromotionServiceImplTest {
         when(productRepository.findAllByIdInAndHouseholdIdAndDeletedAtIsNull(any(), eq("household-123")))
                 .thenReturn(List.of(product));
 
-        com.sales.modules.promotion.dto.request.AutoApplyPromotionRequest request = com.sales.modules.promotion.dto.request.AutoApplyPromotionRequest.builder()
-                .items(List.of(com.sales.modules.promotion.dto.request.OrderItemPromotionCheckRequest.builder()
+        AutoApplyPromotionRequest request = AutoApplyPromotionRequest.builder()
+                .items(List.of(OrderItemPromotionCheckRequest.builder()
                         .productId("prod-1")
                         .quantity(new BigDecimal("1"))
                         .bypassPromotion(true)
@@ -585,18 +585,18 @@ class PromotionServiceImplTest {
         when(productRepository.findAllByIdInAndHouseholdIdAndDeletedAtIsNull(any(), eq("household-123")))
                 .thenReturn(List.of(product));
 
-        com.sales.modules.promotion.dto.request.AutoApplyPromotionRequest request = com.sales.modules.promotion.dto.request.AutoApplyPromotionRequest.builder()
-                .items(List.of(com.sales.modules.promotion.dto.request.OrderItemPromotionCheckRequest.builder()
+        AutoApplyPromotionRequest request = AutoApplyPromotionRequest.builder()
+                .items(List.of(OrderItemPromotionCheckRequest.builder()
                         .productId("prod-1")
                         .quantity(new BigDecimal("1"))
                         .bypassPromotion(true)
                         .build()))
                 .build();
 
-        com.sales.modules.promotion.dto.response.AutoApplyPromotionResponse response = promotionService.autoApplyPromotions("chuho", request);
+        AutoApplyPromotionResponse response = promotionService.autoApplyPromotions("chuho", request);
 
         assertNotNull(response);
-        com.sales.modules.promotion.dto.response.PromotionItemResultResponse itemResult = response.getItems().get(0);
+        PromotionItemResultResponse itemResult = response.getItems().get(0);
 
         assertTrue(itemResult.isBypassPromotion());
         assertFalse(itemResult.isHasPromotion());
@@ -617,8 +617,8 @@ class PromotionServiceImplTest {
         when(productRepository.findAllByIdInAndHouseholdIdAndDeletedAtIsNull(any(), eq("household-123")))
                 .thenReturn(Collections.emptyList());
 
-        com.sales.modules.promotion.dto.request.AutoApplyPromotionRequest request = com.sales.modules.promotion.dto.request.AutoApplyPromotionRequest.builder()
-                .items(List.of(com.sales.modules.promotion.dto.request.OrderItemPromotionCheckRequest.builder()
+        AutoApplyPromotionRequest request = AutoApplyPromotionRequest.builder()
+                .items(List.of(OrderItemPromotionCheckRequest.builder()
                         .productId("prod-not-found")
                         .quantity(new BigDecimal("1"))
                         .build()))
@@ -664,7 +664,7 @@ class PromotionServiceImplTest {
         when(orderItemRepository.getBaselineRevenueForAll(eq("household-123"), any(), any()))
                 .thenReturn(new BigDecimal("150000.00"));
 
-        com.sales.modules.promotion.dto.response.PromotionReportResponse report = promotionService.getPromotionReport("owner", "promo-report-1");
+        PromotionReportResponse report = promotionService.getPromotionReport("owner", "promo-report-1");
 
         assertNotNull(report);
         assertTrue(report.getHasData());
@@ -703,7 +703,7 @@ class PromotionServiceImplTest {
         when(promotionRepository.findDetailByIdAndHouseholdId("promo-report-empty", "household-123")).thenReturn(Optional.of(promo));
         when(orderItemRepository.getPromotionMetrics("promo-report-empty")).thenReturn(metrics);
 
-        com.sales.modules.promotion.dto.response.PromotionReportResponse report = promotionService.getPromotionReport("owner", "promo-report-empty");
+        PromotionReportResponse report = promotionService.getPromotionReport("owner", "promo-report-empty");
 
         assertNotNull(report);
         assertFalse(report.getHasData());

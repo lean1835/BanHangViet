@@ -15,14 +15,13 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class CreateReturnTicketRequest {
-
     @NotBlank(message = "Mã hóa đơn gốc không được để trống")
     private String originalInvoiceId;
 
     private String reason;
 
     @Builder.Default
-    private String refundPaymentMethod = "CASH"; // CASH, BANK_TRANSFER, DEBT_REDUCTION
+    private String refundPaymentMethod = "CASH";
 
     private Boolean allowOverdueOverride;
 

@@ -7,7 +7,6 @@ import java.util.Optional;
 
 @Repository
 public interface UserDisplaySettingRepository extends JpaRepository<UserDisplaySetting, String> {
-
     Optional<UserDisplaySetting> findByUserId(String userId);
 
     boolean existsByUserId(String userId);

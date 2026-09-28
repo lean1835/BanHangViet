@@ -28,7 +28,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest
 @AutoConfigureMockMvc
 public class AnnualRevenueTrackingControllerTest {
-
     @Autowired
     private MockMvc mockMvc;
 
@@ -125,4 +124,3 @@ public class AnnualRevenueTrackingControllerTest {
                 .andExpect(status().isBadRequest());
     }
 }
-

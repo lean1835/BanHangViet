@@ -18,7 +18,6 @@ import java.util.List;
 @RequestMapping("/api/v1/debts")
 @RequiredArgsConstructor
 public class CustomerDebtController {
-
     private final CustomerDebtService customerDebtService;
 
     @PostMapping("/remind")

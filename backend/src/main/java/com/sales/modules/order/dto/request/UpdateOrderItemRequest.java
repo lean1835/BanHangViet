@@ -10,7 +10,6 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 @AllArgsConstructor
 public class UpdateOrderItemRequest {
-
     @DecimalMin(value = "0.001", message = "Số lượng bán phải lớn hơn 0")
     private BigDecimal quantity;
 

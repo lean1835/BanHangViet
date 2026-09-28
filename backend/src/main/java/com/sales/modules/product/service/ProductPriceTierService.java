@@ -13,7 +13,6 @@ import java.math.BigDecimal;
 import java.util.List;
 
 public interface ProductPriceTierService {
-
     List<ProductPriceTierResponse> getProductPriceTiers(String currentUsername, String productId);
 
     ProductPriceTierResponse createPriceTier(String currentUsername, String productId, CreatePriceTierRequest request);

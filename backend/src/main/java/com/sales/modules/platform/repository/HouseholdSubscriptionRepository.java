@@ -6,18 +6,19 @@ import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Collection;
+import org.springframework.data.jpa.repository.EntityGraph;
 
 @Repository
 public interface HouseholdSubscriptionRepository extends JpaRepository<HouseholdSubscription, String> {
-
-    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"servicePackage", "household"})
+    @EntityGraph(attributePaths = {"servicePackage", "household"})
     Optional<HouseholdSubscription> findFirstByHouseholdIdAndStatusOrderByCreatedAtDesc(String householdId, SubscriptionStatus status);
 
-    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"servicePackage", "household"})
+    @EntityGraph(attributePaths = {"servicePackage", "household"})
     List<HouseholdSubscription> findByHouseholdIdOrderByCreatedAtDesc(String householdId);
 
-    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"servicePackage", "household"})
-    List<HouseholdSubscription> findByHouseholdIdInAndStatusOrderByCreatedAtDesc(java.util.Collection<String> householdIds, SubscriptionStatus status);
+    @EntityGraph(attributePaths = {"servicePackage", "household"})
+    List<HouseholdSubscription> findByHouseholdIdInAndStatusOrderByCreatedAtDesc(Collection<String> householdIds, SubscriptionStatus status);
 
     boolean existsByServicePackageId(String packageId);
 }

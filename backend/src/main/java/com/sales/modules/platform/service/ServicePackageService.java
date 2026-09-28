@@ -9,7 +9,6 @@ import com.sales.modules.platform.dto.response.ServicePackageResponse;
 import java.util.List;
 
 public interface ServicePackageService {
-
     List<ServicePackageResponse> getAllPackages();
 
     ServicePackageResponse getPackageById(String id);

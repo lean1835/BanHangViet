@@ -39,7 +39,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Transactional
 @SuppressWarnings("unused")
 public class EmployeeShiftReportIntegrationTest {
-
     @Autowired
     private MockMvc mockMvc;
 
@@ -132,7 +131,6 @@ public class EmployeeShiftReportIntegrationTest {
                         .isActive(true)
                         .build()));
 
-        // Ensure settings exist with threshold 50,000 VND
         BusinessHouseholdSettings settings = householdSettingsRepository.findByHouseholdId(testHousehold.getId())
                 .orElseGet(() -> BusinessHouseholdSettings.builder().household(testHousehold).build());
         settings.setShiftDifferenceThreshold(new BigDecimal("50000.00"));
@@ -179,19 +177,16 @@ public class EmployeeShiftReportIntegrationTest {
     public void test_TC01_getEmployeeShiftReport_success() throws Exception {
         LocalDateTime now = LocalDateTime.now();
 
-        // Shift 1: Employee 1, 1 cash order (200k), 1 transfer order (300k), diff = 0
         Shift shift1 = createClosedShift(employeeUser1, now.minusDays(2).withHour(8), now.minusDays(2).withHour(16),
                 new BigDecimal("1000000.00"), new BigDecimal("1200000.00"), BigDecimal.ZERO, null);
         createOrder(shift1, employeeUser1, "ORD-REP-01", new BigDecimal("200000.00"), "CASH", "COMPLETED");
         createOrder(shift1, employeeUser1, "ORD-REP-02", new BigDecimal("300000.00"), "BANK_TRANSFER", "COMPLETED");
 
-        // Shift 2: Employee 1, 1 cash order (150k), 1 canceled order, diff = 20k
         Shift shift2 = createClosedShift(employeeUser1, now.minusDays(1).withHour(8), now.minusDays(1).withHour(16),
                 new BigDecimal("1000000.00"), new BigDecimal("1170000.00"), new BigDecimal("20000.00"), "Khách boa tiền thối");
         createOrder(shift2, employeeUser1, "ORD-REP-03", new BigDecimal("150000.00"), "CASH", "COMPLETED");
         createOrder(shift2, employeeUser1, "ORD-REP-04", new BigDecimal("100000.00"), "CASH", "CANCELED");
 
-        // Shift 3: Employee 2, 1 transfer order (500k), diff = 0
         Shift shift3 = createClosedShift(employeeUser2, now.minusDays(1).withHour(16), now.minusDays(1).withHour(22),
                 new BigDecimal("1000000.00"), new BigDecimal("1000000.00"), BigDecimal.ZERO, null);
         createOrder(shift3, employeeUser2, "ORD-REP-05", new BigDecimal("500000.00"), "BANK_TRANSFER", "COMPLETED");
@@ -219,18 +214,15 @@ public class EmployeeShiftReportIntegrationTest {
     public void test_TC02_getEmployeeShiftReport_exceededThreshold_marked() throws Exception {
         LocalDateTime now = LocalDateTime.now();
 
-        // Shift with discrepancy 100k > threshold 50k
         Shift shiftWithDiff = createClosedShift(employeeUser1, now.minusHours(10), now.minusHours(2),
                 new BigDecimal("1000000.00"), new BigDecimal("900000.00"), new BigDecimal("-100000.00"), "Thối nhầm tiền cho khách");
 
-        // Shift with discrepancy 10k <= threshold 50k
         Shift normalShift = createClosedShift(employeeUser2, now.minusHours(8), now.minusHours(1),
                 new BigDecimal("1000000.00"), new BigDecimal("1010000.00"), new BigDecimal("10000.00"), "Khách không lấy tiền lẻ");
 
         LocalDate fromDate = shiftWithDiff.getClosedAt().toLocalDate();
         LocalDate toDate = normalShift.getClosedAt().toLocalDate();
 
-        // Query with default configured threshold (50k)
         mockMvc.perform(get("/api/v1/reports/employee-shifts")
                         .param("fromDate", fromDate.toString())
                         .param("toDate", toDate.toString())
@@ -242,7 +234,6 @@ public class EmployeeShiftReportIntegrationTest {
                 .andExpect(jsonPath("$.result.shifts[?(@.shiftId == '" + shiftWithDiff.getId() + "')].differenceReason").value(hasItem("Thối nhầm tiền cho khách")))
                 .andExpect(jsonPath("$.result.shifts[?(@.shiftId == '" + normalShift.getId() + "')].differenceExceeded").value(hasItem(false)));
 
-        // Query with custom parameter threshold = 5,000đ -> both shifts exceed threshold
         mockMvc.perform(get("/api/v1/reports/employee-shifts")
                         .param("fromDate", fromDate.toString())
                         .param("toDate", toDate.toString())

@@ -26,7 +26,6 @@ import java.time.LocalDate;
 @RequestMapping("/api/v1/debts")
 @RequiredArgsConstructor
 public class CustomerDebtReconciliationController {
-
     private final CustomerDebtReconciliationService reconciliationService;
 
     @PostMapping("/reconciliations/preview")
@@ -34,7 +33,6 @@ public class CustomerDebtReconciliationController {
     public ResponseEntity<ApiResponse<DebtReconciliationResponse>> previewReconciliation(
             Principal principal,
             @Valid @RequestBody DebtReconciliationPreviewRequest request) {
-
         DebtReconciliationResponse result = reconciliationService.previewReconciliation(principal.getName(), request);
         return ResponseEntity.ok(ApiResponse.<DebtReconciliationResponse>builder()
                 .code(1000)
@@ -48,7 +46,6 @@ public class CustomerDebtReconciliationController {
     public ResponseEntity<ApiResponse<DebtReconciliationResponse>> createReconciliation(
             Principal principal,
             @Valid @RequestBody CreateDebtReconciliationRequest request) {
-
         DebtReconciliationResponse result = reconciliationService.createReconciliation(principal.getName(), request);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.<DebtReconciliationResponse>builder()
                 .code(1000)
@@ -63,7 +60,6 @@ public class CustomerDebtReconciliationController {
             Principal principal,
             @PathVariable String id,
             @Valid @RequestBody(required = false) ConfirmDebtReconciliationRequest request) {
-
         DebtReconciliationResponse result = reconciliationService.confirmReconciliation(principal.getName(), id, request);
         return ResponseEntity.ok(ApiResponse.<DebtReconciliationResponse>builder()
                 .code(1000)
@@ -77,7 +73,6 @@ public class CustomerDebtReconciliationController {
     public ResponseEntity<ApiResponse<Void>> cancelReconciliation(
             Principal principal,
             @PathVariable String id) {
-
         reconciliationService.cancelReconciliation(principal.getName(), id);
         return ResponseEntity.ok(ApiResponse.<Void>builder()
                 .code(1000)
@@ -90,7 +85,6 @@ public class CustomerDebtReconciliationController {
     public ResponseEntity<ApiResponse<DebtReconciliationResponse>> getReconciliationById(
             Principal principal,
             @PathVariable String id) {
-
         DebtReconciliationResponse result = reconciliationService.getReconciliationById(principal.getName(), id);
         return ResponseEntity.ok(ApiResponse.<DebtReconciliationResponse>builder()
                 .code(1000)
@@ -108,7 +102,6 @@ public class CustomerDebtReconciliationController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
             @PageableDefault(size = 20) Pageable pageable) {
-
         Page<DebtReconciliationResponse> result = reconciliationService.getReconciliations(
                 principal.getName(), customerId, status, startDate, endDate, pageable);
         return ResponseEntity.ok(ApiResponse.<Page<DebtReconciliationResponse>>builder()
@@ -123,7 +116,6 @@ public class CustomerDebtReconciliationController {
     public ResponseEntity<ApiResponse<DebtStatementPrintResponse>> getPrintStatement(
             Principal principal,
             @PathVariable String id) {
-
         DebtStatementPrintResponse result = reconciliationService.getPrintStatement(principal.getName(), id);
         return ResponseEntity.ok(ApiResponse.<DebtStatementPrintResponse>builder()
                 .code(1000)
@@ -137,7 +129,6 @@ public class CustomerDebtReconciliationController {
     public ResponseEntity<ApiResponse<DebtReconciliationResponse>> getLatestReconciliation(
             Principal principal,
             @PathVariable String customerId) {
-
         DebtReconciliationResponse result = reconciliationService.getLatestReconciliation(principal.getName(), customerId);
         return ResponseEntity.ok(ApiResponse.<DebtReconciliationResponse>builder()
                 .code(1000)
@@ -151,7 +142,6 @@ public class CustomerDebtReconciliationController {
     public ResponseEntity<ApiResponse<CustomerDebtResponse>> createDebtAdjustment(
             Principal principal,
             @Valid @RequestBody CreateDebtAdjustmentRequest request) {
-
         CustomerDebtResponse result = reconciliationService.createDebtAdjustment(principal.getName(), request);
         return ResponseEntity.ok(ApiResponse.<CustomerDebtResponse>builder()
                 .code(1000)

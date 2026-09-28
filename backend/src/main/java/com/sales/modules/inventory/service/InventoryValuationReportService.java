@@ -4,7 +4,6 @@ import com.sales.modules.inventory.dto.response.InventoryValuationReportResponse
 import java.time.LocalDate;
 
 public interface InventoryValuationReportService {
-
     /**
      * Tra cứu báo cáo giá trị tồn kho theo giá vốn (NCL-13-CN-007).
      *

@@ -49,7 +49,6 @@ import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class OrderUnitConversionTest {
-
     @Mock
     private OrderRepository orderRepository;
 
@@ -195,12 +194,11 @@ class OrderUnitConversionTest {
     @Test
     @DisplayName("TC-02: Bán theo đơn vị quy đổi (1 Thùng = 24 lon) khi tồn kho chỉ còn 20 lon -> Cảnh báo tồn kho QTN-08 theo đơn vị cơ bản")
     void addOrderItem_withConversion_lowStockWarning_evaluatedInBaseUnit() {
-        // Tồn kho chỉ còn 20 lon
         product.setStockQuantity(new BigDecimal("20.000"));
 
         CreateOrderItemRequest req = CreateOrderItemRequest.builder()
                 .productId("prod-1")
-                .quantity(new BigDecimal("1")) // 1 Thùng = 24 lon > 20 lon
+                .quantity(new BigDecimal("1"))
                 .unitConversionId("conv-1")
                 .build();
 
@@ -228,7 +226,6 @@ class OrderUnitConversionTest {
     @Test
     @DisplayName("TC-02: Hoàn tất đơn hàng bán 1 Thùng (24 lon) và 3 lon lẻ -> Trừ tổng cộng 27 lon khỏi kho theo đơn vị cơ bản")
     void completeOrder_withConversionAndBaseUnit_deductsStockAccuratelyInBaseUnit() {
-        // Thêm 1 dòng bán 1 Thùng (baseQuantity = 24)
         OrderItem itemCarton = OrderItem.builder()
                 .id("item-carton")
                 .order(order)
@@ -240,7 +237,6 @@ class OrderUnitConversionTest {
                 .subtotal(new BigDecimal("280000.00"))
                 .build();
 
-        // Thêm 1 dòng bán 3 Lon lẻ (baseQuantity = 3)
         OrderItem itemCan = OrderItem.builder()
                 .id("item-can")
                 .order(order)
@@ -270,7 +266,6 @@ class OrderUnitConversionTest {
         assertNotNull(res);
         assertEquals("COMPLETED", res.getStatus());
 
-        // Kiểm tra tồn kho bị trừ chính xác là 24 + 3 = 27 lon
         verify(productRepository, times(1)).deductStock(eq("prod-1"), eq("hh-1"), eq(new BigDecimal("27")));
     }
 }

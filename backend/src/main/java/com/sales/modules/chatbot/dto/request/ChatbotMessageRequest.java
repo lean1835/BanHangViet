@@ -13,7 +13,7 @@ public class ChatbotMessageRequest {
     @NotBlank(message = "Nội dung tin nhắn không được để trống")
     private String message;
 
-    private String currentScreen; // Đường dẫn màn hình hiện tại (e.g. "/pos", "/invoices", "/reports")
+    private String currentScreen;
 
-    private List<ChatMessageDto> history; // Lịch sử hội thoại gần nhất
+    private List<ChatMessageDto> history;
 }

@@ -26,7 +26,6 @@ import java.security.Principal;
 @RequestMapping("/api/v1/promotions")
 @RequiredArgsConstructor
 public class PromotionController {
-
     private final PromotionService promotionService;
 
     @PostMapping("/auto-apply")

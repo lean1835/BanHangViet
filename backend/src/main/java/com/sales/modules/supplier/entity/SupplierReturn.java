@@ -24,7 +24,6 @@ import java.util.List;
 @AllArgsConstructor
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class SupplierReturn {
-
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     @Column(length = 36, nullable = false)
@@ -62,7 +61,7 @@ public class SupplierReturn {
     private BigDecimal totalReturnAmount = BigDecimal.ZERO;
 
     @Column(nullable = false, length = 100)
-    private String reason; // Hàng hỏng, Cận hạn, Sai quy cách, Giao thừa, Khác
+    private String reason;
 
     @Column(columnDefinition = "TEXT")
     private String notes;

@@ -13,7 +13,6 @@ import java.util.Optional;
 
 @Repository
 public interface InventoryAuditRepository extends JpaRepository<InventoryAudit, String>, JpaSpecificationExecutor<InventoryAudit> {
-
     @EntityGraph(attributePaths = {"createdByUser"})
     Page<InventoryAudit> findByHouseholdIdOrderByCreatedAtDesc(String householdId, Pageable pageable);
 

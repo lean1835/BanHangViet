@@ -17,13 +17,13 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.util.List;
+import jakarta.servlet.http.HttpServletResponse;
 
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
 @RequiredArgsConstructor
 public class SecurityConfig {
-
     private final JwtFilter jwtFilter;
 
     @Bean
@@ -51,12 +51,12 @@ public class SecurityConfig {
             )
             .exceptionHandling(exception -> exception
                 .authenticationEntryPoint((request, response, authException) -> {
-                    response.setStatus(jakarta.servlet.http.HttpServletResponse.SC_UNAUTHORIZED);
+                    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
                     response.setContentType("application/json;charset=UTF-8");
                     response.getWriter().write("{\"code\":2002,\"message\":\"Phiên đăng nhập đã hết hạn hoặc không có quyền truy cập\"}");
                 })
                 .accessDeniedHandler((request, response, accessDeniedException) -> {
-                    response.setStatus(jakarta.servlet.http.HttpServletResponse.SC_FORBIDDEN);
+                    response.setStatus(HttpServletResponse.SC_FORBIDDEN);
                     response.setContentType("application/json;charset=UTF-8");
                     response.getWriter().write("{\"code\":2003,\"message\":\"Bạn không có quyền thực hiện thao tác này\"}");
                 })
@@ -70,23 +70,16 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
 
-        // Cho phép mọi origin (bao gồm Postman, Swagger, frontend bất kỳ)
-        // allowedOriginPatterns tương thích với allowCredentials(true), khác với setAllowedOrigins("*")
         config.setAllowedOriginPatterns(List.of("*"));
 
-        // Các HTTP method được phép
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
 
-        // Các header được phép gửi lên
         config.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept"));
 
-        // Cho phép browser đọc header Content-Disposition khi tải tệp
         config.setExposedHeaders(List.of("Content-Disposition"));
 
-        // Cho phép gửi cookie/credentials
         config.setAllowCredentials(true);
 
-        // Cache preflight OPTIONS trong 1 giờ
         config.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

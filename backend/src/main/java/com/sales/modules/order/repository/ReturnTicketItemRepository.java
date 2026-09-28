@@ -9,6 +9,8 @@ import org.springframework.stereotype.Repository;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import com.sales.modules.product.dto.response.TopReturnedProductProjection;
+import org.springframework.data.domain.Pageable;
 
 @Repository
 public interface ReturnTicketItemRepository extends JpaRepository<ReturnTicketItem, String> {
@@ -41,11 +43,11 @@ public interface ReturnTicketItemRepository extends JpaRepository<ReturnTicketIt
            "AND (COALESCE(rti.returnTicket.approvedAt, rti.returnTicket.createdAt) BETWEEN :startDateTime AND :endDateTime) " +
            "GROUP BY rti.product.id, COALESCE(p.name, rti.productName), p.sku, COALESCE(p.unit, rti.unit) " +
            "ORDER BY SUM(rti.quantity) DESC, SUM(rti.subtotal) DESC")
-    List<com.sales.modules.product.dto.response.TopReturnedProductProjection> findTopReturnedProducts(
+    List<TopReturnedProductProjection> findTopReturnedProducts(
             @Param("householdId") String householdId,
-            @Param("startDateTime") java.time.LocalDateTime startDateTime,
-            @Param("endDateTime") java.time.LocalDateTime endDateTime,
-            org.springframework.data.domain.Pageable pageable
+            @Param("startDateTime") LocalDateTime startDateTime,
+            @Param("endDateTime") LocalDateTime endDateTime,
+            Pageable pageable
     );
 
     @Query("SELECT rti FROM ReturnTicketItem rti " +
@@ -136,5 +138,3 @@ public interface ReturnTicketItemRepository extends JpaRepository<ReturnTicketIt
             @Param("endDateTime") LocalDateTime endDateTime
     );
 }
-
-

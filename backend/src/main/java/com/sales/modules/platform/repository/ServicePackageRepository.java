@@ -8,7 +8,6 @@ import java.util.Optional;
 
 @Repository
 public interface ServicePackageRepository extends JpaRepository<ServicePackage, String> {
-
     Optional<ServicePackage> findByCode(String code);
 
     boolean existsByCode(String code);

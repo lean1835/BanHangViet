@@ -26,7 +26,6 @@ import java.util.List;
 @RequiredArgsConstructor
 @Slf4j
 public class HouseholdOnboardingServiceImpl implements HouseholdOnboardingService {
-
     private final UserRepository userRepository;
     private final BusinessHouseholdSettingsRepository settingsRepository;
     private final InvoiceNumberRangeRepository invoiceNumberRangeRepository;
@@ -74,21 +73,16 @@ public class HouseholdOnboardingServiceImpl implements HouseholdOnboardingServic
 
         BusinessHouseholdSettings settings = resolveSettings(household);
 
-        // 1. Kiểm tra Bước 1: Thông tin hộ kinh doanh (Bắt buộc)
         boolean householdInfoCompleted = StringUtils.hasText(household.getName())
                 && StringUtils.hasText(household.getTaxCode());
 
-        // 2. Kiểm tra Bước 2: Ký hiệu & Mẫu số hóa đơn (Bắt buộc)
         boolean invoiceTemplateCompleted = !invoiceNumberRangeRepository.findActiveRangesByHouseholdId(household.getId()).isEmpty()
                 || invoiceTemplateRepository.findByHouseholdId(household.getId()).isPresent();
 
-        // 3. Kiểm tra Bước 3: Thuế suất áp dụng (Bắt buộc)
         boolean taxRateCompleted = taxRateRepository.existsByHouseholdIdAndIsActiveTrue(household.getId());
 
-        // 4. Kiểm tra Bước 4: Thêm ít nhất 1 sản phẩm (Bắt buộc)
         boolean productCompleted = productRepository.countByHouseholdIdAndDeletedAtIsNull(household.getId()) > 0;
 
-        // 5. Kiểm tra Bước 5: Tạo nhân viên bán hàng (Tùy chọn)
         boolean staffCompleted = userRepository.existsByHouseholdIdAndRole_CodeAndDeletedAtIsNull(household.getId(), "VT-02");
 
         boolean allRequiredCompleted = householdInfoCompleted

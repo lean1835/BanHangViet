@@ -13,7 +13,6 @@ import java.util.Optional;
 
 @Repository
 public interface SyncSessionRepository extends JpaRepository<SyncSession, String> {
-
     @EntityGraph(attributePaths = {"user", "household"})
     Optional<SyncSession> findByIdAndHouseholdId(String id, String householdId);
 

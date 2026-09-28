@@ -15,12 +15,14 @@ import org.springframework.web.bind.annotation.*;
 
 import java.security.Principal;
 import java.time.LocalDate;
+import com.sales.modules.order.dto.response.ReturnItemRankingResponse;
+import com.sales.modules.order.dto.response.ReturnTicketStatisticsResponse;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/return-tickets")
 @RequiredArgsConstructor
 public class ReturnTicketController {
-
     private final ReturnTicketService returnTicketService;
 
     @GetMapping("/check-invoice/{invoiceId}")
@@ -96,15 +98,15 @@ public class ReturnTicketController {
 
     @GetMapping("/statistics")
     @PreAuthorize("hasAnyRole('VT-01', 'VT-03')")
-    public ResponseEntity<ApiResponse<com.sales.modules.order.dto.response.ReturnTicketStatisticsResponse>> getReturnTicketStatistics(
+    public ResponseEntity<ApiResponse<ReturnTicketStatisticsResponse>> getReturnTicketStatistics(
             Principal principal,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate,
             @RequestParam(required = false, defaultValue = "10") Integer topLimit) {
-        com.sales.modules.order.dto.response.ReturnTicketStatisticsResponse result = returnTicketService.getReturnTicketStatistics(
+        ReturnTicketStatisticsResponse result = returnTicketService.getReturnTicketStatistics(
                 principal.getName(), fromDate, toDate, topLimit
         );
-        ApiResponse<com.sales.modules.order.dto.response.ReturnTicketStatisticsResponse> response = ApiResponse.<com.sales.modules.order.dto.response.ReturnTicketStatisticsResponse>builder()
+        ApiResponse<ReturnTicketStatisticsResponse> response = ApiResponse.<ReturnTicketStatisticsResponse>builder()
                 .code(1000)
                 .message("Lấy thống kê hàng trả lại và tiền đã hoàn thành công")
                 .result(result)
@@ -114,15 +116,15 @@ public class ReturnTicketController {
 
     @GetMapping("/top-returned-products")
     @PreAuthorize("hasAnyRole('VT-01', 'VT-03')")
-    public ResponseEntity<ApiResponse<java.util.List<com.sales.modules.order.dto.response.ReturnItemRankingResponse>>> getTopReturnedProducts(
+    public ResponseEntity<ApiResponse<List<ReturnItemRankingResponse>>> getTopReturnedProducts(
             Principal principal,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate,
             @RequestParam(required = false, defaultValue = "10") Integer limit) {
-        java.util.List<com.sales.modules.order.dto.response.ReturnItemRankingResponse> result = returnTicketService.getTopReturnedProducts(
+        List<ReturnItemRankingResponse> result = returnTicketService.getTopReturnedProducts(
                 principal.getName(), fromDate, toDate, limit
         );
-        ApiResponse<java.util.List<com.sales.modules.order.dto.response.ReturnItemRankingResponse>> response = ApiResponse.<java.util.List<com.sales.modules.order.dto.response.ReturnItemRankingResponse>>builder()
+        ApiResponse<List<ReturnItemRankingResponse>> response = ApiResponse.<List<ReturnItemRankingResponse>>builder()
                 .code(1000)
                 .message("Lấy xếp hạng mặt hàng bị trả nhiều nhất thành công")
                 .result(result)

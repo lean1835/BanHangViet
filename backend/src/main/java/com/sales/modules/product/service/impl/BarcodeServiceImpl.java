@@ -34,12 +34,12 @@ import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import com.google.zxing.oned.EAN13Writer;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class BarcodeServiceImpl implements BarcodeService {
-
     private final UserRepository userRepository;
     private final ProductRepository productRepository;
     private final PromotionService promotionService;
@@ -56,12 +56,11 @@ public class BarcodeServiceImpl implements BarcodeService {
             throw new AppException(ErrorCode.FORBIDDEN);
         }
 
-        // TC-03: Only Store Owner (VT-01, STORE_OWNER, or OWNER) is allowed to manage/generate barcodes
         String roleCode = user.getRole() != null ? user.getRole().getCode() : "";
         String roleName = user.getRole() != null ? user.getRole().getName() : "";
-        boolean isOwner = "VT-01".equals(roleCode) 
-                || "STORE_OWNER".equalsIgnoreCase(roleCode) 
-                || "OWNER".equalsIgnoreCase(roleCode) 
+        boolean isOwner = "VT-01".equals(roleCode)
+                || "STORE_OWNER".equalsIgnoreCase(roleCode)
+                || "OWNER".equalsIgnoreCase(roleCode)
                 || "OWNER".equalsIgnoreCase(roleName);
 
         if (!isOwner) {
@@ -87,7 +86,6 @@ public class BarcodeServiceImpl implements BarcodeService {
         Product product = null;
         ProductUnitConversion conversion = null;
 
-        // 1. Tra cứu sản phẩm theo mã vạch (barcode) hoặc SKU trong Hộ kinh doanh
         List<Product> products = productRepository.findByHouseholdIdAndBarcodeOrSku(householdId, scannedCode);
         if (!products.isEmpty()) {
             product = products.stream()
@@ -95,14 +93,12 @@ public class BarcodeServiceImpl implements BarcodeService {
                     .findFirst()
                     .orElse(products.get(0));
         } else if (productUnitConversionRepository != null) {
-            // 2. Tra cứu mã vạch trong bảng đơn vị quy đổi
             conversion = productUnitConversionRepository.findByHouseholdIdAndBarcode(householdId, scannedCode).orElse(null);
             if (conversion != null) {
                 product = conversion.getProduct();
             }
         }
 
-        // 3. Trường hợp không tìm thấy sản phẩm
         if (product == null) {
             log.info("Barcode scan failed: code '{}' not found in household '{}'", scannedCode, householdId);
             return BarcodeScanResponse.builder()
@@ -121,14 +117,12 @@ public class BarcodeServiceImpl implements BarcodeService {
                 : (conversion != null ? product.getPrice().multiply(conversion.getConversionFactor()) : product.getPrice());
         String unitName = conversion != null ? conversion.getUnitName() : product.getUnit();
 
-        // 4. Tính toán khuyến mại tự động áp dụng cho mặt hàng để xem trước thông tin
         PromotionItemResultResponse promoResult = promotionService.calculateItemPromotion(
                 user, product, scanQty, unitPrice, false
         );
 
         OrderResponse updatedOrderResponse = null;
 
-        // 5. Nếu có truyền orderId -> Ủy quyền cho OrderService thực hiện thêm/cộng dồn số lượng
         if (request.getOrderId() != null && !request.getOrderId().trim().isEmpty()) {
             CreateOrderItemRequest itemRequest = CreateOrderItemRequest.builder()
                     .productId(product.getId())
@@ -186,7 +180,6 @@ public class BarcodeServiceImpl implements BarcodeService {
 
         String barcodeToAssign = request.getBarcode().trim();
 
-        // QTN-27: Check barcode uniqueness per household
         boolean isDuplicate = productRepository.existsByHouseholdIdAndBarcodeAndIdNotAndDeletedAtIsNull(
                 householdId, barcodeToAssign, productId);
         if (isDuplicate) {
@@ -213,7 +206,6 @@ public class BarcodeServiceImpl implements BarcodeService {
             throw new AppException(ErrorCode.INVALID_INPUT);
         }
 
-        // If product has no barcode yet, auto-generate one per TC-01
         if (product.getBarcode() == null || product.getBarcode().isBlank()) {
             String newBarcode = generateUniqueInternalBarcode(householdId);
             product.setBarcode(newBarcode);
@@ -228,7 +220,6 @@ public class BarcodeServiceImpl implements BarcodeService {
     private String generateUniqueInternalBarcode(String householdId) {
         int maxAttempts = 50;
         for (int i = 0; i < maxAttempts; i++) {
-            // Internal barcode format: "200" prefix + 9 random digits = 12 digits base + 1 EAN-13 check digit = 13 digits
             long number = 100000000L + random.nextLong(900000000L);
             String base12 = "200" + number;
             int checkDigit = calculateEan13CheckDigit(base12);
@@ -291,7 +282,7 @@ public class BarcodeServiceImpl implements BarcodeService {
             String trimmed = barcodeText.trim();
             if (trimmed.length() == 13 && trimmed.matches("\\d{13}")) {
                 try {
-                    com.google.zxing.oned.EAN13Writer eanWriter = new com.google.zxing.oned.EAN13Writer();
+                    EAN13Writer eanWriter = new EAN13Writer();
                     bitMatrix = eanWriter.encode(trimmed, BarcodeFormat.EAN_13, width, height, hints);
                 } catch (Exception e) {
                     Code128Writer writer = new Code128Writer();

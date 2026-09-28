@@ -16,7 +16,6 @@ import java.security.Principal;
 @RequestMapping("/api/v1/tax-periods/annual-revenue-tracking")
 @RequiredArgsConstructor
 public class AnnualRevenueTrackingController {
-
     private final AnnualRevenueTrackingService annualRevenueTrackingService;
 
     @GetMapping

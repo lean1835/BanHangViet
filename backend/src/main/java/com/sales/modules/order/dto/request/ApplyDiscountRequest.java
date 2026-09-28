@@ -10,7 +10,6 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ApplyDiscountRequest {
-
     @NotBlank(message = "Loại giảm giá không được để trống")
     @Pattern(regexp = "^(PERCENTAGE|CASH)$", message = "Loại giảm giá chỉ có thể là PERCENTAGE hoặc CASH")
     private String discountType;

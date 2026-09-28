@@ -25,7 +25,6 @@ import java.util.List;
 @RequiredArgsConstructor
 @Tag(name = "Screen Guide Controller", description = "Quản lý và hiển thị hướng dẫn ngắn tại chỗ theo từng màn hình (NCL-19-CN-003)")
 public class ScreenGuideController {
-
     private final ScreenGuideService screenGuideService;
 
     @Operation(summary = "Xem hướng dẫn ngắn tại chỗ theo mã màn hình", description = "Lấy nội dung hướng dẫn gồm 3-5 bước kèm vị trí nút bấm và ảnh minh họa (TC-01)")

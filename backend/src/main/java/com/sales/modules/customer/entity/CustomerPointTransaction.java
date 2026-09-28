@@ -22,7 +22,6 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class CustomerPointTransaction {
-
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     @Column(length = 36, nullable = false)
@@ -50,7 +49,7 @@ public class CustomerPointTransaction {
     private ReturnTicket returnTicket;
 
     @Column(nullable = false, length = 30)
-    private String type; // EARN, REDEEM, RETURN_DEDUCTION, EXPIRED, ADJUST
+    private String type;
 
     @Column(name = "points_change", nullable = false)
     private Integer pointsChange;

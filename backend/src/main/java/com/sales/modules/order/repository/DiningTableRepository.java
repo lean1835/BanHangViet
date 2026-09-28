@@ -12,7 +12,6 @@ import java.util.Optional;
 
 @Repository
 public interface DiningTableRepository extends JpaRepository<DiningTable, String> {
-
     Optional<DiningTable> findByIdAndHouseholdId(String id, String householdId);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)

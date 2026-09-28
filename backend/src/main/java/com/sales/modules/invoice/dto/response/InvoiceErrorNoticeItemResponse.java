@@ -12,7 +12,6 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 public class InvoiceErrorNoticeItemResponse {
-
     private String id;
     private String invoiceId;
     private String invoiceNumber;

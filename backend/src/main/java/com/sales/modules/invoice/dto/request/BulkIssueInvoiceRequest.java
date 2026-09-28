@@ -13,7 +13,6 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class BulkIssueInvoiceRequest {
-
     private String syncSessionCode;
 
     @NotEmpty(message = "Danh sách mã đơn bán hàng không được để trống")

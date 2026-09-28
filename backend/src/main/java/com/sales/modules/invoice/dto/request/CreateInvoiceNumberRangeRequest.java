@@ -13,7 +13,6 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class CreateInvoiceNumberRangeRequest {
-
     @NotBlank(message = "Mẫu số hóa đơn không được để trống")
     private String invoicePattern;
 

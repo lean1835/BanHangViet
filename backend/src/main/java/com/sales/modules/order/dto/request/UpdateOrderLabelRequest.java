@@ -9,7 +9,6 @@ import lombok.*;
 @NoArgsConstructor
 @AllArgsConstructor
 public class UpdateOrderLabelRequest {
-
     @NotBlank(message = "Tên nhận diện không được để trống")
     @Size(max = 100, message = "Tên nhận diện đơn hàng không vượt quá 100 ký tự")
     private String orderLabel;

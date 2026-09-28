@@ -14,7 +14,6 @@ import lombok.*;
 @NoArgsConstructor
 @AllArgsConstructor
 public class SyncSessionDetail {
-
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     @Column(length = 36, nullable = false)
@@ -31,7 +30,7 @@ public class SyncSessionDetail {
     private String orderNumber;
 
     @Column(nullable = false, length = 30)
-    private String status; // SUCCESS, DUPLICATE, CONFLICT, MISSING, FAILED
+    private String status;
 
     @Column(length = 500)
     private String note;

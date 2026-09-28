@@ -13,9 +13,8 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 @AllArgsConstructor
 public class OrderPaymentRequest {
-
     @NotBlank(message = "Hình thức thanh toán không được để trống")
-    private String paymentMethod; // CASH, BANK_TRANSFER, DEBT
+    private String paymentMethod;
 
     @NotNull(message = "Số tiền thanh toán không được để trống")
     @DecimalMin(value = "0.01", message = "Số tiền thanh toán phải lớn hơn 0")

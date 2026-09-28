@@ -18,7 +18,6 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 public class PlatformSystemLog {
-
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     @Column(length = 36, nullable = false)
@@ -42,7 +41,7 @@ public class PlatformSystemLog {
     private String message;
 
     @Column(columnDefinition = "JSON")
-    private String metadata; // Technical metrics: { "responseTimeMs": 4200, "queueCount": 55, ... }
+    private String metadata;
 
     @Column(name = "is_widespread_incident", nullable = false)
     @Builder.Default

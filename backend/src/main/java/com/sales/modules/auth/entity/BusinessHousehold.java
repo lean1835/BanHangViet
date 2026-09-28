@@ -6,6 +6,7 @@ import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
+import com.sales.common.constant.HouseholdStatus;
 
 @Entity
 @Table(name = "business_households")
@@ -14,7 +15,6 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 public class BusinessHousehold {
-
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     @Column(length = 36, nullable = false)
@@ -38,7 +38,7 @@ public class BusinessHousehold {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     @Builder.Default
-    private com.sales.common.constant.HouseholdStatus status = com.sales.common.constant.HouseholdStatus.ACTIVE;
+    private HouseholdStatus status = HouseholdStatus.ACTIVE;
 
     @Column(name = "lock_reason", columnDefinition = "TEXT")
     private String lockReason;

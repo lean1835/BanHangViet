@@ -56,7 +56,6 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Slf4j
 public class SupplierReturnServiceImpl implements SupplierReturnService {
-
     private static final String RETURN_PREFIX = "TH-NCC-";
     private static final String LOG_ACTION_CREATE_RETURN = "CREATE_SUPPLIER_RETURN";
     private static final String LOG_TARGET_TABLE = "supplier_returns";
@@ -216,7 +215,6 @@ public class SupplierReturnServiceImpl implements SupplierReturnService {
             throw new AppException(ErrorCode.EMPTY_SUPPLIER_RETURN_ITEMS);
         }
 
-        // Check duplicate items in request
         long uniqueDetailCount = request.getItems().stream()
                 .map(CreateSupplierReturnItemRequest::getReceiptDetailId)
                 .filter(Objects::nonNull)
@@ -243,7 +241,6 @@ public class SupplierReturnServiceImpl implements SupplierReturnService {
             }
         }
 
-        // Check if the entire receipt is already fully returned
         boolean isAllAlreadyReturned = !receiptDetails.isEmpty() && receiptDetails.stream().allMatch(d -> {
             BigDecimal prev = returnedQtyMap.getOrDefault(d.getId(), BigDecimal.ZERO);
             BigDecimal imported = d.getQuantity() != null ? d.getQuantity() : BigDecimal.ZERO;
@@ -254,7 +251,6 @@ public class SupplierReturnServiceImpl implements SupplierReturnService {
             throw new AppException(ErrorCode.RECEIPT_ALREADY_FULLY_RETURNED);
         }
 
-        // Generate return number
         String returnNumber = request.getReturnNumber();
         if (!StringUtils.hasText(returnNumber)) {
             String datePart = DateTimeFormatter.ofPattern("yyyyMMdd").format(LocalDateTime.now());
@@ -283,7 +279,6 @@ public class SupplierReturnServiceImpl implements SupplierReturnService {
                 throw new AppException(ErrorCode.INVALID_INPUT);
             }
 
-            // Check against previous returns (AC-02)
             BigDecimal previouslyReturned = returnedQtyMap.getOrDefault(detail.getId(), BigDecimal.ZERO);
             BigDecimal importedQty = detail.getQuantity() != null ? detail.getQuantity() : BigDecimal.ZERO;
             BigDecimal remainingReturnable = importedQty.subtract(previouslyReturned);
@@ -300,7 +295,6 @@ public class SupplierReturnServiceImpl implements SupplierReturnService {
             BigDecimal returnBaseQty = returnQty.multiply(conversionFactor);
             BigDecimal basePurchasePrice = detail.getBasePurchasePrice() != null ? detail.getBasePurchasePrice() : detail.getPurchasePrice();
 
-            // Check stock quantity (QTN-24)
             BigDecimal currentStock = product.getStockQuantity() != null ? product.getStockQuantity() : BigDecimal.ZERO;
             if (returnBaseQty.compareTo(currentStock) > 0) {
                 log.warn("Mặt hàng {} yêu cầu trả cơ sở {} vượt quá tồn kho hiện tại {} (QTN-24)",
@@ -327,7 +321,6 @@ public class SupplierReturnServiceImpl implements SupplierReturnService {
 
             itemsToSave.add(returnItem);
 
-            // Recalculate weighted average cost (QTN-23) and update stock quantity (QTN-24)
             BigDecimal currentCost = product.getCostPrice() != null ? product.getCostPrice() : BigDecimal.ZERO;
             BigDecimal newStock = currentStock.subtract(returnBaseQty);
 
@@ -367,7 +360,6 @@ public class SupplierReturnServiceImpl implements SupplierReturnService {
         supplierReturnItemRepository.saveAll(itemsToSave);
         productRepository.saveAll(productsToUpdate.values());
 
-        // Khấu trừ công nợ nhà cung cấp
         Supplier supplier = receipt.getSupplier();
         if (supplier != null && totalReturnAmount.compareTo(BigDecimal.ZERO) > 0) {
             supplierDebtService.recordSupplierReturnDebtReduction(

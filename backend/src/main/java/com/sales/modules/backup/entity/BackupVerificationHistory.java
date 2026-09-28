@@ -21,7 +21,6 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class BackupVerificationHistory {
-
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     @Column(length = 36, nullable = false)
@@ -50,7 +49,7 @@ public class BackupVerificationHistory {
 
     @Column(nullable = false, length = 20)
     @Builder.Default
-    private String status = "PASSED"; // PASSED, FAILED
+    private String status = "PASSED";
 
     @Column(name = "execution_duration_ms", nullable = false)
     @Builder.Default
@@ -97,7 +96,7 @@ public class BackupVerificationHistory {
 
     @Column(name = "trigger_type", nullable = false, length = 20)
     @Builder.Default
-    private String triggerType = "AUTOMATIC"; // AUTOMATIC, MANUAL
+    private String triggerType = "AUTOMATIC";
 
     @Column(columnDefinition = "TEXT")
     private String notes;

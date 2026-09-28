@@ -8,7 +8,6 @@ import com.sales.modules.supplier.dto.response.SupplierReturnResponse;
 import java.time.LocalDate;
 
 public interface SupplierReturnService {
-
     ReceiptReturnableCheckResponse checkReceiptReturnable(String currentUsername, String receiptId);
 
     SupplierReturnResponse createSupplierReturn(String currentUsername, CreateSupplierReturnRequest request);

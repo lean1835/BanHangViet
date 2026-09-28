@@ -37,7 +37,6 @@ import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class SupplierImportServiceImplTest {
-
     @Mock
     private SupplierRepository supplierRepository;
     @Mock
@@ -194,7 +193,7 @@ class SupplierImportServiceImplTest {
             }
             Row row = sheet.createRow(1);
             row.createCell(0).setCellValue("NCC Phụ Tùng");
-            row.createCell(1).setCellValue(987654321.0); // Numeric cell!
+            row.createCell(1).setCellValue(987654321.0);
 
             ByteArrayOutputStream out = new ByteArrayOutputStream();
             workbook.write(out);

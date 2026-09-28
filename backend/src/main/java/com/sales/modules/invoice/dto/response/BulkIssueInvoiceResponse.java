@@ -12,7 +12,6 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class BulkIssueInvoiceResponse {
-
     private String syncSessionCode;
     private int totalProcessed;
     private int successCount;

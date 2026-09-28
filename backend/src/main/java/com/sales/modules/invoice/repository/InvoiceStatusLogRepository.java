@@ -8,7 +8,6 @@ import java.util.List;
 
 @Repository
 public interface InvoiceStatusLogRepository extends JpaRepository<InvoiceStatusLog, String> {
-
     @EntityGraph(attributePaths = {"changedByUser"})
     List<InvoiceStatusLog> findByInvoiceIdOrderByCreatedAtAsc(String invoiceId);
 

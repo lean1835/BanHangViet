@@ -13,7 +13,6 @@ import java.util.Optional;
 
 @Repository
 public interface FaqItemRepository extends JpaRepository<FaqItem, String>, JpaSpecificationExecutor<FaqItem> {
-
     List<FaqItem> findAllByIsActiveTrueOrderByCategoryAscDisplayOrderAsc();
 
     List<FaqItem> findAllByIsActiveTrueAndCategoryOrderByDisplayOrderAsc(FaqCategory category);

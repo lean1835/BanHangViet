@@ -44,10 +44,14 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
+import com.sales.common.exception.AppException;
+import com.sales.common.exception.ErrorCode;
+import com.sales.modules.order.dto.request.ApplyDiscountRequest;
+import com.sales.modules.order.dto.request.CompleteOrderRequest;
+import com.sales.modules.order.dto.request.CreateOrderItemRequest;
 
 @ExtendWith(MockitoExtension.class)
 class OrderServiceImplTest {
-
     @Mock
     private OrderRepository orderRepository;
 
@@ -188,7 +192,7 @@ class OrderServiceImplTest {
                         .build());
         when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        com.sales.modules.order.dto.request.CreateOrderItemRequest request = com.sales.modules.order.dto.request.CreateOrderItemRequest.builder()
+        CreateOrderItemRequest request = CreateOrderItemRequest.builder()
                 .productId("prod-001")
                 .quantity(new BigDecimal("2"))
                 .build();
@@ -196,11 +200,7 @@ class OrderServiceImplTest {
         OrderResponse response = orderService.addOrderItem("chuho", "order-001", request);
 
         assertNotNull(response);
-        // Total subtotal after promo = 180,000 (2 * 100,000 - 20,000)
-        // Item promo discount = 20,000
-        // VIP discount (5% of 180,000 after promo) = 9,000
-        // Total discount recorded = 29,000
-        // Final amount = 180,000 - 9,000 = 171,000
+
         assertEquals(new BigDecimal("20000.00"), order.getPromotionDiscountAmount());
         assertEquals(new BigDecimal("9000.00"), order.getCustomerDiscountAmount());
         assertEquals(new BigDecimal("29000.00"), order.getDiscountAmount());
@@ -239,7 +239,7 @@ class OrderServiceImplTest {
         when(customerRepository.save(any(Customer.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        com.sales.modules.order.dto.request.CompleteOrderRequest completeRequest = com.sales.modules.order.dto.request.CompleteOrderRequest.builder()
+        CompleteOrderRequest completeRequest = CompleteOrderRequest.builder()
                 .amountGiven(new BigDecimal("200000.00"))
                 .build();
 
@@ -277,7 +277,7 @@ class OrderServiceImplTest {
                 .thenReturn(Optional.of(order));
         when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        com.sales.modules.order.dto.request.ApplyDiscountRequest discountRequest = com.sales.modules.order.dto.request.ApplyDiscountRequest.builder()
+        ApplyDiscountRequest discountRequest = ApplyDiscountRequest.builder()
                 .discountType("CASH")
                 .discountValue(new BigDecimal("10000.00"))
                 .build();
@@ -330,7 +330,6 @@ class OrderServiceImplTest {
                 .subtotal(new BigDecimal("50000.00"))
                 .build();
 
-        // Giả lập danh sách items bị duplicate cùng 1 OrderItem do EntityGraph join
         order.getItems().add(item1);
         order.getItems().add(item1);
 
@@ -339,13 +338,12 @@ class OrderServiceImplTest {
                 .thenReturn(Optional.of(order));
         when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        com.sales.modules.order.dto.request.CompleteOrderRequest completeRequest = com.sales.modules.order.dto.request.CompleteOrderRequest.builder()
+        CompleteOrderRequest completeRequest = CompleteOrderRequest.builder()
                 .amountGiven(new BigDecimal("50000.00"))
                 .build();
 
         orderService.completeOrder("chuho", "order-004", completeRequest);
 
-        // Tồn kho của product chỉ được trừ đúng 1 đơn vị: 994 - 1 = 993 (không phải 992)
         assertEquals(new BigDecimal("993"), testProduct.getStockQuantity());
         verify(productRepository).deductStock(eq("prod-101"), eq("house-001"), eq(new BigDecimal("1")));
         verify(posInventoryService).batchDeductPosStock(eq("house-001"), eq("pos-cs1"), argThat(deductions ->
@@ -371,20 +369,18 @@ class OrderServiceImplTest {
                 .household(household)
                 .build();
 
-        // Ca đang OPEN nhưng thuộc về Nhân viên B (sau khi nhận bàn giao)
         Shift handedOverShift = Shift.builder()
                 .id("shift-handover")
                 .household(household)
-                .user(cashierB) // B là thu ngân hiện tại của ca
+                .user(cashierB)
                 .status(ShiftStatus.OPEN)
                 .build();
 
-        // Đơn hàng do Nhân viên A tạo trước khi bàn giao
         Order order = Order.builder()
                 .id("order-handover-01")
                 .household(household)
                 .shift(handedOverShift)
-                .createdByUser(cashierA) // A là người tạo đơn
+                .createdByUser(cashierA)
                 .status("CREATING")
                 .paymentStatus("PENDING")
                 .paymentMethod("CASH")
@@ -396,14 +392,13 @@ class OrderServiceImplTest {
         when(orderRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("order-handover-01", "house-001"))
                 .thenReturn(Optional.of(order));
 
-        com.sales.modules.order.dto.request.CompleteOrderRequest request = com.sales.modules.order.dto.request.CompleteOrderRequest.builder()
+        CompleteOrderRequest request = CompleteOrderRequest.builder()
                 .amountGiven(new BigDecimal("100000.00"))
                 .build();
 
-        // Act & Assert: Nhân viên A không còn là thu ngân của ca nữa, cố gắng hoàn tất đơn -> Bị chặn 403 FORBIDDEN
-        com.sales.common.exception.AppException ex = assertThrows(com.sales.common.exception.AppException.class, () ->
+        AppException ex = assertThrows(AppException.class, () ->
                 orderService.completeOrder("thunganA", "order-handover-01", request));
-        assertEquals(com.sales.common.exception.ErrorCode.FORBIDDEN, ex.getErrorCode(),
+        assertEquals(ErrorCode.FORBIDDEN, ex.getErrorCode(),
                 "Nhân viên đã bàn giao ca không được phép thao tác trên đơn của ca người khác quản lý");
     }
 }

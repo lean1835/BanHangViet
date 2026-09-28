@@ -84,12 +84,12 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import java.util.Optional;
+import java.time.temporal.ChronoUnit;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class ReportServiceImpl implements ReportService {
-
     private final UserRepository userRepository;
     private final OrderRepository orderRepository;
     private final EInvoiceRepository eInvoiceRepository;
@@ -177,7 +177,7 @@ public class ReportServiceImpl implements ReportService {
         BigDecimal transfer = BigDecimal.ZERO;
         BigDecimal debt = BigDecimal.ZERO;
 
-        Map<String, List<com.sales.modules.order.entity.OrderPayment>> paymentsByOrderId = new HashMap<>();
+        Map<String, List<OrderPayment>> paymentsByOrderId = new HashMap<>();
         if (!orders.isEmpty()) {
             paymentsByOrderId = orderPaymentRepository
                     .findByOrderIdIn(orders.stream().map(Order::getId).collect(Collectors.toList()))
@@ -186,9 +186,9 @@ public class ReportServiceImpl implements ReportService {
         }
 
         for (Order o : orders) {
-            List<com.sales.modules.order.entity.OrderPayment> orderPayments = paymentsByOrderId.get(o.getId());
+            List<OrderPayment> orderPayments = paymentsByOrderId.get(o.getId());
             if (orderPayments != null && !orderPayments.isEmpty()) {
-                for (com.sales.modules.order.entity.OrderPayment op : orderPayments) {
+                for (OrderPayment op : orderPayments) {
                     if ("CASH".equals(op.getPaymentMethod())) {
                         cash = cash.add(op.getAmount());
                     } else if ("BANK_TRANSFER".equals(op.getPaymentMethod())) {
@@ -334,7 +334,7 @@ public class ReportServiceImpl implements ReportService {
         if (period1Start.isAfter(period1End) || period2Start.isAfter(period2End)) {
             throw new AppException(ErrorCode.INVALID_INPUT);
         }
-        // Check overlap
+
         if (!period1Start.isAfter(period2End) && !period1End.isBefore(period2Start)) {
             throw new AppException(ErrorCode.INVALID_INPUT);
         }
@@ -825,7 +825,6 @@ public class ReportServiceImpl implements ReportService {
                     .collect(Collectors.toList());
         }
 
-        // Gom tổng chiết khấu dòng hàng và tổng thành tiền theo đơn để phân bổ chiết khấu cấp đơn hàng (NCL-07-CN-008)
         Map<String, BigDecimal> orderItemDiscountSums = new HashMap<>();
         Map<String, BigDecimal> orderSubtotalSums = new HashMap<>();
         for (OrderItem oi : items) {
@@ -887,7 +886,6 @@ public class ReportServiceImpl implements ReportService {
                     ? oi.getBaseQuantity()
                     : qty;
 
-            // Phân bổ chiết khấu cấp đơn hàng (VIP, khuyến mại đơn, điểm) theo tỷ lệ thành tiền dòng hàng
             BigDecimal itemSubtotal = oi.getSubtotal() != null ? oi.getSubtotal() : BigDecimal.ZERO;
             Order ord = oi.getOrder();
             String ordId = ord.getId();
@@ -966,7 +964,6 @@ public class ReportServiceImpl implements ReportService {
             dDto.setGrossProfit(dDto.getGrossProfit().add(grossProfit));
         }
 
-        // Khấu trừ hàng trả lại từ các phiếu trả hàng đã duyệt (NCL-07-CN-008-TC-03)
         for (ReturnTicketItem rti : returnedItems) {
             Product p = rti.getProduct();
             String pId = p != null ? p.getId() : (rti.getInvoiceItemId() != null ? rti.getInvoiceItemId() : rti.getId());
@@ -1257,7 +1254,7 @@ public class ReportServiceImpl implements ReportService {
         LocalDateTime startDateTime = start.atStartOfDay();
         LocalDateTime endDateTime = end.atTime(LocalTime.MAX);
 
-        long days = java.time.temporal.ChronoUnit.DAYS.between(start, end) + 1;
+        long days = ChronoUnit.DAYS.between(start, end) + 1;
         LocalDate prevEnd = start.minusDays(1);
         LocalDate prevStart = prevEnd.minusDays(days - 1);
         LocalDateTime prevStartDateTime = prevStart.atStartOfDay();

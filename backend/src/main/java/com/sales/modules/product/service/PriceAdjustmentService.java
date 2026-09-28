@@ -8,7 +8,6 @@ import com.sales.modules.product.dto.response.PriceAdjustmentBatchResponse;
 import com.sales.modules.product.dto.response.PriceAdjustmentPreviewResponse;
 
 public interface PriceAdjustmentService {
-
     PriceAdjustmentPreviewResponse previewPriceAdjustment(String username, PreviewPriceAdjustmentRequest request);
 
     PriceAdjustmentBatchResponse applyPriceAdjustment(String username, ApplyPriceAdjustmentRequest request);

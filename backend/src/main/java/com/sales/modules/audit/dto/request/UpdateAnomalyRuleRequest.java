@@ -15,7 +15,6 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 @AllArgsConstructor
 public class UpdateAnomalyRuleRequest {
-
     @NotNull(message = "Ngưỡng kích hoạt không được để trống")
     @DecimalMin(value = "0.01", message = "Ngưỡng kích hoạt phải lớn hơn 0")
     private BigDecimal thresholdValue;

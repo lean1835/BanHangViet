@@ -10,10 +10,10 @@ import org.springframework.stereotype.Repository;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.Collection;
 
 @Repository
 public interface UserRepository extends JpaRepository<User, String> {
-
     @Modifying(flushAutomatically = true)
     @Query("UPDATE User u SET u.passwordHash = :passwordHash, u.passwordChangedAt = :passwordChangedAt, u.mustChangePassword = false WHERE u.id = :userId")
     int updatePassword(@Param("userId") String userId, @Param("passwordHash") String passwordHash, @Param("passwordChangedAt") LocalDateTime passwordChangedAt);
@@ -59,5 +59,5 @@ public interface UserRepository extends JpaRepository<User, String> {
     Optional<User> findByEmailAndDeletedAtIsNull(String email);
 
     @Query("SELECT u.household.id, COUNT(u.id) FROM User u WHERE u.household.id IN :householdIds AND u.deletedAt IS NULL GROUP BY u.household.id")
-    List<Object[]> countUsersByHouseholdIds(@Param("householdIds") java.util.Collection<String> householdIds);
+    List<Object[]> countUsersByHouseholdIds(@Param("householdIds") Collection<String> householdIds);
 }

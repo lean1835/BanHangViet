@@ -23,7 +23,6 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class TaxDeclarationPeriod {
-
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     @Column(length = 36, nullable = false)
@@ -39,7 +38,7 @@ public class TaxDeclarationPeriod {
     private String periodName;
 
     @Column(name = "period_type", nullable = false, length = 20)
-    private String periodType; // MONTHLY, QUARTERLY
+    private String periodType;
 
     @Column(nullable = false)
     private Integer year;
@@ -55,7 +54,7 @@ public class TaxDeclarationPeriod {
 
     @Column(nullable = false, length = 20)
     @Builder.Default
-    private String status = "DRAFT"; // DRAFT, GENERATED, SUBMITTED, LOCKED
+    private String status = "DRAFT";
 
     @Column(name = "total_valid_invoices", nullable = false)
     @Builder.Default

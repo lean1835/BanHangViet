@@ -9,7 +9,6 @@ import com.sales.modules.auth.entity.BusinessHousehold;
 import com.sales.modules.auth.entity.User;
 
 public interface BackupVerificationService {
-
     BackupVerificationStatusResponse getVerificationStatus(String currentUsername);
 
     PageResponse<BackupVerificationHistoryResponse> getVerificationHistories(String currentUsername, int page, int size);

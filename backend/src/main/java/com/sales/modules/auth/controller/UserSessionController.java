@@ -23,7 +23,6 @@ import java.util.List;
 @RequiredArgsConstructor
 @Tag(name = "User Session Management", description = "APIs quản lý phiên đăng nhập và đăng xuất từ xa (NCL-01-CN-007)")
 public class UserSessionController {
-
     private final UserSessionService userSessionService;
 
     @GetMapping

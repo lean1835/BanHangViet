@@ -5,6 +5,7 @@ import lombok.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Data
 @Builder
@@ -33,8 +34,8 @@ public class ProductResponse {
 
     private BigDecimal warehouseStock;
     private BigDecimal allocatedStock;
-    private java.util.List<PosStockBreakdownResponse> posStocks;
-    private java.util.List<ProductUnitConversionResponse> unitConversions;
+    private List<PosStockBreakdownResponse> posStocks;
+    private List<ProductUnitConversionResponse> unitConversions;
 
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

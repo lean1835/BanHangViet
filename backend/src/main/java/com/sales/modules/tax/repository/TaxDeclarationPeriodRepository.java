@@ -9,7 +9,6 @@ import java.util.Optional;
 
 @Repository
 public interface TaxDeclarationPeriodRepository extends JpaRepository<TaxDeclarationPeriod, String> {
-
     @EntityGraph(attributePaths = {"household", "createdByUser", "lockedByUser"})
     Optional<TaxDeclarationPeriod> findByHouseholdIdAndPeriodTypeAndYearAndPeriodNumber(
             String householdId, String periodType, Integer year, Integer periodNumber

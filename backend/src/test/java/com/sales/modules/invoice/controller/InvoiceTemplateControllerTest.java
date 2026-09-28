@@ -30,7 +30,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Transactional
 @SuppressWarnings("unused")
 public class InvoiceTemplateControllerTest {
-
     @Autowired
     private MockMvc mockMvc;
 
@@ -105,7 +104,6 @@ public class InvoiceTemplateControllerTest {
     @Test
     @WithMockUser(username = "test_owner_tmpl", roles = {"VT-01"})
     public void getTemplate_autoInitializesDefaultIfAbsent() throws Exception {
-        // Clear any existing template for household
         invoiceTemplateRepository.findByHouseholdId(testHousehold.getId())
                 .ifPresent(invoiceTemplateRepository::delete);
 

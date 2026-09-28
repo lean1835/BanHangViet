@@ -7,6 +7,5 @@ import java.util.List;
 
 @Repository
 public interface CustomerDebtReconciliationItemRepository extends JpaRepository<CustomerDebtReconciliationItem, String> {
-
     List<CustomerDebtReconciliationItem> findByReconciliationIdOrderByTransactionDateAsc(String reconciliationId);
 }

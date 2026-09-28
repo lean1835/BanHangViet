@@ -53,11 +53,16 @@ import java.util.*;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
+import com.sales.modules.order.dto.request.RejectReturnTicketRequest;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 
 @ExtendWith(MockitoExtension.class)
 @SuppressWarnings("unchecked")
 class ReturnTicketServiceImplTest {
-
     @Mock
     private ReturnTicketRepository returnTicketRepository;
 
@@ -99,7 +104,6 @@ class ReturnTicketServiceImplTest {
 
     @InjectMocks
     private ReturnTicketServiceImpl returnTicketService;
-
 
     private User ownerUser;
     private User customerUser;
@@ -357,7 +361,6 @@ class ReturnTicketServiceImplTest {
     @Test
     @DisplayName("Create Return Ticket - Tính toán chính xác chiết khấu phân bổ")
     void testCreateReturnTicket_ProratedDiscount_Success() {
-        // Mua 5 sản phẩm đơn giá 10.000, chiết khấu 5.000, thuế 10%
         EInvoiceItem discountedItem = EInvoiceItem.builder()
                 .id("item-disc-1")
                 .product(product)
@@ -411,7 +414,6 @@ class ReturnTicketServiceImplTest {
                 .build();
 
         when(returnTicketRepository.save(argThat(t -> {
-            // Kiểm tra tổng tiền trả lại phải được trừ chiết khấu: (20000 - 2000) * 1.10 = 19800.00
             return t.getTotalReturnAmount().compareTo(new BigDecimal("19800.00")) == 0;
         }))).thenReturn(savedTicket);
 
@@ -455,7 +457,6 @@ class ReturnTicketServiceImplTest {
                 .items(List.of(line1, line2))
                 .build();
 
-        // Giả lập đã có 1 phiếu trả cho line1 (trả 2 cái)
         ReturnedQuantityProjection existingProj = mock(ReturnedQuantityProjection.class);
         when(existingProj.getInvoiceItemId()).thenReturn("item-line-1");
         when(existingProj.getTotalReturned()).thenReturn(new BigDecimal("2.000"));
@@ -481,7 +482,6 @@ class ReturnTicketServiceImplTest {
 
         when(returnTicketRepository.save(any())).thenReturn(savedTicket);
 
-        // Lập phiếu mới trả full 3 cái cho line2 (dòng 2 chưa trả cái nào)
         CreateReturnTicketRequest request = CreateReturnTicketRequest.builder()
                 .originalInvoiceId("inv-multi")
                 .reason("Trả hàng dòng 2 giá khuyến mãi")
@@ -507,7 +507,7 @@ class ReturnTicketServiceImplTest {
                 .invoiceNumber("00000666")
                 .createdByUser(ownerUser)
                 .status("ISSUED")
-                .createdAt(LocalDateTime.now().minusDays(10)) // Quá 7 ngày
+                .createdAt(LocalDateTime.now().minusDays(10))
                 .items(List.of(invoiceItem))
                 .build();
 
@@ -542,7 +542,7 @@ class ReturnTicketServiceImplTest {
                 .invoiceNumber("00000666")
                 .createdByUser(ownerUser)
                 .status("ISSUED")
-                .createdAt(LocalDateTime.now().minusDays(10)) // Quá 7 ngày
+                .createdAt(LocalDateTime.now().minusDays(10))
                 .items(List.of(invoiceItem))
                 .build();
 
@@ -600,13 +600,13 @@ class ReturnTicketServiceImplTest {
                 .createdAt(LocalDateTime.now())
                 .build();
 
-        org.springframework.data.domain.Page<ReturnTicket> page = new org.springframework.data.domain.PageImpl<>(
+        Page<ReturnTicket> page = new PageImpl<>(
                 List.of(ticket1),
-                org.springframework.data.domain.PageRequest.of(0, 10),
+                PageRequest.of(0, 10),
                 1
         );
 
-        when(returnTicketRepository.findAll(any(org.springframework.data.jpa.domain.Specification.class), any(org.springframework.data.domain.Pageable.class)))
+        when(returnTicketRepository.findAll(any(Specification.class), any(Pageable.class)))
                 .thenReturn(page);
 
         var response = returnTicketService.getReturnTickets(
@@ -643,7 +643,7 @@ class ReturnTicketServiceImplTest {
 
         assertNotNull(response);
         assertEquals(1, response.getItems().size());
-        // Invoice quantity = 5.000, already returned sum = 2.000 + 1.500 = 3.500 => returnable = 1.500
+
         assertEquals(new BigDecimal("1.500"), response.getItems().get(0).getReturnableQuantity());
     }
 
@@ -787,7 +787,7 @@ class ReturnTicketServiceImplTest {
         when(returnTicketRepository.findByIdAndHouseholdId("ticket-1", "house-1")).thenReturn(Optional.of(ticket));
         when(returnTicketRepository.save(any(ReturnTicket.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        var rejectReq = com.sales.modules.order.dto.request.RejectReturnTicketRequest.builder()
+        var rejectReq = RejectReturnTicketRequest.builder()
                 .rejectReason("Hàng bị hư hỏng do lỗi người dùng")
                 .build();
 
@@ -805,7 +805,7 @@ class ReturnTicketServiceImplTest {
     void testRejectReturnTicket_EmptyReason_ThrowsException() {
         when(userRepository.findByUsername("chuho_viet")).thenReturn(Optional.of(ownerUser));
 
-        var rejectReq = com.sales.modules.order.dto.request.RejectReturnTicketRequest.builder()
+        var rejectReq = RejectReturnTicketRequest.builder()
                 .rejectReason("   ")
                 .build();
 
@@ -999,7 +999,7 @@ class ReturnTicketServiceImplTest {
 
         when(userRepository.findByUsername("ketoan_viet")).thenReturn(Optional.of(accountantUser));
 
-        var rejectReq = com.sales.modules.order.dto.request.RejectReturnTicketRequest.builder()
+        var rejectReq = RejectReturnTicketRequest.builder()
                 .rejectReason("Từ chối bởi kế toán")
                 .build();
 
@@ -1042,8 +1042,6 @@ class ReturnTicketServiceImplTest {
     @Test
     @DisplayName("Create Decrease Adjustment Invoice (NCL-11-CN-003) - Tính chính xác số tiền khi sản phẩm trả có chiết khấu dòng")
     void testCreateDecreaseAdjustmentInvoice_WithLineDiscount_CalculatesCorrectFinalAmount() {
-        // Xi măng: 100.000đ/bao x 2 bao, chiết khấu 10.000đ/bao
-        // Net before tax: 180.000đ, Tax (8%): 14.400đ -> Subtotal/TotalReturnAmount = 194.400đ
         ReturnTicketItem discountedItem = ReturnTicketItem.builder()
                 .id("item-disc-1")
                 .product(product)
@@ -1104,8 +1102,6 @@ class ReturnTicketServiceImplTest {
         assertEquals(ErrorCode.UNAUTHORIZED_RETURN_ACTION, ex.getErrorCode());
         verify(returnTicketRepository, never()).save(any());
     }
-
-    // ==================== TESTS FOR NCL-11-CN-004 ====================
 
     @Test
     @DisplayName("NCL-11-CN-004-TC-01: Thống kê hàng trả lại và tiền đã hoàn - Luồng thành công với 6 phiếu đã duyệt")
@@ -1275,7 +1271,6 @@ class ReturnTicketServiceImplTest {
     void testCheckInvoiceReturnable_CustomReturnDaysLimit() {
         when(userRepository.findByUsername("chuho_viet")).thenReturn(Optional.of(ownerUser));
 
-        // Hóa đơn tạo cách đây 10 ngày (vượt quá mặc định 7 ngày nhưng trong hạn cấu hình 14 ngày)
         EInvoice invoice10DaysOld = EInvoice.builder()
                 .id("inv-10days")
                 .household(household)
@@ -1309,8 +1304,6 @@ class ReturnTicketServiceImplTest {
         when(eInvoiceRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("inv-1", "house-1"))
                 .thenReturn(Optional.of(issuedInvoice));
 
-        // issuedInvoice có 5 sản phẩm (item-1, quantity 5.000)
-        // Đã đổi 1 sản phẩm qua phiếu đổi hàng ProductExchange -> còn 4
         ProductExchangeItem pei = ProductExchangeItem.builder()
                 .invoiceItemId("item-1")
                 .product(product)
@@ -1323,7 +1316,6 @@ class ReturnTicketServiceImplTest {
         when(productExchangeItemRepository.findCompletedReturnItemsByInvoiceId("inv-1"))
                 .thenReturn(List.of(pei));
 
-        // Yêu cầu trả thêm 5 món -> 1 (đã đổi) + 5 (yêu cầu) = 6 > 5 (đã mua)
         CreateReturnTicketRequest request = CreateReturnTicketRequest.builder()
                 .originalInvoiceId("inv-1")
                 .items(List.of(CreateReturnTicketItemRequest.builder()
@@ -1389,5 +1381,3 @@ class ReturnTicketServiceImplTest {
         assertEquals(ErrorCode.INVOICE_ALREADY_EXCHANGED_OR_RETURNED, ex.getErrorCode());
     }
 }
-
-

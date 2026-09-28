@@ -33,7 +33,6 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Slf4j
 public class CashTransactionCategoryServiceImpl implements CashTransactionCategoryService {
-
     private final CashTransactionCategoryRepository categoryRepository;
     private final CashTransactionRepository transactionRepository;
     private final UserRepository userRepository;
@@ -185,7 +184,6 @@ public class CashTransactionCategoryServiceImpl implements CashTransactionCatego
         CashTransactionCategory category = categoryRepository.findByIdAndHouseholdIdAndDeletedAtIsNull(categoryId, household.getId())
                 .orElseThrow(() -> new AppException(ErrorCode.CASH_CATEGORY_NOT_FOUND));
 
-        // Check if category has been used in transactions
         if (transactionRepository.existsByCategoryId(categoryId)) {
             throw new AppException(ErrorCode.CASH_CATEGORY_IN_USE);
         }

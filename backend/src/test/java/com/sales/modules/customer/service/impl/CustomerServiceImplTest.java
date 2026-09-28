@@ -27,10 +27,10 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
+import com.sales.modules.customer.dto.request.UpdateCustomerDeliveryChannelRequest;
 
 @ExtendWith(MockitoExtension.class)
 class CustomerServiceImplTest {
-
     @Mock
     private UserRepository userRepository;
 
@@ -154,7 +154,7 @@ class CustomerServiceImplTest {
                 .thenReturn(Optional.of(customerNoDebt));
         when(customerDebtRepository.existsByCustomerIdAndHouseholdIdAndStatusIn(
                 eq("cust-002"), eq("house-001"), any()))
-                .thenReturn(true); // Có bản ghi nợ chưa khép
+                .thenReturn(true);
 
         AppException exception = assertThrows(AppException.class, () ->
                 customerService.deleteCustomer("chuho", "cust-002")
@@ -451,8 +451,8 @@ class CustomerServiceImplTest {
     @Test
     @DisplayName("NCL-06-CN-006: Cập nhật kênh nhận hóa đơn mặc định của khách hàng thành công")
     void updateDefaultDeliveryChannel_Success() {
-        com.sales.modules.customer.dto.request.UpdateCustomerDeliveryChannelRequest request =
-                com.sales.modules.customer.dto.request.UpdateCustomerDeliveryChannelRequest.builder()
+        UpdateCustomerDeliveryChannelRequest request =
+                UpdateCustomerDeliveryChannelRequest.builder()
                         .defaultDeliveryChannel("ZALO")
                         .defaultDeliveryAddress("0912345678")
                         .build();
@@ -472,8 +472,8 @@ class CustomerServiceImplTest {
     @Test
     @DisplayName("NCL-06-CN-006: Cập nhật kênh EMAIL hợp lệ thành công")
     void updateDefaultDeliveryChannel_Email_Success() {
-        com.sales.modules.customer.dto.request.UpdateCustomerDeliveryChannelRequest request =
-                com.sales.modules.customer.dto.request.UpdateCustomerDeliveryChannelRequest.builder()
+        UpdateCustomerDeliveryChannelRequest request =
+                UpdateCustomerDeliveryChannelRequest.builder()
                         .defaultDeliveryChannel("EMAIL")
                         .defaultDeliveryAddress("customer@gmail.com")
                         .build();
@@ -493,8 +493,8 @@ class CustomerServiceImplTest {
     @Test
     @DisplayName("NCL-06-CN-006: Cập nhật kênh EMAIL không đúng định dạng ném AppException INVALID_INPUT")
     void updateDefaultDeliveryChannel_Email_Invalid_ThrowsException() {
-        com.sales.modules.customer.dto.request.UpdateCustomerDeliveryChannelRequest request =
-                com.sales.modules.customer.dto.request.UpdateCustomerDeliveryChannelRequest.builder()
+        UpdateCustomerDeliveryChannelRequest request =
+                UpdateCustomerDeliveryChannelRequest.builder()
                         .defaultDeliveryChannel("EMAIL")
                         .defaultDeliveryAddress("invalid-email-address")
                         .build();
@@ -510,8 +510,8 @@ class CustomerServiceImplTest {
     @Test
     @DisplayName("NCL-06-CN-006: Cập nhật kênh ZALO số điện thoại không hợp lệ ném AppException INVALID_INPUT")
     void updateDefaultDeliveryChannel_Zalo_Invalid_ThrowsException() {
-        com.sales.modules.customer.dto.request.UpdateCustomerDeliveryChannelRequest request =
-                com.sales.modules.customer.dto.request.UpdateCustomerDeliveryChannelRequest.builder()
+        UpdateCustomerDeliveryChannelRequest request =
+                UpdateCustomerDeliveryChannelRequest.builder()
                         .defaultDeliveryChannel("ZALO")
                         .defaultDeliveryAddress("abc-phone")
                         .build();
@@ -527,8 +527,8 @@ class CustomerServiceImplTest {
     @Test
     @DisplayName("NCL-06-CN-006: Cập nhật kênh QR tự động gán defaultDeliveryAddress là null")
     void updateDefaultDeliveryChannel_QR_NullifiesAddress() {
-        com.sales.modules.customer.dto.request.UpdateCustomerDeliveryChannelRequest request =
-                com.sales.modules.customer.dto.request.UpdateCustomerDeliveryChannelRequest.builder()
+        UpdateCustomerDeliveryChannelRequest request =
+                UpdateCustomerDeliveryChannelRequest.builder()
                         .defaultDeliveryChannel("QR")
                         .defaultDeliveryAddress("http://some-url.com")
                         .build();

@@ -12,7 +12,6 @@ import java.util.Optional;
 
 @Repository
 public interface PriceAdjustmentBatchRepository extends JpaRepository<PriceAdjustmentBatch, String>, JpaSpecificationExecutor<PriceAdjustmentBatch> {
-
     Optional<PriceAdjustmentBatch> findByIdAndHouseholdId(String id, String householdId);
 
     @EntityGraph(attributePaths = {"items", "items.product"})

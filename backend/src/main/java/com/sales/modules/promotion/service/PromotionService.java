@@ -13,9 +13,9 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
 import java.math.BigDecimal;
+import com.sales.modules.product.entity.Product;
 
 public interface PromotionService {
-
     PromotionResponse createPromotion(String currentUsername, PromotionCreateRequest request);
 
     PromotionResponse updatePromotion(String currentUsername, String promotionId, PromotionUpdateRequest request);
@@ -42,7 +42,7 @@ public interface PromotionService {
 
     PromotionItemResultResponse calculateItemPromotion(
             User user,
-            com.sales.modules.product.entity.Product product,
+            Product product,
             BigDecimal quantity,
             BigDecimal unitPrice,
             Boolean bypassPromotion

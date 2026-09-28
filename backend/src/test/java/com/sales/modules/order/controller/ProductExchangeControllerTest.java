@@ -35,11 +35,12 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import org.junit.jupiter.api.Assertions;
+import org.mockito.ArgumentCaptor;
 
 @SpringBootTest
 @AutoConfigureMockMvc
 class ProductExchangeControllerTest {
-
     @Autowired
     private MockMvc mockMvc;
 
@@ -213,7 +214,7 @@ class ProductExchangeControllerTest {
     @WithMockUser(username = "owner_test", roles = {"VT-01"})
     void getExchangeTickets_invalidSort_fallsBackToCreatedAt() throws Exception {
         Page<ProductExchangeResponse> page = new PageImpl<>(Collections.emptyList());
-        org.mockito.ArgumentCaptor<Pageable> pageableCaptor = org.mockito.ArgumentCaptor.forClass(Pageable.class);
+        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
 
         when(productExchangeService.getExchangeTickets(any(), any(), any(), pageableCaptor.capture(), eq("owner_test")))
                 .thenReturn(page);
@@ -222,7 +223,7 @@ class ProductExchangeControllerTest {
                         .param("sort", "maliciousColumn;DROP TABLE,asc"))
                 .andExpect(status().isOk());
 
-        org.junit.jupiter.api.Assertions.assertEquals("createdAt",
+        Assertions.assertEquals("createdAt",
                 pageableCaptor.getValue().getSort().iterator().next().getProperty());
     }
 }

@@ -9,7 +9,6 @@ import lombok.*;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ConfirmBankTransferRequest {
-
     @NotBlank(message = "Mã giao dịch ngân hàng không được để trống khi xác nhận đã nhận tiền")
     @Size(max = 100, message = "Mã giao dịch không được vượt quá 100 ký tự")
     private String transactionCode;

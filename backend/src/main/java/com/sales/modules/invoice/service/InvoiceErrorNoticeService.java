@@ -7,7 +7,6 @@ import com.sales.common.dto.PageResponse;
 import java.util.List;
 
 public interface InvoiceErrorNoticeService {
-
     /**
      * Lấy danh sách hóa đơn đã HỦY hoặc ĐIỀU CHỈNH chưa có thông báo sai sót được CQT tiếp nhận (NCL-05-CN-005)
      */

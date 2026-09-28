@@ -38,12 +38,14 @@ import java.util.UUID;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import com.sales.common.constant.ShiftStatus;
+import java.time.LocalDateTime;
+import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors;
 
 @SpringBootTest
 @AutoConfigureMockMvc
 @Transactional
 public class ProductPriceTierControllerTest {
-
     @Autowired
     private MockMvc mockMvc;
 
@@ -146,11 +148,10 @@ public class ProductPriceTierControllerTest {
         shift = shiftRepository.save(Shift.builder()
                 .household(household)
                 .user(staffUser)
-                .status(com.sales.common.constant.ShiftStatus.OPEN)
-                .openedAt(java.time.LocalDateTime.now())
+                .status(ShiftStatus.OPEN)
+                .openedAt(LocalDateTime.now())
                 .openingCash(new BigDecimal("1000000.00"))
                 .build());
-
     }
 
     @Test
@@ -167,7 +168,7 @@ public class ProductPriceTierControllerTest {
 
         mockMvc.perform(get("/api/v1/products/" + product.getId() + "/price-tiers")
                         .header("Authorization", "Bearer mock-token")
-                        .with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user(ownerUser.getUsername()).roles("VT-01")))
+                        .with(SecurityMockMvcRequestPostProcessors.user(ownerUser.getUsername()).roles("VT-01")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(1000))
                 .andExpect(jsonPath("$.result[0].tierName").value("Giá sỉ (≥ 10)"))
@@ -187,7 +188,7 @@ public class ProductPriceTierControllerTest {
         mockMvc.perform(post("/api/v1/products/" + product.getId() + "/price-tiers")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request))
-                        .with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user(ownerUser.getUsername()).roles("VT-01")))
+                        .with(SecurityMockMvcRequestPostProcessors.user(ownerUser.getUsername()).roles("VT-01")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(1000))
                 .andExpect(jsonPath("$.result.tierName").value("Giá sỉ (≥ 10)"))
@@ -206,14 +207,13 @@ public class ProductPriceTierControllerTest {
         mockMvc.perform(post("/api/v1/products/" + product.getId() + "/price-tiers")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request))
-                        .with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user(staffUser.getUsername()).roles("VT-02")))
+                        .with(SecurityMockMvcRequestPostProcessors.user(staffUser.getUsername()).roles("VT-02")))
                 .andExpect(status().isForbidden());
     }
 
     @Test
     @DisplayName("POST /price-tiers: Cảnh báo bán dưới giá vốn khi chưa xác nhận (AC-03)")
     void testCreatePriceTier_BelowCost_WithoutConfirmation_ThrowsWarning() throws Exception {
-        // Giá vốn là 9.500đ, khai báo giá bậc 8.000đ
         CreatePriceTierRequest request = CreatePriceTierRequest.builder()
                 .tierName("Giá bán lỗ xả hàng")
                 .minQuantity(new BigDecimal("10.000"))
@@ -224,7 +224,7 @@ public class ProductPriceTierControllerTest {
         mockMvc.perform(post("/api/v1/products/" + product.getId() + "/price-tiers")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request))
-                        .with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user(ownerUser.getUsername()).roles("VT-01")))
+                        .with(SecurityMockMvcRequestPostProcessors.user(ownerUser.getUsername()).roles("VT-01")))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value(3101));
     }
@@ -242,7 +242,7 @@ public class ProductPriceTierControllerTest {
         mockMvc.perform(post("/api/v1/products/" + product.getId() + "/price-tiers")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request))
-                        .with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user(ownerUser.getUsername()).roles("VT-01")))
+                        .with(SecurityMockMvcRequestPostProcessors.user(ownerUser.getUsername()).roles("VT-01")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(1000))
                 .andExpect(jsonPath("$.result.isBelowCost").value(true))
@@ -268,7 +268,7 @@ public class ProductPriceTierControllerTest {
         mockMvc.perform(post("/api/v1/products/" + product.getId() + "/price-tiers/resolve")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request))
-                        .with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user(staffUser.getUsername()).roles("VT-02")))
+                        .with(SecurityMockMvcRequestPostProcessors.user(staffUser.getUsername()).roles("VT-02")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(1000))
                 .andExpect(jsonPath("$.result.matchedTierName").value("Giá sỉ (≥ 10)"))
@@ -279,7 +279,6 @@ public class ProductPriceTierControllerTest {
     @Test
     @DisplayName("End-to-End POS: Thêm 12 cái tự áp giá sỉ (AC-01), giảm xuống 5 cái tự về giá lẻ (AC-02), khớp QTN-07")
     void testPosOrderFlow_PriceTierAutoApplyAndRecalculate() throws Exception {
-        // Cấu hình bậc giá sỉ >= 10 giá 10.500đ (giá lẻ gốc là 12.000đ)
         productPriceTierRepository.save(ProductPriceTier.builder()
                 .household(household)
                 .product(product)
@@ -289,7 +288,6 @@ public class ProductPriceTierControllerTest {
                 .isActive(true)
                 .build());
 
-        // 1. Tạo đơn hàng mới
         Order order = orderRepository.save(Order.builder()
                 .household(household)
                 .shift(shift)
@@ -302,7 +300,6 @@ public class ProductPriceTierControllerTest {
                 .finalAmount(BigDecimal.ZERO)
                 .build());
 
-        // 2. Thêm mặt hàng với số lượng 12 -> AC-01: Hệ thống tự động áp giá sỉ 10.500đ và hiển thị tên bậc
         CreateOrderItemRequest addRequest = CreateOrderItemRequest.builder()
                 .productId(product.getId())
                 .quantity(new BigDecimal("12.000"))
@@ -311,19 +308,18 @@ public class ProductPriceTierControllerTest {
         String addResultJson = mockMvc.perform(post("/api/v1/orders/" + order.getId() + "/items")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(addRequest))
-                        .with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user(staffUser.getUsername()).roles("VT-02")))
+                        .with(SecurityMockMvcRequestPostProcessors.user(staffUser.getUsername()).roles("VT-02")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(1000))
                 .andExpect(jsonPath("$.result.items[0].quantity").value(12.000))
-                .andExpect(jsonPath("$.result.items[0].unitPrice").value(10500.00)) // Đã áp giá sỉ!
-                .andExpect(jsonPath("$.result.items[0].priceTierName").value("Giá sỉ (≥ 10)")) // Tên bậc hiển thị rõ!
-                .andExpect(jsonPath("$.result.items[0].subtotal").value(126000.00)) // 12 * 10.500
+                .andExpect(jsonPath("$.result.items[0].unitPrice").value(10500.00))
+                .andExpect(jsonPath("$.result.items[0].priceTierName").value("Giá sỉ (≥ 10)"))
+                .andExpect(jsonPath("$.result.items[0].subtotal").value(126000.00))
                 .andExpect(jsonPath("$.result.totalAmount").value(126000.00))
                 .andReturn().getResponse().getContentAsString();
 
         String itemId = objectMapper.readTree(addResultJson).get("result").get("items").get(0).get("id").asText();
 
-        // 3. Khách giảm số lượng xuống còn 5 -> AC-02: Hệ thống tự động nhảy về giá bán lẻ 12.000đ và xóa tên bậc
         UpdateOrderItemRequest updateRequest = UpdateOrderItemRequest.builder()
                 .quantity(new BigDecimal("5.000"))
                 .build();
@@ -331,13 +327,13 @@ public class ProductPriceTierControllerTest {
         mockMvc.perform(put("/api/v1/orders/" + order.getId() + "/items/" + itemId)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(updateRequest))
-                        .with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user(staffUser.getUsername()).roles("VT-02")))
+                        .with(SecurityMockMvcRequestPostProcessors.user(staffUser.getUsername()).roles("VT-02")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(1000))
                 .andExpect(jsonPath("$.result.items[0].quantity").value(5.000))
-                .andExpect(jsonPath("$.result.items[0].unitPrice").value(12000.00)) // Tự nhảy về giá bán lẻ!
-                .andExpect(jsonPath("$.result.items[0].priceTierName").doesNotExist()) // Không còn tên bậc sỉ
-                .andExpect(jsonPath("$.result.items[0].subtotal").value(60000.00)) // 5 * 12.000
-                .andExpect(jsonPath("$.result.totalAmount").value(60000.00)); // QTN-07: Khớp tổng tiền!
+                .andExpect(jsonPath("$.result.items[0].unitPrice").value(12000.00))
+                .andExpect(jsonPath("$.result.items[0].priceTierName").doesNotExist())
+                .andExpect(jsonPath("$.result.items[0].subtotal").value(60000.00))
+                .andExpect(jsonPath("$.result.totalAmount").value(60000.00));
     }
 }

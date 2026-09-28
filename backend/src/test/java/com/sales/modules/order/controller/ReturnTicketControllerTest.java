@@ -35,13 +35,13 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors;
 
 @SpringBootTest
 @AutoConfigureMockMvc
 @Transactional
 @SuppressWarnings("unused")
 public class ReturnTicketControllerTest {
-
     @Autowired
     private MockMvc mockMvc;
 
@@ -183,7 +183,7 @@ public class ReturnTicketControllerTest {
     @DisplayName("POST /api/v1/return-tickets/{id}/create-adjustment-invoice - Chủ hộ (VT-01) lập thành công")
     void testCreateDecreaseAdjustmentInvoice_OwnerRole_Success() throws Exception {
         mockMvc.perform(post("/api/v1/return-tickets/" + approvedReturnTicket.getId() + "/create-adjustment-invoice")
-                        .with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user(ownerUser.getUsername()).roles("VT-01"))
+                        .with(SecurityMockMvcRequestPostProcessors.user(ownerUser.getUsername()).roles("VT-01"))
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(1000))
@@ -208,7 +208,7 @@ public class ReturnTicketControllerTest {
     @DisplayName("POST /api/v1/return-tickets/{id}/create-adjustment-invoice - Kế toán (VT-03) lập thành công")
     void testCreateDecreaseAdjustmentInvoice_AccountantRole_Success() throws Exception {
         mockMvc.perform(post("/api/v1/return-tickets/" + approvedReturnTicket.getId() + "/create-adjustment-invoice")
-                        .with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user(accountantUser.getUsername()).roles("VT-03"))
+                        .with(SecurityMockMvcRequestPostProcessors.user(accountantUser.getUsername()).roles("VT-03"))
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(1000));
@@ -218,7 +218,7 @@ public class ReturnTicketControllerTest {
     @DisplayName("POST /api/v1/return-tickets/{id}/create-adjustment-invoice - Nhân viên bán hàng (VT-02) bị từ chối 403 Forbidden")
     void testCreateDecreaseAdjustmentInvoice_SellerRole_Forbidden() throws Exception {
         mockMvc.perform(post("/api/v1/return-tickets/" + approvedReturnTicket.getId() + "/create-adjustment-invoice")
-                        .with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user(sellerUser.getUsername()).roles("VT-02"))
+                        .with(SecurityMockMvcRequestPostProcessors.user(sellerUser.getUsername()).roles("VT-02"))
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isForbidden());
     }
@@ -237,19 +237,17 @@ public class ReturnTicketControllerTest {
                 .build());
 
         mockMvc.perform(post("/api/v1/return-tickets/" + pendingTicket.getId() + "/create-adjustment-invoice")
-                        .with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user(ownerUser.getUsername()).roles("VT-01"))
+                        .with(SecurityMockMvcRequestPostProcessors.user(ownerUser.getUsername()).roles("VT-01"))
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value(4025));
     }
 
-    // ==================== TESTS FOR NCL-11-CN-004 ====================
-
     @Test
     @DisplayName("GET /api/v1/return-tickets/statistics - NCL-11-CN-004-TC-01: Chủ hộ (VT-01) xem thống kê thành công")
     void testGetReturnTicketStatistics_OwnerRole_Success() throws Exception {
         mockMvc.perform(get("/api/v1/return-tickets/statistics")
-                        .with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user(ownerUser.getUsername()).roles("VT-01"))
+                        .with(SecurityMockMvcRequestPostProcessors.user(ownerUser.getUsername()).roles("VT-01"))
                         .param("fromDate", "2026-01-01")
                         .param("toDate", "2026-12-31")
                         .param("topLimit", "5")
@@ -268,7 +266,7 @@ public class ReturnTicketControllerTest {
     @DisplayName("GET /api/v1/return-tickets/statistics - Kế toán (VT-03) xem thống kê thành công")
     void testGetReturnTicketStatistics_AccountantRole_Success() throws Exception {
         mockMvc.perform(get("/api/v1/return-tickets/statistics")
-                        .with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user(accountantUser.getUsername()).roles("VT-03"))
+                        .with(SecurityMockMvcRequestPostProcessors.user(accountantUser.getUsername()).roles("VT-03"))
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(1000));
@@ -278,7 +276,7 @@ public class ReturnTicketControllerTest {
     @DisplayName("GET /api/v1/return-tickets/statistics - NCL-11-CN-004-TC-03: Nhân viên bán hàng (VT-02) bị chặn 403 Forbidden")
     void testGetReturnTicketStatistics_SellerRole_Forbidden() throws Exception {
         mockMvc.perform(get("/api/v1/return-tickets/statistics")
-                        .with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user(sellerUser.getUsername()).roles("VT-02"))
+                        .with(SecurityMockMvcRequestPostProcessors.user(sellerUser.getUsername()).roles("VT-02"))
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isForbidden());
     }
@@ -287,7 +285,7 @@ public class ReturnTicketControllerTest {
     @DisplayName("GET /api/v1/return-tickets/top-returned-products - Chủ hộ (VT-01) lấy bảng xếp hạng sản phẩm thành công")
     void testGetTopReturnedProducts_OwnerRole_Success() throws Exception {
         mockMvc.perform(get("/api/v1/return-tickets/top-returned-products")
-                        .with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user(ownerUser.getUsername()).roles("VT-01"))
+                        .with(SecurityMockMvcRequestPostProcessors.user(ownerUser.getUsername()).roles("VT-01"))
                         .param("limit", "10")
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
@@ -300,7 +298,7 @@ public class ReturnTicketControllerTest {
     @DisplayName("GET /api/v1/return-tickets/top-returned-products - Nhân viên bán hàng (VT-02) bị chặn 403 Forbidden")
     void testGetTopReturnedProducts_SellerRole_Forbidden() throws Exception {
         mockMvc.perform(get("/api/v1/return-tickets/top-returned-products")
-                        .with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user(sellerUser.getUsername()).roles("VT-02"))
+                        .with(SecurityMockMvcRequestPostProcessors.user(sellerUser.getUsername()).roles("VT-02"))
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isForbidden());
     }

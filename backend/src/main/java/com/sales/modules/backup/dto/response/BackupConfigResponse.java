@@ -12,7 +12,6 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 public class BackupConfigResponse {
-
     private String id;
     private String householdId;
     private Boolean isAutoBackupEnabled;

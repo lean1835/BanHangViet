@@ -19,7 +19,6 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 public class HouseholdUsageStats {
-
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     @Column(length = 36, nullable = false)
@@ -29,7 +28,7 @@ public class HouseholdUsageStats {
     @JoinColumn(name = "household_id", nullable = false)
     private BusinessHousehold household;
 
-    @Column(name = "month_year", nullable = false, length = 7) // Format: 'YYYY-MM', e.g. '2026-09'
+    @Column(name = "month_year", nullable = false, length = 7)
     private String monthYear;
 
     @Column(name = "current_users_count", nullable = false)

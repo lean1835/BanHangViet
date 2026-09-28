@@ -12,13 +12,13 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 @AllArgsConstructor
 public class MissingCostProductResponse {
-    private String productId;                   // ID sản phẩm
-    private String sku;                         // Mã SKU
-    private String productName;                 // Tên mặt hàng
-    private String unit;                        // Đơn vị tính
-    private String groupId;                     // ID nhóm hàng
-    private String groupName;                   // Tên nhóm hàng
-    private BigDecimal stockQuantity;           // Số lượng tồn kho
-    private BigDecimal retailPrice;             // Giá bán
-    private String warningMessage;              // Cảnh báo: "Chưa có giá vốn từ phiếu nhập (loại trừ khỏi tổng giá trị tồn kho)"
+    private String productId;
+    private String sku;
+    private String productName;
+    private String unit;
+    private String groupId;
+    private String groupName;
+    private BigDecimal stockQuantity;
+    private BigDecimal retailPrice;
+    private String warningMessage;
 }

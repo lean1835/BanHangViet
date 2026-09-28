@@ -43,7 +43,6 @@ import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class AnnualRevenueTrackingServiceTest {
-
     @Mock
     private UserRepository userRepository;
 
@@ -190,7 +189,6 @@ class AnnualRevenueTrackingServiceTest {
 
         AnnualRevenueTrackingResponse response = revenueTrackingService.getAnnualRevenueTracking("accountant1", 2026);
 
-        // 50.000.000 - 10.000.000 = 40.000.000 VNĐ
         assertEquals(new BigDecimal("40000000.00"), response.getCumulativeRevenue());
         assertEquals(new BigDecimal("600000.00"), response.getCumulativeTaxAmount());
         assertEquals(2, response.getValidInvoiceCount());
@@ -202,7 +200,6 @@ class AnnualRevenueTrackingServiceTest {
         when(userRepository.findByUsername("owner1")).thenReturn(Optional.of(ownerUser));
         when(settingsRepository.findByHouseholdId("hh-uuid-1")).thenReturn(Optional.of(settings));
 
-        // 820.500.000 VNĐ >= 80% (800.000.000 VNĐ)
         EInvoice bigInv = EInvoice.builder()
                 .id("inv-big")
                 .household(household)
@@ -232,7 +229,6 @@ class AnnualRevenueTrackingServiceTest {
     @Test
     @DisplayName("TC-03: Sai trạng thái - Hộ đã thuộc diện bắt buộc từ đầu năm thì không hiện cảnh báo ngưỡng")
     void getAnnualRevenueTracking_AlreadyMandatoryFromBeginning_TC03() {
-        // Household created in 2024 with revenueThresholdEnabled = true
         BusinessHousehold mandatoryHousehold = BusinessHousehold.builder()
                 .id("hh-mandatory")
                 .name("Đại Lý Minh Long")
@@ -280,7 +276,6 @@ class AnnualRevenueTrackingServiceTest {
         when(userRepository.findByUsername("owner1")).thenReturn(Optional.of(ownerUser));
         when(settingsRepository.findByHouseholdId("hh-uuid-1")).thenReturn(Optional.of(settings));
 
-        // 1.050.000.000 VNĐ >= 1 TỶ ĐỒNG
         EInvoice inv = EInvoice.builder()
                 .id("inv-1b")
                 .household(household)
@@ -301,17 +296,14 @@ class AnnualRevenueTrackingServiceTest {
         assertTrue(response.getShouldShowWarning());
         assertTrue(response.getIsMandatory());
 
-        // Verify household is marked mandatory
         assertTrue(household.getRevenueThresholdEnabled());
         verify(householdRepository, times(1)).save(household);
 
-        // Verify activity log is written
         verify(activityLogHelper, times(1)).logActivityInNewTransaction(
                 eq(household), eq(ownerUser), eq(RevenueThresholdConstants.ACTION_REVENUE_THRESHOLD_EXCEEDED),
                 eq("business_households"), eq("hh-uuid-1"), eq("false"), eq("true"), any(), any()
         );
 
-        // Verify DANGER notification pushed
         verify(notificationRepository, times(1)).save(argThat(notif ->
                 RevenueThresholdConstants.NOTIF_TYPE_REVENUE_EXCEEDED.equals(notif.getNotificationType())
                         && "DANGER".equals(notif.getSeverity())
@@ -447,7 +439,7 @@ class AnnualRevenueTrackingServiceTest {
         assertEquals(2024, response.getYear());
         assertNull(response.getProjectedReachDate());
         assertFalse(response.getProjectedInCurrentYear());
-        // Side effects (push notification, updating household flag) should not be triggered for past year
+
         verify(notificationRepository, never()).save(any());
         verify(householdRepository, never()).save(any());
     }

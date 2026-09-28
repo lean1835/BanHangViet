@@ -72,7 +72,6 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Slf4j
 public class ReturnTicketServiceImpl implements ReturnTicketService {
-
     @Value("${app.return-ticket.max-days:7}")
     private int maxReturnDays = 7;
 
@@ -103,7 +102,6 @@ public class ReturnTicketServiceImpl implements ReturnTicketService {
                 .orElse(maxReturnDays);
     }
 
-
     @Override
     @Transactional(readOnly = true)
     public InvoiceReturnableCheckResponse checkInvoiceReturnable(String invoiceId, String currentUsername) {
@@ -121,7 +119,6 @@ public class ReturnTicketServiceImpl implements ReturnTicketService {
             ineligibilityReason = "Hóa đơn gốc chưa được cấp mã hoặc đã bị hủy";
         }
 
-        // Kiểm tra xem hóa đơn này có phải hóa đơn bổ sung/điều chỉnh từ đổi trả không
         if (isEligible) {
             boolean isAdditionalOrAdjusted = invoice.getOriginalInvoice() != null || invoice.getReturnTicket() != null
                     || (invoice.getTitle() != null && (invoice.getTitle().toUpperCase().contains("ĐỔI HÀNG") || invoice.getTitle().toUpperCase().contains("ĐIỀU CHỈNH")))
@@ -132,7 +129,6 @@ public class ReturnTicketServiceImpl implements ReturnTicketService {
             }
         }
 
-        // Kiểm tra xem hóa đơn này đã từng đổi hàng hoặc trả hàng chưa
         if (isEligible) {
             boolean alreadyExchanged = productExchangeTicketRepository.existsByOriginalInvoiceIdAndStatusIn(
                     invoice.getId(), List.of("COMPLETED", "PENDING")
@@ -172,7 +168,6 @@ public class ReturnTicketServiceImpl implements ReturnTicketService {
             ineligibilityReason = "Hóa đơn đã quá thời hạn trả hàng " + effectiveMaxReturnDays + " ngày theo quy định";
         }
 
-        // Tính toán số lượng khả dụng của từng sản phẩm trong hóa đơn gốc
         Map<String, BigDecimal> returnedQtyMap = getAlreadyReturnedQuantities(invoice.getId());
 
         List<ReturnableItemDto> itemDtos = new ArrayList<>();
@@ -226,14 +221,12 @@ public class ReturnTicketServiceImpl implements ReturnTicketService {
             throw new AppException(ErrorCode.INVOICE_NOT_ELIGIBLE_FOR_RETURN);
         }
 
-        // 1. Chặn hóa đơn bổ sung/điều chỉnh từ việc đổi trả
         if (invoice.getOriginalInvoice() != null || invoice.getReturnTicket() != null
                 || (invoice.getTitle() != null && (invoice.getTitle().toUpperCase().contains("ĐỔI HÀNG") || invoice.getTitle().toUpperCase().contains("ĐIỀU CHỈNH")))
                 || productExchangeTicketRepository.findByAdditionalInvoiceId(invoice.getId()).isPresent()) {
             throw new AppException(ErrorCode.INVOICE_ALREADY_EXCHANGED_OR_RETURNED);
         }
 
-        // 2. Chặn nếu đã từng đổi hàng
         boolean alreadyExchanged = productExchangeTicketRepository.existsByOriginalInvoiceIdAndStatusIn(
                 invoice.getId(), List.of("COMPLETED", "PENDING")
         );
@@ -246,7 +239,6 @@ public class ReturnTicketServiceImpl implements ReturnTicketService {
             throw new AppException(ErrorCode.INVOICE_ALREADY_EXCHANGED_OR_RETURNED);
         }
 
-        // 3. Chặn nếu đã từng trả hàng
         boolean alreadyReturnedTicket = returnTicketRepository.existsByOriginalInvoiceIdAndStatusIn(
                 invoice.getId(), List.of("PENDING", "APPROVED")
         );
@@ -264,7 +256,6 @@ public class ReturnTicketServiceImpl implements ReturnTicketService {
         boolean isExpired = daysSinceIssued > effectiveMaxReturnDays;
         boolean isOwner = user.getRole() != null && "VT-01".equals(user.getRole().getCode());
 
-        // QTN-18: Cảnh báo quá hạn và chỉ cho lập khi chủ hộ đồng ý ngoại lệ (allowOverdueOverride == true)
         if (isExpired) {
             if (!isOwner || !Boolean.TRUE.equals(request.getAllowOverdueOverride())) {
                 throw new AppException(ErrorCode.RETURN_PERIOD_EXPIRED);
@@ -275,9 +266,8 @@ public class ReturnTicketServiceImpl implements ReturnTicketService {
             throw new AppException(ErrorCode.EMPTY_RETURN_TICKET_ITEMS);
         }
 
-        // Tính toán số lượng còn được phép trả
         Map<String, BigDecimal> returnedQtyMap = getAlreadyReturnedQuantities(invoice.getId());
-        
+
         Map<String, EInvoiceItem> invoiceItemByIdMap = new HashMap<>();
         Map<String, EInvoiceItem> invoiceItemByProductIdMap = new HashMap<>();
         Map<String, EInvoiceItem> invoiceItemByProductNameMap = new HashMap<>();
@@ -319,7 +309,6 @@ public class ReturnTicketServiceImpl implements ReturnTicketService {
             BigDecimal alreadyReturned = returnedQtyMap.getOrDefault(originalItem.getId(), returnedQtyMap.getOrDefault(prodKey, BigDecimal.ZERO));
             BigDecimal availableReturnable = originalItem.getQuantity().subtract(alreadyReturned);
 
-            // QTN-19: Số lượng trả không được vượt quá số lượng còn lại có thể trả
             if (reqQty.compareTo(availableReturnable) > 0) {
                 throw new AppException(ErrorCode.EXCEEDED_RETURNABLE_QUANTITY);
             }
@@ -329,19 +318,16 @@ public class ReturnTicketServiceImpl implements ReturnTicketService {
             BigDecimal taxRatePct = originalItem.getTaxRatePercentage() != null ? originalItem.getTaxRatePercentage() : BigDecimal.ZERO;
             BigDecimal itemDiscount = originalItem.getDiscountAmount() != null ? originalItem.getDiscountAmount() : BigDecimal.ZERO;
 
-            // Tính phân bổ chiết khấu cho lượng trả lại (prorated line discount)
             BigDecimal lineDiscount = BigDecimal.ZERO;
             if (itemDiscount.compareTo(BigDecimal.ZERO) > 0 && boughtQty.compareTo(BigDecimal.ZERO) > 0) {
                 lineDiscount = itemDiscount.multiply(reqQty).divide(boughtQty, 2, RoundingMode.HALF_UP);
             }
 
-            // Tính tổng tiền chưa thuế của dòng trả
             BigDecimal lineNetTotal = reqQty.multiply(unitPrice).subtract(lineDiscount);
             if (lineNetTotal.compareTo(BigDecimal.ZERO) < 0) {
                 lineNetTotal = BigDecimal.ZERO;
             }
 
-            // Tính tiền thuế của dòng trả
             BigDecimal lineTaxAmount = lineNetTotal.multiply(taxRatePct).divide(new BigDecimal("100"), 2, RoundingMode.HALF_UP);
             BigDecimal lineSubtotal = lineNetTotal.add(lineTaxAmount);
 
@@ -412,7 +398,6 @@ public class ReturnTicketServiceImpl implements ReturnTicketService {
         ticket.setApprovedByUser(user);
         ticket.setApprovedAt(LocalDateTime.now());
 
-        // 1. Hoàn tồn kho nguyên tử cho các sản phẩm trong dòng trả (Atomic Update)
         if (ticket.getItems() != null) {
             for (ReturnTicketItem item : ticket.getItems()) {
                 Product product = item.getProduct();
@@ -422,7 +407,6 @@ public class ReturnTicketServiceImpl implements ReturnTicketService {
             }
         }
 
-        // 2. Ghi nhận hoàn tiền / giảm trừ công nợ nếu áp dụng
         if ("DEBT_REDUCTION".equals(ticket.getRefundPaymentMethod()) && ticket.getCustomer() != null) {
             Customer customer = ticket.getCustomer();
             BigDecimal currentDebt = customer.getCurrentDebt() != null ? customer.getCurrentDebt() : BigDecimal.ZERO;
@@ -435,7 +419,6 @@ public class ReturnTicketServiceImpl implements ReturnTicketService {
             customerRepository.save(customer);
 
             if (actualDebtReduced.compareTo(BigDecimal.ZERO) > 0) {
-                // Đồng bộ hóa remainingAmount và status của các khoản nợ mở (PENDING/OVERDUE) theo nguyên tắc FIFO
                 List<CustomerDebt> activeDebts = customerDebtRepository.findByCustomerIdAndHouseholdIdAndStatusInAndTypeOrderByCreatedAtAsc(
                         customer.getId(), user.getHousehold().getId(), List.of(DebtStatus.PENDING, DebtStatus.OVERDUE), DebtType.DEBT_CREATED);
 
@@ -496,8 +479,7 @@ public class ReturnTicketServiceImpl implements ReturnTicketService {
         }
 
         ReturnTicket savedTicket = returnTicketRepository.save(ticket);
-        
-        // 3. Tự động phát hành Hóa đơn điều chỉnh giảm (NCL-11-CN-003)
+
         if (savedTicket.getOriginalInvoice() != null) {
             try {
                 createAdjustmentInvoiceInternal(savedTicket, user);
@@ -506,7 +488,6 @@ public class ReturnTicketServiceImpl implements ReturnTicketService {
             }
         }
 
-        // 4. Ghi log hoạt động hệ thống
         if (activityLogHelper != null) {
             try {
                 activityLogHelper.logActivityInNewTransaction(
@@ -525,7 +506,6 @@ public class ReturnTicketServiceImpl implements ReturnTicketService {
             }
         }
 
-        // 5. Thu hồi điểm thưởng tương ứng nếu đơn gốc đã tích điểm (NCL-10-CN-008 / AC-02)
         if (loyaltyService != null) {
             loyaltyService.deductPointsForReturnTicket(savedTicket, user);
         }
@@ -553,12 +533,11 @@ public class ReturnTicketServiceImpl implements ReturnTicketService {
         ticket.setStatus("REJECTED");
         ticket.setRejectReason(request.getRejectReason().trim());
         ticket.setRejectedAt(LocalDateTime.now());
-        ticket.setApprovedByUser(user); // Người thực hiện từ chối
+        ticket.setApprovedByUser(user);
 
         ReturnTicket savedTicket = returnTicketRepository.save(ticket);
         log.info("Rejected return ticket {} for invoice {} by user {}", savedTicket.getTicketNumber(), savedTicket.getOriginalInvoice().getInvoiceNumber(), currentUsername);
 
-        // Ghi log hoạt động hệ thống
         if (activityLogHelper != null) {
             try {
                 activityLogHelper.logActivityInNewTransaction(
@@ -603,7 +582,6 @@ public class ReturnTicketServiceImpl implements ReturnTicketService {
         User user = getUserByUsername(currentUsername);
         String filterUserId = null;
 
-        // Nếu là nhân viên bán hàng (VT-02), chỉ cho phép xem các phiếu do mình tạo
         if (user.getRole() != null && "VT-02".equals(user.getRole().getCode())) {
             filterUserId = user.getId();
         }
@@ -646,7 +624,6 @@ public class ReturnTicketServiceImpl implements ReturnTicketService {
             throw new AppException(ErrorCode.RETURN_TICKET_NOT_APPROVED);
         }
 
-        // Kiểm tra xem đã có hóa đơn điều chỉnh giảm cho phiếu trả hàng này chưa
         if (eInvoiceRepository.existsByReturnTicketIdAndDeletedAtIsNull(ticketId)) {
             throw new AppException(ErrorCode.ADJUSTMENT_INVOICE_ALREADY_EXISTS);
         }
@@ -670,7 +647,6 @@ public class ReturnTicketServiceImpl implements ReturnTicketService {
             return null;
         }
 
-        // Sinh mã tra cứu hóa đơn ngẫu nhiên duy nhất
         String lookupCode;
         do {
             lookupCode = UUID.randomUUID().toString().replaceAll("-", "").substring(0, 10).toUpperCase();
@@ -751,12 +727,10 @@ public class ReturnTicketServiceImpl implements ReturnTicketService {
 
         EInvoice savedAdjInvoice = eInvoiceRepository.save(adjInvoice);
 
-        // Cập nhật trạng thái hóa đơn gốc thành ADJUSTED theo QTN-20
         String origOldStatus = origInvoice.getStatus();
         origInvoice.setStatus("ADJUSTED");
         eInvoiceRepository.save(origInvoice);
 
-        // Lưu nhật ký chuyển trạng thái hóa đơn cho cả Hóa đơn gốc và Hóa đơn điều chỉnh giảm
         if (invoiceStatusLogRepository != null) {
             invoiceStatusLogRepository.save(InvoiceStatusLog.builder()
                     .invoice(origInvoice)
@@ -822,7 +796,6 @@ public class ReturnTicketServiceImpl implements ReturnTicketService {
         LocalDateTime endDateTime = effectiveToDate.atTime(23, 59, 59, 999999999);
         String householdId = user.getHousehold().getId();
 
-        // 1. Lấy số lượng phiếu đếm theo từng trạng thái bằng DB Aggregation Query (Thống nhất mốc thời gian COALESCE(approvedAt, createdAt))
         List<TicketStatusCountProjection> statusCounts = returnTicketRepository.countTicketsByStatus(householdId, startDateTime, endDateTime);
 
         long approvedCount = 0;
@@ -842,7 +815,6 @@ public class ReturnTicketServiceImpl implements ReturnTicketService {
         }
         long totalTickets = approvedCount + pendingCount + rejectedCount;
 
-        // 2. Lấy các phiếu đã duyệt trong khoảng thời gian để tính tổng tiền hoàn & phân loại theo hình thức
         List<ReturnTicket> approvedTickets = returnTicketRepository.findByHouseholdIdAndStatusAndPeriod(
                 householdId, "APPROVED", startDateTime, endDateTime
         );
@@ -895,13 +867,11 @@ public class ReturnTicketServiceImpl implements ReturnTicketService {
                 .totalAmount(methodAmountMap.getOrDefault("DEBT_REDUCTION", BigDecimal.ZERO))
                 .build());
 
-        // 3. Xếp hạng mặt hàng bị trả nhiều nhất
         int limit = (topLimit != null && topLimit > 0) ? topLimit : 10;
         List<ReturnItemRankingResponse> topProducts = getTopReturnedProductsInternal(
                 householdId, startDateTime, endDateTime, limit, totalRefundAmount
         );
 
-        // 4. Chuỗi dữ liệu biểu đồ theo ngày
         List<DailyReturnProjection> dailyProjections = returnTicketRepository.findDailyReturnStatistics(
                 householdId, startDateTime, endDateTime
         );
@@ -932,7 +902,6 @@ public class ReturnTicketServiceImpl implements ReturnTicketService {
             }
         }
 
-        // 5. Danh sách chi tiết các phiếu trả hàng đã duyệt
         List<ReturnTicketResponse> ticketResponses = approvedTickets.stream()
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
@@ -1022,8 +991,6 @@ public class ReturnTicketServiceImpl implements ReturnTicketService {
         return result;
     }
 
-    // ==================== HELPER METHODS ====================
-
     private User getUserByUsername(String username) {
         return userRepository.findByUsername(username)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
@@ -1057,7 +1024,6 @@ public class ReturnTicketServiceImpl implements ReturnTicketService {
         }
     }
 
-
     private Map<String, BigDecimal> getAlreadyReturnedQuantities(String invoiceId) {
         List<ReturnedQuantityProjection> projections = returnTicketItemRepository.findReturnedQuantitiesByInvoiceId(
                 invoiceId, List.of("PENDING", "APPROVED")
@@ -1079,7 +1045,6 @@ public class ReturnTicketServiceImpl implements ReturnTicketService {
             }
         }
 
-        // Kế thừa số lượng đã đổi qua phiếu đổi hàng (NCL-11-CN-005) để tránh trả quá số lượng đã mua
         if (productExchangeItemRepository != null) {
             List<ProductExchangeItem> exchangeItems = productExchangeItemRepository.findCompletedReturnItemsByInvoiceId(invoiceId);
             if (exchangeItems != null) {

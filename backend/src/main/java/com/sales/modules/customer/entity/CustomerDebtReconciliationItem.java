@@ -17,7 +17,6 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class CustomerDebtReconciliationItem {
-
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     @Column(length = 36, nullable = false)
@@ -38,10 +37,10 @@ public class CustomerDebtReconciliationItem {
     private LocalDateTime transactionDate;
 
     @Column(nullable = false, length = 20)
-    private String type; // DEBT_CREATED, DEBT_PAID
+    private String type;
 
     @Column(name = "reference_code", length = 100)
-    private String referenceCode; // orderNumber, invoiceNumber, hoặc mã phiếu thu
+    private String referenceCode;
 
     @Column(nullable = false, precision = 15, scale = 2)
     @Builder.Default

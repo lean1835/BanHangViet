@@ -18,7 +18,6 @@ import java.util.List;
 @RequestMapping("/api/v1/product-groups")
 @RequiredArgsConstructor
 public class ProductGroupController {
-
     private final ProductGroupService productGroupService;
 
     @PostMapping

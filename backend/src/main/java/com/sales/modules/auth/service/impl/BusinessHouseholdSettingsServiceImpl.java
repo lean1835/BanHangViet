@@ -18,12 +18,12 @@ import org.springframework.transaction.annotation.Transactional;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.HashMap;
 import java.util.Map;
+import java.math.BigDecimal;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class BusinessHouseholdSettingsServiceImpl implements BusinessHouseholdSettingsService {
-
     private final UserRepository userRepository;
     private final BusinessHouseholdSettingsRepository settingsRepository;
     private final ActivityLogHelper activityLogHelper;
@@ -44,7 +44,7 @@ public class BusinessHouseholdSettingsServiceImpl implements BusinessHouseholdSe
                         .maxRetryHoursDeadline(24)
                         .maxOrderHoldingHours(4)
                         .bankTransferTimeoutMinutes(15)
-                        .revenueWarningThresholdPercentage(new java.math.BigDecimal("80.00"))
+                        .revenueWarningThresholdPercentage(new BigDecimal("80.00"))
                         .build()));
     }
 
@@ -58,8 +58,8 @@ public class BusinessHouseholdSettingsServiceImpl implements BusinessHouseholdSe
                 .maxRetryHoursDeadline(settings.getMaxRetryHoursDeadline())
                 .maxOrderHoldingHours(settings.getMaxOrderHoldingHours() != null ? settings.getMaxOrderHoldingHours() : 4)
                 .bankTransferTimeoutMinutes(settings.getBankTransferTimeoutMinutes() != null ? settings.getBankTransferTimeoutMinutes() : 15)
-                .expenseApprovalThreshold(settings.getExpenseApprovalThreshold() != null ? settings.getExpenseApprovalThreshold() : new java.math.BigDecimal("500000.00"))
-                .shiftDifferenceThreshold(settings.getShiftDifferenceThreshold() != null ? settings.getShiftDifferenceThreshold() : java.math.BigDecimal.ZERO)
+                .expenseApprovalThreshold(settings.getExpenseApprovalThreshold() != null ? settings.getExpenseApprovalThreshold() : new BigDecimal("500000.00"))
+                .shiftDifferenceThreshold(settings.getShiftDifferenceThreshold() != null ? settings.getShiftDifferenceThreshold() : BigDecimal.ZERO)
                 .returnDaysLimit(settings.getReturnDaysLimit() != null ? settings.getReturnDaysLimit() : 7)
                 .maxOfflineSyncHours(settings.getMaxOfflineSyncHours() != null ? settings.getMaxOfflineSyncHours() : 24)
                 .debtReminderDaysBefore(settings.getDebtReminderDaysBefore() != null ? settings.getDebtReminderDaysBefore() : 3)
@@ -87,8 +87,8 @@ public class BusinessHouseholdSettingsServiceImpl implements BusinessHouseholdSe
                     .maxRetryHoursDeadline(24)
                     .maxOrderHoldingHours(4)
                     .bankTransferTimeoutMinutes(15)
-                    .expenseApprovalThreshold(new java.math.BigDecimal("500000.00"))
-                    .shiftDifferenceThreshold(java.math.BigDecimal.ZERO)
+                    .expenseApprovalThreshold(new BigDecimal("500000.00"))
+                    .shiftDifferenceThreshold(BigDecimal.ZERO)
                     .returnDaysLimit(7)
                     .maxOfflineSyncHours(24)
                     .debtReminderDaysBefore(3)
@@ -167,8 +167,6 @@ public class BusinessHouseholdSettingsServiceImpl implements BusinessHouseholdSe
         newVal.put("returnDaysLimit", saved.getReturnDaysLimit());
         newVal.put("maxOfflineSyncHours", saved.getMaxOfflineSyncHours());
         newVal.put("debtReminderDaysBefore", saved.getDebtReminderDaysBefore());
-
-
 
         try {
             String oldStr = objectMapper.writeValueAsString(oldVal);

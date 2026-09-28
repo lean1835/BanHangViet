@@ -11,7 +11,6 @@ import java.util.List;
 
 @Repository
 public interface PlatformSystemLogRepository extends JpaRepository<PlatformSystemLog, String>, JpaSpecificationExecutor<PlatformSystemLog> {
-
     long countByEventTypeAndCreatedAtAfter(String eventType, LocalDateTime after);
 
     @Query("SELECT COUNT(DISTINCT p.household.id) FROM PlatformSystemLog p " +

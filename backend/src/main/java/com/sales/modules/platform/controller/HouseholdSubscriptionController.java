@@ -15,7 +15,6 @@ import java.security.Principal;
 @RequestMapping("/api/v1/households")
 @RequiredArgsConstructor
 public class HouseholdSubscriptionController {
-
     private final ServicePackageService servicePackageService;
 
     @GetMapping("/my-subscription-usage")
