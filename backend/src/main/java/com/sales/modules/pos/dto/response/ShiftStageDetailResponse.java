@@ -11,7 +11,7 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 public class ShiftStageDetailResponse {
     private Integer stageNumber;
-    private String stageType; // "HANDOVER" hoặc "FINAL_CLOSE"
+    private String stageType;
     private String cashierUserId;
     private String cashierFullName;
     private String cashierUsername;
@@ -24,5 +24,5 @@ public class ShiftStageDetailResponse {
     private BigDecimal stageDifferenceAmount;
     private String stageDifferenceReason;
     private Integer completedOrdersCount;
-    private String receiverFullName; // null nếu là FINAL_CLOSE
+    private String receiverFullName;
 }

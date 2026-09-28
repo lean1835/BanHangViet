@@ -6,11 +6,11 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 import java.util.Optional;
+import org.springframework.data.jpa.repository.EntityGraph;
 
 @Repository
 public interface BackupVerificationHistoryRepository extends JpaRepository<BackupVerificationHistory, String> {
-
-    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"backupHistory"})
+    @EntityGraph(attributePaths = {"backupHistory"})
     Page<BackupVerificationHistory> findByHouseholdIdOrderByVerifiedAtDesc(String householdId, Pageable pageable);
 
     Optional<BackupVerificationHistory> findFirstByHouseholdIdOrderByVerifiedAtDesc(String householdId);

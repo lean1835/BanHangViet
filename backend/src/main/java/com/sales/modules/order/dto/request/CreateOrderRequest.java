@@ -16,4 +16,3 @@ public class CreateOrderRequest {
 
     private String diningTableId;
 }
-

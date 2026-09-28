@@ -36,7 +36,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Transactional
 @WithMockUser(username = "test_display_user", roles = {"VT-01"})
 public class UserDisplaySettingControllerTest {
-
     @Autowired
     private MockMvc mockMvc;
 

@@ -20,7 +20,6 @@ import java.util.List;
 @RequestMapping("/api/v1/invoice-error-notices")
 @RequiredArgsConstructor
 public class InvoiceErrorNoticeController {
-
     private final InvoiceErrorNoticeService noticeService;
 
     @GetMapping("/eligible-invoices")

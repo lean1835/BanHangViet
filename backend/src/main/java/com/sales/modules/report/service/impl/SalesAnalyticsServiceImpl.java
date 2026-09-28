@@ -37,12 +37,10 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Slf4j
 public class SalesAnalyticsServiceImpl implements SalesAnalyticsService {
-
     private final UserRepository userRepository;
     private final OrderRepository orderRepository;
     private final PointOfSaleRepository pointOfSaleRepository;
     private final InventoryWarningService inventoryWarningService;
-
 
     private static final String[] DAY_NAMES = {
             "Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy", "Chủ Nhật"
@@ -90,12 +88,10 @@ public class SalesAnalyticsServiceImpl implements SalesAnalyticsService {
             posId = null;
         }
 
-        // 1. Fetch DB raw projections
         List<PeakHourlyProjection> hourlyProjections = orderRepository.getPeakHourlyAnalysis(household.getId(), startDateTime, endDateTime, posId);
         List<PeakDayOfWeekProjection> dayOfWeekProjections = orderRepository.getPeakDayOfWeekAnalysis(household.getId(), startDateTime, endDateTime, posId);
         List<PeakHeatmapProjection> heatmapProjections = orderRepository.getPeakHeatmapAnalysis(household.getId(), startDateTime, endDateTime, posId);
 
-        // 2. Map raw DB data to structures
         Map<Integer, PeakHourlyProjection> hourlyMap = hourlyProjections.stream()
                 .filter(p -> p.getHourOfDay() != null)
                 .collect(Collectors.toMap(PeakHourlyProjection::getHourOfDay, p -> p, (existing, replace) -> existing));
@@ -108,7 +104,6 @@ public class SalesAnalyticsServiceImpl implements SalesAnalyticsService {
                 .filter(p -> p.getDayOfWeek() != null && p.getHourOfDay() != null)
                 .collect(Collectors.toMap(p -> p.getDayOfWeek() + "_" + p.getHourOfDay(), p -> p, (existing, replace) -> existing));
 
-        // Calculate Totals
         long totalOrders = 0;
         BigDecimal totalRevenue = BigDecimal.ZERO;
 
@@ -125,7 +120,6 @@ public class SalesAnalyticsServiceImpl implements SalesAnalyticsService {
                 ? totalRevenue.divide(BigDecimal.valueOf(totalOrders), 2, RoundingMode.HALF_UP)
                 : BigDecimal.ZERO;
 
-        // 3. Build Hourly Stats (All 24 hours)
         List<HourlySalesData> hourlyStats = new ArrayList<>(24);
         for (int hour = 0; hour < 24; hour++) {
             PeakHourlyProjection p = hourlyMap.get(hour);
@@ -150,7 +144,6 @@ public class SalesAnalyticsServiceImpl implements SalesAnalyticsService {
                     .build());
         }
 
-        // 4. Build Day of Week Stats (All 7 days: Monday to Sunday)
         List<DayOfWeekSalesData> dayOfWeekStats = new ArrayList<>(7);
         for (int i = 0; i < 7; i++) {
             int mysqlDay = convertIndexToMysqlDayOfWeek(i);
@@ -167,7 +160,7 @@ public class SalesAnalyticsServiceImpl implements SalesAnalyticsService {
                     : BigDecimal.ZERO;
 
             dayOfWeekStats.add(DayOfWeekSalesData.builder()
-                    .dayOfWeek(i + 1) // 1=Mon .. 7=Sun
+                    .dayOfWeek(i + 1)
                     .dayName(DAY_NAMES[i])
                     .orderCount(orders)
                     .totalRevenue(rev)
@@ -176,7 +169,6 @@ public class SalesAnalyticsServiceImpl implements SalesAnalyticsService {
                     .build());
         }
 
-        // 5. Build Heatmap Matrix (168 cells = 7 days x 24 hours)
         BigDecimal maxCellRevenue = BigDecimal.ZERO;
         long maxCellOrders = 0L;
 
@@ -209,7 +201,7 @@ public class SalesAnalyticsServiceImpl implements SalesAnalyticsService {
                 } else if (maxCellRevenue.compareTo(BigDecimal.ZERO) > 0) {
                     intensity = cellRev.divide(maxCellRevenue, 4, RoundingMode.HALF_UP).doubleValue();
                 }
-                // Cap intensity between 0.0 and 1.0
+
                 intensity = Math.min(1.0, Math.max(0.0, intensity));
 
                 String hourLabel = formatHourLabel(hour);
@@ -235,7 +227,6 @@ public class SalesAnalyticsServiceImpl implements SalesAnalyticsService {
             }
         }
 
-        // Sort slots descending by total revenue, then order count
         allSlots.sort((a, b) -> {
             int cmp = b.getTotalRevenue().compareTo(a.getTotalRevenue());
             if (cmp != 0) return cmp;
@@ -246,7 +237,6 @@ public class SalesAnalyticsServiceImpl implements SalesAnalyticsService {
                 .limit(3)
                 .collect(Collectors.toList());
 
-        // 6. Compute Extremes (Peak/Lowest Hour & Busiest/Quietest Day)
         HourlySalesData peakHourData = hourlyStats.stream()
                 .max(Comparator.comparing(HourlySalesData::getTotalRevenue).thenComparing(HourlySalesData::getOrderCount))
                 .orElse(null);
@@ -263,7 +253,6 @@ public class SalesAnalyticsServiceImpl implements SalesAnalyticsService {
                 .min(Comparator.comparing(DayOfWeekSalesData::getTotalRevenue).thenComparing(DayOfWeekSalesData::getOrderCount))
                 .orElse(null);
 
-        // 7. Generate Intelligent Recommendations
         List<String> recommendations = generateRecommendations(peakHourData, lowestHourData, busiestDayData, quietestDayData, topPeakSlots, totalOrders);
 
         PeakSalesInsight insights = PeakSalesInsight.builder()
@@ -359,4 +348,3 @@ public class SalesAnalyticsServiceImpl implements SalesAnalyticsService {
         );
     }
 }
-

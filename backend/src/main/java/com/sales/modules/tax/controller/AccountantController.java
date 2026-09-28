@@ -20,7 +20,6 @@ import java.util.List;
 @RequestMapping("/api/v1/accountant")
 @RequiredArgsConstructor
 public class AccountantController {
-
     private final AccountantService accountantService;
 
     @PostMapping("/invitations")
@@ -28,7 +27,6 @@ public class AccountantController {
     public ResponseEntity<ApiResponse<AccountantInvitationResponse>> inviteAccountant(
             Principal principal,
             @Valid @RequestBody InviteAccountantRequest request) {
-
         AccountantInvitationResponse result = accountantService.inviteAccountant(principal.getName(), request);
         return ResponseEntity.ok(ApiResponse.<AccountantInvitationResponse>builder()
                 .code(1000)
@@ -54,7 +52,6 @@ public class AccountantController {
             Principal principal,
             @PathVariable String token,
             @RequestBody(required = false) AcceptInvitationRequest request) {
-
         AccountantAssignmentResponse result = accountantService.acceptInvitation(principal.getName(), token, request);
         return ResponseEntity.ok(ApiResponse.<AccountantAssignmentResponse>builder()
                 .code(1000)
@@ -80,7 +77,6 @@ public class AccountantController {
             Principal principal,
             @PathVariable String id,
             @RequestBody(required = false) RevokeAccountantAssignmentRequest request) {
-
         accountantService.revokeAssignment(principal.getName(), id, request);
         return ResponseEntity.ok(ApiResponse.<Void>builder()
                 .code(1000)
@@ -104,7 +100,6 @@ public class AccountantController {
     public ResponseEntity<ApiResponse<AssignedHouseholdResponse>> switchActiveHousehold(
             Principal principal,
             @PathVariable String householdId) {
-
         AssignedHouseholdResponse result = accountantService.switchActiveHousehold(principal.getName(), householdId);
         return ResponseEntity.ok(ApiResponse.<AssignedHouseholdResponse>builder()
                 .code(1000)

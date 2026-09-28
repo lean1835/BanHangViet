@@ -6,7 +6,6 @@ import com.sales.modules.auth.dto.response.UserDisplaySettingResponse;
 import com.sales.modules.auth.entity.User;
 
 public interface UserDisplaySettingService {
-
     UserDisplaySettingResponse getDisplaySetting(String username);
 
     UserDisplaySettingResponse getDisplaySettingForUser(User user);

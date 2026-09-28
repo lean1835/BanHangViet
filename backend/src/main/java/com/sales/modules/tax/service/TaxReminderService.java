@@ -10,7 +10,6 @@ import java.time.LocalDate;
 import java.util.List;
 
 public interface TaxReminderService {
-
     TaxReminderSettingsResponse getReminderSettings(String currentUsername);
 
     TaxReminderSettingsResponse updateReminderSettings(String currentUsername, UpdateTaxReminderSettingsRequest request);

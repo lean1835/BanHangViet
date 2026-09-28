@@ -15,7 +15,6 @@ import java.security.Principal;
 @RequestMapping("/api/v1/households")
 @RequiredArgsConstructor
 public class HouseholdController {
-
     private final HouseholdService householdService;
 
     @GetMapping("/my-household")

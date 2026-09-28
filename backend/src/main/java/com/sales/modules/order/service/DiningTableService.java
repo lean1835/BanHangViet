@@ -6,7 +6,6 @@ import com.sales.modules.order.dto.response.DiningTableResponse;
 import java.util.List;
 
 public interface DiningTableService {
-
     List<DiningTableResponse> getTables(String currentUsername, String area, Boolean isActive);
 
     DiningTableResponse getTableById(String currentUsername, String id);

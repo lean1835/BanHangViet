@@ -15,7 +15,6 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 public class AnomalyAlertFilterRequest {
-
     private AnomalyAlertType alertType;
     private AnomalySeverity severity;
     private AnomalyAlertStatus status;

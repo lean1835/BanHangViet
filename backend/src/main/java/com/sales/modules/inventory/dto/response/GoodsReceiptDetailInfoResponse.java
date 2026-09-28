@@ -21,7 +21,7 @@ public class GoodsReceiptDetailInfoResponse {
     private String createdByUserId;
     private String createdByUserName;
     private List<GoodsReceiptDetailResponse> details;
-    private String returnStatus; // NOT_RETURNED, PARTIALLY_RETURNED, FULLY_RETURNED
+    private String returnStatus;
     private BigDecimal totalReturnedAmount;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

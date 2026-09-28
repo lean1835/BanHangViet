@@ -12,7 +12,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class AnomalyAlertSpecification {
-
     public static Specification<AnomalyAlert> filterAlerts(
             String householdId,
             AnomalyAlertType alertType,
@@ -22,7 +21,6 @@ public class AnomalyAlertSpecification {
             String keyword,
             LocalDateTime startDate,
             LocalDateTime endDate) {
-
         return (root, query, criteriaBuilder) -> {
             List<Predicate> predicates = new ArrayList<>();
 

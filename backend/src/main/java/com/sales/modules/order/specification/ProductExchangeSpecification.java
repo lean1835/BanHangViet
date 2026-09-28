@@ -11,7 +11,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class ProductExchangeSpecification {
-
     public static Specification<ProductExchangeTicket> filterTickets(
             String householdId,
             String invoiceId,

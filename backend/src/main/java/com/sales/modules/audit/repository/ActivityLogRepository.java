@@ -14,7 +14,6 @@ import java.util.Optional;
 
 @Repository
 public interface ActivityLogRepository extends JpaRepository<ActivityLog, String> {
-
     @Override
     @EntityGraph(attributePaths = {"user", "household"})
     List<ActivityLog> findAll();

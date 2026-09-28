@@ -36,7 +36,6 @@ import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class CustomerDebtServiceImplTest {
-
     @Mock
     private UserRepository userRepository;
 
@@ -217,7 +216,7 @@ class CustomerDebtServiceImplTest {
     void collectDebt_ExceedsCurrentDebt_ThrowsException() {
         CollectDebtRequest request = CollectDebtRequest.builder()
                 .customerId("cust-001")
-                .amount(new BigDecimal("200000.00")) // Vượt quá 150000.00 dư nợ
+                .amount(new BigDecimal("200000.00"))
                 .notes("Trả dư")
                 .build();
 
@@ -239,7 +238,7 @@ class CustomerDebtServiceImplTest {
     void collectDebt_ExceedsTotalActiveDebt_ThrowsException() {
         CollectDebtRequest request = CollectDebtRequest.builder()
                 .customerId("cust-001")
-                .amount(new BigDecimal("120000.00")) // Hợp lệ so với currentDebt (150000.00)
+                .amount(new BigDecimal("120000.00"))
                 .notes("Trả quá nợ chi tiết")
                 .build();
 
@@ -252,7 +251,7 @@ class CustomerDebtServiceImplTest {
                 .household(household)
                 .customer(customer)
                 .amount(new BigDecimal("50000.00"))
-                .remainingAmount(new BigDecimal("50000.00")) // Tổng nợ chi tiết thực tế chỉ có 50000.00
+                .remainingAmount(new BigDecimal("50000.00"))
                 .type("DEBT_CREATED")
                 .status("PENDING")
                 .createdByUser(currentUser)
@@ -318,7 +317,6 @@ class CustomerDebtServiceImplTest {
                 .build();
         when(settingsRepository.findByHouseholdId("house-001")).thenReturn(Optional.of(settings));
 
-        // Khoản nợ 1: đến hạn sau 2 ngày (nằm trong hạn 3 ngày -> được nhắc)
         CustomerDebt debtSoon = CustomerDebt.builder()
                 .id("debt-soon")
                 .household(household)
@@ -331,7 +329,6 @@ class CustomerDebtServiceImplTest {
                 .dueDate(LocalDateTime.now().plusDays(2))
                 .build();
 
-        // Khoản nợ 2: đến hạn sau 10 ngày (vượt quá 3 ngày -> bị lọc bỏ)
         CustomerDebt debtFar = CustomerDebt.builder()
                 .id("debt-far")
                 .household(household)

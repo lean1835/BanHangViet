@@ -10,7 +10,6 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class BulkIssueFailedItemResponse {
-
     private String orderId;
     private String orderNumber;
     private String errorMessage;

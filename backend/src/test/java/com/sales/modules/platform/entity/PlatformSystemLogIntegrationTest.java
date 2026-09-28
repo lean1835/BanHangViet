@@ -33,7 +33,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Transactional
 @SuppressWarnings("unused")
 public class PlatformSystemLogIntegrationTest {
-
     @Autowired
     private MockMvc mockMvc;
 
@@ -117,7 +116,6 @@ public class PlatformSystemLogIntegrationTest {
     @WithMockUser(username = "admin_logs", roles = {"VT-04"})
     @DisplayName("TC-02: Tự động gom nhóm và tạo sự cố diện rộng khi vượt ngưỡng CRITICAL errors (5 lỗi trong 10 phút)")
     public void recordLog_TriggersIncidentOnThreshold() {
-        // Record 5 CRITICAL errors on tax gateway
         for (int i = 0; i < 5; i++) {
             logService.logSystemEvent(
                     "TAX_SERVICE_OFFLINE",
@@ -148,7 +146,7 @@ public class PlatformSystemLogIntegrationTest {
     @Test
     @DisplayName("ISSUE-09 (P3): Cắt chuỗi an toàn không lỗi DataTruncation khi technicalMessage dài hơn 500 ký tự")
     public void logSystemEvent_SafeTruncate_Success() {
-        String longMessage = "A".repeat(1200); // 1200 characters > 500
+        String longMessage = "A".repeat(1200);
         PlatformSystemLog log = logService.logSystemEvent(
                 "TEST_OVERLENGTH",
                 PlatformLogSeverity.INFO,

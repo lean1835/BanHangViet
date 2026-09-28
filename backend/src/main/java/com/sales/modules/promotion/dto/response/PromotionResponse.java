@@ -15,7 +15,6 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class PromotionResponse {
-
     private String id;
     private String name;
     private String description;
@@ -25,7 +24,7 @@ public class PromotionResponse {
     private LocalDateTime startDate;
     private LocalDateTime endDate;
     private PromotionStatus status;
-    private String calculatedState; // 'UPCOMING', 'ACTIVE', 'EXPIRED', 'INACTIVE'
+    private String calculatedState;
     private String createdByUserName;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

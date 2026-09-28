@@ -10,7 +10,6 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class SessionSettingsResponse {
-
     private String householdId;
     private Integer sessionTimeoutMinutes;
 }

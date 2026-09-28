@@ -41,10 +41,26 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 import com.sales.modules.tax.dto.response.TaxRevenueSummaryResponse;
 import com.sales.modules.tax.repository.TaxRateRepository;
+import com.sales.common.dto.PageResponse;
+import com.sales.modules.tax.dto.request.GenerateTaxPurchaseRegisterRequest;
+import com.sales.modules.tax.dto.request.UnlockTaxPeriodRequest;
+import com.sales.modules.tax.dto.response.TaxPurchaseRegisterItemResponse;
+import com.sales.modules.tax.dto.response.TaxPurchaseRegisterSummaryResponse;
+import com.sales.modules.tax.service.TaxReminderService;
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.ss.usermodel.WorkbookFactory;
+import org.springframework.core.io.ByteArrayResource;
+import org.springframework.core.io.Resource;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.http.ResponseEntity;
 
 @ExtendWith(MockitoExtension.class)
 class TaxPeriodServiceImplTest {
-
     @Mock
     private TaxDeclarationPeriodRepository taxPeriodRepository;
 
@@ -70,7 +86,7 @@ class TaxPeriodServiceImplTest {
     private ActivityLogHelper activityLogHelper;
 
     @Mock
-    private com.sales.modules.tax.service.TaxReminderService taxReminderService;
+    private TaxReminderService taxReminderService;
 
     @InjectMocks
     private TaxPeriodServiceImpl taxPeriodService;
@@ -217,11 +233,11 @@ class TaxPeriodServiceImplTest {
         TaxPeriodResponse response = taxPeriodService.generateSalesRegister("ketoan01", request);
 
         assertNotNull(response);
-        // Hóa đơn bị HỦY bị loại bỏ từ query Database -> Còn 2 hóa đơn trong list trả về
+
         assertEquals(2, response.getTotalValidInvoices());
-        // Doanh thu = 5,000,000 - 1,000,000 = 4,000,000
+
         assertEquals(new BigDecimal("4000000.00"), response.getTotalRevenue());
-        // Thuế = 500,000 - 100,000 = 400,000
+
         assertEquals(new BigDecimal("400000.00"), response.getTotalTaxAmount());
     }
 
@@ -274,8 +290,8 @@ class TaxPeriodServiceImplTest {
                 .periodType("MONTHLY")
                 .year(2026)
                 .periodNumber(9)
-                .startDate(java.time.LocalDate.of(2026, 9, 1))
-                .endDate(java.time.LocalDate.of(2026, 9, 30))
+                .startDate(LocalDate.of(2026, 9, 1))
+                .endDate(LocalDate.of(2026, 9, 30))
                 .status("GENERATED")
                 .createdByUser(accountantUser)
                 .build();
@@ -339,15 +355,15 @@ class TaxPeriodServiceImplTest {
                 .invoiceType("ORIGINAL")
                 .build();
 
-        org.springframework.data.domain.Page<TaxSalesRegister> page = new org.springframework.data.domain.PageImpl<>(
+        Page<TaxSalesRegister> page = new PageImpl<>(
                 List.of(registerItem),
-                org.springframework.data.domain.PageRequest.of(0, 10),
+                PageRequest.of(0, 10),
                 1
         );
 
         when(userRepository.findByUsername("ketoan01")).thenReturn(Optional.of(accountantUser));
         when(taxPeriodRepository.findByIdAndHouseholdId("period-123", "hh-001")).thenReturn(Optional.of(period));
-        when(salesRegisterRepository.findByPeriodId(eq("period-123"), any(org.springframework.data.domain.Pageable.class)))
+        when(salesRegisterRepository.findByPeriodId(eq("period-123"), any(Pageable.class)))
                 .thenReturn(page);
 
         var response = taxPeriodService.getSalesRegisterItems("ketoan01", "period-123", 0, 10);
@@ -409,7 +425,6 @@ class TaxPeriodServiceImplTest {
         assertEquals(new BigDecimal("12200000.00"), response.getTotalTaxAmount());
         assertEquals(2, response.getTaxRateSummaries().size());
 
-        // Verified sorted by rate ascending: 5.00% first, 8.00% second
         assertEquals(new BigDecimal("5.00"), response.getTaxRateSummaries().get(0).getTaxRatePercentage());
         assertEquals(new BigDecimal("84000000.00"), response.getTaxRateSummaries().get(0).getRevenueAmount());
 
@@ -468,7 +483,7 @@ class TaxPeriodServiceImplTest {
 
     @Test
     @DisplayName("Xuất tờ khai thuế mô phỏng thành công kèm bảng kê 2 sheets (TC-01 & TC-04)")
-    void exportTaxDeclaration_success_generatesWorkbook() throws java.io.IOException {
+    void exportTaxDeclaration_success_generatesWorkbook() throws IOException {
         household.setTaxCode("8123456789");
         household.setRepresentativeName("Nguyễn Văn Chủ Hộ");
         household.setAddress("123 Đường Trần Phú, Đà Nẵng");
@@ -481,8 +496,8 @@ class TaxPeriodServiceImplTest {
                 .periodType("QUARTERLY")
                 .year(2026)
                 .periodNumber(3)
-                .startDate(java.time.LocalDate.of(2026, 7, 1))
-                .endDate(java.time.LocalDate.of(2026, 9, 30))
+                .startDate(LocalDate.of(2026, 7, 1))
+                .endDate(LocalDate.of(2026, 9, 30))
                 .totalRevenue(new BigDecimal("184000000.00"))
                 .totalTaxAmount(new BigDecimal("12400000.00"))
                 .build();
@@ -517,17 +532,15 @@ class TaxPeriodServiceImplTest {
         assertEquals(200, response.getStatusCode().value());
         assertNotNull(response.getBody());
 
-        // Verify Excel structure
-        byte[] bytes = ((org.springframework.core.io.ByteArrayResource) response.getBody()).getByteArray();
+        byte[] bytes = ((ByteArrayResource) response.getBody()).getByteArray();
         assertTrue(bytes.length > 0);
 
-        try (org.apache.poi.ss.usermodel.Workbook wb = org.apache.poi.ss.usermodel.WorkbookFactory.create(new java.io.ByteArrayInputStream(bytes))) {
+        try (Workbook wb = WorkbookFactory.create(new ByteArrayInputStream(bytes))) {
             assertEquals(2, wb.getNumberOfSheets());
             assertNotNull(wb.getSheet("To_Khai_Thue_01_CNKD"));
             assertNotNull(wb.getSheet("Bang_Ke_Ban_Ra_01_2_BK"));
         }
 
-        // TC-04: Verify activity log
         verify(activityLogHelper).logActivityInNewTransaction(
                 eq(household), eq(accountantUser), eq("EXPORT_TAX_DECLARATION"), eq("tax_declaration_periods"),
                 eq("period-q3-2026"), isNull(), anyString(), isNull(), isNull()
@@ -594,10 +607,6 @@ class TaxPeriodServiceImplTest {
 
         assertEquals(ErrorCode.NO_DATA_TO_EXPORT, ex.getErrorCode());
     }
-
-    // =========================================================================
-    // TESTS FOR NCL-12-CN-004: Chốt kỳ kê khai và khóa số liệu
-    // =========================================================================
 
     @Test
     @DisplayName("NCL-12-CN-004-TC-01: Chủ hộ (VT-01) chốt kỳ kê khai thành công -> Trạng thái chuyển LOCKED")
@@ -729,7 +738,7 @@ class TaxPeriodServiceImplTest {
                 .lockedByUser(ownerUser)
                 .build();
 
-        com.sales.modules.tax.dto.request.UnlockTaxPeriodRequest request = com.sales.modules.tax.dto.request.UnlockTaxPeriodRequest.builder()
+        UnlockTaxPeriodRequest request = UnlockTaxPeriodRequest.builder()
                 .reason("Bổ sung hóa đơn sót trước khi nộp lại")
                 .build();
 
@@ -759,7 +768,7 @@ class TaxPeriodServiceImplTest {
                 .status("GENERATED")
                 .build();
 
-        com.sales.modules.tax.dto.request.UnlockTaxPeriodRequest request = com.sales.modules.tax.dto.request.UnlockTaxPeriodRequest.builder()
+        UnlockTaxPeriodRequest request = UnlockTaxPeriodRequest.builder()
                 .reason("Mở lại kỳ")
                 .build();
 
@@ -782,7 +791,7 @@ class TaxPeriodServiceImplTest {
                 .status("LOCKED")
                 .build();
 
-        com.sales.modules.tax.dto.request.UnlockTaxPeriodRequest request = com.sales.modules.tax.dto.request.UnlockTaxPeriodRequest.builder()
+        UnlockTaxPeriodRequest request = UnlockTaxPeriodRequest.builder()
                 .reason("  ")
                 .build();
 
@@ -801,7 +810,7 @@ class TaxPeriodServiceImplTest {
     void unlockTaxPeriod_forbidden_accountant() {
         when(userRepository.findByUsername("ketoan01")).thenReturn(Optional.of(accountantUser));
 
-        com.sales.modules.tax.dto.request.UnlockTaxPeriodRequest request = com.sales.modules.tax.dto.request.UnlockTaxPeriodRequest.builder()
+        UnlockTaxPeriodRequest request = UnlockTaxPeriodRequest.builder()
                 .reason("Mở lại kỳ")
                 .build();
 
@@ -811,10 +820,6 @@ class TaxPeriodServiceImplTest {
         assertEquals(ErrorCode.FORBIDDEN, ex.getErrorCode());
         verify(taxPeriodRepository, never()).findByIdAndHouseholdId(anyString(), anyString());
     }
-
-    // =========================================================================
-    // TESTS FOR NCL-12-CN-006: Bảng kê hàng hóa mua vào theo kỳ
-    // =========================================================================
 
     @Test
     @DisplayName("NCL-12-CN-006-TC-01: Lập bảng kê mua vào thành công từ các phiếu nhập đã lưu trong kỳ")
@@ -867,14 +872,14 @@ class TaxPeriodServiceImplTest {
             return list;
         });
 
-        com.sales.modules.tax.dto.request.GenerateTaxPurchaseRegisterRequest request =
-                com.sales.modules.tax.dto.request.GenerateTaxPurchaseRegisterRequest.builder()
+        GenerateTaxPurchaseRegisterRequest request =
+                GenerateTaxPurchaseRegisterRequest.builder()
                         .periodType("QUARTERLY")
                         .year(2026)
                         .periodNumber(3)
                         .build();
 
-        com.sales.modules.tax.dto.response.TaxPurchaseRegisterSummaryResponse response =
+        TaxPurchaseRegisterSummaryResponse response =
                 taxPeriodService.generatePurchaseRegister("ketoan01", request);
 
         assertNotNull(response);
@@ -932,14 +937,14 @@ class TaxPeriodServiceImplTest {
 
         when(purchaseRegisterRepository.saveAll(anyList())).thenAnswer(inv -> inv.getArgument(0));
 
-        com.sales.modules.tax.dto.request.GenerateTaxPurchaseRegisterRequest request =
-                com.sales.modules.tax.dto.request.GenerateTaxPurchaseRegisterRequest.builder()
+        GenerateTaxPurchaseRegisterRequest request =
+                GenerateTaxPurchaseRegisterRequest.builder()
                         .periodType("QUARTERLY")
                         .year(2026)
                         .periodNumber(3)
                         .build();
 
-        com.sales.modules.tax.dto.response.TaxPurchaseRegisterSummaryResponse response =
+        TaxPurchaseRegisterSummaryResponse response =
                 taxPeriodService.generatePurchaseRegister("ketoan01", request);
 
         assertNotNull(response);
@@ -973,8 +978,8 @@ class TaxPeriodServiceImplTest {
         when(taxPeriodRepository.findByHouseholdIdAndPeriodTypeAndYearAndPeriodNumber(any(), any(), any(), any()))
                 .thenReturn(Optional.of(lockedPeriod));
 
-        com.sales.modules.tax.dto.request.GenerateTaxPurchaseRegisterRequest request =
-                com.sales.modules.tax.dto.request.GenerateTaxPurchaseRegisterRequest.builder()
+        GenerateTaxPurchaseRegisterRequest request =
+                GenerateTaxPurchaseRegisterRequest.builder()
                         .periodType("QUARTERLY")
                         .year(2026)
                         .periodNumber(3)
@@ -995,8 +1000,8 @@ class TaxPeriodServiceImplTest {
         when(goodsReceiptDetailRepository.findReceiptDetailsForTaxPeriod(any(), any(), any()))
                 .thenReturn(Collections.emptyList());
 
-        com.sales.modules.tax.dto.request.GenerateTaxPurchaseRegisterRequest request =
-                com.sales.modules.tax.dto.request.GenerateTaxPurchaseRegisterRequest.builder()
+        GenerateTaxPurchaseRegisterRequest request =
+                GenerateTaxPurchaseRegisterRequest.builder()
                         .periodType("QUARTERLY")
                         .year(2026)
                         .periodNumber(3)
@@ -1014,8 +1019,8 @@ class TaxPeriodServiceImplTest {
     void generatePurchaseRegister_salesStaff_forbidden() {
         when(userRepository.findByUsername("banhang01")).thenReturn(Optional.of(salesStaffUser));
 
-        com.sales.modules.tax.dto.request.GenerateTaxPurchaseRegisterRequest request =
-                com.sales.modules.tax.dto.request.GenerateTaxPurchaseRegisterRequest.builder()
+        GenerateTaxPurchaseRegisterRequest request =
+                GenerateTaxPurchaseRegisterRequest.builder()
                         .periodType("QUARTERLY")
                         .year(2026)
                         .periodNumber(3)
@@ -1035,12 +1040,12 @@ class TaxPeriodServiceImplTest {
                 .id("user-unauth")
                 .username("unauth")
                 .household(household)
-                .role(com.sales.modules.auth.entity.Role.builder().code("VT-06").name("Khách hàng").build())
+                .role(Role.builder().code("VT-06").name("Khách hàng").build())
                 .build();
         when(userRepository.findByUsername("unauth")).thenReturn(Optional.of(unauthorizedUser));
 
-        com.sales.modules.tax.dto.request.GenerateTaxPurchaseRegisterRequest request =
-                com.sales.modules.tax.dto.request.GenerateTaxPurchaseRegisterRequest.builder()
+        GenerateTaxPurchaseRegisterRequest request =
+                GenerateTaxPurchaseRegisterRequest.builder()
                         .periodType("QUARTERLY")
                         .year(2026)
                         .periodNumber(3)
@@ -1114,19 +1119,19 @@ class TaxPeriodServiceImplTest {
         TaxPurchaseRegister saved2 = TaxPurchaseRegister.builder().id("tpr-id-002").build();
         when(purchaseRegisterRepository.saveAll(anyList())).thenReturn(List.of(saved1, saved2));
 
-        com.sales.modules.tax.dto.request.GenerateTaxPurchaseRegisterRequest request =
-                com.sales.modules.tax.dto.request.GenerateTaxPurchaseRegisterRequest.builder()
+        GenerateTaxPurchaseRegisterRequest request =
+                GenerateTaxPurchaseRegisterRequest.builder()
                         .periodType("QUARTERLY")
                         .year(2026)
                         .periodNumber(3)
                         .build();
 
-        com.sales.modules.tax.dto.response.TaxPurchaseRegisterSummaryResponse response =
+        TaxPurchaseRegisterSummaryResponse response =
                 taxPeriodService.generatePurchaseRegister("ketoan01", request);
 
         assertNotNull(response);
         assertEquals(1, response.getValidSuppliers().size());
-        List<com.sales.modules.tax.dto.response.TaxPurchaseRegisterItemResponse> items = response.getValidSuppliers().get(0).getItems();
+        List<TaxPurchaseRegisterItemResponse> items = response.getValidSuppliers().get(0).getItems();
         assertEquals(2, items.size());
         assertEquals("tpr-id-001", items.get(0).getId());
         assertEquals("tpr-id-002", items.get(1).getId());
@@ -1171,7 +1176,7 @@ class TaxPeriodServiceImplTest {
         when(purchaseRegisterRepository.findByPeriodIdOrderByReceiptDateAsc("period-q3-2026"))
                 .thenReturn(List.of(item));
 
-        com.sales.modules.tax.dto.response.TaxPurchaseRegisterSummaryResponse response =
+        TaxPurchaseRegisterSummaryResponse response =
                 taxPeriodService.getPurchaseRegisterSummary("ketoan01", "period-q3-2026");
 
         assertNotNull(response);
@@ -1227,13 +1232,13 @@ class TaxPeriodServiceImplTest {
                 .isSupplierMissing(false)
                 .build();
 
-        org.springframework.data.domain.Page<TaxPurchaseRegister> pageResult =
-                new org.springframework.data.domain.PageImpl<>(List.of(item));
+        Page<TaxPurchaseRegister> pageResult =
+                new PageImpl<>(List.of(item));
 
-        when(purchaseRegisterRepository.findByPeriodId(eq("period-q3-2026"), any(org.springframework.data.domain.Pageable.class)))
+        when(purchaseRegisterRepository.findByPeriodId(eq("period-q3-2026"), any(Pageable.class)))
                 .thenReturn(pageResult);
 
-        com.sales.common.dto.PageResponse<com.sales.modules.tax.dto.response.TaxPurchaseRegisterItemResponse> response =
+        PageResponse<TaxPurchaseRegisterItemResponse> response =
                 taxPeriodService.getPurchaseRegisterItems("ketoan01", "period-q3-2026", 0, 20, false);
 
         assertNotNull(response);
@@ -1281,7 +1286,7 @@ class TaxPeriodServiceImplTest {
         when(purchaseRegisterRepository.findByPeriodIdOrderByReceiptDateAsc("period-q3-2026"))
                 .thenReturn(List.of(item));
 
-        org.springframework.http.ResponseEntity<org.springframework.core.io.Resource> response =
+        ResponseEntity<Resource> response =
                 taxPeriodService.exportPurchaseRegister("ketoan01", "period-q3-2026");
 
         assertNotNull(response);
@@ -1292,4 +1297,3 @@ class TaxPeriodServiceImplTest {
         verify(activityLogHelper).logActivityInNewTransaction(eq(household), eq(accountantUser), eq("EXPORT_TAX_PURCHASE_REGISTER"), anyString(), anyString(), any(), anyString(), any(), any());
     }
 }
-

@@ -27,7 +27,6 @@ import java.util.List;
 @RequiredArgsConstructor
 @Tag(name = "FAQ & Support Controller", description = "Màn hình câu hỏi thường gặp và thông tin hỗ trợ kỹ thuật (NCL-19-CN-004)")
 public class FaqController {
-
     private final FaqService faqService;
 
     @Operation(summary = "Tra cứu câu hỏi thường gặp theo từ khóa hoặc nhóm", description = "Tìm kiếm trong tiêu đề, nội dung tóm tắt và từ khóa tags (TC-01, TC-02)")
@@ -104,10 +103,6 @@ public class FaqController {
                 .build();
         return ResponseEntity.ok(response);
     }
-
-    // =========================================================================
-    // Các API dành cho Quản trị nền tảng (VT-04: Platform Admin)
-    // =========================================================================
 
     @Operation(summary = "Tạo câu hỏi thường gặp mới", description = "Quản trị nền tảng thêm câu hỏi vào hệ thống mà không cần triển khai lại phần mềm")
     @PostMapping

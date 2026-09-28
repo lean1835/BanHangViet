@@ -12,7 +12,6 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ImportProductResultResponse {
-
     private int totalRows;
     private int successCount;
     private int errorCount;

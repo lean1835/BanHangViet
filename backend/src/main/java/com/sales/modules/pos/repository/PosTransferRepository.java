@@ -12,7 +12,6 @@ import java.util.Optional;
 
 @Repository
 public interface PosTransferRepository extends JpaRepository<PosTransfer, String>, JpaSpecificationExecutor<PosTransfer> {
-
     Optional<PosTransfer> findByIdAndHouseholdId(String id, String householdId);
 
     @EntityGraph(attributePaths = {"fromPointOfSale", "toPointOfSale", "createdByUser", "receivedByUser", "canceledByUser", "items"})

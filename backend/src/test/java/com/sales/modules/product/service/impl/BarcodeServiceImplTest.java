@@ -33,10 +33,11 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
+import com.sales.modules.product.entity.ProductUnitConversion;
+import com.sales.modules.product.repository.ProductUnitConversionRepository;
 
 @ExtendWith(MockitoExtension.class)
 class BarcodeServiceImplTest {
-
     @Mock
     private UserRepository userRepository;
 
@@ -50,7 +51,7 @@ class BarcodeServiceImplTest {
     private OrderService orderService;
 
     @Mock
-    private com.sales.modules.product.repository.ProductUnitConversionRepository productUnitConversionRepository;
+    private ProductUnitConversionRepository productUnitConversionRepository;
 
     @InjectMocks
     private BarcodeServiceImpl barcodeService;
@@ -306,7 +307,7 @@ class BarcodeServiceImplTest {
     @DisplayName("Quét mã vạch khớp với mã vạch của đơn vị quy đổi (Thùng)")
     void testScanBarcode_WithUnitConversionBarcode() {
         String cartonBarcode = "8935001122334";
-        com.sales.modules.product.entity.ProductUnitConversion conversion = com.sales.modules.product.entity.ProductUnitConversion.builder()
+        ProductUnitConversion conversion = ProductUnitConversion.builder()
                 .id("conv-carton-1")
                 .product(product)
                 .unitName("Thùng")
@@ -317,22 +318,22 @@ class BarcodeServiceImplTest {
 
         when(userRepository.findByUsername("owner")).thenReturn(Optional.of(ownerUser));
         when(productRepository.findByHouseholdIdAndBarcodeOrSku("house-100", cartonBarcode))
-                .thenReturn(java.util.Collections.emptyList());
+                .thenReturn(Collections.emptyList());
         when(productUnitConversionRepository.findByHouseholdIdAndBarcode("house-100", cartonBarcode))
                 .thenReturn(Optional.of(conversion));
 
         when(promotionService.calculateItemPromotion(any(), eq(product), eq(BigDecimal.ONE), eq(new BigDecimal("280000.00")), eq(false)))
-                .thenReturn(com.sales.modules.promotion.dto.response.PromotionItemResultResponse.builder()
+                .thenReturn(PromotionItemResultResponse.builder()
                         .discountAmount(BigDecimal.ZERO)
                         .finalSubtotal(new BigDecimal("280000.00"))
                         .build());
 
-        com.sales.modules.product.dto.request.BarcodeScanRequest request = com.sales.modules.product.dto.request.BarcodeScanRequest.builder()
+        BarcodeScanRequest request = BarcodeScanRequest.builder()
                 .barcode(cartonBarcode)
                 .quantity(BigDecimal.ONE)
                 .build();
 
-        com.sales.modules.product.dto.response.BarcodeScanResponse response = barcodeService.scanBarcode("owner", request);
+        BarcodeScanResponse response = barcodeService.scanBarcode("owner", request);
 
         assertNotNull(response);
         assertTrue(response.getFound());
@@ -341,4 +342,3 @@ class BarcodeServiceImplTest {
         assertEquals(new BigDecimal("280000.00"), response.getUnitPrice());
     }
 }
-

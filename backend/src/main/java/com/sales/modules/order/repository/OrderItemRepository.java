@@ -12,7 +12,6 @@ import java.util.Optional;
 
 @Repository
 public interface OrderItemRepository extends JpaRepository<OrderItem, String> {
-
     Optional<OrderItem> findByIdAndOrderId(String id, String orderId);
 
     boolean existsByUnitConversionId(String unitConversionId);
@@ -35,7 +34,7 @@ public interface OrderItemRepository extends JpaRepository<OrderItem, String> {
     }
 
     @Query("""
-        SELECT 
+        SELECT
             COUNT(DISTINCT oi.order.id) as totalOrdersCount,
             COALESCE(SUM(oi.quantity), 0) as totalQuantitySold,
             COALESCE(SUM(oi.subtotal), 0) as promotionRevenue,
@@ -47,7 +46,7 @@ public interface OrderItemRepository extends JpaRepository<OrderItem, String> {
     PromotionMetricsProjection getPromotionMetrics(@Param("promotionId") String promotionId);
 
     @Query("""
-        SELECT 
+        SELECT
             oi.product.id as productId,
             oi.productName as productName,
             COALESCE(SUM(oi.quantity), 0) as quantitySold,
@@ -189,7 +188,7 @@ public interface OrderItemRepository extends JpaRepository<OrderItem, String> {
     }
 
     @Query("""
-        SELECT 
+        SELECT
             pg.id as groupId,
             COALESCE(pg.name, 'Chưa phân nhóm') as groupName,
             COALESCE(SUM(oi.quantity), 0) as totalQuantity,
@@ -222,7 +221,7 @@ public interface OrderItemRepository extends JpaRepository<OrderItem, String> {
     }
 
     @Query("""
-        SELECT 
+        SELECT
             p.id as productId,
             COALESCE(p.sku, 'N/A') as productSku,
             oi.productName as productName,
@@ -263,4 +262,3 @@ public interface OrderItemRepository extends JpaRepository<OrderItem, String> {
             @Param("endDateTime") LocalDateTime endDateTime
     );
 }
-

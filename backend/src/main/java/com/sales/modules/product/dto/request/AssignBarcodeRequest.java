@@ -9,7 +9,6 @@ import lombok.*;
 @NoArgsConstructor
 @AllArgsConstructor
 public class AssignBarcodeRequest {
-
     @NotBlank(message = "Mã vạch không được để trống")
     @Size(max = 100, message = "Mã vạch không vượt quá 100 ký tự")
     private String barcode;

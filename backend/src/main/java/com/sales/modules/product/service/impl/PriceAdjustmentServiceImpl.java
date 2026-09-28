@@ -49,7 +49,6 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Slf4j
 public class PriceAdjustmentServiceImpl implements PriceAdjustmentService {
-
     private final PriceAdjustmentBatchRepository batchRepository;
     private final ProductRepository productRepository;
     private final ProductGroupRepository productGroupRepository;
@@ -69,7 +68,6 @@ public class PriceAdjustmentServiceImpl implements PriceAdjustmentService {
 
         PriceRoundingMethod roundingMethod = request.getRoundingMethod() != null ? request.getRoundingMethod() : PriceRoundingMethod.NONE;
 
-        // Batch query giá vốn theo QTN-23 tránh N+1 Query
         Map<String, BigDecimal> costPriceMap = resolveAverageCostPrices(products, household.getId());
 
         List<PriceAdjustmentItemPreviewResponse> itemPreviews = new ArrayList<>();
@@ -151,7 +149,6 @@ public class PriceAdjustmentServiceImpl implements PriceAdjustmentService {
                 .appliedAt(LocalDateTime.now())
                 .build();
 
-        // Batch query giá vốn theo QTN-23 tránh N+1 Query
         Map<String, BigDecimal> costPriceMap = resolveAverageCostPrices(products, household.getId());
 
         List<PriceAdjustmentItem> items = new ArrayList<>();
@@ -182,11 +179,9 @@ public class PriceAdjustmentServiceImpl implements PriceAdjustmentService {
                     .build();
             items.add(item);
 
-            // Cập nhật giá sản phẩm trong entity
             product.setPrice(newPrice);
             product.setUpdatedAt(now);
 
-            // Ghi nhận ActivityLog cho từng sản phẩm
             logActivity(household, user, "UPDATE_PRICE", product.getId(),
                     Map.of("price", oldPrice), Map.of("price", newPrice, "batchCode", batchCode));
 
@@ -205,7 +200,6 @@ public class PriceAdjustmentServiceImpl implements PriceAdjustmentService {
                     .build());
         }
 
-        // Batch update giá cho tất cả sản phẩm, loại bỏ N+1 query
         productRepository.saveAll(products);
 
         batch.setTotalItems(products.size());
@@ -214,7 +208,6 @@ public class PriceAdjustmentServiceImpl implements PriceAdjustmentService {
 
         PriceAdjustmentBatch savedBatch = batchRepository.save(batch);
 
-        // Ghi nhận ActivityLog cho đợt đổi giá
         logActivity(household, user, "CREATE_PRICE_ADJUSTMENT_BATCH", savedBatch.getId(),
                 null, Map.of("batchCode", batchCode, "totalItems", products.size(), "belowCostItems", belowCostCount));
 
@@ -240,7 +233,6 @@ public class PriceAdjustmentServiceImpl implements PriceAdjustmentService {
             throw new AppException(ErrorCode.PRICE_ADJUSTMENT_ALREADY_REVERTED);
         }
 
-        // Kiểm tra thời hạn hoàn tác 24 giờ chính xác
         if (batch.getAppliedAt().plusHours(24).isBefore(LocalDateTime.now())) {
             throw new AppException(ErrorCode.PRICE_ADJUSTMENT_REVERT_EXPIRED);
         }
@@ -248,11 +240,9 @@ public class PriceAdjustmentServiceImpl implements PriceAdjustmentService {
         LocalDateTime now = LocalDateTime.now();
         List<Product> productsToRevert = new ArrayList<>();
 
-        // Khôi phục giá cũ cho từng sản phẩm
         for (PriceAdjustmentItem item : batch.getItems()) {
             Product product = item.getProduct();
             if (product != null) {
-                // Kiểm tra an toàn: Nếu giá hiện tại đã bị thay đổi sau đợt này thì không đè ngược lại
                 if (product.getPrice() != null && product.getPrice().compareTo(item.getNewPrice()) != 0) {
                     log.warn("Bỏ qua hoàn tác giá cho sản phẩm id={}, sku={} do giá hiện tại ({}) khác với giá đã áp dụng trong đợt ({})",
                             product.getId(), product.getSku(), product.getPrice(), item.getNewPrice());
@@ -263,13 +253,11 @@ public class PriceAdjustmentServiceImpl implements PriceAdjustmentService {
                 product.setUpdatedAt(now);
                 productsToRevert.add(product);
 
-                // Ghi nhận ActivityLog hoàn tác giá
                 logActivity(household, user, "REVERT_PRICE", product.getId(),
                         Map.of("price", item.getNewPrice()), Map.of("price", item.getOldPrice(), "batchCode", batch.getBatchCode()));
             }
         }
 
-        // Batch update hoàn tác giá một lần duy nhất ngoài vòng lặp
         if (!productsToRevert.isEmpty()) {
             productRepository.saveAll(productsToRevert);
         }
@@ -281,7 +269,6 @@ public class PriceAdjustmentServiceImpl implements PriceAdjustmentService {
 
         PriceAdjustmentBatch updatedBatch = batchRepository.save(batch);
 
-        // Ghi nhận ActivityLog hoàn tác đợt đổi giá
         logActivity(household, user, "REVERT_PRICE_ADJUSTMENT_BATCH", updatedBatch.getId(),
                 Map.of("status", "APPLIED"), Map.of("status", "REVERTED", "reason", request.getRevertReason().trim()));
 
@@ -309,7 +296,6 @@ public class PriceAdjustmentServiceImpl implements PriceAdjustmentService {
 
         List<PriceAdjustmentBatch> batches = batchPage.getContent();
 
-        // Batch fetching tên người dùng và nhóm hàng để triệt tiêu N+1 Query
         Set<String> userIds = new HashSet<>();
         Set<String> groupIds = new HashSet<>();
         for (PriceAdjustmentBatch b : batches) {
@@ -360,17 +346,12 @@ public class PriceAdjustmentServiceImpl implements PriceAdjustmentService {
         return mapToBatchResponse(batch, appliedByName, revertedByName, targetGroupName, itemPreviews);
     }
 
-    // ==========================================
-    // HELPER & ALGORITHM METHODS
-    // ==========================================
-
     public BigDecimal calculateNewPrice(
             BigDecimal oldPrice,
             BigDecimal costPrice,
             AdjustmentType type,
             BigDecimal value,
             PriceRoundingMethod roundingMethod) {
-
         if (oldPrice == null) oldPrice = BigDecimal.ZERO;
         if (costPrice == null) costPrice = BigDecimal.ZERO;
         if (value == null) value = BigDecimal.ZERO;
@@ -434,7 +415,6 @@ public class PriceAdjustmentServiceImpl implements PriceAdjustmentService {
             log.warn("Could not batch calculate weighted average cost: {}", e.getMessage());
         }
 
-        // Fallback chuẩn QTN-23: kiểm tra costPrice ban đầu của sản phẩm nếu chưa có phiếu nhập
         for (Product product : products) {
             if (!costMap.containsKey(product.getId())) {
                 if (product.getCostPrice() != null && product.getCostPrice().compareTo(BigDecimal.ZERO) > 0) {
@@ -463,7 +443,6 @@ public class PriceAdjustmentServiceImpl implements PriceAdjustmentService {
             log.warn("Could not query weighted average cost for product {}: {}", product.getId(), e.getMessage());
         }
 
-        // Fallback chuẩn QTN-23: kiểm tra costPrice ban đầu của sản phẩm
         if (product.getCostPrice() != null && product.getCostPrice().compareTo(BigDecimal.ZERO) > 0) {
             return product.getCostPrice().setScale(2, RoundingMode.HALF_UP);
         }
@@ -500,21 +479,17 @@ public class PriceAdjustmentServiceImpl implements PriceAdjustmentService {
         boolean hasProductIds = productIds != null && !productIds.isEmpty();
 
         if (hasGroup) {
-            // Xác thực nhóm hàng tồn tại và thuộc hộ kinh doanh
             productGroupRepository.findByIdAndHouseholdIdAndDeletedAtIsNull(targetGroupId.trim(), householdId)
                     .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_GROUP_NOT_FOUND));
 
             if (hasProductIds) {
-                // Người dùng lọc nhóm và tick chọn sản phẩm cụ thể trong nhóm
                 products = productRepository.findAllByIdInAndHouseholdIdAndDeletedAtIsNull(productIds, householdId).stream()
                         .filter(p -> p.getGroup() != null && targetGroupId.trim().equals(p.getGroup().getId()))
                         .collect(Collectors.toList());
             } else {
-                // Đổi giá cho toàn bộ nhóm hàng
                 products = productRepository.findByGroupIdAndHouseholdIdAndDeletedAtIsNull(targetGroupId.trim(), householdId);
             }
         } else if (hasProductIds) {
-            // Người dùng chọn danh sách sản phẩm lẻ
             products = productRepository.findAllByIdInAndHouseholdIdAndDeletedAtIsNull(productIds, householdId);
         } else {
             throw new AppException(ErrorCode.PRICE_ADJUSTMENT_NO_PRODUCTS_SELECTED);
@@ -593,7 +568,6 @@ public class PriceAdjustmentServiceImpl implements PriceAdjustmentService {
             String revertedByName,
             String targetGroupName,
             List<PriceAdjustmentItemPreviewResponse> itemPreviews) {
-
         boolean canRevert = batch.getStatus() == BatchStatus.APPLIED
                 && batch.getAppliedAt().plusHours(24).isAfter(LocalDateTime.now());
 

@@ -23,7 +23,6 @@ import java.security.Principal;
 @RequestMapping("/api/v1/price-adjustments")
 @RequiredArgsConstructor
 public class PriceAdjustmentController {
-
     private final PriceAdjustmentService priceAdjustmentService;
 
     @Operation(summary = "Xem trước điều chỉnh giá hàng loạt")
@@ -32,7 +31,6 @@ public class PriceAdjustmentController {
     public ResponseEntity<ApiResponse<PriceAdjustmentPreviewResponse>> previewPriceAdjustment(
             Principal principal,
             @Valid @RequestBody PreviewPriceAdjustmentRequest request) {
-
         PriceAdjustmentPreviewResponse result = priceAdjustmentService.previewPriceAdjustment(principal.getName(), request);
         return ResponseEntity.ok(ApiResponse.<PriceAdjustmentPreviewResponse>builder()
                 .code(1000)
@@ -47,7 +45,6 @@ public class PriceAdjustmentController {
     public ResponseEntity<ApiResponse<PriceAdjustmentBatchResponse>> applyPriceAdjustment(
             Principal principal,
             @Valid @RequestBody ApplyPriceAdjustmentRequest request) {
-
         PriceAdjustmentBatchResponse result = priceAdjustmentService.applyPriceAdjustment(principal.getName(), request);
         return ResponseEntity.ok(ApiResponse.<PriceAdjustmentBatchResponse>builder()
                 .code(1000)
@@ -63,7 +60,6 @@ public class PriceAdjustmentController {
             Principal principal,
             @PathVariable String batchId,
             @Valid @RequestBody RevertPriceAdjustmentRequest request) {
-
         PriceAdjustmentBatchResponse result = priceAdjustmentService.revertPriceAdjustment(principal.getName(), batchId, request);
         return ResponseEntity.ok(ApiResponse.<PriceAdjustmentBatchResponse>builder()
                 .code(1000)
@@ -80,7 +76,6 @@ public class PriceAdjustmentController {
             @RequestParam(required = false) BatchStatus status,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
-
         PageResponse<PriceAdjustmentBatchResponse> result = priceAdjustmentService.getPriceAdjustmentBatches(principal.getName(), status, page, size);
         return ResponseEntity.ok(ApiResponse.<PageResponse<PriceAdjustmentBatchResponse>>builder()
                 .code(1000)
@@ -95,7 +90,6 @@ public class PriceAdjustmentController {
     public ResponseEntity<ApiResponse<PriceAdjustmentBatchResponse>> getPriceAdjustmentBatchById(
             Principal principal,
             @PathVariable String batchId) {
-
         PriceAdjustmentBatchResponse result = priceAdjustmentService.getPriceAdjustmentBatchById(principal.getName(), batchId);
         return ResponseEntity.ok(ApiResponse.<PriceAdjustmentBatchResponse>builder()
                 .code(1000)

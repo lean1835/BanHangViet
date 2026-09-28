@@ -43,7 +43,6 @@ import java.util.*;
 @RequiredArgsConstructor
 @Slf4j
 public class AnnualRevenueTrackingServiceImpl implements AnnualRevenueTrackingService {
-
     private final UserRepository userRepository;
     private final BusinessHouseholdRepository householdRepository;
     private final BusinessHouseholdSettingsRepository settingsRepository;
@@ -76,7 +75,6 @@ public class AnnualRevenueTrackingServiceImpl implements AnnualRevenueTrackingSe
             throw new AppException(ErrorCode.HOUSEHOLD_NOT_FOUND);
         }
 
-        // QTN-10 & RBAC: Sales staff (VT-02) cannot view total financial revenue reports
         if (currentUser.getRole() != null && "VT-02".equalsIgnoreCase(currentUser.getRole().getCode())) {
             throw new AppException(ErrorCode.FORBIDDEN);
         }
@@ -87,7 +85,6 @@ public class AnnualRevenueTrackingServiceImpl implements AnnualRevenueTrackingSe
             throw new AppException(ErrorCode.YEAR_INVALID);
         }
 
-        // Get or initialize household settings
         BusinessHouseholdSettings settings = settingsRepository.findByHouseholdId(household.getId())
                 .orElse(null);
         BigDecimal warningPercentage = (settings != null && settings.getRevenueWarningThresholdPercentage() != null)
@@ -98,7 +95,6 @@ public class AnnualRevenueTrackingServiceImpl implements AnnualRevenueTrackingSe
         BigDecimal warningRevenueAmount = mandatoryThreshold.multiply(warningPercentage)
                 .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
 
-        // Fetch valid invoices in calendar year according to QTN-22 & GAP 04
         LocalDateTime startOfYear = LocalDate.of(targetYear, 1, 1).atStartOfDay();
         LocalDateTime endOfYear = LocalDate.of(targetYear, 12, 31).atTime(LocalTime.MAX);
 
@@ -106,7 +102,6 @@ public class AnnualRevenueTrackingServiceImpl implements AnnualRevenueTrackingSe
                 household.getId(), startOfYear, endOfYear
         );
 
-        // Calculate cumulative revenue and tax amounts with monthly breakdown
         BigDecimal cumulativeRevenue = BigDecimal.ZERO;
         BigDecimal cumulativeTaxAmount = BigDecimal.ZERO;
         int validInvoiceCount = 0;
@@ -139,7 +134,6 @@ public class AnnualRevenueTrackingServiceImpl implements AnnualRevenueTrackingSe
             }
         }
 
-        // Build monthly breakdown
         int maxMonthToShow = (targetYear == currentDate.getYear()) ? currentDate.getMonthValue() : 12;
         BigDecimal runningCumulative = BigDecimal.ZERO;
         List<MonthlyRevenueBreakdownResponse> breakdownList = new ArrayList<>();
@@ -161,11 +155,9 @@ public class AnnualRevenueTrackingServiceImpl implements AnnualRevenueTrackingSe
                     .build());
         }
 
-        // Metrics: Percentage of threshold
         BigDecimal thresholdPercentage = cumulativeRevenue.divide(mandatoryThreshold, 4, RoundingMode.HALF_UP)
                 .multiply(BigDecimal.valueOf(100)).setScale(2, RoundingMode.HALF_UP);
 
-        // Elapsed months & average monthly run rate
         int elapsedMonths;
         if (targetYear < currentDate.getYear()) {
             elapsedMonths = 12;
@@ -181,12 +173,10 @@ public class AnnualRevenueTrackingServiceImpl implements AnnualRevenueTrackingSe
 
         BigDecimal remainingRevenueToThreshold = mandatoryThreshold.subtract(cumulativeRevenue).max(BigDecimal.ZERO);
 
-        // Projected reach date
         LocalDate projectedReachDate = null;
         Boolean projectedInCurrentYear = null;
 
         if (targetYear < currentDate.getYear()) {
-            // Historical year has already passed
             projectedReachDate = null;
             projectedInCurrentYear = false;
         } else if (cumulativeRevenue.compareTo(mandatoryThreshold) >= 0) {
@@ -203,7 +193,6 @@ public class AnnualRevenueTrackingServiceImpl implements AnnualRevenueTrackingSe
             projectedInCurrentYear = (projectedReachDate.getYear() == targetYear);
         }
 
-        // Determine if household was mandatory from beginning (TC-03)
         boolean isMandatoryFromBeginning = false;
         if (Boolean.TRUE.equals(household.getRevenueThresholdEnabled())) {
             boolean exceededThisYear = activityLogRepository.existsByHouseholdIdAndActionAndCreatedAtBetween(
@@ -220,19 +209,16 @@ public class AnnualRevenueTrackingServiceImpl implements AnnualRevenueTrackingSe
         String warningMessage = null;
         String legalObligationNotice = null;
 
-        // TC-03: Household already mandatory from beginning of the year
         if (isMandatoryFromBeginning) {
             warningStatus = RevenueWarningStatus.ALREADY_MANDATORY;
             shouldShowWarning = false;
         } else if (cumulativeRevenue.compareTo(mandatoryThreshold) >= 0) {
-            // Reached/Exceeded 1 billion VND threshold (QTN-01)
             warningStatus = RevenueWarningStatus.EXCEEDED;
             shouldShowWarning = true;
             warningMessage = String.format("Doanh thu lũy kế năm %d đã vượt ngưỡng bắt buộc 1 tỷ đồng (%s VNĐ).",
                     targetYear, formatCurrency(cumulativeRevenue));
             legalObligationNotice = buildLegalObligationNotice(true, cumulativeRevenue, targetYear);
 
-            // Only trigger state mutations and push notification if it's the current active year
             if (isCurrentYear) {
                 if (!Boolean.TRUE.equals(household.getRevenueThresholdEnabled())) {
                     household.setRevenueThresholdEnabled(true);
@@ -253,14 +239,12 @@ public class AnnualRevenueTrackingServiceImpl implements AnnualRevenueTrackingSe
                 );
             }
         } else if (cumulativeRevenue.compareTo(warningRevenueAmount) >= 0) {
-            // Crossed custom warning threshold (TC-02)
             warningStatus = RevenueWarningStatus.WARNING_TRIGGERED;
             shouldShowWarning = true;
             warningMessage = String.format("Doanh thu lũy kế năm %d đã đạt %s VNĐ (vượt mức cảnh báo %.1f%% so với ngưỡng 1 tỷ đồng).",
                     targetYear, formatCurrency(cumulativeRevenue), warningPercentage.doubleValue());
             legalObligationNotice = buildLegalObligationNotice(false, cumulativeRevenue, targetYear);
 
-            // Only push notification if it's the current active year
             if (isCurrentYear) {
                 pushNotificationIfNotExists(
                         household, currentUser, RevenueThresholdConstants.NOTIF_TYPE_REVENUE_WARNING, "WARNING",
@@ -271,7 +255,6 @@ public class AnnualRevenueTrackingServiceImpl implements AnnualRevenueTrackingSe
                 );
             }
         } else {
-            // Normal (TC-01)
             warningStatus = RevenueWarningStatus.BELOW_WARNING;
             shouldShowWarning = false;
         }
@@ -309,7 +292,6 @@ public class AnnualRevenueTrackingServiceImpl implements AnnualRevenueTrackingSe
         User currentUser = userRepository.findByUsername(currentUsername)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
 
-        // Only store owner (VT-01) can change threshold configuration
         if (currentUser.getRole() == null || !"VT-01".equalsIgnoreCase(currentUser.getRole().getCode())) {
             throw new AppException(ErrorCode.FORBIDDEN);
         }
@@ -373,7 +355,6 @@ public class AnnualRevenueTrackingServiceImpl implements AnnualRevenueTrackingSe
             throw new AppException(ErrorCode.HOUSEHOLD_NOT_FOUND);
         }
 
-        // QTN-10: Sales staff does not view household-level financial notifications
         if (currentUser.getRole() != null && "VT-02".equalsIgnoreCase(currentUser.getRole().getCode())) {
             throw new AppException(ErrorCode.FORBIDDEN);
         }

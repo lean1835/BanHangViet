@@ -13,7 +13,6 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ActivityLogFilterRequest {
-
     private String username;
     private String action;
     private String targetTable;

@@ -15,7 +15,6 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class GrossProfitReportResponse {
-
     @Builder.Default
     private GrossProfitSummaryDto summary = new GrossProfitSummaryDto();
 

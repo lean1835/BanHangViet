@@ -12,7 +12,6 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 @AllArgsConstructor
 public class CreateSupplierReturnItemRequest {
-
     @NotBlank(message = "Mã chi tiết phiếu nhập gốc không được để trống")
     private String receiptDetailId;
 
@@ -20,5 +19,5 @@ public class CreateSupplierReturnItemRequest {
     @DecimalMin(value = "0.001", message = "Số lượng trả phải lớn hơn 0")
     private BigDecimal quantity;
 
-    private String itemReason; // Lý do riêng cho từng dòng mặt hàng
+    private String itemReason;
 }

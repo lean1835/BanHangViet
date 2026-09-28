@@ -14,7 +14,6 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ResolveTierPriceRequest {
-
     @NotNull(message = "Số lượng không được để trống")
     @DecimalMin(value = "0.001", message = "Số lượng phải lớn hơn 0")
     private BigDecimal quantity;

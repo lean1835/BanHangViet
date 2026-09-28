@@ -43,7 +43,6 @@ import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class InventoryAuditServiceImplTest {
-
     @Mock
     private InventoryAuditRepository inventoryAuditRepository;
 
@@ -112,7 +111,6 @@ class InventoryAuditServiceImplTest {
     @Test
     @DisplayName("NCL-13-CN-004-TC-01: Lập phiếu kiểm kê thành công và điều chỉnh tồn kho")
     void testCreateInventoryAudit_Success() {
-        // Arrange: Tồn kho hệ thống = 12, thực tế đếm = 10, chênh lệch = -2, có lý do
         CreateInventoryAuditDetailRequest detailReq = CreateInventoryAuditDetailRequest.builder()
                 .productId("prod-1")
                 .actualQuantity(new BigDecimal("10.000"))
@@ -144,17 +142,14 @@ class InventoryAuditServiceImplTest {
 
         when(inventoryAuditRepository.save(any(InventoryAudit.class))).thenReturn(savedAudit);
 
-        // Act
         InventoryAuditResponse response = inventoryAuditService.createInventoryAudit("chuho_test", request);
 
-        // Assert
         assertNotNull(response);
         assertEquals("audit-1", response.getId());
         assertEquals("KK-20260812-0001", response.getAuditNumber());
         assertEquals(1, response.getTotalItems());
         assertEquals(new BigDecimal("-2.000"), response.getTotalDifferenceQty());
 
-        // Kiểm tra tồn kho của sản phẩm đã được cập nhật về 10.000
         assertEquals(new BigDecimal("10.000"), sampleProduct.getStockQuantity());
         verify(productRepository, times(1)).save(sampleProduct);
         verify(inventoryAuditRepository, times(1)).save(any(InventoryAudit.class));
@@ -168,11 +163,10 @@ class InventoryAuditServiceImplTest {
     @Test
     @DisplayName("NCL-13-CN-004-TC-02: Lập phiếu kiểm kê thất bại do chênh lệch tồn nhưng để trống lý do")
     void testCreateInventoryAudit_DiscrepancyWithoutReason_ThrowsException() {
-        // Arrange: Tồn hệ thống = 12, thực đếm = 10, chênh lệch = -2, để trống lý do
         CreateInventoryAuditDetailRequest detailReq = CreateInventoryAuditDetailRequest.builder()
                 .productId("prod-1")
                 .actualQuantity(new BigDecimal("10.000"))
-                .reason("   ") // Rỗng/Trống
+                .reason("   ")
                 .build();
 
         CreateInventoryAuditRequest request = CreateInventoryAuditRequest.builder()
@@ -183,7 +177,6 @@ class InventoryAuditServiceImplTest {
         when(productRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("prod-1", "hh-1"))
                 .thenReturn(Optional.of(sampleProduct));
 
-        // Act & Assert
         AppException exception = assertThrows(AppException.class, () ->
                 inventoryAuditService.createInventoryAudit("chuho_test", request)
         );
@@ -201,7 +194,6 @@ class InventoryAuditServiceImplTest {
 
         when(userRepository.findByUsername("nhanvien_test")).thenReturn(Optional.of(staffUser));
 
-        // Act & Assert
         AppException exception = assertThrows(AppException.class, () ->
                 inventoryAuditService.createInventoryAudit("nhanvien_test", request)
         );

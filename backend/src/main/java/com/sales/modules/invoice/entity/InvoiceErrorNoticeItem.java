@@ -20,7 +20,6 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class InvoiceErrorNoticeItem {
-
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     @Column(length = 36, nullable = false)
@@ -50,7 +49,7 @@ public class InvoiceErrorNoticeItem {
     private String taxAuthorityCode;
 
     @Column(name = "handling_type", nullable = false, length = 30)
-    private String handlingType; // CANCEL, ADJUST, REPLACE, EXPLAIN
+    private String handlingType;
 
     @Column(nullable = false, columnDefinition = "TEXT")
     private String reason;

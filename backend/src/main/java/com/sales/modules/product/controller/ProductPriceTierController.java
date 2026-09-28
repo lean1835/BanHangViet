@@ -23,7 +23,6 @@ import java.util.List;
 @RequestMapping("/api/v1/products/{productId}/price-tiers")
 @RequiredArgsConstructor
 public class ProductPriceTierController {
-
     private final ProductPriceTierService productPriceTierService;
 
     @Operation(summary = "Lấy danh sách các bậc giá của sản phẩm")

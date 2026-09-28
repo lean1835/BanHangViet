@@ -20,7 +20,6 @@ import java.security.Principal;
 @RequiredArgsConstructor
 @Validated
 public class InventoryWarningController {
-
     private final InventoryWarningService inventoryWarningService;
 
     @GetMapping("/low-stock-warnings")

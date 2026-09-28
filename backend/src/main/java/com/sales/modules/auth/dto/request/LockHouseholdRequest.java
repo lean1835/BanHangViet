@@ -11,7 +11,6 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class LockHouseholdRequest {
-
     @NotBlank(message = "Lý do khóa tài khoản hộ kinh doanh không được để trống")
     private String reason;
 }

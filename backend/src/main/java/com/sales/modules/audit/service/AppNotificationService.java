@@ -12,7 +12,6 @@ import java.util.Collection;
 import java.util.List;
 
 public interface AppNotificationService {
-
     PageResponse<AppNotificationResponse> getNotifications(
             String currentUsername, NotificationFilterRequest filter, int page, int size);
 

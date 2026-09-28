@@ -9,7 +9,6 @@ import java.util.Optional;
 
 @Repository
 public interface AnomalyRuleConfigRepository extends JpaRepository<AnomalyRuleConfig, String> {
-
     List<AnomalyRuleConfig> findByHouseholdIdOrderByCreatedAtAsc(String householdId);
 
     Optional<AnomalyRuleConfig> findByIdAndHouseholdId(String id, String householdId);

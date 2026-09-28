@@ -14,7 +14,6 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class CreateInventoryAuditRequest {
-
     private String notes;
 
     @NotEmpty(message = "Phiếu kiểm kê phải chứa ít nhất một mặt hàng")

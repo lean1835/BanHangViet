@@ -10,10 +10,8 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 @Slf4j
 public class EInvoiceAutoRetryScheduler {
-
     private final EInvoiceAutoRetryService autoRetryService;
 
-    // Chạy định kỳ theo biểu thức cron cấu hình trong application.yaml, mặc định là 5 phút một lần (0 */5 * * * *)
     @Scheduled(cron = "${app.invoice.auto-retry-cron:0 */5 * * * *}")
     public void runScheduledAutoRetry() {
         log.info("Kích hoạt tác vụ định kỳ tự động gửi lại hóa đơn chưa được cấp mã (NCL-04-CN-007)");

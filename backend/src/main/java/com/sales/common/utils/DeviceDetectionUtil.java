@@ -1,9 +1,7 @@
 package com.sales.common.utils;
 
 public final class DeviceDetectionUtil {
-
     private DeviceDetectionUtil() {
-        // Utility class
     }
 
     public static String detectDeviceType(String userAgent) {

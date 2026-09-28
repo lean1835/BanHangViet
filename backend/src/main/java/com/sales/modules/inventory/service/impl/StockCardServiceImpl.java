@@ -52,7 +52,6 @@ import java.util.List;
 @RequiredArgsConstructor
 @Slf4j
 public class StockCardServiceImpl implements StockCardService {
-
     private final UserRepository userRepository;
     private final ProductRepository productRepository;
     private final GoodsReceiptDetailRepository goodsReceiptDetailRepository;
@@ -72,7 +71,6 @@ public class StockCardServiceImpl implements StockCardService {
             int page,
             int size
     ) {
-        // 1. Authenticate user and household
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
 
@@ -81,11 +79,9 @@ public class StockCardServiceImpl implements StockCardService {
             throw new AppException(ErrorCode.HOUSEHOLD_NOT_FOUND);
         }
 
-        // 2. Validate product exists and belongs to household
         Product product = productRepository.findByIdAndHouseholdIdAndDeletedAtIsNull(productId, household.getId())
                 .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_NOT_FOUND));
 
-        // 3. Normalize & validate dates
         if (toDate == null) {
             toDate = LocalDate.now();
         }
@@ -102,7 +98,6 @@ public class StockCardServiceImpl implements StockCardService {
         LocalDateTime startDateTime = fromDate.atStartOfDay();
         LocalDateTime endDateTime = toDate.atTime(LocalTime.MAX);
 
-        // 4. Calculate openingStock from DB aggregations (with test mock compatibility)
         BigDecimal initialStock = product.getInitialStockQuantity() != null ? product.getInitialStockQuantity() : BigDecimal.ZERO;
 
         BigDecimal openingIn = goodsReceiptDetailRepository.sumQuantityBefore(product.getId(), household.getId(), startDateTime);
@@ -166,7 +161,6 @@ public class StockCardServiceImpl implements StockCardService {
             }
         }
 
-        // 5. Collect movements occurring strictly in period [startDateTime, endDateTime]
         List<StockMovementInternal> periodMovements = new ArrayList<>();
 
         if (initialStockInPeriod) {
@@ -187,7 +181,6 @@ public class StockCardServiceImpl implements StockCardService {
                     .build());
         }
 
-        // 5.1 Goods receipts in period (IN)
         List<GoodsReceiptDetail> receiptDetails = goodsReceiptDetailRepository
                 .findStockMovementsByProductInPeriod(product.getId(), household.getId(), startDateTime, endDateTime);
         if (receiptDetails == null) {
@@ -224,7 +217,6 @@ public class StockCardServiceImpl implements StockCardService {
             }
         }
 
-        // 5.2 Sale orders in period (OUT)
         List<OrderItem> orderItems = orderItemRepository
                 .findStockMovementsByProductInPeriod(product.getId(), household.getId(), startDateTime, endDateTime);
         if (orderItems == null) {
@@ -260,7 +252,6 @@ public class StockCardServiceImpl implements StockCardService {
             }
         }
 
-        // 5.3 Customer returns in period (IN)
         List<ReturnTicketItem> returnItems = returnTicketItemRepository
                 .findStockMovementsByProductInPeriod(product.getId(), household.getId(), startDateTime, endDateTime);
         if (returnItems == null) {
@@ -293,7 +284,6 @@ public class StockCardServiceImpl implements StockCardService {
             }
         }
 
-        // 5.4 Inventory audits in period (ADJUST)
         List<InventoryAuditDetail> auditDetails = inventoryAuditDetailRepository
                 .findStockMovementsByProductInPeriod(product.getId(), household.getId(), startDateTime, endDateTime);
         if (auditDetails == null) {
@@ -339,7 +329,6 @@ public class StockCardServiceImpl implements StockCardService {
             }
         }
 
-        // 5.5 Supplier returns in period (OUT)
         List<SupplierReturnItem> supplierReturnItems = supplierReturnItemRepository != null
                 ? supplierReturnItemRepository.findStockMovementsByProductInPeriod(product.getId(), household.getId(), startDateTime, endDateTime)
                 : Collections.emptyList();
@@ -376,7 +365,6 @@ public class StockCardServiceImpl implements StockCardService {
                     .build());
         }
 
-        // 5.6 Product exchanges in period (NCL-11-CN-005)
         List<ProductExchangeItem> exchangeItems = productExchangeItemRepository != null
                 ? productExchangeItemRepository.findStockMovementsByProductInPeriod(product.getId(), household.getId(), startDateTime, endDateTime)
                 : Collections.emptyList();
@@ -414,13 +402,11 @@ public class StockCardServiceImpl implements StockCardService {
                     .build());
         }
 
-        // 6. Sort chronologically: timestamp ASC -> IN before OUT when same timestamp -> id ASC
         periodMovements.sort(Comparator
                 .comparing(StockMovementInternal::getTimestamp, Comparator.nullsLast(Comparator.naturalOrder()))
                 .thenComparing(m -> StockChangeType.IN.equals(m.getChangeType()) ? 0 : 1)
                 .thenComparing(StockMovementInternal::getId, Comparator.nullsLast(Comparator.naturalOrder())));
 
-        // 7. Calculate running balances in period
         BigDecimal runningBalance = openingStock;
         BigDecimal periodTotalIn = BigDecimal.ZERO;
         BigDecimal periodTotalOut = BigDecimal.ZERO;
@@ -451,7 +437,6 @@ public class StockCardServiceImpl implements StockCardService {
 
         BigDecimal closingStock = openingStock.add(periodTotalIn).subtract(periodTotalOut);
 
-        // 8. Verify data integrity against actual DB stockQuantity (TC-03)
         BigDecimal totalInAll = goodsReceiptDetailRepository.sumQuantityAllTime(product.getId(), household.getId());
         if (totalInAll == null) {
             totalInAll = BigDecimal.ZERO;
@@ -489,10 +474,8 @@ public class StockCardServiceImpl implements StockCardService {
             );
         }
 
-        // 8. Reverse movements list to show newest first (DESC by timestamp)
         Collections.reverse(periodMovementResponses);
 
-        // 9. Paginate period movements
         if (size <= 0) size = 20;
         if (page < 0) page = 0;
 

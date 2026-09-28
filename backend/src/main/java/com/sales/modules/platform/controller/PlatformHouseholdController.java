@@ -17,7 +17,6 @@ import java.security.Principal;
 @RequiredArgsConstructor
 @PreAuthorize("hasRole('VT-04')")
 public class PlatformHouseholdController {
-
     private final PlatformHouseholdService platformHouseholdService;
 
     @GetMapping
@@ -27,7 +26,6 @@ public class PlatformHouseholdController {
             @RequestParam(required = false) String status,
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "10") int size) {
-
         PageResponse<PlatformHouseholdSummaryResponse> result = platformHouseholdService.getHouseholds(
                 principal.getName(), search, status, page, size);
 
@@ -42,7 +40,6 @@ public class PlatformHouseholdController {
     public ResponseEntity<ApiResponse<PlatformHouseholdSummaryResponse>> getHouseholdDetail(
             Principal principal,
             @PathVariable String id) {
-
         PlatformHouseholdSummaryResponse result = platformHouseholdService.getHouseholdDetail(principal.getName(), id);
         return ResponseEntity.ok(ApiResponse.<PlatformHouseholdSummaryResponse>builder()
                 .code(1000)
@@ -56,7 +53,6 @@ public class PlatformHouseholdController {
             Principal principal,
             @PathVariable String id,
             @Valid @RequestBody LockHouseholdRequest request) {
-
         PlatformHouseholdSummaryResponse result = platformHouseholdService.lockHousehold(
                 principal.getName(), id, request);
 
@@ -71,7 +67,6 @@ public class PlatformHouseholdController {
     public ResponseEntity<ApiResponse<PlatformHouseholdSummaryResponse>> unlockHousehold(
             Principal principal,
             @PathVariable String id) {
-
         PlatformHouseholdSummaryResponse result = platformHouseholdService.unlockHousehold(
                 principal.getName(), id);
 

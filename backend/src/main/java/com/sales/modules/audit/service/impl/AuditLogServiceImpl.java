@@ -31,12 +31,12 @@ import java.security.NoSuchAlgorithmException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.time.LocalTime;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class AuditLogServiceImpl implements AuditLogService {
-
     private static final String GENESIS_HASH = "0000000000000000000000000000000000000000000000000000000000000000";
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
@@ -80,7 +80,6 @@ public class AuditLogServiceImpl implements AuditLogService {
                     return 0;
                 });
 
-                // Kiểm tra xem nhóm này có mắt xích nào bị đứt gãy hoặc chưa chuẩn hóa không
                 boolean groupNeedsRepair = false;
                 long expectedSeq = 1;
                 String testPrevHash = GENESIS_HASH;
@@ -161,8 +160,8 @@ public class AuditLogServiceImpl implements AuditLogService {
 
         LocalDateTime startDateTime = filter.getStartDate();
         LocalDateTime endDateTime = filter.getEndDate();
-        if (endDateTime != null && endDateTime.toLocalTime().equals(java.time.LocalTime.MIN)) {
-            endDateTime = endDateTime.with(java.time.LocalTime.MAX);
+        if (endDateTime != null && endDateTime.toLocalTime().equals(LocalTime.MIN)) {
+            endDateTime = endDateTime.with(LocalTime.MAX);
         }
 
         Page<ActivityLog> logPage = activityLogRepository.findFilteredLogs(
@@ -193,7 +192,6 @@ public class AuditLogServiceImpl implements AuditLogService {
                 .map(this::mapToResponse)
                 .toList();
 
-        // NCL-14-CN-001-TC-04: Tự động ghi vết việc tra cứu nhật ký
         recordSelfAuditLog(currentUser.getHousehold(), currentUser, "AUDIT_LOG_VIEW", "activity_logs",
                 "Tra cứu danh sách nhật ký kiểm toán", clientIp, userAgent);
 
@@ -278,7 +276,6 @@ public class AuditLogServiceImpl implements AuditLogService {
         for (ActivityLog logItem : logs) {
             checkedCount++;
 
-            // 1. Kiểm tra liên kết previous_hash với bản ghi trước đó
             if (logItem.getPreviousHash() != null && !logItem.getPreviousHash().equalsIgnoreCase(expectedPreviousHash) && checkedCount > 1) {
                 log.warn("Đứt gãy chuỗi Hash Chain tại sequence={}: previousHash={} nhưng expected={}",
                         logItem.getSequenceNumber(), logItem.getPreviousHash(), expectedPreviousHash);
@@ -293,7 +290,6 @@ public class AuditLogServiceImpl implements AuditLogService {
                         .build();
             }
 
-            // 2. Tính lại SHA-256 Hash của chính bản ghi này
             String computedHash = calculateHash(
                     logItem.getPreviousHash() != null ? logItem.getPreviousHash() : GENESIS_HASH,
                     logItem.getHousehold() != null ? logItem.getHousehold().getId() : null,
@@ -346,8 +342,8 @@ public class AuditLogServiceImpl implements AuditLogService {
         String targetTableFilter = (filter.getTargetTable() != null && !filter.getTargetTable().isBlank()) ? filter.getTargetTable().trim() : null;
         LocalDateTime startDateTime = filter.getStartDate();
         LocalDateTime endDateTime = filter.getEndDate();
-        if (endDateTime != null && endDateTime.toLocalTime().equals(java.time.LocalTime.MIN)) {
-            endDateTime = endDateTime.with(java.time.LocalTime.MAX);
+        if (endDateTime != null && endDateTime.toLocalTime().equals(LocalTime.MIN)) {
+            endDateTime = endDateTime.with(LocalTime.MAX);
         }
 
         Page<ActivityLog> logPage = activityLogRepository.findFilteredLogs(
@@ -376,14 +372,12 @@ public class AuditLogServiceImpl implements AuditLogService {
 
         List<ActivityLog> logList = logPage.getContent();
 
-        // NCL-14-CN-001-TC-04: Tự động ghi vết xuất file nhật ký kiểm toán
         recordSelfAuditLog(currentUser.getHousehold(), currentUser, "AUDIT_LOG_EXPORT", "activity_logs",
                 "Xuất file báo cáo nhật ký kiểm toán (" + logList.size() + " bản ghi)", clientIp, userAgent);
 
         try (Workbook workbook = new XSSFWorkbook(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
             Sheet sheet = workbook.createSheet("Nhật Ký Kiểm Toán");
 
-            // Header Style
             CellStyle headerStyle = workbook.createCellStyle();
             Font headerFont = workbook.createFont();
             headerFont.setBold(true);
@@ -445,7 +439,6 @@ public class AuditLogServiceImpl implements AuditLogService {
         try {
             String householdId = household != null ? household.getId() : null;
 
-            // 1. Lấy previous hash của bản ghi gần nhất và sequence number
             Optional<ActivityLog> latestLogOpt = householdId != null ?
                     activityLogRepository.findTopByHouseholdIdOrderBySequenceNumberDesc(householdId) :
                     activityLogRepository.findTopByOrderBySequenceNumberDesc();
@@ -456,7 +449,6 @@ public class AuditLogServiceImpl implements AuditLogService {
             String formattedOldVal = toJsonString(oldValue);
             String formattedNewVal = toJsonString(newValue);
 
-            // 2. Tính SHA-256 Hash
             String hash = calculateHash(
                     previousHash,
                     householdId,
@@ -537,7 +529,7 @@ public class AuditLogServiceImpl implements AuditLogService {
     private String getHouseholdIdForUser(User user) {
         if (user.getRole() != null &&
             ("VT-04".equalsIgnoreCase(user.getRole().getCode()) || "Quản trị nền tảng".equalsIgnoreCase(user.getRole().getName()))) {
-            return null; // Quản trị viên nền tảng được xem toàn bộ
+            return null;
         }
         return user.getHousehold() != null ? user.getHousehold().getId() : null;
     }

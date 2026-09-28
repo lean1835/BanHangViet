@@ -13,7 +13,6 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 public class InventoryAuditResponse {
-
     private String id;
     private String auditNumber;
     private LocalDateTime auditDate;

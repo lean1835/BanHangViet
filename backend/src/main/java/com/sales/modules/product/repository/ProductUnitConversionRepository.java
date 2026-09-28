@@ -7,13 +7,13 @@ import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Collection;
 
 @Repository
 public interface ProductUnitConversionRepository extends JpaRepository<ProductUnitConversion, String> {
-
     List<ProductUnitConversion> findByProductId(String productId);
 
-    List<ProductUnitConversion> findByProductIdIn(java.util.Collection<String> productIds);
+    List<ProductUnitConversion> findByProductIdIn(Collection<String> productIds);
 
     Optional<ProductUnitConversion> findByIdAndProductId(String id, String productId);
 

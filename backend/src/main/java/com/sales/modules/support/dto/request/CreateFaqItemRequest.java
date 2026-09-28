@@ -11,7 +11,6 @@ import lombok.*;
 @NoArgsConstructor
 @AllArgsConstructor
 public class CreateFaqItemRequest {
-
     @NotNull(message = "Nhóm câu hỏi không được để trống")
     private FaqCategory category;
 

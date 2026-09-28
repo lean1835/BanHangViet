@@ -13,7 +13,6 @@ import java.util.List;
 
 @Repository
 public interface TaxPurchaseRegisterRepository extends JpaRepository<TaxPurchaseRegister, String> {
-
     @EntityGraph(attributePaths = {"supplier", "product", "receipt"})
     List<TaxPurchaseRegister> findByPeriodIdOrderByReceiptDateAsc(String periodId);
 

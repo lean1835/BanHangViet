@@ -10,7 +10,6 @@ import java.math.BigDecimal;
 @AllArgsConstructor
 @Builder
 public class PriceAdjustmentItemPreviewResponse {
-
     private String productId;
     private String productSku;
     private String productName;

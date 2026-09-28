@@ -38,7 +38,6 @@ import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class PosRevenueReportServiceTest {
-
     @Mock
     private UserRepository userRepository;
 
@@ -160,7 +159,6 @@ class PosRevenueReportServiceTest {
         assertEquals(fromDate, response.getFromDate());
         assertEquals(toDate, response.getToDate());
 
-        // Kiểm tra tổng toàn hộ
         PosHouseholdTotalResponse total = response.getHouseholdSummary();
         assertNotNull(total);
         assertEquals(2, total.getTotalPosCount());
@@ -174,7 +172,6 @@ class PosRevenueReportServiceTest {
         assertEquals(new BigDecimal("2000000.00"), total.getTotalBankRevenue());
         assertEquals(new BigDecimal("1000000.00"), total.getTotalDebtRevenue());
 
-        // Kiểm tra từng điểm bán
         List<PosRevenueSummaryResponse> summaries = response.getPosSummaries();
         assertEquals(2, summaries.size());
 
@@ -183,7 +180,7 @@ class PosRevenueReportServiceTest {
         assertEquals(10L, sum1.getOrderCount());
         assertEquals(8L, sum1.getInvoiceCount());
         assertEquals(new BigDecimal("5000000.00"), sum1.getNetRevenue());
-        // 5,000,000 / 7,500,000 * 100 = 66.67%
+
         assertEquals(new BigDecimal("66.67"), sum1.getRevenuePercentage());
 
         PosRevenueSummaryResponse sum2 = summaries.stream().filter(s -> s.getPosId().equals("pos-2")).findFirst().orElseThrow();
@@ -191,10 +188,9 @@ class PosRevenueReportServiceTest {
         assertEquals(5L, sum2.getOrderCount());
         assertEquals(3L, sum2.getInvoiceCount());
         assertEquals(new BigDecimal("2500000.00"), sum2.getNetRevenue());
-        // 2,500,000 / 7,500,000 * 100 = 33.33%
+
         assertEquals(new BigDecimal("33.33"), sum2.getRevenuePercentage());
 
-        // Kiểm tra daily breakdown
         assertEquals(1, response.getDailyBreakdown().size());
         assertEquals(LocalDate.of(2026, 9, 15), response.getDailyBreakdown().get(0).getSalesDate());
         assertEquals(new BigDecimal("3450000.00"), response.getDailyBreakdown().get(0).getNetRevenue());
@@ -207,7 +203,6 @@ class PosRevenueReportServiceTest {
         when(pointOfSaleRepository.findAllByHouseholdIdAndDeletedAtIsNull("household-1"))
                 .thenReturn(List.of(pos1, pos2));
 
-        // Chỉ có pos-1 có đơn, pos-2 hoàn toàn không có đơn
         PosRevenueProjection proj1 = mock(PosRevenueProjection.class);
         when(proj1.getPosId()).thenReturn("pos-1");
         when(proj1.getOrderCount()).thenReturn(5L);
@@ -233,7 +228,6 @@ class PosRevenueReportServiceTest {
         assertNotNull(response);
         assertEquals(2, response.getPosSummaries().size());
 
-        // Điểm 2 không có đơn nhưng vẫn hiển thị với số 0
         PosRevenueSummaryResponse sum2 = response.getPosSummaries().stream().filter(s -> s.getPosId().equals("pos-2")).findFirst().orElseThrow();
         assertEquals(0L, sum2.getOrderCount());
         assertEquals(0L, sum2.getInvoiceCount());

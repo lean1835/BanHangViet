@@ -31,7 +31,6 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Slf4j
 public class TaxRateServiceImpl implements TaxRateService {
-
     private final TaxRateRepository taxRateRepository;
     private final UserRepository userRepository;
     private final ProductRepository productRepository;
@@ -44,7 +43,6 @@ public class TaxRateServiceImpl implements TaxRateService {
     }
 
     private BusinessHousehold validateUserAndHousehold(User currentUser) {
-        // Chủ hộ (VT-01) hoặc Kế toán (VT-03)
         String roleCode = currentUser.getRole() != null ? currentUser.getRole().getCode() : null;
         if (!"VT-01".equals(roleCode) && !"VT-03".equals(roleCode)) {
             throw new AppException(ErrorCode.FORBIDDEN);
@@ -161,16 +159,14 @@ public class TaxRateServiceImpl implements TaxRateService {
             throw new AppException(ErrorCode.INVALID_INPUT);
         }
 
-        // Kiểm tra tỷ lệ từ 0.00% đến 100.00%
-        if (request.getRatePercentage() == null 
-                || request.getRatePercentage().compareTo(BigDecimal.ZERO) < 0 
+        if (request.getRatePercentage() == null
+                || request.getRatePercentage().compareTo(BigDecimal.ZERO) < 0
                 || request.getRatePercentage().compareTo(new BigDecimal("100.00")) > 0) {
             throw new AppException(ErrorCode.INVALID_TAX_RATE_PERCENTAGE);
         }
 
-        // Kiểm tra trùng tên thuế suất trong cùng hộ kinh doanh
         String name = request.getName().trim();
-        boolean exists = excludeId == null 
+        boolean exists = excludeId == null
                 ? taxRateRepository.existsByHouseholdIdAndName(householdId, name)
                 : taxRateRepository.existsByHouseholdIdAndNameAndIdNot(householdId, name, excludeId);
 

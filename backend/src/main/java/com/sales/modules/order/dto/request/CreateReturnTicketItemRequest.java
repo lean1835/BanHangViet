@@ -14,7 +14,6 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 @AllArgsConstructor
 public class CreateReturnTicketItemRequest {
-
     private String invoiceItemId;
 
     private String productId;

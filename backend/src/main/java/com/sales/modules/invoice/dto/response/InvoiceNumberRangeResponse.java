@@ -12,7 +12,6 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 public class InvoiceNumberRangeResponse {
-
     private String id;
     private String householdId;
     private String invoicePattern;
@@ -23,7 +22,7 @@ public class InvoiceNumberRangeResponse {
     private Integer remainingCount;
     private Integer warningThreshold;
     private Double dailyConsumptionRate;
-    private String status; // ACTIVE, WARNING_LOW, EXHAUSTED, INACTIVE
+    private String status;
     private String warningMessage;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

@@ -14,7 +14,6 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class AutoApplyPromotionRequest {
-
     @NotEmpty(message = "Danh sách mặt hàng kiểm tra không được để trống")
     @Valid
     private List<OrderItemPromotionCheckRequest> items;

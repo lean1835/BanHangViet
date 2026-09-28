@@ -21,7 +21,6 @@ import java.util.List;
 @RequiredArgsConstructor
 @PreAuthorize("hasRole('VT-04')")
 public class PlatformPackageController {
-
     private final ServicePackageService servicePackageService;
 
     @GetMapping("/packages")
@@ -48,7 +47,6 @@ public class PlatformPackageController {
     public ResponseEntity<ApiResponse<ServicePackageResponse>> createPackage(
             Principal principal,
             @Valid @RequestBody CreateServicePackageRequest request) {
-
         ServicePackageResponse result = servicePackageService.createPackage(principal.getName(), request);
         return ResponseEntity.ok(ApiResponse.<ServicePackageResponse>builder()
                 .code(1000)
@@ -62,7 +60,6 @@ public class PlatformPackageController {
             Principal principal,
             @PathVariable String id,
             @Valid @RequestBody UpdateServicePackageRequest request) {
-
         ServicePackageResponse result = servicePackageService.updatePackage(principal.getName(), id, request);
         return ResponseEntity.ok(ApiResponse.<ServicePackageResponse>builder()
                 .code(1000)
@@ -75,7 +72,6 @@ public class PlatformPackageController {
     public ResponseEntity<ApiResponse<Void>> deletePackage(
             Principal principal,
             @PathVariable String id) {
-
         servicePackageService.deletePackage(principal.getName(), id);
         return ResponseEntity.ok(ApiResponse.<Void>builder()
                 .code(1000)
@@ -88,7 +84,6 @@ public class PlatformPackageController {
             Principal principal,
             @PathVariable String householdId,
             @Valid @RequestBody AssignSubscriptionRequest request) {
-
         HouseholdSubscriptionResponse result = servicePackageService.assignSubscription(
                 principal.getName(), householdId, request);
 
@@ -102,7 +97,6 @@ public class PlatformPackageController {
     @GetMapping("/households/{householdId}/subscription-usage")
     public ResponseEntity<ApiResponse<HouseholdUsageStatsResponse>> getHouseholdUsageStats(
             @PathVariable String householdId) {
-
         HouseholdUsageStatsResponse result = servicePackageService.getUsageStats(householdId);
         return ResponseEntity.ok(ApiResponse.<HouseholdUsageStatsResponse>builder()
                 .code(1000)

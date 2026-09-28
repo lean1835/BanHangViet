@@ -13,7 +13,6 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class CreateAdjustmentInvoiceRequest {
-
     @NotBlank(message = "Lý do điều chỉnh không được để trống")
     @Size(max = 500, message = "Lý do điều chỉnh không vượt quá 500 ký tự")
     private String adjustmentReason;

@@ -12,7 +12,6 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 @AllArgsConstructor
 public class PromotionItemResultResponse {
-
     private String productId;
     private String productName;
     private BigDecimal quantity;

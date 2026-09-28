@@ -9,7 +9,6 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 public class PointOfSaleResponse {
-
     private String id;
     private String householdId;
     private String posCode;

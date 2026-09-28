@@ -22,6 +22,6 @@ public class SupplierReturnItemResponse {
     private BigDecimal basePurchasePrice;
     private BigDecimal subtotal;
     private String itemReason;
-    private BigDecimal newCostPrice;     // Giá vốn sau tính lại theo QTN-23
-    private BigDecimal newStockQuantity; // Tồn kho sau khi trừ
+    private BigDecimal newCostPrice;
+    private BigDecimal newStockQuantity;
 }

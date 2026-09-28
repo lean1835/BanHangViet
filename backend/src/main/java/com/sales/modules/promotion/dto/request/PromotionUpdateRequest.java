@@ -17,7 +17,6 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class PromotionUpdateRequest {
-
     @NotBlank(message = "Tên chương trình khuyến mại không được để trống")
     @Size(max = 255, message = "Tên chương trình khuyến mại không được vượt quá 255 ký tự")
     private String name;

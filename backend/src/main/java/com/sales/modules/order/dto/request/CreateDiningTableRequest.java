@@ -12,7 +12,6 @@ import lombok.*;
 @NoArgsConstructor
 @AllArgsConstructor
 public class CreateDiningTableRequest {
-
     @NotBlank(message = "Tên bàn ăn không được để trống")
     @Size(max = 100, message = "Tên bàn ăn không vượt quá 100 ký tự")
     private String name;

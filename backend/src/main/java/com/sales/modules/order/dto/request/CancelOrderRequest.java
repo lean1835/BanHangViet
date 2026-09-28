@@ -12,7 +12,6 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class CancelOrderRequest {
-
     @NotNull(message = "Vui lòng chọn lý do trước khi hủy đơn hàng")
     private OrderCancelReason cancelReason;
 

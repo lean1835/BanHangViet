@@ -20,7 +20,6 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class OrderPayment {
-
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     @Column(length = 36, nullable = false)
@@ -38,7 +37,7 @@ public class OrderPayment {
     private BusinessHousehold household;
 
     @Column(name = "payment_method", nullable = false, length = 20)
-    private String paymentMethod; // CASH, BANK_TRANSFER, DEBT
+    private String paymentMethod;
 
     @Column(nullable = false, precision = 15, scale = 2)
     private BigDecimal amount;

@@ -12,7 +12,6 @@ import lombok.*;
 @NoArgsConstructor
 @AllArgsConstructor
 public class UpdateTaxReminderSettingsRequest {
-
     @NotBlank(message = "Kỳ kê khai thuế không được để trống")
     @Pattern(regexp = "MONTHLY|QUARTERLY", message = "Kỳ kê khai thuế phải là MONTHLY hoặc QUARTERLY")
     private String taxPeriodType;

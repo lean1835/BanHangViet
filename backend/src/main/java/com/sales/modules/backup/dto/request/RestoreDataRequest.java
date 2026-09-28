@@ -13,7 +13,6 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class RestoreDataRequest {
-
     @NotBlank(message = "Mã bản sao lưu (backupHistoryId) không được để trống")
     private String backupHistoryId;
 

@@ -37,7 +37,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest
 @AutoConfigureMockMvc
 public class AnomalyAlertControllerTest {
-
     @Autowired
     private MockMvc mockMvc;
 

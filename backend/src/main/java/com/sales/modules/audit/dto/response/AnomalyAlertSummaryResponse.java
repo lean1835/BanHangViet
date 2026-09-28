@@ -14,7 +14,6 @@ import java.util.Map;
 @NoArgsConstructor
 @AllArgsConstructor
 public class AnomalyAlertSummaryResponse {
-
     private long totalAlerts;
     private long pendingAlerts;
     private long reviewedAlerts;

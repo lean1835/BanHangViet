@@ -10,7 +10,6 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 @AllArgsConstructor
 public class CreateOrderItemRequest {
-
     @NotBlank(message = "Mã hàng hóa không được để trống")
     @Size(max = 36, message = "Mã hàng hóa không vượt quá 36 ký tự")
     private String productId;

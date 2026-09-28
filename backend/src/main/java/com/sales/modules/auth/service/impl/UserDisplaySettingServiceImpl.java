@@ -33,7 +33,6 @@ import java.util.Map;
 @RequiredArgsConstructor
 @Slf4j
 public class UserDisplaySettingServiceImpl implements UserDisplaySettingService {
-
     private final UserDisplaySettingRepository displaySettingRepository;
     private final UserRepository userRepository;
     private final ActivityLogHelper activityLogHelper;
@@ -115,8 +114,6 @@ public class UserDisplaySettingServiceImpl implements UserDisplaySettingService 
 
         setting.setSimpleModeEnabled(targetState);
 
-        // Khi kích hoạt chế độ chữ lớn & thao tác đơn giản:
-        // Tự động nâng cỡ chữ và kích thước nút lên mức LARGE nếu đang ở STANDARD
         if (targetState) {
             if (setting.getFontSizeLevel() == FontSizeLevel.STANDARD) {
                 setting.setFontSizeLevel(FontSizeLevel.LARGE);
@@ -128,7 +125,6 @@ public class UserDisplaySettingServiceImpl implements UserDisplaySettingService 
             setting.setRequireConfirmationDialog(true);
             setting.setSimplifiedPosLayout(true);
         } else {
-            // Khi tắt chế độ chữ lớn: đưa về đúng chuẩn tiêu chuẩn ban đầu
             setting.setFontSizeLevel(FontSizeLevel.STANDARD);
             setting.setButtonSizeLevel(ButtonSizeLevel.STANDARD);
         }
@@ -156,7 +152,6 @@ public class UserDisplaySettingServiceImpl implements UserDisplaySettingService 
 
         boolean isSimple = Boolean.TRUE.equals(setting.getSimpleModeEnabled());
 
-        // 4 Thao tác chính cốt lõi (Primary Actions) hiển thị to, rõ
         List<PosActionItem> primaryActions = List.of(
                 PosActionItem.builder()
                         .code("SEARCH_PRODUCT")
@@ -196,7 +191,6 @@ public class UserDisplaySettingServiceImpl implements UserDisplaySettingService 
                         .build()
         );
 
-        // Các thao tác nâng cao được thu gọn vào mục "Xem thêm"
         List<PosActionItem> moreActions = List.of(
                 PosActionItem.builder()
                         .code("SWITCH_PRICE_TIER")

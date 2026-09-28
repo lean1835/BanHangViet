@@ -30,11 +30,16 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
+import java.io.ByteArrayInputStream;
+import java.nio.charset.StandardCharsets;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 
 @ExtendWith(MockitoExtension.class)
 @SuppressWarnings("unchecked")
 class EInvoiceRepresentationAndExportTest {
-
     @Mock
     private EInvoiceRepository eInvoiceRepository;
 
@@ -132,9 +137,9 @@ class EInvoiceRepresentationAndExportTest {
         assertNotNull(excelBytes);
         assertTrue(excelBytes.length > 0);
 
-        try (org.apache.poi.ss.usermodel.Workbook wb = new org.apache.poi.xssf.usermodel.XSSFWorkbook(new java.io.ByteArrayInputStream(excelBytes))) {
-            org.apache.poi.ss.usermodel.Sheet sheet = wb.getSheetAt(0);
-            org.apache.poi.ss.usermodel.Row headerRow = sheet.getRow(2);
+        try (Workbook wb = new XSSFWorkbook(new ByteArrayInputStream(excelBytes))) {
+            Sheet sheet = wb.getSheetAt(0);
+            Row headerRow = sheet.getRow(2);
             assertEquals("Ngày Cấp Mã", headerRow.getCell(6).getStringCellValue());
             assertEquals("Mã CQT", headerRow.getCell(7).getStringCellValue());
             assertEquals("TỔNG CỘNG", sheet.getRow(5).getCell(0).getStringCellValue());
@@ -199,7 +204,7 @@ class EInvoiceRepresentationAndExportTest {
         byte[] bytes = eInvoiceService.downloadInvoiceRepresentation("chuho01", "inv-issued");
         assertNotNull(bytes);
         assertTrue(bytes.length > 0);
-        String htmlContent = new String(bytes, java.nio.charset.StandardCharsets.UTF_8);
+        String htmlContent = new String(bytes, StandardCharsets.UTF_8);
         assertTrue(htmlContent.contains("Một trăm mười nghìn đồng"));
     }
 }

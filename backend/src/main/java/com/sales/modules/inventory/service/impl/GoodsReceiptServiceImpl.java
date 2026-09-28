@@ -50,7 +50,6 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Slf4j
 public class GoodsReceiptServiceImpl implements GoodsReceiptService {
-
     private static final String RECEIPT_PREFIX = "NK-";
     private static final String LOG_ACTION_CREATE_RECEIPT = "CREATE_GOODS_RECEIPT";
     private static final String LOG_TARGET_TABLE = "goods_receipts";
@@ -173,12 +172,10 @@ public class GoodsReceiptServiceImpl implements GoodsReceiptService {
         User currentUser = getAuthenticatedUserWithHousehold(currentUsername);
         BusinessHousehold household = currentUser.getHousehold();
 
-        // Validate details
         if (request.getDetails() == null || request.getDetails().isEmpty()) {
             throw new AppException(ErrorCode.EMPTY_RECEIPT_DETAILS);
         }
 
-        // Validate duplicate products in details
         long uniqueProductCount = request.getDetails().stream()
                 .map(CreateGoodsReceiptDetailRequest::getProductId)
                 .filter(Objects::nonNull)
@@ -188,14 +185,12 @@ public class GoodsReceiptServiceImpl implements GoodsReceiptService {
             throw new AppException(ErrorCode.INVALID_INPUT);
         }
 
-        // Validate supplier if provided
         Supplier supplier = null;
         if (StringUtils.hasText(request.getSupplierId())) {
             supplier = supplierRepository.findByIdAndHouseholdIdAndDeletedAtIsNull(request.getSupplierId(), household.getId())
                     .orElseThrow(() -> new AppException(ErrorCode.SUPPLIER_NOT_FOUND));
         }
 
-        // Extract product IDs and query all products in one batch
         List<String> productIds = request.getDetails().stream()
                 .map(CreateGoodsReceiptDetailRequest::getProductId)
                 .distinct()
@@ -205,14 +200,12 @@ public class GoodsReceiptServiceImpl implements GoodsReceiptService {
         Map<String, Product> productMap = products.stream()
                 .collect(Collectors.toMap(Product::getId, p -> p));
 
-        // Validate that all products exist and belong to the household
         for (CreateGoodsReceiptDetailRequest detailRequest : request.getDetails()) {
             if (!productMap.containsKey(detailRequest.getProductId())) {
                 throw new AppException(ErrorCode.PRODUCT_NOT_FOUND);
             }
         }
 
-        // Batch pre-fetch all unit conversions to avoid N+1 queries in loops
         Set<String> conversionIds = request.getDetails().stream()
                 .map(CreateGoodsReceiptDetailRequest::getUnitConversionId)
                 .filter(StringUtils::hasText)
@@ -225,7 +218,6 @@ public class GoodsReceiptServiceImpl implements GoodsReceiptService {
             }
         }
 
-        // Check for selling below cost warning (basePurchasePrice > product.price)
         boolean containsSellingBelowCost = false;
         for (CreateGoodsReceiptDetailRequest d : request.getDetails()) {
             Product p = productMap.get(d.getProductId());
@@ -249,12 +241,10 @@ public class GoodsReceiptServiceImpl implements GoodsReceiptService {
             throw new AppException(ErrorCode.SELLING_BELOW_COST_WARNING);
         }
 
-        // Generate receipt number if not provided
         String receiptNumber = request.getReceiptNumber();
         if (!StringUtils.hasText(receiptNumber)) {
             receiptNumber = RECEIPT_PREFIX + System.currentTimeMillis() + "-" + UUID.randomUUID().toString().substring(0, 8);
         } else {
-            // Check global duplicate receipt number
             if (goodsReceiptRepository.existsByReceiptNumber(receiptNumber)) {
                 throw new AppException(ErrorCode.RECEIPT_NUMBER_EXISTS);
             }
@@ -262,7 +252,6 @@ public class GoodsReceiptServiceImpl implements GoodsReceiptService {
 
         LocalDateTime receivedAt = request.getReceivedAt() != null ? request.getReceivedAt() : LocalDateTime.now();
 
-        // Calculate total amount for the receipt by summing rounded item subtotals
         BigDecimal totalAmount = BigDecimal.ZERO;
         for (CreateGoodsReceiptDetailRequest detailReq : request.getDetails()) {
             if (detailReq.getQuantity() != null && detailReq.getPurchasePrice() != null) {
@@ -321,7 +310,6 @@ public class GoodsReceiptServiceImpl implements GoodsReceiptService {
 
             detailsToSave.add(detail);
 
-            // Calculate moving average cost price (QTN-23) & update stock quantity in base unit (TC-01)
             BigDecimal currentStock = product.getStockQuantity() != null ? product.getStockQuantity() : BigDecimal.ZERO;
             BigDecimal currentCost = product.getCostPrice() != null ? product.getCostPrice() : BigDecimal.ZERO;
             BigDecimal importBaseQty = baseQty;
@@ -341,7 +329,6 @@ public class GoodsReceiptServiceImpl implements GoodsReceiptService {
             product.setStockQuantity(currentStock.add(importBaseQty));
         }
 
-        // Batch save details and products
         List<GoodsReceiptDetail> savedDetails = goodsReceiptDetailRepository.saveAll(detailsToSave);
         productRepository.saveAll(productMap.values());
 

@@ -13,13 +13,12 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class InvoiceErrorNoticeResponse {
-
     private String id;
     private String noticeCode;
     private String noticeType;
     private String noticePlace;
     private String taxAuthorityName;
-    private String status; // DRAFT, WAITING_TAX_RESPONSE, ACCEPTED, REJECTED
+    private String status;
     private String taxAuthorityCode;
     private String taxAuthorityResponse;
     private LocalDateTime sentToTaxAt;

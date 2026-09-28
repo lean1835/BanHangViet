@@ -31,13 +31,16 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import com.sales.modules.order.entity.Order;
+import com.sales.modules.order.repository.OrderRepository;
+import org.junit.jupiter.api.Assertions;
+import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors;
 
 @SpringBootTest
 @AutoConfigureMockMvc
 @Transactional
 @SuppressWarnings("unused")
 public class ShiftHandoverControllerTest {
-
     @Autowired
     private MockMvc mockMvc;
 
@@ -63,7 +66,7 @@ public class ShiftHandoverControllerTest {
     private PasswordEncoder passwordEncoder;
 
     @Autowired
-    private com.sales.modules.order.repository.OrderRepository orderRepository;
+    private OrderRepository orderRepository;
 
     private BusinessHousehold testHousehold;
     private Role employeeRole;
@@ -160,16 +163,14 @@ public class ShiftHandoverControllerTest {
                 .andExpect(jsonPath("$.result.actualCash").value(1000000.00))
                 .andExpect(jsonPath("$.result.differenceAmount").value(0.00));
 
-        // Kiểm tra ca bán hàng đã đổi chủ sở hữu sang employeeB
         Shift updatedShift = shiftRepository.findById(shiftA.getId()).orElseThrow();
-        org.junit.jupiter.api.Assertions.assertEquals(employeeB.getId(), updatedShift.getUser().getId());
+        Assertions.assertEquals(employeeB.getId(), updatedShift.getUser().getId());
     }
 
     @Test
     @DisplayName("POST /api/v1/shifts/handover - Chặn khi người nhận đang có ca khác mở (TC-02 & QTN-15)")
     @WithMockUser(username = "employee_handover_a", roles = {"VT-02"})
     void performShiftHandover_RecipientHasOpenShift_ThrowsError() throws Exception {
-        // Mở 1 ca cho employeeB trước
         Shift shiftB = Shift.builder()
                 .household(testHousehold)
                 .user(employeeB)
@@ -201,8 +202,8 @@ public class ShiftHandoverControllerTest {
                 .shiftId(shiftA.getId())
                 .recipientUserId(employeeB.getId())
                 .recipientPassword("PasswordB@123")
-                .actualCash(new BigDecimal("950000.00")) // Thiếu 50k
-                .differenceReason("") // Rỗng
+                .actualCash(new BigDecimal("950000.00"))
+                .differenceReason("")
                 .build();
 
         mockMvc.perform(post("/api/v1/shifts/handover")
@@ -220,7 +221,7 @@ public class ShiftHandoverControllerTest {
                 .shiftId(shiftA.getId())
                 .recipientUserId(employeeB.getId())
                 .recipientPassword("PasswordB@123")
-                .actualCash(new BigDecimal("950000.00")) // Thiếu 50k
+                .actualCash(new BigDecimal("950000.00"))
                 .differenceReason("Làm mất 50k tiền thối")
                 .build();
 
@@ -280,7 +281,7 @@ public class ShiftHandoverControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.code").value(2008)); // USER_BLOCKED
+                .andExpect(jsonPath("$.code").value(2008));
 
         employeeB.setIsActive(true);
         userRepository.save(employeeB);
@@ -307,7 +308,7 @@ public class ShiftHandoverControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value(3067)); // RECIPIENT_NOT_AUTHORIZED_FOR_POS
+                .andExpect(jsonPath("$.code").value(3067));
 
         employeeB.setRole(employeeRole);
         userRepository.save(employeeB);
@@ -317,8 +318,7 @@ public class ShiftHandoverControllerTest {
     @DisplayName("P0 Regression Test: Người nhận bàn giao (employeeB) thao tác thành công đơn hàng treo của người cũ (employeeA)")
     @WithMockUser(username = "employee_handover_a", roles = {"VT-02"})
     void performShiftHandover_RecipientCanOperateHandedOverPendingOrder_Success() throws Exception {
-        // 1. Tạo đơn hàng treo bởi employeeA trong shiftA
-        com.sales.modules.order.entity.Order pendingOrder = com.sales.modules.order.entity.Order.builder()
+        Order pendingOrder = Order.builder()
                 .household(testHousehold)
                 .shift(shiftA)
                 .createdByUser(employeeA)
@@ -332,7 +332,6 @@ public class ShiftHandoverControllerTest {
                 .build();
         pendingOrder = orderRepository.save(pendingOrder);
 
-        // 2. Bàn giao ca từ employeeA sang employeeB
         ShiftHandoverRequest handoverRequest = ShiftHandoverRequest.builder()
                 .shiftId(shiftA.getId())
                 .recipientUserId(employeeB.getId())
@@ -347,10 +346,8 @@ public class ShiftHandoverControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(1000));
 
-        // 3. employeeB (người nhận ca) truy cập chi tiết đơn hàng treo do employeeA tạo
-        // Thao tác GET /api/v1/orders/{id} từ employeeB (trước khi fix P0, thao tác này bị chặn 403 Forbidden)
         mockMvc.perform(get("/api/v1/orders/" + pendingOrder.getId())
-                        .with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user("employee_handover_b").roles("VT-02"))
+                        .with(SecurityMockMvcRequestPostProcessors.user("employee_handover_b").roles("VT-02"))
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(1000))

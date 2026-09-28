@@ -2,7 +2,6 @@ package com.sales.common.security;
 import com.sales.modules.auth.entity.BusinessHousehold;
 
 public final class HouseholdContextHolder {
-
     private static final ThreadLocal<BusinessHousehold> CURRENT_HOUSEHOLD = new ThreadLocal<>();
 
     private HouseholdContextHolder() {

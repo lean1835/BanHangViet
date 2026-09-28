@@ -40,10 +40,13 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
+import com.sales.modules.customer.entity.Customer;
+import com.sales.modules.customer.repository.CustomerRepository;
+import com.sales.modules.product.repository.ProductRepository;
+import com.sales.modules.supplier.repository.SupplierRepository;
 
 @ExtendWith(MockitoExtension.class)
 public class RestoreServiceImplTest {
-
     @Mock
     private UserRepository userRepository;
 
@@ -54,13 +57,13 @@ public class RestoreServiceImplTest {
     private RestoreHistoryRepository restoreHistoryRepository;
 
     @Mock
-    private com.sales.modules.customer.repository.CustomerRepository customerRepository;
+    private CustomerRepository customerRepository;
 
     @Mock
-    private com.sales.modules.product.repository.ProductRepository productRepository;
+    private ProductRepository productRepository;
 
     @Mock
-    private com.sales.modules.supplier.repository.SupplierRepository supplierRepository;
+    private SupplierRepository supplierRepository;
 
     @Mock
     private ActivityLogHelper activityLogHelper;
@@ -224,7 +227,6 @@ public class RestoreServiceImplTest {
         assertEquals("SUCCESS", response.getStatus());
         assertEquals(validBackup.getFileName(), response.getBackupFileName());
 
-        // Kiểm tra TC-04: Ghi nhận nhật ký kiểm toán
         verify(activityLogHelper, times(1)).logActivityInNewTransaction(
                 eq(household), eq(ownerUser), eq("RESTORE_EXECUTE"), eq("restore_histories"),
                 eq(savedHistory.getId()), isNull(), anyString(), eq("127.0.0.1"), eq("JUnit-Test")
@@ -322,7 +324,7 @@ public class RestoreServiceImplTest {
         when(backupHistoryRepository.findByIdAndHouseholdId(validBackup.getId(), household.getId()))
                 .thenReturn(Optional.of(validBackup));
 
-        com.sales.modules.customer.entity.Customer deletedCustomer = com.sales.modules.customer.entity.Customer.builder()
+        Customer deletedCustomer = Customer.builder()
                 .id("cust-1")
                 .household(household)
                 .name("Nguyễn Văn A")
@@ -357,7 +359,6 @@ public class RestoreServiceImplTest {
         assertNotNull(response);
         assertEquals("SUCCESS", response.getStatus());
 
-        // Kiểm tra khách hàng đã được khôi phục deletedAt = null
         assertNull(deletedCustomer.getDeletedAt());
         verify(customerRepository, atLeastOnce()).save(deletedCustomer);
     }
@@ -405,7 +406,6 @@ public class RestoreServiceImplTest {
         assertNotNull(response);
         assertEquals("SUCCESS", response.getStatus());
 
-        // Kiểm tra nhân viên đã được khôi phục deletedAt = null
         assertNull(deletedStaff.getDeletedAt());
         verify(userRepository, atLeastOnce()).save(deletedStaff);
     }

@@ -31,7 +31,6 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Slf4j
 public class PosEmployeeServiceImpl implements PosEmployeeService {
-
     private final UserRepository userRepository;
     private final PointOfSaleRepository pointOfSaleRepository;
     private final ActivityLogHelper activityLogHelper;
@@ -115,7 +114,6 @@ public class PosEmployeeServiceImpl implements PosEmployeeService {
         checkViewPermission(currentUser);
         BusinessHousehold household = getValidHousehold(currentUser);
 
-        // Kiểm tra điểm bán tồn tại trong hộ
         getValidPointOfSale(posId, household.getId());
 
         List<User> employees = userRepository.findByHouseholdIdAndPointOfSaleIdAndDeletedAtIsNull(household.getId(), posId);
@@ -141,12 +139,10 @@ public class PosEmployeeServiceImpl implements PosEmployeeService {
                     .filter(u -> u.getDeletedAt() == null)
                     .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
 
-            // Kiểm tra thuộc cùng hộ kinh doanh
             if (user.getHousehold() == null || !user.getHousehold().getId().equals(household.getId())) {
                 throw new AppException(ErrorCode.UNAUTHORIZED);
             }
 
-            // Không gán điểm bán cố định cho chủ hộ
             if (user.getRole() != null && "VT-01".equals(user.getRole().getCode())) {
                 throw new AppException(ErrorCode.CANNOT_ASSIGN_OWNER_TO_POS);
             }
@@ -159,7 +155,6 @@ public class PosEmployeeServiceImpl implements PosEmployeeService {
             user.setPointOfSale(pos);
             User savedUser = userRepository.save(user);
 
-            // Xóa cache
             if (cacheManager.getCache("users") != null) {
                 cacheManager.getCache("users").evict(user.getUsername());
             }

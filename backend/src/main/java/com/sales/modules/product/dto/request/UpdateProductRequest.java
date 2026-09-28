@@ -10,7 +10,6 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 @AllArgsConstructor
 public class UpdateProductRequest {
-
     @NotBlank(message = "Mã hàng (SKU) không được để trống")
     @Size(max = 50, message = "Mã hàng (SKU) không vượt quá 50 ký tự")
     private String sku;

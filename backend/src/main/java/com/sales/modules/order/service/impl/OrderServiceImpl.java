@@ -83,12 +83,20 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+import com.sales.modules.customer.service.LoyaltyService;
+import com.sales.modules.order.dto.response.PricingDecision;
+import com.sales.modules.product.service.ProductPriceTierService;
+import com.sales.modules.promotion.dto.response.PromotionItemResultResponse;
+import com.sales.modules.promotion.repository.PromotionRepository;
+import com.sales.modules.promotion.service.PromotionService;
+import java.net.URLEncoder;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.util.StringUtils;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class OrderServiceImpl implements OrderService {
-
     private final OrderRepository orderRepository;
     private final ProductRepository productRepository;
     private final CustomerRepository customerRepository;
@@ -97,16 +105,16 @@ public class OrderServiceImpl implements OrderService {
     private final ActivityLogHelper activityLogHelper;
     private final ObjectMapper objectMapper;
     private final CustomerDebtRepository customerDebtRepository;
-    private final com.sales.modules.promotion.service.PromotionService promotionService;
-    private final com.sales.modules.promotion.repository.PromotionRepository promotionRepository;
+    private final PromotionService promotionService;
+    private final PromotionRepository promotionRepository;
     private final PosInventoryRepository posInventoryRepository;
     private final PosInventoryService posInventoryService;
     private final ProductUnitConversionRepository productUnitConversionRepository;
-    private final com.sales.modules.product.service.ProductPriceTierService productPriceTierService;
+    private final ProductPriceTierService productPriceTierService;
     private final DiningTableRepository diningTableRepository;
     private final BusinessHouseholdSettingsRepository settingsRepository;
     private final OrderPaymentRepository orderPaymentRepository;
-    private final org.springframework.beans.factory.ObjectProvider<com.sales.modules.customer.service.LoyaltyService> loyaltyServiceProvider;
+    private final ObjectProvider<LoyaltyService> loyaltyServiceProvider;
 
     private Integer getHouseholdMaxHoldingHours(String householdId) {
         if (settingsRepository == null) return 4;
@@ -114,7 +122,6 @@ public class OrderServiceImpl implements OrderService {
                 .map(BusinessHouseholdSettings::getMaxOrderHoldingHours)
                 .orElse(4);
     }
-
 
     private User getAuthenticatedUser(String username) {
         return userRepository.findByUsername(username)
@@ -128,7 +135,7 @@ public class OrderServiceImpl implements OrderService {
                     && !currentUser.getPointOfSale().getId().equals(order.getPointOfSale().getId())) {
                 throw new AppException(ErrorCode.POS_EMPLOYEE_ACCESS_DENIED);
             }
-            // Nếu đơn hàng gắn với một ca đang mở, CHỈ DUY NHẤT thu ngân hiện tại của ca đó mới được thao tác (NCL-03-CN-013)
+
             if (order.getShift() != null && order.getShift().getStatus() == ShiftStatus.OPEN) {
                 boolean isCurrentShiftCashier = order.getShift().getUser().getId().equals(currentUser.getId());
                 if (!isCurrentShiftCashier) {
@@ -153,12 +160,12 @@ public class OrderServiceImpl implements OrderService {
     private String generateQrCodeUrl(Order order) {
         try {
             BusinessHousehold household = order.getHousehold();
-            String bin = "970415"; // default VietinBank mock BIN
-            String accNum = household.getTaxCode() != null && !household.getTaxCode().trim().isEmpty() 
+            String bin = "970415";
+            String accNum = household.getTaxCode() != null && !household.getTaxCode().trim().isEmpty()
                     ? household.getTaxCode() : "113366668888";
-            String accName = java.net.URLEncoder.encode(household.getName(), "UTF-8");
-            String addInfo = java.net.URLEncoder.encode("Thanh toan don hang " + order.getOrderNumber(), "UTF-8");
-            return "https://api.vietqr.io/image/" + bin + "-" + accNum + "-jLq5qSg.jpg?accountName=" 
+            String accName = URLEncoder.encode(household.getName(), "UTF-8");
+            String addInfo = URLEncoder.encode("Thanh toan don hang " + order.getOrderNumber(), "UTF-8");
+            return "https://api.vietqr.io/image/" + bin + "-" + accNum + "-jLq5qSg.jpg?accountName="
                     + accName + "&amount=" + order.getFinalAmount() + "&addInfo=" + addInfo;
         } catch (Exception e) {
             log.error("Failed to generate QR code URL", e);
@@ -247,30 +254,25 @@ public class OrderServiceImpl implements OrderService {
                     ? conversionFactor
                     : BigDecimal.ONE;
 
-            // Quy đổi số lượng về đơn vị cơ sở trước khi kiểm tra
             BigDecimal baseQuantity = quantity.multiply(factor);
             BigDecimal minStep = product.getMinWeightStep() != null ? product.getMinWeightStep() : new BigDecimal("0.001");
             int maxDecimals = product.getDecimalPlaces() != null ? product.getDecimalPlaces() : 3;
 
-            // TC-02: Số lượng nhập nhỏ hơn bước nhảy tối thiểu
             if (baseQuantity.compareTo(minStep) < 0) {
                 throw new AppException(ErrorCode.WEIGHT_STEP_INVALID);
             }
 
-            // Kiểm tra số chữ số thập phân
             BigDecimal stripped = baseQuantity.stripTrailingZeros();
             if (stripped.scale() > maxDecimals) {
                 throw new AppException(ErrorCode.DECIMAL_PLACES_EXCEEDED);
             }
 
-            // Kiểm tra bội số của bước nhảy tối thiểu
             BigDecimal remainder = baseQuantity.remainder(minStep);
             BigDecimal tolerance = new BigDecimal("0.00001");
             if (remainder.compareTo(tolerance) > 0 && remainder.compareTo(minStep.subtract(tolerance)) < 0) {
                 throw new AppException(ErrorCode.WEIGHT_STEP_INVALID);
             }
         } else {
-            // Hàng thường không bán theo cân: bắt buộc số nguyên
             if (quantity.remainder(BigDecimal.ONE).compareTo(BigDecimal.ZERO) != 0) {
                 throw new AppException(ErrorCode.NON_WEIGHT_PRODUCT_DECIMAL_NOT_ALLOWED);
             }
@@ -358,7 +360,6 @@ public class OrderServiceImpl implements OrderService {
             paidAmount = order.getFinalAmount().add(changeAmount != null ? changeAmount : BigDecimal.ZERO);
         }
 
-        // NCL-03-CN-010 Đặt tên nhận diện và treo nhiều đơn theo bàn hoặc khách
         String diningTableId = order.getDiningTable() != null ? order.getDiningTable().getId() : null;
         String diningTableName = order.getDiningTable() != null ? order.getDiningTable().getName() : null;
         String diningTableArea = order.getDiningTable() != null ? order.getDiningTable().getArea() : null;
@@ -487,7 +488,6 @@ public class OrderServiceImpl implements OrderService {
                 .build();
     }
 
-
     private List<String> checkStockWarnings(Order order) {
         List<String> warnings = new ArrayList<>();
         for (OrderItem item : order.getItems()) {
@@ -495,7 +495,7 @@ public class OrderServiceImpl implements OrderService {
                 Product product = item.getProduct();
                 BigDecimal reqQty = item.getBaseQuantity() != null ? item.getBaseQuantity() : item.getQuantity();
                 if (reqQty != null && product.getStockQuantity() != null && reqQty.compareTo(product.getStockQuantity()) > 0) {
-                    warnings.add("Sản phẩm '" + product.getName() + "' vượt quá số lượng tồn kho khả dụng (Yêu cầu: " 
+                    warnings.add("Sản phẩm '" + product.getName() + "' vượt quá số lượng tồn kho khả dụng (Yêu cầu: "
                             + reqQty + ", Hiện có: " + product.getStockQuantity() + ")");
                 }
             }
@@ -509,7 +509,6 @@ public class OrderServiceImpl implements OrderService {
         BigDecimal totalCartAmount = BigDecimal.ZERO;
         BigDecimal itemPromoDiscountSum = BigDecimal.ZERO;
 
-        // Khử trùng lặp thực thể OrderItem do Join Fetch / EntityGraph
         List<OrderItem> uniqueItems = new ArrayList<>();
         Set<String> seenIds = new HashSet<>();
         for (OrderItem item : order.getItems()) {
@@ -537,9 +536,6 @@ public class OrderServiceImpl implements OrderService {
         }
         order.setTotalAmount(totalSubtotal);
 
-        // Bước 1: Khuyến mại tự động SP -> itemPromoDiscountSum (đã trừ trong totalCartAmount)
-
-        // Bước 2: Chiết khấu khách VIP (áp dụng trên số tiền sau KM tự động: totalCartAmount)
         BigDecimal customerDiscountAmount = BigDecimal.ZERO;
         if (order.getCustomer() != null && order.getCustomer().getDiscountRate() != null
                 && order.getCustomer().getDiscountRate().compareTo(BigDecimal.ZERO) > 0) {
@@ -552,10 +548,8 @@ public class OrderServiceImpl implements OrderService {
             }
         }
 
-        // Số tiền còn lại sau Bước 2 (sau chiết khấu VIP)
         BigDecimal afterVipAmount = totalCartAmount.subtract(customerDiscountAmount).max(BigDecimal.ZERO);
 
-        // Bước 3: Chiết khấu thêm (áp dụng trên số tiền sau chiết khấu VIP: afterVipAmount)
         BigDecimal manualDiscount = BigDecimal.ZERO;
         if (order.getDiscountType() != null) {
             if ("PERCENTAGE".equals(order.getDiscountType())) {
@@ -568,7 +562,6 @@ public class OrderServiceImpl implements OrderService {
 
         BigDecimal afterDiscountAmount = afterVipAmount.subtract(manualDiscount).max(BigDecimal.ZERO);
 
-        // Bước 4: Thuế GTGT (VAT) được tính trên giá sau khi chiết khấu thêm (afterDiscountAmount)
         BigDecimal finalTaxAmount = BigDecimal.ZERO;
         if (totalCartAmount.compareTo(BigDecimal.ZERO) > 0) {
             BigDecimal discountRatio = afterDiscountAmount.divide(totalCartAmount, 6, RoundingMode.HALF_UP);
@@ -584,10 +577,8 @@ public class OrderServiceImpl implements OrderService {
             }
         }
 
-        // Làm tròn tiền thuế và tiền thanh toán cuối cùng về số nguyên đồng (VND không có số lẻ thập phân)
         finalTaxAmount = finalTaxAmount.setScale(0, RoundingMode.HALF_UP).setScale(2);
 
-        // Bước 5: Khách cần trả (finalAmount = afterDiscountAmount + finalTaxAmount - pointDiscountAmount)
         BigDecimal beforePointAmount = afterDiscountAmount.add(finalTaxAmount);
         BigDecimal pointDiscount = order.getPointDiscountAmount() != null ? order.getPointDiscountAmount() : BigDecimal.ZERO;
         if (pointDiscount.compareTo(beforePointAmount) > 0) {
@@ -615,7 +606,6 @@ public class OrderServiceImpl implements OrderService {
             throw new AppException(ErrorCode.FORBIDDEN);
         }
 
-        // QTN-15 / NCL-03-CN-006-TC-02: Check active shift
         Shift activeShift = shiftRepository.findByUserIdAndStatus(currentUser.getId(), ShiftStatus.OPEN)
                 .orElseThrow(() -> new AppException(ErrorCode.ACTIVE_SHIFT_NOT_FOUND));
 
@@ -631,8 +621,8 @@ public class OrderServiceImpl implements OrderService {
 
         String orderNumber = "OD-" + System.currentTimeMillis() + "-" + (int) (Math.random() * 900 + 100);
 
-        PointOfSale pointOfSale = currentUser.getPointOfSale() != null 
-                ? currentUser.getPointOfSale() 
+        PointOfSale pointOfSale = currentUser.getPointOfSale() != null
+                ? currentUser.getPointOfSale()
                 : (activeShift != null ? activeShift.getPointOfSale() : null);
 
         DiningTable diningTable = null;
@@ -680,7 +670,6 @@ public class OrderServiceImpl implements OrderService {
         return mapToResponse(order, new ArrayList<>(), null, null);
     }
 
-
     @Override
     @Transactional(rollbackFor = Exception.class)
     public OrderResponse addOrderItem(String currentUsername, String orderId, CreateOrderItemRequest request) {
@@ -703,7 +692,6 @@ public class OrderServiceImpl implements OrderService {
         Product product = productRepository.findByIdAndHouseholdIdAndDeletedAtIsNull(request.getProductId(), household.getId())
                 .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_NOT_FOUND));
 
-        // NCL-17-CN-002-TC-03: Kiểm tra sản phẩm đã được khai tồn tại điểm bán chưa
         if (order.getPointOfSale() != null) {
             if (!posInventoryRepository.existsByPointOfSaleIdAndProductId(order.getPointOfSale().getId(), product.getId())) {
                 throw new AppException(ErrorCode.POS_PRODUCT_NOT_INITIALIZED);
@@ -711,7 +699,7 @@ public class OrderServiceImpl implements OrderService {
         }
 
         ProductUnitConversion conversion = null;
-        if (org.springframework.util.StringUtils.hasText(request.getUnitConversionId())) {
+        if (StringUtils.hasText(request.getUnitConversionId())) {
             conversion = productUnitConversionRepository.findByIdAndProductId(request.getUnitConversionId(), product.getId())
                     .orElseThrow(() -> new AppException(ErrorCode.UNIT_CONVERSION_NOT_FOUND));
         }
@@ -724,9 +712,9 @@ public class OrderServiceImpl implements OrderService {
                 : (conversion != null ? product.getPrice().multiply(conversion.getConversionFactor()) : product.getPrice());
 
         OrderItem existingItem = order.getItems().stream()
-                .filter(item -> item.getProduct() != null 
+                .filter(item -> item.getProduct() != null
                         && item.getProduct().getId().equals(product.getId())
-                        && java.util.Objects.equals(item.getUnitConversionId(), unitConversionId))
+                        && Objects.equals(item.getUnitConversionId(), unitConversionId))
                 .findFirst().orElse(null);
 
         BigDecimal quantityToAdd = resolveQuantity(product, request.getQuantity(), request.getBuyAmount(), itemUnitPrice, conversionFactor);
@@ -740,7 +728,7 @@ public class OrderServiceImpl implements OrderService {
                 ? productPriceTierService.matchPriceTier(household.getId(), product, targetQuantity, unitConversionId)
                 : null;
 
-        com.sales.modules.promotion.dto.response.PromotionItemResultResponse promoResult = promotionService.calculateItemPromotion(
+        PromotionItemResultResponse promoResult = promotionService.calculateItemPromotion(
                 currentUser,
                 product,
                 targetQuantity,
@@ -748,7 +736,7 @@ public class OrderServiceImpl implements OrderService {
                 request.getBypassPromotion()
         );
 
-        com.sales.modules.order.dto.response.PricingDecision decision = productPriceTierService != null
+        PricingDecision decision = productPriceTierService != null
                 ? productPriceTierService.resolvePricingDecision(
                         itemUnitPrice,
                         matchedTier,
@@ -854,14 +842,14 @@ public class OrderServiceImpl implements OrderService {
 
         BigDecimal regularUnitPrice = item.getUnitPrice();
         if (request.getUnitConversionId() != null) {
-            if (org.springframework.util.StringUtils.hasText(request.getUnitConversionId())) {
+            if (StringUtils.hasText(request.getUnitConversionId())) {
                 ProductUnitConversion conversion = productUnitConversionRepository.findByIdAndProductId(request.getUnitConversionId(), product.getId())
                         .orElseThrow(() -> new AppException(ErrorCode.UNIT_CONVERSION_NOT_FOUND));
                 item.setUnitConversionId(conversion.getId());
                 item.setUnitName(conversion.getUnitName());
                 item.setConversionFactor(conversion.getConversionFactor());
-                regularUnitPrice = conversion.getPrice() != null 
-                        ? conversion.getPrice() 
+                regularUnitPrice = conversion.getPrice() != null
+                        ? conversion.getPrice()
                         : product.getPrice().multiply(conversion.getConversionFactor());
                 item.setUnitPrice(regularUnitPrice);
             } else {
@@ -893,7 +881,7 @@ public class OrderServiceImpl implements OrderService {
                 ? productPriceTierService.matchPriceTier(household.getId(), product, newQuantity, item.getUnitConversionId())
                 : null;
 
-        com.sales.modules.promotion.dto.response.PromotionItemResultResponse promoResult = product != null
+        PromotionItemResultResponse promoResult = product != null
                 ? promotionService.calculateItemPromotion(
                         currentUser,
                         product,
@@ -903,7 +891,7 @@ public class OrderServiceImpl implements OrderService {
                 )
                 : null;
 
-        com.sales.modules.order.dto.response.PricingDecision decision = productPriceTierService != null
+        PricingDecision decision = productPriceTierService != null
                 ? productPriceTierService.resolvePricingDecision(
                         regularUnitPrice,
                         matchedTier,
@@ -1019,7 +1007,6 @@ public class OrderServiceImpl implements OrderService {
             throw new AppException(ErrorCode.DISCOUNT_EXCEEDS_TOTAL);
         }
 
-        // Check salesperson limit (10% of total amount)
         boolean isOwner = "VT-01".equals(currentUser.getRole().getCode());
         if (!isOwner) {
             BigDecimal maxAllowedDiscount = order.getTotalAmount().multiply(BigDecimal.valueOf(0.10));
@@ -1061,7 +1048,6 @@ public class OrderServiceImpl implements OrderService {
         String method = request.getPaymentMethod();
         String qrCodeUrl = null;
 
-        // Xóa các khoản thanh toán cũ chưa hoàn tất của đơn hàng này qua orphanRemoval
         if (order.getPayments() != null) {
             order.getPayments().clear();
         }
@@ -1084,7 +1070,7 @@ public class OrderServiceImpl implements OrderService {
             if (order.getCustomer() == null) {
                 throw new AppException(ErrorCode.CUSTOMER_REQUIRED_FOR_DEBT);
             }
-            // Concurrency fix: lock the Customer entity for update
+
             Customer customer = customerRepository.findByIdAndHouseholdIdAndDeletedAtIsNullForUpdate(
                     order.getCustomer().getId(), household.getId())
                     .orElseThrow(() -> new AppException(ErrorCode.CUSTOMER_NOT_FOUND));
@@ -1105,7 +1091,6 @@ public class OrderServiceImpl implements OrderService {
         }
 
         order = orderRepository.save(order);
-
 
         logActivity(household, currentUser, "SET_PAYMENT_METHOD", order.getId(), null, buildOrderLogMap(order));
 
@@ -1135,7 +1120,6 @@ public class OrderServiceImpl implements OrderService {
             throw new AppException(ErrorCode.INVALID_INPUT);
         }
 
-        // QTN-07: Tổng tiền hóa đơn phải khớp các dòng hàng
         validateOrderIntegrityQTN07(order);
 
         BigDecimal changeAmount = null;
@@ -1209,7 +1193,6 @@ public class OrderServiceImpl implements OrderService {
                     }
                     payment = existingBankPayment;
                 } else if (PaymentMethodConstant.DEBT.equals(method)) {
-
                     hasDebt = true;
                     Customer customer = order.getCustomer();
                     if (customer == null) {
@@ -1278,7 +1261,6 @@ public class OrderServiceImpl implements OrderService {
                 BigDecimal roundedAmountGiven = amountGiven.setScale(0, RoundingMode.HALF_UP);
                 BigDecimal roundedExpectedAmount = expectedFinalAmount.setScale(0, RoundingMode.HALF_UP);
 
-                // Kiểm tra số tiền khách trả phải đủ so với số tiền cần thanh toán theo QTN-03
                 if (roundedAmountGiven.compareTo(roundedExpectedAmount) < 0) {
                     throw new AppException(ErrorCode.INSUFFICIENT_PAYMENT);
                 }
@@ -1312,12 +1294,11 @@ public class OrderServiceImpl implements OrderService {
                 order.setPaymentStatus("PAID");
                 paymentEntities.add(existingBankPayment);
             } else if ("DEBT".equals(order.getPaymentMethod())) {
-
                 Customer customer = order.getCustomer();
                 if (customer == null) {
                     throw new AppException(ErrorCode.CUSTOMER_REQUIRED_FOR_DEBT);
                 }
-                // Concurrency fix: lock the Customer entity for update
+
                 customer = customerRepository.findByIdAndHouseholdIdAndDeletedAtIsNullForUpdate(
                         customer.getId(), household.getId())
                         .orElseThrow(() -> new AppException(ErrorCode.CUSTOMER_NOT_FOUND));
@@ -1358,7 +1339,6 @@ public class OrderServiceImpl implements OrderService {
                 if (netDebtAmount.compareTo(BigDecimal.ZERO) > 0) {
                     LocalDateTime debtDueDate = request != null && request.getDueDate() != null ? request.getDueDate() : LocalDateTime.now().plusDays(7);
 
-                    // Tạo và lưu bản ghi công nợ customer_debts (DEBT_CREATED) với số tiền nợ thực tế
                     CustomerDebt debtRecord = CustomerDebt.builder()
                             .household(household)
                             .customer(customer)
@@ -1401,10 +1381,8 @@ public class OrderServiceImpl implements OrderService {
             orderPaymentRepository.saveAll(paymentEntities);
         }
 
-        // Get warnings before deduction
         List<String> warnings = checkStockWarnings(order);
 
-        // Logic fix: Deduplicate items and subtract physical stock quantity accurately
         Map<String, BigDecimal> productDeductions = new HashMap<>();
         Map<String, Product> productMap = new HashMap<>();
         Map<String, BigDecimal> posStockDeductions = new HashMap<>();
@@ -1412,7 +1390,7 @@ public class OrderServiceImpl implements OrderService {
 
         for (OrderItem item : order.getItems()) {
             if (item.getId() != null && !processedItemIds.add(item.getId())) {
-                continue; // Skip duplicate collection instances from join fetches
+                continue;
             }
             if (item.getProduct() != null && item.getQuantity() != null && item.getQuantity().compareTo(BigDecimal.ZERO) > 0) {
                 Product product = item.getProduct();
@@ -1426,7 +1404,6 @@ public class OrderServiceImpl implements OrderService {
             }
         }
 
-        // Atomic DB deduction: Trừ tồn kho sản phẩm trực tiếp ở mức DB để tránh lặp thực thể/dirty check
         for (Map.Entry<String, BigDecimal> entry : productDeductions.entrySet()) {
             productRepository.deductStock(entry.getKey(), household.getId(), entry.getValue());
             Product product = productMap.get(entry.getKey());
@@ -1435,7 +1412,6 @@ public class OrderServiceImpl implements OrderService {
             }
         }
 
-        // NCL-17-CN-002-TC-01: Trừ tồn kho theo điểm bán hàng loạt (tránh N+1 query)
         if (order.getPointOfSale() != null && !posStockDeductions.isEmpty()) {
             posInventoryService.batchDeductPosStock(
                     household.getId(), order.getPointOfSale().getId(), posStockDeductions);
@@ -1451,8 +1427,7 @@ public class OrderServiceImpl implements OrderService {
             customerRepository.save(customer);
         }
 
-        // Loyalty points processing (NCL-10-CN-008)
-        com.sales.modules.customer.service.LoyaltyService loyaltyService = loyaltyServiceProvider != null ? loyaltyServiceProvider.getIfAvailable() : null;
+        LoyaltyService loyaltyService = loyaltyServiceProvider != null ? loyaltyServiceProvider.getIfAvailable() : null;
         if (loyaltyService != null) {
             if (order.getPointsRedeemed() != null && order.getPointsRedeemed() > 0) {
                 loyaltyService.processPointsRedeemed(order, currentUser);
@@ -1542,7 +1517,7 @@ public class OrderServiceImpl implements OrderService {
         String unitName = product.getUnit();
         BigDecimal unitPrice = product.getPrice();
 
-        if (org.springframework.util.StringUtils.hasText(request.getUnitConversionId())) {
+        if (StringUtils.hasText(request.getUnitConversionId())) {
             ProductUnitConversion conversion = productUnitConversionRepository.findByIdAndProductId(request.getUnitConversionId(), product.getId())
                     .orElseThrow(() -> new AppException(ErrorCode.UNIT_CONVERSION_NOT_FOUND));
             unitPrice = conversion.getPrice() != null ? conversion.getPrice() : product.getPrice().multiply(conversion.getConversionFactor());
@@ -1589,7 +1564,6 @@ public class OrderServiceImpl implements OrderService {
         checkOrderOwnership(order, currentUser);
         validateShiftIsOpen(order);
 
-        // 1. Validate Order Status (TC-03 & QTN-03)
         if ("COMPLETED".equalsIgnoreCase(order.getStatus())) {
             throw new AppException(ErrorCode.ORDER_ALREADY_COMPLETED_CANNOT_CANCEL);
         }
@@ -1600,7 +1574,6 @@ public class OrderServiceImpl implements OrderService {
             throw new AppException(ErrorCode.ORDER_CANCEL_NOT_CREATING_STATUS);
         }
 
-        // 2. Validate Cancel Reason & Note (TC-02)
         if (request == null || request.getCancelReason() == null) {
             throw new AppException(ErrorCode.ORDER_CANCEL_REASON_REQUIRED);
         }
@@ -1612,19 +1585,14 @@ public class OrderServiceImpl implements OrderService {
 
         Map<String, Object> oldValues = buildOrderLogMap(order);
 
-        // 3. Update Order state (TC-01)
         order.setStatus("CANCELED");
         order.setCancelReason(request.getCancelReason());
         order.setCancelReasonNote(request.getCancelReasonNote() != null ? request.getCancelReasonNote().trim() : null);
         order.setCanceledByUser(currentUser);
         order.setCanceledAt(LocalDateTime.now());
 
-        // Note on Inventory: Orders in CREATING status have not deducted physical stock yet.
-        // Therefore, canceling an order maintains stock neutrality (no stock deduction or return needed).
-
         Order savedOrder = orderRepository.save(order);
 
-        // 4. Log Activity per QTN-09
         Map<String, Object> newValues = buildOrderLogMap(savedOrder);
         newValues.put("cancelReason", savedOrder.getCancelReason().name());
         newValues.put("cancelReasonDescription", savedOrder.getCancelReason().getDescription());
@@ -1663,14 +1631,13 @@ public class OrderServiceImpl implements OrderService {
             throw new AppException(ErrorCode.FORBIDDEN);
         }
 
-        String effectiveShiftId = org.springframework.util.StringUtils.hasText(shiftId) ? shiftId.trim() : null;
+        String effectiveShiftId = StringUtils.hasText(shiftId) ? shiftId.trim() : null;
 
         Shift shift = null;
         if (effectiveShiftId != null) {
             shift = shiftRepository.findByIdAndHouseholdId(effectiveShiftId, household.getId()).orElse(null);
         }
 
-        // QTN-10 & User Roles: Thu ngân VT-02 chỉ xem số liệu đơn hủy do chính mình lập
         boolean isSalesperson = currentUser.getRole() != null && "VT-02".equals(currentUser.getRole().getCode());
         String effectiveEmployeeId = isSalesperson ? currentUser.getId() : null;
 
@@ -1682,7 +1649,6 @@ public class OrderServiceImpl implements OrderService {
                 .filter(Objects::nonNull)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        // Group by cancel reason
         Map<OrderCancelReason, Long> reasonCountMap = canceledOrders.stream()
                 .filter(o -> o.getCancelReason() != null)
                 .collect(Collectors.groupingBy(Order::getCancelReason, Collectors.counting()));
@@ -1700,7 +1666,6 @@ public class OrderServiceImpl implements OrderService {
                 })
                 .collect(Collectors.toList());
 
-        // Group by employee ID (tránh rủi ro hashCode/equals và lazy load trên thực thể User)
         Map<String, List<Order>> employeeOrderMap = canceledOrders.stream()
                 .filter(o -> o.getCanceledByUser() != null && o.getCanceledByUser().getId() != null)
                 .collect(Collectors.groupingBy(o -> o.getCanceledByUser().getId()));
@@ -1723,7 +1688,6 @@ public class OrderServiceImpl implements OrderService {
                 .sorted(Comparator.comparing(EmployeeCancelStatDto::getCount).reversed())
                 .collect(Collectors.toList());
 
-        // Top 10 recent canceled orders
         List<CanceledOrderSummaryDto> recent = canceledOrders.stream()
                 .sorted(Comparator.comparing(Order::getCanceledAt, Comparator.nullsLast(Comparator.reverseOrder())))
                 .limit(10)
@@ -1966,7 +1930,6 @@ public class OrderServiceImpl implements OrderService {
             throw new AppException(ErrorCode.INVALID_PAYMENT_SWITCH_METHOD);
         }
 
-        // Xóa các khoản thanh toán cũ của đơn hàng qua orphanRemoval
         if (order.getPayments() != null) {
             order.getPayments().clear();
         }
@@ -2010,7 +1973,6 @@ public class OrderServiceImpl implements OrderService {
             order.setPaymentMethod("DEBT");
             order.setPaymentStatus("DEBT");
         } else {
-            // CASH
             order.setPaymentMethod("CASH");
             order.setPaymentStatus("PENDING");
         }
@@ -2022,5 +1984,3 @@ public class OrderServiceImpl implements OrderService {
         return mapToResponse(order, checkStockWarnings(order), null, qrCodeUrl);
     }
 }
-
-

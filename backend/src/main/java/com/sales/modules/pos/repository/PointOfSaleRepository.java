@@ -16,7 +16,6 @@ import java.util.Optional;
 
 @Repository
 public interface PointOfSaleRepository extends JpaRepository<PointOfSale, String>, JpaSpecificationExecutor<PointOfSale> {
-
     @EntityGraph(attributePaths = {"household"})
     Optional<PointOfSale> findByIdAndHouseholdIdAndDeletedAtIsNull(String id, String householdId);
 

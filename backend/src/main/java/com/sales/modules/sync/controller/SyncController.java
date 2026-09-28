@@ -25,7 +25,6 @@ import java.util.List;
 @RequiredArgsConstructor
 @Validated
 public class SyncController {
-
     private final SyncService syncService;
 
     @GetMapping("/health")

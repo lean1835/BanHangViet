@@ -10,6 +10,8 @@ import org.hibernate.annotations.UpdateTimestamp;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import org.hibernate.annotations.OnDelete;
+import org.hibernate.annotations.OnDeleteAction;
 
 @Entity
 @Table(name = "order_items")
@@ -21,7 +23,6 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class OrderItem {
-
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     @Column(length = 36, nullable = false)
@@ -75,12 +76,11 @@ public class OrderItem {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "price_tier_id")
-    @org.hibernate.annotations.OnDelete(action = org.hibernate.annotations.OnDeleteAction.SET_NULL)
+    @OnDelete(action = OnDeleteAction.SET_NULL)
     private ProductPriceTier priceTier;
 
     @Column(name = "price_tier_name", length = 100)
     private String priceTierName;
-
 
     @Column(name = "tax_rate_percentage", nullable = false, precision = 5, scale = 2)
     @Builder.Default

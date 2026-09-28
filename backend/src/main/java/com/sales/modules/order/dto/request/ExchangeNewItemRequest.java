@@ -15,7 +15,6 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ExchangeNewItemRequest {
-
     @NotBlank(message = "ID sản phẩm muốn đổi sang không được để trống")
     private String productId;
 

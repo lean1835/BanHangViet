@@ -47,10 +47,11 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 
 @ExtendWith(MockitoExtension.class)
 public class PriceAdjustmentServiceTest {
-
     @Mock
     private PriceAdjustmentBatchRepository batchRepository;
 
@@ -174,14 +175,12 @@ public class PriceAdjustmentServiceTest {
         assertEquals(2, response.getIncreasedItems());
         assertEquals(0, response.getBelowCostItems());
 
-        // product1: 10,000 * 1.05 = 10,500 -> round to 1000 -> 11,000
         var item1 = response.getItems().stream().filter(i -> i.getProductId().equals("prod-001")).findFirst().orElseThrow();
         assertEquals(new BigDecimal("10000.00"), item1.getOldPrice());
         assertEquals(new BigDecimal("11000.00"), item1.getNewPrice());
         assertEquals(new BigDecimal("1000.00"), item1.getPriceDifference());
         assertFalse(item1.getIsBelowCost());
 
-        // product2: 20,000 * 1.05 = 21,000 -> round to 1000 -> 21,000
         var item2 = response.getItems().stream().filter(i -> i.getProductId().equals("prod-002")).findFirst().orElseThrow();
         assertEquals(new BigDecimal("20000.00"), item2.getOldPrice());
         assertEquals(new BigDecimal("21000.00"), item2.getNewPrice());
@@ -197,11 +196,10 @@ public class PriceAdjustmentServiceTest {
                 .thenReturn(Optional.of(beverageGroup));
         when(productRepository.findByGroupIdAndHouseholdIdAndDeletedAtIsNull("group-beverage", "household-001"))
                 .thenReturn(List.of(product1));
-        // Giá vốn là 9,500đ theo QTN-23
+
         when(goodsReceiptDetailRepository.calculateWeightedAverageCostPrices(any(), eq("household-001")))
                 .thenReturn(Collections.singletonList(new Object[]{"prod-001", new BigDecimal("9500")}));
 
-        // Giảm giá 20%: 10,000 * 0.8 = 8,000đ -> Thấp hơn giá vốn 9,500đ!
         PreviewPriceAdjustmentRequest request = PreviewPriceAdjustmentRequest.builder()
                 .targetGroupId("group-beverage")
                 .adjustmentType(AdjustmentType.PERCENTAGE)
@@ -252,12 +250,11 @@ public class PriceAdjustmentServiceTest {
 
         assertNotNull(response);
         assertEquals("batch-uuid-001", response.getId());
-        assertEquals("PADJ-" + java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd")) + "-001", response.getBatchCode());
+        assertEquals("PADJ-" + LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd")) + "-001", response.getBatchCode());
         assertEquals(BatchStatus.APPLIED, response.getStatus());
         assertEquals(1, response.getTotalItems());
         assertTrue(response.getCanRevert());
 
-        // Kiểm tra gọi batch saveAll trên productRepository
         verify(productRepository, times(1)).saveAll(anyList());
         assertEquals(new BigDecimal("11000.00"), product1.getPrice());
     }
@@ -274,7 +271,7 @@ public class PriceAdjustmentServiceTest {
                 .householdId("household-001")
                 .status(BatchStatus.APPLIED)
                 .appliedBy("user-owner-001")
-                .appliedAt(LocalDateTime.now().minusHours(2)) // Áp dụng cách đây 2 giờ (< 24h)
+                .appliedAt(LocalDateTime.now().minusHours(2))
                 .totalItems(1)
                 .items(new ArrayList<>())
                 .build();
@@ -308,7 +305,6 @@ public class PriceAdjustmentServiceTest {
         assertEquals("Áp nhầm tỷ lệ điều chỉnh giá", response.getRevertReason());
         assertFalse(response.getCanRevert());
 
-        // Kiểm tra khôi phục lại giá cũ qua batch saveAll
         verify(productRepository, times(1)).saveAll(anyList());
         assertEquals(new BigDecimal("10000.00"), product1.getPrice());
     }
@@ -318,7 +314,6 @@ public class PriceAdjustmentServiceTest {
     void revertPriceAdjustment_productPriceChangedAfterBatch_skipsRevert() {
         when(userRepository.findByUsername("owner")).thenReturn(Optional.of(ownerUser));
 
-        // Giá hiện tại là 15000 (đã bị sửa thủ công sau khi áp dụng giá 12000)
         product1.setPrice(new BigDecimal("15000.00"));
 
         PriceAdjustmentBatch batch = PriceAdjustmentBatch.builder()
@@ -358,7 +353,6 @@ public class PriceAdjustmentServiceTest {
         assertNotNull(response);
         assertEquals(BatchStatus.REVERTED, response.getStatus());
 
-        // Do giá sản phẩm đã bị đổi sang 15000 khác với 12000, không được ghi đè về giá cũ 10000
         verify(productRepository, never()).saveAll(anyList());
     }
 
@@ -374,7 +368,7 @@ public class PriceAdjustmentServiceTest {
                 .householdId("household-001")
                 .status(BatchStatus.APPLIED)
                 .appliedBy("user-owner-001")
-                .appliedAt(LocalDateTime.now().minusHours(25)) // Quá 24 giờ!
+                .appliedAt(LocalDateTime.now().minusHours(25))
                 .totalItems(1)
                 .items(new ArrayList<>())
                 .build();
@@ -400,7 +394,7 @@ public class PriceAdjustmentServiceTest {
 
         PriceAdjustmentBatch batch = PriceAdjustmentBatch.builder()
                 .id("batch-001")
-                .status(BatchStatus.REVERTED) // Đã hoàn tác rồi!
+                .status(BatchStatus.REVERTED)
                 .appliedAt(LocalDateTime.now().minusHours(1))
                 .build();
 
@@ -507,7 +501,7 @@ public class PriceAdjustmentServiceTest {
                 .thenReturn(Optional.of(beverageGroup));
         when(productRepository.findByGroupIdAndHouseholdIdAndDeletedAtIsNull("group-beverage", "household-001"))
                 .thenReturn(List.of(prodWithCost));
-        // Giả lập chưa có phiếu nhập kho nào
+
         when(goodsReceiptDetailRepository.calculateWeightedAverageCostPrices(any(), eq("household-001")))
                 .thenReturn(Collections.emptyList());
 
@@ -521,7 +515,7 @@ public class PriceAdjustmentServiceTest {
 
         assertNotNull(response);
         var item = response.getItems().get(0);
-        // Kiểm tra đúng giá vốn 14,000đ lấy từ product.costPrice chứ KHÔNG PHẢI 70% của 20,000
+
         assertEquals(new BigDecimal("14000.00"), item.getCostPrice());
     }
 
@@ -570,13 +564,11 @@ public class PriceAdjustmentServiceTest {
     @Test
     @DisplayName("Thử nghiệm FIXED_AMOUNT và PROFIT_MARGIN")
     void testFixedAmountAndProfitMargin() {
-        // FIXED_AMOUNT: 10,000 - 3,000 = 7,000đ
         BigDecimal fixedPrice = priceAdjustmentService.calculateNewPrice(
                 new BigDecimal("10000"), new BigDecimal("8000"),
                 AdjustmentType.FIXED_AMOUNT, new BigDecimal("-3000"), PriceRoundingMethod.NONE);
         assertEquals(new BigDecimal("7000.00"), fixedPrice);
 
-        // PROFIT_MARGIN: Giá vốn 8,000, lãi 25% -> 8,000 * 1.25 = 10,000đ
         BigDecimal marginPrice = priceAdjustmentService.calculateNewPrice(
                 new BigDecimal("10000"), new BigDecimal("8000"),
                 AdjustmentType.PROFIT_MARGIN, new BigDecimal("25.0"), PriceRoundingMethod.NONE);

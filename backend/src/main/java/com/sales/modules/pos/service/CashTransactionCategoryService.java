@@ -7,7 +7,6 @@ import com.sales.modules.pos.dto.response.CashTransactionCategoryResponse;
 import java.util.List;
 
 public interface CashTransactionCategoryService {
-
     List<CashTransactionCategoryResponse> getCategories(String currentUsername, CashTransactionType type);
 
     CashTransactionCategoryResponse createCategory(String currentUsername, CreateCashCategoryRequest request);

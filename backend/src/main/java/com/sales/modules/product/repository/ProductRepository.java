@@ -21,7 +21,6 @@ import java.util.Optional;
 
 @Repository
 public interface ProductRepository extends JpaRepository<Product, String>, JpaSpecificationExecutor<Product> {
-
     boolean existsBySkuAndHouseholdIdAndDeletedAtIsNull(String sku, String householdId);
 
     long countByHouseholdIdAndDeletedAtIsNull(String householdId);
@@ -41,9 +40,9 @@ public interface ProductRepository extends JpaRepository<Product, String>, JpaSp
 
     @EntityGraph(attributePaths = {"group", "taxRate", "household"})
     @Query("""
-        SELECT p FROM Product p 
-        WHERE p.household.id = :householdId 
-          AND (p.barcode = :code OR p.sku = :code OR LOWER(p.barcode) = LOWER(:code) OR LOWER(p.sku) = LOWER(:code)) 
+        SELECT p FROM Product p
+        WHERE p.household.id = :householdId
+          AND (p.barcode = :code OR p.sku = :code OR LOWER(p.barcode) = LOWER(:code) OR LOWER(p.sku) = LOWER(:code))
           AND p.deletedAt IS NULL
     """)
     List<Product> findByHouseholdIdAndBarcodeOrSku(@Param("householdId") String householdId, @Param("code") String code);
@@ -68,7 +67,7 @@ public interface ProductRepository extends JpaRepository<Product, String>, JpaSp
         WHERE p.household.id = :householdId
           AND p.deletedAt IS NULL
           AND (:groupId IS NULL OR g.id = :groupId)
-          AND (:search IS NULL OR LOWER(p.name) LIKE LOWER(CONCAT('%', :search, '%')) 
+          AND (:search IS NULL OR LOWER(p.name) LIKE LOWER(CONCAT('%', :search, '%'))
                OR LOWER(p.sku) LIKE LOWER(CONCAT('%', :search, '%')))
     """)
     List<Product> findProductsForValuationReport(
@@ -117,4 +116,3 @@ public interface ProductRepository extends JpaRepository<Product, String>, JpaSp
     @Query("UPDATE Product p SET p.price = :price, p.updatedAt = :updatedAt WHERE p.id = :id AND p.household.id = :householdId AND p.deletedAt IS NULL")
     int updatePrice(@Param("id") String id, @Param("householdId") String householdId, @Param("price") BigDecimal price, @Param("updatedAt") LocalDateTime updatedAt);
 }
-

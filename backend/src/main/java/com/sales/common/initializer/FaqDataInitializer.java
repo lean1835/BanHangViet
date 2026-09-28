@@ -23,7 +23,6 @@ import java.util.List;
 @Slf4j
 @RequiredArgsConstructor
 public class FaqDataInitializer implements CommandLineRunner {
-
     private final FaqItemRepository faqItemRepository;
     private final SupportChannelRepository supportChannelRepository;
 
@@ -87,7 +86,7 @@ public class FaqDataInitializer implements CommandLineRunner {
         }
 
         List<FaqItem> items = Arrays.asList(
-                // ==================== NHÓM 1: HÓA ĐƠN & THUẾ (INVOICE) ====================
+
                 FaqItem.builder()
                         .category(FaqCategory.INVOICE)
                         .question("Hóa đơn điện tử bị treo hoặc gửi Cơ quan thuế bị lỗi thì xử lý thế nào?")
@@ -133,7 +132,6 @@ public class FaqDataInitializer implements CommandLineRunner {
                         .isActive(true)
                         .build(),
 
-                // ==================== NHÓM 2: BÁN HÀNG & CA (SALES) ====================
                 FaqItem.builder()
                         .category(FaqCategory.SALES)
                         .question("Đơn hàng bán xong chưa kịp xuất hóa đơn thì tìm lại ở đâu?")
@@ -179,7 +177,6 @@ public class FaqDataInitializer implements CommandLineRunner {
                         .isActive(true)
                         .build(),
 
-                // ==================== NHÓM 3: TÀI KHOẢN & QUYỀN (ACCOUNT) ====================
                 FaqItem.builder()
                         .category(FaqCategory.ACCOUNT)
                         .question("Quên mật khẩu đăng nhập hoặc muốn đổi mật khẩu thì làm sao?")
@@ -214,7 +211,6 @@ public class FaqDataInitializer implements CommandLineRunner {
                         .isActive(true)
                         .build(),
 
-                // ==================== NHÓM 4: DỮ LIỆU & SAO LƯU (DATA) ====================
                 FaqItem.builder()
                         .category(FaqCategory.DATA)
                         .question("Dữ liệu của tôi được sao lưu như thế nào và làm sao kiểm tra an toàn?")

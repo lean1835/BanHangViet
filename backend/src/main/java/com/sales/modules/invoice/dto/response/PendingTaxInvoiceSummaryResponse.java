@@ -13,7 +13,6 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 public class PendingTaxInvoiceSummaryResponse {
-
     private String invoiceId;
     private String invoiceNumber;
     private String orderNumber;

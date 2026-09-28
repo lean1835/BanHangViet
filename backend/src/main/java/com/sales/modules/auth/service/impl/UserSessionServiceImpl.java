@@ -36,7 +36,6 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Slf4j
 public class UserSessionServiceImpl implements UserSessionService {
-
     private final UserSessionRepository userSessionRepository;
     private final UserRepository userRepository;
     private final BusinessHouseholdRepository householdRepository;
@@ -92,7 +91,6 @@ public class UserSessionServiceImpl implements UserSessionService {
 
         LocalDateTime now = LocalDateTime.now();
 
-        // Kiểm tra thời hạn tuyệt đối theo expiresAt của token JWT (24 giờ)
         if (session.getExpiresAt() != null && session.getExpiresAt().isBefore(now)) {
             session.setIsRevoked(true);
             session.setRevokedAt(now);
@@ -101,7 +99,6 @@ public class UserSessionServiceImpl implements UserSessionService {
             return false;
         }
 
-        // Tự động hết hạn phiên khi vượt quá thời gian không thao tác của hộ (mặc định 60 phút, tối thiểu 5 phút)
         int timeoutMinutes = 60;
         if (session.getHousehold() != null && session.getHousehold().getSessionTimeoutMinutes() != null
                 && session.getHousehold().getSessionTimeoutMinutes() >= 5) {

@@ -35,8 +35,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Slf4j
 public class CustomerImportServiceImpl implements CustomerImportService {
-
-    private static final long MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+    private static final long MAX_FILE_SIZE = 10 * 1024 * 1024;
     private static final Pattern PHONE_PATTERN = Pattern.compile("^(0|\\+84)(2[0-9]{9}|[35789][0-9]{8})$");
     private static final Pattern TAX_CODE_PATTERN = Pattern.compile("^[0-9]{10}(-[0-9]{3})?$");
 
@@ -155,7 +154,6 @@ public class CustomerImportServiceImpl implements CustomerImportService {
 
                 String phone = cleanPhone(rawPhone);
 
-                // Validations
                 if (!StringUtils.hasText(name)) {
                     errors.add(new ImportPreviewResponse.RowErrorDetail(actualRow, phone, name, "Tên khách hàng không được để trống"));
                     continue;
@@ -264,7 +262,6 @@ public class CustomerImportServiceImpl implements CustomerImportService {
 
                 String phone = cleanPhone(rawPhone);
 
-                // Validations
                 if (!StringUtils.hasText(name)) {
                     addError(errors, errorExportRows, actualRow, name, phone, "Tên khách hàng không được để trống");
                     continue;
@@ -316,7 +313,6 @@ public class CustomerImportServiceImpl implements CustomerImportService {
                     continue;
                 }
 
-                // Chuẩn bị tạo mới Customer
                 Customer newCustomer = Customer.builder()
                         .household(household)
                         .name(name.trim())
@@ -335,7 +331,6 @@ public class CustomerImportServiceImpl implements CustomerImportService {
                 successCount++;
             }
 
-            // Tối ưu N+1 & Batching 500 bản ghi mỗi đợt để tối ưu bộ nhớ và I/O CSDL
             if (!customersToUpdate.isEmpty()) {
                 for (int i = 0; i < customersToUpdate.size(); i += 500) {
                     List<Customer> batch = customersToUpdate.subList(i, Math.min(i + 500, customersToUpdate.size()));

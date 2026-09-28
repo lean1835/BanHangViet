@@ -10,7 +10,6 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class UpdateProductGroupRequest {
-
     @NotBlank(message = "Tên nhóm hàng không được để trống")
     @Size(max = 100, message = "Tên nhóm hàng không được vượt quá 100 ký tự")
     private String name;

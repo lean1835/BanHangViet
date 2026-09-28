@@ -10,6 +10,5 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class RevokeAccountantAssignmentRequest {
-
     private String reason;
 }

@@ -49,7 +49,6 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Slf4j
 public class PosTransferServiceImpl implements PosTransferService {
-
     private final PosTransferRepository posTransferRepository;
     private final PosTransferItemRepository posTransferItemRepository;
     private final PointOfSaleRepository pointOfSaleRepository;
@@ -236,7 +235,6 @@ public class PosTransferServiceImpl implements PosTransferService {
             throw new AppException(ErrorCode.TRANSFER_ITEMS_EMPTY);
         }
 
-        // Gom các sản phẩm và kiểm tra trùng lặp
         Map<String, BigDecimal> productQuantityMap = new LinkedHashMap<>();
         for (PosTransferItemRequest itemReq : request.getItems()) {
             if (itemReq.getQuantity() == null || itemReq.getQuantity().compareTo(BigDecimal.ZERO) <= 0) {
@@ -258,7 +256,6 @@ public class PosTransferServiceImpl implements PosTransferService {
         List<PosInventory> fromInventoriesToSave = new ArrayList<>();
 
         if (fromPos == null) {
-            // Chuyển từ Kho gốc: Kiểm tra tồn kho khả dụng tại Kho gốc
             List<PosInventory> allPosInvs = posInventoryRepository.findByHouseholdIdAndProductIdIn(household.getId(), productIds);
             Map<String, BigDecimal> totalAllocatedMap = new HashMap<>();
             for (PosInventory pi : allPosInvs) {
@@ -288,7 +285,6 @@ public class PosTransferServiceImpl implements PosTransferService {
                 }
             }
         } else {
-            // Chuyển từ một Điểm bán (POS)
             List<PosInventory> fromInventories = posInventoryRepository.findByHouseholdIdAndPointOfSaleIdAndProductIdIn(
                     household.getId(), fromPos.getId(), productIds);
             Map<String, PosInventory> fromInventoryMap = fromInventories.stream()
@@ -382,7 +378,6 @@ public class PosTransferServiceImpl implements PosTransferService {
             LocalDate fromDate,
             LocalDate toDate,
             Pageable pageable) {
-
         User currentUser = getAuthenticatedUser(currentUsername);
         checkViewPermission(currentUser);
         BusinessHousehold household = getValidHousehold(currentUser);
@@ -391,7 +386,6 @@ public class PosTransferServiceImpl implements PosTransferService {
             List<Predicate> predicates = new ArrayList<>();
             predicates.add(cb.equal(root.get("household").get("id"), household.getId()));
 
-            // Nếu là nhân viên bán hàng (VT-02), chỉ cho phép xem các phiếu liên quan đến điểm bán của mình
             if (currentUser.getRole() != null && "VT-02".equals(currentUser.getRole().getCode())) {
                 if (currentUser.getPointOfSale() != null) {
                     String userPosId = currentUser.getPointOfSale().getId();
@@ -455,7 +449,6 @@ public class PosTransferServiceImpl implements PosTransferService {
         PosTransfer transfer = posTransferRepository.findWithDetailsByIdAndHouseholdId(transferId, household.getId())
                 .orElseThrow(() -> new AppException(ErrorCode.TRANSFER_NOT_FOUND));
 
-        // Kiểm tra quyền của nhân viên bán hàng
         if (currentUser.getRole() != null && "VT-02".equals(currentUser.getRole().getCode())) {
             if (currentUser.getPointOfSale() == null) {
                 throw new AppException(ErrorCode.FORBIDDEN);
@@ -485,10 +478,8 @@ public class PosTransferServiceImpl implements PosTransferService {
             throw new AppException(ErrorCode.TRANSFER_INVALID_STATUS);
         }
 
-        // Phân quyền xác nhận nhận hàng
         if (currentUser.getRole() != null && "VT-02".equals(currentUser.getRole().getCode())) {
             if (transfer.getToPointOfSale() == null) {
-                // Nhận về Kho gốc chỉ dành cho chủ hộ hoặc kế toán
                 throw new AppException(ErrorCode.TRANSFER_RECEIVER_PERMISSION_DENIED);
             }
             if (currentUser.getPointOfSale() == null

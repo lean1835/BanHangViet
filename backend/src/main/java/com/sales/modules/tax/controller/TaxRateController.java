@@ -17,7 +17,6 @@ import java.util.List;
 @RequestMapping("/api/v1/tax-rates")
 @RequiredArgsConstructor
 public class TaxRateController {
-
     private final TaxRateService taxRateService;
 
     @GetMapping

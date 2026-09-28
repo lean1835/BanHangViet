@@ -6,21 +6,18 @@ import org.apache.poi.xssf.streaming.SXSSFWorkbook;
 
 import java.io.ByteArrayOutputStream;
 import java.math.BigDecimal;
+import java.util.List;
 
 @Slf4j
 public class ExcelParserUtils {
-
     private ExcelParserUtils() {
-        // Utility class
     }
 
     public static byte[] generateProductImportTemplate() throws Exception {
         try (SXSSFWorkbook workbook = new SXSSFWorkbook(100)) {
             try (ByteArrayOutputStream out = new ByteArrayOutputStream()) {
-
                 Sheet sheet = workbook.createSheet("Danh_Muc_Hang_Hoa");
 
-                // Header Style
                 CellStyle headerStyle = workbook.createCellStyle();
                 Font headerFont = workbook.createFont();
                 headerFont.setBold(true);
@@ -41,7 +38,6 @@ public class ExcelParserUtils {
                     sheet.setColumnWidth(i, 20 * 256);
                 }
 
-                // Sample Row
                 Row sampleRow = sheet.createRow(1);
                 sampleRow.createCell(0).setCellValue("SP001");
                 sampleRow.createCell(1).setCellValue("Cà phê đen túi 500g");
@@ -74,7 +70,7 @@ public class ExcelParserUtils {
                 if (DateUtil.isCellDateFormatted(cell)) {
                     return cell.getLocalDateTimeCellValue().toString();
                 }
-                // Check if numeric is integer
+
                 double numValue = cell.getNumericCellValue();
                 if (numValue == (long) numValue) {
                     return String.valueOf((long) numValue);
@@ -103,35 +99,28 @@ public class ExcelParserUtils {
             val = val.trim();
             if (val.isEmpty()) return null;
 
-            // Dọn dẹp khoảng trắng, ký hiệu tiền tệ
             val = val.replaceAll("[₫đĐvVnNdD\\s]", "");
             if (val.isEmpty()) return null;
 
-            // Xử lý dấu phân cách hàng nghìn / thập phân
             if (val.contains(".") && val.contains(",")) {
                 int lastDot = val.lastIndexOf('.');
                 int lastComma = val.lastIndexOf(',');
                 if (lastDot > lastComma) {
-                    // Định dạng 1,234.56
                     val = val.replace(",", "");
                 } else {
-                    // Định dạng 1.234,56
                     val = val.replace(".", "").replace(",", ".");
                 }
             } else if (val.contains(".")) {
                 long dotCount = val.chars().filter(ch -> ch == '.').count();
                 int lastDot = val.lastIndexOf('.');
                 if (dotCount > 1 || (dotCount == 1 && val.substring(lastDot + 1).length() == 3)) {
-                    // 100.000 hoặc 100.000.000 (dấu chấm phân cách hàng nghìn)
                     val = val.replace(".", "");
                 }
             } else if (val.contains(",")) {
                 long commaCount = val.chars().filter(ch -> ch == ',').count();
                 if (commaCount > 1) {
-                    // 100,000,000
                     val = val.replace(",", "");
                 } else {
-                    // 100,5
                     val = val.replace(",", ".");
                 }
             }
@@ -227,7 +216,7 @@ public class ExcelParserUtils {
         }
     }
 
-    public static byte[] generateImportErrorWorkbook(String[] headers, java.util.List<java.util.List<String>> errorRows) throws Exception {
+    public static byte[] generateImportErrorWorkbook(String[] headers, List<List<String>> errorRows) throws Exception {
         try (SXSSFWorkbook workbook = new SXSSFWorkbook(100)) {
             try (ByteArrayOutputStream out = new ByteArrayOutputStream()) {
                 Sheet sheet = workbook.createSheet("Dong_Loi");
@@ -249,7 +238,7 @@ public class ExcelParserUtils {
                 }
 
                 int rIndex = 1;
-                for (java.util.List<String> rowData : errorRows) {
+                for (List<String> rowData : errorRows) {
                     Row r = sheet.createRow(rIndex++);
                     for (int cIndex = 0; cIndex < rowData.size(); cIndex++) {
                         r.createCell(cIndex).setCellValue(rowData.get(cIndex));

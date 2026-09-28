@@ -11,7 +11,6 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 @AllArgsConstructor
 public class UpdatePosInventoryRequest {
-
     @NotNull(message = "Số lượng tồn kho không được để trống")
     @DecimalMin(value = "0.000", message = "Số lượng tồn kho không được nhỏ hơn 0")
     private BigDecimal stockQuantity;

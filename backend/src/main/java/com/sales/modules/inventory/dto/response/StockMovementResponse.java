@@ -20,7 +20,7 @@ public class StockMovementResponse {
     private String documentNumber;
     private String documentUrl;
     private LocalDateTime timestamp;
-    private String changeType; // IN, OUT, ADJUST, INITIAL
+    private String changeType;
     private BigDecimal quantityIn;
     private BigDecimal quantityOut;
     private BigDecimal quantityChange;

@@ -16,7 +16,6 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 @Validated
 public class PublicInvoiceController {
-
     private final EInvoiceService eInvoiceService;
 
     @GetMapping("/lookup")

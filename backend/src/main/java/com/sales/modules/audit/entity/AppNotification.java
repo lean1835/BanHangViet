@@ -25,7 +25,6 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class AppNotification {
-
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     @Column(length = 36, nullable = false)
@@ -47,7 +46,7 @@ public class AppNotification {
 
     @Column(nullable = false, length = 20)
     @Builder.Default
-    private String severity = "WARNING"; // INFO, WARNING, DANGER
+    private String severity = "WARNING";
 
     @Column(nullable = false, length = 255)
     private String title;
@@ -59,10 +58,10 @@ public class AppNotification {
     private String actionUrl;
 
     @Column(name = "target_type", length = 50)
-    private String targetType; // TAX_PERIOD, REVENUE_WARNING...
+    private String targetType;
 
     @Column(name = "target_id", length = 36)
-    private String targetId; // period_id...
+    private String targetId;
 
     @Column(columnDefinition = "JSON")
     private String metadata;

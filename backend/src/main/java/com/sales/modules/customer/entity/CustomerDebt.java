@@ -18,7 +18,6 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 public class CustomerDebt {
-
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     @Column(length = 36, nullable = false)
@@ -44,11 +43,11 @@ public class CustomerDebt {
     private BigDecimal remainingAmount = BigDecimal.ZERO;
 
     @Column(nullable = false, length = 20)
-    private String type; // DEBT_CREATED, DEBT_PAID
+    private String type;
 
     @Column(nullable = false, length = 20)
     @Builder.Default
-    private String status = DebtStatus.PENDING; // PENDING, PAID, OVERDUE
+    private String status = DebtStatus.PENDING;
 
     @Column(name = "due_date", nullable = false)
     private LocalDateTime dueDate;

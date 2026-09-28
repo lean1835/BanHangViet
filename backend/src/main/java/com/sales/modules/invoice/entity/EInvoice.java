@@ -13,6 +13,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import org.hibernate.annotations.BatchSize;
 
 @Entity
 @Table(name = "e_invoices", indexes = {
@@ -26,7 +27,6 @@ import java.util.List;
 @AllArgsConstructor
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class EInvoice {
-
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     @Column(length = 36, nullable = false)
@@ -125,11 +125,11 @@ public class EInvoice {
 
     @Column(nullable = false, length = 30)
     @Builder.Default
-    private String status = "DRAFT"; // DRAFT, WAITING_TAX_CODE, ISSUED, SEND_ERROR, ADJUSTED, CANCELED
+    private String status = "DRAFT";
 
     @Column(name = "customer_delivery_status", nullable = false, length = 20)
     @Builder.Default
-    private String customerDeliveryStatus = "NOT_SENT"; // NOT_SENT, SUCCESS, FAILED, PENDING
+    private String customerDeliveryStatus = "NOT_SENT";
 
     @Column(name = "tax_authority_code", length = 100, unique = true)
     private String taxAuthorityCode;
@@ -183,7 +183,7 @@ public class EInvoice {
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
 
-    @org.hibernate.annotations.BatchSize(size = 20)
+    @BatchSize(size = 20)
     @OneToMany(mappedBy = "invoice", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @Builder.Default
     @ToString.Exclude

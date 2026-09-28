@@ -30,12 +30,12 @@ import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
+import org.springframework.scheduling.annotation.Async;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class PlatformSystemLogServiceImpl implements PlatformSystemLogService {
-
     private final PlatformSystemLogRepository logRepository;
     private final PlatformIncidentRepository incidentRepository;
     private final BusinessHouseholdRepository householdRepository;
@@ -82,7 +82,6 @@ public class PlatformSystemLogServiceImpl implements PlatformSystemLogService {
             String errorCode,
             String technicalMessage,
             String metadataJson) {
-
         BusinessHousehold household = null;
         if (householdId != null && !householdId.trim().isEmpty()) {
             household = householdRepository.findById(householdId).orElse(null);
@@ -104,7 +103,6 @@ public class PlatformSystemLogServiceImpl implements PlatformSystemLogService {
 
         sysLog = logRepository.save(sysLog);
 
-        // TC-02: Nhận diện sự cố diện rộng khi lỗi vượt ngưỡng trong 10 phút
         if (severity == PlatformLogSeverity.ERROR || severity == PlatformLogSeverity.CRITICAL) {
             LocalDateTime tenMinutesAgo = LocalDateTime.now().minusMinutes(10);
             long recentErrorsCount = logRepository.countByEventTypeAndCreatedAtAfter(eventType, tenMinutesAgo);
@@ -113,7 +111,6 @@ public class PlatformSystemLogServiceImpl implements PlatformSystemLogService {
             if (recentErrorsCount >= 5 || distinctHouseholds >= 3) {
                 sysLog.setIsWidespreadIncident(true);
 
-                // Tìm incident đang mở của eventType này hoặc tạo mới
                 PlatformIncident incident = incidentRepository
                         .findFirstByEventTypeAndStatusNot(eventType, IncidentStatus.RESOLVED)
                         .orElseGet(() -> {
@@ -144,7 +141,7 @@ public class PlatformSystemLogServiceImpl implements PlatformSystemLogService {
     }
 
     @Override
-    @org.springframework.scheduling.annotation.Async("taskExecutor")
+    @Async("taskExecutor")
     @Transactional(rollbackFor = Exception.class)
     public void logSystemEventAsync(
             String eventType,
@@ -167,7 +164,6 @@ public class PlatformSystemLogServiceImpl implements PlatformSystemLogService {
             String eventType,
             int page,
             int size) {
-
         Pageable pageable = PageRequest.of(Math.max(0, page - 1), size, Sort.by(Sort.Direction.DESC, "createdAt"));
 
         Specification<PlatformSystemLog> spec = (root, query, cb) -> {

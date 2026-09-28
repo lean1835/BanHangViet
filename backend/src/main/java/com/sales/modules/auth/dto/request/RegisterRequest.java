@@ -9,7 +9,6 @@ import lombok.*;
 @NoArgsConstructor
 @AllArgsConstructor
 public class RegisterRequest {
-
     @NotBlank(message = "Tên hộ kinh doanh không được để trống")
     @Size(max = 255, message = "Tên hộ kinh doanh không được vượt quá 255 ký tự")
     private String householdName;

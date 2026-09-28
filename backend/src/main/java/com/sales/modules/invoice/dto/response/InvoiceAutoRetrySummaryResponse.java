@@ -9,7 +9,6 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class InvoiceAutoRetrySummaryResponse {
-
     private int totalProcessed;
     private int successCount;
     private int failedCount;

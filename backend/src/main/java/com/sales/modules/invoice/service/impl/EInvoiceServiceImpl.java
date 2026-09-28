@@ -82,12 +82,39 @@ import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
+import com.google.zxing.BarcodeFormat;
+import com.google.zxing.client.j2se.MatrixToImageWriter;
+import com.google.zxing.common.BitMatrix;
+import com.google.zxing.qrcode.QRCodeWriter;
+import com.sales.common.constant.NotificationTypeConstant;
+import com.sales.common.utils.VietnameseNumberToWordsUtil;
+import com.sales.modules.audit.dto.request.CreateNotificationRequest;
+import com.sales.modules.audit.service.AppNotificationService;
+import com.sales.modules.platform.service.ServicePackageService;
+import java.awt.Color;
+import java.awt.Graphics2D;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayOutputStream;
+import java.nio.charset.StandardCharsets;
+import java.time.Duration;
+import java.util.HashMap;
+import javax.imageio.ImageIO;
+import org.apache.commons.text.StringEscapeUtils;
+import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.CellStyle;
+import org.apache.poi.ss.usermodel.Font;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
+import org.springframework.util.StringUtils;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class EInvoiceServiceImpl implements EInvoiceService {
-
     private final UserRepository userRepository;
     private final EInvoiceRepository eInvoiceRepository;
     private final InvoiceStatusLogRepository invoiceStatusLogRepository;
@@ -103,12 +130,12 @@ public class EInvoiceServiceImpl implements EInvoiceService {
     private final TransactionTemplate transactionTemplate;
     private final InvoiceNumberRangeService invoiceNumberRangeService;
     private final TaxConnectionService taxConnectionService;
-    private final com.sales.modules.platform.service.ServicePackageService servicePackageService;
-    @org.springframework.context.annotation.Lazy
-    @org.springframework.beans.factory.annotation.Autowired(required = false)
-    private com.sales.modules.audit.service.AppNotificationService appNotificationService;
-    @org.springframework.context.annotation.Lazy
-    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private final ServicePackageService servicePackageService;
+    @Lazy
+    @Autowired(required = false)
+    private AppNotificationService appNotificationService;
+    @Lazy
+    @Autowired(required = false)
     private ProductExchangeTicketRepository productExchangeTicketRepository;
 
     @Value("${app.frontend-url:http://localhost:3000}")
@@ -163,8 +190,6 @@ public class EInvoiceServiceImpl implements EInvoiceService {
     }
 
     private boolean checkDataDifference(EInvoice original, CreateAdjustmentInvoiceRequest request) {
-        // Kiểm tra thông tin người mua (sử dụng giá trị thực tế sẽ lưu nếu input là
-        // null)
         String resolvedBuyerName = request.getBuyerName() != null ? request.getBuyerName() : original.getBuyerName();
         String resolvedBuyerTaxCode = request.getBuyerTaxCode() != null ? request.getBuyerTaxCode()
                 : original.getBuyerTaxCode();
@@ -186,15 +211,12 @@ public class EInvoiceServiceImpl implements EInvoiceService {
         if (!Objects.equals(original.getBuyerEmail(), resolvedBuyerEmail))
             return true;
 
-        // Kiểm tra danh sách hàng hóa
         List<EInvoiceItem> originalItems = original.getItems();
         List<CreateAdjustmentInvoiceItemRequest> reqItems = request.getItems();
 
         if (originalItems.size() != reqItems.size())
             return true;
 
-        // So sánh từng cặp sản phẩm (để đơn giản và chính xác, chúng ta sort theo
-        // productId hoặc productName nếu productId null)
         List<EInvoiceItem> sortedOriginal = new ArrayList<>(originalItems);
         sortedOriginal.sort(Comparator.comparing(
                 item -> item.getProductName() + "_" + (item.getProduct() != null ? item.getProduct().getId() : "")));
@@ -324,7 +346,6 @@ public class EInvoiceServiceImpl implements EInvoiceService {
                             .collect(Collectors.toList());
                 }
             } else {
-                // Hóa đơn bổ sung đổi hàng/điều chỉnh: tạo khoản thanh toán tương ứng cho số tiền thực tế của hóa đơn này
                 OrderPaymentResponse extraPayment = OrderPaymentResponse.builder()
                         .orderId(invoice.getOrder() != null ? invoice.getOrder().getId() : null)
                         .orderCode(invoice.getOrder() != null ? invoice.getOrder().getOrderNumber() : null)
@@ -428,10 +449,6 @@ public class EInvoiceServiceImpl implements EInvoiceService {
                 .build();
     }
 
-    // ==========================================
-    // NGHIỆP VỤ ĐIỀU CHỈNH HÓA ĐƠN
-    // ==========================================
-
     @Override
     @Transactional(rollbackFor = Exception.class)
     public InvoiceResponse createAdjustmentInvoice(String currentUsername, String originalInvoiceId,
@@ -439,7 +456,6 @@ public class EInvoiceServiceImpl implements EInvoiceService {
         User user = getAuthenticatedUser(currentUsername);
         String role = user.getRole().getCode();
 
-        // Quyền hạn chính: Chỉ chủ hộ kinh doanh (VT-01) hoặc Kế toán (VT-03) được phép
         if (!"VT-01".equals(role) && !"VT-03".equals(role)) {
             throw new AppException(ErrorCode.FORBIDDEN);
         }
@@ -449,28 +465,23 @@ public class EInvoiceServiceImpl implements EInvoiceService {
             throw new AppException(ErrorCode.FORBIDDEN);
         }
 
-        // 1. Tìm hóa đơn gốc
         EInvoice original = eInvoiceRepository
                 .findByIdAndHouseholdIdAndDeletedAtIsNull(originalInvoiceId, household.getId())
                 .orElseThrow(() -> new AppException(ErrorCode.INVOICE_NOT_FOUND));
 
-        // 2. Kiểm tra hóa đơn gốc đã bị điều chỉnh hoặc hủy trước đó chưa
         if ("ADJUSTED".equals(original.getStatus()) || "CANCELED".equals(original.getStatus())) {
             throw new AppException(ErrorCode.INVOICE_ALREADY_ADJUSTED_OR_CANCELED);
         }
 
-        // 3. Kiểm tra hóa đơn gốc đã được cấp mã chưa (trạng thái phải là ISSUED)
         if (!"ISSUED".equals(original.getStatus())) {
             throw new AppException(ErrorCode.INVOICE_NOT_ISSUED);
         }
 
-        // 4. Kiểm tra xem dữ liệu điều chỉnh có khác so với gốc hay không
         boolean hasChange = checkDataDifference(original, request);
         if (!hasChange) {
             throw new AppException(ErrorCode.INVOICE_ADJUSTMENT_NO_CHANGE);
         }
 
-        // 5. Tính toán các khoản tiền cho hóa đơn điều chỉnh mới
         BigDecimal totalAmountBeforeTax = BigDecimal.ZERO;
         BigDecimal totalTaxAmount = BigDecimal.ZERO;
         BigDecimal totalDiscountAmount = BigDecimal.ZERO;
@@ -478,7 +489,6 @@ public class EInvoiceServiceImpl implements EInvoiceService {
 
         List<EInvoiceItem> newItems = new ArrayList<>();
 
-        // N+1 Query Avoidance: Batch load products if productIds are provided
         List<String> productIds = request.getItems().stream()
                 .map(CreateAdjustmentInvoiceItemRequest::getProductId)
                 .filter(Objects::nonNull)
@@ -531,7 +541,6 @@ public class EInvoiceServiceImpl implements EInvoiceService {
             newItems.add(newItem);
         }
 
-        // 6. Tạo hóa đơn điều chỉnh mới
         if (request.getBuyerTaxCode() != null) {
             validateBuyerTaxCode(request.getBuyerTaxCode());
         }
@@ -571,14 +580,11 @@ public class EInvoiceServiceImpl implements EInvoiceService {
         }
         adjustmentInvoice.setItems(newItems);
 
-        // Lưu hóa đơn điều chỉnh vào CSDL
         EInvoice savedAdjustment = eInvoiceRepository.save(adjustmentInvoice);
 
-        // 7. Cập nhật hóa đơn gốc sang trạng thái ADJUSTED
         original.setStatus("ADJUSTED");
         eInvoiceRepository.save(original);
 
-        // 8. Ghi log trạng thái hóa đơn
         InvoiceStatusLog adjustmentLog = InvoiceStatusLog.builder()
                 .invoice(savedAdjustment)
                 .fromStatus("NONE")
@@ -588,7 +594,6 @@ public class EInvoiceServiceImpl implements EInvoiceService {
                 .build();
         invoiceStatusLogRepository.save(adjustmentLog);
 
-        // 9. Ghi nhật ký hệ thống
         logActivity(household, user, "ADJUST_INVOICE", original.getId(), buildInvoiceLogMap(original),
                 buildInvoiceLogMap(savedAdjustment));
 
@@ -602,8 +607,6 @@ public class EInvoiceServiceImpl implements EInvoiceService {
         EInvoice invoice = eInvoiceRepository.findByIdAndHouseholdIdAndDeletedAtIsNull(id, user.getHousehold().getId())
                 .orElseThrow(() -> new AppException(ErrorCode.INVOICE_NOT_FOUND));
 
-        // Bảo mật cách ly dữ liệu: Nhân viên VT-02 chỉ được xem log trạng thái hóa đơn
-        // của chính mình
         if ("VT-02".equals(user.getRole().getCode())) {
             if (!invoice.getCreatedByUser().getId().equals(user.getId())) {
                 throw new AppException(ErrorCode.FORBIDDEN);
@@ -622,10 +625,6 @@ public class EInvoiceServiceImpl implements EInvoiceService {
                 .createdAt(log.getCreatedAt())
                 .build()).collect(Collectors.toList());
     }
-
-    // ============================================
-    // NGHIỆP VỤ PHÁT HÀNH HÓA ĐƠN GỐC (Develop Branch)
-    // ============================================
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -733,8 +732,8 @@ public class EInvoiceServiceImpl implements EInvoiceService {
                     .invoice(invoice)
                     .product(orderItem.getProduct())
                     .productName(orderItem.getProductName())
-                    .unit(org.springframework.util.StringUtils.hasText(orderItem.getUnitName()) 
-                            ? orderItem.getUnitName() 
+                    .unit(StringUtils.hasText(orderItem.getUnitName())
+                            ? orderItem.getUnitName()
                             : (orderItem.getProduct() != null ? orderItem.getProduct().getUnit() : "Cái"))
                     .quantity(qty)
                     .unitPrice(price)
@@ -749,9 +748,8 @@ public class EInvoiceServiceImpl implements EInvoiceService {
             invoiceItems.add(invItem);
         }
 
-        // Tiền hàng chưa thuế (sau khi đã trừ chiết khấu thương mại theo quy chuẩn HĐĐT)
         invoice.setTotalAmountBeforeTax(afterDiscountAmount);
-        // Thuế GTGT đồng nhất tuyệt đối với thuế đã tính trên đơn hàng
+
         invoice.setTaxAmount(order.getTaxAmount() != null ? order.getTaxAmount() : totalTaxAmount.setScale(0, RoundingMode.HALF_UP).setScale(2));
         invoice.setItems(invoiceItems);
 
@@ -905,8 +903,6 @@ public class EInvoiceServiceImpl implements EInvoiceService {
 
         checkInvoiceOwnership(invoice, currentUser);
 
-        // Bảo mật cách ly dữ liệu: Nhân viên VT-02 chỉ được xem hóa đơn do chính mình
-        // tạo
         if ("VT-02".equals(currentUser.getRole().getCode())) {
             if (!invoice.getCreatedByUser().getId().equals(currentUser.getId())) {
                 throw new AppException(ErrorCode.FORBIDDEN);
@@ -932,7 +928,6 @@ public class EInvoiceServiceImpl implements EInvoiceService {
             throw new AppException(ErrorCode.FORBIDDEN);
         }
 
-        // Bảo mật cách ly dữ liệu: Nhân viên VT-02 chỉ thấy hóa đơn của chính mình
         String createdByUserId = null;
         if ("VT-02".equals(currentUser.getRole().getCode())) {
             createdByUserId = currentUser.getId();
@@ -1066,7 +1061,6 @@ public class EInvoiceServiceImpl implements EInvoiceService {
 
         String oldStatus = invoice.getStatus();
 
-        // Sequential numbering using InvoiceNumberRangeService (NCL-04-CN-009)
         String householdId = invoice.getHousehold().getId();
         String invoiceNum;
         if (invoiceNumberRangeService != null) {
@@ -1075,7 +1069,7 @@ public class EInvoiceServiceImpl implements EInvoiceService {
                         householdId, invoice.getInvoicePattern(), invoice.getInvoiceSymbol());
             } catch (AppException e) {
                 if (ErrorCode.INVOICE_RANGE_EXHAUSTED.equals(e.getErrorCode())) {
-                    throw e; // NCL-04-CN-009-TC-03: Block issuance if range is exhausted
+                    throw e;
                 }
                 String pattern = invoice.getInvoicePattern();
                 String symbol = invoice.getInvoiceSymbol();
@@ -1085,7 +1079,6 @@ public class EInvoiceServiceImpl implements EInvoiceService {
                     try {
                         nextNum = Integer.parseInt(maxNumOpt.get()) + 1;
                     } catch (NumberFormatException ex) {
-                        // Ignore
                     }
                 }
                 invoiceNum = String.format("%08d", nextNum);
@@ -1099,7 +1092,6 @@ public class EInvoiceServiceImpl implements EInvoiceService {
                 try {
                     nextNum = Integer.parseInt(maxNumOpt.get()) + 1;
                 } catch (NumberFormatException e) {
-                    // Ignore
                 }
             }
             invoiceNum = String.format("%08d", nextNum);
@@ -1113,7 +1105,6 @@ public class EInvoiceServiceImpl implements EInvoiceService {
 
         EInvoice saved = eInvoiceRepository.save(invoice);
 
-        // NCL-01-CN-010 & GAP 48 (TC-03): Ghi nhận hóa đơn phát hành theo tháng vào hạn mức gói
         if (servicePackageService != null && householdId != null) {
             servicePackageService.recordInvoiceIssued(householdId);
         }
@@ -1126,7 +1117,6 @@ public class EInvoiceServiceImpl implements EInvoiceService {
             }
         }
 
-        // NCL-19-CN-002-TC-02: Tự động đóng thông báo lỗi khi hóa đơn được cấp mã
         if (appNotificationService != null) {
             try {
                 appNotificationService.closeNotificationsByTarget("INVOICE", saved.getId());
@@ -1200,15 +1190,14 @@ public class EInvoiceServiceImpl implements EInvoiceService {
         logActivity(invoice.getHousehold(), currentUser, "REJECT_TAX", saved.getId(), oldVal,
                 buildInvoiceLogMap(saved));
 
-        // NCL-19-CN-002-TC-01: Tạo thông báo lỗi hóa đơn gửi cơ quan thuế thất bại
         if (appNotificationService != null) {
             try {
                 String invLabel = saved.getInvoiceNumber() != null ? saved.getInvoiceNumber() : saved.getLookupCode();
                 appNotificationService.createNotification(
                         saved.getHousehold().getId(),
-                        com.sales.modules.audit.dto.request.CreateNotificationRequest.builder()
+                        CreateNotificationRequest.builder()
                                 .targetUserId(saved.getCreatedByUser() != null ? saved.getCreatedByUser().getId() : null)
-                                .notificationType(com.sales.common.constant.NotificationTypeConstant.INVOICE_ERROR)
+                                .notificationType(NotificationTypeConstant.INVOICE_ERROR)
                                 .severity("DANGER")
                                 .title("Cảnh báo: Hóa đơn " + invLabel + " bị lỗi gửi cơ quan thuế")
                                 .message("Hóa đơn điện tử gửi cơ quan thuế không thành công. Chi tiết lỗi: " + saved.getTaxAuthorityResponse() + ". Vui lòng kiểm tra và gửi lại.")
@@ -1402,33 +1391,31 @@ public class EInvoiceServiceImpl implements EInvoiceService {
     private String generateMockQrCodeBase64(String text) {
         try {
             int size = 150;
-            java.awt.image.BufferedImage image = new java.awt.image.BufferedImage(size, size,
-                    java.awt.image.BufferedImage.TYPE_INT_RGB);
-            java.awt.Graphics2D g = image.createGraphics();
+            BufferedImage image = new BufferedImage(size, size,
+                    BufferedImage.TYPE_INT_RGB);
+            Graphics2D g = image.createGraphics();
 
-            g.setColor(java.awt.Color.WHITE);
+            g.setColor(Color.WHITE);
             g.fillRect(0, 0, size, size);
 
-            g.setColor(java.awt.Color.BLACK);
-            // Top-left corner box
+            g.setColor(Color.BLACK);
+
             g.fillRect(10, 10, 35, 35);
-            g.setColor(java.awt.Color.WHITE);
+            g.setColor(Color.WHITE);
             g.fillRect(15, 15, 25, 25);
-            g.setColor(java.awt.Color.BLACK);
+            g.setColor(Color.BLACK);
             g.fillRect(20, 20, 15, 15);
 
-            // Top-right corner box
             g.fillRect(105, 10, 35, 35);
-            g.setColor(java.awt.Color.WHITE);
+            g.setColor(Color.WHITE);
             g.fillRect(110, 15, 25, 25);
-            g.setColor(java.awt.Color.BLACK);
+            g.setColor(Color.BLACK);
             g.fillRect(115, 20, 15, 15);
 
-            // Bottom-left corner box
             g.fillRect(10, 105, 35, 35);
-            g.setColor(java.awt.Color.WHITE);
+            g.setColor(Color.WHITE);
             g.fillRect(15, 110, 25, 25);
-            g.setColor(java.awt.Color.BLACK);
+            g.setColor(Color.BLACK);
             g.fillRect(20, 115, 15, 15);
 
             Random random = new Random(text.hashCode());
@@ -1444,8 +1431,8 @@ public class EInvoiceServiceImpl implements EInvoiceService {
             }
 
             g.dispose();
-            java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
-            javax.imageio.ImageIO.write(image, "png", baos);
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            ImageIO.write(image, "png", baos);
             byte[] bytes = baos.toByteArray();
             return "data:image/png;base64," + Base64.getEncoder().encodeToString(bytes);
         } catch (Exception e) {
@@ -1457,12 +1444,12 @@ public class EInvoiceServiceImpl implements EInvoiceService {
     private String generateQrCodeBase64(String text) {
         try {
             int size = 150;
-            com.google.zxing.qrcode.QRCodeWriter qrCodeWriter = new com.google.zxing.qrcode.QRCodeWriter();
-            com.google.zxing.common.BitMatrix bitMatrix = qrCodeWriter.encode(text,
-                    com.google.zxing.BarcodeFormat.QR_CODE, size, size);
+            QRCodeWriter qrCodeWriter = new QRCodeWriter();
+            BitMatrix bitMatrix = qrCodeWriter.encode(text,
+                    BarcodeFormat.QR_CODE, size, size);
 
-            java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
-            com.google.zxing.client.j2se.MatrixToImageWriter.writeToStream(bitMatrix, "png", baos);
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            MatrixToImageWriter.writeToStream(bitMatrix, "png", baos);
             byte[] bytes = baos.toByteArray();
             return "data:image/png;base64," + Base64.getEncoder().encodeToString(bytes);
         } catch (Exception e) {
@@ -1491,7 +1478,6 @@ public class EInvoiceServiceImpl implements EInvoiceService {
         invoice.setCustomerDeliveryStatus("SUCCESS");
         eInvoiceRepository.save(invoice);
 
-        // Save delivery log for QR channel
         InvoiceDeliveryLog deliveryLog = InvoiceDeliveryLog.builder()
                 .invoice(invoice)
                 .channel("QR")
@@ -1870,7 +1856,7 @@ public class EInvoiceServiceImpl implements EInvoiceService {
                     .append("    </TongHop>\n")
                     .append("</HieuDonDienTu>\n");
 
-            return xml.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
+            return xml.toString().getBytes(StandardCharsets.UTF_8);
         } else {
             StringBuilder html = new StringBuilder();
             html.append(
@@ -1925,7 +1911,7 @@ public class EInvoiceServiceImpl implements EInvoiceService {
                     .append("  <p align=\"right\" style=\"font-size:18px;\"><b>TỔNG THANH TOÁN:</b> ")
                     .append(invoice.getFinalAmount()).append("</p>\n")
                     .append("</div>\n</body>\n</html>");
-            return html.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
+            return html.toString().getBytes(StandardCharsets.UTF_8);
         }
     }
 
@@ -1933,7 +1919,6 @@ public class EInvoiceServiceImpl implements EInvoiceService {
     public BulkIssueInvoiceResponse bulkIssueInvoices(String currentUsername, BulkIssueInvoiceRequest request) {
         User currentUser = getAuthenticatedUser(currentUsername);
 
-        // Phân quyền theo AC-03: Kế toán (VT-03) bị chặn
         if (currentUser.getRole() != null && "VT-03".equals(currentUser.getRole().getCode())) {
             throw new AppException(ErrorCode.FORBIDDEN);
         }
@@ -1944,7 +1929,6 @@ public class EInvoiceServiceImpl implements EInvoiceService {
 
         for (String orderId : orderIds) {
             try {
-                // Tái sử dụng logic tạo draft và submit to tax trong giao dịch độc lập per-order
                 InvoiceResponse submitted = transactionTemplate.execute(status -> {
                     InvoiceResponse draft = createInvoiceDraft(currentUsername, orderId);
                     return submitToTax(currentUsername, draft.getId());
@@ -1953,7 +1937,6 @@ public class EInvoiceServiceImpl implements EInvoiceService {
                     successInvoices.add(submitted);
                 }
             } catch (Exception e) {
-                // Xử lý đơn bị lỗi thiếu thông tin/vi phạm ràng buộc (AC-02) mà không làm ngắt giao dịch của cả lô
                 log.warn("Lỗi phát hành dồn hóa đơn cho orderId: {}, lý do: {}", orderId, e.getMessage());
                 String orderNum = orderId;
                 try {
@@ -1981,7 +1964,6 @@ public class EInvoiceServiceImpl implements EInvoiceService {
                 .failedItems(failedItems)
                 .build();
 
-        // Lưu nhật ký phiên vào activity_logs (AC-04)
         Map<String, Object> logSummary = new HashMap<>();
         logSummary.put("syncSessionCode", request.getSyncSessionCode());
         logSummary.put("totalProcessed", orderIds.size());
@@ -1997,11 +1979,11 @@ public class EInvoiceServiceImpl implements EInvoiceService {
     }
 
     private String escXml(String val) {
-        return org.apache.commons.text.StringEscapeUtils.escapeXml11(val != null ? val : "");
+        return StringEscapeUtils.escapeXml11(val != null ? val : "");
     }
 
     private String escHtml(String val) {
-        return org.apache.commons.text.StringEscapeUtils.escapeHtml4(val != null ? val : "");
+        return StringEscapeUtils.escapeHtml4(val != null ? val : "");
     }
 
     @Override
@@ -2012,7 +1994,6 @@ public class EInvoiceServiceImpl implements EInvoiceService {
             throw new AppException(ErrorCode.FORBIDDEN);
         }
 
-        // QTN-10: Chỉ VT-01 (Chủ hộ) và VT-03 (Kế toán) được truy cập
         String roleCode = currentUser.getRole() != null ? currentUser.getRole().getCode() : "";
         if (!"VT-01".equals(roleCode) && !"VT-03".equals(roleCode)) {
             throw new AppException(ErrorCode.FORBIDDEN);
@@ -2023,13 +2004,12 @@ public class EInvoiceServiceImpl implements EInvoiceService {
         LocalDateTime endOfDay = controlDate.atTime(LocalTime.MAX);
         LocalDateTime now = LocalDateTime.now();
 
-        // 1. Uninvoiced Orders (Đơn đã thanh toán nhưng chưa có hóa đơn hợp lệ up to controlDate - NCL-04-CN-008 / F-03 & F-04)
         List<Order> paidOrders = orderRepository.findUninvoicedOrdersUpToDate(householdId, endOfDay);
 
         List<UninvoicedOrderSummaryResponse> uninvoicedOrders = paidOrders.stream()
                 .map(order -> {
-                    long durationHours = java.time.Duration.between(order.getCreatedAt(), now).toHours();
-                    long durationDays = java.time.Duration.between(order.getCreatedAt(), now).toDays();
+                    long durationHours = Duration.between(order.getCreatedAt(), now).toHours();
+                    long durationDays = Duration.between(order.getCreatedAt(), now).toDays();
                     return UninvoicedOrderSummaryResponse.builder()
                             .orderId(order.getId())
                             .orderNumber(order.getOrderNumber())
@@ -2044,14 +2024,13 @@ public class EInvoiceServiceImpl implements EInvoiceService {
                 .sorted(Comparator.comparing(UninvoicedOrderSummaryResponse::getCreatedAt, Comparator.nullsLast(Comparator.reverseOrder())))
                 .collect(Collectors.toList());
 
-        // 2. Pending Invoices (Hóa đơn đang treo chờ duyệt/cấp mã: WAITING_TAX_CODE và DRAFT - F-04)
         List<EInvoice> pendingRawInvoices = eInvoiceRepository.findByHouseholdIdAndStatusInAndCreatedAtBefore(
                 householdId, List.of("WAITING_TAX_CODE", "DRAFT"), endOfDay);
 
         List<PendingTaxInvoiceSummaryResponse> pendingInvoices = pendingRawInvoices.stream()
                 .map(inv -> {
-                    long durationHours = java.time.Duration.between(inv.getCreatedAt(), now).toHours();
-                    long durationDays = java.time.Duration.between(inv.getCreatedAt(), now).toDays();
+                    long durationHours = Duration.between(inv.getCreatedAt(), now).toHours();
+                    long durationDays = Duration.between(inv.getCreatedAt(), now).toDays();
                     return PendingTaxInvoiceSummaryResponse.builder()
                             .invoiceId(inv.getId())
                             .invoiceNumber(inv.getInvoiceNumber())
@@ -2068,14 +2047,13 @@ public class EInvoiceServiceImpl implements EInvoiceService {
                 .sorted(Comparator.comparing(PendingTaxInvoiceSummaryResponse::getCreatedAt, Comparator.nullsLast(Comparator.reverseOrder())))
                 .collect(Collectors.toList());
 
-        // 3. Failed Invoices (Hóa đơn gửi lỗi: SEND_ERROR hoặc MANUAL_PROCESSING)
         List<EInvoice> failedRawInvoices = eInvoiceRepository.findByHouseholdIdAndStatusInAndCreatedAtBefore(
                 householdId, List.of("SEND_ERROR", "MANUAL_PROCESSING"), endOfDay);
 
         List<FailedInvoiceSummaryResponse> failedInvoices = failedRawInvoices.stream()
                 .map(inv -> {
-                    long durationHours = java.time.Duration.between(inv.getCreatedAt(), now).toHours();
-                    long durationDays = java.time.Duration.between(inv.getCreatedAt(), now).toDays();
+                    long durationHours = Duration.between(inv.getCreatedAt(), now).toHours();
+                    long durationDays = Duration.between(inv.getCreatedAt(), now).toDays();
                     return FailedInvoiceSummaryResponse.builder()
                             .invoiceId(inv.getId())
                             .invoiceNumber(inv.getInvoiceNumber())
@@ -2169,25 +2147,24 @@ public class EInvoiceServiceImpl implements EInvoiceService {
             throw new AppException(ErrorCode.NO_DATA_TO_EXPORT);
         }
 
-        try (org.apache.poi.ss.usermodel.Workbook workbook = new org.apache.poi.xssf.usermodel.XSSFWorkbook();
-             java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream()) {
+        try (Workbook workbook = new XSSFWorkbook();
+             ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+            Sheet sheet = workbook.createSheet("Danh Sách Hóa Đơn");
 
-            org.apache.poi.ss.usermodel.Sheet sheet = workbook.createSheet("Danh Sách Hóa Đơn");
-
-            org.apache.poi.ss.usermodel.CellStyle headerStyle = workbook.createCellStyle();
-            org.apache.poi.ss.usermodel.Font headerFont = workbook.createFont();
+            CellStyle headerStyle = workbook.createCellStyle();
+            Font headerFont = workbook.createFont();
             headerFont.setBold(true);
             headerStyle.setFont(headerFont);
 
-            org.apache.poi.ss.usermodel.Row titleRow = sheet.createRow(0);
-            org.apache.poi.ss.usermodel.Cell titleCell = titleRow.createCell(0);
+            Row titleRow = sheet.createRow(0);
+            Cell titleCell = titleRow.createCell(0);
             titleCell.setCellValue("DANH SÁCH HÓA ĐƠN ĐIỆN TỬ - " + household.getName().toUpperCase());
             titleCell.setCellStyle(headerStyle);
 
             String[] columns = {"STT", "Mã Hóa Đơn", "Mẫu Số", "Ký Hiệu", "Số HĐ", "Ngày Tạo", "Ngày Cấp Mã", "Mã CQT", "Người Mua", "MST Người Mua", "Tiền Trước Thuế", "Tiền Thuế", "Giảm Giá", "Tổng Tiền", "Trạng Thái"};
-            org.apache.poi.ss.usermodel.Row headerRow = sheet.createRow(2);
+            Row headerRow = sheet.createRow(2);
             for (int i = 0; i < columns.length; i++) {
-                org.apache.poi.ss.usermodel.Cell cell = headerRow.createCell(i);
+                Cell cell = headerRow.createCell(i);
                 cell.setCellValue(columns[i]);
                 cell.setCellStyle(headerStyle);
             }
@@ -2202,7 +2179,7 @@ public class EInvoiceServiceImpl implements EInvoiceService {
             DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
 
             for (EInvoice inv : invoices) {
-                org.apache.poi.ss.usermodel.Row row = sheet.createRow(rowIdx++);
+                Row row = sheet.createRow(rowIdx++);
                 row.createCell(0).setCellValue(stt++);
                 row.createCell(1).setCellValue(inv.getId());
                 row.createCell(2).setCellValue(inv.getInvoicePattern() != null ? inv.getInvoicePattern() : "");
@@ -2225,9 +2202,8 @@ public class EInvoiceServiceImpl implements EInvoiceService {
                 if (inv.getFinalAmount() != null) totalFinal = totalFinal.add(inv.getFinalAmount());
             }
 
-            // Summary Row (Dòng Tổng Cộng)
-            org.apache.poi.ss.usermodel.Row totalRow = sheet.createRow(rowIdx);
-            org.apache.poi.ss.usermodel.Cell totalLabelCell = totalRow.createCell(0);
+            Row totalRow = sheet.createRow(rowIdx);
+            Cell totalLabelCell = totalRow.createCell(0);
             totalLabelCell.setCellValue("TỔNG CỘNG");
             totalLabelCell.setCellStyle(headerStyle);
 
@@ -2243,8 +2219,7 @@ public class EInvoiceServiceImpl implements EInvoiceService {
             workbook.write(out);
             byte[] excelContent = out.toByteArray();
 
-            // Log activity (QTN-09: ghi nhận đầy đủ phạm vi lọc)
-            Map<String, Object> filterMap = new java.util.HashMap<>();
+            Map<String, Object> filterMap = new HashMap<>();
             filterMap.put("status", status != null ? status : "ALL");
             filterMap.put("fromDate", fromDate != null ? fromDate.toString() : "ALL");
             filterMap.put("toDate", toDate != null ? toDate.toString() : "ALL");
@@ -2384,7 +2359,7 @@ public class EInvoiceServiceImpl implements EInvoiceService {
     @Transactional(readOnly = true)
     public byte[] downloadInvoicePdf(String currentUsername, String invoiceId) {
         InvoiceRepresentationResponse rep = getInvoiceRepresentation(currentUsername, invoiceId);
-        return rep.getHtmlRepresentation().getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        return rep.getHtmlRepresentation().getBytes(StandardCharsets.UTF_8);
     }
 
     @Override
@@ -2394,7 +2369,7 @@ public class EInvoiceServiceImpl implements EInvoiceService {
     }
 
     private String convertAmountToWords(BigDecimal amount) {
-        return com.sales.common.utils.VietnameseNumberToWordsUtil.convert(amount);
+        return VietnameseNumberToWordsUtil.convert(amount);
     }
 
     @Override

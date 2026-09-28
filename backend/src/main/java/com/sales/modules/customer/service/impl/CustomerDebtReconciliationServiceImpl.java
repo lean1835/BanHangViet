@@ -46,12 +46,13 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
+import lombok.Builder;
+import lombok.Data;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class CustomerDebtReconciliationServiceImpl implements CustomerDebtReconciliationService {
-
     private final UserRepository userRepository;
     private final CustomerRepository customerRepository;
     private final CustomerDebtRepository customerDebtRepository;
@@ -129,7 +130,6 @@ public class CustomerDebtReconciliationServiceImpl implements CustomerDebtReconc
     private CalculationResult calculatePeriodTransactions(
             BigDecimal openingDebtBalance,
             List<CustomerDebt> periodDebts) {
-
         BigDecimal totalIncurred = BigDecimal.ZERO;
         BigDecimal totalPaid = BigDecimal.ZERO;
         BigDecimal currentRunningBalance = openingDebtBalance;
@@ -143,7 +143,7 @@ public class CustomerDebtReconciliationServiceImpl implements CustomerDebtReconc
             if (DebtType.DEBT_CREATED.equals(debt.getType())) {
                 totalIncurred = totalIncurred.add(amount);
                 currentRunningBalance = currentRunningBalance.add(amount);
-                refCode = debt.getOrder() != null && debt.getOrder().getOrderNumber() != null 
+                refCode = debt.getOrder() != null && debt.getOrder().getOrderNumber() != null
                         ? debt.getOrder().getOrderNumber() : "DON-NO";
             } else if (DebtType.DEBT_PAID.equals(debt.getType())) {
                 totalPaid = totalPaid.add(amount);
@@ -379,7 +379,6 @@ public class CustomerDebtReconciliationServiceImpl implements CustomerDebtReconc
             String householdId,
             LocalDateTime endDateTimeExclusive,
             LocalDate endDate) {
-
         List<CustomerDebt> debtsToLock = customerDebtRepository.findDebtsToLock(
                 customer.getId(), householdId, endDateTimeExclusive);
 
@@ -530,7 +529,6 @@ public class CustomerDebtReconciliationServiceImpl implements CustomerDebtReconc
             LocalDate startDate,
             LocalDate endDate,
             Pageable pageable) {
-
         User currentUser = getAuthenticatedUser(currentUsername);
         BusinessHousehold household = currentUser.getHousehold();
         if (household == null) {
@@ -624,7 +622,6 @@ public class CustomerDebtReconciliationServiceImpl implements CustomerDebtReconc
         }
         customerRepository.save(customer);
 
-        // P0 Fix: Đồng bộ hóa remainingAmount của các khoản nợ mở khi điều chỉnh giảm nợ (DEBT_DECREASE)
         if (!isIncrease) {
             List<CustomerDebt> activeDebts = customerDebtRepository.findByCustomerIdAndHouseholdIdAndStatusInAndTypeOrderByCreatedAtAsc(
                     customer.getId(), household.getId(), List.of(DebtStatus.PENDING, DebtStatus.OVERDUE), DebtType.DEBT_CREATED);
@@ -702,8 +699,8 @@ public class CustomerDebtReconciliationServiceImpl implements CustomerDebtReconc
         return reconciliation != null ? mapToResponse(reconciliation) : null;
     }
 
-    @lombok.Data
-    @lombok.Builder
+    @Data
+    @Builder
     private static class CalculationResult {
         private BigDecimal openingDebtBalance;
         private BigDecimal totalDebtIncurred;

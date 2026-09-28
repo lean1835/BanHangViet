@@ -4,7 +4,6 @@ import com.sales.modules.invoice.dto.response.AutoRetrySettingsResponse;
 import com.sales.modules.auth.entity.BusinessHouseholdSettings;
 
 public interface BusinessHouseholdSettingsService {
-
     AutoRetrySettingsResponse getSettings(String currentUsername);
 
     AutoRetrySettingsResponse updateSettings(String currentUsername, UpdateAutoRetrySettingsRequest request);

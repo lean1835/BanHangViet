@@ -6,6 +6,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 
 /**
  * Tự động kiểm tra và dọn dẹp các cấu trúc/trigger cơ sở dữ liệu cũ khi ứng dụng khởi động.
@@ -15,7 +17,6 @@ import org.springframework.stereotype.Component;
 @Slf4j
 @RequiredArgsConstructor
 public class DatabaseMigrationInitializer implements CommandLineRunner {
-
     private final JdbcTemplate jdbcTemplate;
 
     private boolean isMySQL() {
@@ -34,7 +35,6 @@ public class DatabaseMigrationInitializer implements CommandLineRunner {
     public void run(String... args) {
         if (isMySQL()) {
             try {
-                // Xóa bỏ trigger cũ trừ tồn kho tự động trong MySQL nếu còn tồn tại
                 jdbcTemplate.execute("DROP TRIGGER IF EXISTS trg_stock_sales_update;");
                 log.info("DatabaseMigrationInitializer: Đã kiểm tra và đảm bảo không tồn tại trigger cũ trg_stock_sales_update.");
             } catch (Exception e) {
@@ -42,7 +42,6 @@ public class DatabaseMigrationInitializer implements CommandLineRunner {
             }
 
         try {
-            // Đảm bảo from_point_of_sale_id và to_point_of_sale_id cho phép NULL (hỗ trợ chuyển hàng từ/đến Kho gốc)
             jdbcTemplate.execute("ALTER TABLE pos_transfers MODIFY COLUMN from_point_of_sale_id VARCHAR(36) NULL;");
             jdbcTemplate.execute("ALTER TABLE pos_transfers MODIFY COLUMN to_point_of_sale_id VARCHAR(36) NULL;");
             log.info("DatabaseMigrationInitializer: Đã đảm bảo pos_transfers cho phép NULL cho from/to_point_of_sale_id.");
@@ -51,7 +50,6 @@ public class DatabaseMigrationInitializer implements CommandLineRunner {
         }
 
         try {
-            // Drop check constraint chk_adjustment_ref sai logic (chặn hóa đơn gốc chuyển trạng thái ADJUSTED)
             jdbcTemplate.execute("ALTER TABLE e_invoices DROP CHECK chk_adjustment_ref;");
             log.info("DatabaseMigrationInitializer: Đã xóa check constraint sai chk_adjustment_ref trên bảng e_invoices thành công.");
         } catch (Exception e) {
@@ -59,7 +57,6 @@ public class DatabaseMigrationInitializer implements CommandLineRunner {
         }
 
         try {
-            // Đảm bảo chk_inv_status trên e_invoices cho phép trạng thái MANUAL_PROCESSING cho tự động gửi lại
             jdbcTemplate.execute("ALTER TABLE e_invoices DROP CHECK chk_inv_status;");
             jdbcTemplate.execute("ALTER TABLE e_invoices ADD CONSTRAINT chk_inv_status CHECK (status IN ('DRAFT', 'WAITING_TAX_CODE', 'ISSUED', 'SEND_ERROR', 'ADJUSTED', 'CANCELED', 'MANUAL_PROCESSING'));");
             log.info("DatabaseMigrationInitializer: Đã cập nhật check constraint chk_inv_status trên bảng e_invoices bao gồm MANUAL_PROCESSING.");
@@ -68,7 +65,6 @@ public class DatabaseMigrationInitializer implements CommandLineRunner {
         }
 
         try {
-            // Drop check constraints trên e_invoice_items cho phép đơn giá và thành tiền âm khi lập hóa đơn đổi trả
             List<String> checkConstraints = jdbcTemplate.query(
                 "SELECT CONSTRAINT_NAME FROM information_schema.TABLE_CONSTRAINTS " +
                 "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'e_invoice_items' AND CONSTRAINT_TYPE = 'CHECK'",
@@ -87,7 +83,6 @@ public class DatabaseMigrationInitializer implements CommandLineRunner {
         }
 
         try {
-            // Cho phép changed_by_user_id NULL khi hệ thống tự động ghi log trạng thái hóa đơn (scheduler auto retry)
             jdbcTemplate.execute("ALTER TABLE invoice_status_logs MODIFY COLUMN changed_by_user_id VARCHAR(36) NULL;");
             log.info("DatabaseMigrationInitializer: Đã đảm bảo invoice_status_logs.changed_by_user_id cho phép NULL.");
         } catch (Exception e) {
@@ -95,7 +90,6 @@ public class DatabaseMigrationInitializer implements CommandLineRunner {
         }
 
         try {
-            // Đảm bảo foreign key từ order_items(price_tier_id) đến product_price_tiers có DELETE_RULE = 'SET NULL'
             List<String> invalidFks = jdbcTemplate.query(
                 "SELECT rc.CONSTRAINT_NAME " +
                 "FROM information_schema.REFERENTIAL_CONSTRAINTS rc " +
@@ -116,10 +110,9 @@ public class DatabaseMigrationInitializer implements CommandLineRunner {
         } catch (Exception e) {
             log.warn("DatabaseMigrationInitializer: Bỏ qua kiểm tra foreign key order_items: {}", e.getMessage());
         }
-        } // end if (isMySQL())
+        }
 
         try {
-            // Đảm bảo có sẵn 3 gói dịch vụ nền tảng mặc định (NCL-01-CN-010) với giá cập nhật
             jdbcTemplate.execute(
                 "INSERT INTO service_packages (id, code, name, description, max_users, max_pos_points, max_invoices_per_month, data_retention_days, price, is_active, created_at, updated_at) " +
                 "VALUES " +
@@ -134,7 +127,6 @@ public class DatabaseMigrationInitializer implements CommandLineRunner {
         }
 
         try {
-            // NCL-01-CN-011: Khởi tạo dữ liệu nhật ký hệ thống toàn nền tảng mẫu (nếu chưa có)
             Integer logCount = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM platform_system_logs;", Integer.class);
             if (logCount == null || logCount == 0) {
                 String hh1 = null;
@@ -148,8 +140,8 @@ public class DatabaseMigrationInitializer implements CommandLineRunner {
                 String hh1Sql = hh1 != null ? "'" + hh1 + "'" : "NULL";
                 String hh2Sql = hh2 != null ? "'" + hh2 + "'" : "NULL";
 
-                java.time.LocalDateTime now = java.time.LocalDateTime.now();
-                java.time.format.DateTimeFormatter fmt = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+                LocalDateTime now = LocalDateTime.now();
+                DateTimeFormatter fmt = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
                 String t1 = now.minusMinutes(12).format(fmt);
                 String t2 = now.minusMinutes(25).format(fmt);
@@ -178,7 +170,6 @@ public class DatabaseMigrationInitializer implements CommandLineRunner {
 
         if (isMySQL()) {
             try {
-                // Cập nhật các dòng hàng khấu trừ cũ sang định dạng Đổi trả kèm tên sản phẩm (bỏ theo HĐ gốc)
                 String updateDeductionSql =
                     "UPDATE e_invoice_items eii " +
                     "JOIN product_exchange_tickets pet ON pet.additional_invoice_id = eii.invoice_id " +
@@ -193,7 +184,6 @@ public class DatabaseMigrationInitializer implements CommandLineRunner {
                     log.info("DatabaseMigrationInitializer: Đã cập nhật {} dòng đổi trả cũ sang định dạng gọn gàng.", updatedRows);
                 }
 
-                // Lược bỏ bớt chú thích dài dòng trên hóa đơn đổi hàng cũ
                 jdbcTemplate.update("UPDATE e_invoices SET footer_note = NULL WHERE footer_note LIKE 'Hóa đơn phát sinh phần chênh lệch cho phiếu đổi hàng%';");
             } catch (Exception e) {
                 log.warn("DatabaseMigrationInitializer: Bỏ qua cập nhật e_invoice_items khấu trừ cũ: {}", e.getMessage());

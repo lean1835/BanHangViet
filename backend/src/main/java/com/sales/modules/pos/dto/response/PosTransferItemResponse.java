@@ -12,7 +12,6 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class PosTransferItemResponse {
-
     private String id;
     private String productId;
     private String productSku;

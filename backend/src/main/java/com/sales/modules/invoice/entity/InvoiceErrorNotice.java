@@ -10,6 +10,7 @@ import org.hibernate.annotations.UpdateTimestamp;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import org.hibernate.annotations.BatchSize;
 
 @Entity
 @Table(name = "invoice_error_notices", indexes = {
@@ -23,7 +24,6 @@ import java.util.List;
 @AllArgsConstructor
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class InvoiceErrorNotice {
-
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     @Column(length = 36, nullable = false)
@@ -50,7 +50,7 @@ public class InvoiceErrorNotice {
 
     @Column(nullable = false, length = 30)
     @Builder.Default
-    private String status = "DRAFT"; // DRAFT, WAITING_TAX_RESPONSE, ACCEPTED, REJECTED
+    private String status = "DRAFT";
 
     @Column(name = "tax_authority_code", length = 100)
     private String taxAuthorityCode;
@@ -77,7 +77,7 @@ public class InvoiceErrorNotice {
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 
-    @org.hibernate.annotations.BatchSize(size = 20)
+    @BatchSize(size = 20)
     @OneToMany(mappedBy = "notice", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @Builder.Default
     @ToString.Exclude

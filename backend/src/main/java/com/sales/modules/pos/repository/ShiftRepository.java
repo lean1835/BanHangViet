@@ -14,10 +14,8 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
-
 @Repository
 public interface ShiftRepository extends JpaRepository<Shift, String> {
-    
     boolean existsByUserIdAndStatus(String userId, ShiftStatus status);
 
     @EntityGraph(attributePaths = {"user", "household"})

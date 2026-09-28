@@ -13,7 +13,6 @@ import java.util.Optional;
 
 @Repository
 public interface ShiftHandoverRepository extends JpaRepository<ShiftHandover, String> {
-
     @EntityGraph(attributePaths = {"senderUser", "receiverUser", "shift", "household"})
     List<ShiftHandover> findByShiftIdOrderByStageNumberAsc(String shiftId);
 

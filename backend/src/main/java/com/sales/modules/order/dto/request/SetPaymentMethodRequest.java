@@ -12,7 +12,6 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 @AllArgsConstructor
 public class SetPaymentMethodRequest {
-
     @NotBlank(message = "Hình thức thanh toán không được để trống")
     @Pattern(regexp = "^(CASH|BANK_TRANSFER|DEBT|COMBINED)$", message = "Hình thức thanh toán chỉ có thể là CASH, BANK_TRANSFER, DEBT hoặc COMBINED")
     private String paymentMethod;

@@ -36,12 +36,12 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
+import java.io.OutputStream;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class BackupServiceImpl implements BackupService {
-
     private static final DateTimeFormatter DATE_FILE_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMdd");
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("dd/MM/yyyy");
     private static final DateTimeFormatter DATETIME_FORMATTER = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss");
@@ -88,7 +88,6 @@ public class BackupServiceImpl implements BackupService {
             File tempFile = createProductsExcel(products, effectiveFromDate, effectiveToDate);
             String filename = "backup_products_all.xlsx";
             return createDownloadResponse(tempFile, filename, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-
         } else if (type == BackupType.ORDERS) {
             LocalDateTime startDateTime = effectiveFromDate.atStartOfDay();
             LocalDateTime endDateTime = effectiveToDate.atTime(LocalTime.MAX);
@@ -99,7 +98,6 @@ public class BackupServiceImpl implements BackupService {
             File tempFile = createOrdersExcel(orders, effectiveFromDate, effectiveToDate);
             String filename = "backup_orders_" + dateStr + ".xlsx";
             return createDownloadResponse(tempFile, filename, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-
         } else if (type == BackupType.INVOICES) {
             List<EInvoice> invoices = eInvoiceRepository.findAll(EInvoiceSpecification.filterInvoices(householdId, null, effectiveFromDate, effectiveToDate, null, null));
             if (invoices.isEmpty()) {
@@ -108,7 +106,6 @@ public class BackupServiceImpl implements BackupService {
             File tempFile = createInvoicesExcel(invoices, effectiveFromDate, effectiveToDate);
             String filename = "backup_invoices_" + dateStr + ".xlsx";
             return createDownloadResponse(tempFile, filename, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-
         } else if (type == BackupType.FULL) {
             List<Product> products = productRepository.findAll(ProductSpecification.filterProducts(householdId, null, null, null, null, null));
             LocalDateTime startDateTime = effectiveFromDate.atStartOfDay();
@@ -192,7 +189,7 @@ public class BackupServiceImpl implements BackupService {
         return sheet;
     }
 
-    private void writeProductsExcelToStream(List<Product> products, LocalDate fromDate, LocalDate toDate, java.io.OutputStream out) throws IOException {
+    private void writeProductsExcelToStream(List<Product> products, LocalDate fromDate, LocalDate toDate, OutputStream out) throws IOException {
         try (SXSSFWorkbook workbook = new SXSSFWorkbook(100)) {
             try {
                 Sheet sheet = createReportSheet(workbook, "Danh_Muc_Hang_Hoa", "BÁO CÁO SAO LƯU DANH MỤC HÀNG HÓA SẢN PHẨM", fromDate, toDate);
@@ -241,12 +238,11 @@ public class BackupServiceImpl implements BackupService {
         }
     }
 
-    private void writeOrdersExcelToStream(List<Order> orders, LocalDate fromDate, LocalDate toDate, java.io.OutputStream out) throws IOException {
+    private void writeOrdersExcelToStream(List<Order> orders, LocalDate fromDate, LocalDate toDate, OutputStream out) throws IOException {
         try (SXSSFWorkbook workbook = new SXSSFWorkbook(100)) {
             try {
                 CellStyle headerStyle = createHeaderStyle(workbook);
 
-                // Sheet 1: Lich_Su_Don_Hang
                 Sheet sheet1 = createReportSheet(workbook, "Lich_Su_Don_Hang", "BÁO CÁO SAO LƯU LỊCH SỬ ĐƠN HÀNG", fromDate, toDate);
 
                 String[] headers1 = {"STT", "Mã đơn hàng", "Ngày tạo", "Khách hàng", "SĐT Khách hàng", "Nhân viên tạo", "Phương thức TT", "Trạng thái TT", "Trạng thái đơn", "Tổng tiền hàng", "Giảm giá", "Thành tiền"};
@@ -275,7 +271,6 @@ public class BackupServiceImpl implements BackupService {
                     row.createCell(11).setCellValue(o.getFinalAmount() != null ? o.getFinalAmount().doubleValue() : 0);
                 }
 
-                // Sheet 2: Chi_Tiet_Don_Hang
                 Sheet sheet2 = createReportSheet(workbook, "Chi_Tiet_Don_Hang", "BÁO CÁO CHI TIẾT MẶT HÀNG TRONG ĐƠN BÁN HÀNG", fromDate, toDate);
 
                 String[] headers2 = {"STT", "Mã đơn hàng", "Ngày tạo", "Tên sản phẩm", "Mã SKU", "Đơn vị tính", "Đơn giá", "Số lượng", "Thành tiền"};
@@ -326,7 +321,7 @@ public class BackupServiceImpl implements BackupService {
         }
     }
 
-    private void writeInvoicesExcelToStream(List<EInvoice> invoices, LocalDate fromDate, LocalDate toDate, java.io.OutputStream out) throws IOException {
+    private void writeInvoicesExcelToStream(List<EInvoice> invoices, LocalDate fromDate, LocalDate toDate, OutputStream out) throws IOException {
         try (SXSSFWorkbook workbook = new SXSSFWorkbook(100)) {
             try {
                 Sheet sheet = createReportSheet(workbook, "Danh_Sach_Hoa_Don", "BÁO CÁO SAO LƯU DANH SÁCH HÓA ĐƠN THUẾ GTGT", fromDate, toDate);
@@ -383,8 +378,6 @@ public class BackupServiceImpl implements BackupService {
             tempFile.deleteOnExit();
             try (OutputStream fos = new BufferedOutputStream(new FileOutputStream(tempFile));
                  ZipOutputStream zos = new ZipOutputStream(fos)) {
-
-                // 1. Danh mục Hàng hóa (.xlsx + .csv cho dữ liệu lớn)
                 if (!products.isEmpty()) {
                     ZipEntry entryProdXlsx = new ZipEntry("products.xlsx");
                     zos.putNextEntry(entryProdXlsx);
@@ -397,7 +390,6 @@ public class BackupServiceImpl implements BackupService {
                     zos.closeEntry();
                 }
 
-                // 2. Lịch sử Đơn hàng (.xlsx + .csv)
                 if (!orders.isEmpty()) {
                     ZipEntry entryOrdXlsx = new ZipEntry("orders.xlsx");
                     zos.putNextEntry(entryOrdXlsx);
@@ -410,7 +402,6 @@ public class BackupServiceImpl implements BackupService {
                     zos.closeEntry();
                 }
 
-                // 3. Hóa đơn điện tử (.xlsx + .csv)
                 if (!invoices.isEmpty()) {
                     ZipEntry entryInvXlsx = new ZipEntry("invoices.xlsx");
                     zos.putNextEntry(entryInvXlsx);
@@ -434,7 +425,7 @@ public class BackupServiceImpl implements BackupService {
 
     private void writeProductsCsvToStream(List<Product> products, OutputStream out) throws IOException {
         BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(out, StandardCharsets.UTF_8));
-        writer.write('\ufeff'); // UTF-8 BOM để Excel hiển thị đúng dấu Tiếng Việt
+        writer.write('\ufeff');
         writer.write("STT,Mã SKU,Tên hàng hóa,Đơn vị tính,Giá bán,Tồn kho,Nhóm hàng,Trạng thái\r\n");
         int stt = 1;
         for (Product p : products) {

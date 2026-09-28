@@ -11,7 +11,6 @@ import java.util.List;
 
 @Repository
 public interface ScreenGuideStepRepository extends JpaRepository<ScreenGuideStep, String> {
-
     List<ScreenGuideStep> findByGuideIdOrderByStepNumberAsc(String guideId);
 
     @Modifying

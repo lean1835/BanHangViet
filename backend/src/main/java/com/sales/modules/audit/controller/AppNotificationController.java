@@ -22,7 +22,6 @@ import java.util.Map;
 @RequestMapping("/api/v1/notifications")
 @RequiredArgsConstructor
 public class AppNotificationController {
-
     private final AppNotificationService appNotificationService;
 
     @GetMapping
@@ -36,7 +35,6 @@ public class AppNotificationController {
             @RequestParam(required = false) String search,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
-
         int safePage = Math.max(0, page);
         int safeSize = Math.min(100, Math.max(1, size));
 

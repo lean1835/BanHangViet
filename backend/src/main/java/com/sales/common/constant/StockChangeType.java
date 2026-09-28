@@ -8,6 +8,5 @@ public final class StockChangeType {
     public static final String OUT = "OUT";
 
     private StockChangeType() {
-        // Private constructor to prevent instantiation
     }
 }

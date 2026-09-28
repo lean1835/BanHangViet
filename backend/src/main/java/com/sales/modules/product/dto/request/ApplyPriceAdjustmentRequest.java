@@ -15,7 +15,6 @@ import java.util.List;
 @AllArgsConstructor
 @Builder
 public class ApplyPriceAdjustmentRequest {
-
     @NotBlank(message = "Tên đợt điều chỉnh giá không được để trống")
     @Size(max = 255, message = "Tên đợt không vượt quá 255 ký tự")
     private String name;

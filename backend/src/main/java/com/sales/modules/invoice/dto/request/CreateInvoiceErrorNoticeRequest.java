@@ -14,7 +14,6 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class CreateInvoiceErrorNoticeRequest {
-
     private String noticePlace;
 
     private String taxAuthorityName;

@@ -27,11 +27,17 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import com.sales.modules.order.entity.OrderCancelReason;
+import com.sales.modules.pos.dto.request.CloseShiftRequest;
+import com.sales.modules.pos.dto.response.PosRevenueProjection;
+import com.sales.modules.pos.dto.response.ShiftResponse;
+import com.sales.modules.pos.service.ShiftService;
+import com.sales.modules.report.dto.response.DailyRevenueProjection;
+import java.util.List;
 
 @SpringBootTest
 @Transactional
 public class OrderCollectedAmountIntegrationTest {
-
     @Autowired
     private OrderRepository orderRepository;
 
@@ -90,7 +96,7 @@ public class OrderCollectedAmountIntegrationTest {
     }
 
     @Autowired
-    private com.sales.modules.pos.service.ShiftService shiftService;
+    private ShiftService shiftService;
 
     @Test
     @DisplayName("NCL-03-CN-011 & P1-01: Phân định đúng Doanh thu thực thu và Tiền mặt vào két ca")
@@ -99,7 +105,6 @@ public class OrderCollectedAmountIntegrationTest {
         shift.setOpenedAt(now.minusHours(2));
         shift = shiftRepository.save(shift);
 
-        // 1. Đơn 1: Thuần tiền mặt CASH 500.000đ
         orderRepository.save(Order.builder()
                 .household(household)
                 .createdByUser(cashier)
@@ -112,7 +117,6 @@ public class OrderCollectedAmountIntegrationTest {
                 .createdAt(now.minusMinutes(50))
                 .build());
 
-        // 2. Đơn 2: Thuần chuyển khoản BANK_TRANSFER 1.000.000đ
         orderRepository.save(Order.builder()
                 .household(household)
                 .createdByUser(cashier)
@@ -125,7 +129,6 @@ public class OrderCollectedAmountIntegrationTest {
                 .createdAt(now.minusMinutes(40))
                 .build());
 
-        // 3. Đơn 3: Đơn kết hợp COMBINED tổng 1.000.000đ (300.000 CASH + 700.000 BANK_TRANSFER)
         Order combinedOrder = orderRepository.save(Order.builder()
                 .household(household)
                 .createdByUser(cashier)
@@ -157,7 +160,6 @@ public class OrderCollectedAmountIntegrationTest {
                 .isConfirmed(true)
                 .build());
 
-        // 4. Đơn 4: Đơn ghi nợ DEBT 600.000đ (khách trả trước 200.000đ, nợ 400.000đ)
         Customer customer = customerRepository.save(Customer.builder()
                 .household(household)
                 .name("Khách Nợ")
@@ -190,7 +192,6 @@ public class OrderCollectedAmountIntegrationTest {
                 .createdByUser(cashier)
                 .build());
 
-        // 5. Đơn 5: Đơn chưa hoàn tất (CREATING) 800.000đ -> không được tính
         Order creatingOrder = orderRepository.save(Order.builder()
                 .household(household)
                 .createdByUser(cashier)
@@ -203,8 +204,6 @@ public class OrderCollectedAmountIntegrationTest {
                 .createdAt(now.minusMinutes(10))
                 .build());
 
-        // KỲ VỌNG DOANH THU THỰC THU (Collected Revenue):
-        // 500k (CASH) + 1000k (BANK) + 1000k (COMBINED) + 200k (DEBT down payment) = 2.700.000đ
         BigDecimal totalCollected = orderRepository.sumCollectedAmountByShiftId(shift.getId());
         assertEquals(0, new BigDecimal("2700000.00").compareTo(totalCollected),
                 "Doanh thu thực thu ca phải gom đủ cả CASH và BANK_TRANSFER của đơn kết hợp COMBINED");
@@ -214,8 +213,6 @@ public class OrderCollectedAmountIntegrationTest {
         assertEquals(0, new BigDecimal("2700000.00").compareTo(rangeCollected),
                 "Doanh thu theo khoảng thời gian phải bằng tổng doanh thu thực thu");
 
-        // KỲ VỌNG TIỀN MẶT BÁN HÀNG VÀO KÉT (Cash Sales):
-        // 500k (CASH) + 0 (BANK) + 300k (COMBINED CASH part) + 200k (DEBT down payment) = 1.000.000đ
         BigDecimal cashSales = orderRepository.sumCashSalesAmountByShiftId(shift.getId());
         assertEquals(0, new BigDecimal("1000000.00").compareTo(cashSales),
                 "Tiền mặt vào két ca chỉ được tính tiền mặt giấy (1.000.000đ), không tính tiền chuyển khoản vào tài khoản ngân hàng");
@@ -225,16 +222,10 @@ public class OrderCollectedAmountIntegrationTest {
         assertEquals(0, new BigDecimal("1000000.00").compareTo(rangeCashSales),
                 "Tiền mặt bán hàng theo khoảng thời gian phải bằng 1.000.000đ");
 
-        // KỲ VỌNG BÁO CÁO DOANH THU THEO HÌNH THỨC (P1-01 Fix):
-        // Tổng doanh thu = 3.100.000đ
-        // cashRevenue: 500k (CASH) + 300k (COMBINED CASH) + 200k (DEBT advance) = 1.000.000đ
-        // bankRevenue: 1000k (BANK) + 700k (COMBINED BANK) = 1.700.000đ
-        // debtRevenue: 400k (DEBT created) = 400.000đ
-        // Tổng 3 hình thức = 1.000.000 + 1.700.000 + 400.000 = 3.100.000đ == netRevenue
-        java.util.List<com.sales.modules.report.dto.response.DailyRevenueProjection> dailyRevenues = orderRepository.getDailyRevenue(
+        List<DailyRevenueProjection> dailyRevenues = orderRepository.getDailyRevenue(
                 household.getId(), now.minusDays(1), now.plusDays(1));
         assertEquals(1, dailyRevenues.size());
-        com.sales.modules.report.dto.response.DailyRevenueProjection daily = dailyRevenues.get(0);
+        DailyRevenueProjection daily = dailyRevenues.get(0);
         assertEquals(0, new BigDecimal("3100000.00").compareTo(daily.getNetRevenue()), "Doanh thu thuần phải là 3.100.000đ");
         assertEquals(0, new BigDecimal("1000000.00").compareTo(daily.getCashRevenue()), "Doanh thu tiền mặt (bao gồm cả phần COMBINED) phải là 1.000.000đ");
         assertEquals(0, new BigDecimal("1700000.00").compareTo(daily.getBankRevenue()), "Doanh thu chuyển khoản (bao gồm cả phần COMBINED) phải là 1.700.000đ");
@@ -242,30 +233,26 @@ public class OrderCollectedAmountIntegrationTest {
         assertEquals(0, daily.getNetRevenue().compareTo(daily.getCashRevenue().add(daily.getBankRevenue()).add(daily.getDebtRevenue())),
                 "Tổng tiền theo các hình thức phải bằng đúng doanh thu thuần netRevenue");
 
-        java.util.List<com.sales.modules.pos.dto.response.PosRevenueProjection> posSummaries = orderRepository.getPosRevenueSummary(
+        List<PosRevenueProjection> posSummaries = orderRepository.getPosRevenueSummary(
                 household.getId(), now.minusDays(1), now.plusDays(1), null);
         assertEquals(1, posSummaries.size());
-        com.sales.modules.pos.dto.response.PosRevenueProjection posSummary = posSummaries.get(0);
+        PosRevenueProjection posSummary = posSummaries.get(0);
         assertEquals(0, new BigDecimal("3100000.00").compareTo(posSummary.getNetRevenue()));
         assertEquals(0, new BigDecimal("1000000.00").compareTo(posSummary.getCashRevenue()));
         assertEquals(0, new BigDecimal("1700000.00").compareTo(posSummary.getBankRevenue()));
         assertEquals(0, new BigDecimal("400000.00").compareTo(posSummary.getDebtRevenue()));
         assertEquals(0, posSummary.getNetRevenue().compareTo(posSummary.getCashRevenue().add(posSummary.getBankRevenue()).add(posSummary.getDebtRevenue())));
 
-        // Trước khi đóng ca, hủy đơn CREATING để thỏa mãn điều kiện không còn đơn treo chưa xử lý
         creatingOrder.setStatus("CANCELED");
-        creatingOrder.setCancelReason(com.sales.modules.order.entity.OrderCancelReason.CUSTOMER_CHANGED_MIND);
+        creatingOrder.setCancelReason(OrderCancelReason.CUSTOMER_CHANGED_MIND);
         orderRepository.save(creatingOrder);
 
-        // KỲ VỌNG ĐỐI SOÁT ĐÓNG CA (Close Shift):
-        // Tiền đầu ca (1.000.000đ) + Tiền bán hàng thu được (1tr tiền mặt + 1.7tr CK) = 3.700.000đ
-        // Thu ngân chốt ca với đủ 3.700.000đ -> Chênh lệch = 0.00
-        com.sales.modules.pos.dto.request.CloseShiftRequest closeRequest = com.sales.modules.pos.dto.request.CloseShiftRequest.builder()
+        CloseShiftRequest closeRequest = CloseShiftRequest.builder()
                 .closingCashActual(new BigDecimal("3700000.00"))
                 .differenceReason(null)
                 .build();
 
-        com.sales.modules.pos.dto.response.ShiftResponse closeResponse = shiftService.closeShift(cashier.getUsername(), shift.getId(), closeRequest);
+        ShiftResponse closeResponse = shiftService.closeShift(cashier.getUsername(), shift.getId(), closeRequest);
         assertEquals("CLOSED", closeResponse.getStatus());
         assertEquals(0, BigDecimal.ZERO.compareTo(closeResponse.getDifferenceAmount()),
                 "Chênh lệch tiền mặt đóng ca phải bằng 0 khi đếm đủ tiền giấy trong két");
@@ -276,7 +263,6 @@ public class OrderCollectedAmountIntegrationTest {
     void findBankTransfersByShiftIdAndHouseholdId_excludesCanceledOrders() {
         LocalDateTime now = LocalDateTime.now();
 
-        // 1. Đơn hoàn thành có chuyển khoản
         Order completedOrder = orderRepository.save(Order.builder()
                 .household(household)
                 .createdByUser(cashier)
@@ -298,7 +284,6 @@ public class OrderCollectedAmountIntegrationTest {
                 .isConfirmed(true)
                 .build());
 
-        // 2. Đơn CANCELED có chuyển khoản (khách hủy đơn)
         Order canceledOrder = orderRepository.save(Order.builder()
                 .household(household)
                 .createdByUser(cashier)
@@ -319,8 +304,7 @@ public class OrderCollectedAmountIntegrationTest {
                 .isConfirmed(false)
                 .build());
 
-        // Truy vấn đối soát ca:
-        java.util.List<OrderPayment> transfers = orderPaymentRepository.findBankTransfersByShiftIdAndHouseholdId(shift.getId(), household.getId());
+        List<OrderPayment> transfers = orderPaymentRepository.findBankTransfersByShiftIdAndHouseholdId(shift.getId(), household.getId());
 
         assertEquals(1, transfers.size(), "Danh sách đối soát chuyển khoản chỉ chứa đơn chưa bị hủy");
         assertEquals("ORD-TRANS-01", transfers.get(0).getOrder().getOrderNumber());

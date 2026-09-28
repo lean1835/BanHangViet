@@ -38,7 +38,6 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Slf4j
 public class InvoiceErrorNoticeServiceImpl implements InvoiceErrorNoticeService {
-
     private final InvoiceErrorNoticeRepository noticeRepository;
     private final EInvoiceRepository invoiceRepository;
     private final UserRepository userRepository;
@@ -90,12 +89,10 @@ public class InvoiceErrorNoticeServiceImpl implements InvoiceErrorNoticeService 
             EInvoice invoice = invoiceRepository.findByIdAndHouseholdIdAndDeletedAtIsNull(itemReq.getInvoiceId(), household.getId())
                     .orElseThrow(() -> new AppException(ErrorCode.INVOICE_NOT_FOUND));
 
-            // Check if status is CANCELED or ADJUSTED
             if (!"CANCELED".equals(invoice.getStatus()) && !"ADJUSTED".equals(invoice.getStatus())) {
                 throw new AppException(ErrorCode.INVOICE_NOT_ELIGIBLE_FOR_ERROR_NOTICE);
             }
 
-            // Check if invoice already belongs to an ACCEPTED notice (TC-02)
             if (Boolean.TRUE.equals(invoice.getIsErrorNotified()) || noticeRepository.isInvoiceInAcceptedNotice(invoice.getId())) {
                 throw new AppException(ErrorCode.INVOICE_ALREADY_NOTICE_ACCEPTED);
             }
@@ -137,14 +134,12 @@ public class InvoiceErrorNoticeServiceImpl implements InvoiceErrorNoticeService 
         notice.setSentToTaxAt(LocalDateTime.now());
         notice.setStatus("WAITING_TAX_RESPONSE");
 
-        // Simulate Tax Authority Response (TC-01 Success Flow)
         String cqtCode = "CQT-SS-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
         notice.setTaxAuthorityCode(cqtCode);
         notice.setTaxAuthorityResponse("Tiếp nhận thông báo hóa đơn sai sót Mẫu 04/SS-HĐĐT thành công");
         notice.setTaxResponseAt(LocalDateTime.now());
         notice.setStatus("ACCEPTED");
 
-        // Mark invoices as notified (two-way association)
         if (notice.getItems() != null) {
             for (InvoiceErrorNoticeItem item : notice.getItems()) {
                 EInvoice inv = item.getInvoice();
@@ -229,7 +224,6 @@ public class InvoiceErrorNoticeServiceImpl implements InvoiceErrorNoticeService 
                     .orElseThrow(() -> new AppException(ErrorCode.ERROR_NOTICE_NOT_FOUND));
         }
 
-        // Chỉ cho phép từ chối thông báo ở trạng thái chờ phản hồi hoặc bản nháp; không cho phép lùi ngược thông báo đã ACCEPTED (P1-01)
         if (!"WAITING_TAX_RESPONSE".equals(notice.getStatus()) && !"DRAFT".equals(notice.getStatus())) {
             throw new AppException(ErrorCode.ERROR_NOTICE_CANNOT_REJECT);
         }
@@ -242,7 +236,6 @@ public class InvoiceErrorNoticeServiceImpl implements InvoiceErrorNoticeService 
         notice.setTaxAuthorityResponse(rejectReason);
         notice.setTaxResponseAt(LocalDateTime.now());
 
-        // Invoices remain isErrorNotified = false because notice was rejected
         if (notice.getItems() != null) {
             for (InvoiceErrorNoticeItem item : notice.getItems()) {
                 EInvoice inv = item.getInvoice();
@@ -292,7 +285,6 @@ public class InvoiceErrorNoticeServiceImpl implements InvoiceErrorNoticeService 
             throw new AppException(ErrorCode.EMPTY_NOTICE_ITEMS);
         }
 
-        // Kiểm tra chống trùng lặp hóa đơn trong cùng thông báo (P1-02)
         Set<String> invoiceIdSet = new HashSet<>();
         for (InvoiceErrorNoticeItemRequest itemReq : request.getItems()) {
             if (!invoiceIdSet.add(itemReq.getInvoiceId())) {
@@ -307,7 +299,6 @@ public class InvoiceErrorNoticeServiceImpl implements InvoiceErrorNoticeService 
             notice.setTaxAuthorityName(request.getTaxAuthorityName());
         }
 
-        // Xóa items cũ và flush ngay để Hibernate DELETE hoàn tất trước khi INSERT items mới (tránh Unique Constraint collision)
         notice.getItems().clear();
         noticeRepository.flush();
 

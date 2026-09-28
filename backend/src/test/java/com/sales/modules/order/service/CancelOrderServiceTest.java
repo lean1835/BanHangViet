@@ -53,7 +53,6 @@ import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class CancelOrderServiceTest {
-
     @Mock
     private OrderRepository orderRepository;
 
@@ -177,7 +176,6 @@ class CancelOrderServiceTest {
     @Test
     @DisplayName("TC-01: Hủy đơn hàng CREATING thành công với lý do Khách đổi ý (Pass AC-01 & QTN-09)")
     void cancelOrder_Success_CreatingStatus_WithReason() {
-        // Given
         when(userRepository.findByUsername("thungan01")).thenReturn(Optional.of(cashierUser));
         when(orderRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("order-001", "house-001"))
                 .thenReturn(Optional.of(creatingOrder));
@@ -188,10 +186,8 @@ class CancelOrderServiceTest {
                 .cancelReasonNote(null)
                 .build();
 
-        // When
         OrderResponse response = orderService.cancelOrder("thungan01", "order-001", request);
 
-        // Then
         assertNotNull(response);
         assertEquals("CANCELED", response.getStatus());
         assertEquals("CUSTOMER_CHANGED_MIND", response.getCancelReason());
@@ -201,11 +197,9 @@ class CancelOrderServiceTest {
         assertEquals("Trần Thu Ngân", response.getCanceledByFullName());
         assertNotNull(response.getCanceledAt());
 
-        // Kiểm chứng tính trung lập tồn kho: Không gọi trừ kho hay hoàn kho
         verify(posInventoryService, never()).batchDeductPosStock(any(), any(), any());
         verify(productRepository, never()).deductStock(any(), any(), any());
 
-        // Kiểm chứng ghi nhận nhật ký kiểm toán QTN-09
         verify(activityLogHelper, times(1)).logActivityInNewTransaction(
                 eq(household), eq(cashierUser), eq("CANCEL_ORDER"), eq("orders"), eq("order-001"),
                 any(), any(), any(), any());
@@ -214,7 +208,6 @@ class CancelOrderServiceTest {
     @Test
     @DisplayName("TC-02: Hủy đơn hàng thành công khi chọn lý do OTHER và có nhập ghi chú chi tiết")
     void cancelOrder_Success_WhenReasonIsOther_WithDetailedNote() {
-        // Given
         when(userRepository.findByUsername("chuho")).thenReturn(Optional.of(ownerUser));
         when(orderRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("order-001", "house-001"))
                 .thenReturn(Optional.of(creatingOrder));
@@ -225,10 +218,8 @@ class CancelOrderServiceTest {
                 .cancelReasonNote("Khách không đủ tiền mặt và app ngân hàng bảo trì")
                 .build();
 
-        // When
         OrderResponse response = orderService.cancelOrder("chuho", "order-001", request);
 
-        // Then
         assertNotNull(response);
         assertEquals("CANCELED", response.getStatus());
         assertEquals("OTHER", response.getCancelReason());
@@ -240,7 +231,6 @@ class CancelOrderServiceTest {
     @Test
     @DisplayName("TC-03: Chặn hủy đơn hàng khi không chọn lý do (Throw ORDER_CANCEL_REASON_REQUIRED - 3111)")
     void cancelOrder_ThrowsException_WhenReasonIsNull() {
-        // Given
         when(userRepository.findByUsername("thungan01")).thenReturn(Optional.of(cashierUser));
         when(orderRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("order-001", "house-001"))
                 .thenReturn(Optional.of(creatingOrder));
@@ -249,7 +239,6 @@ class CancelOrderServiceTest {
                 .cancelReason(null)
                 .build();
 
-        // When & Then
         AppException exception = assertThrows(AppException.class, () ->
                 orderService.cancelOrder("thungan01", "order-001", request));
 
@@ -260,7 +249,6 @@ class CancelOrderServiceTest {
     @Test
     @DisplayName("TC-04: Chặn hủy khi chọn OTHER nhưng để trống ghi chú (Throw ORDER_CANCEL_NOTE_REQUIRED - 3112)")
     void cancelOrder_ThrowsException_WhenReasonIsOther_AndNoteIsBlank() {
-        // Given
         when(userRepository.findByUsername("thungan01")).thenReturn(Optional.of(cashierUser));
         when(orderRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("order-001", "house-001"))
                 .thenReturn(Optional.of(creatingOrder));
@@ -270,7 +258,6 @@ class CancelOrderServiceTest {
                 .cancelReasonNote("   ")
                 .build();
 
-        // When & Then
         AppException exception = assertThrows(AppException.class, () ->
                 orderService.cancelOrder("thungan01", "order-001", request));
 
@@ -281,7 +268,6 @@ class CancelOrderServiceTest {
     @Test
     @DisplayName("TC-05: Chặn hủy đơn đã thanh toán COMPLETED (Throw ORDER_ALREADY_COMPLETED_CANNOT_CANCEL - 3110)")
     void cancelOrder_ThrowsException_WhenOrderAlreadyCompleted() {
-        // Given
         creatingOrder.setStatus("COMPLETED");
         creatingOrder.setPaymentStatus("PAID");
 
@@ -293,7 +279,6 @@ class CancelOrderServiceTest {
                 .cancelReason(OrderCancelReason.CUSTOMER_CHANGED_MIND)
                 .build();
 
-        // When & Then
         AppException exception = assertThrows(AppException.class, () ->
                 orderService.cancelOrder("thungan01", "order-001", request));
 
@@ -305,7 +290,6 @@ class CancelOrderServiceTest {
     @Test
     @DisplayName("TC-06: Chặn hủy đơn đã bị hủy CANCELED trước đó (Throw ORDER_ALREADY_CANCELED - 3113)")
     void cancelOrder_ThrowsException_WhenOrderAlreadyCanceled() {
-        // Given
         creatingOrder.setStatus("CANCELED");
 
         when(userRepository.findByUsername("thungan01")).thenReturn(Optional.of(cashierUser));
@@ -316,7 +300,6 @@ class CancelOrderServiceTest {
                 .cancelReason(OrderCancelReason.STAFF_INPUT_ERROR)
                 .build();
 
-        // When & Then
         AppException exception = assertThrows(AppException.class, () ->
                 orderService.cancelOrder("thungan01", "order-001", request));
 
@@ -327,7 +310,6 @@ class CancelOrderServiceTest {
     @Test
     @DisplayName("TC-07: Chặn khi không tìm thấy đơn hàng (Throw ORDER_NOT_FOUND)")
     void cancelOrder_ThrowsException_WhenOrderNotFound() {
-        // Given
         when(userRepository.findByUsername("thungan01")).thenReturn(Optional.of(cashierUser));
         when(orderRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("invalid-id", "house-001"))
                 .thenReturn(Optional.empty());
@@ -336,7 +318,6 @@ class CancelOrderServiceTest {
                 .cancelReason(OrderCancelReason.OUT_OF_STOCK)
                 .build();
 
-        // When & Then
         AppException exception = assertThrows(AppException.class, () ->
                 orderService.cancelOrder("thungan01", "invalid-id", request));
 
@@ -346,8 +327,7 @@ class CancelOrderServiceTest {
     @Test
     @DisplayName("TC-08: Chặn khi thu ngân khác điểm bán cố tình thao tác (Throw POS_EMPLOYEE_ACCESS_DENIED)")
     void cancelOrder_ThrowsException_WhenSalespersonBelongsToAnotherPos() {
-        // Given
-        creatingOrder.setPointOfSale(pos2); // Đơn của Quầy 2, nhưng cashierUser trực Quầy 1
+        creatingOrder.setPointOfSale(pos2);
 
         when(userRepository.findByUsername("thungan01")).thenReturn(Optional.of(cashierUser));
         when(orderRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("order-001", "house-001"))
@@ -357,7 +337,6 @@ class CancelOrderServiceTest {
                 .cancelReason(OrderCancelReason.CUSTOMER_CHANGED_MIND)
                 .build();
 
-        // When & Then
         AppException exception = assertThrows(AppException.class, () ->
                 orderService.cancelOrder("thungan01", "order-001", request));
 
@@ -367,7 +346,6 @@ class CancelOrderServiceTest {
     @Test
     @DisplayName("TC-09: Chặn khi ca làm việc liên kết đã đóng (Throw SHIFT_ALREADY_CLOSED)")
     void cancelOrder_ThrowsException_WhenShiftIsClosed() {
-        // Given
         creatingOrder.setShift(closedShift);
 
         when(userRepository.findByUsername("thungan01")).thenReturn(Optional.of(cashierUser));
@@ -378,7 +356,6 @@ class CancelOrderServiceTest {
                 .cancelReason(OrderCancelReason.CUSTOMER_CHANGED_MIND)
                 .build();
 
-        // When & Then
         AppException exception = assertThrows(AppException.class, () ->
                 orderService.cancelOrder("thungan01", "order-001", request));
 
@@ -402,7 +379,6 @@ class CancelOrderServiceTest {
     @Test
     @DisplayName("TC-11: Thống kê số đơn hủy và lý do theo ca và theo nhân viên (Pass AC-04)")
     void getCanceledOrderStatistics_ReturnsAggregatedData() {
-        // Given
         Order canceledOrder1 = Order.builder()
                 .id("order-c1")
                 .orderNumber("ORD-001")
@@ -439,24 +415,20 @@ class CancelOrderServiceTest {
         when(orderRepository.findCanceledOrders(eq("house-001"), eq("shift-001"), isNull(), any(), any()))
                 .thenReturn(List.of(canceledOrder1, canceledOrder2, canceledOrder3));
 
-        // When
         CanceledOrderStatisticsResponse response = orderService.getCanceledOrderStatistics(
                 "chuho", "shift-001", LocalDateTime.now().minusHours(5), LocalDateTime.now());
 
-        // Then
         assertNotNull(response);
         assertEquals(3, response.getTotalCanceledOrders());
         assertEquals(new BigDecimal("600000.00"), response.getTotalCanceledAmount());
         assertEquals("shift-001", response.getShiftId());
 
-        // Kiểm tra phân loại theo lý do
         assertNotNull(response.getByReason());
         assertTrue(response.getByReason().stream()
                 .anyMatch(r -> "CUSTOMER_CHANGED_MIND".equals(r.getReasonCode()) && r.getCount() == 2));
         assertTrue(response.getByReason().stream()
                 .anyMatch(r -> "OTHER".equals(r.getReasonCode()) && r.getCount() == 1));
 
-        // Kiểm tra phân loại theo nhân viên
         assertNotNull(response.getByEmployee());
         assertEquals(2, response.getByEmployee().size());
         assertTrue(response.getByEmployee().stream()
@@ -464,14 +436,12 @@ class CancelOrderServiceTest {
         assertTrue(response.getByEmployee().stream()
                 .anyMatch(e -> "user-owner-001".equals(e.getEmployeeId()) && e.getCount() == 1));
 
-        // Kiểm tra danh sách đơn gần nhất
         assertEquals(3, response.getRecentCanceledOrders().size());
     }
 
     @Test
     @DisplayName("TC-12: Thu ngân VT-02 xem thống kê đơn hủy bị giới hạn chỉ xem đơn của chính mình (QTN-10)")
     void getCanceledOrderStatistics_Salesperson_FiltersOwnOrdersOnly() {
-        // Given
         Order myCanceledOrder = Order.builder()
                 .id("order-c1")
                 .orderNumber("ORD-001")
@@ -486,11 +456,9 @@ class CancelOrderServiceTest {
         when(orderRepository.findCanceledOrders(eq("house-001"), isNull(), eq("user-cashier-001"), any(), any()))
                 .thenReturn(List.of(myCanceledOrder));
 
-        // When
         CanceledOrderStatisticsResponse response = orderService.getCanceledOrderStatistics(
                 "thungan", null, null, null);
 
-        // Then
         assertNotNull(response);
         assertEquals(1, response.getTotalCanceledOrders());
         assertEquals(new BigDecimal("150000.00"), response.getTotalCanceledAmount());
@@ -502,16 +470,13 @@ class CancelOrderServiceTest {
     @Test
     @DisplayName("TC-13: Truyền shiftId chuỗi rỗng được chuẩn hóa sang null (tránh Silent Failure)")
     void getCanceledOrderStatistics_EmptyShiftId_SanitizedToNull() {
-        // Given
         when(userRepository.findByUsername("chuho")).thenReturn(Optional.of(ownerUser));
         when(orderRepository.findCanceledOrders(eq("house-001"), isNull(), isNull(), any(), any()))
                 .thenReturn(Collections.emptyList());
 
-        // When
         CanceledOrderStatisticsResponse response = orderService.getCanceledOrderStatistics(
                 "chuho", "   ", null, null);
 
-        // Then
         assertNotNull(response);
         assertNull(response.getShiftId());
         verify(orderRepository).findCanceledOrders(eq("house-001"), isNull(), isNull(), any(), any());

@@ -8,12 +8,13 @@ import com.sales.modules.supplier.entity.Supplier;
 import com.sales.modules.auth.entity.User;
 
 import java.util.List;
+import com.sales.modules.supplier.dto.request.ReceiveSupplierRefundRequest;
+import java.math.BigDecimal;
 
 public interface SupplierDebtService {
-
     SupplierDebtResponse paySupplierDebt(String currentUsername, PaySupplierDebtRequest request);
 
-    SupplierDebtResponse receiveSupplierRefund(String currentUsername, com.sales.modules.supplier.dto.request.ReceiveSupplierRefundRequest request);
+    SupplierDebtResponse receiveSupplierRefund(String currentUsername, ReceiveSupplierRefundRequest request);
 
     List<SupplierDebtResponse> getSupplierDebtHistory(String currentUsername, String supplierId);
 
@@ -23,5 +24,5 @@ public interface SupplierDebtService {
 
     void recordGoodsReceiptDebt(BusinessHousehold household, Supplier supplier, GoodsReceipt receipt, User actor);
 
-    void recordSupplierReturnDebtReduction(BusinessHousehold household, Supplier supplier, GoodsReceipt receipt, java.math.BigDecimal totalReturnAmount, String returnNumber, User actor);
+    void recordSupplierReturnDebtReduction(BusinessHousehold household, Supplier supplier, GoodsReceipt receipt, BigDecimal totalReturnAmount, String returnNumber, User actor);
 }

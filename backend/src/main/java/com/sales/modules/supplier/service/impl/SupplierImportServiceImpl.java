@@ -35,8 +35,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Slf4j
 public class SupplierImportServiceImpl implements SupplierImportService {
-
-    private static final long MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+    private static final long MAX_FILE_SIZE = 10 * 1024 * 1024;
     private static final Pattern PHONE_PATTERN = Pattern.compile("^(0|\\+84)(2[0-9]{9}|[35789][0-9]{8})$");
     private static final Pattern TAX_CODE_PATTERN = Pattern.compile("^[0-9]{10}(-[0-9]{3})?$");
 
@@ -153,7 +152,6 @@ public class SupplierImportServiceImpl implements SupplierImportService {
 
                 String phone = cleanPhone(rawPhone);
 
-                // Validations
                 if (!StringUtils.hasText(name)) {
                     errors.add(new ImportPreviewResponse.RowErrorDetail(actualRow, phone, name, "Tên nhà cung cấp không được để trống"));
                     continue;
@@ -255,7 +253,6 @@ public class SupplierImportServiceImpl implements SupplierImportService {
 
                 String phone = cleanPhone(rawPhone);
 
-                // Validations
                 if (!StringUtils.hasText(name)) {
                     addError(errors, errorExportRows, actualRow, name, phone, "Tên nhà cung cấp không được để trống");
                     continue;
@@ -300,7 +297,6 @@ public class SupplierImportServiceImpl implements SupplierImportService {
                     continue;
                 }
 
-                // Chuẩn bị tạo mới Supplier
                 Supplier newSupplier = Supplier.builder()
                         .household(household)
                         .name(name.trim())
@@ -319,7 +315,6 @@ public class SupplierImportServiceImpl implements SupplierImportService {
                 successCount++;
             }
 
-            // Tối ưu N+1 & Batching 500 bản ghi mỗi đợt để tối ưu bộ nhớ và I/O CSDL
             if (!suppliersToUpdate.isEmpty()) {
                 for (int i = 0; i < suppliersToUpdate.size(); i += 500) {
                     List<Supplier> batch = suppliersToUpdate.subList(i, Math.min(i + 500, suppliersToUpdate.size()));

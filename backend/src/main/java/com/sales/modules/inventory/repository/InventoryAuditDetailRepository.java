@@ -12,7 +12,6 @@ import java.util.List;
 
 @Repository
 public interface InventoryAuditDetailRepository extends JpaRepository<InventoryAuditDetail, String> {
-
     @EntityGraph(attributePaths = {"product"})
     List<InventoryAuditDetail> findByAuditId(String auditId);
 
@@ -101,4 +100,3 @@ public interface InventoryAuditDetailRepository extends JpaRepository<InventoryA
             @Param("endDateTime") LocalDateTime endDateTime
     );
 }
-

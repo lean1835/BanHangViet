@@ -42,7 +42,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Transactional
 @SuppressWarnings("unused")
 public class ServicePackageQuotaIntegrationTest {
-
     @Autowired
     private MockMvc mockMvc;
 
@@ -198,8 +197,6 @@ public class ServicePackageQuotaIntegrationTest {
                 .build();
         servicePackageService.assignSubscription("admin_pkg", testHousehold.getId(), assignRequest);
 
-        // Current users = 1 (householdOwner)
-        // Add a 2nd user -> reached limit 2
         Role empRole = roleRepository.findByCode("VT-02").orElseThrow();
         userRepository.save(User.builder()
                 .username("user_limit_2")
@@ -210,7 +207,6 @@ public class ServicePackageQuotaIntegrationTest {
                 .isActive(true)
                 .build());
 
-        // Now household has 2 users, maxUsers is 2. Attempting to add a 3rd user triggers validation
         AppException exception = assertThrows(AppException.class, () ->
                 servicePackageService.validateUserQuota(testHousehold.getId()));
 
@@ -227,8 +223,6 @@ public class ServicePackageQuotaIntegrationTest {
                 .build();
         servicePackageService.assignSubscription("admin_pkg", testHousehold.getId(), assignRequest);
 
-        // Package maxInvoicesPerMonth = 5
-        // Issue 5 invoices
         for (int i = 0; i < 5; i++) {
             servicePackageService.recordInvoiceIssued(testHousehold.getId());
         }
@@ -237,7 +231,6 @@ public class ServicePackageQuotaIntegrationTest {
         assertEquals(5, stats.getInvoicesIssuedThisMonth());
         assertFalse(stats.getIsInvoiceOverQuota(), "Chưa vượt quá hạn mức, cờ isInvoiceOverQuota phải là false");
 
-        // Issue 6th invoice: MUST NOT THROW EXCEPTION (GAP 48 & QTN-01 rule)
         assertDoesNotThrow(() -> servicePackageService.recordInvoiceIssued(testHousehold.getId()));
 
         HouseholdUsageStatsResponse overStats = servicePackageService.getUsageStats(testHousehold.getId());
@@ -255,7 +248,6 @@ public class ServicePackageQuotaIntegrationTest {
                 .build();
         servicePackageService.assignSubscription("admin_pkg", testHousehold.getId(), assignRequest);
 
-        // starterPackage allows maxPosPoints = 2
         pointOfSaleRepository.save(PointOfSale.builder()
                 .household(testHousehold)
                 .posCode("POS-T1")
@@ -274,7 +266,6 @@ public class ServicePackageQuotaIntegrationTest {
                 .isActive(true)
                 .build());
 
-        // Now household has 2 POS points. Adding 3rd triggers validation
         AppException exception = assertThrows(AppException.class, () ->
                 servicePackageService.validatePosQuota(testHousehold.getId()));
 
@@ -287,7 +278,7 @@ public class ServicePackageQuotaIntegrationTest {
         AssignSubscriptionRequest invalidRequest = AssignSubscriptionRequest.builder()
                 .packageId(starterPackage.getId())
                 .startDate(LocalDate.now().plusDays(10))
-                .endDate(LocalDate.now().plusDays(2)) // endDate < startDate
+                .endDate(LocalDate.now().plusDays(2))
                 .build();
 
         AppException exception = assertThrows(AppException.class, () ->

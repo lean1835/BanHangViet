@@ -3,7 +3,6 @@ import com.sales.common.dto.PageResponse;
 
 import lombok.*;
 
-
 @Data
 @Builder
 @NoArgsConstructor

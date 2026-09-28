@@ -16,7 +16,6 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 @AllArgsConstructor
 public class CreateProductUnitConversionRequest {
-
     @NotBlank(message = "Tên đơn vị quy đổi không được để trống")
     @Size(max = 50, message = "Tên đơn vị quy đổi không vượt quá 50 ký tự")
     private String unitName;

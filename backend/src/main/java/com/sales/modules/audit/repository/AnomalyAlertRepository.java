@@ -14,10 +14,10 @@ import org.springframework.stereotype.Repository;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import com.sales.common.constant.AnomalyAlertType;
 
 @Repository
 public interface AnomalyAlertRepository extends JpaRepository<AnomalyAlert, String>, JpaSpecificationExecutor<AnomalyAlert> {
-
     @EntityGraph(attributePaths = {"household", "actorUser", "reviewedByUser"})
     @Query("SELECT a FROM AnomalyAlert a " +
             "LEFT JOIN a.household h " +
@@ -33,7 +33,7 @@ public interface AnomalyAlertRepository extends JpaRepository<AnomalyAlert, Stri
             "ORDER BY a.detectedAt DESC")
     Page<AnomalyAlert> findFilteredAlerts(
             @Param("householdId") String householdId,
-            @Param("alertType") com.sales.common.constant.AnomalyAlertType alertType,
+            @Param("alertType") AnomalyAlertType alertType,
             @Param("severity") AnomalySeverity severity,
             @Param("status") AnomalyAlertStatus status,
             @Param("actorUsername") String actorUsername,
@@ -68,7 +68,7 @@ public interface AnomalyAlertRepository extends JpaRepository<AnomalyAlert, Stri
 
     boolean existsByHouseholdIdAndAlertTypeAndActorUserIdAndDetectedAtBetween(
             String householdId,
-            com.sales.common.constant.AnomalyAlertType alertType,
+            AnomalyAlertType alertType,
             String actorUserId,
             LocalDateTime start,
             LocalDateTime end

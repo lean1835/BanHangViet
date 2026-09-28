@@ -9,7 +9,6 @@ import lombok.*;
 @NoArgsConstructor
 @AllArgsConstructor
 public class PointOfSaleRequest {
-
     @NotBlank(message = "Tên điểm bán không được để trống")
     @Size(max = 255, message = "Tên điểm bán không được vượt quá 255 ký tự")
     private String name;

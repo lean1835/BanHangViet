@@ -9,7 +9,6 @@ import lombok.*;
 @NoArgsConstructor
 @AllArgsConstructor
 public class UpdateInvoiceRequest {
-
     @Size(max = 100, message = "Tên người mua không được vượt quá 100 ký tự")
     private String buyerName;
 

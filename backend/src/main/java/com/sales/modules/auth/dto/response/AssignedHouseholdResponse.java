@@ -13,7 +13,6 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class AssignedHouseholdResponse {
-
     private String assignmentId;
     private String householdId;
     private String householdName;

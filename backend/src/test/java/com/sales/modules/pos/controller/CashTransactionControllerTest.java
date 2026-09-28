@@ -42,7 +42,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Transactional
 @SuppressWarnings("unused")
 public class CashTransactionControllerTest {
-
     @Autowired
     private MockMvc mockMvc;
 
@@ -112,13 +111,11 @@ public class CashTransactionControllerTest {
                         .isActive(true)
                         .build()));
 
-        // Ensure settings with threshold 200,000 VND
         BusinessHouseholdSettings settings = settingsRepository.findByHouseholdId(testHousehold.getId())
                 .orElseGet(() -> BusinessHouseholdSettings.builder().household(testHousehold).build());
         settings.setExpenseApprovalThreshold(new BigDecimal("200000.00"));
         settingsRepository.save(settings);
 
-        // Ensure active shift for testCashier
         testShift = shiftRepository.findByUserIdAndStatus(testCashier.getId(), ShiftStatus.OPEN)
                 .orElseGet(() -> shiftRepository.save(Shift.builder()
                         .household(testHousehold)

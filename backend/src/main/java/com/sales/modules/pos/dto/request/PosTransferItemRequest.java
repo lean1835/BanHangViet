@@ -12,7 +12,6 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 @AllArgsConstructor
 public class PosTransferItemRequest {
-
     @NotBlank(message = "Mã sản phẩm không được để trống")
     private String productId;
 

@@ -14,7 +14,6 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class BatchSavePriceTiersRequest {
-
     @Valid
     @NotEmpty(message = "Danh sách bậc giá không được để trống")
     private List<CreatePriceTierRequest> tiers;

@@ -17,7 +17,6 @@ import java.util.List;
 @RequiredArgsConstructor
 @Slf4j
 public class AutoBackupScheduler {
-
     private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm");
     private static final ZoneId VIETNAM_ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
 
@@ -41,7 +40,6 @@ public class AutoBackupScheduler {
                 continue;
             }
 
-            // So sánh giờ hiện tại với giờ hẹn scheduledTime (e.g., "01:00")
             if (currentHourMinute.equals(config.getScheduledTime())) {
                 log.info("Kích hoạt sao lưu tự động cho hộ kinh doanh id={} name={} tại thời điểm {}",
                         household.getId(), household.getName(), currentHourMinute);

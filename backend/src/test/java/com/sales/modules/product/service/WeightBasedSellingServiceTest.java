@@ -52,7 +52,6 @@ import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class WeightBasedSellingServiceTest {
-
     @Mock
     private OrderRepository orderRepository;
 
@@ -197,7 +196,7 @@ class WeightBasedSellingServiceTest {
         assertNotNull(res);
         assertEquals(1, res.getItems().size());
         assertEquals(new BigDecimal("0.355"), res.getItems().get(0).getQuantity());
-        // 0.355 * 150000 = 53250 -> ROUND_TO_1000 = 53000
+
         assertEquals(new BigDecimal("53000.00"), res.getItems().get(0).getSubtotal());
         assertEquals(new BigDecimal("-250.00"), res.getItems().get(0).getRoundingDifference());
         assertTrue(res.getItems().get(0).getIsSoldByWeight());
@@ -236,7 +235,7 @@ class WeightBasedSellingServiceTest {
         assertNotNull(res);
         assertEquals("COMPLETED", res.getStatus());
         verify(productRepository).deductStock(eq("prod-weight-1"), eq("hh-1"), eq(new BigDecimal("0.355")));
-        // 10.000 - 0.355 = 9.645
+
         assertEquals(new BigDecimal("9.645"), weightProduct.getStockQuantity());
     }
 
@@ -344,11 +343,6 @@ class WeightBasedSellingServiceTest {
     @Test
     @DisplayName("TC-03: Bán theo số tiền mua (50,000 VND) -> tự quy đổi khối lượng và tính lệch làm tròn")
     void addOrderItem_buyAmount_tc03_success() {
-        // Giá: 150,000 VND/kg, minWeightStep: 0.001, decimalPlaces: 3, rule: ROUND_TO_1000
-        // 50,000 / 150,000 = 0.33333333 -> steps = 333 -> quantity = 0.333 kg
-        // exactSubtotal = 0.333 * 150000 = 49950.00
-        // roundedSubtotal = ROUND_TO_1000(49950.00) = 50000.00
-        // roundingDifference = 50000 - 49950 = +50.00
         CreateOrderItemRequest req = CreateOrderItemRequest.builder()
                 .productId("prod-weight-1")
                 .buyAmount(new BigDecimal("50000"))
@@ -377,10 +371,10 @@ class WeightBasedSellingServiceTest {
     @Test
     @DisplayName("TC-03: Chặn khi số tiền mua quá nhỏ dẫn tới khối lượng quy đổi = 0")
     void addOrderItem_buyAmount_tooSmall_throwsBuyAmountTooSmall() {
-        weightProduct.setMinWeightStep(new BigDecimal("0.1")); // Bước 100 gram = 15,000 VND
+        weightProduct.setMinWeightStep(new BigDecimal("0.1"));
         CreateOrderItemRequest req = CreateOrderItemRequest.builder()
                 .productId("prod-weight-1")
-                .buyAmount(new BigDecimal("500")) // 500 VND < bước tối thiểu
+                .buyAmount(new BigDecimal("500"))
                 .build();
 
         when(userRepository.findByUsername("cashier")).thenReturn(Optional.of(currentUser));
@@ -444,7 +438,7 @@ class WeightBasedSellingServiceTest {
                 .subtotal(new BigDecimal("53000.00"))
                 .build();
         order.getItems().add(item);
-        // Cố tình tạo lệch: totalAmount = 50000 != 53000
+
         order.setTotalAmount(new BigDecimal("50000.00"));
         order.setFinalAmount(new BigDecimal("50000.00"));
 
@@ -464,12 +458,11 @@ class WeightBasedSellingServiceTest {
     @Test
     @DisplayName("QTN-08: Cảnh báo khi số lượng hàng cân vượt tồn kho nhưng không chặn tạo đơn")
     void addOrderItem_stockWarningQTN08_whenStockExceeded() {
-        // Tồn kho chỉ còn 0.200 kg
         weightProduct.setStockQuantity(new BigDecimal("0.200"));
 
         CreateOrderItemRequest req = CreateOrderItemRequest.builder()
                 .productId("prod-weight-1")
-                .quantity(new BigDecimal("0.500")) // 0.500 kg > 0.200 kg
+                .quantity(new BigDecimal("0.500"))
                 .build();
 
         when(userRepository.findByUsername("cashier")).thenReturn(Optional.of(currentUser));
@@ -493,21 +486,21 @@ class WeightBasedSellingServiceTest {
     @Test
     @DisplayName("F-05: Bán hàng theo cân kết hợp đơn vị quy đổi (0.5 Yến = 5 kg >= minWeightStep 1 kg) không bị chặn oan")
     void addOrderItem_weightProductWithUnitConversion_validBaseQuantity_success() {
-        weightProduct.setMinWeightStep(BigDecimal.ONE); // 1.000 kg
+        weightProduct.setMinWeightStep(BigDecimal.ONE);
         weightProduct.setDecimalPlaces(3);
 
         ProductUnitConversion yenConversion = ProductUnitConversion.builder()
                 .id("conv-yen")
                 .product(weightProduct)
                 .unitName("Yến")
-                .conversionFactor(new BigDecimal("10.000")) // 1 Yến = 10 kg
+                .conversionFactor(new BigDecimal("10.000"))
                 .price(new BigDecimal("150000.00"))
                 .build();
 
         CreateOrderItemRequest req = CreateOrderItemRequest.builder()
                 .productId("prod-weight-1")
                 .unitConversionId("conv-yen")
-                .quantity(new BigDecimal("0.500")) // 0.500 Yến (= 5.000 kg >= 1.000 kg min step)
+                .quantity(new BigDecimal("0.500"))
                 .build();
 
         when(userRepository.findByUsername("cashier")).thenReturn(Optional.of(currentUser));

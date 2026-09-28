@@ -16,7 +16,6 @@ import java.util.Optional;
 
 @Repository
 public interface AppNotificationRepository extends JpaRepository<AppNotification, String>, JpaSpecificationExecutor<AppNotification> {
-
     Page<AppNotification> findByHouseholdIdOrderByCreatedAtDesc(String householdId, Pageable pageable);
 
     long countByHouseholdIdAndIsReadFalse(String householdId);
@@ -58,11 +57,6 @@ public interface AppNotificationRepository extends JpaRepository<AppNotification
     List<AppNotification> findByHouseholdIdAndIsReadFalseAndIsClosedFalseAndCreatedAtGreaterThanEqual(
             String householdId, LocalDateTime threshold);
 
-    // =========================================================================
-    // Badge Count Queries (Header Bar - NCL-19-CN-002)
-    // =========================================================================
-
-    // 1. Đếm unread cho Chủ hộ / Kế toán (loại trừ danh sách type bị tắt)
     @Query("SELECT COUNT(n) FROM AppNotification n " +
            "WHERE n.household.id = :householdId " +
            "AND n.isClosed = false " +
@@ -76,7 +70,6 @@ public interface AppNotificationRepository extends JpaRepository<AppNotification
             @Param("threshold") LocalDateTime threshold
     );
 
-    // 2. Đếm unclosed cho Chủ hộ / Kế toán
     @Query("SELECT COUNT(n) FROM AppNotification n " +
            "WHERE n.household.id = :householdId " +
            "AND n.isClosed = false " +
@@ -89,7 +82,6 @@ public interface AppNotificationRepository extends JpaRepository<AppNotification
             @Param("threshold") LocalDateTime threshold
     );
 
-    // 3. Đếm theo severity cho Chủ hộ / Kế toán
     @Query("SELECT COUNT(n) FROM AppNotification n " +
            "WHERE n.household.id = :householdId " +
            "AND n.isClosed = false " +
@@ -104,7 +96,6 @@ public interface AppNotificationRepository extends JpaRepository<AppNotification
             @Param("threshold") LocalDateTime threshold
     );
 
-    // 4. Đếm unread cho NV bán hàng (VT-02 - QTN-10)
     @Query("SELECT COUNT(n) FROM AppNotification n " +
            "WHERE n.household.id = :householdId " +
            "AND n.isClosed = false " +
@@ -119,7 +110,6 @@ public interface AppNotificationRepository extends JpaRepository<AppNotification
             @Param("threshold") LocalDateTime threshold
     );
 
-    // 5. Đếm unclosed cho NV bán hàng (VT-02 - QTN-10)
     @Query("SELECT COUNT(n) FROM AppNotification n " +
            "WHERE n.household.id = :householdId " +
            "AND n.isClosed = false " +
@@ -133,7 +123,6 @@ public interface AppNotificationRepository extends JpaRepository<AppNotification
             @Param("threshold") LocalDateTime threshold
     );
 
-    // 6. Đếm theo severity cho NV bán hàng (VT-02 - QTN-10)
     @Query("SELECT COUNT(n) FROM AppNotification n " +
            "WHERE n.household.id = :householdId " +
            "AND n.isClosed = false " +
@@ -149,9 +138,6 @@ public interface AppNotificationRepository extends JpaRepository<AppNotification
             @Param("threshold") LocalDateTime threshold
     );
 
-    // =========================================================================
-    // Scheduled Retention Cleanup (30 ngày)
-    // =========================================================================
     @Modifying
     @Query("DELETE FROM AppNotification n WHERE n.createdAt < :cutoffDate")
     long deleteByCreatedAtBefore(@Param("cutoffDate") LocalDateTime cutoffDate);

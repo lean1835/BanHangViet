@@ -16,7 +16,7 @@ public class SyncResolveRequest {
     private String orderNumber;
 
     @NotNull(message = "Chiến lược giải quyết không được để trống")
-    private ConflictResolutionStrategy resolutionStrategy; // OVERWRITE_SERVER, KEEP_SERVER, KEEP_BOTH
+    private ConflictResolutionStrategy resolutionStrategy;
 
     @Valid
     private OfflineOrderRequest clientOrderData;

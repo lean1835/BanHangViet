@@ -21,7 +21,7 @@ public class BankTransferItemResponse {
     private String confirmedByUsername;
     private String confirmedByFullName;
     @SuppressWarnings("unused")
-    private String confirmedByUserName; // Kept for backward compatibility
+    private String confirmedByUserName;
     private String notes;
     private Boolean isTransferOverdue;
     private LocalDateTime createdAt;

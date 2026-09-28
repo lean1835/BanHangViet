@@ -21,7 +21,6 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 public class HouseholdAccountantAssignment {
-
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     @Column(length = 36, nullable = false)
@@ -40,7 +39,7 @@ public class HouseholdAccountantAssignment {
     private AccountantInvitation invitation;
 
     @Column(name = "scope_permissions", nullable = false, columnDefinition = "JSON")
-    private String scopePermissions; // JSON array, e.g. ["INVOICE", "REPORT", "TAX_DECLARATION"]
+    private String scopePermissions;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)

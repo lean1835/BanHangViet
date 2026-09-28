@@ -14,7 +14,6 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ProductGroupReportResponse {
-
     @Builder.Default
     private BigDecimal totalRevenue = BigDecimal.ZERO;
 

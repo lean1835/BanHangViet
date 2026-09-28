@@ -34,16 +34,17 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import com.sales.modules.product.repository.ProductPriceTierRepository;
+import org.springframework.beans.factory.annotation.Autowired;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class ProductUnitConversionServiceImpl implements ProductUnitConversionService {
-
     private final UserRepository userRepository;
     private final ProductRepository productRepository;
     private final ProductUnitConversionRepository productUnitConversionRepository;
-    private final com.sales.modules.product.repository.ProductPriceTierRepository productPriceTierRepository;
+    private final ProductPriceTierRepository productPriceTierRepository;
     private final GoodsReceiptDetailRepository goodsReceiptDetailRepository;
     private final OrderItemRepository orderItemRepository;
     private final ReturnTicketItemRepository returnTicketItemRepository;
@@ -51,7 +52,7 @@ public class ProductUnitConversionServiceImpl implements ProductUnitConversionSe
     private final ActivityLogHelper activityLogHelper;
     private final ObjectMapper objectMapper;
 
-    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    @Autowired(required = false)
     private ProductExchangeItemRepository productExchangeItemRepository;
 
     private User getAuthenticatedUser(String username) {
@@ -93,10 +94,8 @@ public class ProductUnitConversionServiceImpl implements ProductUnitConversionSe
 
         Product product = getProductBelongingToHousehold(productId, household.getId());
 
-        // Validate conversion factor
         validateConversionFactor(request.getConversionFactor());
 
-        // Validate unit name
         String unitName = request.getUnitName().trim();
         if (product.getUnit().equalsIgnoreCase(unitName)) {
             throw new AppException(ErrorCode.DUPLICATE_UNIT_CONVERSION_NAME);
@@ -105,13 +104,11 @@ public class ProductUnitConversionServiceImpl implements ProductUnitConversionSe
             throw new AppException(ErrorCode.DUPLICATE_UNIT_CONVERSION_NAME);
         }
 
-        // Validate barcode uniqueness if provided
         String barcode = StringUtils.hasText(request.getBarcode()) ? request.getBarcode().trim() : null;
         if (barcode != null) {
             validateBarcodeUniqueness(household.getId(), barcode, null);
         }
 
-        // Handle default flags
         Boolean isDefaultImport = Boolean.TRUE.equals(request.getIsDefaultImport());
         Boolean isDefaultSale = Boolean.TRUE.equals(request.getIsDefaultSale());
 
@@ -156,7 +153,6 @@ public class ProductUnitConversionServiceImpl implements ProductUnitConversionSe
 
         Map<String, Object> oldLogMap = buildConversionLogMap(conversion);
 
-        // TC-03: If conversionFactor is changed, check if product has stock movements
         boolean factorChanged = conversion.getConversionFactor().compareTo(request.getConversionFactor()) != 0;
         if (factorChanged) {
             boolean movementExists = hasStockMovement(productId, household.getId());
@@ -168,7 +164,6 @@ public class ProductUnitConversionServiceImpl implements ProductUnitConversionSe
             conversion.setConversionFactor(request.getConversionFactor());
         }
 
-        // Validate unit name
         String unitName = request.getUnitName().trim();
         if (product.getUnit().equalsIgnoreCase(unitName)) {
             throw new AppException(ErrorCode.DUPLICATE_UNIT_CONVERSION_NAME);
@@ -178,14 +173,12 @@ public class ProductUnitConversionServiceImpl implements ProductUnitConversionSe
         }
         conversion.setUnitName(unitName);
 
-        // Validate barcode uniqueness if provided
         String barcode = StringUtils.hasText(request.getBarcode()) ? request.getBarcode().trim() : null;
         if (barcode != null) {
             validateBarcodeUniqueness(household.getId(), barcode, conversionId);
         }
         conversion.setBarcode(barcode);
 
-        // Handle default flags
         Boolean isDefaultImport = Boolean.TRUE.equals(request.getIsDefaultImport());
         Boolean isDefaultSale = Boolean.TRUE.equals(request.getIsDefaultSale());
 
@@ -222,7 +215,6 @@ public class ProductUnitConversionServiceImpl implements ProductUnitConversionSe
         ProductUnitConversion conversion = productUnitConversionRepository.findByIdAndProductId(conversionId, productId)
                 .orElseThrow(() -> new AppException(ErrorCode.UNIT_CONVERSION_NOT_FOUND));
 
-        // Check if this conversion is referenced by any receipt, order item, or price tier
         if (goodsReceiptDetailRepository.existsByUnitConversionId(conversionId) ||
             orderItemRepository.existsByUnitConversionId(conversionId) ||
             (productPriceTierRepository != null && productPriceTierRepository.existsByUnitConversionId(conversionId))) {

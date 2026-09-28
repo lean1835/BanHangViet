@@ -10,7 +10,6 @@ import java.util.List;
 
 @Repository
 public interface TaxSalesRegisterRepository extends JpaRepository<TaxSalesRegister, String> {
-
     @EntityGraph(attributePaths = {"invoice", "period"})
     Page<TaxSalesRegister> findByPeriodId(String periodId, Pageable pageable);
 

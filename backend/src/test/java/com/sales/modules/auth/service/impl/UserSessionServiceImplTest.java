@@ -37,7 +37,6 @@ import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 public class UserSessionServiceImplTest {
-
     @Mock
     private UserSessionRepository userSessionRepository;
 
@@ -141,9 +140,6 @@ public class UserSessionServiceImplTest {
                 .build();
     }
 
-    // =========================================================================
-    // NCL-01-CN-007-TC-01: Chủ hộ đăng xuất từ xa một phiên lạ thành công
-    // =========================================================================
     @Test
     @DisplayName("NCL-01-CN-007-TC-01: Chủ hộ đăng xuất từ xa một phiên lạ thành công và phiên bị cắt ngay lập tức")
     void testRevokeSession_Success_ByOwner() {
@@ -159,19 +155,14 @@ public class UserSessionServiceImplTest {
         assertEquals("user-owner-01", activeStaffSession.getRevokedByUser().getId());
         assertEquals("Nghi ngờ thiết bị lạ đăng nhập trái phép", activeStaffSession.getRevokeReason());
 
-        // Kiểm tra việc phiên bị cắt ngay ở lần gọi tiếp theo
         boolean isValid = userSessionService.validateSession("sess-staff-123");
         assertFalse(isValid, "Phiên bị đăng xuất từ xa phải trả về invalid ngay lập tức ở lần gọi tiếp theo");
 
-        // Kiểm tra ghi vết nhật ký kiểm toán vào ActivityLog
         verify(activityLogHelper, times(1)).logActivityInNewTransaction(
                 eq(household), eq(owner), eq("REMOTE_LOGOUT_SESSION"), eq("user_sessions"),
                 eq("sess-staff-123"), isNull(), any(), any(), any());
     }
 
-    // =========================================================================
-    // NCL-01-CN-007-TC-02: Phân quyền xem danh sách phiên đăng nhập
-    // =========================================================================
     @Test
     @DisplayName("NCL-01-CN-007-TC-02: Nhân viên bán hàng chỉ xem được danh sách phiên của chính mình")
     void testGetSessions_ByStaff_ReturnsOnlyOwnSessions() {
@@ -216,13 +207,9 @@ public class UserSessionServiceImplTest {
         verify(userSessionRepository, times(1)).findActiveSessionsByHouseholdId("hh-001");
     }
 
-    // =========================================================================
-    // NCL-01-CN-007-TC-03: Ngoại lệ - Thiết bị bị đăng xuất còn đơn đang treo không bị mất
-    // =========================================================================
     @Test
     @DisplayName("NCL-01-CN-007-TC-03: Thiết bị bị đăng xuất khi còn đơn đang treo (CREATING), dữ liệu đơn hàng vẫn bảo toàn nguyên vẹn")
     void testRemoteRevoke_PreservesPendingDraftOrders() {
-        // 1. Giả lập đơn hàng dở dang đang treo (CREATING) của nhân viên
         Order pendingOrder = Order.builder()
                 .id("order-draft-001")
                 .orderNumber("HD-20260907-0001")
@@ -239,28 +226,21 @@ public class UserSessionServiceImplTest {
         when(userSessionRepository.findByIdWithHousehold("sess-staff-123")).thenReturn(Optional.of(activeStaffSession));
         when(userSessionRepository.save(any(UserSession.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        // 2. Chủ hộ tiến hành đăng xuất từ xa phiên của nhân viên
         userSessionService.revokeSession("sess-staff-123", "Đăng xuất thiết bị bán hàng cuối ca", "chuho_viet");
 
-        // 3. Xác nhận phiên đã bị hủy và không thể gọi API tiếp
         assertTrue(activeStaffSession.getIsRevoked());
         assertFalse(userSessionService.validateSession("sess-staff-123"));
 
-        // 4. Kiểm tra đơn hàng đang treo trong DB: trạng thái và số liệu không bị mất hoặc biến đổi
         assertEquals("CREATING", pendingOrder.getStatus());
         assertEquals("PENDING", pendingOrder.getPaymentStatus());
         assertEquals(new BigDecimal("250000.00"), pendingOrder.getFinalAmount());
         assertEquals("user-staff-02", pendingOrder.getCreatedByUser().getId());
 
-        // 5. Nhân viên tạo phiên mới khi đăng nhập lại và truy vấn lại đơn hàng
         UserSession newSession = userSessionService.createSession(staff, "192.168.1.100", "POS Terminal");
         assertNotNull(newSession);
         assertFalse(newSession.getIsRevoked());
     }
 
-    // =========================================================================
-    // Auto Idle Timeout Tests
-    // =========================================================================
     @Test
     @DisplayName("Tự động hết hạn phiên khi thời gian không thao tác vượt quá cấu hình sessionTimeoutMinutes của hộ")
     void testValidateSession_AutoExpires_WhenExceedingIdleTimeout() {
@@ -327,9 +307,6 @@ public class UserSessionServiceImplTest {
         assertFalse(activeSession.getIsRevoked());
     }
 
-    // =========================================================================
-    // Đăng xuất toàn bộ phiên của một người dùng
-    // =========================================================================
     @Test
     @DisplayName("Chủ hộ đăng xuất toàn bộ phiên của một tài khoản nhân viên thành công")
     void testRevokeAllSessionsForUser_Success_ByOwner() {
@@ -347,9 +324,6 @@ public class UserSessionServiceImplTest {
                 eq("user-staff-02"), isNull(), any(), any(), any());
     }
 
-    // =========================================================================
-    // Cấu hình thời gian tự hết hạn phiên (Session Settings)
-    // =========================================================================
     @Test
     @DisplayName("Chủ hộ xem và cập nhật cấu hình thời gian hết hạn phiên thành công")
     void testSessionSettings_Owner_Success() {
@@ -405,9 +379,6 @@ public class UserSessionServiceImplTest {
         assertEquals(ErrorCode.FORBIDDEN, ex.getErrorCode());
     }
 
-    // =========================================================================
-    // Error Handling & Validation Tests
-    // =========================================================================
     @Test
     @DisplayName("Đăng xuất phiên không tồn tại ném SESSION_NOT_FOUND")
     void testRevokeSession_NotFound_ThrowsException() {
@@ -437,7 +408,6 @@ public class UserSessionServiceImplTest {
         when(userRepository.findByUsername("nhanvien_pos")).thenReturn(Optional.of(staff));
         when(userSessionRepository.findById("sess-staff-123")).thenReturn(Optional.of(activeStaffSession));
 
-        // Đổi user của session thành owner
         activeStaffSession.setUser(owner);
 
         AppException ex = assertThrows(AppException.class, () ->

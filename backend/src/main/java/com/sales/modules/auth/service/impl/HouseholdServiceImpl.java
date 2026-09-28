@@ -27,7 +27,6 @@ import java.util.regex.Pattern;
 @RequiredArgsConstructor
 @Slf4j
 public class HouseholdServiceImpl implements HouseholdService {
-
     private final BusinessHouseholdRepository householdRepository;
     private final UserRepository userRepository;
     private final ActivityLogHelper activityLogHelper;
@@ -45,7 +44,6 @@ public class HouseholdServiceImpl implements HouseholdService {
     public HouseholdResponse getMyHousehold(String currentUsername) {
         User currentUser = getAuthenticatedUser(currentUsername);
 
-        // Kiểm tra vai trò chủ hộ kinh doanh (VT-01)
         if (!"VT-01".equals(currentUser.getRole().getCode())) {
             throw new AppException(ErrorCode.FORBIDDEN);
         }
@@ -63,7 +61,6 @@ public class HouseholdServiceImpl implements HouseholdService {
     public HouseholdResponse updateMyHousehold(String currentUsername, UpdateHouseholdRequest request) {
         User currentUser = getAuthenticatedUser(currentUsername);
 
-        // Kiểm tra vai trò chủ hộ kinh doanh (VT-01)
         if (!"VT-01".equals(currentUser.getRole().getCode())) {
             throw new AppException(ErrorCode.FORBIDDEN);
         }
@@ -75,12 +72,10 @@ public class HouseholdServiceImpl implements HouseholdService {
 
         String newTaxCode = request.getTaxCode() != null ? request.getTaxCode().trim() : "";
 
-        // Validate MST định dạng 10 hoặc 13 chữ số
         if (!TAX_CODE_PATTERN.matcher(newTaxCode).matches()) {
             throw new AppException(ErrorCode.INVALID_TAX_CODE);
         }
 
-        // Kiểm tra trùng MST với các hộ kinh doanh khác
         if (householdRepository.existsByTaxCodeAndIdNot(newTaxCode, household.getId())) {
             throw new AppException(ErrorCode.TAX_CODE_ALREADY_EXISTS);
         }

@@ -34,10 +34,11 @@ import java.util.*;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.when;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.time.LocalTime;
 
 @ExtendWith(MockitoExtension.class)
 class InventoryValuationReportServiceImplTest {
-
     @Mock
     private UserRepository userRepository;
 
@@ -63,7 +64,7 @@ class InventoryValuationReportServiceImplTest {
     private ActivityLogHelper activityLogHelper;
 
     @Mock
-    private com.fasterxml.jackson.databind.ObjectMapper objectMapper;
+    private ObjectMapper objectMapper;
 
     @InjectMocks
     private InventoryValuationReportServiceImpl service;
@@ -112,7 +113,6 @@ class InventoryValuationReportServiceImplTest {
         groupDrinks = ProductGroup.builder().id("grp-drinks").name("Đồ Uống").household(household).build();
         groupFoods = ProductGroup.builder().id("grp-foods").name("Thực Phẩm").household(household).build();
 
-        // 1. Bia: 80 thùng, cost 300.000, price 350.000 -> Value = 24.000.000
         prodBeer = Product.builder()
                 .id("p-beer")
                 .sku("BIA-01")
@@ -126,7 +126,6 @@ class InventoryValuationReportServiceImplTest {
                 .createdAt(LocalDateTime.now().minusDays(30))
                 .build();
 
-        // 2. Nước suối: 100 lốc, cost 50.000, price 60.000 -> Value = 5.000.000
         prodWater = Product.builder()
                 .id("p-water")
                 .sku("NUOC-01")
@@ -140,7 +139,6 @@ class InventoryValuationReportServiceImplTest {
                 .createdAt(LocalDateTime.now().minusDays(20))
                 .build();
 
-        // 3. Bánh snack: 50 gói, cost 8.000, price 10.000 -> Value = 400.000
         prodSnack = Product.builder()
                 .id("p-snack")
                 .sku("SNACK-01")
@@ -154,7 +152,6 @@ class InventoryValuationReportServiceImplTest {
                 .createdAt(LocalDateTime.now().minusDays(10))
                 .build();
 
-        // 4. Hàng mới chưa có giá vốn: 15 cái, costPrice = null (hoặc 0), price 20.000
         prodMissingCost = Product.builder()
                 .id("p-missing")
                 .sku("NEW-01")
@@ -176,7 +173,6 @@ class InventoryValuationReportServiceImplTest {
         when(productRepository.findProductsForValuationReport(eq("hh-100"), any(), any()))
                 .thenReturn(List.of(prodBeer, prodWater, prodSnack));
 
-        // Mock ngày nhập gần nhất
         List<Object[]> receiptDates = new ArrayList<>();
         receiptDates.add(new Object[]{"p-beer", LocalDateTime.now().minusDays(10)});
         receiptDates.add(new Object[]{"p-water", LocalDateTime.now().minusDays(15)});
@@ -189,17 +185,14 @@ class InventoryValuationReportServiceImplTest {
         assertNotNull(report);
         assertNotNull(report.getSummary());
 
-        // Tổng giá trị vốn: (80 * 300k) + (100 * 50k) + (50 * 8k) = 24tr + 5tr + 400k = 29.400.000
         assertEquals(new BigDecimal("29400000.00"), report.getSummary().getTotalInventoryValue());
-        // Tổng giá trị bán: (80 * 350k) + (100 * 60k) + (50 * 10k) = 28tr + 6tr + 500k = 34.500.000
+
         assertEquals(new BigDecimal("34500000.00"), report.getSummary().getTotalRetailValue());
-        // Tổng tồn kho có vốn: 80 + 100 + 50 = 230
+
         assertEquals(new BigDecimal("230.000"), report.getSummary().getTotalStockQuantity());
 
-        // Lãi tiềm năng: 34.500.000 - 29.400.000 = 5.100.000
         assertEquals(new BigDecimal("5100000.00"), report.getSummary().getPotentialGrossProfit());
 
-        // Kiểm tra danh sách mặt hàng đã sắp xếp theo giá trị vốn giảm dần (Bia 24tr > Nước 5tr > Snack 400k)
         List<InventoryValuationItemResponse> items = report.getItems();
         assertEquals(3, items.size());
         assertEquals("BIA-01", items.get(0).getSku());
@@ -209,7 +202,6 @@ class InventoryValuationReportServiceImplTest {
         assertEquals("SNACK-01", items.get(2).getSku());
         assertEquals(new BigDecimal("400000.00"), items.get(2).getInventoryValue());
 
-        // Kiểm tra phân tích nhóm hàng (Đồ uống 29tr, Thực phẩm 400k)
         List<ProductGroupValuationResponse> groups = report.getGroupValuations();
         assertEquals(2, groups.size());
         assertEquals("Đồ Uống", groups.get(0).getGroupName());
@@ -217,7 +209,6 @@ class InventoryValuationReportServiceImplTest {
         assertEquals("Thực Phẩm", groups.get(1).getGroupName());
         assertEquals(new BigDecimal("400000.00"), groups.get(1).getTotalInventoryValue());
 
-        // Không có mặt hàng thiếu giá vốn
         assertTrue(report.getMissingCostItems().isEmpty());
     }
 
@@ -236,13 +227,12 @@ class InventoryValuationReportServiceImplTest {
                 "chu_ho", null, null, null, "inventoryValue", "desc");
 
         assertNotNull(report);
-        // Tổng giá trị chỉ tính hàng Bia: 24.000.000, không bị cộng hàng thiếu vốn
+
         assertEquals(new BigDecimal("24000000.00"), report.getSummary().getTotalInventoryValue());
         assertEquals(1L, report.getSummary().getValuedProductsCount());
         assertEquals(1L, report.getSummary().getMissingCostProductsCount());
         assertEquals(new BigDecimal("15.000"), report.getSummary().getMissingCostStockQuantity());
 
-        // Kiểm tra danh sách thiếu giá vốn
         List<MissingCostProductResponse> missingList = report.getMissingCostItems();
         assertEquals(1, missingList.size());
         assertEquals("NEW-01", missingList.get(0).getSku());
@@ -278,12 +268,11 @@ class InventoryValuationReportServiceImplTest {
     void testInventoryValuation_HistoricalDate() {
         when(userRepository.findByUsername("chu_ho")).thenReturn(Optional.of(ownerUser));
         LocalDate pastDate = LocalDate.now().minusDays(10);
-        LocalDateTime endDateTime = pastDate.atTime(java.time.LocalTime.MAX);
+        LocalDateTime endDateTime = pastDate.atTime(LocalTime.MAX);
 
         when(productRepository.findProductsForValuationReport(eq("hh-100"), any(), any()))
                 .thenReturn(List.of(prodBeer));
 
-        // Mock tồn quá khứ: Nhập 100, xuất 30 -> Tồn 70
         List<Object[]> inList = Collections.singletonList(new Object[]{"p-beer", new BigDecimal("100.000")});
         List<Object[]> outList = Collections.singletonList(new Object[]{"p-beer", new BigDecimal("30.000")});
         when(goodsReceiptDetailRepository.sumQuantityBeforeGroupedByProduct("hh-100", endDateTime)).thenReturn(inList);
@@ -302,9 +291,8 @@ class InventoryValuationReportServiceImplTest {
         assertTrue(report.getSummary().getIsHistorical());
         assertEquals(pastDate, report.getSummary().getAsOfDate());
 
-        // Số tồn lịch sử là 70 (100 - 30)
         assertEquals(new BigDecimal("70.000"), report.getItems().get(0).getStockQuantity());
-        // Giá trị tồn lịch sử = 70 * 300k = 21.000.000
+
         assertEquals(new BigDecimal("21000000.00"), report.getItems().get(0).getInventoryValue());
     }
 
@@ -358,7 +346,6 @@ class InventoryValuationReportServiceImplTest {
         receiptDates.add(new Object[]{"p-beer", LocalDateTime.now().minusDays(5)});
         when(goodsReceiptDetailRepository.findLatestReceiptDatesByHousehold("hh-100")).thenReturn(receiptDates);
 
-        // Sort theo productName asc - không bị NullPointerException và phần tử null nằm ở cuối
         InventoryValuationReportResponse report = service.getInventoryValuationReport(
                 "chu_ho", null, null, null, "productName", "asc");
 
@@ -392,12 +379,11 @@ class InventoryValuationReportServiceImplTest {
     void testInventoryValuation_SafeTypeCast_P2_01() {
         when(userRepository.findByUsername("chu_ho")).thenReturn(Optional.of(ownerUser));
         LocalDate pastDate = LocalDate.now().minusDays(5);
-        LocalDateTime endDateTime = pastDate.atTime(java.time.LocalTime.MAX);
+        LocalDateTime endDateTime = pastDate.atTime(LocalTime.MAX);
 
         when(productRepository.findProductsForValuationReport(eq("hh-100"), any(), any()))
                 .thenReturn(List.of(prodBeer));
 
-        // Mock kết quả query trả về Long hoặc Double thay vì BigDecimal
         List<Object[]> inListWithLong = Collections.singletonList(new Object[]{"p-beer", 50L});
         List<Object[]> outListWithDouble = Collections.singletonList(new Object[]{"p-beer", 20.5});
 
@@ -415,7 +401,7 @@ class InventoryValuationReportServiceImplTest {
                     "chu_ho", pastDate, null, null, "inventoryValue", "desc");
             assertNotNull(report);
             assertEquals(1, report.getItems().size());
-            // 50 - 20.5 = 29.500 (scale 3 cho stock)
+
             assertEquals(new BigDecimal("29.500"), report.getItems().get(0).getStockQuantity());
         });
     }
@@ -449,13 +435,13 @@ class InventoryValuationReportServiceImplTest {
                 .household(household)
                 .group(ProductGroup.builder().id("grp-neg").name("Nhóm Âm Kho").household(household).build())
                 .costPrice(new BigDecimal("100000.00"))
-                .stockQuantity(new BigDecimal("-100.000")) // Value = -10.000.000
+                .stockQuantity(new BigDecimal("-100.000"))
                 .price(new BigDecimal("120000.00"))
                 .createdAt(LocalDateTime.now().minusDays(5))
                 .build();
 
         when(userRepository.findByUsername("chu_ho")).thenReturn(Optional.of(ownerUser));
-        // prodBeer (24.000.000), prodSnack (400.000) và prodNegative (-10.000.000)
+
         when(productRepository.findProductsForValuationReport(eq("hh-100"), any(), any()))
                 .thenReturn(List.of(prodBeer, prodSnack, prodNegative));
 
@@ -469,13 +455,11 @@ class InventoryValuationReportServiceImplTest {
         List<ProductGroupValuationResponse> groups = report.getGroupValuations();
         assertEquals(3, groups.size());
 
-        // Nhóm Đồ Uống (prodBeer: 24.000.000) phải có tỷ trọng > 0 (24tr / 24.4tr = ~98.36%)
         ProductGroupValuationResponse beerGroup = groups.stream()
                 .filter(g -> "Đồ Uống".equals(g.getGroupName()))
                 .findFirst().orElseThrow();
         assertTrue(beerGroup.getValuePercentage().compareTo(BigDecimal.ZERO) > 0, "Tỷ trọng nhóm Đồ Uống phải > 0%");
 
-        // Nhóm Âm Kho (-10.000.000) tỷ trọng = 0%
         ProductGroupValuationResponse negGroup = groups.stream()
                 .filter(g -> "Nhóm Âm Kho".equals(g.getGroupName()))
                 .findFirst().orElseThrow();

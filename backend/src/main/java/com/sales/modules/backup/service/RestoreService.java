@@ -9,7 +9,6 @@ import com.sales.modules.backup.dto.response.RestoreResultResponse;
 import java.util.List;
 
 public interface RestoreService {
-
     List<BackupHistoryResponse> getAvailableBackupsForRestore(String currentUsername);
 
     RestorePreviewResponse previewBackupForRestore(String currentUsername, String backupHistoryId);

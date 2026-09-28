@@ -11,7 +11,6 @@ import com.sales.modules.support.dto.request.UpdateScreenGuideRequest;
 import java.util.List;
 
 public interface ScreenGuideService {
-
     ScreenGuideResponse getGuideByScreenCode(String currentUsername, String screenCode);
 
     void trackGuideView(String currentUsername, String screenCode, TrackScreenGuideViewRequest request);

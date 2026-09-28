@@ -6,7 +6,6 @@ import com.sales.common.dto.PageResponse;
 import com.sales.modules.audit.dto.response.UpdateWarningThresholdResponse;
 
 public interface AnnualRevenueTrackingService {
-
     AnnualRevenueTrackingResponse getAnnualRevenueTracking(String currentUsername, Integer year);
 
     UpdateWarningThresholdResponse updateWarningThreshold(String currentUsername, UpdateWarningThresholdRequest request);

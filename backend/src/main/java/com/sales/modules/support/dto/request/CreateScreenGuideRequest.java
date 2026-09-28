@@ -11,7 +11,6 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class CreateScreenGuideRequest {
-
     @NotBlank(message = "Mã màn hình không được để trống")
     @Size(max = 50, message = "Mã màn hình không quá 50 ký tự")
     @Pattern(regexp = "^[A-Z0-9_]+$", message = "Mã màn hình chỉ bao gồm chữ HOA, số và dấu gạch dưới")

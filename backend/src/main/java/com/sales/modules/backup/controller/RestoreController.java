@@ -20,7 +20,6 @@ import java.util.List;
 @RequestMapping("/api/v1/restore")
 @RequiredArgsConstructor
 public class RestoreController {
-
     private final RestoreService restoreService;
 
     @GetMapping("/backups")

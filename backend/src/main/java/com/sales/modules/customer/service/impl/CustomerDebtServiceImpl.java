@@ -44,7 +44,6 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Slf4j
 public class CustomerDebtServiceImpl implements CustomerDebtService {
-
     private final UserRepository userRepository;
     private final CustomerRepository customerRepository;
     private final CustomerDebtRepository customerDebtRepository;
@@ -147,19 +146,16 @@ public class CustomerDebtServiceImpl implements CustomerDebtService {
             throw new AppException(ErrorCode.FORBIDDEN);
         }
 
-        // Khóa bi quan khách hàng để tránh race condition khi cập nhật nợ
         Customer customer = customerRepository.findByIdAndHouseholdIdAndDeletedAtIsNullForUpdate(
                 request.getCustomerId(), household.getId())
                 .orElseThrow(() -> new AppException(ErrorCode.CUSTOMER_NOT_FOUND));
 
         BigDecimal paymentAmount = request.getAmount();
 
-        // Chặn thu nợ nhiều hơn dư nợ hiện tại (ngăn current_debt < 0 do ràng buộc DB)
         if (paymentAmount.compareTo(customer.getCurrentDebt()) > 0) {
             throw new AppException(ErrorCode.INVALID_DEBT_PAYMENT_AMOUNT);
         }
 
-        // Lấy các khoản nợ đang nợ (PENDING/OVERDUE) cũ nhất để trả theo nguyên tắc FIFO
         List<CustomerDebt> activeDebts = customerDebtRepository.findByCustomerIdAndHouseholdIdAndStatusInAndTypeOrderByCreatedAtAsc(
                 customer.getId(), household.getId(), List.of(DebtStatus.PENDING, DebtStatus.OVERDUE), DebtType.DEBT_CREATED);
 
@@ -194,7 +190,6 @@ public class CustomerDebtServiceImpl implements CustomerDebtService {
         if (!updatedDebts.isEmpty()) {
             customerDebtRepository.saveAll(updatedDebts);
 
-            // NCL-19-CN-002 & QTN-14: Tự động đóng thông báo nhắc nợ khi khoản nợ đã thanh toán đủ
             if (appNotificationService != null) {
                 for (CustomerDebt debt : updatedDebts) {
                     if (DebtStatus.PAID.equals(debt.getStatus())) {
@@ -208,11 +203,9 @@ public class CustomerDebtServiceImpl implements CustomerDebtService {
             }
         }
 
-        // Trừ dư nợ hiện tại của khách hàng
         customer.setCurrentDebt(customer.getCurrentDebt().subtract(paymentAmount));
         customerRepository.save(customer);
 
-        // Tạo bản ghi giao dịch trả nợ DEBT_PAID
         CustomerDebt paymentRecord = CustomerDebt.builder()
                 .household(household)
                 .customer(customer)
@@ -221,7 +214,7 @@ public class CustomerDebtServiceImpl implements CustomerDebtService {
                 .type(DebtType.DEBT_PAID)
                 .status(DebtStatus.PAID)
                 .dueDate(LocalDateTime.now())
-                .notes(request.getNotes() != null && !request.getNotes().trim().isEmpty() 
+                .notes(request.getNotes() != null && !request.getNotes().trim().isEmpty()
                         ? request.getNotes() : "Khách hàng trả nợ")
                 .createdByUser(currentUser)
                 .build();
@@ -242,7 +235,6 @@ public class CustomerDebtServiceImpl implements CustomerDebtService {
             throw new AppException(ErrorCode.FORBIDDEN);
         }
 
-        // Đảm bảo khách hàng thuộc hộ kinh doanh
         customerRepository.findByIdAndHouseholdIdAndDeletedAtIsNull(customerId, household.getId())
                 .orElseThrow(() -> new AppException(ErrorCode.CUSTOMER_NOT_FOUND));
 
@@ -272,9 +264,6 @@ public class CustomerDebtServiceImpl implements CustomerDebtService {
                     household.getId(), List.of(DebtStatus.PENDING, DebtStatus.OVERDUE), DebtType.DEBT_CREATED);
         }
 
-        // Lọc danh sách nhắc nợ theo cấu hình debtReminderDaysBefore của hộ:
-        // - Nợ OVERDUE hoặc không có hạn: luôn hiển thị
-        // - Nợ PENDING: chỉ hiển thị nếu sắp đến hạn trong vòng reminderDays (dueDate <= now + reminderDays)
         LocalDateTime reminderThreshold = LocalDateTime.now().plusDays(reminderDays);
         reminders = reminders.stream()
                 .filter(d -> DebtStatus.OVERDUE.equals(d.getStatus())
@@ -338,7 +327,6 @@ public class CustomerDebtServiceImpl implements CustomerDebtService {
         }
         customerDebtRepository.saveAll(activeDebts);
 
-        // Send EXACTLY 1 COMBINED EMAIL to the customer
         emailService.sendCustomDebtReminderEmail(
                 email.trim(),
                 customer.getName(),
@@ -348,4 +336,3 @@ public class CustomerDebtServiceImpl implements CustomerDebtService {
         );
     }
 }
-

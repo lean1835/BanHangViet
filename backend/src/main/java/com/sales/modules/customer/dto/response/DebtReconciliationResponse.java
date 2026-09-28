@@ -29,8 +29,8 @@ public class DebtReconciliationResponse {
     private BigDecimal totalDebtPaid;
     private BigDecimal closingDebtBalance;
     private String closingDebtInWords;
-    private String status; // DRAFT, CONFIRMED, CANCELLED
-    private boolean hasTransactions; // TC-03 flag
+    private String status;
+    private boolean hasTransactions;
     private String notes;
     private LocalDate reconciledToDate;
     private LocalDateTime confirmedAt;

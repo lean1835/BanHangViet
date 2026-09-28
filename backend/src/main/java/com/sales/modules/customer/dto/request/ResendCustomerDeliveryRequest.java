@@ -10,7 +10,6 @@ import lombok.*;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ResendCustomerDeliveryRequest {
-
     @NotBlank(message = "Kênh gửi không được để trống")
     @Pattern(regexp = "^(QR|EMAIL|ZALO|PRINT)$", message = "Kênh gửi không hợp lệ (QR, EMAIL, ZALO, PRINT)")
     private String channel;

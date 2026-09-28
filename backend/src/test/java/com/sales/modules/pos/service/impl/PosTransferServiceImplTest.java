@@ -45,7 +45,6 @@ import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class PosTransferServiceImplTest {
-
     @Mock
     private PosTransferRepository posTransferRepository;
 
@@ -208,7 +207,6 @@ class PosTransferServiceImplTest {
         assertEquals("pos-002", response.getToPointOfSaleId());
         assertEquals(BigDecimal.valueOf(12), response.getTotalQuantity());
 
-        // Kiểm tra tồn kho tại điểm gửi đã bị trừ 12
         assertEquals(0, inventoryPos1.getStockQuantity().compareTo(BigDecimal.ZERO));
         verify(posInventoryRepository).saveAll(any());
         verify(posTransferRepository).save(any(PosTransfer.class));
@@ -257,7 +255,6 @@ class PosTransferServiceImplTest {
     @Test
     @DisplayName("TC-03: Số lượng chuyển vượt quá tồn kho điểm gửi -> Báo lỗi TRANSFER_EXCEED_STOCK")
     void createTransfer_exceedStock_throwsException() {
-        // Tồn kho điểm 1 có 12 chai, yêu cầu chuyển 15 chai
         CreatePosTransferRequest request = CreatePosTransferRequest.builder()
                 .fromPointOfSaleId("pos-001")
                 .toPointOfSaleId("pos-002")
@@ -278,7 +275,7 @@ class PosTransferServiceImplTest {
 
         AppException ex = assertThrows(AppException.class, () -> posTransferService.createTransfer("chuho", request));
         assertEquals(ErrorCode.TRANSFER_EXCEED_STOCK, ex.getErrorCode());
-        // Đảm bảo tồn kho không bị trừ
+
         assertEquals(BigDecimal.valueOf(12), inventoryPos1.getStockQuantity());
     }
 
@@ -323,7 +320,6 @@ class PosTransferServiceImplTest {
         assertEquals("user-staff-2", transfer.getReceivedByUser().getId());
         assertNotNull(transfer.getReceivedAt());
 
-        // Kiểm tra tồn kho điểm 2 được cộng 12 (0 + 12 = 12)
         assertEquals(0, inventoryPos2.getStockQuantity().compareTo(BigDecimal.valueOf(12)));
         verify(posInventoryRepository).saveAll(any());
     }
@@ -392,7 +388,6 @@ class PosTransferServiceImplTest {
                 .build();
         transfer.getItems().add(item);
 
-        // Giả lập điểm 1 sau khi tạo phiếu còn 0 chai
         inventoryPos1.setStockQuantity(BigDecimal.ZERO);
 
         CancelPosTransferRequest request = CancelPosTransferRequest.builder()
@@ -413,7 +408,6 @@ class PosTransferServiceImplTest {
         assertNotNull(transfer.getCanceledAt());
         assertEquals("user-owner", transfer.getCanceledByUser().getId());
 
-        // Kiểm tra tồn kho điểm 1 đã được hoàn lại 12 (0 + 12 = 12)
         assertEquals(0, inventoryPos1.getStockQuantity().compareTo(BigDecimal.valueOf(12)));
         verify(posInventoryRepository).saveAll(any());
     }
@@ -459,7 +453,7 @@ class PosTransferServiceImplTest {
     @DisplayName("Lập phiếu chuyển từ Kho gốc sang Điểm bán thành công")
     void createTransfer_fromWarehouseToPos_success() {
         CreatePosTransferRequest request = CreatePosTransferRequest.builder()
-                .fromPointOfSaleId(null) // Kho gốc
+                .fromPointOfSaleId(null)
                 .toPointOfSaleId("pos-002")
                 .items(List.of(
                         PosTransferItemRequest.builder()
@@ -474,7 +468,7 @@ class PosTransferServiceImplTest {
                 .thenReturn(Optional.of(pos2));
         when(productRepository.findAllById(List.of("prod-001"))).thenReturn(List.of(product1));
         when(posInventoryRepository.findByHouseholdIdAndProductIdIn(eq("house-001"), any()))
-                .thenReturn(List.of(inventoryPos1)); // inventoryPos1 = 12, product1 total = 150 -> warehouse stock = 138
+                .thenReturn(List.of(inventoryPos1));
         when(posTransferItemRepository.sumInTransitFromWarehouseByProductIds(eq("house-001"), any()))
                 .thenReturn(List.of());
         when(posTransferRepository.countByHouseholdIdAndTransferNumberStartingWith(eq("house-001"), anyString()))
@@ -511,7 +505,7 @@ class PosTransferServiceImplTest {
                 .items(List.of(
                         PosTransferItemRequest.builder()
                                 .productId("prod-cam")
-                                .quantity(BigDecimal.valueOf(8)) // 8 > (10 - 3 = 7)
+                                .quantity(BigDecimal.valueOf(8))
                                 .build()
                 ))
                 .build();

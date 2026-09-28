@@ -14,7 +14,6 @@ import java.time.LocalDate;
 @NoArgsConstructor
 @AllArgsConstructor
 public class AssignSubscriptionRequest {
-
     @NotBlank(message = "Mã gói dịch vụ không được để trống")
     private String packageId;
 

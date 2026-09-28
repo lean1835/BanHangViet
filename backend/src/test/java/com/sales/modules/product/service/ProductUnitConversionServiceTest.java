@@ -37,7 +37,6 @@ import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class ProductUnitConversionServiceTest {
-
     @Mock
     private UserRepository userRepository;
 
@@ -142,7 +141,7 @@ class ProductUnitConversionServiceTest {
     @DisplayName("Tạo đơn vị quy đổi trùng tên đơn vị cơ bản ném lỗi DUPLICATE_UNIT_CONVERSION_NAME")
     void createUnitConversion_duplicateBaseUnit_throwsException() {
         CreateProductUnitConversionRequest request = CreateProductUnitConversionRequest.builder()
-                .unitName("Lon") // Trùng đơn vị gốc
+                .unitName("Lon")
                 .conversionFactor(new BigDecimal("12"))
                 .build();
 
@@ -194,7 +193,7 @@ class ProductUnitConversionServiceTest {
 
         UpdateProductUnitConversionRequest request = UpdateProductUnitConversionRequest.builder()
                 .unitName("Thùng")
-                .conversionFactor(new BigDecimal("30")) // Cố tình đổi từ 24 sang 30
+                .conversionFactor(new BigDecimal("30"))
                 .price(new BigDecimal("300000.00"))
                 .build();
 
@@ -204,7 +203,6 @@ class ProductUnitConversionServiceTest {
         when(productUnitConversionRepository.findByIdAndProductId("conv-1", "prod-1"))
                 .thenReturn(Optional.of(existing));
 
-        // Giả lập sản phẩm đã có phiếu nhập kho phát sinh biến động tồn
         when(goodsReceiptDetailRepository.hasStockMovementByProduct("prod-1", "hh-1"))
                 .thenReturn(true);
 
@@ -227,8 +225,8 @@ class ProductUnitConversionServiceTest {
 
         UpdateProductUnitConversionRequest request = UpdateProductUnitConversionRequest.builder()
                 .unitName("Thùng 24 lon")
-                .conversionFactor(new BigDecimal("24")) // Giữ nguyên tỷ lệ 24
-                .price(new BigDecimal("280000.00"))    // Đổi giá bán
+                .conversionFactor(new BigDecimal("24"))
+                .price(new BigDecimal("280000.00"))
                 .build();
 
         when(userRepository.findByUsername("owner")).thenReturn(Optional.of(testUser));
@@ -262,7 +260,7 @@ class ProductUnitConversionServiceTest {
 
         UpdateProductUnitConversionRequest request = UpdateProductUnitConversionRequest.builder()
                 .unitName("Lốc")
-                .conversionFactor(new BigDecimal("12")) // Đổi từ 6 sang 12
+                .conversionFactor(new BigDecimal("12"))
                 .price(new BigDecimal("140000.00"))
                 .build();
 
@@ -272,7 +270,6 @@ class ProductUnitConversionServiceTest {
         when(productUnitConversionRepository.findByIdAndProductId("conv-1", "prod-1"))
                 .thenReturn(Optional.of(existing));
 
-        // Giả lập hoàn toàn chưa có biến động tồn kho nào
         when(goodsReceiptDetailRepository.hasStockMovementByProduct("prod-1", "hh-1")).thenReturn(false);
         when(orderItemRepository.hasStockMovementByProduct("prod-1", "hh-1")).thenReturn(false);
         when(returnTicketItemRepository.hasStockMovementByProduct("prod-1", "hh-1")).thenReturn(false);

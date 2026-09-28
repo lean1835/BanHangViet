@@ -12,7 +12,6 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class PendingOrderCheckResponse {
-
     private boolean hasPendingOrders;
     private int pendingOrderCount;
     private List<String> pendingOrderNumbers;

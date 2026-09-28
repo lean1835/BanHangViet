@@ -43,7 +43,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Transactional
 @SuppressWarnings("unused")
 public class ProductUnitConversionControllerTest {
-
     @Autowired
     private MockMvc mockMvc;
 
@@ -201,7 +200,6 @@ public class ProductUnitConversionControllerTest {
                 .price(new BigDecimal("450000.00"))
                 .build());
 
-        // Tạo 1 phiếu nhập kho cho sản phẩm này -> tạo biến động tồn kho
         GoodsReceipt gr = goodsReceiptRepository.save(GoodsReceipt.builder()
                 .household(testHousehold)
                 .createdByUser(testOwner)
@@ -217,7 +215,6 @@ public class ProductUnitConversionControllerTest {
                 .purchasePrice(new BigDecimal("450000.00"))
                 .build());
 
-        // Cố tình sửa conversionFactor từ 24 thành 30
         UpdateProductUnitConversionRequest request = UpdateProductUnitConversionRequest.builder()
                 .unitName("Thùng 30 lon")
                 .conversionFactor(new BigDecimal("30"))

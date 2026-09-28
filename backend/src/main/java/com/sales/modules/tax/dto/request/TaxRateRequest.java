@@ -18,7 +18,6 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 @AllArgsConstructor
 public class TaxRateRequest {
-
     @NotBlank(message = "Tên mức thuế không được để trống")
     @Size(max = 50, message = "Tên mức thuế không vượt quá 50 ký tự")
     private String name;

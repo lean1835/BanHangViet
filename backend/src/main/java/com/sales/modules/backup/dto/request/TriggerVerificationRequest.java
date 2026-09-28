@@ -8,7 +8,6 @@ import lombok.*;
 @NoArgsConstructor
 @AllArgsConstructor
 public class TriggerVerificationRequest {
-
     /**
      * ID bản sao lưu cụ thể muốn thử phục hồi.
      * Nếu để trống hoặc null, hệ thống tự động chọn bản sao lưu thành công gần nhất.

@@ -7,7 +7,6 @@ import lombok.*;
 @NoArgsConstructor
 @AllArgsConstructor
 public class VerificationExecutionResult {
-
     private boolean passed;
     private boolean fileReadable;
     private boolean recordCountsMatched;

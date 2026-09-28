@@ -12,6 +12,6 @@ import lombok.NoArgsConstructor;
 public class SyncSessionDetailResponse {
     private String id;
     private String orderNumber;
-    private String status; // SUCCESS, DUPLICATE, CONFLICT, MISSING, FAILED
+    private String status;
     private String note;
 }

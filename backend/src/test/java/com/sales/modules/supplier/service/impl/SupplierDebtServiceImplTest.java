@@ -34,10 +34,11 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
+import com.sales.modules.supplier.dto.request.ReceiveSupplierRefundRequest;
+import org.mockito.ArgumentCaptor;
 
 @ExtendWith(MockitoExtension.class)
 class SupplierDebtServiceImplTest {
-
     @Mock
     private UserRepository userRepository;
 
@@ -213,7 +214,7 @@ class SupplierDebtServiceImplTest {
                 eq("sup-1"), eq("hh-1"), anyList(), eq(DebtType.DEBT_CREATED)))
                 .thenReturn(Collections.emptyList());
 
-        org.mockito.ArgumentCaptor<SupplierDebt> captor = org.mockito.ArgumentCaptor.forClass(SupplierDebt.class);
+        ArgumentCaptor<SupplierDebt> captor = ArgumentCaptor.forClass(SupplierDebt.class);
 
         supplierDebtService.recordSupplierReturnDebtReduction(
                 household, supplier, receipt, returnAmount, returnNumber, currentUser
@@ -239,8 +240,8 @@ class SupplierDebtServiceImplTest {
         when(supplierRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("sup-1", "hh-1"))
                 .thenReturn(Optional.of(supplier));
 
-        com.sales.modules.supplier.dto.request.ReceiveSupplierRefundRequest request =
-                com.sales.modules.supplier.dto.request.ReceiveSupplierRefundRequest.builder()
+        ReceiveSupplierRefundRequest request =
+                ReceiveSupplierRefundRequest.builder()
                         .supplierId("sup-1")
                         .amount(new BigDecimal("500000.00"))
                         .paymentMethod("CASH")
@@ -264,13 +265,13 @@ class SupplierDebtServiceImplTest {
     @Test
     @DisplayName("P1-03: Chặn thu tiền hoàn khi NCC không có nợ âm (không có tiền cần hoàn)")
     void receiveSupplierRefund_NoRefundableDebt_ThrowsException() {
-        supplier.setCurrentDebt(new BigDecimal("100000.00")); // Đang nợ dương
+        supplier.setCurrentDebt(new BigDecimal("100000.00"));
         when(userRepository.findByUsername("owner_test")).thenReturn(Optional.of(currentUser));
         when(supplierRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("sup-1", "hh-1"))
                 .thenReturn(Optional.of(supplier));
 
-        com.sales.modules.supplier.dto.request.ReceiveSupplierRefundRequest request =
-                com.sales.modules.supplier.dto.request.ReceiveSupplierRefundRequest.builder()
+        ReceiveSupplierRefundRequest request =
+                ReceiveSupplierRefundRequest.builder()
                         .supplierId("sup-1")
                         .amount(new BigDecimal("50000.00"))
                         .build();
@@ -283,15 +284,15 @@ class SupplierDebtServiceImplTest {
     @Test
     @DisplayName("P1-04: Chặn thu tiền hoàn vượt quá số tiền NCC đang nợ lại")
     void receiveSupplierRefund_AmountExceedsDebt_ThrowsException() {
-        supplier.setCurrentDebt(new BigDecimal("-200000.00")); // Nợ âm 200k
+        supplier.setCurrentDebt(new BigDecimal("-200000.00"));
         when(userRepository.findByUsername("owner_test")).thenReturn(Optional.of(currentUser));
         when(supplierRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("sup-1", "hh-1"))
                 .thenReturn(Optional.of(supplier));
 
-        com.sales.modules.supplier.dto.request.ReceiveSupplierRefundRequest request =
-                com.sales.modules.supplier.dto.request.ReceiveSupplierRefundRequest.builder()
+        ReceiveSupplierRefundRequest request =
+                ReceiveSupplierRefundRequest.builder()
                         .supplierId("sup-1")
-                        .amount(new BigDecimal("300000.00")) // Yêu cầu thu 300k
+                        .amount(new BigDecimal("300000.00"))
                         .build();
 
         AppException ex = assertThrows(AppException.class, () ->
@@ -299,4 +300,3 @@ class SupplierDebtServiceImplTest {
         assertEquals(ErrorCode.REFUND_AMOUNT_EXCEEDS_DEBT, ex.getErrorCode());
     }
 }
-

@@ -8,7 +8,6 @@ import lombok.*;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ToggleSimpleModeRequest {
-
     @NotNull(message = "Trạng thái bật/tắt chế độ đơn giản không được để trống")
     private Boolean enabled;
 }

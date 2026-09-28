@@ -61,7 +61,6 @@ import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class BankTransferConfirmationServiceTest {
-
     @Mock
     private OrderRepository orderRepository;
     @Mock
@@ -350,7 +349,6 @@ class BankTransferConfirmationServiceTest {
                 .thenReturn(Optional.of(confirmedPayment));
         when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-
         CompleteOrderRequest request = new CompleteOrderRequest();
 
         OrderResponse response = orderService.completeOrder("thungan01", "order-bank-01", request);
@@ -383,7 +381,7 @@ class BankTransferConfirmationServiceTest {
         assertNotNull(response);
         assertEquals("CASH", response.getPaymentMethod());
         assertEquals("CREATING", response.getStatus());
-        // Giỏ hàng giữ nguyên 1 sản phẩm
+
         assertEquals(1, response.getItems().size());
         assertTrue(order.getPayments().isEmpty());
         verify(orderRepository, times(1)).save(order);
@@ -483,9 +481,9 @@ class BankTransferConfirmationServiceTest {
         assertEquals(1, response.getUnconfirmedTransactionsCount());
         assertEquals(new BigDecimal("200000.00"), response.getTotalUnconfirmedAmount());
         assertEquals(2, response.getTransactions().size());
-        // p2 đã tạo cách đây 30 phút, timeout là 15 phút -> isTransferOverdue phải là true
+
         assertTrue(response.getTransactions().get(1).getIsTransferOverdue());
-        // Kiểm tra confirmedByUsername và confirmedByFullName
+
         assertEquals("thungan01", response.getTransactions().get(0).getConfirmedByUsername());
         assertEquals("Nguyễn Thu Ngân", response.getTransactions().get(0).getConfirmedByFullName());
     }
@@ -544,13 +542,13 @@ class BankTransferConfirmationServiceTest {
         Order order = createMockCreatingBankOrder(new BigDecimal("500000.00"));
         order.setTotalAmount(new BigDecimal("500000.00"));
         order.setDiscountAmount(new BigDecimal("100000.00"));
-        order.setFinalAmount(new BigDecimal("400000.00")); // Tiền khách phải trả sau giảm
+        order.setFinalAmount(new BigDecimal("400000.00"));
 
         when(userRepository.findByUsername("thungan01")).thenReturn(Optional.of(cashierUser));
         when(orderRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("order-bank-01", "household-01"))
                 .thenReturn(Optional.of(order));
         when(orderPaymentRepository.findFirstByOrderIdAndHouseholdIdAndPaymentMethod("order-bank-01", "household-01", PaymentMethodConstant.BANK_TRANSFER))
-                .thenReturn(Optional.empty()); // Chưa có bản ghi payment
+                .thenReturn(Optional.empty());
         when(orderPaymentRepository.save(any(OrderPayment.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         ConfirmBankTransferRequest request = ConfirmBankTransferRequest.builder()
@@ -561,7 +559,7 @@ class BankTransferConfirmationServiceTest {
 
         assertNotNull(response);
         assertTrue(response.getIsConfirmed());
-        // Số tiền thanh toán phải là 400.000đ (finalAmount), KHÔNG PHẢI 500.000đ (totalAmount)
+
         assertEquals(new BigDecimal("400000.00"), response.getAmount());
         assertEquals("FT260909777", response.getTransactionCode());
         verify(orderPaymentRepository, times(2)).save(any(OrderPayment.class));

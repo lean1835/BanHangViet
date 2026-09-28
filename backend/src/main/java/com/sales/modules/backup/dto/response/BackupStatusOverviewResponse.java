@@ -12,7 +12,6 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 public class BackupStatusOverviewResponse {
-
     private Boolean isAutoBackupEnabled;
     private String scheduledTime;
     private Integer retentionCount;

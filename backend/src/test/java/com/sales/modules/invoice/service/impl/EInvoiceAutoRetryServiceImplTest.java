@@ -40,7 +40,6 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 @SuppressWarnings("unchecked")
 class EInvoiceAutoRetryServiceImplTest {
-
     @Mock
     private UserRepository userRepository;
 
@@ -99,7 +98,6 @@ class EInvoiceAutoRetryServiceImplTest {
                 .createdAt(LocalDateTime.now().minusHours(1))
                 .build();
 
-        // TransactionTemplate mock pass-through
         lenient().when(transactionTemplate.execute(any())).thenAnswer(invocation -> {
             TransactionCallback<?> action = invocation.getArgument(0);
             return action.doInTransaction(mock(TransactionStatus.class));
@@ -113,7 +111,6 @@ class EInvoiceAutoRetryServiceImplTest {
         when(eInvoiceRepository.findById("inv-100")).thenReturn(Optional.of(waitingInvoice));
         when(settingsRepository.findByHouseholdId("hh-100")).thenReturn(Optional.of(settings));
 
-        // Mock approveInvoiceByTax success
         when(eInvoiceService.approveInvoiceByTax(eq(null), eq("inv-100"), anyString()))
                 .thenAnswer(inv -> {
                     waitingInvoice.setStatus("ISSUED");
@@ -147,7 +144,7 @@ class EInvoiceAutoRetryServiceImplTest {
         assertEquals(1, summary.getMovedToManualCount());
         assertTrue(summary.getManualProcessingInvoiceIds().contains("inv-100"));
         assertEquals("MANUAL_PROCESSING", waitingInvoice.getStatus());
-        // TC-02: retryCount không được tăng khi gặp lỗi non-retryable
+
         assertEquals(0, waitingInvoice.getRetryCount());
         verify(invoiceStatusLogRepository).save(any(InvoiceStatusLog.class));
     }
@@ -155,7 +152,7 @@ class EInvoiceAutoRetryServiceImplTest {
     @Test
     @DisplayName("NCL-04-CN-007-TC-03: Đã chạm số lần thử tối đa (max_retry_attempts) -> Chuyển sang MANUAL_PROCESSING")
     void testProcessScheduledAutoRetry_ExceedMaxAttempts() {
-        waitingInvoice.setRetryCount(3); // Max attempts is 3
+        waitingInvoice.setRetryCount(3);
         when(eInvoiceRepository.findEligibleForAutoRetry(any(), any(Pageable.class))).thenReturn(List.of(waitingInvoice));
         when(eInvoiceRepository.findById("inv-100")).thenReturn(Optional.of(waitingInvoice));
         when(settingsRepository.findByHouseholdId("hh-100")).thenReturn(Optional.of(settings));
@@ -174,7 +171,7 @@ class EInvoiceAutoRetryServiceImplTest {
     @Test
     @DisplayName("NCL-04-CN-007-TC-03: Quá hạn max_retry_hours_deadline -> Chuyển sang MANUAL_PROCESSING")
     void testProcessScheduledAutoRetry_ExceedDeadlineHours() {
-        waitingInvoice.setCreatedAt(LocalDateTime.now().minusHours(25)); // Deadline is 24 hours
+        waitingInvoice.setCreatedAt(LocalDateTime.now().minusHours(25));
         when(eInvoiceRepository.findEligibleForAutoRetry(any(), any(Pageable.class))).thenReturn(List.of(waitingInvoice));
         when(eInvoiceRepository.findById("inv-100")).thenReturn(Optional.of(waitingInvoice));
         when(settingsRepository.findByHouseholdId("hh-100")).thenReturn(Optional.of(settings));
@@ -234,7 +231,7 @@ class EInvoiceAutoRetryServiceImplTest {
         assertEquals(1, response.getContent().size());
         assertEquals("inv-manual-1", response.getContent().get(0).getId());
         assertEquals("MANUAL_PROCESSING", response.getContent().get(0).getStatus());
-        // Đảm bảo không gọi eInvoiceService.getInvoice trong vòng lặp (tránh N+1)
+
         verify(eInvoiceService, never()).getInvoice(anyString(), anyString());
     }
 
@@ -250,20 +247,19 @@ class EInvoiceAutoRetryServiceImplTest {
                 .build();
 
         when(eInvoiceRepository.findEligibleForAutoRetry(any(), any(Pageable.class))).thenReturn(List.of(waitingInvoice));
-        // Lần 1 (prepare): trả về waitingInvoice (SEND_ERROR). Lần 2 (handleRetryResult): trả về issuedInvoice (ISSUED)
+
         when(eInvoiceRepository.findById("inv-100"))
                 .thenReturn(Optional.of(waitingInvoice))
                 .thenReturn(Optional.of(issuedInvoice));
         when(settingsRepository.findByHouseholdId("hh-100")).thenReturn(Optional.of(settings));
 
-        // Giả lập approveInvoiceByTax bị lỗi do status đã thành ISSUED từ luồng khác
         doThrow(new RuntimeException("Hóa đơn đã ở trạng thái ISSUED"))
                 .when(eInvoiceService).approveInvoiceByTax(any(), eq("inv-100"), any());
 
         InvoiceAutoRetrySummaryResponse summary = autoRetryService.processScheduledAutoRetry();
 
         assertNotNull(summary);
-        // Trạng thái hóa đơn phải được giữ nguyên là ISSUED
+
         assertEquals("ISSUED", issuedInvoice.getStatus());
     }
 
@@ -310,7 +306,6 @@ class EInvoiceAutoRetryServiceImplTest {
     @Test
     @DisplayName("HIGH-02 (P1): Hóa đơn cũ > 24h được gửi lại thủ công (sentToTaxAt mới) không bị kẹt ở MANUAL_PROCESSING")
     void testProcessScheduledAutoRetry_ManualRetryOldInvoiceNotStuck() {
-        // Hóa đơn khởi tạo từ 30 giờ trước nhưng vừa được bấm gửi lại thủ công (sentToTaxAt = 5 phút trước)
         EInvoice resentOldInvoice = EInvoice.builder()
                 .id("inv-old-100")
                 .household(household)

@@ -14,7 +14,6 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ProductExchangeResponse {
-
     private String id;
     private String ticketNumber;
     private String originalInvoiceId;
@@ -24,7 +23,7 @@ public class ProductExchangeResponse {
     private String customerName;
     private String createdById;
     private String createdByName;
-    private String exchangeType; // EQUAL_VALUE, HIGHER_VALUE, LOWER_VALUE
+    private String exchangeType;
     private BigDecimal totalReturnAmount;
     private BigDecimal totalExchangeAmount;
     private BigDecimal differenceAmount;

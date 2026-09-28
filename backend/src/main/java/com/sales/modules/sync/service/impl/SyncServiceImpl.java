@@ -64,7 +64,6 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Slf4j
 public class SyncServiceImpl implements SyncService {
-
     private static final int MAX_SYNC_HOURS = 24;
 
     private final OrderRepository orderRepository;
@@ -217,7 +216,6 @@ public class SyncServiceImpl implements SyncService {
             return responses;
         }
 
-        // Deduplicate payload by orderNumber to avoid duplicate orders in the same batch
         Map<String, OfflineOrderRequest> uniqueRequestsMap = new LinkedHashMap<>();
         for (OfflineOrderRequest req : requests) {
             if (req.getOrderNumber() != null && !req.getOrderNumber().trim().isEmpty()) {
@@ -226,8 +224,6 @@ public class SyncServiceImpl implements SyncService {
         }
         requests = new ArrayList<>(uniqueRequestsMap.values());
 
-        // --- BATCH PRE-FETCHING (To prevent N+1 Queries) ---
-        // 1. Existing orders map
         List<String> orderNumbers = requests.stream()
                 .map(OfflineOrderRequest::getOrderNumber)
                 .filter(num -> num != null && !num.trim().isEmpty())
@@ -237,7 +233,6 @@ public class SyncServiceImpl implements SyncService {
         Map<String, Order> existingOrderMap = existingOrders.stream()
                 .collect(Collectors.toMap(Order::getOrderNumber, o -> o));
 
-        // 2. Customers map
         List<String> customerIds = requests.stream()
                 .map(OfflineOrderRequest::getCustomerId)
                 .filter(id -> id != null && !id.trim().isEmpty())
@@ -248,7 +243,6 @@ public class SyncServiceImpl implements SyncService {
         Map<String, Customer> customerMap = customers.stream()
                 .collect(Collectors.toMap(Customer::getId, c -> c));
 
-        // 3. Shifts map
         List<String> shiftIds = requests.stream()
                 .map(OfflineOrderRequest::getShiftId)
                 .filter(id -> id != null && !id.trim().isEmpty())
@@ -259,10 +253,8 @@ public class SyncServiceImpl implements SyncService {
         Map<String, Shift> shiftMap = shifts.stream()
                 .collect(Collectors.toMap(Shift::getId, s -> s));
 
-        // Fallback active open shift
         Shift activeShift = shiftRepository.findByUserIdAndStatus(currentUser.getId(), ShiftStatus.OPEN).orElse(null);
 
-        // 4. Products map
         List<String> productIds = requests.stream()
                 .filter(r -> r.getItems() != null)
                 .flatMap(r -> r.getItems().stream())
@@ -275,7 +267,6 @@ public class SyncServiceImpl implements SyncService {
         Map<String, Product> productMap = products.stream()
                 .collect(Collectors.toMap(Product::getId, p -> p));
 
-        // --- SYNC SESSION TRACKING FOR RECONCILIATION REPORT (NCL-08-CN-006) ---
         int totalSent = requests.size();
         int totalReceived = 0;
         int totalDuplicated = 0;
@@ -303,10 +294,8 @@ public class SyncServiceImpl implements SyncService {
         for (OfflineOrderRequest req : requests) {
             List<String> warnings = new ArrayList<>();
 
-            // 1. Check if order number already exists on server
             Order existing = existingOrderMap.get(req.getOrderNumber());
             if (existing != null) {
-                // Already synced previously, skip duplicate creation to prevent double record
                 totalDuplicated++;
                 SyncSessionDetail detail = SyncSessionDetail.builder()
                         .syncSession(syncSession)
@@ -319,7 +308,6 @@ public class SyncServiceImpl implements SyncService {
                 continue;
             }
 
-            // 2. Pre-validate products before persistence to avoid transaction rollback pollution
             boolean hasValidProducts = true;
             String invalidProductNote = null;
             if (req.getItems() != null) {
@@ -346,12 +334,10 @@ public class SyncServiceImpl implements SyncService {
             }
 
             try {
-                // Check overdue sync limit (QTN-11, AC NCL-08-CN-002-TC-02 & NCL-09-CN-008)
                 if (req.getCreatedAt() != null && req.getCreatedAt().isBefore(syncDeadline)) {
                     warnings.add("Đơn hàng " + req.getOrderNumber() + " đồng bộ quá hạn quy định (" + maxSyncHours + " giờ).");
                 }
 
-                // 3. Resolve shift
                 Shift shift = null;
                 if (req.getShiftId() != null && !req.getShiftId().trim().isEmpty()) {
                     shift = shiftMap.get(req.getShiftId());
@@ -360,13 +346,11 @@ public class SyncServiceImpl implements SyncService {
                     shift = activeShift;
                 }
 
-                // 4. Resolve customer
                 Customer customer = null;
                 if (req.getCustomerId() != null && !req.getCustomerId().trim().isEmpty()) {
                     customer = customerMap.get(req.getCustomerId());
                 }
 
-                // 5. Create Order entity
                 Order order = Order.builder()
                         .household(household)
                         .shift(shift)
@@ -386,7 +370,6 @@ public class SyncServiceImpl implements SyncService {
                         .discountRateOrValue(req.getDiscountRateOrValue())
                         .build();
 
-                // Explicitly set createdAt using the offline timestamp
                 order.setCreatedAt(req.getCreatedAt() != null ? req.getCreatedAt() : LocalDateTime.now());
 
                 List<OrderItem> items = new ArrayList<>();
@@ -395,7 +378,6 @@ public class SyncServiceImpl implements SyncService {
                     for (OfflineOrderItemRequest itemReq : req.getItems()) {
                         Product product = productMap.get(itemReq.getProductId());
 
-                        // Check stock warning before atomic deduction
                         if (product.getStockQuantity() != null && product.getStockQuantity().compareTo(itemReq.getQuantity()) < 0) {
                             String reqQtyStr = itemReq.getQuantity() != null ? itemReq.getQuantity().stripTrailingZeros().toPlainString() : "0";
                             String stockQtyStr = product.getStockQuantity() != null ? product.getStockQuantity().stripTrailingZeros().toPlainString() : "0";
@@ -403,7 +385,6 @@ public class SyncServiceImpl implements SyncService {
                                     + reqQtyStr + ", Tồn kho: " + stockQtyStr + ").");
                         }
 
-                        // Subtract stock atomically via SQL
                         int affectedRows = productRepository.deductStock(product.getId(), household.getId(), itemReq.getQuantity());
                         if (affectedRows == 0) {
                             log.warn("Deduct stock failed for product {}", product.getId());
@@ -438,16 +419,13 @@ public class SyncServiceImpl implements SyncService {
                         .build();
                 syncSession.getDetails().add(detail);
 
-                // Write activity logs
                 logActivity(household, currentUser, "SYNC_OFFLINE_ORDER", order.getId(), null, buildOrderLogMap(order));
 
-                // Decoupled automatic invoice generation via Event Listener
                 eventPublisher.publishEvent(new OrderSyncedEvent(username, order.getId(), Boolean.TRUE.equals(req.getIsInvoiceIssuedOffline())));
 
                 OrderResponse orderResponse = mapToResponse(order);
                 orderResponse.setWarningMessages(warnings);
                 responses.add(orderResponse);
-
             } catch (Exception e) {
                 log.error("Failed to sync order {}", req.getOrderNumber(), e);
                 totalFailed++;
@@ -461,7 +439,6 @@ public class SyncServiceImpl implements SyncService {
             }
         }
 
-        // Finalize SyncSession Status (AC NCL-08-CN-006-TC-01 & TC-02)
         syncSession.setTotalReceived(totalReceived);
         syncSession.setTotalDuplicated(totalDuplicated);
         syncSession.setTotalConflicted(totalConflicted);
@@ -517,8 +494,6 @@ public class SyncServiceImpl implements SyncService {
             throw new AppException(ErrorCode.FORBIDDEN);
         }
 
-        // Data scoping (AC NCL-08-CN-006-TC-03):
-        // VT-01 (Owner) can view all sessions; VT-02 (Staff) only views own sessions
         String filterUserId = isHouseholdOwner(currentUser) ? null : currentUser.getId();
 
         if (status != null && (status.trim().isEmpty() || "ALL".equalsIgnoreCase(status.trim()))) {
@@ -573,7 +548,6 @@ public class SyncServiceImpl implements SyncService {
         SyncSession session = syncSessionRepository.findWithDetailsByIdAndHouseholdId(sessionId, household.getId())
                 .orElseThrow(() -> new AppException(ErrorCode.INVALID_INPUT));
 
-        // Data Scoping check (AC NCL-08-CN-006-TC-03)
         if (!isHouseholdOwner(currentUser) && !session.getUser().getId().equals(currentUser.getId())) {
             throw new AppException(ErrorCode.FORBIDDEN);
         }
@@ -591,7 +565,6 @@ public class SyncServiceImpl implements SyncService {
             throw new AppException(ErrorCode.FORBIDDEN);
         }
 
-        // Data scoping (AC NCL-08-CN-006-TC-03)
         String filterUserId = isHouseholdOwner(currentUser) ? null : currentUser.getId();
 
         if (status != null && (status.trim().isEmpty() || "ALL".equalsIgnoreCase(status.trim()))) {
@@ -640,7 +613,6 @@ public class SyncServiceImpl implements SyncService {
             throw new AppException(ErrorCode.FORBIDDEN);
         }
 
-        // Only owner is allowed
         if (!isHouseholdOwner(currentUser)) {
             throw new AppException(ErrorCode.FORBIDDEN);
         }
@@ -652,17 +624,14 @@ public class SyncServiceImpl implements SyncService {
                 .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));
 
         if (ConflictResolutionStrategy.KEEP_SERVER.equals(strategy)) {
-            // Keep server data as-is, just log activity
             logActivity(household, currentUser, "RESOLVE_CONFLICT_KEEP_SERVER", serverOrder.getId(), null, buildOrderLogMap(serverOrder));
             return mapToResponse(serverOrder);
-
         } else if (ConflictResolutionStrategy.OVERWRITE_SERVER.equals(strategy)) {
             OfflineOrderRequest clientData = request.getClientOrderData();
             if (clientData == null) {
                 throw new AppException(ErrorCode.INVALID_INPUT);
             }
 
-            // 1. Revert previous stock changes atomically
             if (serverOrder.getItems() != null) {
                 for (OrderItem item : serverOrder.getItems()) {
                     if (item.getProduct() != null) {
@@ -675,7 +644,6 @@ public class SyncServiceImpl implements SyncService {
             }
             orderRepository.saveAndFlush(serverOrder);
 
-            // 3. Set new values
             serverOrder.setTotalAmount(clientData.getTotalAmount());
             serverOrder.setDiscountAmount(clientData.getDiscountAmount());
             serverOrder.setFinalAmount(clientData.getFinalAmount());
@@ -714,7 +682,6 @@ public class SyncServiceImpl implements SyncService {
                                 + itemReq.getQuantity() + ", Tồn kho: " + product.getStockQuantity() + ").");
                     }
 
-                    // Apply new stock subtraction atomically via SQL
                     int affectedRows = productRepository.deductStock(product.getId(), household.getId(), itemReq.getQuantity());
                     if (affectedRows == 0) {
                         throw new AppException(ErrorCode.PRODUCT_NOT_FOUND);
@@ -733,7 +700,6 @@ public class SyncServiceImpl implements SyncService {
                             .subtotal(itemReq.getSubtotal() != null ? itemReq.getSubtotal() : BigDecimal.ZERO)
                             .build();
 
-
                     newItems.add(orderItem);
                 }
             }
@@ -741,10 +707,8 @@ public class SyncServiceImpl implements SyncService {
             serverOrder.getItems().addAll(newItems);
             serverOrder = orderRepository.save(serverOrder);
 
-            // Log activity
             logActivity(household, currentUser, "RESOLVE_CONFLICT_OVERWRITE_SERVER", serverOrder.getId(), null, buildOrderLogMap(serverOrder));
 
-            // Find existing invoice if any and delete/cancel in DB
             eInvoiceRepository.findByOrderIdAndDeletedAtIsNull(serverOrder.getId()).ifPresent(inv -> {
                 if ("ISSUED".equals(inv.getStatus()) || inv.getTaxAuthorityCode() != null) {
                     throw new AppException(ErrorCode.CANNOT_OVERWRITE_ISSUED_INVOICE);
@@ -754,23 +718,20 @@ public class SyncServiceImpl implements SyncService {
                     eInvoiceRepository.save(inv);
                 }
             });
-            // Decoupled automatic invoice generation via Event Listener (running post-commit asynchronously)
+
             eventPublisher.publishEvent(new OrderSyncedEvent(username, serverOrder.getId()));
 
             OrderResponse response = mapToResponse(serverOrder);
             response.setWarningMessages(warnings);
             return response;
-
         } else if (ConflictResolutionStrategy.KEEP_BOTH.equals(strategy)) {
             OfflineOrderRequest clientData = request.getClientOrderData();
             if (clientData == null) {
                 throw new AppException(ErrorCode.INVALID_INPUT);
             }
 
-            // Modify order number to be unique
             String newOrderNo = orderNo + "-OFF-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
 
-            // 1. Resolve shift
             Shift shift = null;
             if (clientData.getShiftId() != null && !clientData.getShiftId().trim().isEmpty()) {
                 shift = shiftRepository.findByIdAndHouseholdId(clientData.getShiftId(), household.getId()).orElse(null);
@@ -779,13 +740,11 @@ public class SyncServiceImpl implements SyncService {
                 shift = shiftRepository.findByUserIdAndStatus(currentUser.getId(), ShiftStatus.OPEN).orElse(null);
             }
 
-            // 2. Resolve customer
             Customer customer = null;
             if (clientData.getCustomerId() != null && !clientData.getCustomerId().trim().isEmpty()) {
                 customer = customerRepository.findByIdAndHouseholdIdAndDeletedAtIsNull(clientData.getCustomerId(), household.getId()).orElse(null);
             }
 
-            // 3. Build new order
             Order newOrder = Order.builder()
                     .household(household)
                     .shift(shift)
@@ -820,7 +779,6 @@ public class SyncServiceImpl implements SyncService {
                                 + itemReq.getQuantity() + ", Tồn kho: " + product.getStockQuantity() + ").");
                     }
 
-                    // Subtract stock atomically via SQL
                     int affectedRows = productRepository.deductStock(product.getId(), household.getId(), itemReq.getQuantity());
                     if (affectedRows == 0) {
                         throw new AppException(ErrorCode.PRODUCT_NOT_FOUND);
@@ -848,7 +806,6 @@ public class SyncServiceImpl implements SyncService {
 
             logActivity(household, currentUser, "RESOLVE_CONFLICT_KEEP_BOTH", newOrder.getId(), null, buildOrderLogMap(newOrder));
 
-            // Decoupled automatic invoice generation via Event Listener (running post-commit asynchronously)
             eventPublisher.publishEvent(new OrderSyncedEvent(username, newOrder.getId()));
 
             OrderResponse response = mapToResponse(newOrder);

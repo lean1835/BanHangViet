@@ -13,34 +13,42 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.security.Principal;
+import com.sales.modules.inventory.dto.request.UpdateMinStockRequest;
+import com.sales.modules.inventory.service.InventoryWarningService;
+import com.sales.modules.product.dto.response.ImportProductResultResponse;
+import com.sales.modules.product.service.ProductImportService;
+import java.util.List;
+import org.springframework.core.io.ByteArrayResource;
+import org.springframework.core.io.Resource;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 
 @RestController
 @RequestMapping("/api/v1/products")
 @RequiredArgsConstructor
 public class ProductController {
-
     private final ProductService productService;
-    private final com.sales.modules.product.service.ProductImportService productImportService;
-    private final com.sales.modules.inventory.service.InventoryWarningService inventoryWarningService;
+    private final ProductImportService productImportService;
+    private final InventoryWarningService inventoryWarningService;
 
     @GetMapping("/import-template")
     @PreAuthorize("hasRole('VT-01')")
-    public ResponseEntity<org.springframework.core.io.Resource> getImportTemplate() throws Exception {
+    public ResponseEntity<Resource> getImportTemplate() throws Exception {
         byte[] data = productImportService.getImportTemplate();
-        org.springframework.core.io.ByteArrayResource resource = new org.springframework.core.io.ByteArrayResource(data);
+        ByteArrayResource resource = new ByteArrayResource(data);
         return ResponseEntity.ok()
-                .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"Product_Import_Template.xlsx\"")
-                .contentType(org.springframework.http.MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"Product_Import_Template.xlsx\"")
+                .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
                 .body(resource);
     }
 
     @PostMapping("/import")
     @PreAuthorize("hasRole('VT-01')")
-    public ResponseEntity<ApiResponse<com.sales.modules.product.dto.response.ImportProductResultResponse>> importProducts(
+    public ResponseEntity<ApiResponse<ImportProductResultResponse>> importProducts(
             Principal principal,
             @RequestParam("file") MultipartFile file) {
-        com.sales.modules.product.dto.response.ImportProductResultResponse result = productImportService.importProducts(principal.getName(), file);
-        ApiResponse<com.sales.modules.product.dto.response.ImportProductResultResponse> response = ApiResponse.<com.sales.modules.product.dto.response.ImportProductResultResponse>builder()
+        ImportProductResultResponse result = productImportService.importProducts(principal.getName(), file);
+        ApiResponse<ImportProductResultResponse> response = ApiResponse.<ImportProductResultResponse>builder()
                 .code(1000)
                 .message("Nhập danh mục sản phẩm từ tệp thành công")
                 .result(result)
@@ -82,7 +90,7 @@ public class ProductController {
     public ResponseEntity<ApiResponse<ProductResponse>> updateMinStock(
             Principal principal,
             @PathVariable String id,
-            @Valid @RequestBody com.sales.modules.inventory.dto.request.UpdateMinStockRequest request) {
+            @Valid @RequestBody UpdateMinStockRequest request) {
         ProductResponse result = inventoryWarningService.updateMinStock(principal.getName(), id, request);
         ApiResponse<ProductResponse> response = ApiResponse.<ProductResponse>builder()
                 .code(1000)
@@ -142,13 +150,13 @@ public class ProductController {
 
     @GetMapping("/voice-search")
     @PreAuthorize("hasAnyRole('VT-01', 'VT-02', 'VT-03')")
-    public ResponseEntity<ApiResponse<java.util.List<ProductResponse>>> voiceSearchProducts(
+    public ResponseEntity<ApiResponse<List<ProductResponse>>> voiceSearchProducts(
             Principal principal,
             @RequestParam(required = false) String query,
             @RequestParam(required = false) String groupId,
             @RequestParam(defaultValue = "10") int limit) {
-        java.util.List<ProductResponse> result = productService.voiceSearchProducts(principal.getName(), query, groupId, limit);
-        ApiResponse<java.util.List<ProductResponse>> response = ApiResponse.<java.util.List<ProductResponse>>builder()
+        List<ProductResponse> result = productService.voiceSearchProducts(principal.getName(), query, groupId, limit);
+        ApiResponse<List<ProductResponse>> response = ApiResponse.<List<ProductResponse>>builder()
                 .code(1000)
                 .message("Tìm kiếm hàng hóa bằng giọng nói thành công")
                 .result(result)

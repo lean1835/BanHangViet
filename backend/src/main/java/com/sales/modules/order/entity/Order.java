@@ -24,7 +24,6 @@ import java.util.List;
 @AllArgsConstructor
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class Order {
-
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     @Column(length = 36, nullable = false)
@@ -92,19 +91,19 @@ public class Order {
 
     @Column(name = "payment_method", nullable = false, length = 20)
     @Builder.Default
-    private String paymentMethod = "CASH"; // CASH, BANK_TRANSFER, DEBT
+    private String paymentMethod = "CASH";
 
     @Column(name = "payment_status", nullable = false, length = 20)
     @Builder.Default
-    private String paymentStatus = "PENDING"; // PENDING, PAID, DEBT
+    private String paymentStatus = "PENDING";
 
     @Column(nullable = false, length = 20)
     @Builder.Default
-    private String status = "CREATING"; // CREATING, COMPLETED, CANCELED
+    private String status = "CREATING";
 
     @Column(name = "sync_status", nullable = false, length = 20)
     @Builder.Default
-    private String syncStatus = "SYNCED"; // SYNCED, PENDING, CONFLICTED
+    private String syncStatus = "SYNCED";
 
     @Column(name = "is_offline", nullable = false)
     @Builder.Default
@@ -139,7 +138,6 @@ public class Order {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "dining_table_id")
     private DiningTable diningTable;
-
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

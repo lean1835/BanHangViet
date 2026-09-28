@@ -8,7 +8,6 @@ import lombok.*;
 @NoArgsConstructor
 @AllArgsConstructor
 public class CancelPosTransferRequest {
-
     @NotBlank(message = "Lý do hủy không được để trống")
     private String cancelReason;
 }

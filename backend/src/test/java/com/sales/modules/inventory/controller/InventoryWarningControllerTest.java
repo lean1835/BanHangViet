@@ -47,7 +47,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Transactional
 @SuppressWarnings("unused")
 public class InventoryWarningControllerTest {
-
     @Autowired
     private MockMvc mockMvc;
 

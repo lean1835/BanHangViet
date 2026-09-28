@@ -33,13 +33,13 @@ import java.util.List;
 import static org.hamcrest.Matchers.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import org.junit.jupiter.api.Assertions;
 
 @SpringBootTest
 @AutoConfigureMockMvc
 @Transactional
 @SuppressWarnings("unused")
 public class ScreenGuideControllerTest {
-
     @Autowired
     private MockMvc mockMvc;
 
@@ -185,7 +185,7 @@ public class ScreenGuideControllerTest {
                 .andExpect(jsonPath("$.message").value("Ghi nhận lượt xem trợ giúp thành công"));
 
         ScreenGuide refreshed = screenGuideRepository.findById(testGuide.getId()).orElseThrow();
-        org.junit.jupiter.api.Assertions.assertEquals(initialViewCount + 1, refreshed.getViewCount());
+        Assertions.assertEquals(initialViewCount + 1, refreshed.getViewCount());
     }
 
     @Test
@@ -351,6 +351,6 @@ public class ScreenGuideControllerTest {
                 .andExpect(jsonPath("$.code").value(1000));
 
         ScreenGuide refreshed = screenGuideRepository.findById(testGuide.getId()).orElseThrow();
-        org.junit.jupiter.api.Assertions.assertFalse(refreshed.getIsActive());
+        Assertions.assertFalse(refreshed.getIsActive());
     }
 }

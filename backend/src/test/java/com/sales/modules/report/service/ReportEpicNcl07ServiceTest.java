@@ -51,12 +51,12 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 import static org.junit.jupiter.api.Assertions.*;
+import java.util.UUID;
 
 @SpringBootTest
 @Transactional
 @SuppressWarnings("unused")
 public class ReportEpicNcl07ServiceTest {
-
     @Autowired
     private ReportService reportService;
 
@@ -159,7 +159,6 @@ public class ReportEpicNcl07ServiceTest {
                 .household(household)
                 .build());
 
-        // Sản phẩm A: có giá vốn 60,000, giá bán 100,000, thuộc nhóm G1
         productA = productRepository.save(Product.builder()
                 .sku("SKU-A")
                 .name("Kẹo Socola")
@@ -172,7 +171,6 @@ public class ReportEpicNcl07ServiceTest {
                 .household(household)
                 .build());
 
-        // Sản phẩm B: KHÔNG có giá vốn (costPrice = 0), giá bán 50,000, chưa phân nhóm
         productB = productRepository.save(Product.builder()
                 .sku("SKU-B")
                 .name("Bánh Quy Bơ")
@@ -188,7 +186,6 @@ public class ReportEpicNcl07ServiceTest {
 
     @Test
     public void testNCL07_CN008_GrossProfitReport_Success() {
-        // Tạo đơn hàng hoàn tất chứa sản phẩm A và sản phẩm B
         Order order = orderRepository.save(Order.builder()
                 .orderNumber("ORD-NCL07-01")
                 .household(household)
@@ -201,7 +198,6 @@ public class ReportEpicNcl07ServiceTest {
                 .createdAt(LocalDateTime.now())
                 .build());
 
-        // Item 1: 2 hộp SP A, giá bán 100k, giá vốn 60k, giảm 10k -> subtotal 190k
         orderItemRepository.save(OrderItem.builder()
                 .order(order)
                 .product(productA)
@@ -213,7 +209,6 @@ public class ReportEpicNcl07ServiceTest {
                 .subtotal(new BigDecimal("190000"))
                 .build());
 
-        // Item 2: 1 gói SP B, giá bán 50k, không có giá vốn (0) -> subtotal 50k
         orderItemRepository.save(OrderItem.builder()
                 .order(order)
                 .product(productB)
@@ -231,15 +226,12 @@ public class ReportEpicNcl07ServiceTest {
         assertNotNull(report);
         assertNotNull(report.getSummary());
 
-        // Sản phẩm A: Doanh thu thuần 190k, COGS = 2 * 60k = 120k, Lãi gộp = 70k
         assertEquals(0, new BigDecimal("190000").compareTo(report.getSummary().getTotalNetRevenue()));
         assertEquals(0, new BigDecimal("120000").compareTo(report.getSummary().getTotalCogs()));
         assertEquals(0, new BigDecimal("70000").compareTo(report.getSummary().getTotalGrossProfit()));
 
-        // Tỷ suất lãi gộp: 70k / 190k * 100 ≈ 36.84%
         assertTrue(report.getSummary().getGrossProfitMarginPercentage().compareTo(BigDecimal.ZERO) > 0);
 
-        // Sản phẩm B phải nằm trong missingCostPriceItems
         assertEquals(1, report.getMissingCostPriceItems().size());
         assertEquals("SKU-B", report.getMissingCostPriceItems().get(0).getProductSku());
     }
@@ -254,7 +246,6 @@ public class ReportEpicNcl07ServiceTest {
                 .household(household)
                 .build());
 
-        // Đơn 1: Thanh toán hỗn hợp COMBINED (100k tiền mặt, 150k chuyển khoản)
         Order order1 = orderRepository.save(Order.builder()
                 .orderNumber("ORD-NCL07-PAY-01")
                 .household(household)
@@ -281,7 +272,6 @@ public class ReportEpicNcl07ServiceTest {
                 .amount(new BigDecimal("150000"))
                 .build());
 
-        // Đơn 2: Ghi nợ 50k
         Order order2 = orderRepository.save(Order.builder()
                 .orderNumber("ORD-NCL07-PAY-02")
                 .household(household)
@@ -310,10 +300,9 @@ public class ReportEpicNcl07ServiceTest {
                 owner.getUsername(), today, today, null, null);
 
         assertNotNull(report);
-        // Doanh thu tổng: 100k + 150k + 50k = 300k
+
         assertEquals(0, new BigDecimal("300000").compareTo(report.getTotalRevenue()));
 
-        // Kiểm tra chi tiết công nợ phát sinh mới
         assertNotNull(report.getDebtDetails());
         assertEquals(0, new BigDecimal("50000").compareTo(report.getDebtDetails().getTotalDebtCreated()));
         assertEquals(0, new BigDecimal("50000").compareTo(report.getDebtDetails().getTotalDebtRemaining()));
@@ -323,7 +312,6 @@ public class ReportEpicNcl07ServiceTest {
     public void testNCL07_CN012_ProductGroupReport_And_DrillDown() {
         LocalDate today = LocalDate.now();
 
-        // Đơn hàng bán 3 hộp SP A (nhóm G1: Bánh kẹo) và 2 gói SP B (Chưa phân nhóm)
         Order order = orderRepository.save(Order.builder()
                 .orderNumber("ORD-NCL07-GRP-01")
                 .household(household)
@@ -360,14 +348,12 @@ public class ReportEpicNcl07ServiceTest {
         assertNotNull(report);
         assertEquals(0, new BigDecimal("400000").compareTo(report.getTotalRevenue()));
 
-        // Kiểm tra có nhóm Bánh kẹo và có sản phẩm chưa phân nhóm
         boolean hasG1 = report.getGroups().stream().anyMatch(g -> "Bánh kẹo".equals(g.getGroupName()));
         assertTrue(hasG1);
         assertTrue(Boolean.TRUE.equals(report.getHasUnassignedProducts()));
         assertNotNull(report.getUnassignedSummary());
         assertEquals("Chưa phân nhóm", report.getUnassignedSummary().getGroupName());
 
-        // Drill-down nhóm G1
         ProductGroupRevenueDetailResponse drillDown = reportService.getProductGroupDetail(
                 owner.getUsername(), groupG1.getId(), today, today);
         assertNotNull(drillDown);
@@ -381,7 +367,6 @@ public class ReportEpicNcl07ServiceTest {
     public void testNCL07_CN009_ExcelExport_Success_And_NoDataException() throws IOException {
         LocalDate today = LocalDate.now();
 
-        // 1. Khi không có đơn nào trong khoảng ngày xa -> ném NO_DATA_TO_EXPORT
         LocalDate past1 = LocalDate.of(2020, 1, 1);
         LocalDate past2 = LocalDate.of(2020, 1, 2);
 
@@ -390,13 +375,11 @@ public class ReportEpicNcl07ServiceTest {
         });
         assertEquals(ErrorCode.NO_DATA_TO_EXPORT, ex.getErrorCode());
 
-        // Kiểm tra xuất báo cáo PAYMENT_METHOD khi không có dữ liệu cũng phải ném NO_DATA_TO_EXPORT (P1-02)
         AppException exPay = assertThrows(AppException.class, () -> {
             reportExportService.exportReportToExcel(owner.getUsername(), "PAYMENT_METHOD", past1, past2, null, null);
         });
         assertEquals(ErrorCode.NO_DATA_TO_EXPORT, exPay.getErrorCode());
 
-        // 2. Tạo dữ liệu cho ngày hôm nay và xuất Excel
         Order order = orderRepository.save(Order.builder()
                 .orderNumber("ORD-NCL07-EXP-01")
                 .household(household)
@@ -424,7 +407,6 @@ public class ReportEpicNcl07ServiceTest {
         assertNotNull(excelBytes);
         assertTrue(excelBytes.length > 0);
 
-        // Đọc workbook kiểm tra 2 sheet
         try (Workbook wb = new XSSFWorkbook(new ByteArrayInputStream(excelBytes))) {
             assertEquals(2, wb.getNumberOfSheets());
             Sheet metaSheet = wb.getSheet("Thong_Tin_Bao_Cao");
@@ -433,7 +415,6 @@ public class ReportEpicNcl07ServiceTest {
             assertNotNull(dataSheet);
         }
 
-        // 3. Xuất báo cáo PRODUCT_GROUP kiểm tra sheet Du_Lieu_Nhom_Hang (P1-03)
         byte[] pgExcelBytes = reportExportService.exportReportToExcel(
                 owner.getUsername(), "PRODUCT_GROUP", today, today, null, null);
         assertNotNull(pgExcelBytes);
@@ -458,7 +439,6 @@ public class ReportEpicNcl07ServiceTest {
                 .createdAt(LocalDateTime.now())
                 .build());
 
-        // 1 thùng (quantity = 1, baseQuantity = 24), giá vốn 8k/lon cơ bản, bán 240k/thùng
         orderItemRepository.save(OrderItem.builder()
                 .order(order)
                 .product(productA)
@@ -473,9 +453,9 @@ public class ReportEpicNcl07ServiceTest {
 
         GrossProfitReportResponse report = reportService.getGrossProfitReport(owner.getUsername(), today, today, null);
         assertNotNull(report);
-        // COGS phải là 24 * 8000 = 192,000 (không phải 1 * 8000 = 8,000)
+
         assertEquals(0, new BigDecimal("192000").compareTo(report.getSummary().getTotalCogs()));
-        // Lãi gộp = 240,000 - 192,000 = 48,000
+
         assertEquals(0, new BigDecimal("48000").compareTo(report.getSummary().getTotalGrossProfit()));
     }
 
@@ -483,7 +463,6 @@ public class ReportEpicNcl07ServiceTest {
     public void testNCL07_CN008_GrossProfitReport_WithReturnTicket_Deduction() {
         LocalDate today = LocalDate.now();
 
-        // 1. Tạo đơn hàng 2 hộp SP A, giá bán 100k, giá vốn 60k -> Subtotal = 200k, COGS = 120k, Lãi = 80k
         Order order = orderRepository.save(Order.builder()
                 .orderNumber("ORD-NCL07-RET-01")
                 .household(household)
@@ -505,20 +484,18 @@ public class ReportEpicNcl07ServiceTest {
                 .subtotal(new BigDecimal("200000"))
                 .build());
 
-        // 2. Tạo hóa đơn gốc để liên kết với phiếu trả hàng
         EInvoice invoice = eInvoiceRepository.save(EInvoice.builder()
                 .household(household)
                 .order(order)
                 .createdByUser(owner)
                 .invoiceSymbol("1C26TAA")
                 .invoiceNumber("0999901")
-                .lookupCode("TEST-" + java.util.UUID.randomUUID().toString().substring(0, 8))
+                .lookupCode("TEST-" + UUID.randomUUID().toString().substring(0, 8))
                 .status("ISSUED")
                 .totalAmountBeforeTax(new BigDecimal("200000"))
                 .finalAmount(new BigDecimal("200000"))
                 .build());
 
-        // 3. Tạo phiếu trả hàng 1 hộp SP A (hoàn tiền 100k, đã duyệt APPROVED)
         ReturnTicket ticket = ReturnTicket.builder()
                 .household(household)
                 .originalInvoice(invoice)
@@ -548,24 +525,17 @@ public class ReportEpicNcl07ServiceTest {
         ticket.getItems().add(item);
         returnTicketRepository.save(ticket);
 
-        // 4. Lấy báo cáo lãi gộp và kiểm tra đã trừ hàng trả lại
         GrossProfitReportResponse report = reportService.getGrossProfitReport(owner.getUsername(), today, today, null);
 
         assertNotNull(report);
         assertNotNull(report.getSummary());
 
-        // Sau khi trừ hàng trả lại:
-        // Doanh thu thuần = 200,000 - 100,000 = 100,000
-        // COGS = 120,000 - 60,000 = 60,000
-        // Lãi gộp = 100,000 - 60,000 = 40,000
         assertEquals(0, new BigDecimal("100000").compareTo(report.getSummary().getTotalNetRevenue()));
         assertEquals(0, new BigDecimal("60000").compareTo(report.getSummary().getTotalCogs()));
         assertEquals(0, new BigDecimal("40000").compareTo(report.getSummary().getTotalGrossProfit()));
 
-        // Tỷ suất lãi gộp = 40,000 / 100,000 * 100 = 40.00%
         assertEquals(0, new BigDecimal("40.00").compareTo(report.getSummary().getGrossProfitMarginPercentage()));
 
-        // Mặt hàng A: Số lượng bán thuần = 2 - 1 = 1
         assertFalse(report.getItemReports().isEmpty());
         GrossProfitReportResponse.ProductGrossProfitDto pDto = report.getItemReports().get(0);
         assertEquals(0, new BigDecimal("1").compareTo(pDto.getQuantitySold()));
@@ -596,20 +566,18 @@ public class ReportEpicNcl07ServiceTest {
     public void testNCL07_GrossProfit_WithOrderLevelDiscount_Allocation() {
         LocalDate today = LocalDate.now();
 
-        // Đơn hàng có chiết khấu cấp đơn (VIP / Voucher)
         Order order = orderRepository.save(Order.builder()
                 .orderNumber("ORD-NCL07-DISC-01")
                 .household(household)
                 .createdByUser(owner)
                 .totalAmount(new BigDecimal("250000"))
-                .discountAmount(new BigDecimal("50000")) // Tổng giảm: 10k dòng hàng + 40k cấp đơn
+                .discountAmount(new BigDecimal("50000"))
                 .finalAmount(new BigDecimal("200000"))
                 .status("COMPLETED")
                 .paymentMethod("CASH")
                 .createdAt(LocalDateTime.now())
                 .build());
 
-        // Item 1: SP A (subtotal 190,000, discount 10,000, costPrice 60,000, qty 2)
         orderItemRepository.save(OrderItem.builder()
                 .order(order)
                 .product(productA)
@@ -621,7 +589,6 @@ public class ReportEpicNcl07ServiceTest {
                 .subtotal(new BigDecimal("190000"))
                 .build());
 
-        // Item 2: SP B (subtotal 60,000, discount 0, costPrice 0)
         orderItemRepository.save(OrderItem.builder()
                 .order(order)
                 .product(productB)
@@ -636,11 +603,7 @@ public class ReportEpicNcl07ServiceTest {
         GrossProfitReportResponse report = reportService.getGrossProfitReport(owner.getUsername(), today, today, null);
 
         assertNotNull(report);
-        // Chiết khấu cấp đơn = 50k - 10k = 40k
-        // Phân bổ cho SP A = 40k * 190k / 250k = 30.400đ
-        // Net revenue của SP A = 190.000 - 30.400 = 159.600đ
-        // COGS SP A = 2 * 60.000 = 120.000đ
-        // Gross Profit SP A = 159.600 - 120.000 = 39.600đ
+
         assertEquals(0, new BigDecimal("159600.00").compareTo(report.getSummary().getTotalNetRevenue()));
         assertEquals(0, new BigDecimal("120000.00").compareTo(report.getSummary().getTotalCogs()));
         assertEquals(0, new BigDecimal("39600.00").compareTo(report.getSummary().getTotalGrossProfit()));
@@ -665,7 +628,6 @@ public class ReportEpicNcl07ServiceTest {
                 .isActive(true)
                 .build());
 
-        // Nợ do owner tạo: 30k
         customerDebtRepository.save(CustomerDebt.builder()
                 .customer(customer)
                 .household(household)
@@ -677,7 +639,6 @@ public class ReportEpicNcl07ServiceTest {
                 .createdAt(LocalDateTime.now())
                 .build());
 
-        // Nợ do emp tạo: 70k
         customerDebtRepository.save(CustomerDebt.builder()
                 .customer(customer)
                 .household(household)
@@ -689,13 +650,11 @@ public class ReportEpicNcl07ServiceTest {
                 .createdAt(LocalDateTime.now())
                 .build());
 
-        // Lọc theo emp -> Chỉ thấy 70k nợ
         PaymentMethodReportResponse reportEmp = reportService.getPaymentMethodReport(
                 owner.getUsername(), today, today, emp.getId(), null);
         assertNotNull(reportEmp);
         assertEquals(0, new BigDecimal("70000").compareTo(reportEmp.getDebtDetails().getTotalDebtCreated()));
 
-        // Lọc theo owner -> Chỉ thấy 30k nợ
         PaymentMethodReportResponse reportOwner = reportService.getPaymentMethodReport(
                 owner.getUsername(), today, today, owner.getId(), null);
         assertNotNull(reportOwner);

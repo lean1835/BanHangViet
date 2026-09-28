@@ -18,7 +18,6 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class TaxSalesRegister {
-
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     @Column(length = 36, nullable = false)
@@ -67,7 +66,7 @@ public class TaxSalesRegister {
 
     @Column(name = "invoice_type", nullable = false, length = 30)
     @Builder.Default
-    private String invoiceType = "ORIGINAL"; // ORIGINAL, ADJUSTMENT_DECREASE, ADJUSTMENT_INCREASE
+    private String invoiceType = "ORIGINAL";
 
     @Column(columnDefinition = "TEXT")
     private String notes;

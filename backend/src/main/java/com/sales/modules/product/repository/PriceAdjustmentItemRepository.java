@@ -8,7 +8,6 @@ import java.util.List;
 
 @Repository
 public interface PriceAdjustmentItemRepository extends JpaRepository<PriceAdjustmentItem, String> {
-
     @EntityGraph(attributePaths = {"product", "product.group"})
     List<PriceAdjustmentItem> findByBatchId(String batchId);
 

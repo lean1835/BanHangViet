@@ -29,10 +29,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
+import com.sales.modules.auth.entity.BusinessHouseholdSettings;
 
 @ExtendWith(MockitoExtension.class)
 class DebtSchedulerTest {
-
     @Mock
     private CustomerDebtRepository customerDebtRepository;
 
@@ -313,7 +313,7 @@ class DebtSchedulerTest {
         when(customerDebtRepository.findMaxPendingReminderDaysBefore()).thenReturn(3);
         when(settingsRepository.findMaxDebtReminderDaysBefore()).thenReturn(5);
         when(settingsRepository.findByHouseholdId("hh-1")).thenReturn(Optional.of(
-                com.sales.modules.auth.entity.BusinessHouseholdSettings.builder().debtReminderDaysBefore(5).build()
+                BusinessHouseholdSettings.builder().debtReminderDaysBefore(5).build()
         ));
         when(customerDebtRepository.findMinPendingOverdueReminderDaysAfter()).thenReturn(3);
         when(customerDebtRepository.findPendingPreDueRemindersKeyset(any(), any(), any()))
@@ -324,7 +324,6 @@ class DebtSchedulerTest {
 
         debtScheduler.autoSendDebtReminders();
 
-        // Kiểm tra findByHouseholdId("hh-1") chỉ được gọi ĐÚNG 1 LẦN duy nhất dù có 2 khoản nợ cùng hộ
         verify(settingsRepository, times(1)).findByHouseholdId("hh-1");
         assertTrue(debt1.isReminderSent());
         assertTrue(debt2.isReminderSent());

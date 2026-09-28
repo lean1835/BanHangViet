@@ -15,7 +15,6 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class GenerateTaxPurchaseRegisterRequest {
-
     @NotBlank(message = "Loại kỳ kê khai không được để trống (MONTHLY hoặc QUARTERLY)")
     @Pattern(regexp = "^(?i)(MONTHLY|QUARTERLY)$", message = "Loại kỳ chỉ chấp nhận MONTHLY hoặc QUARTERLY")
     private String periodType;

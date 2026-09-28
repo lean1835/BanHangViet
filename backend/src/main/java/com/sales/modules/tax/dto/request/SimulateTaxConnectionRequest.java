@@ -10,7 +10,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class SimulateTaxConnectionRequest {
-    private String status; // ONLINE, SLOW, OFFLINE
+    private String status;
     private Integer responseTimeMs;
     private String errorMessage;
 }

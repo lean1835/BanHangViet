@@ -27,24 +27,25 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import com.sales.modules.auth.repository.BusinessHouseholdSettingsRepository;
+import org.springframework.beans.factory.annotation.Autowired;
 
 @Service
 @Slf4j
 public class OrderPaymentServiceImpl implements OrderPaymentService {
-
     private final OrderPaymentRepository orderPaymentRepository;
     private final OrderRepository orderRepository;
     private final UserRepository userRepository;
-    private final com.sales.modules.auth.repository.BusinessHouseholdSettingsRepository settingsRepository;
+    private final BusinessHouseholdSettingsRepository settingsRepository;
     private final ActivityLogHelper activityLogHelper;
     private final ObjectMapper objectMapper;
     private final HttpServletRequest httpServletRequest;
 
-    @org.springframework.beans.factory.annotation.Autowired
+    @Autowired
     public OrderPaymentServiceImpl(OrderPaymentRepository orderPaymentRepository,
                                   OrderRepository orderRepository,
                                   UserRepository userRepository,
-                                  com.sales.modules.auth.repository.BusinessHouseholdSettingsRepository settingsRepository,
+                                  BusinessHouseholdSettingsRepository settingsRepository,
                                   ActivityLogHelper activityLogHelper,
                                   ObjectMapper objectMapper,
                                   HttpServletRequest httpServletRequest) {
@@ -65,7 +66,6 @@ public class OrderPaymentServiceImpl implements OrderPaymentService {
                                   HttpServletRequest httpServletRequest) {
         this(orderPaymentRepository, orderRepository, userRepository, null, activityLogHelper, objectMapper, httpServletRequest);
     }
-
 
     private User getAuthenticatedUser(String username) {
         return userRepository.findByUsername(username)
@@ -229,8 +229,6 @@ public class OrderPaymentServiceImpl implements OrderPaymentService {
                 .orElse(null);
 
         if (payment == null) {
-            // Tự động tạo mới khoản thanh toán chuyển khoản nếu đơn đang ở trạng thái CREATING
-            // (Hỗ trợ cả đơn thanh toán trực tiếp qua BANK_TRANSFER lẫn đơn thanh toán kết hợp COMBINED hoặc khởi tạo từ CASH)
             BigDecimal paymentAmount = order.getFinalAmount() != null ? order.getFinalAmount() : BigDecimal.ZERO;
             payment = OrderPayment.builder()
                     .order(order)
@@ -272,4 +270,3 @@ public class OrderPaymentServiceImpl implements OrderPaymentService {
         return mapToResponse(saved);
     }
 }
-

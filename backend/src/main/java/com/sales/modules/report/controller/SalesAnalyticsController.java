@@ -25,7 +25,6 @@ import java.time.LocalDate;
 @RequiredArgsConstructor
 @Validated
 public class SalesAnalyticsController {
-
     private final SalesAnalyticsService salesAnalyticsService;
 
     @GetMapping("/peak-hours-and-days")
@@ -35,7 +34,6 @@ public class SalesAnalyticsController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate,
             @RequestParam(required = false) String posId) {
-
         PeakHoursAndDaysResponse result = salesAnalyticsService.getPeakHoursAndDaysAnalysis(
                 principal.getName(), fromDate, toDate, posId
         );
@@ -57,7 +55,6 @@ public class SalesAnalyticsController {
             @RequestParam(required = false) String groupId,
             @RequestParam(defaultValue = "0") @Min(0) int page,
             @RequestParam(defaultValue = "10") @Min(1) @Max(500) int size) {
-
         PageResponse<PurchaseSuggestionResponse> result = salesAnalyticsService.getPurchaseForecast(
                 principal.getName(), periodDays, groupId, page, size
         );
@@ -80,7 +77,6 @@ public class SalesAnalyticsController {
             @RequestParam(required = false) String search,
             @RequestParam(defaultValue = "0") @Min(0) int page,
             @RequestParam(defaultValue = "10") @Min(1) @Max(500) int size) {
-
         SlowMovingProductListResponse result = salesAnalyticsService.getSlowMovingProducts(
                 principal.getName(), thresholdDays, groupId, search, page, size
         );
@@ -94,4 +90,3 @@ public class SalesAnalyticsController {
         return ResponseEntity.ok(response);
     }
 }
-

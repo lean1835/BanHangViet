@@ -45,7 +45,6 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Slf4j
 public class InventoryWarningServiceImpl implements InventoryWarningService {
-
     private final UserRepository userRepository;
     private final ProductRepository productRepository;
     private final GoodsReceiptDetailRepository goodsReceiptDetailRepository;
@@ -78,7 +77,6 @@ public class InventoryWarningServiceImpl implements InventoryWarningService {
             throw new AppException(ErrorCode.FORBIDDEN);
         }
 
-        // Đảm bảo chỉ Chủ hộ (VT-01) có quyền sửa ngưỡng tồn tối thiểu
         if (currentUser.getRole() == null || !"VT-01".equals(currentUser.getRole().getCode())) {
             throw new AppException(ErrorCode.FORBIDDEN);
         }
@@ -205,7 +203,6 @@ public class InventoryWarningServiceImpl implements InventoryWarningService {
             throw new AppException(ErrorCode.FORBIDDEN);
         }
 
-        // Quyết định nhập hàng thuộc Chủ hộ (VT-01). Nhân viên (VT-02) bị chặn (NCL-18-CN-002-TC-04)
         if (currentUser.getRole() == null || !"VT-01".equals(currentUser.getRole().getCode())) {
             throw new AppException(ErrorCode.FORBIDDEN);
         }
@@ -296,7 +293,6 @@ public class InventoryWarningServiceImpl implements InventoryWarningService {
             throw new AppException(ErrorCode.FORBIDDEN);
         }
 
-        // Quyền xem cảnh báo hàng bán chậm & đọng vốn: Chỉ Chủ hộ (VT-01) và Kế toán (VT-03) (NCL-18-CN-003-TC-03)
         if (currentUser.getRole() == null ||
                 (!"VT-01".equals(currentUser.getRole().getCode()) && !"VT-03".equals(currentUser.getRole().getCode()))) {
             throw new AppException(ErrorCode.FORBIDDEN);

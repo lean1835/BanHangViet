@@ -38,7 +38,6 @@ import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class TaxReminderServiceImplTest {
-
     @Mock
     private UserRepository userRepository;
 
@@ -127,10 +126,6 @@ class TaxReminderServiceImplTest {
                 .createdAt(LocalDateTime.now())
                 .build();
     }
-
-    // =========================================================================
-    // 1. CẤU HÌNH NHẮC LỊCH (GET & UPDATE SETTINGS)
-    // =========================================================================
 
     @Test
     @DisplayName("Lấy cấu hình nhắc lịch thuế thành công bởi Chủ hộ (VT-01)")
@@ -255,22 +250,15 @@ class TaxReminderServiceImplTest {
         assertEquals(ErrorCode.INVALID_TAX_PERIOD_TYPE, ex.getErrorCode());
     }
 
-    // =========================================================================
-    // 2. THUẬT TOÁN TÍNH HẠN NỘP THUẾ (STATUTORY FILING DEADLINE)
-    // =========================================================================
-
     @Test
     @DisplayName("Tính hạn nộp theo tháng: Ngày 20 của tháng kế tiếp")
     void testCalculateTaxFilingDeadline_Monthly() {
-        // Tháng 1/2026 -> 20/02/2026
         LocalDate deadline1 = taxReminderService.calculateTaxFilingDeadline("MONTHLY", 2026, 1);
         assertEquals(LocalDate.of(2026, 2, 20), deadline1);
 
-        // Tháng 2/2026 -> 20/03/2026
         LocalDate deadline2 = taxReminderService.calculateTaxFilingDeadline("MONTHLY", 2026, 2);
         assertEquals(LocalDate.of(2026, 3, 20), deadline2);
 
-        // Tháng 12/2026 -> 20/01/2027
         LocalDate deadline12 = taxReminderService.calculateTaxFilingDeadline("MONTHLY", 2026, 12);
         assertEquals(LocalDate.of(2027, 1, 20), deadline12);
     }
@@ -278,19 +266,15 @@ class TaxReminderServiceImplTest {
     @Test
     @DisplayName("Tính hạn nộp theo quý: Ngày cuối cùng của tháng đầu quý tiếp theo")
     void testCalculateTaxFilingDeadline_Quarterly() {
-        // Quý 1/2026 -> 30/04/2026
         LocalDate q1Deadline = taxReminderService.calculateTaxFilingDeadline("QUARTERLY", 2026, 1);
         assertEquals(LocalDate.of(2026, 4, 30), q1Deadline);
 
-        // Quý 2/2026 -> 31/07/2026
         LocalDate q2Deadline = taxReminderService.calculateTaxFilingDeadline("QUARTERLY", 2026, 2);
         assertEquals(LocalDate.of(2026, 7, 31), q2Deadline);
 
-        // Quý 3/2026 -> 31/10/2026
         LocalDate q3Deadline = taxReminderService.calculateTaxFilingDeadline("QUARTERLY", 2026, 3);
         assertEquals(LocalDate.of(2026, 10, 31), q3Deadline);
 
-        // Quý 4/2026 -> 31/01/2027
         LocalDate q4Deadline = taxReminderService.calculateTaxFilingDeadline("QUARTERLY", 2026, 4);
         assertEquals(LocalDate.of(2027, 1, 31), q4Deadline);
     }
@@ -304,10 +288,6 @@ class TaxReminderServiceImplTest {
                 taxReminderService.calculateTaxFilingDeadline("MONTHLY", 2026, 13));
     }
 
-    // =========================================================================
-    // 3. TIÊU CHÍ AC-01 (NCL-12-CN-007-TC-01): NHẮC TRƯỚC HẠN & CHECKLIST
-    // =========================================================================
-
     @Test
     @DisplayName("NCL-12-CN-007-TC-01: Đến mốc nhắc trước hạn -> Đẩy thông báo WARNING kèm checklist")
     void testPreDueReminder_GeneratesWarningNotification() {
@@ -317,14 +297,12 @@ class TaxReminderServiceImplTest {
         when(notificationRepository.findByHouseholdIdAndTargetTypeAndIsClosedFalse("house-001", "TAX_PERIOD"))
                 .thenReturn(Collections.emptyList());
 
-        // Chưa có notification trước đó
         when(notificationRepository.findFirstByHouseholdIdAndTargetTypeAndTargetIdAndNotificationTypeAndIsClosedFalse(
                 eq("house-001"), eq("TAX_PERIOD"), eq("period-q1-2026"), eq(TaxNotificationType.TAX_DECLARATION_REMINDER)))
                 .thenReturn(Optional.empty());
 
         taxReminderService.scanAndGenerateTaxReminders(LocalDate.of(2026, 4, 26));
 
-        // Kiểm tra đã lưu AppNotification
         verify(notificationRepository, atLeastOnce()).save(argThat(notif ->
                 "TAX_PERIOD".equals(notif.getTargetType()) &&
                 "period-q1-2026".equals(notif.getTargetId()) &&
@@ -339,12 +317,11 @@ class TaxReminderServiceImplTest {
     void testScanAndGenerateTaxReminders_AutoDetectsMissingCompletedPeriod() {
         when(settingsRepository.findByTaxReminderEnabledTrue()).thenReturn(List.of(settings));
         when(eInvoiceRepository.existsByHouseholdIdAndDeletedAtIsNull("house-001")).thenReturn(true);
-        // Chưa có bất kỳ kỳ nào trong DB
+
         when(taxPeriodRepository.findByHouseholdIdOrderByYearDescPeriodNumberDesc("house-001")).thenReturn(Collections.emptyList());
         when(notificationRepository.findByHouseholdIdAndTargetTypeAndIsClosedFalse("house-001", "TAX_PERIOD"))
                 .thenReturn(Collections.emptyList());
 
-        // Giả sử ngày quét là 26/04/2026 (Quý 1 vừa xong, hạn 30/04/2026, còn 4 ngày <= 5 ngày nhắc)
         taxReminderService.scanAndGenerateTaxReminders(LocalDate.of(2026, 4, 26));
 
         verify(notificationRepository, atLeastOnce()).save(argThat(notif ->
@@ -372,15 +349,11 @@ class TaxReminderServiceImplTest {
         assertEquals("period-q1-2026", r.getPeriodId());
         assertEquals("QUARTERLY", r.getPeriodType());
         assertNotNull(r.getChecklist());
-        assertTrue(r.getChecklist().isSalesRegisterGenerated()); // totalValidInvoices = 10
-        assertTrue(r.getChecklist().isPurchaseRegisterGenerated()); // totalPurchaseReceipts = 2
-        assertFalse(r.getChecklist().isDeclarationExported()); // declarationExported = false
-        assertFalse(r.getChecklist().isPeriodLocked()); // status = GENERATED
+        assertTrue(r.getChecklist().isSalesRegisterGenerated());
+        assertTrue(r.getChecklist().isPurchaseRegisterGenerated());
+        assertFalse(r.getChecklist().isDeclarationExported());
+        assertFalse(r.getChecklist().isPeriodLocked());
     }
-
-    // =========================================================================
-    // 4. TIÊU CHÍ AC-02 (NCL-12-CN-007-TC-02 & QTN-21): TỰ ĐÓNG KHI ĐÃ CHỐT
-    // =========================================================================
 
     @Test
     @DisplayName("NCL-12-CN-007-TC-02: Kỳ đã chốt -> Tự động đóng toàn bộ nhắc việc của kỳ đó")
@@ -422,14 +395,9 @@ class TaxReminderServiceImplTest {
         verify(notificationRepository, times(1)).saveAll(anyList());
     }
 
-    // =========================================================================
-    // 5. TIÊU CHÍ AC-03 (NCL-12-CN-007-TC-03): CẢNH BÁO QUÁ HẠN MỨC ĐỘ CAO (DANGER)
-    // =========================================================================
-
     @Test
     @DisplayName("NCL-12-CN-007-TC-03: Kỳ quá hạn nộp mà chưa chốt -> Mức độ cao DANGER và giữ trong danh sách")
     void testOverduePeriod_GeneratesDangerNotification() {
-        // Tạo kỳ năm 2025 (chắc chắn đã quá hạn)
         TaxDeclarationPeriod overduePeriod = TaxDeclarationPeriod.builder()
                 .id("period-overdue-2025")
                 .household(household)
@@ -456,7 +424,6 @@ class TaxReminderServiceImplTest {
 
         taxReminderService.scanAndGenerateTaxReminders();
 
-        // Xác minh tạo thông báo với mức DANGER và is_closed = false
         verify(notificationRepository, atLeastOnce()).save(argThat(notif ->
                 "TAX_PERIOD".equals(notif.getTargetType()) &&
                 "period-overdue-2025".equals(notif.getTargetId()) &&
@@ -465,10 +432,6 @@ class TaxReminderServiceImplTest {
                 !notif.getIsClosed()
         ));
     }
-
-    // =========================================================================
-    // 6. TIỀN ĐỀ PHÁT SINH & TẮT NHẮC NHỞ
-    // =========================================================================
 
     @Test
     @DisplayName("Hộ chưa phát sinh hóa đơn nào -> Không sinh thông báo rác")
@@ -495,10 +458,6 @@ class TaxReminderServiceImplTest {
         assertNotNull(reminders);
         assertTrue(reminders.isEmpty());
     }
-
-    // =========================================================================
-    // 7. CẬP NHẬT CỜ ĐÃ XUẤT TỜ KHAI (DECLARATION EXPORTED)
-    // =========================================================================
 
     @Test
     @DisplayName("Đánh dấu xuất tờ khai thành công và đồng bộ metadata cho thông báo nhắc lịch")

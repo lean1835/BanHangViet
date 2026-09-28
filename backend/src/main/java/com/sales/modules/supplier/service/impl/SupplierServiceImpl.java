@@ -33,7 +33,6 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Slf4j
 public class SupplierServiceImpl implements SupplierService {
-
     private final UserRepository userRepository;
     private final SupplierRepository supplierRepository;
     private final GoodsReceiptRepository goodsReceiptRepository;

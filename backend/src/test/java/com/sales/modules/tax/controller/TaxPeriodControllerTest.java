@@ -29,12 +29,23 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import com.sales.modules.auth.entity.BusinessHousehold;
+import com.sales.modules.auth.entity.Role;
+import com.sales.modules.auth.entity.User;
+import com.sales.modules.auth.repository.BusinessHouseholdRepository;
+import com.sales.modules.auth.repository.RoleRepository;
+import com.sales.modules.auth.repository.UserRepository;
+import com.sales.modules.tax.dto.request.UnlockTaxPeriodRequest;
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import org.junit.jupiter.api.BeforeEach;
+import org.springframework.core.io.ByteArrayResource;
+import org.springframework.http.HttpHeaders;
 
 @SpringBootTest
 @AutoConfigureMockMvc
 @Transactional
 public class TaxPeriodControllerTest {
-
     @Autowired
     private MockMvc mockMvc;
 
@@ -45,25 +56,25 @@ public class TaxPeriodControllerTest {
     private TaxPeriodService taxPeriodService;
 
     @Autowired
-    private com.sales.modules.auth.repository.UserRepository userRepository;
+    private UserRepository userRepository;
 
     @Autowired
-    private com.sales.modules.auth.repository.BusinessHouseholdRepository businessHouseholdRepository;
+    private BusinessHouseholdRepository businessHouseholdRepository;
 
     @Autowired
-    private com.sales.modules.auth.repository.RoleRepository roleRepository;
+    private RoleRepository roleRepository;
 
-    @org.junit.jupiter.api.BeforeEach
+    @BeforeEach
     public void setUp() {
-        com.sales.modules.auth.entity.Role ownerRole = roleRepository.findByCode("VT-01").orElseGet(() ->
-                roleRepository.save(com.sales.modules.auth.entity.Role.builder().code("VT-01").name("Chủ hộ kinh doanh").build()));
-        com.sales.modules.auth.entity.Role empRole = roleRepository.findByCode("VT-02").orElseGet(() ->
-                roleRepository.save(com.sales.modules.auth.entity.Role.builder().code("VT-02").name("Nhân viên bán hàng").build()));
-        com.sales.modules.auth.entity.Role accountantRole = roleRepository.findByCode("VT-03").orElseGet(() ->
-                roleRepository.save(com.sales.modules.auth.entity.Role.builder().code("VT-03").name("Kế toán").build()));
+        Role ownerRole = roleRepository.findByCode("VT-01").orElseGet(() ->
+                roleRepository.save(Role.builder().code("VT-01").name("Chủ hộ kinh doanh").build()));
+        Role empRole = roleRepository.findByCode("VT-02").orElseGet(() ->
+                roleRepository.save(Role.builder().code("VT-02").name("Nhân viên bán hàng").build()));
+        Role accountantRole = roleRepository.findByCode("VT-03").orElseGet(() ->
+                roleRepository.save(Role.builder().code("VT-03").name("Kế toán").build()));
 
-        com.sales.modules.auth.entity.BusinessHousehold household = businessHouseholdRepository.findByTaxCode("9999999999").orElseGet(() ->
-                businessHouseholdRepository.save(com.sales.modules.auth.entity.BusinessHousehold.builder()
+        BusinessHousehold household = businessHouseholdRepository.findByTaxCode("9999999999").orElseGet(() ->
+                businessHouseholdRepository.save(BusinessHousehold.builder()
                         .taxCode("9999999999")
                         .name("Hộ kinh doanh Test Tax")
                         .address("Địa chỉ Test Tax")
@@ -71,7 +82,7 @@ public class TaxPeriodControllerTest {
                         .build()));
 
         userRepository.findByUsername("owner_test").orElseGet(() ->
-                userRepository.save(com.sales.modules.auth.entity.User.builder()
+                userRepository.save(User.builder()
                         .username("owner_test")
                         .passwordHash("hashed")
                         .fullName("Chủ Hộ Test")
@@ -81,7 +92,7 @@ public class TaxPeriodControllerTest {
                         .build()));
 
         userRepository.findByUsername("sales_test").orElseGet(() ->
-                userRepository.save(com.sales.modules.auth.entity.User.builder()
+                userRepository.save(User.builder()
                         .username("sales_test")
                         .passwordHash("hashed")
                         .fullName("Nhân Viên Test")
@@ -91,7 +102,7 @@ public class TaxPeriodControllerTest {
                         .build()));
 
         userRepository.findByUsername("accountant_test").orElseGet(() ->
-                userRepository.save(com.sales.modules.auth.entity.User.builder()
+                userRepository.save(User.builder()
                         .username("accountant_test")
                         .passwordHash("hashed")
                         .fullName("Kế Toán Test")
@@ -249,8 +260,8 @@ public class TaxPeriodControllerTest {
         TaxRevenueSummaryResponse response = TaxRevenueSummaryResponse.builder()
                 .periodId("period-123")
                 .periodName("Tháng 09/2026")
-                .totalRevenue(new java.math.BigDecimal("184000000.00"))
-                .totalTaxAmount(new java.math.BigDecimal("12200000.00"))
+                .totalRevenue(new BigDecimal("184000000.00"))
+                .totalTaxAmount(new BigDecimal("12200000.00"))
                 .taxRateSummaries(Collections.emptyList())
                 .build();
 
@@ -285,18 +296,18 @@ public class TaxPeriodControllerTest {
     @WithMockUser(username = "owner_test", roles = {"VT-01"})
     public void exportTaxDeclaration_success_owner() throws Exception {
         byte[] sampleExcel = new byte[]{1, 2, 3, 4, 5};
-        org.springframework.core.io.ByteArrayResource resource = new org.springframework.core.io.ByteArrayResource(sampleExcel);
+        ByteArrayResource resource = new ByteArrayResource(sampleExcel);
 
         when(taxPeriodService.exportTaxDeclaration(eq("owner_test"), eq("period-123")))
                 .thenReturn(ResponseEntity.ok()
-                        .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"To_khai_thue_QUARTERLY_2026_3.xlsx\"")
+                        .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"To_khai_thue_QUARTERLY_2026_3.xlsx\"")
                         .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
                         .contentLength(sampleExcel.length)
                         .body(resource));
 
         mockMvc.perform(get("/api/v1/tax-periods/period-123/export-declaration"))
                 .andExpect(status().isOk())
-                .andExpect(header().string(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"To_khai_thue_QUARTERLY_2026_3.xlsx\""))
+                .andExpect(header().string(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"To_khai_thue_QUARTERLY_2026_3.xlsx\""))
                 .andExpect(content().contentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
                 .andExpect(content().bytes(sampleExcel));
     }
@@ -306,11 +317,11 @@ public class TaxPeriodControllerTest {
     @WithMockUser(username = "accountant_test", roles = {"VT-03"})
     public void exportTaxDeclaration_success_accountant() throws Exception {
         byte[] sampleExcel = new byte[]{10, 20, 30};
-        org.springframework.core.io.ByteArrayResource resource = new org.springframework.core.io.ByteArrayResource(sampleExcel);
+        ByteArrayResource resource = new ByteArrayResource(sampleExcel);
 
         when(taxPeriodService.exportTaxDeclaration(eq("accountant_test"), eq("period-123")))
                 .thenReturn(ResponseEntity.ok()
-                        .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"To_khai_thue_QUARTERLY_2026_3.xlsx\"")
+                        .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"To_khai_thue_QUARTERLY_2026_3.xlsx\"")
                         .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
                         .contentLength(sampleExcel.length)
                         .body(resource));
@@ -329,10 +340,6 @@ public class TaxPeriodControllerTest {
                 .andExpect(status().isForbidden());
     }
 
-    // =========================================================================
-    // TESTS FOR NCL-12-CN-004: Chốt kỳ kê khai và khóa số liệu
-    // =========================================================================
-
     @Test
     @DisplayName("Chốt kỳ kê khai thuế thành công (200) với vai trò VT-01 (Chủ hộ)")
     @WithMockUser(username = "owner_test", roles = {"VT-01"})
@@ -342,7 +349,7 @@ public class TaxPeriodControllerTest {
                 .periodName("Bảng kê hóa đơn bán ra Quý 3 năm 2026")
                 .status("LOCKED")
                 .lockedByName("Chủ Hộ")
-                .lockedAt(java.time.LocalDateTime.now())
+                .lockedAt(LocalDateTime.now())
                 .build();
 
         when(taxPeriodService.lockTaxPeriod(eq("owner_test"), eq("period-123")))
@@ -375,7 +382,7 @@ public class TaxPeriodControllerTest {
     @DisplayName("Mở lại kỳ kê khai thuế thành công (200) với vai trò VT-01 (Chủ hộ)")
     @WithMockUser(username = "owner_test", roles = {"VT-01"})
     public void unlockTaxPeriod_success_owner() throws Exception {
-        com.sales.modules.tax.dto.request.UnlockTaxPeriodRequest request = com.sales.modules.tax.dto.request.UnlockTaxPeriodRequest.builder()
+        UnlockTaxPeriodRequest request = UnlockTaxPeriodRequest.builder()
                 .reason("Cần điều chỉnh bổ sung hóa đơn")
                 .build();
 
@@ -385,7 +392,7 @@ public class TaxPeriodControllerTest {
                 .status("GENERATED")
                 .build();
 
-        when(taxPeriodService.unlockTaxPeriod(eq("owner_test"), eq("period-123"), any(com.sales.modules.tax.dto.request.UnlockTaxPeriodRequest.class)))
+        when(taxPeriodService.unlockTaxPeriod(eq("owner_test"), eq("period-123"), any(UnlockTaxPeriodRequest.class)))
                 .thenReturn(response);
 
         mockMvc.perform(post("/api/v1/tax-periods/period-123/unlock")
@@ -401,7 +408,7 @@ public class TaxPeriodControllerTest {
     @DisplayName("Mở lại kỳ kê khai thuế thất bại (403) với vai trò VT-03 (Kế toán)")
     @WithMockUser(username = "accountant_test", roles = {"VT-03"})
     public void unlockTaxPeriod_forbidden_accountant() throws Exception {
-        com.sales.modules.tax.dto.request.UnlockTaxPeriodRequest request = com.sales.modules.tax.dto.request.UnlockTaxPeriodRequest.builder()
+        UnlockTaxPeriodRequest request = UnlockTaxPeriodRequest.builder()
                 .reason("Cần điều chỉnh bổ sung hóa đơn")
                 .build();
 
@@ -410,10 +417,6 @@ public class TaxPeriodControllerTest {
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isForbidden());
     }
-
-    // =========================================================================
-    // TESTS FOR NCL-12-CN-006: Bảng kê hàng hóa mua vào theo kỳ
-    // =========================================================================
 
     @Test
     @DisplayName("Lập bảng kê hàng hóa mua vào thành công (200) với vai trò VT-01 (Chủ hộ)")
@@ -432,7 +435,7 @@ public class TaxPeriodControllerTest {
                 .year(2026)
                 .periodNumber(3)
                 .status("GENERATED")
-                .grandTotalAmount(new java.math.BigDecimal("150000000.00"))
+                .grandTotalAmount(new BigDecimal("150000000.00"))
                 .totalReceiptCount(5)
                 .build();
 
@@ -515,7 +518,7 @@ public class TaxPeriodControllerTest {
         TaxPurchaseRegisterSummaryResponse summary = TaxPurchaseRegisterSummaryResponse.builder()
                 .periodId("period-p123")
                 .periodName("Quý 3/2026")
-                .grandTotalAmount(new java.math.BigDecimal("150000000.00"))
+                .grandTotalAmount(new BigDecimal("150000000.00"))
                 .totalReceiptCount(5)
                 .hasMissingSupplierReceipts(false)
                 .validSuppliers(Collections.emptyList())
@@ -549,9 +552,9 @@ public class TaxPeriodControllerTest {
                 .id("reg-item-1")
                 .receiptNumber("PNK-202609-001")
                 .productName("Xi măng Holcim PCB40")
-                .baseQuantity(new java.math.BigDecimal("50.00"))
-                .basePurchasePrice(new java.math.BigDecimal("85000.00"))
-                .totalAmount(new java.math.BigDecimal("4250000.00"))
+                .baseQuantity(new BigDecimal("50.00"))
+                .basePurchasePrice(new BigDecimal("85000.00"))
+                .totalAmount(new BigDecimal("4250000.00"))
                 .build();
 
         PageResponse<TaxPurchaseRegisterItemResponse> pageResponse = PageResponse.<TaxPurchaseRegisterItemResponse>builder()
@@ -586,18 +589,18 @@ public class TaxPeriodControllerTest {
     @WithMockUser(username = "owner_test", roles = {"VT-01"})
     public void exportPurchaseRegister_success_owner() throws Exception {
         byte[] sampleExcel = new byte[]{1, 2, 3, 4, 5, 6, 7};
-        org.springframework.core.io.ByteArrayResource resource = new org.springframework.core.io.ByteArrayResource(sampleExcel);
+        ByteArrayResource resource = new ByteArrayResource(sampleExcel);
 
         when(taxPeriodService.exportPurchaseRegister(eq("owner_test"), eq("period-p123")))
                 .thenReturn(ResponseEntity.ok()
-                        .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"Bang_ke_mua_vao_QUARTERLY_2026_3.xlsx\"")
+                        .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"Bang_ke_mua_vao_QUARTERLY_2026_3.xlsx\"")
                         .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
                         .contentLength(sampleExcel.length)
                         .body(resource));
 
         mockMvc.perform(get("/api/v1/tax-periods/period-p123/export-purchase-register"))
                 .andExpect(status().isOk())
-                .andExpect(header().string(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"Bang_ke_mua_vao_QUARTERLY_2026_3.xlsx\""))
+                .andExpect(header().string(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"Bang_ke_mua_vao_QUARTERLY_2026_3.xlsx\""))
                 .andExpect(content().contentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
                 .andExpect(content().bytes(sampleExcel));
     }
@@ -607,11 +610,11 @@ public class TaxPeriodControllerTest {
     @WithMockUser(username = "accountant_test", roles = {"VT-03"})
     public void exportPurchaseRegister_success_accountant() throws Exception {
         byte[] sampleExcel = new byte[]{9, 8, 7};
-        org.springframework.core.io.ByteArrayResource resource = new org.springframework.core.io.ByteArrayResource(sampleExcel);
+        ByteArrayResource resource = new ByteArrayResource(sampleExcel);
 
         when(taxPeriodService.exportPurchaseRegister(eq("accountant_test"), eq("period-p123")))
                 .thenReturn(ResponseEntity.ok()
-                        .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"Bang_ke_mua_vao_QUARTERLY_2026_3.xlsx\"")
+                        .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"Bang_ke_mua_vao_QUARTERLY_2026_3.xlsx\"")
                         .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
                         .contentLength(sampleExcel.length)
                         .body(resource));
@@ -630,5 +633,3 @@ public class TaxPeriodControllerTest {
                 .andExpect(status().isForbidden());
     }
 }
-
-

@@ -15,7 +15,6 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class UpdateBackupConfigRequest {
-
     @NotNull(message = "Trạng thái tự động sao lưu không được để trống")
     private Boolean isAutoBackupEnabled;
 

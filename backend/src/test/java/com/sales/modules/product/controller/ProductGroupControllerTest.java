@@ -38,7 +38,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureMockMvc
 @Transactional
 public class ProductGroupControllerTest {
-
     @Autowired
     private MockMvc mockMvc;
 
@@ -162,7 +161,6 @@ public class ProductGroupControllerTest {
                 .andExpect(jsonPath("$.message").value("Tạo nhóm hàng thành công"))
                 .andExpect(jsonPath("$.result.name").value("Trái cây nhập khẩu"));
 
-        // Verify product relation
         Product updatedP1 = productRepository.findById(product1.getId()).orElseThrow();
         Product updatedP2 = productRepository.findById(product2.getId()).orElseThrow();
 
@@ -221,7 +219,7 @@ public class ProductGroupControllerTest {
 
         UpdateProductGroupRequest request = UpdateProductGroupRequest.builder()
                 .name("Hải sản tươi sống")
-                .productIds(Collections.singletonList(product2.getId())) // Remove product1, add product2
+                .productIds(Collections.singletonList(product2.getId()))
                 .build();
 
         mockMvc.perform(put("/api/v1/product-groups/" + group.getId())
@@ -328,7 +326,7 @@ public class ProductGroupControllerTest {
 
         UpdateProductGroupRequest request = UpdateProductGroupRequest.builder()
                 .name("Trái cây mới")
-                .productIds(Arrays.asList(product2.getId(), product2.getId())) // duplicate product2
+                .productIds(Arrays.asList(product2.getId(), product2.getId()))
                 .build();
 
         mockMvc.perform(put("/api/v1/product-groups/" + group.getId())
