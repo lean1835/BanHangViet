@@ -9,12 +9,9 @@ import lombok.*;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class UpdateProfileRequest {
-    @NotBlank(message = "Họ tên không được để trống")
-    @Size(max = 100, message = "Họ tên không được quá 100 ký tự")
-    private String fullName;
-
+public class UpdateEmailRequest {
+    @NotBlank(message = "Địa chỉ email không được để trống")
     @Email(message = "Địa chỉ email không đúng định dạng")
-    @Size(max = 100, message = "Email không được quá 100 ký tự")
+    @Size(max = 100, message = "Email không được vượt quá 100 ký tự")
     private String email;
 }

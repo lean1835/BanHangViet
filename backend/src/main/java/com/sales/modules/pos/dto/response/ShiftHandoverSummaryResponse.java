@@ -25,6 +25,8 @@ public class ShiftHandoverSummaryResponse {
     private BigDecimal cashRevenue;
     private BigDecimal bankRevenue;
     private BigDecimal totalRevenue;
+    private BigDecimal stageIncome;
+    private BigDecimal stageExpense;
     private BigDecimal expectedCash;
     private Integer completedOrdersCount;
     private Integer pendingOrdersCount;

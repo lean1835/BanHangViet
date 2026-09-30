@@ -182,14 +182,17 @@ public class PosInventoryServiceImpl implements PosInventoryService {
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @Transactional(rollbackFor = Exception.class)
     public Page<PosInventoryResponse> getInventoriesByPos(
             String currentUsername, String posId, String keyword, String groupId, Boolean lowStockOnly, Pageable pageable) {
         User currentUser = getAuthenticatedUser(currentUsername);
         checkViewPermission(currentUser);
         BusinessHousehold household = getValidHousehold(currentUser);
 
-        getValidPointOfSale(posId, household.getId());
+        PointOfSale pos = getValidPointOfSale(posId, household.getId());
+        if (pos.isCentralOrMain()) {
+            autoSyncCentralPosInventories(household, pos);
+        }
 
         Specification<PosInventory> spec = (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
@@ -248,18 +251,83 @@ public class PosInventoryServiceImpl implements PosInventoryService {
         return posInventoryPage.map(inv -> mapToResponse(inv, allPosInvsByProduct, inTransitByProduct));
     }
 
+    private void autoSyncCentralPosInventories(BusinessHousehold household, PointOfSale centralPos) {
+        try {
+            List<Product> products = productRepository.findAllByHouseholdIdAndDeletedAtIsNull(household.getId());
+            if (products.isEmpty()) return;
+
+            List<PosInventory> existing = posInventoryRepository.findByHouseholdIdAndPointOfSaleId(household.getId(), centralPos.getId());
+            Set<String> existingProdIds = existing.stream()
+                    .filter(pi -> pi.getProduct() != null && pi.getProduct().getId() != null)
+                    .map(pi -> pi.getProduct().getId())
+                    .collect(Collectors.toSet());
+
+            List<PosInventory> otherInvs = posInventoryRepository.findByHouseholdIdAndPointOfSaleIdNot(household.getId(), centralPos.getId());
+            Map<String, BigDecimal> otherAllocatedMap = new HashMap<>();
+            for (PosInventory pi : otherInvs) {
+                if (pi.getProduct() != null && pi.getProduct().getId() != null && pi.getStockQuantity() != null) {
+                    otherAllocatedMap.merge(pi.getProduct().getId(), pi.getStockQuantity(), BigDecimal::add);
+                }
+            }
+
+            List<PosInventory> toCreate = new ArrayList<>();
+            for (Product prod : products) {
+                if (!existingProdIds.contains(prod.getId())) {
+                    BigDecimal totalStock = prod.getStockQuantity() != null ? prod.getStockQuantity() : BigDecimal.ZERO;
+                    BigDecimal otherAllocated = otherAllocatedMap.getOrDefault(prod.getId(), BigDecimal.ZERO);
+                    BigDecimal initStock = totalStock.subtract(otherAllocated).max(BigDecimal.ZERO);
+                    BigDecimal minAlert = prod.getMinStockQuantity() != null ? prod.getMinStockQuantity() : BigDecimal.valueOf(10);
+                    toCreate.add(PosInventory.builder()
+                            .household(household)
+                            .pointOfSale(centralPos)
+                            .product(prod)
+                            .stockQuantity(initStock)
+                            .minStockQuantity(minAlert)
+                            .build());
+                }
+            }
+            if (!toCreate.isEmpty()) {
+                posInventoryRepository.saveAll(toCreate);
+            }
+        } catch (Exception e) {
+            log.warn("Không thể tự động đồng bộ tồn kho Chi nhánh trung tâm: {}", e.getMessage());
+        }
+    }
+
     @Override
-    @Transactional(readOnly = true)
+    @Transactional(rollbackFor = Exception.class)
     public PosInventoryResponse getInventoryByPosAndProduct(String currentUsername, String posId, String productId) {
         User currentUser = getAuthenticatedUser(currentUsername);
         checkViewPermission(currentUser);
         BusinessHousehold household = getValidHousehold(currentUser);
 
-        getValidPointOfSale(posId, household.getId());
+        PointOfSale pos = getValidPointOfSale(posId, household.getId());
 
         PosInventory inventory = posInventoryRepository.findByHouseholdIdAndPointOfSaleIdAndProductId(
                 household.getId(), posId, productId)
-                .orElseThrow(() -> new AppException(ErrorCode.POS_PRODUCT_NOT_INITIALIZED));
+                .orElseGet(() -> {
+                    if (pos.isCentralOrMain()) {
+                        Product product = productRepository.findByIdAndHouseholdIdAndDeletedAtIsNull(productId, household.getId())
+                                .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_NOT_FOUND));
+                        BigDecimal totalStock = product.getStockQuantity() != null ? product.getStockQuantity() : BigDecimal.ZERO;
+                        BigDecimal otherAllocated = posInventoryRepository.findByHouseholdIdAndProductIdAndPointOfSaleIdNot(
+                                        household.getId(), productId, pos.getId())
+                                .stream()
+                                .map(pi -> pi.getStockQuantity() != null ? pi.getStockQuantity() : BigDecimal.ZERO)
+                                .reduce(BigDecimal.ZERO, BigDecimal::add);
+                        BigDecimal initStock = totalStock.subtract(otherAllocated).max(BigDecimal.ZERO);
+                        BigDecimal minAlert = product.getMinStockQuantity() != null ? product.getMinStockQuantity() : BigDecimal.valueOf(10);
+                        PosInventory newCentralInv = PosInventory.builder()
+                                .household(household)
+                                .pointOfSale(pos)
+                                .product(product)
+                                .stockQuantity(initStock)
+                                .minStockQuantity(minAlert)
+                                .build();
+                        return posInventoryRepository.save(newCentralInv);
+                    }
+                    throw new AppException(ErrorCode.POS_PRODUCT_NOT_INITIALIZED);
+                });
 
         return mapToResponse(inventory);
     }
@@ -491,7 +559,29 @@ public class PosInventoryServiceImpl implements PosInventoryService {
 
             PosInventory posInv = posInvMap.get(productId);
             if (posInv == null) {
-                throw new AppException(ErrorCode.POS_PRODUCT_NOT_INITIALIZED);
+                PointOfSale pos = pointOfSaleRepository.findByIdAndHouseholdIdAndDeletedAtIsNull(posId, householdId).orElse(null);
+                if (pos != null && pos.isCentralOrMain()) {
+                    Product product = productRepository.findByIdAndHouseholdIdAndDeletedAtIsNull(productId, householdId).orElse(null);
+                    BigDecimal totalStock = (product != null && product.getStockQuantity() != null) ? product.getStockQuantity() : BigDecimal.ZERO;
+                    BigDecimal otherAllocated = posInventoryRepository.findByHouseholdIdAndProductIdAndPointOfSaleIdNot(
+                                    householdId, productId, posId)
+                            .stream()
+                            .map(pi -> pi.getStockQuantity() != null ? pi.getStockQuantity() : BigDecimal.ZERO)
+                            .reduce(BigDecimal.ZERO, BigDecimal::add);
+                    BigDecimal initStock = totalStock.subtract(otherAllocated).max(BigDecimal.ZERO);
+                    BigDecimal minAlert = (product != null && product.getMinStockQuantity() != null) ? product.getMinStockQuantity() : BigDecimal.valueOf(10);
+                    posInv = PosInventory.builder()
+                            .household(pos.getHousehold())
+                            .pointOfSale(pos)
+                            .product(product)
+                            .stockQuantity(initStock)
+                            .minStockQuantity(minAlert)
+                            .build();
+                    posInventories.add(posInv);
+                    posInvMap.put(productId, posInv);
+                } else {
+                    throw new AppException(ErrorCode.POS_PRODUCT_NOT_INITIALIZED);
+                }
             }
 
             BigDecimal currentStock = posInv.getStockQuantity() != null ? posInv.getStockQuantity() : BigDecimal.ZERO;

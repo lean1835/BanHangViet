@@ -28,6 +28,10 @@ const mapEmployee = (value: unknown): IEmployee => {
   }
 
   const phoneNumber = value[EMPLOYEE_API_RESPONSE_FIELDS.PHONE_NUMBER];
+  const email = value.email;
+  const pointOfSaleId = value.pointOfSaleId;
+  const pointOfSaleName = value.pointOfSaleName;
+  const posCode = value.posCode;
 
   return {
     id: getRequiredString(value, EMPLOYEE_API_RESPONSE_FIELDS.ID),
@@ -40,6 +44,10 @@ const mapEmployee = (value: unknown): IEmployee => {
       EMPLOYEE_API_RESPONSE_FIELDS.FULL_NAME,
     ),
     phoneNumber: typeof phoneNumber === "string" ? phoneNumber : "",
+    email: typeof email === "string" ? email : null,
+    pointOfSaleId: typeof pointOfSaleId === "string" ? pointOfSaleId : null,
+    pointOfSaleName: typeof pointOfSaleName === "string" ? pointOfSaleName : null,
+    posCode: typeof posCode === "string" ? posCode : null,
     roleCode: getRequiredString(
       value,
       EMPLOYEE_API_RESPONSE_FIELDS.ROLE_CODE,
@@ -95,7 +103,9 @@ export const employeeApi = baseApi.injectEndpoints({
           password: employeeData.password,
           fullName: employeeData.fullName,
           phoneNumber: employeeData.phoneNumber,
+          email: employeeData.email?.trim() || null,
           roleCode: employeeData.roleCode,
+          pointOfSaleId: employeeData.pointOfSaleId || null,
         },
       }),
       transformResponse: (response: unknown): IEmployee =>
@@ -107,15 +117,18 @@ export const employeeApi = baseApi.injectEndpoints({
         },
       ],
     }),
-    updateEmployee: builder.mutation<IEmployee, { id: string; data: Partial<IEmployee> }>({
+    updateEmployee: builder.mutation<IEmployee, { id: string; data: Partial<IEmployee> & { password?: string } }>({
       query: ({ id, data }) => ({
         url: EMPLOYEE_API_ENDPOINTS.BY_ID(id),
         method: HTTP_METHODS.PUT,
         body: {
           fullName: data.fullName,
           phoneNumber: data.phoneNumber,
+          email: data.email?.trim() || null,
           roleCode: data.roleCode,
           isActive: data.isActive,
+          pointOfSaleId: data.pointOfSaleId || null,
+          ...(data.password?.trim() ? { password: data.password.trim() } : {}),
         },
       }),
       transformResponse: (response: unknown): IEmployee =>

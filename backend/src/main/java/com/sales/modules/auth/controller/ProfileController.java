@@ -50,6 +50,20 @@ public class ProfileController {
         return ResponseEntity.ok(response);
     }
 
+    @Operation(summary = "Cập nhật địa chỉ email", description = "Cho phép người dùng liên kết hoặc cập nhật địa chỉ email (Gmail)")
+    @PutMapping("/email")
+    public ResponseEntity<ApiResponse<UserProfileResponse>> updateEmail(
+            Principal principal,
+            @Valid @RequestBody com.sales.modules.auth.dto.request.UpdateEmailRequest request) {
+        UserProfileResponse result = profileService.updateEmail(principal.getName(), request);
+        ApiResponse<UserProfileResponse> response = ApiResponse.<UserProfileResponse>builder()
+                .code(1000)
+                .message("Cập nhật địa chỉ email thành công")
+                .result(result)
+                .build();
+        return ResponseEntity.ok(response);
+    }
+
     @Operation(summary = "Đổi mật khẩu cá nhân", description = "Người dùng đổi mật khẩu khi biết mật khẩu hiện tại, sau khi đổi sẽ cấp JWT mới và vô hiệu hóa các phiên cũ")
     @PostMapping("/change-password")
     public ResponseEntity<ApiResponse<ChangePasswordResponse>> changePassword(

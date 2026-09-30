@@ -60,4 +60,23 @@ public class PointOfSale {
 
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
+
+    public boolean isCentralOrMain() {
+        if (Boolean.TRUE.equals(this.isDefault)) {
+            return true;
+        }
+        if (this.name != null) {
+            String lower = this.name.toLowerCase();
+            if (lower.contains("trung tâm") || lower.contains("mặc định") || lower.contains("chi nhánh chính")) {
+                return true;
+            }
+        }
+        if (this.posCode != null) {
+            String lowerCode = this.posCode.toLowerCase();
+            if (lowerCode.contains("main") || lowerCode.contains("central") || lowerCode.contains("default") || lowerCode.equals("pos-01")) {
+                return true;
+            }
+        }
+        return false;
+    }
 }

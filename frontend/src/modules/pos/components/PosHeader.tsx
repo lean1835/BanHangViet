@@ -102,6 +102,8 @@ export const PosHeader: React.FC<IPosHeaderProps> = ({
     if (posId && product.posStocks && product.posStocks.length > 0) {
       const ps = product.posStocks.find((s) => s.posId === posId);
       if (ps) return ps.stockQuantity;
+      const isCentral = !branchName || branchName.toLowerCase().includes("trung tâm") || branchName.toLowerCase().includes("mặc định");
+      if (isCentral) return product.stockQuantity;
       return 0;
     }
     return product.stockQuantity;

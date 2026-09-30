@@ -246,7 +246,7 @@ export const LookupInvoicePage: React.FC = () => {
       <header className="bg-kv-blue-primary print:hidden">
         <div className="max-w-[980px] mx-auto w-full flex items-center gap-4 px-6 py-3">
           {/* Logo */}
-          <BrandLogo size="lg" variant="light" />
+          <BrandLogo size="lg" variant="light" showIcon={false} />
 
           {/* Divider */}
           <div className="hidden sm:block w-px h-8 bg-white/35 shrink-0" />

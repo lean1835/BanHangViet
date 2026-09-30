@@ -51,7 +51,7 @@ public class BusinessHousehold {
 
     @Column(name = "revenue_threshold_enabled", nullable = false)
     @Builder.Default
-    private Boolean revenueThresholdEnabled = false;
+    private Boolean revenueThresholdEnabled = true;
 
     @Column(name = "offline_max_orders", nullable = false)
     @Builder.Default

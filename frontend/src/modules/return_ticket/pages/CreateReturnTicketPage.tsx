@@ -190,7 +190,10 @@ export const CreateReturnTicketPage: React.FC = () => {
   }, [checkResponse, selectedInvoiceId, eligibleInvoices]);
 
   const checkData = checkResponse?.result;
-  const isInvoiceExpired = checkData?.isExpired || false;
+  const isInvoiceExpired = Boolean(checkData?.isExpired ?? checkData?.expired);
+  const isEligibleForReturn = checkData
+    ? Boolean(checkData.isEligibleForReturn ?? checkData.eligibleForReturn ?? true)
+    : true;
 
   // Real-time calculations
   const activeItems = useMemo(
@@ -255,6 +258,7 @@ export const CreateReturnTicketPage: React.FC = () => {
     Boolean(selectedInvoiceId) &&
     activeItems.length > 0 &&
     !hasAnyItemError &&
+    isEligibleForReturn &&
     (!isInvoiceExpired || (isOwner && allowOverdueOverride));
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -265,7 +269,7 @@ export const CreateReturnTicketPage: React.FC = () => {
       return;
     }
 
-    if (checkData && !checkData.isEligibleForReturn) {
+    if (checkData && !isEligibleForReturn) {
       showError(
         checkData.ineligibilityReason ||
           "Hóa đơn này không đủ điều kiện trả hàng theo quy định (đã từng đổi/trả hoặc quá hạn)."
@@ -467,6 +471,19 @@ export const CreateReturnTicketPage: React.FC = () => {
                     ))}
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* Ineligible Warning Alert */}
+            {selectedInvoice && checkData && !isEligibleForReturn && (
+              <div className="p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs space-y-1 animate-in fade-in">
+                <div className="flex items-center gap-2 font-bold text-rose-900">
+                  <ShieldAlert size={16} className="text-rose-600 shrink-0" />
+                  <span>Hóa đơn này không đủ điều kiện trả hàng theo quy định</span>
+                </div>
+                <p className="text-rose-700 text-[11px] leading-relaxed">
+                  {checkData.ineligibilityReason || "Hóa đơn này đã từng thực hiện đổi/trả hoặc không đủ điều kiện theo quy định."}
+                </p>
               </div>
             )}
 

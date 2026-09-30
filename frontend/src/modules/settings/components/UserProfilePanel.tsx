@@ -21,6 +21,7 @@ import { useGetProfileQuery } from "../services/profileApi";
 import { EditProfileModal } from "./EditProfileModal";
 import { ChangePasswordModal } from "./ChangePasswordModal";
 import { UpdatePhoneModal } from "./UpdatePhoneModal";
+import { UpdateEmailModal } from "./UpdateEmailModal";
 
 export const UserProfilePanel: React.FC = () => {
   const dispatch = useAppDispatch();
@@ -35,18 +36,21 @@ export const UserProfilePanel: React.FC = () => {
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
   const [isUpdatePhoneOpen, setIsUpdatePhoneOpen] = useState(false);
+  const [isUpdateEmailOpen, setIsUpdateEmailOpen] = useState(false);
 
   // Sync profile data with auth slice if loaded
   useEffect(() => {
     if (profile) {
       if (
         profile.fullName !== user?.fullName ||
-        profile.phoneNumber !== user?.phoneNumber
+        profile.phoneNumber !== user?.phoneNumber ||
+        profile.email !== user?.email
       ) {
         dispatch(
           updateUser({
             fullName: profile.fullName,
             phoneNumber: profile.phoneNumber,
+            email: profile.email,
           })
         );
       }
@@ -182,32 +186,45 @@ export const UserProfilePanel: React.FC = () => {
           </div>
 
           {/* Địa chỉ Email / Gmail */}
-          <div className="p-4 bg-slate-50/70 hover:bg-slate-50 rounded-xl border border-slate-200/70 transition-colors">
-            <div className="flex items-center gap-2 text-slate-400 mb-1.5">
-              <Mail size={14} className="text-kv-blue-primary" />
-              <span className="text-[11px] font-bold uppercase tracking-wider">
-                Địa chỉ Email (Gmail)
-              </span>
+          <div className="p-4 bg-slate-50/70 hover:bg-slate-50 rounded-xl border border-slate-200/70 transition-colors flex flex-col justify-between">
+            <div>
+              <div className="flex items-center justify-between gap-2 text-slate-400 mb-1.5">
+                <div className="flex items-center gap-2">
+                  <Mail size={14} className="text-kv-blue-primary" />
+                  <span className="text-[11px] font-bold uppercase tracking-wider">
+                    Địa chỉ Email (Gmail)
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsUpdateEmailOpen(true)}
+                  className="inline-flex items-center gap-1 text-xs font-bold text-kv-blue-primary hover:text-blue-700 cursor-pointer p-1 -m-1 rounded hover:bg-blue-50 transition-colors"
+                  title="Cập nhật hoặc liên kết địa chỉ email"
+                >
+                  <Edit3 size={13} />
+                  <span>{email ? "Đổi email" : "Thêm email"}</span>
+                </button>
+              </div>
+              {email ? (
+                <div className="flex items-center justify-between gap-2 mt-1">
+                  <span className="text-sm font-extrabold text-slate-800 truncate font-mono">
+                    {email}
+                  </span>
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/80">
+                    Đã liên kết
+                  </span>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between gap-2 mt-1">
+                  <span className="text-sm font-medium text-amber-700 italic">
+                    Chưa liên kết
+                  </span>
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-medium bg-amber-50 text-amber-700 border border-amber-200/70">
+                    Cần để quên MK
+                  </span>
+                </div>
+              )}
             </div>
-            {email ? (
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-sm font-extrabold text-slate-800 truncate font-mono">
-                  {email}
-                </span>
-                <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/80">
-                  Đã liên kết
-                </span>
-              </div>
-            ) : (
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-sm font-medium text-amber-700 italic">
-                  Chưa liên kết
-                </span>
-                <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-medium bg-amber-50 text-amber-700 border border-amber-200/70">
-                  Cần để quên MK
-                </span>
-              </div>
-            )}
           </div>
 
           {/* Số điện thoại liên hệ */}
@@ -280,6 +297,7 @@ export const UserProfilePanel: React.FC = () => {
         isOpen={isEditProfileOpen}
         onClose={() => setIsEditProfileOpen(false)}
         currentFullName={fullName !== "--" ? fullName : ""}
+        currentEmail={email}
       />
 
       <ChangePasswordModal
@@ -291,6 +309,12 @@ export const UserProfilePanel: React.FC = () => {
         isOpen={isUpdatePhoneOpen}
         onClose={() => setIsUpdatePhoneOpen(false)}
         currentPhoneNumber={phoneNumber}
+      />
+
+      <UpdateEmailModal
+        isOpen={isUpdateEmailOpen}
+        onClose={() => setIsUpdateEmailOpen(false)}
+        currentEmail={email}
       />
     </div>
   );

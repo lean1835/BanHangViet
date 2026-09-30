@@ -39,6 +39,7 @@ import com.sales.modules.order.repository.DiningTableRepository;
 import com.sales.modules.order.repository.OrderPaymentRepository;
 import com.sales.modules.order.repository.OrderRepository;
 import com.sales.modules.pos.entity.PointOfSale;
+import com.sales.modules.pos.entity.PosInventory;
 import com.sales.modules.pos.entity.Shift;
 import com.sales.modules.pos.repository.PosInventoryRepository;
 import com.sales.modules.pos.repository.ShiftRepository;
@@ -693,8 +694,28 @@ public class OrderServiceImpl implements OrderService {
                 .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_NOT_FOUND));
 
         if (order.getPointOfSale() != null) {
-            if (!posInventoryRepository.existsByPointOfSaleIdAndProductId(order.getPointOfSale().getId(), product.getId())) {
-                throw new AppException(ErrorCode.POS_PRODUCT_NOT_INITIALIZED);
+            PointOfSale pos = order.getPointOfSale();
+            if (!posInventoryRepository.existsByPointOfSaleIdAndProductId(pos.getId(), product.getId())) {
+                if (pos.isCentralOrMain()) {
+                    BigDecimal totalStock = product.getStockQuantity() != null ? product.getStockQuantity() : BigDecimal.ZERO;
+                    BigDecimal otherAllocated = posInventoryRepository.findByHouseholdIdAndProductIdAndPointOfSaleIdNot(
+                                    household.getId(), product.getId(), pos.getId())
+                            .stream()
+                            .map(pi -> pi.getStockQuantity() != null ? pi.getStockQuantity() : BigDecimal.ZERO)
+                            .reduce(BigDecimal.ZERO, BigDecimal::add);
+                    BigDecimal initStock = totalStock.subtract(otherAllocated).max(BigDecimal.ZERO);
+                    BigDecimal minAlert = product.getMinStockQuantity() != null ? product.getMinStockQuantity() : BigDecimal.valueOf(10);
+                    PosInventory centralInventory = PosInventory.builder()
+                            .household(household)
+                            .pointOfSale(pos)
+                            .product(product)
+                            .stockQuantity(initStock)
+                            .minStockQuantity(minAlert)
+                            .build();
+                    posInventoryRepository.save(centralInventory);
+                } else {
+                    throw new AppException(ErrorCode.POS_PRODUCT_NOT_INITIALIZED);
+                }
             }
         }
 
@@ -1075,13 +1096,21 @@ public class OrderServiceImpl implements OrderService {
                     order.getCustomer().getId(), household.getId())
                     .orElseThrow(() -> new AppException(ErrorCode.CUSTOMER_NOT_FOUND));
 
-            BigDecimal potentialDebt = customer.getCurrentDebt().add(order.getFinalAmount());
+            BigDecimal paidAmount = (request != null && request.getAmountGiven() != null)
+                    ? request.getAmountGiven()
+                    : BigDecimal.ZERO;
+            if (paidAmount.compareTo(order.getFinalAmount()) > 0) {
+                paidAmount = order.getFinalAmount();
+            }
+            BigDecimal netDebtAmount = order.getFinalAmount().subtract(paidAmount);
+
+            BigDecimal potentialDebt = customer.getCurrentDebt().add(netDebtAmount);
             if (potentialDebt.compareTo(customer.getCreditLimit()) > 0) {
                 throw new AppException(ErrorCode.CREDIT_LIMIT_EXCEEDED);
             }
             order.setCustomer(customer);
             order.setPaymentMethod("DEBT");
-            order.setPaymentStatus("DEBT");
+            order.setPaymentStatus(netDebtAmount.compareTo(BigDecimal.ZERO) == 0 ? "PAID" : "DEBT");
         } else if (PaymentMethodConstant.COMBINED.equals(method)) {
             order.setPaymentMethod(PaymentMethodConstant.COMBINED);
             order.setPaymentStatus("PENDING");
@@ -1872,6 +1901,12 @@ public class OrderServiceImpl implements OrderService {
                     household.getId(), "CREATING");
         }
 
+        heldOrders = heldOrders.stream()
+                .filter(o -> (o.getItems() != null && !o.getItems().isEmpty())
+                        || o.getDiningTable() != null
+                        || (o.getOrderLabel() != null && !o.getOrderLabel().trim().isEmpty()))
+                .collect(Collectors.toList());
+
         Integer maxHoldingHours = getHouseholdMaxHoldingHours(household.getId());
         int limitHours = (maxHoldingHours != null && maxHoldingHours > 0) ? maxHoldingHours : 4;
         LocalDateTime now = LocalDateTime.now();
@@ -1965,13 +2000,21 @@ public class OrderServiceImpl implements OrderService {
                 throw new AppException(ErrorCode.CUSTOMER_REQUIRED_FOR_DEBT);
             }
 
-            BigDecimal potentialDebt = customer.getCurrentDebt().add(order.getFinalAmount());
+            BigDecimal paidAmount = (request != null && request.getAmountGiven() != null)
+                    ? request.getAmountGiven()
+                    : BigDecimal.ZERO;
+            if (paidAmount.compareTo(order.getFinalAmount()) > 0) {
+                paidAmount = order.getFinalAmount();
+            }
+            BigDecimal netDebtAmount = order.getFinalAmount().subtract(paidAmount);
+
+            BigDecimal potentialDebt = customer.getCurrentDebt().add(netDebtAmount);
             if (potentialDebt.compareTo(customer.getCreditLimit()) > 0) {
                 throw new AppException(ErrorCode.CREDIT_LIMIT_EXCEEDED);
             }
             order.setCustomer(customer);
             order.setPaymentMethod("DEBT");
-            order.setPaymentStatus("DEBT");
+            order.setPaymentStatus(netDebtAmount.compareTo(BigDecimal.ZERO) == 0 ? "PAID" : "DEBT");
         } else {
             order.setPaymentMethod("CASH");
             order.setPaymentStatus("PENDING");

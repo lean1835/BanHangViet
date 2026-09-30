@@ -30,6 +30,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -324,5 +325,56 @@ class PosInventoryServiceTest {
                 posInventoryService.updatePosInventory("chuho", "pos-002", "prod-cam", request));
 
         assertEquals(ErrorCode.POS_INVENTORY_EXCEED_PRODUCT_STOCK, ex.getErrorCode());
+    }
+
+    @Test
+    @DisplayName("Chi nhánh trung tâm: Tự động khởi tạo tồn kho và trừ kho thành công khi sản phẩm chưa có bản ghi điểm bán")
+    void testCheckAndDeductPosStock_CentralPos_AutoProvision_Success() {
+        PointOfSale centralPos = PointOfSale.builder()
+                .id("pos-central")
+                .household(household)
+                .posCode("POS-01")
+                .name("Chi nhánh Trung tâm")
+                .isDefault(true)
+                .build();
+
+        when(posInventoryRepository.findByHouseholdIdAndPointOfSaleIdAndProductIdIn(eq("house-001"), eq("pos-central"), any()))
+                .thenReturn(new ArrayList<>());
+        when(pointOfSaleRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("pos-central", "house-001"))
+                .thenReturn(Optional.of(centralPos));
+        when(productRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("prod-001", "house-001"))
+                .thenReturn(Optional.of(product1));
+
+        assertDoesNotThrow(() ->
+                posInventoryService.checkAndDeductPosStock("house-001", "pos-central", "prod-001", BigDecimal.valueOf(5)));
+
+        verify(posInventoryRepository).saveAll(anyIterable());
+    }
+
+    @Test
+    @DisplayName("Chi nhánh trung tâm: Lấy tồn kho sản phẩm tự động khởi tạo từ kho tổng khi chưa có bản ghi")
+    void testGetInventoryByPosAndProduct_CentralPos_AutoProvision_Success() {
+        PointOfSale centralPos = PointOfSale.builder()
+                .id("pos-central")
+                .household(household)
+                .posCode("POS-01")
+                .name("Chi nhánh Trung tâm")
+                .isDefault(true)
+                .build();
+
+        when(userRepository.findByUsername("chuho")).thenReturn(Optional.of(ownerUser));
+        when(pointOfSaleRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("pos-central", "house-001"))
+                .thenReturn(Optional.of(centralPos));
+        when(posInventoryRepository.findByHouseholdIdAndPointOfSaleIdAndProductId("house-001", "pos-central", "prod-001"))
+                .thenReturn(Optional.empty());
+        when(productRepository.findByIdAndHouseholdIdAndDeletedAtIsNull("prod-001", "house-001"))
+                .thenReturn(Optional.of(product1));
+        when(posInventoryRepository.save(any(PosInventory.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        PosInventoryResponse response = posInventoryService.getInventoryByPosAndProduct("chuho", "pos-central", "prod-001");
+
+        assertNotNull(response);
+        assertEquals("prod-001", response.getProductId());
+        assertEquals(BigDecimal.valueOf(150), response.getStockQuantity());
     }
 }

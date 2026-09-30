@@ -27,6 +27,9 @@ public interface PosInventoryRepository extends JpaRepository<PosInventory, Stri
     List<PosInventory> findByHouseholdIdAndPointOfSaleId(String householdId, String pointOfSaleId);
 
     @EntityGraph(attributePaths = {"product", "pointOfSale", "product.group", "product.taxRate"})
+    List<PosInventory> findByHouseholdIdAndPointOfSaleIdNot(String householdId, String pointOfSaleId);
+
+    @EntityGraph(attributePaths = {"product", "pointOfSale", "product.group", "product.taxRate"})
     List<PosInventory> findByHouseholdIdAndPointOfSaleIdAndProductIdIn(String householdId, String pointOfSaleId, Collection<String> productIds);
 
     @EntityGraph(attributePaths = {"product", "pointOfSale", "product.group", "product.taxRate"})

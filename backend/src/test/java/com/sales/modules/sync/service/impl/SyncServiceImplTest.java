@@ -16,7 +16,9 @@ import com.sales.modules.invoice.repository.EInvoiceRepository;
 import com.sales.modules.order.dto.response.OrderResponse;
 import com.sales.modules.order.entity.Order;
 import com.sales.modules.order.repository.OrderRepository;
+import com.sales.modules.pos.repository.PointOfSaleRepository;
 import com.sales.modules.pos.repository.ShiftRepository;
+import com.sales.modules.pos.service.PosInventoryService;
 import com.sales.modules.product.repository.ProductRepository;
 import com.sales.modules.sync.dto.request.SyncCheckRequest;
 import com.sales.modules.sync.dto.request.SyncResolveRequest;
@@ -81,6 +83,12 @@ public class SyncServiceImplTest {
 
     @Mock
     private BusinessHouseholdSettingsRepository settingsRepository;
+
+    @Mock
+    private PosInventoryService posInventoryService;
+
+    @Mock
+    private PointOfSaleRepository pointOfSaleRepository;
 
     @InjectMocks
     private SyncServiceImpl syncService;
