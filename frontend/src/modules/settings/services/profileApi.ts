@@ -4,6 +4,7 @@ import { API_TAG_TYPES } from "@/constants/api";
 import type {
   IUserProfileResponse,
   IUpdateProfileRequest,
+  IUpdateEmailRequest,
   IChangePasswordRequest,
   IChangePasswordResponse,
   IUpdatePhoneSendOtpRequest,
@@ -24,6 +25,15 @@ export const profileApi = baseApi.injectEndpoints({
     updateProfile: builder.mutation<IApiResponse<IUserProfileResponse>, IUpdateProfileRequest>({
       query: (body) => ({
         url: "/profile",
+        method: "PUT",
+        body,
+      }),
+      invalidatesTags: [API_TAG_TYPES.USER],
+    }),
+
+    updateEmail: builder.mutation<IApiResponse<IUserProfileResponse>, IUpdateEmailRequest>({
+      query: (body) => ({
+        url: "/profile/email",
         method: "PUT",
         body,
       }),
@@ -62,6 +72,7 @@ export const profileApi = baseApi.injectEndpoints({
 export const {
   useGetProfileQuery,
   useUpdateProfileMutation,
+  useUpdateEmailMutation,
   useChangePasswordMutation,
   useSendUpdatePhoneOtpMutation,
   useVerifyAndUpdatePhoneMutation,

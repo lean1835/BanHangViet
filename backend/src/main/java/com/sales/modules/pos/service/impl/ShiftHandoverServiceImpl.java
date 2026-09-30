@@ -216,6 +216,8 @@ public class ShiftHandoverServiceImpl implements ShiftHandoverService {
                 .cashRevenue(cashRevenue)
                 .bankRevenue(bankRevenue)
                 .totalRevenue(totalRevenue)
+                .stageIncome(stageIncome)
+                .stageExpense(stageExpense)
                 .expectedCash(expectedCash)
                 .completedOrdersCount(completedOrdersCount)
                 .pendingOrdersCount(pendingOrders.size())

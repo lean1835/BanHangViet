@@ -38,3 +38,10 @@ backups/
 backend/backups/
 *.zip.json
 
+# Temporary Office and Presentation files
+~$*
+*.bak_*
+slide*.png
+*.pptx
+
+

@@ -16,4 +16,9 @@ public class RegisterResponse {
     private String username;
     private String fullName;
     private String roleCode;
+    private String token;
+    private String sessionId;
+    private String pointOfSaleId;
+    private String pointOfSaleName;
+    private String posCode;
 }

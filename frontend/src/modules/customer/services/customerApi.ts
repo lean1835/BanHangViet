@@ -109,7 +109,12 @@ const mapCustomer = (raw: unknown): ICustomer => {
     debt: debtVal,
     currentDebt: debtVal,
     discountRate: discountRateVal,
-    discountType: (item.discountType as "PERCENTAGE" | "CASH") || "PERCENTAGE",
+    discountType:
+      item.discountType === "CASH" ||
+      item.discountType === "FIXED" ||
+      item.discountType === "FIXED_AMOUNT"
+        ? "CASH"
+        : "PERCENTAGE",
     totalSpent: totalSpentVal,
     isVip: Boolean(item.isVip),
     reminderDaysBefore:

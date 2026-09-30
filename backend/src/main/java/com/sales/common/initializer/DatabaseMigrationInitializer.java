@@ -127,6 +127,15 @@ public class DatabaseMigrationInitializer implements CommandLineRunner {
         }
 
         try {
+            int updatedHh = jdbcTemplate.update("UPDATE business_households SET revenue_threshold_enabled = TRUE WHERE revenue_threshold_enabled IS NULL OR revenue_threshold_enabled = FALSE;");
+            if (updatedHh > 0) {
+                log.info("DatabaseMigrationInitializer: Đã kích hoạt hóa đơn điện tử (revenue_threshold_enabled = TRUE) cho {} hộ kinh doanh.", updatedHh);
+            }
+        } catch (Exception e) {
+            log.warn("DatabaseMigrationInitializer: Bỏ qua cập nhật revenue_threshold_enabled: {}", e.getMessage());
+        }
+
+        try {
             Integer logCount = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM platform_system_logs;", Integer.class);
             if (logCount == null || logCount == 0) {
                 String hh1 = null;

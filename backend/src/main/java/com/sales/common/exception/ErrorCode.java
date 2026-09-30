@@ -259,6 +259,8 @@ public enum ErrorCode {
     SESSION_TIMEOUT_INVALID(2048, "Thời gian tự hết hạn phiên không hợp lệ (tối thiểu 5 phút, tối đa 1440 phút)", HttpStatus.BAD_REQUEST),
     SESSION_REVOKED(2049, "Phiên đăng nhập của bạn đã bị đăng xuất từ xa hoặc đã hết hạn", HttpStatus.UNAUTHORIZED),
     EMAIL_NOT_FOUND(2050, "Địa chỉ email chưa được đăng ký trong hệ thống", HttpStatus.NOT_FOUND),
+    EMAIL_ALREADY_EXISTS(2051, "Địa chỉ email này đã được sử dụng bởi tài khoản khác", HttpStatus.BAD_REQUEST),
+    EMAIL_UNCHANGED(2052, "Địa chỉ email mới trùng với email hiện tại", HttpStatus.BAD_REQUEST),
 
     WEIGHT_STEP_INVALID(3080, "Số lượng nhập không hợp lệ (nhỏ hơn bước nhảy tối thiểu hoặc không đúng bội số bước nhảy)", HttpStatus.BAD_REQUEST),
     DECIMAL_PLACES_EXCEEDED(3081, "Số chữ số thập phân của số lượng vượt quá số chữ số cho phép của mặt hàng", HttpStatus.BAD_REQUEST),

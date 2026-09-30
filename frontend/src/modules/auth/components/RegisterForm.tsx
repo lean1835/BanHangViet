@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Link, useOutletContext } from "react-router-dom";
 import { Form, Input, Alert } from "antd";
 import type { AuthOutletContext } from "@/pages/AuthPage";
-import { useRegisterMutation } from "../services/authApi";
+import { useRegisterMutation, useLoginMutation } from "../services/authApi";
 import { useAppDispatch } from "@/hooks/useRedux";
 import { setCredentials } from "@/stores/authSlice";
 import {
@@ -69,7 +69,9 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
   const outletContext = useOutletContext<AuthOutletContext | null>();
   const [form] = Form.useForm();
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [register, { isLoading }] = useRegisterMutation();
+  const [register, { isLoading: isRegisterLoading }] = useRegisterMutation();
+  const [login, { isLoading: isLoginLoading }] = useLoginMutation();
+  const isLoading = isRegisterLoading || isLoginLoading;
   const dispatch = useAppDispatch();
 
   const handleFinish = async (formValues: unknown) => {
@@ -92,7 +94,16 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
         await outletContext.triggerDoorOpening();
       }
 
-      dispatch(setCredentials(response));
+      if (response && response.token) {
+        dispatch(setCredentials(response));
+      } else {
+        const loginRes = await login({
+          username: values.username.trim(),
+          password: values.password.trim(),
+        }).unwrap();
+        dispatch(setCredentials(loginRes));
+      }
+
       onSuccess();
     } catch (error: unknown) {
       if (error instanceof z.ZodError) {

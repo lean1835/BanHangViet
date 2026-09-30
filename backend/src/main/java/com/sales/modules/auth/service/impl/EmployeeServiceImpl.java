@@ -216,6 +216,9 @@ public class EmployeeServiceImpl implements EmployeeService {
         if (request.getPointOfSaleId() != null && !request.getPointOfSaleId().trim().isEmpty()) {
             pointOfSale = pointOfSaleRepository.findByIdAndHouseholdIdAndDeletedAtIsNull(request.getPointOfSaleId(), household.getId())
                     .orElseThrow(() -> new AppException(ErrorCode.POS_NOT_FOUND));
+        } else {
+            pointOfSale = pointOfSaleRepository.findByHouseholdIdAndIsDefaultTrueAndDeletedAtIsNull(household.getId())
+                    .orElse(null);
         }
 
         User newEmployee = User.builder()
@@ -283,6 +286,11 @@ public class EmployeeServiceImpl implements EmployeeService {
         employee.setPhoneNumber(request.getPhoneNumber());
         if (request.getEmail() != null) {
             employee.setEmail(request.getEmail().trim().isEmpty() ? null : request.getEmail().trim());
+        }
+        if (request.getPassword() != null && !request.getPassword().trim().isEmpty()) {
+            employee.setPasswordHash(passwordEncoder.encode(request.getPassword().trim()));
+            employee.setPasswordChangedAt(LocalDateTime.now());
+            employee.setMustChangePassword(false);
         }
         employee.setRole(role);
         employee.setIsActive(request.getIsActive());

@@ -189,7 +189,10 @@ export const CreateReturnTicketModal: React.FC<CreateReturnTicketModalProps> = (
   }, [isOpen, initialInvoiceId]);
 
   const checkData = checkResponse?.result;
-  const isInvoiceExpired = checkData?.isExpired || false;
+  const isInvoiceExpired = Boolean(checkData?.isExpired ?? checkData?.expired);
+  const isEligibleForReturn = checkData
+    ? Boolean(checkData.isEligibleForReturn ?? checkData.eligibleForReturn ?? true)
+    : true;
 
   // Real-time calculations
   const activeItems = useMemo(
@@ -254,6 +257,7 @@ export const CreateReturnTicketModal: React.FC<CreateReturnTicketModalProps> = (
   const isFormValid =
     activeItems.length > 0 &&
     !hasAnyItemError &&
+    isEligibleForReturn &&
     (!isInvoiceExpired || (isOwner && allowOverdueOverride));
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -261,6 +265,14 @@ export const CreateReturnTicketModal: React.FC<CreateReturnTicketModalProps> = (
 
     if (!selectedInvoiceId) {
       showError("Vui lòng chọn hóa đơn gốc cần trả hàng");
+      return;
+    }
+
+    if (checkData && !isEligibleForReturn) {
+      showError(
+        checkData.ineligibilityReason ||
+          "Hóa đơn này không đủ điều kiện trả hàng theo quy định (đã từng đổi/trả hoặc quá hạn)."
+      );
       return;
     }
 

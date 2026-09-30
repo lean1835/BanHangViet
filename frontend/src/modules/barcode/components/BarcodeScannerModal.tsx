@@ -58,6 +58,12 @@ export const BarcodeScannerModal: React.FC<IBarcodeScannerModalProps> = ({
   const zoomLevelRef = useRef<number>(1.5);
   const zxingReaderRef = useRef<MultiFormatReader | null>(null);
   const nativeDetectorRef = useRef<any>(null);
+  const startRequestIdRef = useRef<number>(0);
+  const selectedDeviceIdRef = useRef<string>("");
+
+  useEffect(() => {
+    selectedDeviceIdRef.current = selectedDeviceId;
+  }, [selectedDeviceId]);
 
   // Sync zoom ref for real-time scan loop
   useEffect(() => {
@@ -115,6 +121,7 @@ export const BarcodeScannerModal: React.FC<IBarcodeScannerModalProps> = ({
 
   // Stop camera stream & scan loop
   const stopCamera = useCallback(() => {
+    startRequestIdRef.current += 1;
     if (animationFrameRef.current) {
       cancelAnimationFrame(animationFrameRef.current);
       animationFrameRef.current = null;
@@ -123,8 +130,22 @@ export const BarcodeScannerModal: React.FC<IBarcodeScannerModalProps> = ({
       clearTimeout(timeoutRef.current);
       timeoutRef.current = null;
     }
+    if (videoRef.current) {
+      try {
+        videoRef.current.pause();
+        videoRef.current.srcObject = null;
+      } catch {
+        // Ignore video pause error on unmount
+      }
+    }
     if (streamRef.current) {
-      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current.getTracks().forEach((track) => {
+        try {
+          track.stop();
+        } catch {
+          // Ignore track stop error
+        }
+      });
       streamRef.current = null;
     }
   }, []);
@@ -376,7 +397,11 @@ export const BarcodeScannerModal: React.FC<IBarcodeScannerModalProps> = ({
   // Start Camera
   const startCamera = useCallback(
     async (deviceId?: string) => {
+      const currentRequestId = ++startRequestIdRef.current;
       stopCamera();
+      // Restore this request ID since stopCamera incremented it
+      startRequestIdRef.current = currentRequestId;
+
       setCameraError(null);
       isScannedRef.current = false;
       setLastScannedCode(null);
@@ -391,48 +416,90 @@ export const BarcodeScannerModal: React.FC<IBarcodeScannerModalProps> = ({
       }
 
       try {
-        const constraints: MediaStreamConstraints = {
-          video: {
-            deviceId: deviceId ? { exact: deviceId } : undefined,
-            facingMode: deviceId ? undefined : { ideal: "environment" },
-            width: { ideal: 1920, min: 1280 },
-            height: { ideal: 1080, min: 720 },
-          },
-          audio: false,
-        };
+        let stream: MediaStream | null = null;
 
-        let stream: MediaStream;
+        // Pass 1: Try preferred HD resolution
         try {
+          const constraints: MediaStreamConstraints = {
+            video: {
+              deviceId: deviceId ? { exact: deviceId } : undefined,
+              facingMode: deviceId ? undefined : { ideal: "environment" },
+              width: { ideal: 1280 },
+              height: { ideal: 720 },
+            },
+            audio: false,
+          };
           stream = await navigator.mediaDevices.getUserMedia(constraints);
         } catch {
-          stream = await navigator.mediaDevices.getUserMedia({
-            video: deviceId
-              ? { deviceId: { exact: deviceId } }
-              : { facingMode: { ideal: "environment" } },
-            audio: false,
-          });
+          // Pass 2: Fallback without strict resolution constraints
+          try {
+            stream = await navigator.mediaDevices.getUserMedia({
+              video: deviceId
+                ? { deviceId: { exact: deviceId } }
+                : { facingMode: { ideal: "environment" } },
+              audio: false,
+            });
+          } catch {
+            // Pass 3: Maximum compatibility fallback (any available camera)
+            stream = await navigator.mediaDevices.getUserMedia({
+              video: true,
+              audio: false,
+            });
+          }
+        }
+
+        // Drop stream if a newer startCamera or stopCamera was issued in the meantime
+        if (currentRequestId !== startRequestIdRef.current || !stream) {
+          if (stream) {
+            stream.getTracks().forEach((track) => track.stop());
+          }
+          return;
         }
 
         streamRef.current = stream;
 
         if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          await videoRef.current.play();
+          const video = videoRef.current;
+          video.srcObject = stream;
+          video.muted = true;
+          try {
+            await video.play();
+          } catch (playErr: any) {
+            // AbortError is expected when interrupted by user switching or closing
+            if (playErr?.name !== "AbortError") {
+              console.warn("video.play() failed", playErr);
+            }
+          }
         }
 
-        const allDevices = await navigator.mediaDevices.enumerateDevices();
-        const videoInputs = allDevices.filter((d) => d.kind === "videoinput");
-        setDevices(videoInputs);
+        if (currentRequestId !== startRequestIdRef.current) {
+          return;
+        }
 
-        const activeTrack = stream.getVideoTracks()[0];
-        const activeDeviceId = activeTrack?.getSettings()?.deviceId;
-        if (!deviceId && activeDeviceId) {
-          setSelectedDeviceId(activeDeviceId);
+        try {
+          const allDevices = await navigator.mediaDevices.enumerateDevices();
+          const videoInputs = allDevices.filter((d) => d.kind === "videoinput");
+          setDevices(videoInputs);
+
+          const activeTrack = stream.getVideoTracks()[0];
+          const activeDeviceId = activeTrack?.getSettings()?.deviceId;
+          if (!deviceId && activeDeviceId) {
+            setSelectedDeviceId(activeDeviceId);
+          }
+        } catch {
+          // Non-critical device enumeration
         }
 
         // Start multi-pass decoding loop immediately
         startScanLoop();
       } catch (err: any) {
+        if (currentRequestId !== startRequestIdRef.current) {
+          return;
+        }
+        if (err?.name === "AbortError" || String(err?.message || "").includes("AbortError")) {
+          // Play request was interrupted gracefully, do not show error banner
+          return;
+        }
         console.warn("Camera start failed", err);
         const errStr = String(err?.message || err || "");
         if (
@@ -515,14 +582,14 @@ export const BarcodeScannerModal: React.FC<IBarcodeScannerModalProps> = ({
   useEffect(() => {
     if (isOpen) {
       setManualCode("");
-      startCamera(selectedDeviceId || undefined);
+      startCamera(selectedDeviceIdRef.current || undefined);
     } else {
       stopCamera();
     }
     return () => {
       stopCamera();
     };
-  }, [isOpen, selectedDeviceId, startCamera, stopCamera]);
+  }, [isOpen, startCamera, stopCamera]);
 
   // ESC key handler
   useEffect(() => {
@@ -583,16 +650,41 @@ export const BarcodeScannerModal: React.FC<IBarcodeScannerModalProps> = ({
 
         {/* Camera Viewfinder Box */}
         <div className="relative bg-slate-950 aspect-video flex items-center justify-center overflow-hidden">
+          {/* Main Camera Video Feed - Always mounted in DOM to prevent DOM removal abort errors */}
+          <div
+            className={`w-full h-full flex items-center justify-center overflow-hidden ${
+              cameraError ? "opacity-0 pointer-events-none" : "opacity-100"
+            }`}
+            style={{
+              transform: `scale(${zoomLevel})`,
+              transition: "transform 0.2s ease-out",
+            }}
+          >
+            <video
+              ref={videoRef}
+              autoPlay
+              playsInline
+              muted
+              className={`w-full h-full object-cover transition-all duration-300 ${
+                isMirrored ? "-scale-x-100" : "scale-x-100"
+              } ${
+                isScreenMode
+                  ? "contrast-150 brightness-110 saturate-150"
+                  : ""
+              }`}
+            />
+          </div>
+
           {cameraError ? (
-            <div className="p-6 text-center text-slate-300 max-w-xs flex flex-col items-center">
+            <div className="absolute inset-0 p-6 text-center text-slate-300 flex flex-col items-center justify-center bg-slate-950/90 z-20">
               <AlertCircle size={38} className="text-amber-400 mb-2.5" />
-              <p className="text-xs font-semibold mb-4 leading-relaxed">
+              <p className="text-xs font-semibold mb-4 leading-relaxed max-w-xs">
                 {cameraError}
               </p>
               <button
                 type="button"
-                onClick={() => startCamera(selectedDeviceId || undefined)}
-                className="flex items-center gap-1.5 bg-[#0070f4] hover:bg-blue-600 active:scale-95 text-white text-xs font-bold px-4 py-2 rounded-xl shadow-md transition-all"
+                onClick={() => startCamera(selectedDeviceIdRef.current || undefined)}
+                className="flex items-center gap-1.5 bg-[#0070f4] hover:bg-blue-600 active:scale-95 text-white text-xs font-bold px-4 py-2 rounded-xl shadow-md transition-all cursor-pointer"
               >
                 <RefreshCw size={13} />
                 Thử lại máy ảnh
@@ -600,29 +692,6 @@ export const BarcodeScannerModal: React.FC<IBarcodeScannerModalProps> = ({
             </div>
           ) : (
             <>
-              {/* Main Camera Video Feed */}
-              <div
-                className="w-full h-full flex items-center justify-center overflow-hidden"
-                style={{
-                  transform: `scale(${zoomLevel})`,
-                  transition: "transform 0.2s ease-out",
-                }}
-              >
-                <video
-                  ref={videoRef}
-                  autoPlay
-                  playsInline
-                  muted
-                  className={`w-full h-full object-cover transition-all duration-300 ${
-                    isMirrored ? "-scale-x-100" : "scale-x-100"
-                  } ${
-                    isScreenMode
-                      ? "contrast-150 brightness-110 saturate-150"
-                      : ""
-                  }`}
-                />
-              </div>
-
               {/* Viewfinder Target Frame Overlay (Wide 1D Aspect Ratio) */}
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none p-3 sm:p-4">
                 <div
