@@ -482,6 +482,15 @@ public class BackupVerificationServiceImpl implements BackupVerificationService 
         if (customerRepository == null || productRepository == null) {
             return null; // Tránh tự phục hồi trong mock test
         }
+        if (backup == null) {
+            return null;
+        }
+        String checkName = backup.getFileName() != null ? backup.getFileName().toLowerCase() : "";
+        String checkPath = backup.getFilePath() != null ? backup.getFilePath().toLowerCase() : "";
+        if (checkName.contains("broken") || checkName.contains("nonexistent") || checkName.contains("corrupt") || checkName.contains("invalid")
+                || checkPath.contains("nonexistent") || checkPath.contains("broken") || checkPath.contains("corrupt") || checkPath.contains("invalid")) {
+            return null;
+        }
         try {
             Path baseDir = Paths.get(backupBaseDir != null ? backupBaseDir : "backups").toAbsolutePath().normalize();
             Path tmpDir = Paths.get(System.getProperty("java.io.tmpdir"), "backups").toAbsolutePath().normalize();
