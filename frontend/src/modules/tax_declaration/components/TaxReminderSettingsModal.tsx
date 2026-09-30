@@ -1,4 +1,5 @@
 import React, { useEffect } from "react";
+import { createPortal } from "react-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
@@ -78,6 +79,16 @@ export const TaxReminderSettingsModal: React.FC<TaxReminderSettingsModalProps> =
     }
   }, [settingsRes, initialSettings, reset]);
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isOpen && !isUpdating && !isScanning) {
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, onClose, isUpdating, isScanning]);
+
   if (!isOpen) return null;
 
   const periodType = watch("taxPeriodType");
@@ -118,14 +129,19 @@ export const TaxReminderSettingsModal: React.FC<TaxReminderSettingsModalProps> =
     }
   };
 
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in duration-200"
+      className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200"
+      onClick={(e) => {
+        if (e.target === e.currentTarget && !isUpdating && !isScanning) {
+          onClose();
+        }
+      }}
       role="dialog"
       aria-modal="true"
       aria-labelledby="reminder-settings-title"
     >
-      <div className="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
+      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-200">
         {/* Header Modal */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
           <div className="flex items-center gap-3">
@@ -334,6 +350,7 @@ export const TaxReminderSettingsModal: React.FC<TaxReminderSettingsModalProps> =
           </div>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

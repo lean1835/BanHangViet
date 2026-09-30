@@ -50,6 +50,10 @@ if docker ps -a --format '{{.Names}}' | grep -q "^banhangviet-db$"; then
   docker network connect "$DOCKER_NET" banhangviet-db 2>/dev/null || true
 fi
 
+echo "Chuẩn bị thư mục sao lưu với quyền ghi cho non-root container..."
+mkdir -p "$DEPLOY_PATH/backups"
+chmod -R 777 "$DEPLOY_PATH/backups" 2>/dev/null || true
+
 echo "Re-deploy Backend container..."
 BE_IMAGE_NAME=$BE_IMAGE_NAME FE_IMAGE_NAME=$FE_IMAGE_NAME docker compose up -d banhangviet-be
 

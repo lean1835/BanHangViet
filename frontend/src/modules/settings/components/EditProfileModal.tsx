@@ -12,18 +12,21 @@ interface EditProfileModalProps {
   isOpen: boolean;
   onClose: () => void;
   currentFullName: string;
+  currentEmail?: string | null;
 }
 
 export const EditProfileModal: React.FC<EditProfileModalProps> = ({
   isOpen,
   onClose,
   currentFullName,
+  currentEmail,
 }) => {
   const dispatch = useAppDispatch();
   const { showSuccess, showError } = useNotification();
   const [updateProfile, { isLoading: isSaving }] = useUpdateProfileMutation();
 
   const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   const dialogRef = useAccessibleDialog({
@@ -35,33 +38,51 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
   useEffect(() => {
     if (isOpen) {
       setFullName(currentFullName || "");
+      setEmail(currentEmail || "");
       setError(null);
     }
-  }, [isOpen, currentFullName]);
+  }, [isOpen, currentFullName, currentEmail]);
 
   if (!isOpen) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const trimmed = fullName.trim();
+    const trimmedName = fullName.trim();
+    const trimmedEmail = email.trim();
 
-    if (!trimmed) {
+    if (!trimmedName) {
       setError("Họ tên không được để trống");
       return;
     }
 
-    if (trimmed.length > 100) {
+    if (trimmedName.length > 100) {
       setError("Họ tên không được vượt quá 100 ký tự");
       return;
     }
 
+    if (trimmedEmail) {
+      const emailRegex = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
+      if (!emailRegex.test(trimmedEmail)) {
+        setError("Địa chỉ email không đúng định dạng (Ví dụ: yourname@gmail.com)");
+        return;
+      }
+    }
+
     try {
-      const response = await updateProfile({ fullName: trimmed }).unwrap();
-      dispatch(updateUser({ fullName: response.result.fullName }));
-      showSuccess("Cập nhật họ tên thành công");
+      const response = await updateProfile({
+        fullName: trimmedName,
+        email: trimmedEmail || null,
+      }).unwrap();
+      dispatch(
+        updateUser({
+          fullName: response.result.fullName,
+          email: response.result.email,
+        })
+      );
+      showSuccess("Cập nhật thông tin hồ sơ thành công");
       onClose();
     } catch (err) {
-      const msg = getApiErrorMessage(err, "Không thể cập nhật họ tên. Vui lòng thử lại.");
+      const msg = getApiErrorMessage(err, "Không thể cập nhật hồ sơ. Vui lòng thử lại.");
       setError(msg);
       showError(msg);
     }
@@ -88,7 +109,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
           <div className="flex items-center gap-2.5">
             <User size={18} className="text-white/90" />
             <h2 id="edit-profile-title" className="text-sm font-bold uppercase tracking-wider">
-              Chỉnh sửa họ tên
+              Chỉnh sửa thông tin tài khoản
             </h2>
           </div>
           <button
@@ -120,17 +141,32 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
               maxLength={100}
               autoFocus
               disabled={isSaving}
-              className={`w-full px-3.5 py-2.5 text-sm font-medium rounded-xl border transition-colors outline-none ${
-                error
-                  ? "border-rose-400 bg-rose-50/40 focus:border-rose-500 focus:ring-2 focus:ring-rose-200"
-                  : "border-slate-300 bg-white focus:border-kv-blue-primary focus:ring-2 focus:ring-blue-100"
-              }`}
+              className="w-full px-3.5 py-2.5 text-sm font-medium rounded-xl border border-slate-300 bg-white focus:border-kv-blue-primary focus:ring-2 focus:ring-blue-100 transition-colors outline-none"
+            />
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="edit-email" className="text-xs font-bold text-slate-700">
+              Địa chỉ Email (Gmail)
+            </label>
+            <input
+              id="edit-email"
+              type="email"
+              value={email}
+              onChange={(e) => {
+                setEmail(e.target.value);
+                if (error) setError(null);
+              }}
+              placeholder="Ví dụ: yourname@gmail.com"
+              maxLength={100}
+              disabled={isSaving}
+              className="w-full px-3.5 py-2.5 text-sm font-medium rounded-xl border border-slate-300 bg-white focus:border-kv-blue-primary focus:ring-2 focus:ring-blue-100 transition-colors outline-none"
             />
             {error ? (
               <span className="text-xs text-rose-500 font-medium">{error}</span>
             ) : (
               <span className="text-[11px] text-slate-400">
-                Tối đa 100 ký tự, hiển thị trên các hóa đơn và chứng từ bán hàng.
+                Email dùng để lấy lại mật khẩu và gửi hóa đơn điện tử cho khách.
               </span>
             )}
           </div>

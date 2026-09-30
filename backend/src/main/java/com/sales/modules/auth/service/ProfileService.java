@@ -7,10 +7,14 @@ import com.sales.modules.auth.dto.response.ChangePasswordResponse;
 import com.sales.modules.auth.dto.response.UpdatePhoneSendOtpResponse;
 import com.sales.modules.auth.dto.response.UserProfileResponse;
 
+import com.sales.modules.auth.dto.request.UpdateEmailRequest;
+
 public interface ProfileService {
     UserProfileResponse getProfile(String username);
 
     UserProfileResponse updateProfile(String username, UpdateProfileRequest request);
+
+    UserProfileResponse updateEmail(String username, UpdateEmailRequest request);
 
     ChangePasswordResponse changePassword(String username, ChangePasswordRequest request);
 

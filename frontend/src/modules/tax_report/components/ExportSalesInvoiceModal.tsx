@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { createPortal } from "react-dom";
 import type { ITaxPeriodQueryParams } from "../types/salesInvoiceListing.types";
 
 interface IExportSalesInvoiceModalProps {
@@ -30,9 +31,16 @@ export const ExportSalesInvoiceModal: React.FC<IExportSalesInvoiceModalProps> = 
     return `Năm ${filters.year}`;
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4">
-      <div className="bg-white rounded-3xl shadow-xl border border-slate-100 max-w-md w-full p-6 animate-in fade-in zoom-in-95 duration-200">
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[1000] flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-in fade-in duration-200"
+      onClick={(e) => {
+        if (e.target === e.currentTarget && !isExporting) {
+          onClose();
+        }
+      }}
+    >
+      <div className="bg-white rounded-3xl shadow-2xl border border-slate-100 max-w-md w-full p-6 animate-in zoom-in-95 duration-200">
         <div className="flex items-center justify-between border-b border-slate-100 pb-3">
           <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
             <svg
@@ -149,6 +157,7 @@ export const ExportSalesInvoiceModal: React.FC<IExportSalesInvoiceModalProps> = 
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

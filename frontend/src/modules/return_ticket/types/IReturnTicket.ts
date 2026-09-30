@@ -60,7 +60,9 @@ export interface IInvoiceReturnableCheckResponse {
   invoiceDate: string;
   buyerName?: string;
   isEligibleForReturn: boolean;
+  eligibleForReturn?: boolean;
   isExpired: boolean;
+  expired?: boolean;
   daysSinceIssued: number;
   maxReturnDays: number;
   ineligibilityReason?: string | null;

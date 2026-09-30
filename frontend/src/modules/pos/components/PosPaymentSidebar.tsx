@@ -778,6 +778,85 @@ export const PosPaymentSidebar: React.FC<IPosPaymentSidebarProps> = ({
             ))}
           </div>
 
+          {tab.paymentMethod === "DEBT" && (
+            <div
+              className={`mt-2 p-2.5 rounded-xl border text-xs space-y-1.5 shadow-2xs ${
+                (() => {
+                  const cust = tab.customer || customers.find((c) => c.id === tab.customerId);
+                  const debtAmt = Math.max(0, finalTotal - (tab.amountGiven || 0));
+                  const curDebt = cust?.debt || 0;
+                  const limit = cust?.creditLimit || 5000000;
+                  return curDebt + debtAmt > limit
+                    ? "bg-rose-50/90 border-rose-300 text-rose-900"
+                    : "bg-amber-50/90 border-amber-200 text-amber-900";
+                })()
+              }`}
+            >
+              <div className="flex items-center justify-between font-extrabold">
+                <span className="flex items-center gap-1">
+                  <span>📝 Ghi nợ vào sổ:</span>
+                </span>
+                <span className="text-sm font-black text-rose-700">
+                  {formatCurrency(Math.max(0, finalTotal - (tab.amountGiven || 0)))}
+                </span>
+              </div>
+
+              {tab.amountGiven && tab.amountGiven > 0 ? (
+                <div className="flex items-center justify-between text-[11px] text-slate-600 font-semibold border-t border-dashed border-amber-200/80 pt-1">
+                  <span>Khách thanh toán trước:</span>
+                  <span className="font-bold text-emerald-700">
+                    {formatCurrency(Math.min(finalTotal, tab.amountGiven))}
+                  </span>
+                </div>
+              ) : null}
+
+              {(() => {
+                const cust = tab.customer || customers.find((c) => c.id === tab.customerId);
+                if (!cust) {
+                  return (
+                    <div className="text-[11px] text-rose-600 font-bold border-t border-rose-200/80 pt-1">
+                      ⚠️ Chưa chọn khách hàng. Ghi nợ bắt buộc phải chọn khách hàng trong hệ thống!
+                    </div>
+                  );
+                }
+                const debtAmt = Math.max(0, finalTotal - (tab.amountGiven || 0));
+                const curDebt = cust.debt || 0;
+                const limit = cust.creditLimit || 5000000;
+                const projectedDebt = curDebt + debtAmt;
+                const isExceeded = projectedDebt > limit;
+
+                return (
+                  <div className="space-y-1 border-t border-amber-200/80 pt-1 text-[11px]">
+                    <div className="flex justify-between items-center text-slate-600">
+                      <span>Nợ hiện tại:</span>
+                      <span className="font-bold text-slate-800">{formatCurrency(curDebt)}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-slate-600">
+                      <span>Hạn mức nợ cho phép:</span>
+                      <span className="font-bold text-slate-800">{formatCurrency(limit)}</span>
+                    </div>
+                    <div className="flex justify-between items-center font-bold">
+                      <span>Tổng nợ sau đơn:</span>
+                      <span className={isExceeded ? "text-rose-600 font-black" : "text-amber-800 font-black"}>
+                        {formatCurrency(projectedDebt)}
+                      </span>
+                    </div>
+                    {isExceeded ? (
+                      <div className="text-rose-600 font-extrabold text-[10px] mt-0.5 bg-white/90 p-1.5 rounded border border-rose-200">
+                        ⛔ Đơn này khiến khách vượt hạn mức ({formatCurrency(projectedDebt)} &gt; {formatCurrency(limit)})!
+                      </div>
+                    ) : (
+                      <div className="text-emerald-700 font-medium text-[10px] flex justify-between bg-white/60 px-1.5 py-0.5 rounded border border-amber-100">
+                        <span>Hạn mức còn lại sau đơn:</span>
+                        <span className="font-bold">{formatCurrency(limit - projectedDebt)}</span>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+            </div>
+          )}
+
           {tab.paymentMethod === "COMBINED" && (
             <div className="mt-2 p-2.5 rounded-xl bg-blue-50/90 border border-blue-200 text-xs space-y-2 shadow-2xs">
               <div className="flex items-center justify-between">

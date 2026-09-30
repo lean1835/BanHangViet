@@ -29,4 +29,5 @@ public class UpdateEmployeeRequest {
     private Boolean isActive;
 
     private String pointOfSaleId;
+    private String password;
 }

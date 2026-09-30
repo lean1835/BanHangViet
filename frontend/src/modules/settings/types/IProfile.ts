@@ -20,6 +20,11 @@ export interface IUserProfileResponse {
 
 export interface IUpdateProfileRequest {
   fullName: string;
+  email?: string | null;
+}
+
+export interface IUpdateEmailRequest {
+  email: string;
 }
 
 export interface IChangePasswordRequest {

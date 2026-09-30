@@ -27,12 +27,11 @@ public class ActivityLogHelper {
         }
     }
 
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    /**
+     * Ghi activity log tham gia vao transaction hien tai de tranh deadlock / lock wait timeout (delay 50s)
+     * tren MySQL InnoDB do foreign key check toi users/shifts/business_households.
+     */
     public void logActivityInNewTransaction(BusinessHousehold household, User actor, String action, String targetTable, String targetId, String oldValue, String newValue, String clientIp, String userAgent) {
-        try {
-            auditLogService.recordLog(household, actor, action, targetTable, targetId, oldValue, newValue, clientIp, userAgent);
-        } catch (Exception e) {
-            log.error("Lỗi khi ghi activity log với Hash Chain", e);
-        }
+        logActivity(household, actor, action, targetTable, targetId, oldValue, newValue, clientIp, userAgent);
     }
 }

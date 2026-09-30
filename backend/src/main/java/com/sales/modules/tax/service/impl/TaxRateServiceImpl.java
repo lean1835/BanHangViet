@@ -56,12 +56,60 @@ public class TaxRateServiceImpl implements TaxRateService {
         return household;
     }
 
+    private void initDefaultTaxRatesIfEmpty(BusinessHousehold household) {
+        if (!taxRateRepository.existsByHouseholdIdAndIsActiveTrue(household.getId())) {
+            List<TaxRate> defaultTaxRates = List.of(
+                    TaxRate.builder()
+                            .household(household)
+                            .name("Thuế GTGT 0% (Không chịu thuế / Miễn thuế)")
+                            .ratePercentage(BigDecimal.ZERO)
+                            .isActive(true)
+                            .build(),
+                    TaxRate.builder()
+                            .household(household)
+                            .name("Thuế GTGT 5%")
+                            .ratePercentage(new BigDecimal("5.00"))
+                            .isActive(true)
+                            .build(),
+                    TaxRate.builder()
+                            .household(household)
+                            .name("Thuế GTGT 8% (Nghị quyết Quốc hội)")
+                            .ratePercentage(new BigDecimal("8.00"))
+                            .isActive(true)
+                            .build(),
+                    TaxRate.builder()
+                            .household(household)
+                            .name("Thuế GTGT 10% tiêu chuẩn")
+                            .ratePercentage(new BigDecimal("10.00"))
+                            .isActive(true)
+                            .build(),
+                    TaxRate.builder()
+                            .household(household)
+                            .name("Thuế doanh thu phân phối hàng hóa (1%)")
+                            .ratePercentage(new BigDecimal("1.00"))
+                            .isActive(true)
+                            .build(),
+                    TaxRate.builder()
+                            .household(household)
+                            .name("Thuế doanh thu dịch vụ (5%)")
+                            .ratePercentage(new BigDecimal("5.00"))
+                            .isActive(true)
+                            .build()
+            );
+            taxRateRepository.saveAll(defaultTaxRates);
+        }
+    }
+
     @Override
-    @Transactional(readOnly = true)
+    @Transactional(rollbackFor = Exception.class)
     public List<TaxRateResponse> getAllTaxRates(String currentUsername) {
         User currentUser = getAuthenticatedUser(currentUsername);
         BusinessHousehold household = validateUserAndHousehold(currentUser);
         List<TaxRate> taxRates = taxRateRepository.findByHouseholdIdOrderByCreatedAtDesc(household.getId());
+        if (taxRates.isEmpty()) {
+            initDefaultTaxRatesIfEmpty(household);
+            taxRates = taxRateRepository.findByHouseholdIdOrderByCreatedAtDesc(household.getId());
+        }
         return taxRates.stream().map(this::mapToResponse).collect(Collectors.toList());
     }
 

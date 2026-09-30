@@ -3,6 +3,7 @@ import com.sales.modules.audit.service.impl.ActivityLogHelper;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sales.modules.auth.dto.request.ChangePasswordRequest;
+import com.sales.modules.auth.dto.request.UpdateEmailRequest;
 import com.sales.modules.auth.dto.request.UpdatePhoneSendOtpRequest;
 import com.sales.modules.auth.dto.request.UpdatePhoneVerifyOtpRequest;
 import com.sales.modules.auth.dto.request.UpdateProfileRequest;
@@ -70,16 +71,65 @@ public class ProfileServiceImpl implements ProfileService {
         checkUserActive(user);
 
         String oldFullName = user.getFullName();
-        String newFullName = request.getFullName().trim();
-
+        String newFullName = request.getFullName() != null ? request.getFullName().trim() : oldFullName;
         user.setFullName(newFullName);
-        User updatedUser = userRepository.save(user);
 
+        if (request.getEmail() != null) {
+            String newEmail = request.getEmail().trim().toLowerCase();
+            if (!newEmail.isEmpty()) {
+                userRepository.findByEmailAndDeletedAtIsNull(newEmail).ifPresent(existing -> {
+                    if (!existing.getId().equals(user.getId())) {
+                        throw new AppException(ErrorCode.EMAIL_ALREADY_EXISTS);
+                    }
+                });
+                user.setEmail(newEmail);
+            } else {
+                user.setEmail(null);
+            }
+        }
+
+        User updatedUser = userRepository.save(user);
         evictUserCache(username);
 
         logProfileActivity(updatedUser.getHousehold(), updatedUser, "UPDATE_PROFILE", updatedUser.getId(),
                 Map.of("fullName", oldFullName != null ? oldFullName : ""),
-                Map.of("fullName", newFullName, "actionDescription", "Cập nhật thông tin hồ sơ cá nhân"));
+                Map.of("fullName", newFullName, "email", updatedUser.getEmail() != null ? updatedUser.getEmail() : "",
+                        "actionDescription", "Cập nhật thông tin hồ sơ cá nhân"));
+
+        return mapToUserProfileResponse(updatedUser);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public UserProfileResponse updateEmail(String username, UpdateEmailRequest request) {
+        User user = findUserByUsername(username);
+        checkUserActive(user);
+
+        String oldEmail = user.getEmail();
+        String newEmail = request.getEmail() != null ? request.getEmail().trim().toLowerCase() : "";
+
+        if (newEmail.isEmpty()) {
+            throw new AppException(ErrorCode.INVALID_INPUT);
+        }
+
+        if (oldEmail != null && oldEmail.equalsIgnoreCase(newEmail)) {
+            throw new AppException(ErrorCode.EMAIL_UNCHANGED);
+        }
+
+        userRepository.findByEmailAndDeletedAtIsNull(newEmail).ifPresent(existing -> {
+            if (!existing.getId().equals(user.getId())) {
+                throw new AppException(ErrorCode.EMAIL_ALREADY_EXISTS);
+            }
+        });
+
+        user.setEmail(newEmail);
+        User updatedUser = userRepository.save(user);
+
+        evictUserCache(username);
+
+        logProfileActivity(updatedUser.getHousehold(), updatedUser, "UPDATE_EMAIL", updatedUser.getId(),
+                Map.of("email", oldEmail != null ? oldEmail : ""),
+                Map.of("email", newEmail, "actionDescription", "Cập nhật địa chỉ email liên kết"));
 
         return mapToUserProfileResponse(updatedUser);
     }

@@ -11,8 +11,11 @@ import com.sales.modules.invoice.repository.EInvoiceRepository;
 import com.sales.modules.order.entity.Order;
 import com.sales.modules.order.entity.OrderItem;
 import com.sales.modules.order.repository.OrderRepository;
+import com.sales.modules.pos.entity.PointOfSale;
 import com.sales.modules.pos.entity.Shift;
+import com.sales.modules.pos.repository.PointOfSaleRepository;
 import com.sales.modules.pos.repository.ShiftRepository;
+import com.sales.modules.pos.service.PosInventoryService;
 import com.sales.modules.product.entity.Product;
 import com.sales.modules.product.repository.ProductRepository;
 import com.sales.modules.sync.entity.SyncSession;
@@ -77,6 +80,21 @@ public class SyncServiceImpl implements SyncService {
     private final ObjectMapper objectMapper;
     private final ApplicationEventPublisher eventPublisher;
     private final BusinessHouseholdSettingsRepository settingsRepository;
+    private final PosInventoryService posInventoryService;
+    private final PointOfSaleRepository pointOfSaleRepository;
+
+    private PointOfSale resolvePointOfSale(Shift shift, User user, BusinessHousehold household) {
+        if (shift != null && shift.getPointOfSale() != null) {
+            return shift.getPointOfSale();
+        }
+        if (user != null && user.getPointOfSale() != null) {
+            return user.getPointOfSale();
+        }
+        if (pointOfSaleRepository != null && household != null) {
+            return pointOfSaleRepository.findByHouseholdIdAndIsDefaultTrueAndDeletedAtIsNull(household.getId()).orElse(null);
+        }
+        return null;
+    }
 
     private int resolveMaxOfflineSyncHours(String householdId) {
         if (householdId == null || settingsRepository == null) {
@@ -351,9 +369,12 @@ public class SyncServiceImpl implements SyncService {
                     customer = customerMap.get(req.getCustomerId());
                 }
 
+                PointOfSale pos = resolvePointOfSale(shift, currentUser, household);
+
                 Order order = Order.builder()
                         .household(household)
                         .shift(shift)
+                        .pointOfSale(pos)
                         .createdByUser(currentUser)
                         .customer(customer)
                         .orderNumber(req.getOrderNumber())
@@ -373,6 +394,7 @@ public class SyncServiceImpl implements SyncService {
                 order.setCreatedAt(req.getCreatedAt() != null ? req.getCreatedAt() : LocalDateTime.now());
 
                 List<OrderItem> items = new ArrayList<>();
+                Map<String, BigDecimal> posStockDeductions = new HashMap<>();
 
                 if (req.getItems() != null) {
                     for (OfflineOrderItemRequest itemReq : req.getItems()) {
@@ -390,6 +412,8 @@ public class SyncServiceImpl implements SyncService {
                             log.warn("Deduct stock failed for product {}", product.getId());
                         }
 
+                        posStockDeductions.merge(product.getId(), itemReq.getQuantity(), BigDecimal::add);
+
                         OrderItem orderItem = OrderItem.builder()
                                 .order(order)
                                 .product(product)
@@ -404,6 +428,14 @@ public class SyncServiceImpl implements SyncService {
                                 .build();
 
                         items.add(orderItem);
+                    }
+                }
+
+                if (pos != null && !posStockDeductions.isEmpty() && posInventoryService != null) {
+                    try {
+                        posInventoryService.batchDeductPosStock(household.getId(), pos.getId(), posStockDeductions);
+                    } catch (Exception e) {
+                        log.warn("Không thể trừ tồn kho điểm bán khi đồng bộ đơn offline {}: {}", req.getOrderNumber(), e.getMessage());
                     }
                 }
 
@@ -669,8 +701,15 @@ public class SyncServiceImpl implements SyncService {
             }
             serverOrder.setCustomer(customer);
 
+            PointOfSale pos = serverOrder.getPointOfSale();
+            if (pos == null) {
+                pos = resolvePointOfSale(shift, currentUser, household);
+                serverOrder.setPointOfSale(pos);
+            }
+
             List<OrderItem> newItems = new ArrayList<>();
             List<String> warnings = new ArrayList<>();
+            Map<String, BigDecimal> posStockDeductions = new HashMap<>();
 
             if (clientData.getItems() != null) {
                 for (OfflineOrderItemRequest itemReq : clientData.getItems()) {
@@ -687,6 +726,8 @@ public class SyncServiceImpl implements SyncService {
                         throw new AppException(ErrorCode.PRODUCT_NOT_FOUND);
                     }
 
+                    posStockDeductions.merge(product.getId(), itemReq.getQuantity(), BigDecimal::add);
+
                     OrderItem orderItem = OrderItem.builder()
                             .order(serverOrder)
                             .product(product)
@@ -701,6 +742,14 @@ public class SyncServiceImpl implements SyncService {
                             .build();
 
                     newItems.add(orderItem);
+                }
+            }
+
+            if (pos != null && !posStockDeductions.isEmpty() && posInventoryService != null) {
+                try {
+                    posInventoryService.batchDeductPosStock(household.getId(), pos.getId(), posStockDeductions);
+                } catch (Exception e) {
+                    log.warn("Không thể trừ tồn kho điểm bán khi giải quyết xung đột OVERWRITE_SERVER {}: {}", orderNo, e.getMessage());
                 }
             }
 
@@ -745,9 +794,12 @@ public class SyncServiceImpl implements SyncService {
                 customer = customerRepository.findByIdAndHouseholdIdAndDeletedAtIsNull(clientData.getCustomerId(), household.getId()).orElse(null);
             }
 
+            PointOfSale pos = resolvePointOfSale(shift, currentUser, household);
+
             Order newOrder = Order.builder()
                     .household(household)
                     .shift(shift)
+                    .pointOfSale(pos)
                     .createdByUser(currentUser)
                     .customer(customer)
                     .orderNumber(newOrderNo)
@@ -768,6 +820,7 @@ public class SyncServiceImpl implements SyncService {
 
             List<OrderItem> items = new ArrayList<>();
             List<String> warnings = new ArrayList<>();
+            Map<String, BigDecimal> posStockDeductions = new HashMap<>();
 
             if (clientData.getItems() != null) {
                 for (OfflineOrderItemRequest itemReq : clientData.getItems()) {
@@ -784,6 +837,8 @@ public class SyncServiceImpl implements SyncService {
                         throw new AppException(ErrorCode.PRODUCT_NOT_FOUND);
                     }
 
+                    posStockDeductions.merge(product.getId(), itemReq.getQuantity(), BigDecimal::add);
+
                     OrderItem orderItem = OrderItem.builder()
                             .order(newOrder)
                             .product(product)
@@ -798,6 +853,14 @@ public class SyncServiceImpl implements SyncService {
                             .build();
 
                     items.add(orderItem);
+                }
+            }
+
+            if (pos != null && !posStockDeductions.isEmpty() && posInventoryService != null) {
+                try {
+                    posInventoryService.batchDeductPosStock(household.getId(), pos.getId(), posStockDeductions);
+                } catch (Exception e) {
+                    log.warn("Không thể trừ tồn kho điểm bán khi giải quyết xung đột KEEP_BOTH {}: {}", newOrderNo, e.getMessage());
                 }
             }
 

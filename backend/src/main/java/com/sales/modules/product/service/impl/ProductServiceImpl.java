@@ -167,13 +167,14 @@ public class ProductServiceImpl implements ProductService {
         BigDecimal displayedStock = totalStock;
         if (currentUser != null && currentUser.getPointOfSale() != null && "VT-02".equals(currentUser.getRole().getCode())) {
             String userPosId = currentUser.getPointOfSale().getId();
+            boolean isCentral = currentUser.getPointOfSale().isCentralOrMain();
             displayedStock = posInvs != null
                     ? posInvs.stream()
                             .filter(pi -> pi.getPointOfSale() != null && userPosId.equals(pi.getPointOfSale().getId()))
                             .map(pi -> pi.getStockQuantity() != null ? pi.getStockQuantity() : BigDecimal.ZERO)
                             .findFirst()
-                            .orElse(BigDecimal.ZERO)
-                    : BigDecimal.ZERO;
+                            .orElse(isCentral ? totalStock : BigDecimal.ZERO)
+                    : (isCentral ? totalStock : BigDecimal.ZERO);
         }
 
         List<ProductUnitConversionResponse> unitConversions = prefetchedConversions;

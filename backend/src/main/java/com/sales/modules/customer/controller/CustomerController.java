@@ -78,7 +78,7 @@ public class CustomerController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasRole('VT-01')")
+    @PreAuthorize("hasAnyRole('VT-01', 'VT-02')")
     public ResponseEntity<ApiResponse<CustomerResponse>> updateCustomer(
             Principal principal,
             @PathVariable String id,

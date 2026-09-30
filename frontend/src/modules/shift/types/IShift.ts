@@ -96,6 +96,8 @@ export interface IShiftHandoverSummaryResponse {
   cashRevenue: number;
   bankRevenue: number;
   totalRevenue: number;
+  stageIncome?: number;
+  stageExpense?: number;
   expectedCash: number;
   completedOrdersCount: number;
   pendingOrdersCount: number;

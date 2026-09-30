@@ -5,6 +5,7 @@ import { APP_ROUTES } from "@/constants/routes";
 import {
   useGetProductsQuery,
   useResolveTierPriceMutation,
+  productApi,
 } from "@/modules/product/services/productApi";
 import {
   useGetCustomersQuery,
@@ -37,7 +38,7 @@ import { saveOfflineOrder, checkOfflineLimitStatus, saveOfflineConfig } from "@/
 import type { IOfflineOrderRequest } from "@/modules/sync/types/ISync";
 import type { IOrderResponse, IHeldOrderSummaryResponse } from "@/modules/order/types/IOrder";
 import { getLocalDateTimeISOString } from "@/utils/dateFormatter";
-import { useAppSelector } from "@/hooks/useRedux";
+import { useAppDispatch, useAppSelector } from "@/hooks/useRedux";
 
 import type { IProduct } from "@/modules/product/types/IProduct";
 import type { ICustomer } from "@/modules/customer/types/ICustomer";
@@ -94,6 +95,7 @@ const createInitialTab = (index: number): IPosTab => ({
 
 export const PosPage = () => {
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
   const authenticatedUser = useAppSelector((state) => state.auth.user);
   const displaySettings = useAppSelector((state) => state.displaySettings);
   const isSimpleMode = Boolean(displaySettings?.simpleModeEnabled);
@@ -412,74 +414,25 @@ export const PosPage = () => {
     hasAutoRestoredRef.current = true;
 
     setTabs((prevTabs) => {
-      let updated = [...prevTabs];
-
-      list.forEach((held: IHeldOrderSummaryResponse) => {
-        const orderId = held.id || (held.orderId as string);
-        const existingTabIndex = updated.findIndex(
-          (t) => t.backendOrderId === orderId
-        );
-
-        if (existingTabIndex >= 0) {
-          // If tab was already completed or canceled, do not re-sync or restore
-          if (
-            updated[existingTabIndex].status === "COMPLETED" ||
-            (updated[existingTabIndex].status as string) === "CANCELED"
-          ) {
-            return;
-          }
-          // Tab exists, sync its held metadata
-          updated[existingTabIndex] = {
-            ...updated[existingTabIndex],
-            orderLabel: held.orderLabel || undefined,
-            diningTableId: held.diningTableId || undefined,
-            diningTableName: held.diningTableName || undefined,
-            diningTableArea: held.diningTableArea || undefined,
-            isOverdue: held.isOverdue,
-            holdingDurationMinutes: held.holdingDurationMinutes,
-          };
-        } else {
-          // Tab not in local state, restore it as a held tab
-          const isVirginTab =
-            updated.length === 1 &&
-            updated[0].items.length === 0 &&
-            !updated[0].backendOrderId;
-
-          const newTab: IPosTab = {
-            id: `tab-held-${orderId}`,
-            orderNumber: held.orderNumber,
-            orderLabel: held.orderLabel || undefined,
-            diningTableId: held.diningTableId || undefined,
-            diningTableName: held.diningTableName || undefined,
-            diningTableArea: held.diningTableArea || undefined,
-            isOverdue: held.isOverdue,
-            holdingDurationMinutes: held.holdingDurationMinutes,
-            status: "DRAFT",
-            saleMode: held.customerId ? SALE_MODES.NORMAL : SALE_MODES.FAST,
-            customerId: held.customerId || undefined,
-            customer: held.customerId
-              ? customersList.find((c) => c.id === held.customerId) || null
-              : null,
-            items: [], // Lazy loaded when tab is focused
-            discountType: DISCOUNT_TYPES.PERCENTAGE,
-            discountValue: 0,
-            paymentMethod: PAYMENT_METHODS.CASH,
-            amountGiven: held.totalAmount,
-            isSaved: true,
-            backendOrderId: orderId,
-          };
-
-          if (isVirginTab) {
-            updated = [newTab];
-          } else {
-            updated.push(newTab);
-          }
-        }
+      let changed = false;
+      const updated = prevTabs.map((tab) => {
+        if (!tab.backendOrderId) return tab;
+        const held = list.find((h: IHeldOrderSummaryResponse) => (h.id || h.orderId) === tab.backendOrderId);
+        if (!held) return tab;
+        changed = true;
+        return {
+          ...tab,
+          orderLabel: held.orderLabel || tab.orderLabel,
+          diningTableId: held.diningTableId || tab.diningTableId,
+          diningTableName: held.diningTableName || tab.diningTableName,
+          diningTableArea: held.diningTableArea || tab.diningTableArea,
+          isOverdue: held.isOverdue,
+          holdingDurationMinutes: held.holdingDurationMinutes,
+        };
       });
-
-      return updated;
+      return changed ? updated : prevTabs;
     });
-  }, [isShiftOpen, heldOrdersData, customersList]);
+  }, [isShiftOpen, heldOrdersData]);
 
   // Lazy load full order items when switching to a held tab that has no items in memory
   const activeBackendOrderId = activeTab?.backendOrderId;
@@ -1378,40 +1331,75 @@ export const PosPage = () => {
     const existingTab = tabs.find((t) => t.backendOrderId === orderId);
     if (existingTab) {
       setActiveTabId(existingTab.id);
+      showToast(`Đã chuyển tới đơn treo ${heldOrder.orderNumber}`);
     } else {
-      const newTab: IPosTab = {
-        id: `tab-held-${orderId}`,
-        orderNumber: heldOrder.orderNumber,
-        orderLabel: heldOrder.orderLabel || undefined,
-        diningTableId: heldOrder.diningTableId || undefined,
-        diningTableName: heldOrder.diningTableName || undefined,
-        diningTableArea: heldOrder.diningTableArea || undefined,
-        isOverdue: heldOrder.isOverdue,
-        holdingDurationMinutes: heldOrder.holdingDurationMinutes,
-        status: "DRAFT",
-        saleMode: heldOrder.customerId ? SALE_MODES.NORMAL : SALE_MODES.FAST,
-        customerId: heldOrder.customerId || undefined,
-        customer: heldOrder.customerId
-          ? customersList.find((c) => c.id === heldOrder.customerId) || null
-          : null,
-        items: [],
-        discountType: DISCOUNT_TYPES.PERCENTAGE,
-        discountValue: 0,
-        paymentMethod: PAYMENT_METHODS.CASH,
-        amountGiven: heldOrder.totalAmount,
-        isSaved: true,
-        backendOrderId: orderId,
-      };
+      try {
+        const res = await getOrderLazy(orderId).unwrap();
+        const order = res?.result;
+        const cartItems: IPosCartItem[] = (order?.items || []).map((it) => {
+          const matchedProd = productsList.find((p) => p.id === it.productId) || ({
+            id: it.productId,
+            sku: it.productId,
+            name: it.productName,
+            unit: it.unitName || "Cái",
+            price: it.unitPrice,
+            stockQuantity: 999,
+            status: "ACTIVE",
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          } as IProduct);
 
-      const isVirginTab =
-        tabs.length === 1 && tabs[0].items.length === 0 && !tabs[0].backendOrderId;
-      if (isVirginTab) {
-        setTabs([newTab]);
-      } else {
-        setTabs((prev) => [...prev, newTab]);
+          return {
+            id: it.id,
+            product: matchedProd,
+            quantity: it.quantity,
+            price: it.unitPrice,
+            baseRetailPrice: matchedProd.price,
+            unitConversionId: it.unitConversionId || undefined,
+            unitName: it.unitName,
+            conversionFactor: it.conversionFactor,
+            lineDiscount: it.discountAmount || 0,
+            lineTotal: it.subtotal || it.quantity * it.unitPrice - (it.discountAmount || 0),
+          };
+        });
+
+        const newTab: IPosTab = {
+          id: `tab-held-${orderId}`,
+          orderNumber: heldOrder.orderNumber,
+          orderLabel: heldOrder.orderLabel || undefined,
+          diningTableId: heldOrder.diningTableId || undefined,
+          diningTableName: heldOrder.diningTableName || undefined,
+          diningTableArea: heldOrder.diningTableArea || undefined,
+          isOverdue: heldOrder.isOverdue,
+          holdingDurationMinutes: heldOrder.holdingDurationMinutes,
+          status: "DRAFT",
+          saleMode: heldOrder.customerId ? SALE_MODES.NORMAL : SALE_MODES.FAST,
+          customerId: heldOrder.customerId || undefined,
+          customer: heldOrder.customerId
+            ? customersList.find((c) => c.id === heldOrder.customerId) || null
+            : null,
+          items: cartItems,
+          discountType: DISCOUNT_TYPES.PERCENTAGE,
+          discountValue: order?.discountAmount || 0,
+          paymentMethod: PAYMENT_METHODS.CASH,
+          amountGiven: heldOrder.totalAmount,
+          isSaved: true,
+          backendOrderId: orderId,
+        };
+
+        const isVirginTab =
+          tabs.length === 1 && tabs[0].items.length === 0 && !tabs[0].backendOrderId;
+        if (isVirginTab) {
+          setTabs([newTab]);
+        } else {
+          setTabs((prev) => [...prev, newTab]);
+        }
+        setActiveTabId(newTab.id);
+        showToast(`Đã mở đơn treo ${heldOrder.orderNumber} (${cartItems.length} món)`);
+      } catch (e) {
+        console.error("Failed to load held order details", e);
+        showToast("Không thể tải chi tiết đơn treo!");
       }
-      setActiveTabId(newTab.id);
-      showToast(`Đã mở đơn treo ${heldOrder.orderNumber}`);
     }
   };
 
@@ -1500,6 +1488,33 @@ export const PosPage = () => {
 
     saveOfflineOrder(offlineOrderPayload);
 
+    // Trừ tồn kho lạc quan (optimistic stock deduction) trong cache RTK Query ngay tại quầy
+    const currentPosId = activeShift?.pointOfSaleId || authenticatedUser?.pointOfSaleId;
+    const itemsToDeduct = activeTab.items.map((it) => ({
+      productId: it.product.id,
+      quantity: it.quantity,
+    }));
+
+    [ { page: 0, size: 200 }, { page: 0, size: 50 } ].forEach((queryParams) => {
+      dispatch(
+        productApi.util.updateQueryData("getProducts", queryParams, (draft) => {
+          if (!draft?.content) return;
+          itemsToDeduct.forEach((item) => {
+            const prod = draft.content.find((p) => p.id === item.productId);
+            if (prod) {
+              prod.stockQuantity = Math.max(0, (prod.stockQuantity || 0) - item.quantity);
+              if (currentPosId && prod.posStocks) {
+                const ps = prod.posStocks.find((s) => s.posId === currentPosId);
+                if (ps) {
+                  ps.stockQuantity = Math.max(0, (ps.stockQuantity || 0) - item.quantity);
+                }
+              }
+            }
+          });
+        })
+      );
+    });
+
     const mockResponseOrder: IOrderResponse = {
       id: `local_${offlineOrderNumber}`,
       orderNumber: offlineOrderNumber,
@@ -1587,7 +1602,8 @@ export const PosPage = () => {
   // Helper to ensure an active POS tab is saved on backend and returns its orderId
   const ensureBackendOrderSaved = async (): Promise<string> => {
     let orderId = activeTab.backendOrderId;
-    if (!orderId || !activeTab.isSaved) {
+    if (!orderId) {
+      // Chỉ tạo đơn hàng mới trên backend khi tab chưa có backendOrderId
       const createRes = await createOrder({
         customerId: activeTab.customerId,
       }).unwrap();
@@ -1619,6 +1635,9 @@ export const PosPage = () => {
           body: { pointsToRedeem: activeTab.pointsRedeemed },
         }).unwrap();
       }
+    } else if (!activeTab.isSaved) {
+      // Đơn đã có trên backend, tái sử dụng orderId và đánh dấu isSaved = true
+      updateActiveTab({ isSaved: true });
     }
     return orderId;
   };
@@ -1833,9 +1852,11 @@ export const PosPage = () => {
 
       const currentDebt = cust.debt || 0;
       const creditLimit = cust.creditLimit || 5000000;
-      if (currentDebt + finalTotal > creditLimit) {
+      const paidAmount = Math.max(0, effectiveAmountGiven || 0);
+      const actualDebtAmount = Math.max(0, finalTotal - paidAmount);
+      if (currentDebt + actualDebtAmount > creditLimit) {
         showToast(
-          `Khách hàng "${cust.name}" vượt hạn mức công nợ cho phép (Nợ hiện tại: ${formatCurrency(currentDebt)}, Hạn mức: ${formatCurrency(creditLimit)})!`
+          `Khách hàng "${cust.name}" vượt hạn mức công nợ cho phép (Nợ hiện tại: ${formatCurrency(currentDebt)}, Ghi nợ đơn này: ${formatCurrency(actualDebtAmount)}, Hạn mức: ${formatCurrency(creditLimit)})!`
         );
         setIsCompletingOrder(false);
         isCompletingOrderRef.current = false;
@@ -1947,7 +1968,8 @@ export const PosPage = () => {
           changeAmount
         );
       } else {
-        updateActiveTab({ backendOrderId: undefined, isSaved: false });
+        // Giữ nguyên backendOrderId để không tạo đơn trùng lặp khi người dùng thử lại
+        updateActiveTab({ isSaved: false });
         showToast(
           err?.data?.message || "Thanh toán thất bại. Vui lòng thử lại!"
         );

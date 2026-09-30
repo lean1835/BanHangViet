@@ -6,6 +6,9 @@ export interface IEmployee {
   phoneNumber?: string; // Số điện thoại
   email?: string | null; // Địa chỉ Gmail liên kết
   roleCode: string; // Mã vai trò phân quyền của nhân viên
+  pointOfSaleId?: string | null;
+  pointOfSaleName?: string | null;
+  posCode?: string | null;
   isActive: boolean; // Trạng thái hoạt động (true: Đang hoạt động, false: Bị khóa)
 }
 

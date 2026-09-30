@@ -276,13 +276,19 @@ public class AutoBackupServiceImpl implements AutoBackupService {
         try {
             String jsonStr = objectMapper.writeValueAsString(snapshotData);
             Path backupDir = Paths.get("backups", household.getId());
-            Files.createDirectories(backupDir);
-            Path diskPath = backupDir.resolve(fileName + ".json");
+            try {
+                Files.createDirectories(backupDir);
+            } catch (Exception dirEx) {
+                // Nếu thư mục backups gốc không có quyền ghi, dùng thư mục tmp của hệ điều hành
+                backupDir = Paths.get(System.getProperty("java.io.tmpdir"), "backups", household.getId());
+                Files.createDirectories(backupDir);
+            }
+            Path diskPath = backupDir.resolve(fileName.endsWith(".json") ? fileName : fileName + ".json");
             Files.writeString(diskPath, jsonStr, StandardCharsets.UTF_8);
             actualFileSize = Math.max(Files.size(diskPath), 1024L);
             filePath = diskPath.toString().replace("\\", "/");
         } catch (Exception e) {
-            log.warn("Không thể ghi file snapshot JSON xuống ổ đĩa: {}", e.getMessage());
+            log.error("Không thể ghi file snapshot JSON xuống ổ đĩa: {}", e.getMessage(), e);
         }
 
         BackupHistory history = BackupHistory.builder()

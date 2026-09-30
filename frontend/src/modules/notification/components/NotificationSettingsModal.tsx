@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
+import { createPortal } from "react-dom";
 import {
   X,
   Sliders,
@@ -144,9 +145,16 @@ export const NotificationSettingsModal: React.FC<NotificationSettingsModalProps>
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs animate-in fade-in duration-200">
-      <div className="relative flex flex-col max-h-[90vh] w-full max-w-2xl rounded-2xl bg-white shadow-2xl border border-slate-100 overflow-hidden">
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[1000] flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs animate-in fade-in duration-200"
+      onClick={(e) => {
+        if (e.target === e.currentTarget && !isSaving) {
+          onClose();
+        }
+      }}
+    >
+      <div className="relative flex flex-col max-h-[90vh] w-full max-w-2xl rounded-2xl bg-white shadow-2xl border border-slate-100 overflow-hidden animate-in zoom-in-95 duration-200">
         {/* Header Modal */}
         <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4 bg-slate-50/70">
           <div className="flex items-center gap-2.5">
@@ -316,6 +324,7 @@ export const NotificationSettingsModal: React.FC<NotificationSettingsModalProps>
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
